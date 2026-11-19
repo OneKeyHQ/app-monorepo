@@ -8,19 +8,12 @@ const starknetPrivacy = {
   patchRecord: jest.fn(),
   setOptInStatus: jest.fn(),
 };
-const starknetPrivacyConfig = {
-  getEnvelope: jest.fn(),
-  saveEnvelope: jest.fn(),
-};
 
 jest.mock('../../dbs/simple/simpleDb', () => ({
   __esModule: true,
   default: {
     get starknetPrivacy() {
       return starknetPrivacy;
-    },
-    get starknetPrivacyConfig() {
-      return starknetPrivacyConfig;
     },
   },
 }));
@@ -37,30 +30,28 @@ jest.mock('../../vaults/factory', () => ({
 // eslint-disable-next-line import/first
 import ServiceStarknetPrivacy, {
   isSpecVersionAtLeast,
-  parseStrk20ConfigEnvelope,
   // eslint-disable-next-line import-path/forbidden
 } from './index';
 
 // eslint-disable-next-line import/first
-import { EStrk20SequencingStatus } from '@onekeyhq/shared/types/starknetPrivacy';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+// eslint-disable-next-line import/first
+import {
+  EStrk20ErrorCode,
+  EStrk20SequencingStatus,
+} from '@onekeyhq/shared/types/starknetPrivacy';
 
-const NETWORK_ID = 'starknet--sepolia';
+// eslint-disable-next-line import/first
+import { STRK20_PRIVACY_CONFIG } from '../../vaults/impls/starknet/sdkStarknet/consts';
+// eslint-disable-next-line import/first
+import { setLocalWalletRemoteConfigs } from '../../vaults/localWallet/remoteConfig';
+
+const NETWORK_ID = 'starknet--mainnet';
 const ACCOUNT_ID = "hd-1--m/44'/9004'/0'/0/0";
-const SEPOLIA_POOL =
-  '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91';
+const MAINNET_POOL =
+  '0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a';
 const ACCOUNT_ADDRESS =
   '0x0157d9497dee8bbdc5e6a968a96a2408d10c6bf6cfe2b4509602952429d094ec';
-
-const validConfig = {
-  networkId: NETWORK_ID,
-  enabled: true,
-  poolAddress: SEPOLIA_POOL,
-  discoveryUrl: 'https://discovery.example',
-  provingUrl: 'https://prover.example',
-  ohttp: { enabled: true, publicKeyConfig: '0xaabb' },
-  auditorPublicKey: '0x01d17f',
-  minRpcSpecVersion: '0.10.1',
-};
 
 function buildService(options?: {
   specVersion?: string;
@@ -80,7 +71,7 @@ function buildService(options?: {
       address: ACCOUNT_ADDRESS,
       path: "m/44'/9004'/0'/0/0",
     }),
-    getNetwork: async () => ({ chainId: '0x534e5f5345504f4c4941' }),
+    getNetwork: async () => ({ chainId: '0x534e5f4d41494e' }),
   };
   getVault.mockResolvedValue(vault);
 
@@ -98,6 +89,9 @@ function buildService(options?: {
   const backgroundApi = {
     serviceNetwork: {
       getVaultSettings: jest.fn(async () => ({ privacyPool })),
+    },
+    serviceCustomRpc: {
+      ensureLocalWalletRemoteConfigLoaded: jest.fn(async () => undefined),
     },
   };
   const service = new ServiceStarknetPrivacy({ backgroundApi });
@@ -117,10 +111,7 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  starknetPrivacyConfig.getEnvelope.mockResolvedValue({
-    envelope: undefined,
-    syncedAt: undefined,
-  });
+  setLocalWalletRemoteConfigs({});
   starknetPrivacy.getRecord.mockResolvedValue(undefined);
 });
 
@@ -137,192 +128,48 @@ describe('isSpecVersionAtLeast', () => {
   });
 });
 
-describe('parseStrk20ConfigEnvelope', () => {
-  const envelope = {
-    version: 3,
-    updatedAt: 1_758_000_000_000,
-    configs: { [NETWORK_ID]: validConfig },
-  };
-
-  it('accepts a well-formed envelope', () => {
-    expect(parseStrk20ConfigEnvelope(envelope).configs[NETWORK_ID]).toEqual(
-      validConfig,
-    );
-  });
-
-  it.each([
-    ['no version', { ...envelope, version: '3' }],
-    ['no updatedAt', { ...envelope, updatedAt: null }],
-    ['no configs', { version: 1, updatedAt: 1 }],
-    ['undefined', undefined],
-  ])('rejects an envelope with %s', (_name, input) => {
-    expect(() => parseStrk20ConfigEnvelope(input)).toThrow();
-  });
-
-  it('rejects a config missing any required field', () => {
-    for (const field of [
-      'enabled',
-      'poolAddress',
-      'discoveryUrl',
-      'provingUrl',
-      'auditorPublicKey',
-      'minRpcSpecVersion',
-    ]) {
-      const broken = { ...validConfig } as Record<string, unknown>;
-      delete broken[field];
-      expect(() =>
-        parseStrk20ConfigEnvelope({
-          ...envelope,
-          configs: { [NETWORK_ID]: broken },
-        }),
-      ).toThrow();
-    }
-  });
-
-  it.each([
-    ['discoveryUrl', 'http://discovery.example'],
-    ['provingUrl', 'http://prover.example'],
-  ])('refuses a plaintext %s when enabled', (field, url) => {
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: { [NETWORK_ID]: { ...validConfig, [field]: url } },
-      }),
-    ).toThrow(/non-https/);
-  });
-
-  describe('provingKind', () => {
-    const parse = (overrides: Record<string, unknown>) =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: { [NETWORK_ID]: { ...validConfig, ...overrides } },
-      });
-
-    it('rejects an unknown kind', () => {
-      expect(() => parse({ provingKind: 'rest' })).toThrow(/provingKind/);
-    });
-
-    it('rejects starkscan without a key when enabled', () => {
-      expect(() => parse({ provingKind: 'starkscan' })).toThrow(/API key/);
-      expect(() =>
-        parse({ provingKind: 'starkscan', provingApiKey: '' }),
-      ).toThrow(/API key/);
-    });
-
-    it('accepts starkscan without a key while disabled', () => {
-      expect(() =>
-        parse({ provingKind: 'starkscan', enabled: false }),
-      ).not.toThrow();
-    });
-
-    it('passes kind and key through', () => {
-      const parsed = parse({ provingKind: 'starkscan', provingApiKey: 'k-1' });
-      expect(parsed.configs[NETWORK_ID]).toMatchObject({
-        provingKind: 'starkscan',
-        provingApiKey: 'k-1',
-      });
+describe('STRK20_PRIVACY_CONFIG', () => {
+  it('routes mainnet proving through the OneKey wallet proxy', () => {
+    expect(STRK20_PRIVACY_CONFIG[NETWORK_ID]).toMatchObject({
+      provingKind: 'starkscan',
+      provingUrl: '',
     });
   });
-
-  it('allows a plaintext endpoint while the feature is off', () => {
-    // a disabled config never reaches the wire, so it is not malformed
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: {
-          [NETWORK_ID]: {
-            ...validConfig,
-            enabled: false,
-            discoveryUrl: 'http://discovery.example',
-            ohttp: undefined,
-          },
-        },
-      }),
-    ).not.toThrow();
+  it('pins the operator-provided Discovery public key without a relay', () => {
+    const config = STRK20_PRIVACY_CONFIG[NETWORK_ID];
+    expect(config.ohttp?.relayUrl).toBeUndefined();
+    expect(
+      Buffer.from(
+        config.ohttp?.publicKeyConfig?.replace(/^0x/, '') ?? '',
+        'hex',
+      ).toString('base64'),
+    ).toBe('ACkAACCeGbuojwxfTxCRM3ekNnJlvdWbfUNe6Dy6MynzXiY5OQAEAAEAAQ==');
   });
-
-  it('refuses to enable the feature without OHTTP', () => {
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: { [NETWORK_ID]: { ...validConfig, ohttp: undefined } },
-      }),
-    ).toThrow(/without OHTTP/);
-  });
-
-  it('refuses to enable the feature without a pinned key config', () => {
-    // no pin means the SDK trusts the first /ohttp-keys response it sees
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: {
-          [NETWORK_ID]: { ...validConfig, ohttp: { enabled: true } },
-        },
-      }),
-    ).toThrow(/pinned OHTTP key config/);
-  });
-
-  it.each([
-    ['a non-boolean enabled', { enabled: 'yes', publicKeyConfig: '0xaabb' }],
-    [
-      'a plaintext relay',
-      {
-        enabled: true,
-        relayUrl: 'http://relay.example',
-        publicKeyConfig: '0xaabb',
-      },
-    ],
-    ['odd-length hex', { enabled: true, publicKeyConfig: '0xaab' }],
-    ['non-hex', { enabled: true, publicKeyConfig: '0xzz' }],
-    ['empty hex', { enabled: true, publicKeyConfig: '0x' }],
-  ])('rejects an ohttp block with %s at parse time', (_name, ohttp) => {
-    // catching this here keeps the last good envelope; catching it at send time
-    // would surface as an unmapped error mid-transaction
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: { [NETWORK_ID]: { ...validConfig, ohttp } },
-      }),
-    ).toThrow(/ohttp config/);
-  });
-
-  it('refuses a config that claims enabled without endpoints', () => {
-    expect(() =>
-      parseStrk20ConfigEnvelope({
-        ...envelope,
-        configs: {
-          [NETWORK_ID]: { ...validConfig, discoveryUrl: '', provingUrl: '' },
-        },
-      }),
-    ).toThrow(/enabled without endpoints/);
-  });
+  // Built in, so nothing checks it at runtime: plaintext http would put the
+  // viewing key on the wire, and an unpinned key config lets the SDK trust the
+  // first /ohttp-keys response it sees.
+  it.each(Object.values(STRK20_PRIVACY_CONFIG))(
+    'keeps $networkId on https with a pinned OHTTP key config',
+    (config) => {
+      expect(config.discoveryUrl).toMatch(/^https:\/\//);
+      if (config.provingKind !== 'starkscan') {
+        expect(config.provingUrl).toMatch(/^https:\/\//);
+      }
+      expect(config.ohttp?.enabled).toBe(true);
+      expect(config.ohttp?.publicKeyConfig).toMatch(/^0x(?:[0-9a-f]{2})+$/i);
+    },
+  );
 });
 
 describe('ServiceStarknetPrivacy.getPrivacyConfig', () => {
-  it('falls back to the bundled disabled config when nothing is stored', async () => {
+  it('returns the built-in config', async () => {
     const { service } = buildService();
     const config = await service.getPrivacyConfig({ networkId: NETWORK_ID });
-    expect(config?.enabled).toBe(false);
-    expect(config?.poolAddress).toBe(SEPOLIA_POOL);
-    expect(config?.discoveryUrl).toBe('');
+    expect(config?.poolAddress).toBe(MAINNET_POOL);
+    expect(config?.discoveryUrl).toBe('https://discovery.nodes.starknet.org');
   });
 
-  it('prefers a stored envelope over the bundled fallback', async () => {
-    starknetPrivacyConfig.getEnvelope.mockResolvedValue({
-      envelope: {
-        version: 1,
-        updatedAt: 1,
-        configs: { [NETWORK_ID]: validConfig },
-      },
-      syncedAt: Date.now(),
-    });
-    const { service } = buildService();
-    await expect(
-      service.getPrivacyConfig({ networkId: NETWORK_ID }),
-    ).resolves.toEqual(validConfig);
-  });
-
-  it('returns undefined for a network with neither stored nor bundled config', async () => {
+  it('returns undefined for a network without one', async () => {
     const { service } = buildService();
     await expect(
       service.getPrivacyConfig({ networkId: 'evm--1' }),
@@ -331,42 +178,33 @@ describe('ServiceStarknetPrivacy.getPrivacyConfig', () => {
 });
 
 describe('ServiceStarknetPrivacy.isPrivacyAvailable', () => {
-  const enableConfig = () => {
-    starknetPrivacyConfig.getEnvelope.mockResolvedValue({
-      envelope: {
-        version: 1,
-        updatedAt: 1,
-        configs: { [NETWORK_ID]: validConfig },
-      },
-      syncedAt: Date.now(),
-    });
-  };
-
-  it('is false while the bundled fallback is what we have', async () => {
+  it('is available with direct pinned-OHTTP Discovery and a supported node', async () => {
     const { service } = buildService();
     await expect(
       service.isPrivacyAvailable({ networkId: NETWORK_ID }),
+    ).resolves.toBe(true);
+    expect(STRK20_PRIVACY_CONFIG[NETWORK_ID].ohttp?.relayUrl).toBeUndefined();
+  });
+
+  it('is false once the server switches privacy off', async () => {
+    setLocalWalletRemoteConfigs({ [NETWORK_ID]: { privacyDisabled: true } });
+    const { service, backgroundApi } = buildService();
+    await expect(
+      service.isPrivacyAvailable({ networkId: NETWORK_ID }),
     ).resolves.toBe(false);
+    expect(
+      backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded,
+    ).toHaveBeenCalled();
   });
 
   it('is false when the chain has no privacyPool descriptor', async () => {
-    enableConfig();
     const { service } = buildService({ privacyPool: undefined });
     await expect(
       service.isPrivacyAvailable({ networkId: NETWORK_ID }),
     ).resolves.toBe(false);
   });
 
-  it('is true with an enabled config and a 0.10.2 node', async () => {
-    enableConfig();
-    const { service } = buildService();
-    await expect(
-      service.isPrivacyAvailable({ networkId: NETWORK_ID }),
-    ).resolves.toBe(true);
-  });
-
   it('is false against a node that cannot carry a proof', async () => {
-    enableConfig();
     const { service } = buildService({ specVersion: '0.9.0' });
     await expect(
       service.isPrivacyAvailable({ networkId: NETWORK_ID }),
@@ -377,22 +215,46 @@ describe('ServiceStarknetPrivacy.isPrivacyAvailable', () => {
     ['watching', 'watching--9004--0xabc'],
     ['external', 'external--9004--0xabc'],
   ])('is false for a %s account', async (_name, accountId) => {
-    enableConfig();
     const { service } = buildService();
     await expect(
       service.isPrivacyAvailable({ networkId: NETWORK_ID, accountId }),
     ).resolves.toBe(false);
   });
 
-  it('is false for an account that is not deployed yet', async () => {
-    enableConfig();
+  it('allows a deployed hardware account through the same privacy capability gate', async () => {
+    const { service } = buildService();
+    await expect(
+      service.isPrivacyAvailable({
+        networkId: NETWORK_ID,
+        accountId: "hw-1--m/44'/9004'/0'/0/0",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('allows an undeployed account to enter the activation flow', async () => {
     const { service } = buildService({ isAccountDeployed: false });
     await expect(
       service.isPrivacyAvailable({
         networkId: NETWORK_ID,
         accountId: ACCOUNT_ID,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
+  });
+});
+
+describe('ServiceStarknetPrivacy with privacy switched off by the server', () => {
+  it('refuses private operations', async () => {
+    setLocalWalletRemoteConfigs({ [NETWORK_ID]: { privacyDisabled: true } });
+    const { service } = buildService();
+    await expect(
+      service.refreshPrivateBalances({
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+      }),
+    ).rejects.toMatchObject({
+      key: ETranslationsMock.starknet_privacy_error_unavailable,
+      data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Unavailable },
+    });
   });
 });
 
@@ -508,5 +370,54 @@ describe('ServiceStarknetPrivacy.noteAccountTouchedByTx', () => {
       blockNumber: 990,
     });
     expect(starknetPrivacy.patchRecord).not.toHaveBeenCalled();
+  });
+});
+
+describe('first-use privacy sequencing', () => {
+  it('requires account activation before a proof can be prepared', async () => {
+    const { service } = buildService({ isAccountDeployed: false });
+    await expect(
+      service.getSequencingState({
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+      }),
+    ).resolves.toMatchObject({
+      status: EStrk20SequencingStatus.ActivationRequired,
+    });
+  });
+
+  it('waits when the account exists at the head but not at the proof block', async () => {
+    const { service, client } = buildService();
+    client.isAccountDeployed
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    await expect(
+      service.getSequencingState({
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+      }),
+    ).resolves.toMatchObject({ status: EStrk20SequencingStatus.Waiting });
+    expect(client.isAccountDeployed).toHaveBeenLastCalledWith(ACCOUNT_ADDRESS, {
+      block_number: 991,
+    });
+  });
+
+  it('does not rebuild a deployment while its receipt is unknown', async () => {
+    starknetPrivacy.getRecord.mockResolvedValue({
+      networkId: NETWORK_ID,
+      accountId: ACCOUNT_ID,
+      activationTxid: '0xabc',
+      optInStatus: 'consented',
+    });
+    const { service, client } = buildService();
+    Object.assign(client, { getTransactionReceipt: jest.fn(async () => null) });
+    await expect(
+      service.prepareAccountActivation({
+        networkId: NETWORK_ID,
+        accountId: ACCOUNT_ID,
+      }),
+    ).rejects.toMatchObject({
+      data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Waiting },
+    });
   });
 });

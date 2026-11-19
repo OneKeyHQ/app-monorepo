@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_STARKNET,
@@ -20,8 +22,6 @@ export type IAccountDeriveInfoMapStarknet = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
   starknetOpenZeppelin: IAccountDeriveInfo;
   starknetOkx: IAccountDeriveInfo;
-  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
-  starknetOpenZeppelinV017: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesStarknet = keyof IAccountDeriveInfoMapStarknet;
 
@@ -60,28 +60,21 @@ const accountDeriveInfo: IAccountDeriveInfoMapStarknet = {
     desc: 'OKX Wallet account',
     useAddressEncodingDerive: true,
   },
-  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
-  starknetOpenZeppelinV017: {
-    namePrefix: 'STRK OZ v0.17',
-    label: 'OpenZeppelin v0.17',
-    template: `m/44'/${COINTYPE_STARKNET}'/0'/0/${INDEX_PLACEHOLDER}`,
-    coinType: COINTYPE_STARKNET,
-    addressEncoding: EAddressEncodings.STARKNET_OZ_V017,
-    idSuffix: EAddressEncodings.STARKNET_OZ_V017,
-    desc: 'OpenZeppelin v0.17.0 account (temporary, to move funds out)',
-    useAddressEncodingDerive: true,
-  },
 };
 
-const settings: IVaultSettings = {
+const settings: IVaultSettings & {
+  accountDeriveInfo: IAccountDeriveInfoMapStarknet;
+} = {
   impl: IMPL_STARKNET,
   coinTypeDefault: COINTYPE_STARKNET,
   accountType: EDBAccountType.SIMPLE,
+  accountDeriveMode: 'walletContract',
 
   importedAccountEnabled: true,
   watchingAccountEnabled: true,
   externalAccountEnabled: false,
-  hardwareAccountEnabled: false,
+  hardwareAccountEnabled: true,
+  supportedDeviceTypes: [EDeviceType.Pro2],
 
   supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.privateKey],
 
@@ -92,15 +85,15 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  // Phase 1 ships no resource-bounds editor
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
+  supportBatchEstimateFee: {
+    'starknet--mainnet': 'local',
+    'starknet--sepolia': 'local',
+  },
 
-  // backend has no indexer for this chain; on-chain list stays empty, local pending txs still show
-  serverHistoryUnsupported: true,
-
-  // STRK20 shielded pool. Runtime availability still needs the remote config
+  // STRK20 shielded pool. Runtime availability also checks the server switch
   // (serviceStarknetPrivacy.isPrivacyAvailable); this descriptor only says the
   // chain has the feature at all.
   privacyPool: {

@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { StarknetPrivacyAccountEditItem } from '@onekeyhq/kit/src/views/StarknetPrivacy/components/StarknetPrivacyAccountEditItem';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -302,14 +301,6 @@ export function useAccountEditActionListOptionsV2({
             firstAccount={firstAccount}
             onClose={handleActionListClose}
           />
-          {vaultSettings?.privacyPool && !isWatchingAccount ? (
-            <StarknetPrivacyAccountEditItem
-              networkId={account?.createAtNetwork ?? networkId}
-              accountId={account?.id}
-              indexedAccountId={indexedAccount?.id}
-              onClose={handleActionListClose}
-            />
-          ) : null}
           {showRemoveButton ? (
             <>
               <Divider mx="$2" my="$1" />
@@ -339,9 +330,6 @@ export function useAccountEditActionListOptionsV2({
       firstAccount,
       showRemoveButton,
       accountsCount,
-      vaultSettings?.privacyPool,
-      isWatchingAccount,
-      networkId,
     ],
   );
 

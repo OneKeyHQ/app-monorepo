@@ -2,6 +2,9 @@
 // (https://starkscan.co/docs/api/strk20-prover) rather than JSON-RPC
 // `starknet_proveTransaction`. Same request fields and same verbatim result,
 // different envelope. Plugs into ProvingServiceProofProvider via `transport`.
+// The app reaches it through the OneKey wallet proxy (a `fetchImpl` with an
+// empty `baseUrl`), where the backend adds the API key, so the client never
+// holds one.
 import { z } from 'zod';
 
 import {
@@ -29,14 +32,12 @@ const DEFAULT_MAX_WAIT_MS = 300_000;
 const DEFAULT_POLL_AFTER_SECONDS = 5;
 const MIN_POLL_AFTER_SECONDS = 1;
 const MAX_POLL_AFTER_SECONDS = 30;
-const API_KEY_HEADER = 'X-Starkscan-Api-Key';
 
 export { StarkscanProverError };
 
 export type StarkscanProvingServiceOptions = {
-  /** e.g. `https://api.starkscan.co/v1/SN_MAIN`. */
+  /** Prefix for `/prove`, e.g. `https://api.starkscan.co/v1/SN_MAIN`. */
   baseUrl: string;
-  apiKey: string;
   /** Per HTTP call. Default DEFAULT_REQUEST_TIMEOUT_MS. */
   requestTimeoutMs?: number;
   /** Whole job including polling and retries. Default 300_000. */
@@ -148,8 +149,6 @@ function parseJson(text: string): unknown {
 export class StarkscanProvingService implements ProveTransport {
   private readonly baseUrl: string;
 
-  private readonly apiKey: string;
-
   private readonly requestTimeoutMs: number;
 
   private readonly maxWaitMs: number;
@@ -166,7 +165,6 @@ export class StarkscanProvingService implements ProveTransport {
 
   constructor(options: StarkscanProvingServiceOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
-    this.apiKey = options.apiKey;
     this.requestTimeoutMs =
       options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.maxWaitMs = options.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
@@ -265,7 +263,6 @@ export class StarkscanProvingService implements ProveTransport {
     const res = await this.fetchImpl(`${this.baseUrl}/prove`, {
       method: 'POST',
       headers: {
-        [API_KEY_HEADER]: this.apiKey,
         'Idempotency-Key': idempotencyKey,
         'content-type': 'application/json',
         'accept': 'application/json',
@@ -282,7 +279,6 @@ export class StarkscanProvingService implements ProveTransport {
       {
         method: 'GET',
         headers: {
-          [API_KEY_HEADER]: this.apiKey,
           'accept': 'application/json',
         },
         signal: timeoutSignal(this.requestTimeoutMs),

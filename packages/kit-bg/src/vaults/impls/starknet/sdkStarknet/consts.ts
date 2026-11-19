@@ -1,76 +1,38 @@
 import type { IStrk20PrivacyNetworkConfig } from '@onekeyhq/shared/types/starknetPrivacy';
 
-/**
- * Temporary: Starknet RPC is meant to run through OneKey's backend proxy, the
- * same route Stellar uses. The backend has no Starknet proxy yet, so the
- * default transport is direct JSON-RPC against the endpoints below. Flip this
- * to true when the proxy lands and the bundled urls stop being used.
- *
- * There is deliberately no runtime fallback from proxy to public RPC: a failing
- * proxy has to surface, not be masked by a silent downgrade.
- */
-export const STARKNET_BACKEND_PROXY_ENABLED = false;
+import type { IStarknetPresetToken } from './types';
 
 /**
- * Bundled default JSON-RPC endpoints, one per preset network. Temporary, see
- * STARKNET_BACKEND_PROXY_ENABLED above.
- *
- * This repo has no preset-RPC mechanism (IServerNetwork has no rpcUrls field
- * and ServiceCustomRpc.getCustomRpcForNetwork is a pure local-DB read), and
- * Starknet has no backend proxy to fall back to, so Phase 1 ships its own
- * defaults. A user-configured custom RPC always wins over these.
- *
- * Both paths pin spec 0.10 because STRK20 private transfers need `proof` on
- * starknet_addInvokeTransaction, which the spec only carries from 0.10.1.
- * Verified 2026-09-18: /rpc/v0_10 answers 0.10.2 on mainnet and Sepolia alike,
- * accepts the pre_confirmed tag, rejects the old `pending` tag with -32602, and
- * still reports error 20 for a missing contract and 29 for a missing tx hash.
- *
- * A user-configured RPC may still serve 0.9, so every field this package reads
- * stays 0.9-compatible (chainId, class hash, nonce, call results, the six
- * estimateFee resource fields, receipt execution_status / finality_status /
- * block_number / actual_fee) and the open-block tag is resolved per endpoint by
- * ClientStarknet.getPreConfirmedBlockTag. Such an endpoint cannot carry a
- * privacy proof; ServiceStarknetPrivacy gates on minRpcSpecVersion for that.
- *
- * The previously planned public.blastapi.io endpoints are gone: every path and
- * version now answers "Blast API is no longer available".
- */
-export const STARKNET_DEFAULT_RPC_URLS: Record<string, string> = {
-  'starknet--mainnet': 'https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_10',
-  'starknet--sepolia': 'https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10',
-};
-
-/**
- * Bundled STRK20 privacy config. `enabled: false` with empty endpoints on
- * purpose: a missing or unparseable remote config falls back to this, and that
- * fallback must never silently switch the feature on.
+ * Built-in STRK20 privacy config, as Zcash and Monero ship their nodes. The
+ * server can only switch the feature off, through `privacyDisabled` in the
+ * network list's `extensions.localWallet` (see localWallet/remoteConfig).
  *
  * Pool addresses and auditor keys are live-verified (docs/02-strk20-
  * deployment-facts.md): each class at those addresses exposes apply_actions,
  * get_public_key, get_enc_private_key, get_fee_amount and get_fee_collector.
  * The fee is not configured here: it changes, so it is read via get_fee_amount.
- * Mainnet discovery is StarkNet's hosted instance (live-verified 2026-10-15
+ * The discovery gateway is StarkNet's hosted instance (live-verified 2026-10-15
  * through the vendored SDK over OHTTP), key config pinned from the operator's
  * snippet and byte-identical to its /ohttp-keys, 1000 req / 5 min per IP.
+ * Discovery connects directly with the pinned OHTTP key config, as supplied
+ * by the operator. No OneKey relay or secret API key is required for discovery.
  * Mainnet proving is the Starkscan REST prover (StarkscanProvingService in the
- * vendored SDK); the API key arrives via remote config, so it stays off here.
- * StarkNet runs no Sepolia infrastructure at all.
+ * vendored SDK) through the wallet proxy, where the backend adds the API key,
+ * so provingUrl stays empty.
  *
  * minRpcSpecVersion is 0.10.1: below it `proof` does not exist on
  * starknet_addInvokeTransaction, so a private tx could not be submitted at all.
  */
-export const STRK20_PRIVACY_FALLBACK_CONFIG: Record<
+export const STRK20_PRIVACY_CONFIG: Record<
   string,
   IStrk20PrivacyNetworkConfig
 > = {
   'starknet--mainnet': {
     networkId: 'starknet--mainnet',
-    enabled: false,
     poolAddress:
       '0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a',
     discoveryUrl: 'https://discovery.nodes.starknet.org',
-    provingUrl: 'https://api.starkscan.co/v1/SN_MAIN',
+    provingUrl: '',
     provingKind: 'starkscan',
     ohttp: {
       enabled: true,
@@ -79,17 +41,6 @@ export const STRK20_PRIVACY_FALLBACK_CONFIG: Record<
     },
     auditorPublicKey:
       '0x01eed60b8d483b3bede62d1cc0f32874aea30747e6943437c858359b41801bf7',
-    minRpcSpecVersion: '0.10.1',
-  },
-  'starknet--sepolia': {
-    networkId: 'starknet--sepolia',
-    enabled: false,
-    poolAddress:
-      '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91',
-    discoveryUrl: '',
-    provingUrl: '',
-    auditorPublicKey:
-      '0x01d17f98be07e99713265714699a5c40ccbf7b50c950fb7a2abd81846fcdfbb2',
     minRpcSpecVersion: '0.10.1',
   },
 };
@@ -110,19 +61,67 @@ export const STARKNET_BLOCK_TIME_SECONDS = 2;
  */
 export const STRK20_SCREENING_WINDOW_MS = 300_000;
 
-/** STRK ERC-20, the fee token. Same address on mainnet and Sepolia. */
+/** STRK ERC-20, the fee token. */
 export const STRK_TOKEN_ADDRESS =
   '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
 
-/** ETH ERC-20, shown as an ordinary token. Same address on mainnet and Sepolia. */
+/** ETH ERC-20, shown as an ordinary token. */
 export const ETH_TOKEN_ADDRESS =
   '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7';
 
-/** Contracts the token list always queries, before any user-added ones. */
-export const STARKNET_DEFAULT_TOKEN_ADDRESSES = [
-  STRK_TOKEN_ADDRESS,
-  ETH_TOKEN_ADDRESS,
-];
+/**
+ * Tokens every account lists, before any user-added ones. Bundled until the
+ * backend token list covers Starknet (docs/06); mainnet only, testnets are not
+ * supported. Symbols and decimals are the bundled resource list's; names were
+ * read from each contract on 2026-10-21, decimals matched. USDC.e reports the
+ * symbol USDC on-chain, so only this symbol tells it apart from native USDC.
+ */
+export const STARKNET_PRESET_TOKENS: Record<string, IStarknetPresetToken[]> = {
+  'starknet--mainnet': [
+    {
+      address: STRK_TOKEN_ADDRESS,
+      name: 'Starknet Token',
+      symbol: 'STRK',
+      decimals: 18,
+    },
+    { address: ETH_TOKEN_ADDRESS, name: 'Ether', symbol: 'ETH', decimals: 18 },
+    {
+      address:
+        '0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8',
+      name: 'Tether USD',
+      symbol: 'USDT',
+      decimals: 6,
+    },
+    {
+      address:
+        '0x0787150e306e6eae6e3f79dea881770e8bbff2c1b8eb490f969669ee945b3135',
+      name: 'strkBTC',
+      symbol: 'strkBTC',
+      decimals: 8,
+    },
+    {
+      address:
+        '0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac',
+      name: 'Wrapped BTC',
+      symbol: 'WBTC',
+      decimals: 8,
+    },
+    {
+      address:
+        '0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb',
+      name: 'USDC',
+      symbol: 'USDC',
+      decimals: 6,
+    },
+    {
+      address:
+        '0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8',
+      name: 'USD Coin',
+      symbol: 'USDC.e',
+      decimals: 6,
+    },
+  ],
+};
 
 /** Starknet JSON-RPC error codes we branch on (see the spec's error table). */
 export enum EStarknetRpcErrorCode {

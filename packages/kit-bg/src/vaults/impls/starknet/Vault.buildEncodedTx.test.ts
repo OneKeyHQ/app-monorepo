@@ -337,3 +337,32 @@ describe('StarknetVault estimate payloads are spec-valid felts', () => {
     expect(BigInt(senderAddress)).toBe(BigInt(ACCOUNT_ADDRESS));
   });
 });
+
+describe('standalone account activation', () => {
+  it('estimates and prepares only DEPLOY_ACCOUNT before privacy authorization', async () => {
+    const { vault, estimateFee } = buildVault({ isAccountDeployed: false });
+    const unsignedTx = await vault.buildAccountActivationTx();
+    expect(unsignedTx?.encodedTx).toMatchObject({
+      type: 'DEPLOY_ACCOUNT',
+      nonce: '0x0',
+      calls: [],
+    });
+    const legs = estimateFee.mock.calls[0][0];
+    expect(legs).toHaveLength(1);
+    expect(legs[0].type).toBe('DEPLOY_ACCOUNT');
+  });
+
+  it('does not prepare another activation once the account exists', async () => {
+    const { vault, estimateFee } = buildVault({ isAccountDeployed: true });
+    await expect(vault.buildAccountActivationTx()).resolves.toBeUndefined();
+    expect(estimateFee).not.toHaveBeenCalled();
+  });
+
+  it('uses only the parsed account suffix for account type selection', async () => {
+    const { vault } = buildVault({ isAccountDeployed: false });
+    Object.assign(vault, {
+      accountId: `hd-1--pathEndingIn${EAddressEncodings.STARKNET_OZ}`,
+    });
+    await expect(vault.getAddressEncoding()).resolves.toBeUndefined();
+  });
+});

@@ -197,9 +197,25 @@ export function getHistoryTxDetailInfo({
 
   const gasFee = txDetails?.gasFee ?? decodedTx?.totalFeeInNative;
   const gasFeeFiatValue =
-    txDetails?.gasFeeFiatValue ?? decodedTx?.totalFeeFiatValue;
+    txDetails?.gasFeeFiatValue ??
+    scaleFeeFiatValueToNativeFee({
+      feeFiatValue: decodedTx?.totalFeeFiatValue,
+      feeInNative: decodedTx?.totalFeeInNative,
+      nextFeeInNative: gasFee,
+    });
   const confirmations = txDetails?.confirmations ?? decodedTx?.confirmations;
   const blockHeight = txDetails?.block ?? decodedTx?.block;
+  const protocolFeeInNative =
+    txDetails?.protocolFeeInNative ?? decodedTx?.protocolFeeInNative;
+  const feeInNative =
+    protocolFeeInNative !== undefined && gasFee !== undefined
+      ? new BigNumber(gasFee).plus(protocolFeeInNative).toFixed()
+      : gasFee;
+  const feeFiatValue = scaleFeeFiatValueToNativeFee({
+    feeFiatValue: gasFeeFiatValue,
+    feeInNative: gasFee,
+    nextFeeInNative: feeInNative,
+  });
 
   return {
     date,
@@ -210,6 +226,9 @@ export function getHistoryTxDetailInfo({
     swapInfo,
     gasFee,
     gasFeeFiatValue,
+    protocolFeeInNative,
+    feeInNative,
+    feeFiatValue,
   };
 }
 
@@ -253,6 +272,7 @@ export function isHistoryCursorAdvanced(
 
 export function convertToSectionGroups(params: {
   formatDate: (date: number) => string;
+  formatBlock?: (block: number) => string;
   items: IAccountHistoryTx[];
 }): IHistoryListSectionGroup[] {
   const { items, formatDate: formatDateFn } = params;
@@ -266,9 +286,12 @@ export function convertToSectionGroups(params: {
     if (getHistoryTxDisplayStatus(item) === EDecodedTxStatus.Pending) {
       pendingGroup?.data.push(item);
     } else {
-      const dateKey = formatDateFn(
-        item.decodedTx.updatedAt || item.decodedTx.createdAt || 0,
-      );
+      const timestamp =
+        item.decodedTx.updatedAt || item.decodedTx.createdAt || 0;
+      const dateKey =
+        !timestamp && item.decodedTx.block !== undefined && params.formatBlock
+          ? params.formatBlock(item.decodedTx.block)
+          : formatDateFn(timestamp);
       if (!currentDateGroup || currentDateGroup.title !== dateKey) {
         if (currentDateGroup) {
           dateGroups.push(currentDateGroup);

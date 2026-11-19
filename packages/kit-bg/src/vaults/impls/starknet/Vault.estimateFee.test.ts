@@ -1,13 +1,23 @@
+import type { IEncodedTxStarknet } from '@onekeyhq/core/src/chains/starknet/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
+
+import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
+
+import StarknetVault from './Vault';
+
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
 }));
 
-// eslint-disable-next-line import/first
-import type { IEncodedTxStarknet } from '@onekeyhq/core/src/chains/starknet/types';
-
-// eslint-disable-next-line import/first
-import StarknetVault from './Vault';
+jest.mock('../../localWallet/nativeTokenPrice', () => ({
+  fetchLocalWalletNativeTokenQuote: jest.fn(async () => ({
+    price: 0.05,
+    price24h: 1,
+  })),
+}));
 
 // captured from a live Sepolia starknet_estimateFee (spec 0.9.0)
 const INVOKE_ESTIMATE = {
@@ -84,7 +94,9 @@ function buildVault() {
     networkId: NETWORK.id,
     accountId: 'hd-1--test',
     getNetwork: async () => NETWORK,
+    getAccountAddress: async () => '0x1',
     getClient: async () => ({
+      isAccountDeployed: jest.fn(async () => false),
       estimateFee: jest.fn(async (txs: unknown[]) =>
         txs.length === 2
           ? [DEPLOY_ESTIMATE, INVOKE_ESTIMATE]
@@ -107,6 +119,40 @@ async function feeOf(withDeploy: boolean) {
 }
 
 describe('StarknetVault.estimateFee', () => {
+  beforeEach(() => {
+    jest
+      .mocked(fetchLocalWalletNativeTokenQuote)
+      .mockResolvedValue({ price: 0.05, price24h: 1 });
+  });
+
+  it('uses the backend quote for fee fiat conversion', async () => {
+    const vault = buildVault();
+    const response = await vault.estimateFee({
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      accountAddress: '0x1',
+      encodedTx: buildEncodedTx(false),
+    });
+    expect(response.data.data.nativeTokenPrice).toEqual({
+      price: 0.05,
+      price24h: 1,
+    });
+  });
+
+  it('leaves an unavailable quote unknown instead of manufacturing a zero price', async () => {
+    jest.mocked(fetchLocalWalletNativeTokenQuote).mockResolvedValue({});
+    const vault = buildVault();
+    const response = await vault.estimateFee({
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      accountAddress: '0x1',
+      encodedTx: buildEncodedTx(false),
+    });
+    expect(response.data.data.nativeTokenPrice).toBeUndefined();
+    expect(response.data.data.feeStarknet?.[0].overallFee).toBe(
+      BigInt(INVOKE_ESTIMATE.overall_fee).toString(),
+    );
+  });
   it("reports the node's overall_fee for the invoke leg in decimal FRI", async () => {
     const fee = await feeOf(false);
     expect(fee.overallFee).toBe(BigInt('0x83cd0f4f25ec89').toString(10));
@@ -146,5 +192,175 @@ describe('StarknetVault.estimateFee', () => {
     );
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(boundsTotal).toBeGreaterThan(BigInt(fee.overallFee!));
+  });
+});
+
+describe('Starknet standard multi-transaction confirmation', () => {
+  async function prepare() {
+    const vault = buildVault();
+    const original = {
+      uuid: 'send-identity',
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      encodedTx: buildEncodedTx(true),
+      transfersInfo: [{ from: '0x1', to: '0x1234', amount: '1' }],
+    } as IUnsignedTxPro;
+    const txs = await vault.prepareUnsignedTxsForConfirm([original]);
+    return { vault, original, activation: txs[0], transfer: txs[1], txs };
+  }
+
+  it('separates activation and transfer without mutating or duplicating their identities', async () => {
+    const { vault, original, activation, transfer, txs } = await prepare();
+    expect(txs).toHaveLength(2);
+    expect(activation.uuid).not.toBe(transfer.uuid);
+    expect(activation.transfersInfo).toBeUndefined();
+    expect(transfer.uuid).toBe(original.uuid);
+    expect(transfer.transfersInfo).toEqual(original.transfersInfo);
+    expect(activation.encodedTx).toMatchObject({
+      type: 'DEPLOY_ACCOUNT',
+      nonce: '0x0',
+      calls: [],
+    });
+    expect(transfer.encodedTx).toMatchObject({
+      nonce: '0x1',
+      deploymentDependency: expect.anything(),
+    });
+    expect(transfer.encodedTx).toHaveProperty('deployAccount', undefined);
+    expect(original.encodedTx).not.toHaveProperty('type');
+    expect(await vault.prepareUnsignedTxsForConfirm(txs)).toEqual(txs);
+  });
+
+  it('exposes an unsigned prerequisite for a reviewed transfer', async () => {
+    const { vault, original } = await prepare();
+    const deploymentProgress = jest.fn().mockResolvedValue({});
+    Object.assign(vault, { getAccountDeploymentProgress: deploymentProgress });
+    const planned = await vault.prepareSendConfirmation([original], true);
+    expect(planned.prerequisite).toMatchObject({
+      transfersInfo: original.transfersInfo,
+      unsignedTx: { encodedTx: { type: 'DEPLOY_ACCOUNT' } },
+    });
+
+    await expect(
+      vault.prepareSendConfirmation([original], false),
+    ).resolves.toMatchObject({
+      unsignedTxs: [expect.anything(), expect.anything()],
+    });
+    expect(deploymentProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks a pending prerequisite without offering another activation', async () => {
+    const { vault, original } = await prepare();
+    Object.assign(vault, {
+      getAccountDeploymentProgress: jest
+        .fn()
+        .mockResolvedValue({ txid: '0x123' }),
+    });
+    const planned = await vault.prepareSendConfirmation([original], true);
+    expect(planned.prerequisite?.pendingTxid).toBe('0x123');
+    expect(planned.prerequisite?.unsignedTx).toBeUndefined();
+  });
+
+  it('keeps already deployed sends as one unchanged transaction', async () => {
+    const { vault, original } = await prepare();
+    original.encodedTx = buildEncodedTx(false);
+    expect(await vault.prepareUnsignedTxsForConfirm([original])).toEqual([
+      original,
+    ]);
+  });
+
+  it('displays activation as an operation and charges its resource bounds once', async () => {
+    const { vault, activation } = await prepare();
+    const decoded = await vault.buildDecodedTx({ unsignedTx: activation });
+    expect(decoded.actions[0].type).toBe(EDecodedTxActionType.FUNCTION_CALL);
+    expect(decoded.nativeAmount).toBe('0');
+    expect(decoded.isFeeOnly).toBe(true);
+    expect(decoded.totalFeeInNative).toBe('0.000000000000000068');
+    expect(decoded.extraInfo).toEqual({ accountDeployment: true });
+  });
+
+  it('estimates activation alone and the dependent invoke against the deployment', async () => {
+    const { vault, activation, transfer } = await prepare();
+    const client = {
+      isAccountDeployed: jest.fn(async () => false),
+      estimateFee: jest.fn(async (txs: { type: string }[]) =>
+        txs.map((tx) =>
+          tx.type === 'DEPLOY_ACCOUNT' ? DEPLOY_ESTIMATE : INVOKE_ESTIMATE,
+        ),
+      ),
+    };
+    jest
+      .spyOn(vault, 'getClient')
+      .mockResolvedValue(
+        client as unknown as Awaited<ReturnType<StarknetVault['getClient']>>,
+      );
+    const activationFee = await vault.estimateFee({
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      accountAddress: '0x1',
+      encodedTx: activation.encodedTx,
+    });
+    const transferFee = await vault.estimateFee({
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      accountAddress: '0x1',
+      encodedTx: transfer.encodedTx,
+    });
+    expect(client.estimateFee.mock.calls[0][0].map((tx) => tx.type)).toEqual([
+      'DEPLOY_ACCOUNT',
+    ]);
+    expect(client.estimateFee.mock.calls[1][0].map((tx) => tx.type)).toEqual([
+      'DEPLOY_ACCOUNT',
+      'INVOKE',
+    ]);
+    expect(activationFee.data.data.feeStarknet?.[0].overallFee).toBe(
+      BigInt(DEPLOY_ESTIMATE.overall_fee).toString(),
+    );
+    expect(transferFee.data.data.feeStarknet?.[0].overallFee).toBe(
+      BigInt(INVOKE_ESTIMATE.overall_fee).toString(),
+    );
+    expect(
+      activationFee.data.data.feeStarknet?.[0].deployAccountFee,
+    ).toBeUndefined();
+    expect(
+      transferFee.data.data.feeStarknet?.[0].deployAccountFee,
+    ).toBeUndefined();
+    client.isAccountDeployed.mockResolvedValue(true);
+    await vault.estimateFee({
+      accountId: 'hd-1--test',
+      networkId: NETWORK.id,
+      accountAddress: '0x1',
+      encodedTx: transfer.encodedTx,
+    });
+    expect(client.estimateFee.mock.calls[2][0].map((tx) => tx.type)).toEqual([
+      'INVOKE',
+    ]);
+  });
+
+  it('updates the actual activation bounds with the selected fee', async () => {
+    const { vault, activation } = await prepare();
+    const fee = (
+      await vault.estimateFee({
+        accountId: 'hd-1--test',
+        networkId: NETWORK.id,
+        accountAddress: '0x1',
+        encodedTx: activation.encodedTx,
+      })
+    ).data.data.feeStarknet?.[0];
+    const updated = await vault.updateUnsignedTx({
+      unsignedTx: activation,
+      feeInfo: {
+        common: {
+          feeDecimals: 18,
+          feeSymbol: 'STRK',
+          nativeDecimals: 18,
+          nativeSymbol: 'STRK',
+        },
+        feeStarknet: checkIsDefined(fee),
+      },
+    });
+    const encoded = updated.encodedTx as IEncodedTxStarknet;
+    expect(encoded.resourceBounds).toEqual(
+      encoded.deployAccount?.resourceBounds,
+    );
   });
 });

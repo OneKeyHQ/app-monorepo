@@ -1,5 +1,13 @@
 import { ProvingServiceError } from "./proving-service";
 
+// onekey: preserve retry metadata without retaining sensitive response bodies.
+export class ServiceHttpError extends Error {
+  override readonly name = "ServiceHttpError";
+  constructor(context: string, readonly status: number, readonly retryAfter: string | null) {
+    super(`${context} failed (${status})`);
+  }
+}
+
 /** Error thrown when a block reorg is detected (HTTP 409 status). */
 export class ReorgError extends Error {
   constructor(message: string) {

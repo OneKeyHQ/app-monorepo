@@ -8,6 +8,7 @@ import type {
   IEncodedTxStarknet,
   IEncodedTxStarknetPrivacy,
   IStarknetCall,
+  IStarknetRawDeployAccountTx,
   IStarknetRawTx,
   IStarknetResourceBounds,
   IStarknetSignedDeployAccount,
@@ -23,12 +24,15 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IFetchServerAccountDetailsParams,
@@ -50,6 +54,7 @@ import type {
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
+  IAccountHistoryTx,
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
@@ -65,6 +70,9 @@ import type {
   IFetchServerTokenListResponse,
   IServerAccountTokenItem,
 } from '@onekeyhq/shared/types/serverToken';
+import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
+import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
+import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
@@ -82,18 +90,23 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
+import { ESignedTxBroadcastStatus } from '../../types';
 
+import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import {
   ClientStarknet,
-  STARKNET_DEFAULT_TOKEN_ADDRESSES,
+  STARKNET_PRESET_TOKENS,
   STRK20_SCREENING_WINDOW_MS,
   ZERO_SIGNATURE,
 } from './sdkStarknet';
+import { STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
 import {
   buildErc20TransferCall,
+  getReceiptTxStatus,
   hexToDecimalString,
   isValidStarknetAddress,
   normalizeStarknetAddress,
@@ -106,7 +119,11 @@ import {
   zeroResourceBounds,
 } from './utils';
 
-import type { IStarknetBroadcastTx, IStarknetFeeEstimate } from './sdkStarknet';
+import type {
+  IStarknetBroadcastTx,
+  IStarknetFeeEstimate,
+  IStarknetReceipt,
+} from './sdkStarknet';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -118,6 +135,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ISendConfirmationPreparation,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -125,6 +143,7 @@ import type {
 
 type IStarknetLegEstimates = {
   invokeBounds: IStarknetResourceBounds;
+  invokeEstimate: IStarknetFeeEstimate;
   deployBounds?: IStarknetResourceBounds;
   // the node's own overall_fee for the invoke leg, before our resource-bounds
   // overhead; the confirm screen shows it as the display minimum
@@ -138,7 +157,7 @@ export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,
-    hw: undefined,
+    hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: undefined,
@@ -297,10 +316,67 @@ export default class Vault extends VaultBase {
     });
   }
 
+  async getAccountDeploymentProgress(txid?: string): Promise<{
+    status?: EOnChainHistoryTxStatus;
+    txid?: string;
+  }> {
+    const [client, accountAddress] = await Promise.all([
+      this.getClient(),
+      this.getAccountAddress(),
+    ]);
+    if (txid) {
+      const receipt = await client.getTransactionReceipt(txid);
+      if (receipt && receipt.type !== 'DEPLOY_ACCOUNT') {
+        throw new OneKeyInternalError('Unexpected Starknet deployment receipt');
+      }
+      const status = getReceiptTxStatus(receipt);
+      if (
+        status === EOnChainHistoryTxStatus.Success &&
+        !(await client.isAccountDeployed(accountAddress, 'latest'))
+      ) {
+        return { status: EOnChainHistoryTxStatus.Pending, txid };
+      }
+      return { status, txid };
+    }
+    if (await client.isAccountDeployed(accountAddress, 'latest')) {
+      return { status: EOnChainHistoryTxStatus.Success };
+    }
+    const pendingTxs =
+      await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
+        networkId: this.networkId,
+        accountAddress,
+      });
+    const activation = pendingTxs.find(
+      ({ decodedTx }) =>
+        (decodedTx.encodedTx as IEncodedTxStarknet | undefined)?.type ===
+          'DEPLOY_ACCOUNT' ||
+        (decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined)
+          ?.accountDeployment,
+    )?.decodedTx.txid;
+    if (!activation) return {};
+    const receipt = await client.getTransactionReceipt(activation);
+    const status = getReceiptTxStatus(receipt);
+    return status === EOnChainHistoryTxStatus.Failed
+      ? {}
+      : { status: EOnChainHistoryTxStatus.Pending, txid: activation };
+  }
+
+  async buildAccountActivationTx(): Promise<IUnsignedTxPro | undefined> {
+    const encodedTx = await this._assembleEncodedTx({
+      from: await this.getAccountAddress(),
+      calls: [],
+      deployOnly: true,
+    });
+    return encodedTx.deployAccount
+      ? this.buildUnsignedTx({ encodedTx })
+      : undefined;
+  }
+
   private async _assembleEncodedTx(params: {
     from: string;
     calls: IStarknetCall[];
     privacy?: IEncodedTxStarknetPrivacy;
+    deployOnly?: boolean;
   }): Promise<IEncodedTxStarknet> {
     const { from, calls, privacy } = params;
     const [network, client] = await Promise.all([
@@ -310,7 +386,7 @@ export default class Vault extends VaultBase {
 
     // Deploy detection is authoritative per call and never cached: a previous
     // attempt may have deployed the account even though its invoke leg failed.
-    const isDeployed = await client.isAccountDeployed(from);
+    const isDeployed = await client.isAccountDeployed(from, 'latest');
 
     const encodedTx: IEncodedTxStarknet = {
       chainId: network.chainId,
@@ -338,7 +414,13 @@ export default class Vault extends VaultBase {
       };
       // the DEPLOY_ACCOUNT leg consumes nonce 0
       encodedTx.nonce = '0x1';
+      if (params.deployOnly) {
+        encodedTx.type = 'DEPLOY_ACCOUNT';
+        encodedTx.nonce = '0x0';
+      }
     }
+
+    if (params.deployOnly && isDeployed) return encodedTx;
 
     // Price both legs now so the encodedTx is signable as it stands and the
     // deploy leg carries real bounds: IFeeStarknet can only round-trip the
@@ -384,10 +466,11 @@ export default class Vault extends VaultBase {
     const suffixed = [
       EAddressEncodings.STARKNET_OZ,
       EAddressEncodings.STARKNET_OKX,
-      // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
-      EAddressEncodings.STARKNET_OZ_V017,
     ];
-    return suffixed.find((encoding) => this.accountId.endsWith(encoding));
+    const { idSuffix } = accountUtils.parseAccountId({
+      accountId: this.accountId,
+    });
+    return suffixed.find((encoding) => idSuffix === encoding);
   }
 
   private async _getAccountDeployParams(expectedAddress: string) {
@@ -490,14 +573,28 @@ export default class Vault extends VaultBase {
     client: ClientStarknet;
     encodedTx: IEncodedTxStarknet;
   }): Promise<IStarknetLegEstimates> {
-    const deployTx = this._buildEstimateDeployAccountTx(encodedTx);
+    const deployment =
+      encodedTx.deployAccount ??
+      (encodedTx.deploymentDependency &&
+      !(await client.isAccountDeployed(encodedTx.from))
+        ? encodedTx.deploymentDependency
+        : undefined);
+    const deployTx = this._buildEstimateDeployAccountTx({
+      ...encodedTx,
+      deployAccount: deployment,
+    });
     const invokeTx = this._buildEstimateInvokeTx(encodedTx);
     const broadcastInvokeTx: IStarknetBroadcastTx = encodedTx.privacy
       ? { ...invokeTx, proof: encodedTx.privacy.proof }
       : invokeTx;
-    const transactions: IStarknetBroadcastTx[] = deployTx
-      ? [deployTx, broadcastInvokeTx]
-      : [broadcastInvokeTx];
+    let transactions: IStarknetBroadcastTx[];
+    if (encodedTx.type === 'DEPLOY_ACCOUNT') {
+      transactions = [checkIsDefined(deployTx)];
+    } else {
+      transactions = deployTx
+        ? [deployTx, broadcastInvokeTx]
+        : [broadcastInvokeTx];
+    }
 
     const estimates = await client.estimateFee(transactions);
     if (estimates.length !== transactions.length) {
@@ -512,6 +609,7 @@ export default class Vault extends VaultBase {
 
     return {
       invokeBounds: toResourceBounds(invokeEstimate),
+      invokeEstimate,
       deployBounds: deployEstimate
         ? toResourceBounds(deployEstimate)
         : undefined,
@@ -555,14 +653,21 @@ export default class Vault extends VaultBase {
         const transfersInfo = [
           { ...unsignedTx.transfersInfo[0], amount: newAmount },
         ];
-        encodedTx = await this.buildEncodedTx({ transfersInfo });
+        const rebuilt = await this.buildEncodedTx({ transfersInfo });
+        encodedTx = encodedTx.deploymentDependency
+          ? {
+              ...rebuilt,
+              deployAccount: undefined,
+              deploymentDependency:
+                rebuilt.deployAccount ?? encodedTx.deploymentDependency,
+            }
+          : rebuilt;
         unsignedTx.transfersInfo = transfersInfo;
       }
     }
 
-    // Only the invoke leg's bounds can round-trip through IFeeInfoUnit. The
-    // deploy leg keeps the bounds buildEncodedTx gave it, which are already
-    // padded and cover a fixed-cost operation.
+    // Each batch item updates its own bounds. A legacy combined payload keeps
+    // the deployment bounds that buildEncodedTx already padded.
     const feeStarknet = feeInfo?.feeStarknet;
     if (feeStarknet) {
       const toBound = (bound: IFeeStarknetResourceBound) => ({
@@ -577,10 +682,96 @@ export default class Vault extends VaultBase {
           l1_data_gas: toBound(feeStarknet.l1DataGas),
         },
       };
+      if (encodedTx.type === 'DEPLOY_ACCOUNT') {
+        encodedTx.deployAccount = {
+          ...checkIsDefined(encodedTx.deployAccount),
+          resourceBounds: encodedTx.resourceBounds,
+        };
+      }
     }
 
     unsignedTx.encodedTx = encodedTx;
     return unsignedTx;
+  }
+
+  override async prepareSendConfirmation(
+    unsignedTxs: IUnsignedTxPro[],
+    confirmPrerequisites: boolean,
+  ): Promise<ISendConfirmationPreparation> {
+    const prepared = await super.prepareSendConfirmation(
+      unsignedTxs,
+      confirmPrerequisites,
+    );
+    const encodedTx = unsignedTxs[0]?.encodedTx as
+      | IEncodedTxStarknet
+      | undefined;
+    const transfersInfo = unsignedTxs[0]?.transfersInfo;
+    if (
+      !confirmPrerequisites ||
+      unsignedTxs.length !== 1 ||
+      !transfersInfo?.length ||
+      !encodedTx?.deployAccount ||
+      encodedTx.type === 'DEPLOY_ACCOUNT'
+    )
+      return prepared;
+
+    const [deployment, transfer] = prepared.unsignedTxs;
+    const { status, txid } = await this.getAccountDeploymentProgress();
+    return {
+      unsignedTxs: [transfer],
+      prerequisite:
+        status === EOnChainHistoryTxStatus.Success
+          ? { transfersInfo }
+          : {
+              transfersInfo,
+              unsignedTx: txid ? undefined : deployment,
+              pendingTxid: txid,
+            },
+    };
+  }
+
+  override async getSendPrerequisiteProgress(txid: string) {
+    return this.getAccountDeploymentProgress(txid);
+  }
+
+  override async prepareUnsignedTxsForConfirm(
+    unsignedTxs: IUnsignedTxPro[],
+  ): Promise<IUnsignedTxPro[]> {
+    return unsignedTxs.flatMap((unsignedTx) => {
+      const encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
+      if (encodedTx.type === 'DEPLOY_ACCOUNT' || !encodedTx.deployAccount) {
+        return [unsignedTx];
+      }
+      const deployment = encodedTx.deployAccount;
+      return [
+        {
+          ...unsignedTx,
+          uuid: generateUUID(),
+          transfersInfo: undefined,
+          approveInfo: undefined,
+          swapInfo: undefined,
+          stakingInfo: undefined,
+          feeInfo: undefined,
+          encodedTx: {
+            ...encodedTx,
+            type: 'DEPLOY_ACCOUNT',
+            nonce: deployment.nonce,
+            resourceBounds: deployment.resourceBounds,
+            calls: [],
+            privacy: undefined,
+          } satisfies IEncodedTxStarknet,
+        },
+        {
+          ...unsignedTx,
+          feeInfo: undefined,
+          encodedTx: {
+            ...encodedTx,
+            deployAccount: undefined,
+            deploymentDependency: deployment,
+          } satisfies IEncodedTxStarknet,
+        },
+      ];
+    });
   }
 
   override async buildDecodedTx(
@@ -599,14 +790,31 @@ export default class Vault extends VaultBase {
 
     // A privacy tx's calldata is a compile_actions blob, not ERC-20 transfers,
     // so it is rendered from the intent that built it rather than decoded.
-    const action = encodedTx.privacy
-      ? await this._buildPrivacyAction(encodedTx, encodedTx.privacy)
-      : await this._buildTransferAction(encodedTx);
+    const isDeployment = encodedTx.type === 'DEPLOY_ACCOUNT';
+    let action: IDecodedTxAction;
+    if (isDeployment) {
+      action = {
+        type: EDecodedTxActionType.FUNCTION_CALL,
+        functionCall: {
+          from: encodedTx.from,
+          to: encodedTx.from,
+          functionName: appLocale.intl.formatMessage({
+            id: ETranslationsMock.starknet_account_deploy_wallet,
+          }),
+          args: [],
+        },
+      };
+    } else {
+      action = encodedTx.privacy
+        ? await this._buildPrivacyAction(encodedTx, encodedTx.privacy)
+        : await this._buildTransferAction(encodedTx);
+    }
 
     const invokeFee = sumResourceBounds(encodedTx.resourceBounds);
-    const deployFee = encodedTx.deployAccount
-      ? sumResourceBounds(encodedTx.deployAccount.resourceBounds)
-      : undefined;
+    const deployFee =
+      encodedTx.deployAccount && !isDeployment
+        ? sumResourceBounds(encodedTx.deployAccount.resourceBounds)
+        : undefined;
     const totalFeeInNative = new BigNumber(invokeFee)
       .plus(deployFee ?? 0)
       .shiftedBy(-network.feeMeta.decimals)
@@ -614,7 +822,9 @@ export default class Vault extends VaultBase {
 
     // Both halves are optional and independent, so build the object and only
     // fall back to null when nothing needs carrying.
-    const extra: IDecodedTxExtraStarknet = {};
+    const extra: IDecodedTxExtraStarknet = isDeployment
+      ? { accountDeployment: true }
+      : {};
     if (deployFee) {
       extra.deployAccountFee = deployFee;
       extra.deployAccountTxId = this._computeDeployAccountTxId(encodedTx);
@@ -646,7 +856,7 @@ export default class Vault extends VaultBase {
     const extraInfo: IDecodedTxExtraStarknet | null =
       Object.keys(extra).length > 0 ? extra : null;
 
-    return {
+    const decodedTx: IDecodedTx = {
       txid: '',
       owner: accountAddress,
       signer: encodedTx.from,
@@ -658,7 +868,81 @@ export default class Vault extends VaultBase {
       extraInfo,
       encodedTx,
       totalFeeInNative,
+      ...(isDeployment ? { nativeAmount: '0', isFeeOnly: true } : {}),
+      ...(encodedTx.privacy
+        ? {
+            // The standard fee check spends public STRK, not private principal.
+            nativeAmount: new BigNumber(encodedTx.privacy.protocolFee ?? 0)
+              .plus(
+                encodedTx.privacy.kind === 'deposit' &&
+                  encodedTx.privacy.tokenAddress &&
+                  BigInt(encodedTx.privacy.tokenAddress) ===
+                    BigInt(STRK_TOKEN_ADDRESS)
+                  ? (encodedTx.privacy.amount ?? 0)
+                  : 0,
+              )
+              .shiftedBy(-network.feeMeta.decimals)
+              .toFixed(),
+          }
+        : {}),
     };
+    const privacyKind = encodedTx.privacy?.kind;
+    const privacyTitles = {
+      register: ETranslationsMock.starknet_privacy_activation_title,
+      deposit: ETranslations.privacy_balance_shield__action,
+      withdraw: ETranslations.privacy_balance_unshield__action,
+      transfer: ETranslationsMock.starknet_privacy_action_send_private,
+    };
+    const titleId = isDeployment
+      ? ETranslationsMock.starknet_account_deploy_wallet
+      : privacyKind && privacyTitles[privacyKind];
+    if (titleId) {
+      let components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx,
+          unsignedTx,
+        });
+      if (privacyKind === 'deposit' || privacyKind === 'withdraw') {
+        const publicSide = appLocale.intl.formatMessage({
+          id: ETranslations.privacy_balance_public__title,
+        });
+        const privateSide = appLocale.intl.formatMessage({
+          id: ETranslations.privacy_history_shielded__title,
+        });
+        const direction: IDisplayComponent[] = [
+          {
+            type: EParseTxComponentType.Default,
+            label: appLocale.intl.formatMessage({
+              id: ETranslations.global_from,
+            }),
+            value: privacyKind === 'deposit' ? publicSide : privateSide,
+          },
+          {
+            type: EParseTxComponentType.Default,
+            label: appLocale.intl.formatMessage({
+              id: ETranslations.global_to,
+            }),
+            value: privacyKind === 'deposit' ? privateSide : publicSide,
+          },
+        ];
+        components = [
+          ...direction,
+          ...components.filter(
+            (component) => component.type !== EParseTxComponentType.Address,
+          ),
+        ];
+      }
+      decodedTx.isLocalParsed = true;
+      decodedTx.txDisplay = {
+        title: appLocale.intl.formatMessage({
+          id: titleId,
+          defaultMessage: titleId,
+        }),
+        components,
+        alerts: [],
+      };
+    }
+    return decodedTx;
   }
 
   private async _buildTransferAction(
@@ -680,11 +964,21 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxStarknet,
     privacy: IEncodedTxStarknetPrivacy,
   ): Promise<IDecodedTxAction> {
-    if (
-      privacy.kind === 'register' ||
-      !privacy.tokenAddress ||
-      !privacy.amount
-    ) {
+    if (privacy.kind === 'register') {
+      return {
+        type: EDecodedTxActionType.FUNCTION_CALL,
+        functionCall: {
+          from: encodedTx.from,
+          to: normalizeStarknetAddress(privacy.poolAddress),
+          functionName: appLocale.intl.formatMessage({
+            id: ETranslationsMock.starknet_privacy_activation_title,
+            defaultMessage: ETranslationsMock.starknet_privacy_activation_title,
+          }),
+          args: [],
+        },
+      };
+    }
+    if (!privacy.tokenAddress || !privacy.amount) {
       return {
         type: EDecodedTxActionType.UNKNOWN,
         unknownAction: {
@@ -698,9 +992,11 @@ export default class Vault extends VaultBase {
     const tokenAddress = normalizeTokenAddress(privacy.tokenAddress);
     const token = await this._getTokenMetadataCache(tokenAddress);
     const pool = normalizeStarknetAddress(privacy.poolAddress);
+    const defaultRecipient =
+      privacy.kind === 'withdraw' ? encodedTx.from : pool;
     const counterparty = privacy.recipient
       ? normalizeStarknetAddress(privacy.recipient)
-      : pool;
+      : defaultRecipient;
     const from = privacy.kind === 'withdraw' ? pool : encodedTx.from;
     const to = privacy.kind === 'deposit' ? pool : counterparty;
 
@@ -780,11 +1076,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  // ---------------------------------------------------------------- backend-less
-  // Starknet has no backend coverage yet, so the top-level methods are
-  // overridden rather than the *ByRpc siblings: VaultBase only routes to those
-  // when the network is a user-added custom one, and both Starknet presets are
-  // first-class networks.
+  // Account reads still use RPC. Preset-network token lists and details use
+  // VaultBase's API path; the RPC implementations below serve custom networks.
 
   override async fetchAccountDetails(
     params: IFetchServerAccountDetailsParams,
@@ -815,7 +1108,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async fetchTokenDetails(
+  override async fetchTokenDetailsByRpc(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     const items = await this._fetchTokenItems({
@@ -843,7 +1136,7 @@ export default class Vault extends VaultBase {
     return { data: { data } };
   }
 
-  override async fetchTokenList(
+  override async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const { requestApiParams } = params;
@@ -875,13 +1168,16 @@ export default class Vault extends VaultBase {
   }
 
   /**
-   * Token metadata is immutable, and there is no token API for this chain, so
-   * read it from the contract once and keep it.
+   * Custom networks read token metadata from the contract once and keep it.
    *
    * Deliberately not serviceToken.getToken: for a token it does not know yet,
    * that routes into serviceToken.fetchTokensDetails, which calls back into
-   * this vault's fetchTokenDetails and would loop.
+   * this vault's fetchTokenDetailsByRpc and would loop.
    */
+  private _getPresetTokens() {
+    return STARKNET_PRESET_TOKENS[this.networkId] ?? [];
+  }
+
   private _getTokenMetadataCache = memoizee(
     async (tokenAddress: string) => {
       const [client, network, networkInfo] = await Promise.all([
@@ -903,6 +1199,20 @@ export default class Vault extends VaultBase {
           isNative: true,
         };
       }
+      const preset = this._getPresetTokens().find(
+        (token) =>
+          normalizeTokenAddress(token.address) ===
+          normalizeTokenAddress(tokenAddress),
+      );
+      if (preset) {
+        return {
+          name: preset.name,
+          symbol: preset.symbol,
+          decimals: preset.decimals,
+          logoURI: '',
+          isNative: false,
+        };
+      }
       const metadata = await client.getTokenMetadata(tokenAddress);
       return { ...metadata, logoURI: '', isNative: false };
     },
@@ -915,9 +1225,8 @@ export default class Vault extends VaultBase {
 
   /**
    * Every Starknet asset including STRK is an ERC-20, so one balanceOf per
-   * contract covers the native entry and every token alike. Prices stay zero:
-   * they only come from the backend token endpoints, which do not list this
-   * chain yet.
+   * contract covers the native entry and every token alike. Custom-network
+   * RPC responses have no backend pricing.
    */
   private async _fetchTokenItems({
     accountAddress,
@@ -937,8 +1246,8 @@ export default class Vault extends VaultBase {
       .map((contract) => normalizeTokenAddress(contract));
     const addresses = Array.from(
       new Set([
-        ...STARKNET_DEFAULT_TOKEN_ADDRESSES.map((address) =>
-          normalizeTokenAddress(address),
+        ...this._getPresetTokens().map((token) =>
+          normalizeTokenAddress(token.address),
         ),
         ...requested,
       ]),
@@ -1042,19 +1351,24 @@ export default class Vault extends VaultBase {
       this.getClient(),
       this.getNetwork(),
     ]);
-    const { invokeBounds, invokeOverallFee, deployOverallFee } =
-      await this._estimateLegs({
-        client,
-        encodedTx,
-      });
+    const [
+      { invokeBounds, invokeEstimate, invokeOverallFee, deployOverallFee },
+      quote,
+    ] = await Promise.all([
+      this._estimateLegs({ client, encodedTx }),
+      fetchLocalWalletNativeTokenQuote({
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+      }),
+    ]);
 
     const feeStarknet: IFeeStarknet = {
-      ...resourceBoundsToFee(invokeBounds),
+      ...resourceBoundsToFee(invokeBounds, invokeEstimate),
       // the deploy leg keeps its own line; overallFee covers the invoke only
       overallFee: invokeOverallFee,
       // charged from the same balance and signed as part of the same send, so
       // it belongs in the headline total rather than a separate extra fee
-      ...(encodedTx.deployAccount
+      ...(encodedTx.deployAccount && encodedTx.type !== 'DEPLOY_ACCOUNT'
         ? {
             deployAccountFee: sumResourceBounds(
               encodedTx.deployAccount.resourceBounds,
@@ -1073,7 +1387,10 @@ export default class Vault extends VaultBase {
           nativeDecimals: network.decimals,
           nativeSymbol: network.symbol,
           baseFee: '0',
-          nativeTokenPrice: { price: 0, price24h: 0 },
+          nativeTokenPrice:
+            quote.price === undefined
+              ? undefined
+              : { price: quote.price, price24h: quote.price24h ?? 0 },
           feeStarknet: [feeStarknet],
         },
       },
@@ -1081,33 +1398,19 @@ export default class Vault extends VaultBase {
   }
 
   /**
-   * An account's first send lands as two transactions, DEPLOY_ACCOUNT then the
-   * INVOKE, but is recorded locally as one row keyed by the INVOKE. The deploy
-   * hash rides in that row, so its fee is added here; FRI, decimal string.
+   * Legacy combined sends were recorded as one row keyed by the INVOKE. Only
+   * those rows carry a paired deploy hash; new batch items have separate fees.
+   * Return FRI as a decimal string, or undefined while its receipt is unknown.
    */
   private async _fetchPairedDeployFee({
     client,
-    params,
+    localTx,
   }: {
     client: ClientStarknet;
-    params: IServerFetchAccountHistoryDetailParams;
-  }): Promise<string> {
-    if (!params.accountAddress) {
-      return '0';
-    }
-    const localTx =
-      await this.backgroundApi.simpleDb.localHistory.getLocalHistoryTxById({
-        networkId: this.networkId,
-        accountAddress: params.accountAddress,
-        historyId: accountUtils.buildLocalHistoryId({
-          networkId: this.networkId,
-          accountAddress: params.accountAddress,
-          txid: params.txid,
-        }),
-      });
+    localTx: IAccountHistoryTx | undefined;
+  }): Promise<string | undefined> {
     const extraInfo = localTx?.decodedTx.extraInfo as
       | IDecodedTxExtraStarknet
-      | null
       | undefined;
     if (!extraInfo?.deployAccountTxId) {
       return '0';
@@ -1115,9 +1418,92 @@ export default class Vault extends VaultBase {
     const deployReceipt = await client.getTransactionReceipt(
       extraInfo.deployAccountTxId,
     );
-    return deployReceipt?.actual_fee?.amount
+    return deployReceipt?.actual_fee?.unit === 'FRI'
       ? hexToDecimalString(deployReceipt.actual_fee.amount)
-      : '0';
+      : undefined;
+  }
+
+  private async _fetchProtocolFeeInNative({
+    client,
+    localTx,
+    receipt,
+  }: {
+    client: ClientStarknet;
+    localTx: IAccountHistoryTx | undefined;
+    receipt: IStarknetReceipt | null;
+  }): Promise<string | undefined> {
+    const privacy = (
+      localTx?.decodedTx.extraInfo as IDecodedTxExtraStarknet | undefined
+    )?.privacy;
+    if (!privacy || !receipt) return undefined;
+    const status = getReceiptTxStatus(receipt);
+    if (status === EOnChainHistoryTxStatus.Failed) return '0';
+    if (
+      status !== EOnChainHistoryTxStatus.Success ||
+      receipt.block_number === undefined ||
+      !receipt.events
+    )
+      return undefined;
+    try {
+      const blockId = { block_number: receipt.block_number };
+      const [collector, fee, network] = await Promise.all([
+        client.getPoolFeeCollector(privacy.poolAddress, blockId),
+        client.getPoolFeeAmount(privacy.poolAddress, blockId),
+        this.getNetwork(),
+      ]);
+      const payer = localTx?.decodedTx.owner;
+      if (!payer) return undefined;
+      const selector = sdkStarknet.buildExecuteCalldata([
+        {
+          contractAddress: STRK_TOKEN_ADDRESS,
+          entrypoint: 'Transfer',
+          calldata: [],
+        },
+      ])[2];
+      const payments: (string | undefined)[] = [];
+      receipt.events.forEach((event) => {
+        if (
+          BigInt(event.from_address) !== BigInt(STRK_TOKEN_ADDRESS) ||
+          !event.keys[0] ||
+          BigInt(event.keys[0]) !== BigInt(selector)
+        )
+          return;
+        let from: string;
+        let to: string;
+        let low: string;
+        let high: string;
+        if (event.keys.length === 1 && event.data.length === 4) {
+          [from, to, low, high] = event.data;
+        } else if (event.keys.length === 3 && event.data.length === 2) {
+          [, from, to] = event.keys;
+          [low, high] = event.data;
+        } else {
+          payments.push(undefined);
+          return;
+        }
+        if (BigInt(from) !== BigInt(payer) || BigInt(to) !== BigInt(collector))
+          return;
+        if (
+          [low, high].some(
+            (limb) => BigInt(limb) < 0n || BigInt(limb) >= 2n ** 128n,
+          )
+        ) {
+          payments.push(undefined);
+          return;
+        }
+        payments.push(u256ToDecimalString(low, high));
+      });
+      // An end-of-block collector/fee change or ambiguous payment stays unknown.
+      if (fee === '0' && payments.length === 0) return '0';
+      return payments.length === 1 && payments[0] === fee
+        ? new BigNumber(payments[0])
+            .shiftedBy(-network.feeMeta.decimals)
+            .toFixed()
+        : undefined;
+    } catch {
+      // Receipt status and network fee remain usable if an archive call fails.
+      return undefined;
+    }
   }
 
   override async fetchAccountHistoryDetail(
@@ -1126,35 +1512,31 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const network = await this.getNetwork();
     const receipt = await client.getTransactionReceipt(params.txid);
+    const status = getReceiptTxStatus(receipt);
 
-    // execution_status alone is not enough: a RECEIVED or PRE_CONFIRMED receipt
-    // already reports SUCCEEDED while the transaction can still be dropped, so
-    // it stays Pending until the sequencer accepts it. REJECTED is terminal and
-    // will never be accepted, so it resolves to Failed rather than polling
-    // forever.
-    let status = EOnChainHistoryTxStatus.Pending;
-    if (receipt) {
-      const isAccepted =
-        receipt.finality_status === 'ACCEPTED_ON_L2' ||
-        receipt.finality_status === 'ACCEPTED_ON_L1';
-      if (isAccepted) {
-        status =
-          receipt.execution_status === 'SUCCEEDED'
-            ? EOnChainHistoryTxStatus.Success
-            : EOnChainHistoryTxStatus.Failed;
-      } else if (receipt.finality_status === 'REJECTED') {
-        status = EOnChainHistoryTxStatus.Failed;
-      }
-    }
-
-    const invokeFee = receipt?.actual_fee?.amount
-      ? hexToDecimalString(receipt.actual_fee.amount)
-      : '0';
-    const deployFee = await this._fetchPairedDeployFee({ client, params });
-    const gasFee = new BigNumber(invokeFee)
-      .plus(deployFee)
-      .shiftedBy(-network.feeMeta.decimals)
-      .toFixed();
+    const invokeFee =
+      receipt?.actual_fee?.unit === 'FRI'
+        ? hexToDecimalString(receipt.actual_fee.amount)
+        : undefined;
+    const localTx = params.accountAddress
+      ? await this.backgroundApi.simpleDb.localHistory.getLocalHistoryTxById({
+          networkId: this.networkId,
+          accountAddress: params.accountAddress,
+          historyId: accountUtils.buildLocalHistoryId({
+            networkId: this.networkId,
+            accountAddress: params.accountAddress,
+            txid: params.txid,
+          }),
+        })
+      : undefined;
+    const deployFee = await this._fetchPairedDeployFee({ client, localTx });
+    const gasFee =
+      invokeFee !== undefined && deployFee !== undefined
+        ? new BigNumber(invokeFee)
+            .plus(deployFee)
+            .shiftedBy(-network.feeMeta.decimals)
+            .toFixed()
+        : undefined;
 
     // STRK20 re-arms its proving wait after ANY transaction this account lands,
     // not just a private one: an ordinary ERC-20 transfer is state the next
@@ -1185,9 +1567,13 @@ export default class Vault extends VaultBase {
             from: params.accountAddress ?? '',
             to: '',
             timestamp: 0,
-            nonce: 0,
+            nonce: undefined,
             gasFee,
-            gasFeeFiatValue: '0',
+            protocolFeeInNative: await this._fetchProtocolFeeInNative({
+              client,
+              localTx,
+              receipt,
+            }),
             functionCode: '',
             params: [],
             value: '0',
@@ -1228,7 +1614,7 @@ export default class Vault extends VaultBase {
   /**
    * DEPLOY_ACCOUNT first, then INVOKE. The two are separate transactions and
    * the sequence is not atomic: if the deploy lands and the invoke does not,
-   * the account exists with nonce 0 and the next attempt re-detects that.
+   * the next attempt re-detects the deployed account and reads its nonce.
    */
   private async _broadcast({
     client,
@@ -1237,17 +1623,43 @@ export default class Vault extends VaultBase {
     client: ClientStarknet;
     signedTx: ISignedTxPro;
   }): Promise<ISignedTxPro> {
-    const rawTx = JSON.parse(signedTx.rawTx) as IStarknetRawTx;
+    const rawTx = JSON.parse(signedTx.rawTx) as
+      | IStarknetRawTx
+      | IStarknetRawDeployAccountTx;
+    if ('type' in rawTx) {
+      this._assertBroadcastHash(signedTx.txid, rawTx.deployAccountTxHash);
+      const result = await client.addDeployAccountTransaction(
+        rawTx.deployAccount,
+      );
+      this._assertBroadcastHash(result.transaction_hash, signedTx.txid);
+      await this._notePrivacySubmitted({
+        encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
+        txid: signedTx.txid,
+      });
+      return signedTx;
+    }
+    this._assertBroadcastHash(signedTx.txid, rawTx.invokeTxHash);
     this._assertPrivacyBuildIsFresh(
       signedTx.encodedTx as IEncodedTxStarknet | undefined,
     );
+    const privacy = (signedTx.encodedTx as IEncodedTxStarknet | undefined)
+      ?.privacy;
+    if (privacy) {
+      await this.backgroundApi.serviceStarknetPrivacy.assertPrivacyTxCanSubmit({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        kind: privacy.kind,
+      });
+    }
 
     let deployAccountTxId: string | undefined;
     if (rawTx.deployAccount) {
+      const expectedHash = checkIsDefined(rawTx.deployAccountTxHash);
       const deployResult = await client.addDeployAccountTransaction(
         rawTx.deployAccount,
       );
-      deployAccountTxId = deployResult.transaction_hash;
+      this._assertBroadcastHash(deployResult.transaction_hash, expectedHash);
+      deployAccountTxId = expectedHash;
     }
 
     try {
@@ -1255,9 +1667,14 @@ export default class Vault extends VaultBase {
         rawTx.invoke,
         rawTx.proof,
       );
+      this._assertBroadcastHash(invokeResult.transaction_hash, signedTx.txid);
+      await this._notePrivacySubmitted({
+        encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
+        txid: signedTx.txid,
+      });
       return {
         ...signedTx,
-        txid: invokeResult.transaction_hash,
+        txid: signedTx.txid,
         encodedTx: signedTx.encodedTx,
       };
     } catch (error) {
@@ -1272,6 +1689,79 @@ export default class Vault extends VaultBase {
         throw localError;
       }
       throw error;
+    }
+  }
+
+  private _assertBroadcastHash(actual: string, expected: string) {
+    if (sdkStarknet.toFelt(actual) !== sdkStarknet.toFelt(expected)) {
+      throw new OneKeyLocalError(
+        'Starknet: broadcast transaction hash mismatch',
+      );
+    }
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const receipt = await (
+      await this.getClient()
+    ).getTransactionReceipt(signedTx.txid);
+    return receipt
+      ? ESignedTxBroadcastStatus.Broadcast
+      : ESignedTxBroadcastStatus.Unknown;
+  }
+
+  /**
+   * Records public status once the node accepts a privacy transaction. Recording
+   * failures must not make an accepted broadcast look like a failed submission.
+   */
+  private async _notePrivacySubmitted(params: {
+    encodedTx: IEncodedTxStarknet | undefined;
+    txid: string;
+  }) {
+    if (params.encodedTx?.type === 'DEPLOY_ACCOUNT') {
+      try {
+        await this.backgroundApi.serviceStarknetPrivacy.noteAccountActivationSubmitted(
+          {
+            networkId: this.networkId,
+            accountId: this.accountId,
+            txid: params.txid,
+          },
+        );
+      } catch {
+        // The normal local history still tracks an accepted deployment.
+      }
+      return;
+    }
+    const privacy = params.encodedTx?.privacy;
+    if (!privacy) {
+      return;
+    }
+    try {
+      const key = {
+        networkId: this.networkId,
+        accountId: this.accountId,
+        poolAddress: privacy.poolAddress,
+        txid: params.txid,
+      };
+      if (privacy.kind === 'register') {
+        await this.backgroundApi.serviceStarknetPrivacy.noteRegisterSubmitted(
+          key,
+        );
+      } else {
+        await this.backgroundApi.serviceStarknetPrivacy.notePrivateTransferSubmitted(
+          {
+            ...key,
+            kind: privacy.kind,
+          },
+        );
+      }
+    } catch {
+      // Broadcast already succeeded; recording its public status must not change the result.
     }
   }
 
@@ -1293,6 +1783,9 @@ export default class Vault extends VaultBase {
     }
     throw new OneKeyLocalError({
       key: ETranslationsMock.starknet_privacy_error_screening_window_expired,
+      data: {
+        starknetPrivacyErrorCode: EStrk20ErrorCode.ScreeningWindowExpired,
+      },
       message: appLocale.intl.formatMessage({
         id: ETranslationsMock.starknet_privacy_error_screening_window_expired,
       }),

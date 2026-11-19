@@ -39,6 +39,8 @@ export type ProvingServiceProofProviderOptions = {
    * returns details with the fetched nonce; no provider on account or factory needed.
    */
   nodeUrl?: string;
+  // onekey: keeps nonce reads on the wallet's backend/custom RPC transport.
+  getNonce?: () => Promise<bigint>;
   /**
    * Pool contract address used for nonce fetching. Required when `nodeUrl` is set.
    */
@@ -69,8 +71,7 @@ export class ProvingServiceProofProvider implements ProofProviderInterface {
   // onekey: typed as the transport seam so an injected transport fits.
   private readonly provingService: ProveTransport;
   private readonly blockIdentifier: ProvingBlockId;
-  private readonly rpcProvider: RpcProvider | null;
-  private readonly poolAddressHex: string | null;
+  private readonly getNonce: (() => Promise<bigint>) | null;
   private cachedNonce: bigint | null = null;
 
   constructor(
@@ -98,15 +99,17 @@ export class ProvingServiceProofProvider implements ProofProviderInterface {
         retry: options.retry,
       });
     this.blockIdentifier = options.blockIdentifier ?? "latest";
-    if (options.nodeUrl != null) {
+    if (options.getNonce) {
+      this.getNonce = options.getNonce;
+    } else if (options.nodeUrl != null) {
       if (options.poolAddress == null) {
         throw new Error("ProvingServiceProofProvider: nodeUrl requires poolAddress to be set");
       }
-      this.rpcProvider = new RpcProvider({ nodeUrl: options.nodeUrl });
-      this.poolAddressHex = toHex(options.poolAddress);
+      const rpcProvider = new RpcProvider({ nodeUrl: options.nodeUrl });
+      const poolAddressHex = toHex(options.poolAddress);
+      this.getNonce = async () => BigInt(await rpcProvider.getNonceForAddress(poolAddressHex, "latest"));
     } else {
-      this.rpcProvider = null;
-      this.poolAddressHex = null;
+      this.getNonce = null;
     }
   }
 
@@ -116,13 +119,11 @@ export class ProvingServiceProofProvider implements ProofProviderInterface {
 
   async getDefaultDetails(): Promise<ProofInvocationFactoryDetails> {
     const base = getDefaultProofDetails(this.chainId);
-    if (this.rpcProvider == null || this.poolAddressHex == null) {
+    if (this.getNonce == null) {
       return base;
     }
     if (this.cachedNonce == null) {
-      this.cachedNonce = BigInt(
-        await this.rpcProvider.getNonceForAddress(this.poolAddressHex, "latest")
-      );
+      this.cachedNonce = await this.getNonce();
     }
     return { ...base, nonce: this.cachedNonce };
   }

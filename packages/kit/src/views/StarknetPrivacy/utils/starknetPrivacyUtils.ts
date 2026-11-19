@@ -1,10 +1,14 @@
+import BigNumber from 'bignumber.js';
+
 import type {
   IDecodedTxExtraStarknet,
   IDecodedTxPrivacyStarknet,
 } from '@onekeyhq/core/src/chains/starknet/types';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import { EStrk20SetupRequirement } from '@onekeyhq/shared/types/starknetPrivacy';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type {
+  EStrk20PrivateTxKind,
+  IStrk20PrivateBalances,
+} from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IDecodedTxExtraInfo } from '@onekeyhq/shared/types/tx';
 
 import type { IntlShape } from 'react-intl';
@@ -23,6 +27,60 @@ export function formatMockMessage(
   values?: Record<string, string | number>,
 ): string {
   return intl.formatMessage({ id, defaultMessage: id }, values);
+}
+
+export function getStarknetPrivacyOperationTitle(
+  kind: EStrk20PrivateTxKind,
+): ETranslations | ETranslationsMock {
+  return {
+    register: ETranslationsMock.starknet_privacy_activation_title,
+    deposit: ETranslations.privacy_balance_shield__action,
+    transfer: ETranslationsMock.starknet_privacy_action_send_private,
+    withdraw: ETranslations.privacy_balance_unshield__action,
+  }[kind];
+}
+
+export function getStarknetHistoryOperationTitle(
+  extraInfo: IDecodedTxExtraInfo | null | undefined,
+): ETranslations | ETranslationsMock | undefined {
+  const extra = extraInfo as IDecodedTxExtraStarknet | null | undefined;
+  if (extra?.accountDeployment) {
+    return ETranslationsMock.starknet_account_deploy_wallet;
+  }
+  const kind = extra?.privacy?.kind;
+  if (kind && kind !== 'transfer')
+    return getStarknetPrivacyOperationTitle(kind);
+}
+
+export function getStarknetPrivacyAmountError({
+  amount,
+  balance,
+  decimals,
+}: {
+  amount: string;
+  balance: string | undefined;
+  decimals: number | undefined;
+}): ETranslationsMock | undefined {
+  if (
+    decimals === undefined ||
+    !Number.isInteger(decimals) ||
+    decimals < 0 ||
+    decimals > 255 ||
+    balance === undefined
+  ) {
+    return ETranslationsMock.starknet_privacy_error_balance;
+  }
+  const available = new BigNumber(balance);
+  if (!available.isFinite() || available.isNegative())
+    return ETranslationsMock.starknet_privacy_error_balance;
+  const value = new BigNumber(amount);
+  if (!value.isFinite() || value.isLessThanOrEqualTo(0))
+    return ETranslationsMock.starknet_privacy_amount_required;
+  if (!value.shiftedBy(decimals).isInteger())
+    return ETranslationsMock.starknet_privacy_amount_precision;
+  if (value.isGreaterThan(balance))
+    return ETranslationsMock.starknet_privacy_amount_exceeds_available;
+  return undefined;
 }
 
 /**
@@ -47,33 +105,6 @@ export function formatStrk20Countdown(totalSeconds: number): string {
   return restMinutes === 0 ? `${hours}h` : `${hours}h ${restMinutes}m`;
 }
 
-export type IStrk20RecipientCopy = {
-  /** Blocks submission: the recipient has never registered with the pool. */
-  blocking: boolean;
-  messageKey?: ETranslationsMock;
-};
-
-export function getStrk20RecipientRequirementCopy(
-  requirement: EStrk20SetupRequirement | undefined,
-): IStrk20RecipientCopy {
-  switch (requirement) {
-    case EStrk20SetupRequirement.Register:
-      return {
-        blocking: true,
-        messageKey:
-          ETranslationsMock.starknet_privacy_error_recipient_not_registered,
-      };
-    case EStrk20SetupRequirement.SetupChannel:
-    case EStrk20SetupRequirement.SetupToken:
-      return {
-        blocking: false,
-        messageKey: ETranslationsMock.starknet_privacy_recipient_setup_note,
-      };
-    default:
-      return { blocking: false };
-  }
-}
-
 /**
  * Reads the STRK20 privacy block `buildDecodedTx` copies onto
  * `decodedTx.extraInfo.privacy` (core/src/chains/starknet/types). This is the
@@ -84,4 +115,86 @@ export function readStarknetPrivacyBlock(
   extraInfo: IDecodedTxExtraInfo | null | undefined,
 ): IDecodedTxPrivacyStarknet | undefined {
   return (extraInfo as IDecodedTxExtraStarknet | null | undefined)?.privacy;
+}
+
+export function getStarknetPrivacyFeeDisplay({
+  extraInfos,
+  decimals,
+  networkFeeNative,
+  nativeTokenPrice,
+}: {
+  extraInfos: (IDecodedTxExtraInfo | null | undefined)[];
+  decimals?: number;
+  networkFeeNative?: string;
+  nativeTokenPrice?: number;
+}) {
+  if (decimals === undefined) return undefined;
+  const protocolFees = extraInfos
+    .map((extraInfo) => readStarknetPrivacyBlock(extraInfo)?.protocolFee)
+    .filter((fee) => fee !== undefined);
+  if (!protocolFees.length) return undefined;
+  const protocolFee = BigNumber.sum(...protocolFees);
+  if (!protocolFee.isFinite() || protocolFee.isNegative()) return undefined;
+  const protocolFeeNative = protocolFee.shiftedBy(-decimals).toFixed();
+  const networkFee = new BigNumber(networkFeeNative ?? NaN);
+  const hasNetworkFee = networkFee.isFinite() && !networkFee.isNegative();
+  const totalNative = hasNetworkFee
+    ? networkFee.plus(protocolFeeNative).toFixed()
+    : undefined;
+  return {
+    totalNative,
+    totalFiat:
+      totalNative !== undefined &&
+      nativeTokenPrice !== undefined &&
+      nativeTokenPrice > 0
+        ? new BigNumber(totalNative).times(nativeTokenPrice).toFixed()
+        : undefined,
+  };
+}
+
+export function getStarknetPrivacyBalanceDisplay({
+  balances,
+  tokenAddress,
+  decimals,
+  publicBalanceParsed,
+}: {
+  balances?: IStrk20PrivateBalances;
+  tokenAddress: string;
+  decimals?: number;
+  publicBalanceParsed?: string;
+}): { privateBalanceParsed?: string; totalBalanceParsed?: string } {
+  if (!balances || decimals === undefined) {
+    return {};
+  }
+  const normalizedAddress = `0x${tokenAddress.slice(2).toLowerCase().padStart(64, '0')}`;
+  // A successful scan with no notes is zero; a missing or failed scan is unknown.
+  const privateBalanceParsed = new BigNumber(
+    balances.byToken[normalizedAddress] ?? '0',
+  )
+    .shiftedBy(-decimals)
+    .toFixed();
+  return {
+    privateBalanceParsed,
+    totalBalanceParsed:
+      publicBalanceParsed === undefined
+        ? undefined
+        : new BigNumber(publicBalanceParsed)
+            .plus(privateBalanceParsed)
+            .toFixed(),
+  };
+}
+
+export function isStarknetPrivacyHistoryVisible({
+  extraInfo,
+  mode,
+}: {
+  extraInfo: IDecodedTxExtraInfo | null | undefined;
+  mode: 'public' | 'private';
+}): boolean {
+  const privacy = readStarknetPrivacyBlock(extraInfo);
+  if (mode === 'private') {
+    return !!privacy;
+  }
+  // Deposits and withdrawals move both balances; private transfers do not.
+  return !privacy || privacy.kind === 'deposit' || privacy.kind === 'withdraw';
 }

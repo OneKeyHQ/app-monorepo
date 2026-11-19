@@ -40,6 +40,7 @@ export enum ETranslationsMock {
 
   // ---- starknet
   starknet_account_activation_one_time = 'Account activation (one-time)',
+  starknet_account_deploy_wallet = 'Deploy wallet',
   starknet_account_deployed_transfer_failed = 'Your Starknet account was activated, but the transfer was not sent. Please try the transfer again.',
 
   // ---- starknet privacy
@@ -58,36 +59,47 @@ export enum ETranslationsMock {
   starknet_privacy_error_proving_timeout = 'Proof generation took too long. Try again.',
   starknet_privacy_error_service_overloaded = 'The privacy service is overloaded. Try again shortly.',
   starknet_privacy_error_request_rejected = 'The proving service could not process this transfer.',
-  starknet_privacy_error_proof_expired = 'This private transfer expired before it was submitted. Build it again.',
-  starknet_privacy_error_screening_window_expired = 'This deposit was submitted outside its screening window. Build it again.',
+  starknet_privacy_error_proof_expired = 'This transaction expired. Go back and prepare it again.',
+  starknet_privacy_error_screening_window_expired = 'This deposit is no longer valid. Go back and prepare it again.',
   starknet_privacy_error_pool_paused = 'Private transfers are paused by the protocol.',
   starknet_privacy_error_key_mismatch = 'The registered private-transfer key does not match this device. Do not register again; contact support.',
-  starknet_privacy_error_locked = 'Unlock the app to read your private balance.',
+  starknet_privacy_error_waiting = 'Wait for the current transaction and network cooldown before preparing another.',
+  starknet_privacy_error_balance = 'Unable to load the available balance. Refresh to continue.',
+  starknet_privacy_error_history = 'Unable to sync private history. Retry to load transactions.',
+  starknet_privacy_error_fee = 'Unable to load the protocol fee. Retry before preparing a transaction.',
   starknet_privacy_error_unavailable = 'Private transfers are not available on this network yet.',
   starknet_privacy_error_recipient_not_registered = 'This address has not enabled private transfers.',
   starknet_privacy_error_invalid_amount = 'Enter a valid amount.',
   starknet_privacy_error_unknown = 'Private transfers hit an unexpected error.',
 
   // status
-  starknet_privacy_status_off = 'Private transfers off',
-  starknet_privacy_status_pending = 'Enabling private transfers',
-  starknet_privacy_status_on = 'Private transfers on',
-  starknet_privacy_status_mismatch = 'Private transfers need attention',
+  starknet_privacy_activation_title = 'Enable Starknet privacy',
+  starknet_privacy_activation_failed_title = 'Privacy registration failed',
+  starknet_privacy_activation_pending_title = 'Waiting for confirmation',
+  starknet_privacy_activation_check = 'Check status',
+  starknet_privacy_activation_checking = 'Checking registration…',
+  starknet_privacy_unlock_sync = 'Unlock and sync',
+  starknet_privacy_resume_sync = 'Resume private sync',
+  starknet_privacy_resume_no_fee = 'Restoring sync does not create a transaction or charge a fee.',
   starknet_privacy_status_waiting = 'Waiting {blocks} blocks before the next private transfer',
 
   // consent
   starknet_privacy_consent_title = 'Enable private transfers',
-  starknet_privacy_consent_viewing_key = 'Your viewing key is sent in plain text to the protocol operator every time your private balance syncs and on every private transfer. Network-level encryption hides it from the network, not from the operator.',
+  starknet_privacy_consent_visibility_title = 'Who can view activity',
+  starknet_privacy_consent_visibility = 'Sync and proving services receive your viewing key and can read your private activity. The pool auditor can also view it. This key cannot authorize spending.',
+  starknet_privacy_consent_registration_title = 'Permanent registration',
+  starknet_privacy_consent_public_activity = 'Deposit and withdrawal addresses and amounts remain public.',
+  starknet_privacy_consent_viewing_key = 'Your viewing key is sent in plain text to the protocol operator every time your private balance syncs and on every private transfer.',
   starknet_privacy_consent_registration = 'Registering writes your viewing key on-chain, encrypted to this pool auditor. It is written once and cannot be changed or removed.',
   starknet_privacy_consent_withdrawals = 'Withdrawals also encrypt the initiating address to the auditor.',
-  starknet_privacy_consent_fee = 'Each private transfer costs a protocol fee of {amount} STRK on top of network fees.',
-  starknet_privacy_consent_acknowledge = 'I understand this cannot be undone',
+  starknet_privacy_consent_fee_label = 'Current protocol fee',
+  starknet_privacy_consent_fee = '{amount} STRK per operation',
+  starknet_privacy_consent_acknowledge = 'I understand who can view my activity and that registration is permanent.',
   starknet_privacy_consent_auditor_key = 'Auditor key: {key}',
-  starknet_privacy_opt_out_note = 'Turning this off stops syncing on this device only. The on-chain registration stands.',
+  starknet_privacy_consent_auditor_key_label = 'Auditor public key',
 
   // ---- starknet privacy (UI)
   // labels
-  starknet_privacy_private_transfers = 'Private transfers',
   starknet_privacy_balance_public = 'Public',
   starknet_privacy_balance_private = 'Private',
   starknet_privacy_balance_total = 'Total',
@@ -99,26 +111,16 @@ export enum ETranslationsMock {
   starknet_privacy_action_send_private = 'Send privately',
 
   // token details block
-  starknet_privacy_block_enable_desc = 'Move this token into the private pool to send and receive it without publishing the amount on-chain.',
-  starknet_privacy_block_pending_desc = 'Your registration transaction is waiting to confirm.',
   starknet_privacy_wait_countdown = 'Next private transfer available in {blocks} blocks, about {duration}.',
 
   // private transfer form
-  starknet_privacy_form_desc_deposit = 'Moves {symbol} from your public balance into the private pool.',
-  starknet_privacy_form_desc_withdraw = 'Moves {symbol} from the private pool back to your public balance.',
-  starknet_privacy_form_desc_transfer = 'Sends {symbol} from the private pool to another address that has enabled private transfers.',
   starknet_privacy_available_private = 'Private {amount} {symbol}',
   starknet_privacy_available_public = 'Public {amount} {symbol}',
   starknet_privacy_amount_required = 'Enter an amount',
+  starknet_privacy_amount_precision = 'Use no more than {decimals} decimal places.',
   starknet_privacy_amount_exceeds_available = 'Amount is more than the available balance',
-  starknet_privacy_recipient_setup_note = 'The first private transfer to this address also performs one-time setup, so it costs more.',
 
-  // confirm screen banners
-  starknet_privacy_banner_protocol_fee = 'A protocol fee of {amount} STRK applies to this private transfer, on top of the network fee.',
-  starknet_privacy_banner_screening_window = 'This deposit has a short compliance screening window. If you wait too long before confirming, build it again.',
+  // confirmation
+  starknet_privacy_estimated_total_fee = 'Est. total fee',
   starknet_privacy_warning_user_linkage = 'This transfer opens more than one private channel at once, which links the recipients to each other on-chain.',
-
-  // receive and history
-  starknet_privacy_receive_note = 'Incoming transfers arrive private or public depending on what the sender chooses.',
-  starknet_privacy_history_not_authoritative = 'Private transfer history is rebuilt from your own notes, so it is incomplete by design. Entries can be missing, and a withdrawal that shared a transaction with your notes can appear here even when it was not yours.',
 }

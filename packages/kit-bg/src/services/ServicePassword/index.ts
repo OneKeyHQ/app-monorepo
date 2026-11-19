@@ -81,6 +81,7 @@ import {
 } from '../../states/jotai/atoms';
 import {
   type IHyperLiquidAgentPasswordStatusAtom,
+  appIsLocked,
   hyperLiquidAgentPasswordStatusAtom,
   passwordAtom,
   passwordBiologyAuthInfoAtom,
@@ -425,6 +426,12 @@ export default class ServicePassword extends ServiceBase {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
+    return this.cachedPassword;
+  }
+
+  // Background reads must not renew the password cache or open an unlock prompt.
+  async getCachedPasswordForBackgroundRead(): Promise<string | undefined> {
+    if (!this.cachedPassword || (await appIsLocked.get())) return undefined;
     return this.cachedPassword;
   }
 
@@ -1425,11 +1432,13 @@ export default class ServicePassword extends ServiceBase {
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
     hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
     kdfParams,
+    description,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
     hardwareCallContext?: EHardwareCallContext;
     kdfParams?: IPbkdf2KdfParams;
+    description?: string;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -1462,7 +1471,11 @@ export default class ServicePassword extends ServiceBase {
       // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
       defaultLogger.account.accountCreatePerf.ignoreDurationBegin();
-      ({ password } = await this.promptPasswordVerify({ reason, kdfParams }));
+      ({ password } = await this.promptPasswordVerify({
+        reason,
+        kdfParams,
+        ...(description ? { dialogProps: { description } } : {}),
+      }));
       defaultLogger.account.accountCreatePerf.ignoreDurationEnd();
     }
     return {
@@ -1478,13 +1491,20 @@ export default class ServicePassword extends ServiceBase {
     accountId,
     reason,
     kdfParams,
+    description,
   }: {
     accountId: string;
     reason?: EReasonForNeedPassword;
     kdfParams?: IPbkdf2KdfParams;
+    description?: string;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    return this.promptPasswordVerifyByWallet({ walletId, reason, kdfParams });
+    return this.promptPasswordVerifyByWallet({
+      walletId,
+      reason,
+      kdfParams,
+      description,
+    });
   }
 
   @backgroundMethod()

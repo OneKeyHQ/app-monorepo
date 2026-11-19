@@ -81,6 +81,12 @@ export class SimpleDbEntityStarknetPrivacy extends SimpleDbEntityBase<IStarknetP
     accountId: string;
     poolAddress: string;
     patch: Partial<IStrk20AccountPrivacyState>;
+    expected?: {
+      optInStatus?: IStrk20OptInStatusValue;
+      registerTxid?: string;
+      lastTransferTxid?: string;
+      activationTxid?: string;
+    };
   }): Promise<IStrk20AccountPrivacyState | undefined> {
     const key = buildStrk20RecordKey(params);
     let updated: IStrk20AccountPrivacyState | undefined;
@@ -90,7 +96,30 @@ export class SimpleDbEntityStarknetPrivacy extends SimpleDbEntityBase<IStarknetP
       if (!current) {
         return { records };
       }
+      const expected = params.expected;
+      if (
+        (expected?.optInStatus !== undefined &&
+          current.optInStatus !== expected.optInStatus) ||
+        (expected?.registerTxid !== undefined &&
+          current.registerTxid !== expected.registerTxid) ||
+        (expected?.activationTxid !== undefined &&
+          current.activationTxid !== expected.activationTxid) ||
+        (expected?.lastTransferTxid !== undefined &&
+          current.lastTransfer?.txid !== expected.lastTransferTxid)
+      ) {
+        updated = current;
+        return { records };
+      }
       updated = { ...current, ...params.patch };
+      if (
+        params.patch.lastTxBlockNumber !== undefined &&
+        current.lastTxBlockNumber !== undefined
+      ) {
+        updated.lastTxBlockNumber = Math.max(
+          current.lastTxBlockNumber,
+          params.patch.lastTxBlockNumber,
+        );
+      }
       return { records: { ...records, [key]: updated } };
     });
     return updated;

@@ -8,11 +8,14 @@ import type {
 } from '@onekeyhq/core/src/chains/starknet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IFeeStarknet } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import {
   ERC20_ENTRYPOINT,
   RESOURCE_BOUNDS_MULTIPLIER,
 } from './sdkStarknet/consts';
+
+import type { IStarknetReceipt } from './sdkStarknet/types';
 
 const U128_SHIFT = BigInt(128);
 const U128_MASK = (BigInt(1) << U128_SHIFT) - BigInt(1);
@@ -23,6 +26,44 @@ export function toHexFelt(value: bigint | string | number): string {
 
 export function hexToDecimalString(value: string): string {
   return BigInt(value).toString(10);
+}
+
+/**
+ * execution_status alone is not enough: a RECEIVED or PRE_CONFIRMED receipt
+ * already reports SUCCEEDED while the transaction can still be dropped, so it
+ * stays Pending until the sequencer accepts it. REJECTED is terminal and will
+ * never be accepted, so it resolves to Failed rather than polling forever.
+ */
+export function getReceiptTxStatus(
+  receipt: IStarknetReceipt | null | undefined,
+): EOnChainHistoryTxStatus {
+  if (!receipt) {
+    return EOnChainHistoryTxStatus.Pending;
+  }
+  if (
+    receipt.finality_status === 'ACCEPTED_ON_L2' ||
+    receipt.finality_status === 'ACCEPTED_ON_L1'
+  ) {
+    return receipt.execution_status === 'SUCCEEDED'
+      ? EOnChainHistoryTxStatus.Success
+      : EOnChainHistoryTxStatus.Failed;
+  }
+  if (receipt.finality_status === 'REJECTED') {
+    return EOnChainHistoryTxStatus.Failed;
+  }
+  return EOnChainHistoryTxStatus.Pending;
+}
+
+export function getReceiptFeeInNative(
+  receipt: IStarknetReceipt | null | undefined,
+  decimals: number,
+): string | undefined {
+  // V3 pays STRK in FRI. A missing fee or an older ETH/WEI receipt must not
+  // overwrite a pending estimate with zero or be labelled as STRK.
+  if (receipt?.actual_fee?.unit !== 'FRI') return undefined;
+  return new BigNumber(hexToDecimalString(receipt.actual_fee.amount))
+    .shiftedBy(-decimals)
+    .toFixed();
 }
 
 /**
@@ -119,21 +160,26 @@ export function zeroResourceBounds(): IStarknetResourceBounds {
   return { l1_gas: { ...zero }, l2_gas: { ...zero }, l1_data_gas: { ...zero } };
 }
 
-function boundToDecimal(item: IStarknetResourceBoundsItem) {
+function boundToDecimal(
+  item: IStarknetResourceBoundsItem,
+  estimatedPrice: string,
+) {
   return {
     maxAmount: hexToDecimalString(item.max_amount),
     maxPricePerUnit: hexToDecimalString(item.max_price_per_unit),
+    estimatedPricePerUnit: hexToDecimalString(estimatedPrice),
   };
 }
 
 /** Resource bounds as the fee UI wants them: decimal strings in FRI. */
 export function resourceBoundsToFee(
   bounds: IStarknetResourceBounds,
+  estimate: IStarknetFeeEstimateLike,
 ): Omit<IFeeStarknet, 'deployAccountFee'> {
   return {
-    l1Gas: boundToDecimal(bounds.l1_gas),
-    l2Gas: boundToDecimal(bounds.l2_gas),
-    l1DataGas: boundToDecimal(bounds.l1_data_gas),
+    l1Gas: boundToDecimal(bounds.l1_gas, estimate.l1_gas_price),
+    l2Gas: boundToDecimal(bounds.l2_gas, estimate.l2_gas_price),
+    l1DataGas: boundToDecimal(bounds.l1_data_gas, estimate.l1_data_gas_price),
   };
 }
 

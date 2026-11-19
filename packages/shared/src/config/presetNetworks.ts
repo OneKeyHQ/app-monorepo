@@ -2355,28 +2355,6 @@ const starknet: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const starknetSepolia: IServerNetwork = {
-  'impl': 'starknet',
-  // 0x534e5f5345504f4c4941 === 'SN_SEPOLIA'
-  'chainId': '0x534e5f5345504f4c4941',
-  'id': 'starknet--sepolia',
-  'code': 'tstarknet',
-  'decimals': 18,
-  'isTestnet': true,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/starknet.png',
-  'name': 'Starknet Sepolia',
-  'shortcode': 'tstarknet',
-  'shortname': 'TSTRK',
-  'symbol': 'STRK',
-  'feeMeta': {
-    'decimals': 18,
-    'symbol': 'STRK',
-  },
-  'defaultEnabled': false,
-  'isCustomNetwork': false,
-  'status': ENetworkStatus.LISTED,
-};
-
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2484,7 +2462,6 @@ export const presetNetworksMap = {
   stellar,
   stellarTestnet,
   starknet,
-  starknetSepolia,
 };
 
 export const getDefaultEnabledNetworksInAllNetworks = memoFn(
@@ -2657,7 +2634,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     stellar,
     stellarTestnet,
     starknet,
-    starknetSepolia,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
   const networks = platformEnv.isWeb

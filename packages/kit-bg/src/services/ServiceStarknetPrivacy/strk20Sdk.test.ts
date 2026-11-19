@@ -9,6 +9,18 @@ const createPrivateTransfers = jest.fn((params: unknown) => params);
 const indexerConstructorCalls: unknown[][] = [];
 
 class FakeIndexerDiscoveryProvider {
+  async discoverNotes() {
+    return { cursor: {} };
+  }
+  async discoverChannels() {
+    return { channels: [], total: 0 };
+  }
+  async fetchHistory() {
+    return {
+      transactions: [],
+      cursor: { subchannels: [], historyComplete: true },
+    };
+  }
   constructor(...args: unknown[]) {
     indexerConstructorCalls.push(args);
   }
@@ -35,6 +47,11 @@ jest.mock(
   () => ({
     __esModule: true,
     createPrivateTransfers,
+    classifyTransaction: jest.requireActual<
+      typeof import('../../vaults/impls/starknet/sdkStarknet/privacy/internal/action-classifier')
+    >(
+      '../../vaults/impls/starknet/sdkStarknet/privacy/internal/action-classifier',
+    ).classifyTransaction,
     IndexerDiscoveryProvider: FakeIndexerDiscoveryProvider,
     StarkscanProvingService: FakeStarkscanProvingService,
     ProvingServiceProofProvider: FakeProvingServiceProofProvider,
@@ -43,13 +60,24 @@ jest.mock(
 );
 
 // eslint-disable-next-line import/first
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import/first
+import type { IProxyRequest } from '@onekeyhq/shared/types/proxy';
+
+// eslint-disable-next-line import/first
 import {
   buildOhttpOption,
+  createStrk20ProverProxyFetch,
   createStrk20Transfers,
   deserializeHistoryCursor,
+  fetchStrk20HistoryPage,
+  getStrk20HistoryTransfers,
   resolvePrivateHistoryKind,
   serializeHistoryCursor,
 } from './strk20Sdk';
+
+// eslint-disable-next-line import/first
+import type { IStrk20ProverProxyItem } from './strk20Sdk';
 
 const POOL =
   '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91';
@@ -69,7 +97,7 @@ describe('createStrk20Transfers', () => {
       signer: {} as never,
       viewingKey: '0x2',
       poolAddress: POOL,
-      chainId: '0x534e5f5345504f4c4941',
+      chainId: '0x534e5f4d41494e',
       discoveryUrl: 'https://discovery.example',
       provingUrl: 'https://prover.example',
       ohttp: { publicKeyConfig: PINNED },
@@ -104,7 +132,9 @@ describe('createStrk20Transfers', () => {
 });
 
 describe('createStrk20Transfers with starkscan proving', () => {
-  const runStarkscan = (provingApiKey?: string) =>
+  const proverFetch = jest.fn() as unknown as typeof fetch;
+  const getProofNonce = jest.fn(async () => 7n);
+  const runStarkscan = (fetchImpl?: typeof fetch) =>
     createStrk20Transfers({
       accountAddress: '0x1',
       signer: {} as never,
@@ -112,18 +142,18 @@ describe('createStrk20Transfers with starkscan proving', () => {
       poolAddress: POOL,
       chainId: '0x534e5f4d41494e',
       discoveryUrl: 'https://discovery.example',
-      provingUrl: 'https://api.starkscan.co/v1/SN_MAIN',
+      provingUrl: '',
       provingKind: 'starkscan',
-      provingApiKey,
-      nodeUrl: 'https://rpc.example',
+      proverFetch: fetchImpl,
+      getProofNonce,
       ohttp: { publicKeyConfig: PINNED },
     });
 
-  it('builds the transport and a provider instance, no url config', async () => {
-    await runStarkscan('key-1');
+  it('tunnels the transport through the proxy fetch, no url config', async () => {
+    await runStarkscan(proverFetch);
 
     expect(transportConstructorCalls).toEqual([
-      [{ baseUrl: 'https://api.starkscan.co/v1/SN_MAIN', apiKey: 'key-1' }],
+      [{ baseUrl: '', fetchImpl: proverFetch }],
     ]);
     expect(proofProviderConstructorCalls).toHaveLength(1);
     expect(proofProviderConstructorCalls[0]).toEqual([
@@ -131,8 +161,7 @@ describe('createStrk20Transfers with starkscan proving', () => {
       '0x534e5f4d41494e',
       {
         transport: expect.any(FakeStarkscanProvingService),
-        nodeUrl: 'https://rpc.example',
-        poolAddress: POOL,
+        getNonce: getProofNonce,
       },
     ]);
     const [params] = createPrivateTransfers.mock.calls[0] as [
@@ -144,8 +173,8 @@ describe('createStrk20Transfers with starkscan proving', () => {
     expect(params.provingProvider).not.toHaveProperty('url');
   });
 
-  it('throws when the key is missing', async () => {
-    await expect(runStarkscan()).rejects.toThrow(/API key/);
+  it('throws without the proxy fetch', async () => {
+    await expect(runStarkscan()).rejects.toThrow(/wallet proxy/);
     expect(createPrivateTransfers).not.toHaveBeenCalled();
   });
 
@@ -159,12 +188,30 @@ describe('createStrk20Transfers with starkscan proving', () => {
       discoveryUrl: 'https://discovery.example',
       provingUrl: 'https://prover.example',
       provingKind: 'jsonRpc',
+      ohttp: { publicKeyConfig: PINNED },
     });
     const [params] = createPrivateTransfers.mock.calls[0] as [
       { provingProvider: { url: string } },
     ];
     expect(params.provingProvider.url).toBe('https://prover.example');
     expect(transportConstructorCalls).toHaveLength(0);
+  });
+});
+
+describe('direct OHTTP history discovery', () => {
+  it('uses the pinned key without requiring a backend relay', async () => {
+    await fetchStrk20HistoryPage({
+      discoveryUrl: 'https://discovery.example',
+      poolAddress: POOL,
+      accountAddress: '0x1',
+      viewingKey: '0x2',
+      ohttp: { publicKeyConfig: PINNED },
+    });
+    expect(indexerConstructorCalls[0]).toEqual([
+      'https://discovery.example',
+      POOL,
+      { ohttp: { publicKeyConfig: PINNED } },
+    ]);
   });
 });
 
@@ -263,5 +310,200 @@ describe('resolvePrivateHistoryKind', () => {
         deposits: [{}],
       }),
     ).toBe('withdraw');
+  });
+});
+
+describe('createStrk20ProverProxyFetch', () => {
+  const setup = (item: IStrk20ProverProxyItem | undefined) => {
+    const post = jest.fn(
+      async (_request: IProxyRequest, _signal?: AbortSignal) => item,
+    );
+    const proxyFetch = createStrk20ProverProxyFetch({
+      networkId: 'starknet--mainnet',
+      post,
+    });
+    return { post, proxyFetch };
+  };
+
+  it('wraps a submit in a prover-route item with the idempotency key', async () => {
+    const { post, proxyFetch } = setup({
+      success: true,
+      status: 202,
+      data: { jobId: 'job-1' },
+    });
+    const { signal } = new AbortController();
+    const payload = {
+      block_id: 'latest',
+      transaction: { sender_address: POOL },
+    };
+
+    await proxyFetch('/prove', {
+      method: 'POST',
+      headers: {
+        'Idempotency-Key': 'idem-1',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      {
+        networkId: 'starknet--mainnet',
+        body: [
+          {
+            route: 'prover',
+            params: {
+              method: 'POST',
+              url: '/prove',
+              params: [],
+              data: payload,
+              headers: { 'Idempotency-Key': 'idem-1' },
+            },
+          },
+        ],
+      },
+      signal,
+    );
+  });
+
+  it('sends a poll with neither body nor headers', async () => {
+    const { post, proxyFetch } = setup({ success: true, status: 200 });
+
+    await proxyFetch('/prove/job-1', {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+    });
+
+    expect(post.mock.calls[0][0].body[0].params).toEqual({
+      method: 'GET',
+      url: '/prove/job-1',
+      params: [],
+    });
+  });
+
+  it('rebuilds the upstream status, body and Retry-After', async () => {
+    const { proxyFetch } = setup({
+      success: false,
+      status: 429,
+      retryAfter: '30',
+      data: { code: 'rate_limited', message: 'slow down' },
+    });
+
+    const res = await proxyFetch('/prove', { method: 'POST', body: '{}' });
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('30');
+    await expect(res.json()).resolves.toEqual({
+      code: 'rate_limited',
+      message: 'slow down',
+    });
+  });
+
+  it('falls back to 200 or a gateway error without an upstream status', async () => {
+    const ok = await setup({ success: true, data: { jobId: 'j' } }).proxyFetch(
+      '/prove/j',
+      { method: 'GET' },
+    );
+    expect(ok.status).toBe(200);
+
+    const failed = await setup({
+      success: false,
+      error: 'upstream down',
+    }).proxyFetch('/prove/j', { method: 'GET' });
+    expect(failed.status).toBe(502);
+    await expect(failed.json()).resolves.toEqual({ message: 'upstream down' });
+  });
+
+  it('rejects like fetch with a TypeError when no response arrives', async () => {
+    await expect(
+      setup(undefined).proxyFetch('/prove/j', { method: 'GET' }),
+    ).rejects.toThrow(TypeError);
+
+    const post = jest.fn(async () => {
+      throw new OneKeyLocalError('socket hang up');
+    });
+    const proxyFetch = createStrk20ProverProxyFetch({
+      networkId: 'starknet--mainnet',
+      post,
+    });
+    await expect(proxyFetch('/prove/j', { method: 'GET' })).rejects.toEqual(
+      new TypeError('socket hang up'),
+    );
+  });
+});
+
+describe('private history attribution', () => {
+  it('includes only known note counterparties and owned public movements', async () => {
+    const account = 10n;
+    const pool = 20n;
+    const movements = await getStrk20HistoryTransfers(
+      {
+        blockNumber: 100,
+        transactionHash: 1n,
+        deposits: [
+          { fromAddress: account, token: 1n, amount: 5n },
+          { fromAddress: 999n, token: 1n, amount: 99n },
+        ],
+        withdrawals: [
+          { toAddress: account, token: 1n, amount: 4n },
+          { toAddress: 999n, token: 1n, amount: 88n },
+        ],
+        openNoteDeposits: [],
+        notes: [
+          {
+            channelKind: 'incoming',
+            token: 1n,
+            counterparty: 30n,
+            amount: 3n,
+            noteId: 1n,
+            noteIndex: 0,
+            salt: 0n,
+          },
+          {
+            channelKind: 'outgoing',
+            token: 1n,
+            counterparty: 40n,
+            amount: 2n,
+            noteId: 2n,
+            noteIndex: 1,
+            salt: 0n,
+          },
+        ],
+      },
+      account,
+      pool,
+    );
+    expect(
+      movements.map(({ kind, from, to, token, amount }) => ({
+        kind,
+        from,
+        to,
+        token,
+        amount,
+      })),
+    ).toEqual([
+      { kind: 'deposit', from: account, to: pool, token: 1n, amount: 5n },
+      { kind: 'withdraw', from: pool, to: account, token: 1n, amount: 4n },
+      { kind: 'transfer', from: 30n, to: account, token: 1n, amount: 3n },
+      { kind: 'transfer', from: account, to: 40n, token: 1n, amount: 2n },
+    ]);
+  });
+  it('does not turn synthetic registration into an asset transfer', async () => {
+    expect(
+      await getStrk20HistoryTransfers(
+        {
+          blockNumber: 100,
+          transactionHash: 0n,
+          registeredPubkey: 1n,
+          deposits: [],
+          withdrawals: [],
+          notes: [],
+          openNoteDeposits: [],
+        },
+        10n,
+        20n,
+      ),
+    ).toEqual([]);
   });
 });

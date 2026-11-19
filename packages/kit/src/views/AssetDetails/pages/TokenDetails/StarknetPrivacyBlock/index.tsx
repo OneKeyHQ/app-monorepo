@@ -1,11 +1,14 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  ActionItem,
+  RawActions,
+} from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import {
   isStrk20Mismatch,
   isStrk20RegisterPending,
@@ -17,285 +20,383 @@ import {
   useStarknetPrivateBalances,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacy';
 import { useStarknetPrivacyOptIn } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacyOptIn';
+import { createStarknetPrivacySendOptions } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/createStarknetPrivacySendOptions';
 import {
   formatMockMessage,
   formatStrk20Countdown,
+  getStarknetPrivacyBalanceDisplay,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
-import { EStrk20ErrorRetry } from '@onekeyhq/shared/types/starknetPrivacy';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EStrk20ErrorCode,
+  EStrk20ErrorRetry,
+  EStrk20OptInStatus,
+  EStrk20SequencingStatus,
+} from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IStrk20TransferKind } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import TokenDetailsBalanceHero from '../TokenDetailsBalanceHero';
+import { TokenPrivacyPanel } from '../TokenPrivacyPanel';
 
 type IProps = {
   networkId: string;
   accountId: string;
   token: IToken;
-  /** Public balance already fetched by the header, in token units. */
   publicBalanceParsed?: string;
+  price?: number;
+  currency?: string;
+  accountAddress: string;
+  onReceive: () => void | Promise<void>;
+  receiveDisabled?: boolean;
+  allowReceiveWhenDisabled?: boolean;
 };
 
-function AmountRow({
-  label,
-  amount,
-  emphasized,
-}: {
-  label: string;
-  amount: string | undefined;
-  emphasized?: boolean;
-}) {
-  return (
-    <XStack justifyContent="space-between" alignItems="center">
-      <SizableText
-        size={emphasized ? '$bodyMdMedium' : '$bodyMd'}
-        color={emphasized ? '$text' : '$textSubdued'}
-      >
-        {label}
-      </SizableText>
-      <NumberSizeableTextWrapper
-        hideValue
-        formatter="balance"
-        size={emphasized ? '$bodyMdMedium' : '$bodyMd'}
-        color={emphasized ? '$text' : '$textSubdued'}
-      >
-        {amount ?? '-'}
-      </NumberSizeableTextWrapper>
-    </XStack>
-  );
-}
-
-/**
- * Per-token public / private / total split for the STRK20 pool, plus the
- * opt-in entry and the sequencing cooldown countdown. Rendered only when the
- * vault settings declare a privacy pool.
- */
 function StarknetPrivacyBlock({
   networkId,
   accountId,
   token,
   publicBalanceParsed,
+  price,
+  currency,
+  accountAddress,
+  onReceive,
+  receiveDisabled,
+  allowReceiveWhenDisabled,
 }: IProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-
-  const { isAvailable, config, errorKey: availabilityErrorKey } =
-    useStarknetPrivacyAvailability({ networkId, accountId });
-  const { state, reload } = useStarknetPrivacyAccountState({
+  const {
+    isAvailable,
+    config,
+    errorKey: availabilityErrorKey,
+    isLoading: availabilityLoading,
+  } = useStarknetPrivacyAvailability({ networkId, accountId });
+  const {
+    state,
+    reload,
+    errorKey: stateErrorKey,
+    isLoading: stateLoading,
+  } = useStarknetPrivacyAccountState({
     networkId,
     accountId,
     enabled: isAvailable,
   });
-
   const registered = isStrk20Registered(state);
   const pending = isStrk20RegisterPending(state);
   const mismatch = isStrk20Mismatch(state);
-
-  const { balances } = useStarknetPrivateBalances({
+  const isResuming = Boolean(state?.registeredPublicKey);
+  const {
+    balances,
+    errorKey: balanceErrorKey,
+    errorCode: balanceErrorCode,
+    isLoading: balanceLoading,
+    isRefreshing: balanceRefreshing,
+    reload: reloadBalances,
+    refreshSilently,
+    lastSyncedAt,
+  } = useStarknetPrivateBalances({
     networkId,
     accountId,
     tokenAddress: token.address,
     enabled: isAvailable && registered,
   });
-  const { sequencing } = useStarknetPrivacySequencing({
-    networkId,
-    accountId,
-    enabled: isAvailable && registered,
-  });
-
+  const { sequencing, errorKey: sequencingErrorKey } =
+    useStarknetPrivacySequencing({
+      networkId,
+      accountId,
+      enabled:
+        isAvailable &&
+        (registered || state?.optInStatus === EStrk20OptInStatus.Consented),
+    });
   const { optIn, isOptingIn, optInErrorKey, optInRetryable } =
     useStarknetPrivacyOptIn({
       networkId,
       accountId,
       config,
+      isResuming,
+      hasConsent: Boolean(state?.consentAcceptedAt),
       onRegisterSubmitted: reload,
     });
-  // A non-retryable failure (e.g. screening rejection) must not invite the
-  // user to press Enable again for the same, guaranteed-to-fail attempt.
-  const canRetryOptIn = optInRetryable !== EStrk20ErrorRetry.No;
-
-  const privateBalanceParsed = useMemo(() => {
-    const raw = balances?.byToken?.[token.address.toLowerCase()];
-    if (!raw) {
-      return undefined;
-    }
-    return new BigNumber(raw).shiftedBy(-(token.decimals ?? 0)).toFixed();
-  }, [balances?.byToken, token.address, token.decimals]);
-
-  const totalBalanceParsed = useMemo(() => {
-    if (publicBalanceParsed === undefined && privateBalanceParsed === undefined) {
-      return undefined;
-    }
-    return new BigNumber(publicBalanceParsed ?? 0)
-      .plus(privateBalanceParsed ?? 0)
-      .toFixed();
-  }, [privateBalanceParsed, publicBalanceParsed]);
-
-  const isWaiting = isStrk20SequencingWaiting(sequencing);
-
+  const optInBlocked =
+    Boolean(optInErrorKey) && optInRetryable === EStrk20ErrorRetry.No;
+  const { privateBalanceParsed } = getStarknetPrivacyBalanceDisplay({
+    balances,
+    tokenAddress: token.address,
+    decimals: token.decimals,
+    publicBalanceParsed,
+  });
   const openTransfer = useCallback(
     (kind: IStrk20TransferKind) => {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendStarknetPrivateTransfer,
-        params: { networkId, accountId, kind, token },
-      });
+      const params = {
+        networkId,
+        accountId,
+        token,
+        isNFT: false,
+        sendOptions: createStarknetPrivacySendOptions({
+          intl,
+          kind,
+          accountId,
+          networkId,
+          token,
+        }),
+      };
+      if (kind === 'transfer') {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxDataInput,
+          params,
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxAmountInput,
+          params: {
+            ...params,
+            recipientAddress: accountAddress,
+          },
+        });
+      }
     },
-    [accountId, navigation, networkId, token],
+    [accountAddress, accountId, intl, navigation, networkId, token],
   );
-
-  // A clean `false` means the pool is not live here, so the feature stays
-  // invisible. Only a failed probe is worth telling the user about.
-  if (!isAvailable) {
-    if (!availabilityErrorKey) {
-      return null;
+  const lastTransfer = state?.lastTransfer;
+  const previousTransfer = useRef(lastTransfer);
+  useEffect(() => {
+    const previous = previousTransfer.current;
+    previousTransfer.current = lastTransfer;
+    if (
+      previous?.status === 'pending' &&
+      lastTransfer?.status === 'confirmed' &&
+      previous.txid === lastTransfer.txid
+    ) {
+      refreshSilently();
     }
+  }, [lastTransfer, refreshSilently]);
+  if (
+    (availabilityLoading && !registered) ||
+    (isAvailable && stateLoading && !registered && !pending)
+  ) {
     return (
-      <Stack pb="$5">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {formatMockMessage(intl, availabilityErrorKey)}
+      <TokenPrivacyPanel
+        state="preparing"
+        title={formatMockMessage(
+          intl,
+          ETranslationsMock.starknet_privacy_activation_checking,
+        )}
+      />
+    );
+  }
+  if (!isAvailable) {
+    return (
+      <TokenPrivacyPanel
+        state={availabilityErrorKey ? 'error' : 'disabled'}
+        title={
+          availabilityErrorKey
+            ? intl.formatMessage({ id: ETranslations.global_an_error_occurred })
+            : undefined
+        }
+        enableUnavailable
+        description={
+          availabilityErrorKey
+            ? formatMockMessage(intl, availabilityErrorKey)
+            : intl.formatMessage({
+                id: ETranslations.global_not_available,
+              })
+        }
+      />
+    );
+  }
+  if (stateErrorKey || mismatch) {
+    return (
+      <TokenPrivacyPanel
+        state="error"
+        title={intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        })}
+        detail={formatMockMessage(
+          intl,
+          stateErrorKey ??
+            ETranslationsMock.starknet_privacy_error_key_mismatch,
+        )}
+        onSync={mismatch ? undefined : reload}
+      />
+    );
+  }
+  if (!registered) {
+    if (pending) {
+      return (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          testID="starknet-privacy-registration-pending"
+        >
+          {intl.formatMessage({ id: ETranslations.global_confirming })}
         </SizableText>
-      </Stack>
+      );
+    }
+
+    const hasConsent = state?.optInStatus === EStrk20OptInStatus.Consented;
+    const waiting =
+      hasConsent && sequencing?.status === EStrk20SequencingStatus.Waiting;
+    let titleKey = ETranslationsMock.starknet_privacy_activation_title;
+    let descriptionKey: ETranslationsMock | undefined;
+    let actionLabel: ETranslations | undefined;
+    if (isResuming) {
+      titleKey = ETranslationsMock.starknet_privacy_resume_sync;
+      actionLabel = ETranslations.global_resume;
+    } else if (waiting) {
+      descriptionKey = ETranslationsMock.starknet_privacy_error_waiting;
+      actionLabel = ETranslations.global_continue;
+    } else if (state?.registerTxFailed) {
+      descriptionKey =
+        ETranslationsMock.starknet_privacy_activation_failed_title;
+      actionLabel = ETranslations.global_retry;
+    } else if (hasConsent) {
+      actionLabel = ETranslations.global_continue;
+      if (sequencing?.status === EStrk20SequencingStatus.ActivationRequired) {
+        titleKey = ETranslationsMock.starknet_account_deploy_wallet;
+      }
+    }
+
+    return (
+      <TokenPrivacyPanel
+        state="disabled"
+        title={formatMockMessage(intl, titleKey)}
+        description={
+          descriptionKey ? formatMockMessage(intl, descriptionKey) : ''
+        }
+        detail={
+          optInErrorKey ? formatMockMessage(intl, optInErrorKey) : undefined
+        }
+        onEnable={() => void optIn()}
+        enableUnavailable={(waiting && !isOptingIn) || optInBlocked}
+        busy={isOptingIn}
+        actionLabel={
+          actionLabel ? intl.formatMessage({ id: actionLabel }) : undefined
+        }
+      />
     );
   }
 
+  const isReady =
+    sequencing?.status === EStrk20SequencingStatus.Ready &&
+    lastTransfer?.status !== 'pending';
+  const canSpendPrivate =
+    isReady &&
+    !balanceErrorKey &&
+    new BigNumber(privateBalanceParsed ?? 0).isGreaterThan(0);
+  const fiatValue =
+    privateBalanceParsed !== undefined &&
+    new BigNumber(price ?? NaN).isGreaterThan(0)
+      ? new BigNumber(privateBalanceParsed).times(price ?? 0).toFixed()
+      : undefined;
+
+  const isLocked = balanceErrorCode === EStrk20ErrorCode.Locked;
+
   return (
-    <Stack pb="$5">
-      <YStack
-        gap="$3"
-        p="$4"
-        borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-      >
-        <SizableText size="$headingSm">
+    <YStack testID="starknet-privacy-private" gap="$4">
+      <TokenDetailsBalanceHero
+        isLoading={!!balanceLoading && !balances}
+        currency={currency}
+        fiatValue={fiatValue}
+        balanceParsed={privateBalanceParsed}
+        sync={
+          isLocked
+            ? undefined
+            : {
+                isRefreshing: balanceRefreshing,
+                onRefresh: reloadBalances,
+                lastSyncedAt,
+              }
+        }
+      />
+      {isLocked ? (
+        <Button
+          testID="starknet-privacy-unlock"
+          alignSelf="flex-start"
+          size="small"
+          variant="secondary"
+          loading={balanceRefreshing}
+          disabled={balanceRefreshing}
+          onPress={reloadBalances}
+        >
+          {intl.formatMessage({ id: ETranslations.global_unlock })}
+        </Button>
+      ) : null}
+      <RawActions flexWrap="wrap">
+        <RawActions.Send
+          testID="starknet-privacy-send"
+          label={intl.formatMessage({ id: ETranslations.global_send })}
+          disabled={!canSpendPrivate}
+          onPress={() => openTransfer('transfer')}
+        />
+        <RawActions.Receive
+          testID="starknet-privacy-receive"
+          disabled={receiveDisabled}
+          allowPressWhenDisabled={allowReceiveWhenDisabled}
+          onPress={onReceive}
+          trackID="wallet-token-details-receive"
+        />
+        <ActionItem
+          testID="starknet-privacy-deposit"
+          icon="ShieldOutline"
+          label={intl.formatMessage({
+            id: ETranslations.privacy_balance_shield__action,
+          })}
+          disabled={!isReady || publicBalanceParsed === undefined}
+          onPress={() => openTransfer('deposit')}
+        />
+        <ActionItem
+          testID="starknet-privacy-withdraw"
+          icon="ArrowTopOutline"
+          label={intl.formatMessage({
+            id: ETranslations.privacy_balance_unshield__action,
+          })}
+          disabled={!canSpendPrivate}
+          onPress={() => openTransfer('withdraw')}
+        />
+      </RawActions>
+      {balanceErrorKey && !isLocked ? (
+        <TokenPrivacyPanel
+          state="error"
+          title={intl.formatMessage({
+            id: balances
+              ? ETranslations.global_sync_error
+              : ETranslations.privacy_balance_unavailable__msg,
+          })}
+          detail={
+            balanceErrorCode === EStrk20ErrorCode.Unknown
+              ? undefined
+              : formatMockMessage(intl, balanceErrorKey)
+          }
+          onSync={reloadBalances}
+          busy={balanceRefreshing}
+        />
+      ) : null}
+      {sequencingErrorKey ? (
+        <SizableText size="$bodySm" color="$textCritical">
+          {formatMockMessage(intl, sequencingErrorKey)}
+        </SizableText>
+      ) : null}
+      {isStrk20SequencingWaiting(sequencing) &&
+      lastTransfer?.status !== 'pending' ? (
+        <SizableText size="$bodySm" color="$textSubdued">
           {formatMockMessage(
             intl,
-            ETranslationsMock.starknet_privacy_private_transfers,
+            ETranslationsMock.starknet_privacy_wait_countdown,
+            {
+              blocks: sequencing?.blocksRemaining ?? 0,
+              duration: formatStrk20Countdown(
+                sequencing?.estimatedSecondsRemaining ?? 0,
+              ),
+            },
           )}
         </SizableText>
-
-        {mismatch ? (
-          <SizableText size="$bodyMd" color="$textCritical">
-            {formatMockMessage(
-              intl,
-              ETranslationsMock.starknet_privacy_error_key_mismatch,
-            )}
-          </SizableText>
-        ) : null}
-
-        {!mismatch && !registered ? (
-          <YStack gap="$3">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {formatMockMessage(
-                intl,
-                pending
-                  ? ETranslationsMock.starknet_privacy_block_pending_desc
-                  : ETranslationsMock.starknet_privacy_block_enable_desc,
-              )}
-            </SizableText>
-            {pending || !canRetryOptIn ? null : (
-              <Button
-                size="small"
-                variant="primary"
-                alignSelf="flex-start"
-                loading={isOptingIn}
-                onPress={() => void optIn()}
-                testID="starknet-privacy-enable"
-              >
-                {formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_action_enable,
-                )}
-              </Button>
-            )}
-            {optInErrorKey ? (
-              <SizableText size="$bodySm" color="$textCritical">
-                {formatMockMessage(intl, optInErrorKey)}
-              </SizableText>
-            ) : null}
-          </YStack>
-        ) : null}
-
-        {registered ? (
-          <YStack gap="$3">
-            <YStack gap="$1.5">
-              <AmountRow
-                label={formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_balance_public,
-                )}
-                amount={publicBalanceParsed}
-              />
-              <AmountRow
-                label={formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_balance_private,
-                )}
-                amount={privateBalanceParsed}
-              />
-              <AmountRow
-                emphasized
-                label={formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_balance_total,
-                )}
-                amount={totalBalanceParsed}
-              />
-            </YStack>
-
-            {isWaiting ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_wait_countdown,
-                  {
-                    blocks: sequencing?.blocksRemaining ?? 0,
-                    duration: formatStrk20Countdown(
-                      sequencing?.estimatedSecondsRemaining ?? 0,
-                    ),
-                  },
-                )}
-              </SizableText>
-            ) : null}
-
-            <XStack gap="$2" flexWrap="wrap">
-              <Button
-                size="small"
-                disabled={isWaiting}
-                onPress={() => openTransfer('deposit')}
-                testID="starknet-privacy-deposit"
-              >
-                {formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_action_deposit,
-                )}
-              </Button>
-              <Button
-                size="small"
-                disabled={isWaiting}
-                onPress={() => openTransfer('withdraw')}
-                testID="starknet-privacy-withdraw"
-              >
-                {formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_action_withdraw,
-                )}
-              </Button>
-              <Button
-                size="small"
-                disabled={isWaiting}
-                onPress={() => openTransfer('transfer')}
-                testID="starknet-privacy-send"
-              >
-                {formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_action_send_private,
-                )}
-              </Button>
-            </XStack>
-          </YStack>
-        ) : null}
-      </YStack>
-    </Stack>
+      ) : null}
+    </YStack>
   );
 }
 

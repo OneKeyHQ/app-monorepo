@@ -278,6 +278,8 @@ export type IVaultSettings = {
   utxoDustAmount?: string;
 
   accountType: EDBAccountType;
+  /** Account options select a wallet contract and may share a derivation path. */
+  accountDeriveMode?: 'walletContract';
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {
     default: IVaultSettingsNetworkInfo;
@@ -429,7 +431,8 @@ export type IVaultSettings = {
 
   fixConfirmedTxEnabled?: boolean;
 
-  supportBatchEstimateFee?: Record<string, boolean>;
+  // true uses the server batch endpoint; 'local' uses the chain vault's estimator.
+  supportBatchEstimateFee?: Record<string, boolean | 'local'>;
 
   afterSendTxActionEnabled?: boolean;
 
@@ -481,12 +484,16 @@ export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
 
 export type IDeriveStrk20ViewingKeyParams = {
   password: string;
+  deviceParams?: IDeviceSharedCallParams;
   chainId: string;
   accountAddress: string;
   poolAddress: string;
   keyIndex?: number;
 };
-export type IDeriveStrk20ViewingKeyResult = IStrk20ViewingKeyResult;
+export type IDeriveStrk20ViewingKeyResult = Pick<
+  IStrk20ViewingKeyResult,
+  'viewingKey' | 'publicKeyX'
+> & { counter?: number };
 
 /**
  * Structural view of the one Starknet-only core method. A keyring's `coreApi` is
@@ -495,6 +502,7 @@ export type IDeriveStrk20ViewingKeyResult = IStrk20ViewingKeyResult;
  */
 export type ISignStrk20ProofInvocationParams = {
   password: string;
+  deviceParams?: IDeviceSharedCallParams;
   invocation: IStrk20ProofInvocationPayload;
 };
 
@@ -895,6 +903,15 @@ export interface IBuildDecodedTxParams {
   isToContract?: boolean;
   sourceInfo?: IDappSourceInfo;
 }
+export type ISendConfirmationPreparation = {
+  unsignedTxs: IUnsignedTxPro[];
+  prerequisite?: {
+    transfersInfo: ITransferInfo[];
+    unsignedTx?: IUnsignedTxPro;
+    pendingTxid?: string;
+  };
+};
+
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;

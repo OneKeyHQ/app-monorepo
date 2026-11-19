@@ -1,6 +1,22 @@
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+
 import ClientStarknet from './ClientStarknet';
-import { STARKNET_DEFAULT_RPC_URLS } from './consts';
 import { JsonRpcTransport } from './JsonRpcTransport';
+import { OneKeyTransport } from './OneKeyTransport';
+
+function buildProxyClient() {
+  const sendProxyRequest = jest.fn<Promise<string[]>, unknown[]>();
+  const backgroundApi = {
+    serviceAccountProfile: { sendProxyRequest },
+  } as unknown as IBackgroundApi;
+  return {
+    client: new ClientStarknet({
+      networkId: 'starknet--mainnet',
+      backgroundApi,
+    }),
+    sendProxyRequest,
+  };
+}
 
 describe('ClientStarknet transport selection', () => {
   it('goes direct to a custom RPC url when one is configured', () => {
@@ -20,50 +36,41 @@ describe('ClientStarknet transport selection', () => {
     expect(client.rpcUrl).toBe('https://my-node.example');
   });
 
-  it('falls back to the bundled default while the proxy is disabled', () => {
-    for (const networkId of Object.keys(STARKNET_DEFAULT_RPC_URLS)) {
-      const client = new ClientStarknet({ networkId });
-      expect(client.transport).toBeInstanceOf(JsonRpcTransport);
-      expect(client.rpcUrl).toBe(STARKNET_DEFAULT_RPC_URLS[networkId]);
-    }
+  it('uses the wallet proxy by default and exposes no direct RPC URL', () => {
+    const { client } = buildProxyClient();
+    expect(client.transport).toBeInstanceOf(OneKeyTransport);
+    expect(client.rpcUrl).toBe('');
   });
 
-  it('refuses a network with no bundled default and no custom url', () => {
+  it('refuses default RPC without a backgroundApi', () => {
     expect(
-      () => new ClientStarknet({ networkId: 'starknet--nowhere' }),
-    ).toThrow(/No Starknet RPC url configured/);
+      () => new ClientStarknet({ networkId: 'starknet--mainnet' }),
+    ).toThrow(/requires a backgroundApi/);
   });
 
-  describe('when the backend proxy is enabled', () => {
-    beforeEach(() => {
-      jest.resetModules();
-      jest.doMock('./consts', () => ({
-        ...(jest.requireActual('./consts') as Record<string, unknown>),
-        STARKNET_BACKEND_PROXY_ENABLED: true,
-      }));
+  it('keeps proof nonce reads on the proxy at latest', async () => {
+    const { client, sendProxyRequest } = buildProxyClient();
+    sendProxyRequest.mockResolvedValue(['0x7']);
+    await expect(client.getNonce('0x1234', 'latest')).resolves.toBe('0x7');
+    expect(sendProxyRequest).toHaveBeenCalledTimes(1);
+    expect(sendProxyRequest).toHaveBeenCalledWith({
+      networkId: 'starknet--mainnet',
+      isJsonRpc: true,
+      body: [
+        {
+          route: 'rpc',
+          params: { method: 'starknet_getNonce', params: ['latest', '0x1234'] },
+        },
+      ],
     });
+  });
 
-    afterEach(() => {
-      jest.dontMock('./consts');
-      jest.resetModules();
-    });
-
-    it('routes through OneKeyTransport and reports no rpc url', async () => {
-      const { default: ProxyClient } = await import('./ClientStarknet');
-      const { OneKeyTransport } = await import('./OneKeyTransport');
-      const client = new ProxyClient({
-        networkId: 'starknet--mainnet',
-        backgroundApi: {} as never,
-      });
-      expect(client.transport).toBeInstanceOf(OneKeyTransport);
-      expect(client.rpcUrl).toBe('');
-    });
-
-    it('refuses to build a proxy transport without a backgroundApi', async () => {
-      const { default: ProxyClient } = await import('./ClientStarknet');
-      expect(() => new ProxyClient({ networkId: 'starknet--mainnet' })).toThrow(
-        /requires a backgroundApi/,
-      );
-    });
+  it('propagates proxy failures without a direct RPC fallback', async () => {
+    const { client, sendProxyRequest } = buildProxyClient();
+    const failure = new Error('proxy unavailable');
+    sendProxyRequest.mockRejectedValue(failure);
+    await expect(client.getChainId()).rejects.toBe(failure);
+    expect(client.rpcUrl).toBe('');
+    expect(sendProxyRequest).toHaveBeenCalledTimes(1);
   });
 });

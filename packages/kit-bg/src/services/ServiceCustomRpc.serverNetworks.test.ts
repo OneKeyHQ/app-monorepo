@@ -85,7 +85,7 @@ function buildService({
 }
 
 describe('ServiceCustomRpc server networks', () => {
-  it.each(['zec--0', 'xmr--0'])(
+  it.each(['zec--0', 'xmr--0', 'starknet--mainnet'])(
     'reads %s privacy configuration from network extensions',
     async (id) => {
       const { service, upsertServerNetworks } = buildService({
@@ -252,6 +252,8 @@ describe('ServiceCustomRpc server networks', () => {
         robinhood,
         { ...zcashDelisted, id: 'evm--1' },
         { ...zcashDelisted, id: 'btc--0' },
+        // a privacy pool takes only its config from the entry, never TRASH
+        { ...zcashDelisted, id: 'starknet--mainnet' },
       ],
     });
 

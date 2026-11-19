@@ -37,6 +37,10 @@ import type {
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+import {
+  requestTxConfirmation,
+  waitForSendPrerequisite,
+} from './transactionConfirmationUtils';
 import useAppNavigation from './useAppNavigation';
 
 type IParams = {
@@ -71,6 +75,9 @@ type IBuildUnsignedTxParams = {
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
+  popStack?: boolean;
+  transactionStep?: { step: number; total: number };
+  prerequisites?: { isCurrent: () => boolean };
   transferPayload?: ITransferPayload;
   signOnly?: boolean;
   useFeeInTx?: boolean;
@@ -142,9 +149,15 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
   const intl = useIntl();
 
   const normalizeTxConfirm: INavigationToTxConfirm = useCallback(
-    async (params: IBuildUnsignedTxParams) => {
+    async function confirm(
+      params: IBuildUnsignedTxParams,
+      hasConfirmedPrerequisite = false,
+    ) {
       const {
         sameModal,
+        popStack,
+        transactionStep,
+        prerequisites,
         onSuccess,
         onLateBroadcastAccepted,
         onFail,
@@ -247,6 +260,75 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
+        const prepared =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmation({
+            accountId,
+            networkId,
+            unsignedTxs,
+            confirmPrerequisites: Boolean(prerequisites),
+          });
+        unsignedTxs = prepared.unsignedTxs;
+
+        if (prepared.prerequisite) {
+          if (hasConfirmedPrerequisite) {
+            throw new OneKeyLocalError({
+              key: ETranslations.tx_confirm_waiting__desc,
+            });
+          }
+          const isCurrent =
+            prerequisites?.isCurrent ?? isNavigationCurrent ?? (() => true);
+          const { unsignedTx: prerequisite, pendingTxid } =
+            prepared.prerequisite;
+          if (!isCurrent()) return;
+
+          let prerequisiteTxid = pendingTxid;
+          if (prerequisite) {
+            const result = await requestTxConfirmation(
+              (callbacks) =>
+                confirm({
+                  sameModal,
+                  popStack: sameModal ? false : undefined,
+                  transactionStep: { step: 1, total: 2 },
+                  unsignedTxs: [prerequisite],
+                  isNavigationCurrent: isCurrent,
+                  ...callbacks,
+                  // The open confirmation still owns retry after a send failure.
+                  onConfirmationFail: noop,
+                }),
+              isCurrent,
+            );
+            prerequisiteTxid = result?.[0]?.signedTx.txid;
+            if (!prerequisiteTxid) {
+              if (isCurrent()) onCancel?.();
+              return;
+            }
+          }
+          if (
+            prerequisiteTxid &&
+            !(await waitForSendPrerequisite({
+              accountId,
+              networkId,
+              txid: prerequisiteTxid,
+              isCurrent,
+            }))
+          )
+            return;
+          if (!isCurrent()) return;
+          await confirm(
+            {
+              ...params,
+              isNavigationCurrent: isCurrent,
+              encodedTx: undefined,
+              unsignedTxs: undefined,
+              feeInfos: undefined,
+              transfersInfo: prepared.prerequisite.transfersInfo,
+              transactionStep: { step: 2, total: 2 },
+            },
+            true,
+          );
+          return;
+        }
+
         const target =
           params.isInternalSwap && !transferPayloadBase?.isPrivateSend
             ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
@@ -295,6 +377,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             useFeeInTx,
             feeInfoEditable,
             gasAccountScenario,
+            ...(popStack !== undefined ? { popStack } : {}),
+            ...(transactionStep ? { transactionStep } : {}),
           });
         } else {
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -318,6 +402,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               useFeeInTx,
               feeInfoEditable,
               gasAccountScenario,
+              ...(popStack !== undefined ? { popStack } : {}),
+              ...(transactionStep ? { transactionStep } : {}),
             },
           });
         }

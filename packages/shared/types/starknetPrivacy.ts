@@ -38,31 +38,26 @@ export type IStrk20OhttpConfig = {
 
 export type IStrk20ProvingKind = 'jsonRpc' | 'starkscan';
 
+/**
+ * Built into the app; the server can only switch the feature off, through the
+ * network list's `extensions.localWallet.privacyDisabled`.
+ */
 export type IStrk20PrivacyNetworkConfig = {
   networkId: string;
-  /** Master switch. A missing or malformed remote config must never enable it. */
-  enabled: boolean;
   poolAddress: string;
   discoveryUrl: string;
+  /** JSON-RPC prover url; unused, and may be empty, for `starkscan`. */
   provingUrl: string;
-  /** Wire shape of the proving service. Defaults to `jsonRpc`. */
-  provingKind?: IStrk20ProvingKind;
   /**
-   * Operator-issued key sent as `X-Starkscan-Api-Key`. Distributed via remote
-   * config, so it is extractable from any client and only guards Starkscan's
-   * per-key quota, not user funds.
+   * Wire shape of the proving service. Defaults to `jsonRpc`. `starkscan` is
+   * Starkscan's job API through the wallet proxy (route `prover`), where the
+   * backend adds the API key.
    */
-  provingApiKey?: string;
+  provingKind?: IStrk20ProvingKind;
   ohttp?: IStrk20OhttpConfig;
   auditorPublicKey: string;
   /** Lowest RPC spec version that carries `proof` on addInvokeTransaction. */
   minRpcSpecVersion: string;
-};
-
-export type IStrk20PrivacyConfigEnvelope = {
-  version: number;
-  updatedAt: number;
-  configs: Record<string, IStrk20PrivacyNetworkConfig>;
 };
 
 export enum EStrk20OptInStatus {
@@ -76,6 +71,13 @@ export enum EStrk20OptInStatus {
 }
 
 export type IStrk20OptInStatusValue = `${EStrk20OptInStatus}`;
+
+export type IStrk20SubmittedTransfer = {
+  txid: string;
+  kind: IStrk20TransferKind;
+  status: 'pending' | 'confirmed' | 'failed';
+  submittedAt: number;
+};
 
 /**
  * One persisted record per `${networkId}_${accountId}_${poolAddress}`. Every
@@ -100,12 +102,21 @@ export type IStrk20AccountPrivacyState = {
   optInStatus: IStrk20OptInStatusValue;
   consentAcceptedAt?: number;
   registerTxid?: string;
+  /** When the register tx reached the node; a missing receipt remains pending. */
+  registerSubmittedAt?: number;
+  /** Only an explicit failed receipt permits another registration attempt. */
+  registerTxFailed?: boolean;
+  /** First-use deployment is submitted through the ordinary confirmation flow. */
+  activationTxid?: string;
+  /** Public transaction identity only; no amount, recipient, notes or viewing key. */
+  lastTransfer?: IStrk20SubmittedTransfer;
   /** Last block a tx the proof will read landed in; drives the 10-block gate. */
   lastTxBlockNumber?: number;
   lastRefreshAt?: number;
 };
 
 export enum EStrk20SequencingStatus {
+  ActivationRequired = 'activationRequired',
   Ready = 'ready',
   Waiting = 'waiting',
   Unavailable = 'unavailable',
@@ -179,7 +190,37 @@ export enum EStrk20ErrorRetry {
   AfterRebuild = 'afterRebuild',
 }
 
+/** Stable error identity; translated copy is display-only. */
+export enum EStrk20ErrorCode {
+  ScreeningRejected = 'screening_rejected',
+  ScreeningUnavailable = 'screening_unavailable',
+  ProvingBehind = 'proving_behind',
+  ProvingValidation = 'proving_validation',
+  VersionMismatch = 'version_mismatch',
+  Internal = 'internal',
+  ServiceBusy = 'service_busy',
+  RequestRejected = 'request_rejected',
+  Reorg = 'reorg',
+  ServiceOverloaded = 'service_overloaded',
+  ProvingQuota = 'proving_quota',
+  ProvingUnauthorized = 'proving_unauthorized',
+  ProvingDeliveryUnknown = 'proving_delivery_unknown',
+  ProvingTimeout = 'proving_timeout',
+  Unavailable = 'unavailable',
+  Locked = 'locked',
+  KeyMismatch = 'key_mismatch',
+  PoolPaused = 'pool_paused',
+  Waiting = 'waiting',
+  ScreeningWindowExpired = 'screening_window_expired',
+  ProofExpired = 'proof_expired',
+  InvalidAmount = 'invalid_amount',
+  RecipientNotRegistered = 'recipient_not_registered',
+  Unknown = 'unknown',
+  History = 'history',
+}
+
 export type IStrk20ErrorMapping = {
+  code: EStrk20ErrorCode;
   translationKey: ETranslations | ETranslationsMock;
   /**
    * The enum itself, not a `${EStrk20ErrorRetry}` string union: this value is

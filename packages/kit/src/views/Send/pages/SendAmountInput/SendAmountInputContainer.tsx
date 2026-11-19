@@ -47,6 +47,7 @@ import {
   Stack,
   TextArea,
   TextAreaInput,
+  Toast,
   XStack,
   YStack,
   getFontToken,
@@ -54,6 +55,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
@@ -65,6 +67,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -936,12 +939,16 @@ function SendAmountInputContainer() {
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
     localWalletSourcePool,
+    sendOptions,
   } = route.params;
+  const amountOptions = sendOptions?.amount;
+  const loadBalance = amountOptions?.loadBalance;
 
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
 
   const onSubmitRef = useRef<() => Promise<void>>(undefined);
+  const mounted = useIsMounted();
   const navigation = useAppNavigation();
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
@@ -993,6 +1000,59 @@ function SendAmountInputContainer() {
 
   const amount = form.watch('amount');
   const nftAmount = form.watch('nftAmount');
+  const currentSendIntent = useRef({ accountId: currentAccountId, amount });
+  currentSendIntent.current = { accountId: currentAccountId, amount };
+  const refreshBalanceLock = useRef(false);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
+  const {
+    result: customBalance,
+    isLoading: isReadingBalance,
+    setResult: setCustomBalance,
+  } = usePromiseResult(
+    async () => {
+      if (!loadBalance || currentAccountId !== accountId) return undefined;
+      return {
+        accountId,
+        ...(await loadBalance({ allowPrompt: false })),
+      };
+    },
+    [accountId, currentAccountId, loadBalance],
+    { watchLoading: true },
+  );
+  const refreshCustomBalance = useCallback(async () => {
+    if (
+      !loadBalance ||
+      refreshBalanceLock.current ||
+      currentAccountId !== accountId
+    )
+      return;
+    refreshBalanceLock.current = true;
+    setIsRefreshingBalance(true);
+    try {
+      const balance = await loadBalance({ allowPrompt: true });
+      if (
+        mounted.current &&
+        currentSendIntent.current.accountId === accountId
+      ) {
+        setCustomBalance({ accountId, ...balance });
+      }
+    } finally {
+      refreshBalanceLock.current = false;
+      if (mounted.current) setIsRefreshingBalance(false);
+    }
+  }, [accountId, currentAccountId, loadBalance, mounted, setCustomBalance]);
+  const isCustomBalanceLoading = isReadingBalance || isRefreshingBalance;
+  const customAvailable =
+    customBalance?.accountId === currentAccountId
+      ? customBalance?.available
+      : undefined;
+  const isCustomBalanceUnavailable =
+    Boolean(loadBalance) && customAvailable === undefined;
+  const balanceRetryLabel = isCustomBalanceUnavailable
+    ? customBalance?.retryLabel
+    : undefined;
+  const canUseMax =
+    !isCustomBalanceUnavailable && amountOptions?.allowMax !== false;
   const hasAmountError = !!form.formState.errors.amount;
   const amountErrorMessage = form.formState.errors.amount?.message;
   const txMessage = form.watch('txMessage');
@@ -1284,7 +1344,8 @@ function SendAmountInputContainer() {
     { watchLoading: true, alwaysSetState: true },
   );
 
-  const showPrivateSendModeSwitch = isPrivateSendSupported && !isNFT;
+  const showPrivateSendModeSwitch =
+    isPrivateSendSupported && !isNFT && !amountOptions;
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
@@ -1413,6 +1474,7 @@ function SendAmountInputContainer() {
     : '0';
 
   const maxBalance = useMemo(() => {
+    if (loadBalance) return customAvailable ?? '0';
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
     // account balance.
@@ -1436,6 +1498,8 @@ function SendAmountInputContainer() {
       }) ?? balance
     );
   }, [
+    customAvailable,
+    loadBalance,
     selectedUtxoTotalAmount,
     sourcePoolSpendableParsed,
     isLightningNetwork,
@@ -1449,6 +1513,11 @@ function SendAmountInputContainer() {
     // Backend may report "--" for an unknown price, which parses to NaN. Guard
     // the multiplication the same way the linkedAmount conversion does so the
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
+    if (loadBalance) {
+      return priceBN.isFinite() && priceBN.gt(0)
+        ? new BigNumber(maxBalance).times(priceBN).toFixed()
+        : '0';
+    }
     const spendable = selectedUtxoTotalAmount ?? sourcePoolSpendableParsed;
     if (
       spendable !== undefined &&
@@ -1459,7 +1528,13 @@ function SendAmountInputContainer() {
     }
     if (sourcePoolSpendableParsed !== undefined) return '0';
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, selectedUtxoTotalAmount, sourcePoolSpendableParsed]);
+  }, [
+    tokenDetails,
+    selectedUtxoTotalAmount,
+    sourcePoolSpendableParsed,
+    loadBalance,
+    maxBalance,
+  ]);
 
   const privateSendMaxTokenAmount = useMemo(() => {
     if (!isPrivateSendNativeToken || !isPrivateSendNativeTokenConfigReady) {
@@ -2205,6 +2280,20 @@ function SendAmountInputContainer() {
             })
           : amountBN;
 
+      if (amountOptions) {
+        if (isUseFiat && (!priceBN.isFinite() || !priceBN.gt(0))) {
+          return intl.formatMessage({ id: ETranslations.send_amount_invalid });
+        }
+        return amountOptions.validate({
+          amount: tokenAmountBN.toFixed(),
+          balance:
+            isCustomBalanceUnavailable || balanceAccountId !== currentAccountId
+              ? undefined
+              : maxBalance,
+          decimals: tokenDetails?.info.decimals,
+        });
+      }
+
       // For Lightning, normalize amount to sats for validation
       // (minTransferAmount and backend validation expect sats)
       // In fiat mode, tokenAmountBN = fiat/pricePerSat = already sats, skip conversion.
@@ -2345,6 +2434,9 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       lnUnit,
       validationEffectiveMinAmount,
+      amountOptions,
+      isCustomBalanceUnavailable,
+      balanceAccountId,
       tokenDetails?.balanceParsed,
       tokenDetails?.info.decimals,
       tokenDetails?.info.isNative,
@@ -2393,7 +2485,7 @@ function SendAmountInputContainer() {
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
-    if (!amount || amount === '0') return false;
+    if (!amount || amount === '0' || isCustomBalanceUnavailable) return false;
     const valueBN = new BigNumber(amount);
     if (valueBN.isNaN() || valueBN.isNegative()) return false;
 
@@ -2417,6 +2509,7 @@ function SendAmountInputContainer() {
     amount,
     isUseFiat,
     hasUsablePrice,
+    isCustomBalanceUnavailable,
     linkedAmount.originalAmount,
     maxBalance,
   ]);
@@ -2510,12 +2603,14 @@ function SendAmountInputContainer() {
   );
   const showBuyButton = useMemo(
     () =>
+      !amountOptions &&
       isInsufficientBalance &&
       !isNFT &&
       showReviewControl &&
       isBuySupported &&
       !(isWatchingWallet && !platformEnv.isDev),
     [
+      amountOptions,
       isInsufficientBalance,
       isNFT,
       showReviewControl,
@@ -2525,6 +2620,7 @@ function SendAmountInputContainer() {
   );
   const showSwapButton = useMemo(
     () =>
+      !amountOptions &&
       isInsufficientBalance &&
       !isNFT &&
       showReviewControl &&
@@ -2532,6 +2628,7 @@ function SendAmountInputContainer() {
       !!sendSwapFromToken &&
       !(isWatchingWallet && !platformEnv.isDev),
     [
+      amountOptions,
       isInsufficientBalance,
       isNFT,
       showReviewControl,
@@ -2595,6 +2692,7 @@ function SendAmountInputContainer() {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
+      if (!canUseMax) return;
       if (stage === 100 && isPrivateSendNativeToken) {
         if (privateSendMaxInputAmount === undefined) {
           return;
@@ -2624,9 +2722,11 @@ function SendAmountInputContainer() {
         compactResult: true,
       });
       form.setValue('amount', result, { shouldValidate: true });
-      setIsMaxSend(stage === 100);
+      setIsMaxSend(stage === 100 && !amountOptions);
     },
     [
+      canUseMax,
+      amountOptions,
       form,
       isIntegerAmount,
       isLightningNetwork,
@@ -2946,10 +3046,11 @@ function SendAmountInputContainer() {
   }, [isHexTxMessage, txMessage]);
 
   const displayTxMessageForm = useMemo(() => {
-    if (sendMode !== ESendMode.PUBLIC) return false;
+    if (amountOptions || sendMode !== ESendMode.PUBLIC) return false;
     if (!tokenInfo?.isNative) return false;
     return settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage;
   }, [
+    amountOptions,
     sendMode,
     settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
@@ -3228,6 +3329,55 @@ function SendAmountInputContainer() {
         setIsSubmitting(true);
         try {
           if (!account || !isSendPoolReady) return;
+
+          const isCurrent = () =>
+            mounted.current &&
+            currentSendIntent.current.accountId === currentAccountId &&
+            currentSendIntent.current.amount === amount;
+
+          if (amountOptions) {
+            const decimals = tokenDetails?.info.decimals;
+            if (decimals === undefined || currentAccountId !== accountId)
+              return;
+            const rawAmount = isUseFiat ? linkedAmount.originalAmount : amount;
+            if (
+              amountOptions.validate({
+                amount: rawAmount,
+                balance: maxBalance,
+                decimals,
+              })
+            )
+              return;
+
+            const recipient = sendOptions?.validateRecipient
+              ? (await validateRecipientBeforeSubmit())?.recipientAddress
+              : recipientAddress;
+            if (!recipient || !isCurrent()) return;
+
+            let unsignedTx: IUnsignedTxPro;
+            try {
+              unsignedTx = await amountOptions.prepareTransaction({
+                amount: rawAmount,
+                decimals,
+                recipientAddress: recipient,
+              });
+            } catch (error) {
+              const message = amountOptions.getPreparationError(error);
+              if (isCurrent() && message) Toast.error({ title: message });
+              return;
+            }
+
+            if (!isCurrent()) return;
+            await signatureConfirm.navigationToTxConfirm({
+              unsignedTxs: [unsignedTx],
+              sameModal: true,
+              isNavigationCurrent: isCurrent,
+              onSuccess,
+              onCancel,
+              onFail,
+            });
+            return;
+          }
 
           let realAmount = amount;
 
@@ -3747,6 +3897,7 @@ function SendAmountInputContainer() {
           await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
+            prerequisites: { isCurrent },
             onSuccess,
             onFail,
             onCancel,
@@ -3819,10 +3970,15 @@ function SendAmountInputContainer() {
       sendMode,
       signatureConfirm,
       tokenDetails,
-      tokenInfo?.address,
-      tokenInfo?.isNative,
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
+      accountId,
+      amountOptions,
+      sendOptions?.validateRecipient,
+      recipientAddress,
+      tokenInfo,
+      maxBalance,
+      mounted,
       wallet?.type,
       intl,
       rebaseMultiplier,
@@ -3835,6 +3991,13 @@ function SendAmountInputContainer() {
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting || !isSendPoolReady) return true;
+    if (
+      amountOptions &&
+      (currentAccountId !== accountId ||
+        isCustomBalanceUnavailable ||
+        balanceAccountId !== currentAccountId)
+    )
+      return true;
     if (isWaitingForSync) return true;
     if (!form.formState.isValid) return true;
     if (!recipientAddress) return true;
@@ -3864,6 +4027,11 @@ function SendAmountInputContainer() {
   }, [
     isSubmitting,
     isSendPoolReady,
+    amountOptions,
+    isCustomBalanceUnavailable,
+    balanceAccountId,
+    currentAccountId,
+    accountId,
     isWaitingForSync,
     form.formState.isValid,
     recipientAddress,
@@ -4708,7 +4876,8 @@ function SendAmountInputContainer() {
     if (
       (isLoadingAssets && !tokenDetails && !nftDetails) ||
       balanceAccountId !== currentAccountId ||
-      !isSendPoolReady
+      !isSendPoolReady ||
+      (isCustomBalanceUnavailable && isCustomBalanceLoading)
     ) {
       return (
         <>
@@ -4782,7 +4951,7 @@ function SendAmountInputContainer() {
               color="$text"
               formatter="balance"
             >
-              {maxBalance}
+              {isCustomBalanceUnavailable ? '--' : maxBalance}
             </NumberSizeableText>
             {tokenSymbol ? (
               <SizableText
@@ -4806,9 +4975,9 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           disabled={
-            isPrivateSendNativeToken
-              ? privateSendMaxInputAmount === undefined
-              : null
+            !canUseMax ||
+            (isPrivateSendNativeToken &&
+              privateSendMaxInputAmount === undefined)
           }
           loading={
             isPrivateSendNativeToken
@@ -4829,7 +4998,7 @@ function SendAmountInputContainer() {
             form.setValue('amount', maxInputAmount, {
               shouldValidate: true,
             });
-            setIsMaxSend(true);
+            setIsMaxSend(!amountOptions);
           }}
         >
           {intl.formatMessage({ id: ETranslations.send_max })}
@@ -4844,6 +5013,10 @@ function SendAmountInputContainer() {
     intl,
     isLoadingAssets,
     isSendPoolReady,
+    isCustomBalanceUnavailable,
+    isCustomBalanceLoading,
+    amountOptions,
+    canUseMax,
     isPrivateSendNativeToken,
     isPrivateSendNativeTokenConfigLoading,
     isPrivateSendNativeTokenConfigReady,
@@ -5498,6 +5671,14 @@ function SendAmountInputContainer() {
         {media.gtMd ? null : renderPrivateSendFooterHelp}
       </Stack>
     );
+  } else if (balanceRetryLabel) {
+    renderFooterActions = (
+      <Page.FooterActions
+        onConfirm={refreshCustomBalance}
+        onConfirmText={balanceRetryLabel}
+        confirmButtonProps={{ loading: isCustomBalanceLoading }}
+      />
+    );
   } else if (isInsufficientActionAvailable) {
     renderFooterActions = (
       <Page.FooterActions
@@ -5525,7 +5706,6 @@ function SendAmountInputContainer() {
   const renderAmountFormContent = (
     <Form form={form}>
       {isNFT ? renderNFTAmountInput : renderAmountInput}
-
       {isLightningNetwork && lnUnit ? (
         <XStack justifyContent="center" mt="$2">
           <LightningUnitSwitch

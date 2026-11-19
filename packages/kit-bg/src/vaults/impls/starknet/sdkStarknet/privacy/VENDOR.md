@@ -72,6 +72,16 @@ Declared in `packages/kit-bg/package.json`.
 
 ## Local modifications
 
+2026-11-17 integration update:
+
+- `ProvingServiceProofProviderOptions.getNonce` injects the wallet's nonce reader;
+  OneKey uses its backend/custom RPC transport at `latest` instead of creating a
+  separate `RpcProvider` or silently using nonce zero when no URL is exposed.
+- Discovery remains a direct OHTTP connection with the operator-pinned public
+  key. Its HTTP 429/503 retries are bounded and respect `Retry-After`; HTTP 413
+  is terminal. OHTTP and indexer HTTP errors retain status/retry metadata without
+  retaining sensitive response bodies.
+
 Eight upstream files were changed; three new paths were added. Net +91 / −46
 lines across vendored files. Every in-place edit carries a `// onekey:` comment at the site, so
 `grep -rn "// onekey:" .` (run in this folder) is the authoritative list.
@@ -207,9 +217,11 @@ Starkscan hosts the only mainnet STRK20 prover
 (https://starkscan.co/docs/api/strk20-prover). It takes the same
 `{ block_id, transaction }` fields as `starknet_proveTransaction` and returns the
 prover result verbatim, but as REST with async jobs: `POST {baseUrl}/prove`
-with `X-Starkscan-Api-Key` and `Idempotency-Key`, then `GET
-{baseUrl}/prove/{jobId}` until `terminal`. Upstream's `ProvingService` only
-speaks JSON-RPC.
+with `Idempotency-Key`, then `GET {baseUrl}/prove/{jobId}` until `terminal`.
+Starkscan also requires `X-Starkscan-Api-Key`; the adapter never sends it.
+The app passes an empty `baseUrl` and a `fetchImpl` that tunnels each call
+through the OneKey wallet proxy, where the backend adds the key. Upstream's
+`ProvingService` only speaks JSON-RPC.
 
 Vendored-file edits are a seam and nothing more:
 
@@ -243,7 +255,7 @@ The adapter lives in `onekey/starkscan-proving-service.ts` and
   mappers keep working. Everything else throws `StarkscanProverError` with
   Starkscan's `code`, `http_<status>`, or a synthesized `prover_delivery_unknown`
   / `poll_timeout` / `result_expired` / `invalid_result` / `invalid_response`.
-- The API key and request body are never logged or put in error messages.
+- The request body is never logged or put in error messages.
 
 ## Lint and format exemptions
 

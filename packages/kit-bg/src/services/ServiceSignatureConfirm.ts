@@ -428,15 +428,17 @@ class ServiceSignatureConfirm extends ServiceBase {
         }),
       );
 
-      r[0].txDisplay.title =
-        convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
-          decodedTxs: r,
-          unsignedTxs: requiresPrivacyReview
-            ? unsignedTxs.map((unsignedTx) => ({
-                encodedTx: unsignedTx.encodedTx,
-              }))
-            : unsignedTxs,
-        });
+      if (r.length !== 1 || !r[0].isLocalParsed || !r[0].txDisplay.title) {
+        r[0].txDisplay.title =
+          convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
+            decodedTxs: r,
+            unsignedTxs: requiresPrivacyReview
+              ? unsignedTxs.map((unsignedTx) => ({
+                  encodedTx: unsignedTx.encodedTx,
+                }))
+              : unsignedTxs,
+          });
+      }
     }
 
     if (
@@ -595,8 +597,13 @@ class ServiceSignatureConfirm extends ServiceBase {
       networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
       decodedTx.actions.some((action) => Boolean(action.assetTransfer));
 
+    const forceLocalVaultDisplay = Boolean(
+      decodedTx.isLocalParsed && decodedTx.txDisplay,
+    );
+
     if (
       parsedTx?.display &&
+      !forceLocalVaultDisplay &&
       !shouldUseLocalDisplay &&
       !requiresLocalRebaseDisplay &&
       !forceLocalTonTransfer
@@ -609,6 +616,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       let txDisplayComponents =
+        decodedTx.txDisplay?.components ??
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
@@ -622,7 +630,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
         ((requiresLocalRebaseDisplay && !shouldUseLocalDisplay) ||
-          forceLocalTonTransfer) &&
+          forceLocalTonTransfer ||
+          forceLocalVaultDisplay) &&
         Boolean(parsedTx?.display);
 
       const rebaseDisplayExtras =
@@ -689,7 +698,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         ...(mergeUnknownTonEffects ? [] : previewComponents),
       ];
       decodedTx.txDisplay = {
-        title: '',
+        title: decodedTx.txDisplay?.title ?? '',
         components: requiresLocalRebaseDisplay
           ? components.map((component) =>
               component.type === EParseTxComponentType.Simulation
