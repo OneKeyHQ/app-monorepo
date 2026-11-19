@@ -12,6 +12,7 @@ import {
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
+import { getServerApiErrorMessage } from '../errors/utils/serverApiErrorMessage';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
@@ -446,10 +447,7 @@ axios.interceptors.response.use(
       const serverApiError = new OneKeyServerApiError({
         autoToast,
         disableFallbackMessage: true,
-        message:
-          data?.translatedMessage ||
-          data?.message ||
-          'OneKeyServer Unknown Error',
+        message: getServerApiErrorMessage(data),
         code: data.code,
         httpStatusCode: response.status,
         data: {

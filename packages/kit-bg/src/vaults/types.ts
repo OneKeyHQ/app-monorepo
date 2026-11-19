@@ -102,6 +102,20 @@ export enum ESignedTxBroadcastStatus {
   Unknown = 'unknown',
 }
 
+// What a send does with a tx, given an earlier attempt under its uuid. For
+// a step that runs before the send and pays for the tx signed next (TRON
+// rents energy for it, OK-67168).
+export enum EEarlierBroadcastAttempt {
+  // A new tx is signed: nothing is on record, the request is sign-only, or
+  // the flow keeps signing again on a retry.
+  None = 'none',
+  // A node took the tx: its signed result is replayed and nothing is sent.
+  OnNetwork = 'onNetwork',
+  // The payload left the device with no verdict: it is sent again, or the
+  // very tx that was signed is signed again.
+  NoVerdict = 'noVerdict',
+}
+
 export enum EVaultKeyringTypes {
   hd = 'hd',
   qr = 'qr',
@@ -913,6 +927,7 @@ export interface IBatchSignTransactionParamsBase {
   // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
   gasAccountSubmitId?: string;
   broadcastDeadline?: number;
+  reviewQuoteValidUntil?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   // WalletConnect Pay only: identity of the durable progress slot the
   // background writes the txid into between signing and broadcast
@@ -926,6 +941,19 @@ export interface IBatchSignTransactionParamsBase {
   // show which tx of the batch is being signed.
   progressEventId?: string;
 }
+
+// What a vault's pre-send step gets. `signOnly` and the two pre-broadcast
+// bindings are handed over as the send that follows will receive them: they
+// decide whether that send signs a new tx or settles an earlier attempt.
+export type IPreActionsBeforeSendingParams = Pick<
+  IBatchSignTransactionParamsBase,
+  | 'unsignedTxs'
+  | 'tronResourceRentalInfo'
+  | 'signOnly'
+  | 'beforeBroadcastAction'
+  | 'wcPayPreBroadcastRecord'
+  | 'reviewQuoteValidUntil'
+>;
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];

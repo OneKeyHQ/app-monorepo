@@ -312,6 +312,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     // The hand-off keeps the action it just saved.
     expect(mockLoginOneKeyId).toHaveBeenCalledWith({
       keepFreeTrialPendingAction: true,
+      freeTrialFeatureId: EPrimeFeatures.BulkCopyAddresses,
     });
     expect(mockPushFullModal).not.toHaveBeenCalled();
   });
@@ -334,6 +335,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockSavePendingAction).not.toHaveBeenCalled();
     expect(mockLoginOneKeyId).toHaveBeenCalledWith({
       keepFreeTrialPendingAction: false,
+      freeTrialFeatureId: EPrimeFeatures.AddressRiskCheck,
     });
   });
 

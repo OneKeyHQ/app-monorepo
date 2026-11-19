@@ -1,6 +1,7 @@
 const mockUnlockAsync = jest.fn(async () => undefined);
 const mockPlatformEnv = { isNativeIOS: true, isNativeIOSPad: false };
 let mockIsDualScreenDevice = false;
+let mockIsFoldableIPhone = false;
 let mockSpanningListener: ((isSpanning: boolean) => void) | undefined;
 const mockRemoveSpanningChangedListener = jest.fn();
 
@@ -18,6 +19,13 @@ jest.mock('@onekeyfe/react-native-device-utils', () => ({
     removeSpanningChangedListener: mockRemoveSpanningChangedListener,
   },
 }));
+
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({
+    isFoldableIPhone: () => mockIsFoldableIPhone,
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -39,12 +47,13 @@ describe('iPhone Duo orientation', () => {
     mockRemoveSpanningChangedListener.mockClear();
     mockSpanningListener = undefined;
     mockIsDualScreenDevice = false;
+    mockIsFoldableIPhone = false;
     mockPlatformEnv.isNativeIOS = true;
     mockPlatformEnv.isNativeIOSPad = false;
   });
 
   it('unlocks once at launch on a known foldable iPhone', () => {
-    mockIsDualScreenDevice = true;
+    mockIsFoldableIPhone = true;
     const { initIPhoneDuoOrientation } = loadModule();
     initIPhoneDuoOrientation();
     initIPhoneDuoOrientation();
@@ -63,15 +72,22 @@ describe('iPhone Duo orientation', () => {
     loadModule().initIPhoneDuoOrientation();
     expect(mockUnlockAsync).not.toHaveBeenCalled();
 
-    mockIsDualScreenDevice = true;
+    mockIsFoldableIPhone = true;
     mockSpanningListener?.(true);
     expect(mockUnlockAsync).toHaveBeenCalledTimes(1);
     expect(mockRemoveSpanningChangedListener).toHaveBeenCalledWith(7);
   });
 
+  it('keeps the portrait lock when only the native detector reports a fold', () => {
+    mockIsDualScreenDevice = true;
+    loadModule().initIPhoneDuoOrientation();
+    mockSpanningListener?.(false);
+    expect(mockUnlockAsync).not.toHaveBeenCalled();
+  });
+
   it('does nothing on iPad', () => {
     mockPlatformEnv.isNativeIOSPad = true;
-    mockIsDualScreenDevice = true;
+    mockIsFoldableIPhone = true;
     loadModule().initIPhoneDuoOrientation();
     expect(mockUnlockAsync).not.toHaveBeenCalled();
   });

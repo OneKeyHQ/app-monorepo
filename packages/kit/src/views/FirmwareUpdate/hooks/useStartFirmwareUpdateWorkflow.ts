@@ -9,8 +9,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
-  classifyFirmwareUpdateFailure,
-  resolveFirmwareUpdateErrorCode,
+  resolveReportedFirmwareUpdateFailure,
   toUserFacingFirmwareUpdateError,
 } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -143,7 +142,6 @@ export function useStartFirmwareUpdateWorkflow() {
       } catch (error) {
         const err = toPlainErrorObject(error as any);
         const displayError = toUserFacingFirmwareUpdateError(err);
-        const failureType = classifyFirmwareUpdateFailure(err);
         setStepInfo({
           step: EFirmwareUpdateSteps.error,
           payload: {
@@ -154,11 +152,19 @@ export function useStartFirmwareUpdateWorkflow() {
         const trackingInfo = await backgroundApiProxy.serviceFirmwareUpdate
           .getUpdateWorkflowTrackingInfo()
           .catch(() => undefined);
-        const resultFailureType =
-          failureType === 'cancelled'
-            ? trackingInfo?.lastFailureType
-            : failureType;
-        if (resultFailureType && resultFailureType !== 'cancelled') {
+        const reportedFailure = resolveReportedFirmwareUpdateFailure({
+          error: err,
+          previous: trackingInfo
+            ? {
+                failureType: trackingInfo.lastFailureType,
+                failurePhase: trackingInfo.lastFailurePhase,
+                errorCode: trackingInfo.lastErrorCode,
+                errorName: trackingInfo.lastErrorName,
+                errorDetail: trackingInfo.lastErrorDetail,
+              }
+            : undefined,
+        });
+        if (reportedFailure) {
           defaultLogger.update.firmware.firmwareUpdateResult({
             deviceType: result?.deviceType,
             transportType: hardwareTransportType,
@@ -167,11 +173,7 @@ export function useStartFirmwareUpdateWorkflow() {
             fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
             toFirmwareType: updateFirmwareInfo?.toFirmwareType,
             status: 'failed',
-            failureType: resultFailureType,
-            errorCode:
-              failureType === 'cancelled'
-                ? trackingInfo?.lastErrorCode
-                : resolveFirmwareUpdateErrorCode(err),
+            ...reportedFailure,
             retryCount: trackingInfo?.retryCount,
             totalDurationMs: trackingInfo?.totalDurationMs,
             transferredBytes: trackingInfo?.transferredBytes,

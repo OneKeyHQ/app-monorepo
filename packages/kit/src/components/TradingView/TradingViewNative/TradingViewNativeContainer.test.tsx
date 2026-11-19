@@ -3036,6 +3036,57 @@ describe('TradingViewNativeContainer', () => {
     ).not.toBeNull();
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
+  it('draws saved main indicators on opted-in compact charts without sub panes', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 10,
+    }));
+    const settings = createTradingViewNativeIndicatorSettingsValue();
+    settings.indicators.forEach((indicator) => {
+      indicator.active = ['EMA', 'RSI', 'VOL'].includes(indicator.id);
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settings);
+    const onNativeSubIndicatorCountChange = jest.fn();
+
+    render(
+      <TradingViewNativeContainer
+        nativeChartDisplayMode="compact"
+        showCompactMainIndicators
+        nativeControlsLayoutMode="mobile"
+        source={{
+          kind: 'hyperliquid',
+          coin: 'ETH',
+          environment: 'mainnet',
+        }}
+        showNativeIndicatorQuickBar
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+      />,
+    );
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(
+      -1,
+    )?.[0] as ITradingViewNativeChartProps;
+    expect(chartProps.indicatorSeries?.map(({ key }) => key)).toEqual([
+      'ema-1',
+      'ema-2',
+      'ema-3',
+    ]);
+    expect(chartProps.subIndicatorPanes).toEqual([]);
+    // Only the indicators' legend rows, without the candle's price row.
+    expect(chartProps.showLegend).toBe(true);
+    expect(chartProps.showPriceLegend).toBe(false);
+    expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(0);
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-quick-bar'),
+    ).toBeNull();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+  });
   it('keeps shared chart defaults outside compact mode', () => {
     render(
       <TradingViewNativeContainer
@@ -3055,6 +3106,7 @@ describe('TradingViewNativeContainer', () => {
         priceAxisFontSize: undefined,
         priceAxisTickCount: undefined,
         showLegend: true,
+        showPriceLegend: true,
         timeAxisFontSize: undefined,
         timeAxisHeight: 24,
         timeAxisBorderWidth: undefined,

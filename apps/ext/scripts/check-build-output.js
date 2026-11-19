@@ -380,9 +380,13 @@ function main() {
       0,
     );
   const budgets = {
-    // The local hardware runtime includes static protobuf codecs. After removing
-    // both legacy Web SDK bundles, macOS output measured 192987401 bytes.
-    // Allow about 1.6% headroom; background and remote-code gates stay separate.
+    // Linux CI output with the Zcash and Monero runtime wasm measured
+    // 186073416 bytes (run 40808182907). x then grew to 189972382 bytes
+    // (run 44510813887), and the release/v6.7.0 #3 sync measured 190305829
+    // bytes (run 44522774202) before its Perps reward image was recompressed
+    // (-170607 bytes), about 190.14 MB. 194000000 keeps about 2% headroom.
+    // Trust the CI number when the margin is thin; macOS builds differ.
+    // The extension also bundles the WebUSB SDK with static protobuf codecs.
     totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 196000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
