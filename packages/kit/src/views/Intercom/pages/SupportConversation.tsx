@@ -169,14 +169,16 @@ function SupportComposer({
     event.preventDefault?.();
     submit();
   };
-  // The on-screen keyboard's return key keeps breaking the line.
-  const keyboardProps = platformEnv.isNative
-    ? undefined
-    : {
-        onKeyPress,
-        onCompositionStart: composition.start,
-        onCompositionEnd: composition.end,
-      };
+  // An on-screen keyboard has no Shift+Enter, so in the apps and on mobile web
+  // its return key keeps breaking the line and the button sends.
+  const keyboardProps =
+    platformEnv.isNative || platformEnv.isWebMobile
+      ? undefined
+      : {
+          onKeyPress,
+          onCompositionStart: composition.start,
+          onCompositionEnd: composition.end,
+        };
   return (
     <YStack px="$3" pb="$3" pt="$2" bg="$bgApp">
       {failed ? (

@@ -27,6 +27,7 @@ import type {
   IIntercomPart,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { uploadIntercomImage } from '@onekeyhq/shared/src/modules3rdParty/intercom/upload';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IIntercomSupportRoute } from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -1537,3 +1538,36 @@ it('offers a new conversation on the message list before the home content answer
   });
   await act(async () => home.resolve());
 });
+
+it.each(['isNative', 'isWebMobile'] as const)(
+  'keeps Enter as a line break on an on-screen keyboard (%s)',
+  async (flag) => {
+    platformEnv[flag] = true;
+    try {
+      mockRoute.params = { userId: null, conversationId: '42' };
+      render(<SupportScreen />);
+      const input = (await screen.findByTestId(
+        'support-message-input',
+      )) as HTMLTextAreaElement;
+      await waitFor(() => expect(input.disabled).toBe(false));
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(
+        mockRequest.mock.calls.some(
+          ([path]) => path === 'conversations/42/reply',
+        ),
+      ).toBe(false);
+      expect(input.value).toBe('Hello');
+      // The send button still sends.
+      fireEvent.click(screen.getByTestId('support-send'));
+      await waitFor(() =>
+        expect(mockRequest).toHaveBeenCalledWith(
+          'conversations/42/reply',
+          expect.anything(),
+        ),
+      );
+    } finally {
+      platformEnv[flag] = false;
+    }
+  },
+);
