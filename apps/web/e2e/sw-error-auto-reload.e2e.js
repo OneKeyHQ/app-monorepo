@@ -32,13 +32,14 @@ function computeSha384Integrity(content) {
   return `sha384-${digest}`;
 }
 
-async function compileServiceWorkerBundle(outDir) {
+async function compileTestBundles(outDir) {
   const swEntry = path.resolve(__dirname, '../src/service-worker.js');
   await new Promise((resolve, reject) => {
     const compiler = rspack({
       mode: 'production',
       entry: {
         'service-worker': swEntry,
+        'main.v670': path.resolve(__dirname, 'sw-error-auto-reload.fixture.js'),
       },
       output: {
         path: outDir,
@@ -50,6 +51,7 @@ async function compileServiceWorkerBundle(outDir) {
       plugins: [
         new rspack.DefinePlugin({
           'self.__WB_MANIFEST': JSON.stringify([]),
+          'process.env.WEB_E2E_CLIENT_VERSION': JSON.stringify(V_670),
         }),
       ],
       module: {
@@ -100,8 +102,6 @@ async function compileServiceWorkerBundle(outDir) {
   } finally {
     process.argv[2] = prevArgv2;
   }
-
-  return fs.readFileSync(path.join(outDir, 'service-worker.js'), 'utf8');
 }
 
 function buildLegacyV664ClientScript() {
@@ -216,238 +216,6 @@ function buildLegacyV664ClientScript() {
 `;
 }
 
-function buildV670ClientScript() {
-  return `
-(function () {
-  const CURRENT_VERSION = ${JSON.stringify(V_670)};
-  const AUTO_RELOAD_STORAGE_KEY = '__onekey_sw_error_auto_reload__';
-  const WEB_ROUTE_NOT_FOUND_EVENT = 'onekey-web-route-not-found';
-  let pendingVersionActivation = '';
-  let hasRootPageError = false;
-  let isAutoReloading = false;
-  let latestReadyVersion = '';
-  let latestActiveVersion = '';
-
-  function isPageInErrorState() {
-    return Boolean(hasRootPageError || window.__onekeyWebRouteNotFound);
-  }
-
-  function getAutoReloadTargetKey(version) {
-    return version + ':' + (window.location.pathname || '/');
-  }
-
-  function hasAlreadyAutoReloadedForVersion(version) {
-    if (!version) return false;
-    return window.sessionStorage.getItem(AUTO_RELOAD_STORAGE_KEY) === getAutoReloadTargetKey(version);
-  }
-
-  function markAutoReloadedForVersion(version) {
-    if (!version) return;
-    window.sessionStorage.setItem(AUTO_RELOAD_STORAGE_KEY, getAutoReloadTargetKey(version));
-  }
-
-  function showUpdateBanner(onRefresh) {
-    if (isAutoReloading) return;
-    document.getElementById('sw-update-banner')?.remove();
-    const banner = document.createElement('div');
-    banner.id = 'sw-update-banner';
-    banner.textContent = 'App 新版本可供更新';
-    const btn = document.createElement('button');
-    btn.id = 'sw-refresh-btn';
-    btn.textContent = '刷新';
-    btn.onclick = () => (onRefresh ? onRefresh() : window.location.reload());
-    banner.appendChild(btn);
-    document.body.appendChild(banner);
-  }
-
-  function postMessageToServiceWorker(type, payload = {}) {
-    navigator.serviceWorker.controller?.postMessage({
-      type,
-      payload: {
-        clientVersion: CURRENT_VERSION,
-        clientAutoReloadCapable: true,
-        hasPageError: isPageInErrorState(),
-        ...payload,
-      },
-    });
-  }
-
-  function activateReadyVersion(version) {
-    if (!version) {
-      window.location.reload();
-      return;
-    }
-    pendingVersionActivation = version;
-    postMessageToServiceWorker('ACTIVATE_VERSION', { version });
-  }
-
-  function triggerAutoReloadForVersion(version, shouldActivateReady) {
-    isAutoReloading = true;
-    document.getElementById('sw-update-banner')?.remove();
-    if (shouldActivateReady && version) {
-      activateReadyVersion(version);
-      return;
-    }
-    if (version) markAutoReloadedForVersion(version);
-    window.location.reload();
-  }
-
-  function requestServiceWorkerVersionCheck() {
-    if (!navigator.serviceWorker.controller) return;
-    postMessageToServiceWorker('GET_VERSION_STATE');
-    postMessageToServiceWorker('CHECK_VERSION');
-  }
-
-  function tryAutoReloadOnPageError() {
-    if (!isPageInErrorState()) return false;
-    if (isAutoReloading) return true;
-    if (
-      latestActiveVersion &&
-      latestActiveVersion !== CURRENT_VERSION &&
-      !hasAlreadyAutoReloadedForVersion(latestActiveVersion)
-    ) {
-      triggerAutoReloadForVersion(latestActiveVersion, false);
-      return true;
-    }
-    if (
-      latestReadyVersion &&
-      latestReadyVersion !== CURRENT_VERSION &&
-      !hasAlreadyAutoReloadedForVersion(latestReadyVersion)
-    ) {
-      triggerAutoReloadForVersion(latestReadyVersion, true);
-      return true;
-    }
-    requestServiceWorkerVersionCheck();
-    return false;
-  }
-
-  function showReadyVersionBanner(version) {
-    if (!version || pendingVersionActivation === version || isAutoReloading) return;
-    latestReadyVersion = version;
-    if (
-      isPageInErrorState() &&
-      version !== CURRENT_VERSION &&
-      !hasAlreadyAutoReloadedForVersion(version)
-    ) {
-      triggerAutoReloadForVersion(version, true);
-      return;
-    }
-    showUpdateBanner(() => activateReadyVersion(version));
-  }
-
-  function showActivatedVersionBanner(version) {
-    if (!version || version === CURRENT_VERSION) return false;
-    if (isAutoReloading) return true;
-    latestActiveVersion = version;
-    if (isPageInErrorState() && !hasAlreadyAutoReloadedForVersion(version)) {
-      triggerAutoReloadForVersion(version, false);
-      return true;
-    }
-    showUpdateBanner(() => window.location.reload());
-    return true;
-  }
-
-  function setupServiceWorkerVersionProtocol() {
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      const type = event.data?.type;
-      const payload = event.data?.payload || {};
-      if (type === 'UPDATE_READY') {
-        showReadyVersionBanner(payload.version);
-      }
-      if (type === 'VERSION_STATE') {
-        latestActiveVersion = typeof payload.activeVersion === 'string' ? payload.activeVersion : '';
-        latestReadyVersion = typeof payload.readyVersion === 'string' ? payload.readyVersion : '';
-        if (
-          pendingVersionActivation &&
-          latestReadyVersion !== pendingVersionActivation &&
-          latestActiveVersion !== pendingVersionActivation
-        ) {
-          pendingVersionActivation = '';
-          isAutoReloading = false;
-        }
-        if (payload.activeVersion && showActivatedVersionBanner(payload.activeVersion)) {
-          return;
-        }
-        if (payload.readyVersion) {
-          showReadyVersionBanner(payload.readyVersion);
-          return;
-        }
-        document.getElementById('sw-update-banner')?.remove();
-      }
-      if (type === 'UPDATE_FAILED') {
-        if (pendingVersionActivation) {
-          pendingVersionActivation = '';
-          isAutoReloading = false;
-        }
-      }
-      if (type === 'VERSION_ACTIVATED') {
-        const version = payload.version;
-        if (
-          (version && pendingVersionActivation === version) ||
-          (payload.autoReload &&
-            version &&
-            version !== CURRENT_VERSION &&
-            !hasAlreadyAutoReloadedForVersion(version))
-        ) {
-          pendingVersionActivation = '';
-          triggerAutoReloadForVersion(version, false);
-          return;
-        }
-        showActivatedVersionBanner(version);
-      }
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      requestServiceWorkerVersionCheck();
-    });
-    requestServiceWorkerVersionCheck();
-  }
-
-  window.addEventListener(WEB_ROUTE_NOT_FOUND_EVENT, () => {
-    tryAutoReloadOnPageError();
-  });
-
-  function renderTestView(testId, text) {
-    const node = document.createElement('div');
-    node.setAttribute('data-testid', testId);
-    node.textContent = text;
-    document.body.replaceChildren(node);
-  }
-
-  function renderApp() {
-    const pathname = window.location.pathname;
-    if (pathname === '/earn/bsc/XAUt/unitas') {
-      renderTestView(
-        'unitas-xaut-detail',
-        'Unitas XAUt Vault: ' + window.location.search,
-      );
-      return;
-    }
-    if (pathname === '/' || pathname === '/swap') {
-      renderTestView('v670-home', 'v6.7.0 Home');
-      return;
-    }
-    // Unmatched route (NotFound) in v6.7.0: preserve URL and fire route-not-found
-    window.__onekeyWebRouteNotFound = true;
-    renderTestView('not-found', 'NotFound');
-    window.dispatchEvent(new Event(WEB_ROUTE_NOT_FOUND_EVENT));
-  }
-
-  window.addEventListener('load', () => {
-    renderApp();
-    navigator.serviceWorker
-      .register('/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION), {
-        scope: '/',
-        updateViaCache: 'none',
-      })
-      .then(() => {
-        setupServiceWorkerVersionProtocol();
-        navigator.serviceWorker.ready.then(() => requestServiceWorkerVersionCheck());
-      });
-  });
-})();
-`;
-}
-
 function buildV680ClientScript() {
   return `
 (function () {
@@ -532,11 +300,10 @@ async function run() {
   let context;
 
   try {
-    const compiledSw = await compileServiceWorkerBundle(tmpDir);
-    fs.writeFileSync(
+    await compileTestBundles(tmpDir);
+    fs.copyFileSync(
+      path.join(tmpDir, 'service-worker.js'),
       path.join(webRootDir, 'service-worker.js'),
-      compiledSw,
-      'utf8',
     );
 
     const releaseV664 = createReleaseArtifacts({
@@ -549,7 +316,7 @@ async function run() {
       version: V_670,
       buildTime: 1_700_000_100_000,
       scriptName: 'main.v670.js',
-      scriptContent: buildV670ClientScript(),
+      scriptContent: fs.readFileSync(path.join(tmpDir, 'main.v670.js'), 'utf8'),
     });
     const releaseV680 = createReleaseArtifacts({
       version: V_680,
@@ -590,13 +357,13 @@ async function run() {
       return Boolean(reg?.active && navigator.serviceWorker.controller);
     });
     // Wait until v6.6.4 is recorded as activeVersion in SW state cache
-    await page.waitForFunction(async () => {
+    await page.waitForFunction(async (expectedVersion) => {
       const cache = await caches.open('onekey-web-version-state');
       const res = await cache.match('/__onekey_web_version_state__');
       if (!res) return false;
       const state = await res.json();
-      return Boolean(state.activeVersion);
-    });
+      return state.activeVersion === expectedVersion;
+    }, V_664);
 
     // Step 2: Server publishes release/v6.7.0 (with Unitas)
     publishReleaseToDir(webRootDir, releaseV670);
@@ -622,13 +389,29 @@ async function run() {
       '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
     );
 
-    // Step 4: Server publishes v6.8.0 (with new route /new-campaign-v680)
-    publishReleaseToDir(webRootDir, releaseV680);
+    // Keep v6.7.0 on the server until the original URL renders NotFound.
+    const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
+    const topLevelNavigations = [];
+    page.on('request', (request) => {
+      if (
+        request.isNavigationRequest() &&
+        request.frame() === page.mainFrame()
+      ) {
+        topLevelNavigations.push(request.url());
+      }
+    });
+    await page.goto(campaignUrl);
+    await page.getByTestId('not-found').waitFor({ state: 'visible' });
+    await page
+      .locator('html[data-version-protocol-ready]')
+      .waitFor({ state: 'attached' });
+    assert.equal(page.url(), campaignUrl);
+    assert.deepEqual(topLevelNavigations, [campaignUrl]);
 
-    // Step 5: User on v6.7.0 opens the new v6.8.0 route (which hits NotFound in v6.7.0)
-    // -> v6.7.0 client preserves URL, auto-activates v6.8.0, and reloads into v6.8.0!
-    await page.goto(`${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`);
+    publishReleaseToDir(webRootDir, releaseV680);
     await page.getByTestId('campaign-v680-page').waitFor({ state: 'visible' });
+    assert.equal(page.url(), campaignUrl);
+    assert.deepEqual(topLevelNavigations, [campaignUrl, campaignUrl]);
     const campaignText = await page
       .getByTestId('campaign-v680-page')
       .textContent();

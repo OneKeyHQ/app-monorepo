@@ -7,6 +7,7 @@ type IAllowList = Record<string, IAllowListRule>;
 
 const DYNAMIC_PATH_SUFFIX = '/.';
 export const WEB_ROUTE_NOT_FOUND_EVENT = 'onekey-web-route-not-found';
+export const WEB_ROUTE_RECOVERED_EVENT = 'onekey-web-route-recovered';
 
 function normalizeWebPathname(path?: string) {
   if (!path) {
@@ -41,8 +42,22 @@ export function isNotFoundRouteState(
 
 export function clearWebRouteNotFoundState() {
   const runtimeGlobal = globalThis as Record<string, unknown>;
+  const wasNotFound = runtimeGlobal.__onekeyWebRouteNotFound === true;
   runtimeGlobal.__onekeyWebRouteNotFound = false;
   runtimeGlobal.__onekeyWebUnmatchedPath = '';
+  if (wasNotFound) {
+    dispatchWebRouteEvent(WEB_ROUTE_RECOVERED_EVENT);
+  }
+}
+
+function dispatchWebRouteEvent(type: string) {
+  if (typeof globalThis.dispatchEvent === 'function') {
+    try {
+      globalThis.dispatchEvent(new Event(type));
+    } catch {
+      // Ignore environments without DOM Event support.
+    }
+  }
 }
 
 export function syncWebRouteNotFoundState({
@@ -61,13 +76,7 @@ export function syncWebRouteNotFoundState({
   if (isNotFoundRouteState(state)) {
     runtimeGlobal.__onekeyWebRouteNotFound = true;
     runtimeGlobal.__onekeyWebUnmatchedPath = normalizeWebPathname(path);
-    if (typeof globalThis.dispatchEvent === 'function') {
-      try {
-        globalThis.dispatchEvent(new Event(WEB_ROUTE_NOT_FOUND_EVENT));
-      } catch {
-        // Ignore environments without DOM Event support.
-      }
-    }
+    dispatchWebRouteEvent(WEB_ROUTE_NOT_FOUND_EVENT);
     return true;
   }
   clearWebRouteNotFoundState();

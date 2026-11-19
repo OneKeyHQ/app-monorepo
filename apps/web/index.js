@@ -29,29 +29,20 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
+import { createServiceWorkerVersionProtocol } from './src/serviceWorkerVersionProtocol';
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
-const SERVICE_WORKER_MESSAGE_TYPES = {
-  GET_VERSION_STATE: 'GET_VERSION_STATE',
-  CHECK_VERSION: 'CHECK_VERSION',
-  ACTIVATE_VERSION: 'ACTIVATE_VERSION',
-  VERSION_STATE: 'VERSION_STATE',
-  UPDATE_READY: 'UPDATE_READY',
-  UPDATE_FAILED: 'UPDATE_FAILED',
-  VERSION_ACTIVATED: 'VERSION_ACTIVATED',
-};
-const AUTO_RELOAD_STORAGE_KEY = '__onekey_sw_error_auto_reload__';
-const WEB_ROUTE_NOT_FOUND_EVENT = 'onekey-web-route-not-found';
-
-let pendingVersionActivation = '';
 let hasRootPageError = false;
-let isAutoReloading = false;
-let latestReadyVersion = '';
-let latestActiveVersion = '';
 const CURRENT_WEB_VERSION_INFO = createCurrentWebVersionInfo();
+const versionProtocol = createServiceWorkerVersionProtocol({
+  checkIntervalMs: SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS,
+  getCurrentWebVersion,
+  isPageInErrorState,
+  showUpdateBanner,
+});
 
 function formatLocaleMessage(id, defaultMessage, values) {
   return appLocale.intl.formatMessage({ id, defaultMessage }, values);
@@ -63,7 +54,7 @@ class WebRootErrorBoundary extends React.PureComponent {
   componentDidCatch(error) {
     this.setState({ error });
     hasRootPageError = true;
-    tryAutoReloadOnPageError();
+    versionProtocol.tryAutoReloadOnPageError();
     void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
       ({ captureException, initSentry }) => {
         initSentry();
@@ -148,11 +139,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 function showUpdateBanner(onRefresh) {
-  if (isAutoReloading) {
-    return;
-  }
   const show = () => {
-    if (isAutoReloading) {
+    if (versionProtocol.isReloadPending()) {
       return;
     }
     document.getElementById('sw-update-banner')?.remove();
@@ -277,233 +265,6 @@ function isPageInErrorState() {
   return Boolean(hasRootPageError || globalThis.__onekeyWebRouteNotFound);
 }
 
-function getAutoReloadTargetKey(version) {
-  const pathname =
-    typeof window !== 'undefined' && window.location?.pathname
-      ? window.location.pathname
-      : '/';
-  return `${version}:${pathname}`;
-}
-
-function hasAlreadyAutoReloadedForVersion(version) {
-  if (!version || typeof window === 'undefined') {
-    return false;
-  }
-  try {
-    return (
-      window.sessionStorage?.getItem(AUTO_RELOAD_STORAGE_KEY) ===
-      getAutoReloadTargetKey(version)
-    );
-  } catch {
-    return false;
-  }
-}
-
-function markAutoReloadedForVersion(version) {
-  if (!version || typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.sessionStorage?.setItem(
-      AUTO_RELOAD_STORAGE_KEY,
-      getAutoReloadTargetKey(version),
-    );
-  } catch {
-    // Ignore sessionStorage restrictions in private/sandboxed contexts.
-  }
-}
-
-function postMessageToServiceWorker(type, payload = {}) {
-  navigator.serviceWorker.controller?.postMessage({
-    type,
-    payload: {
-      clientVersion: getCurrentWebVersion(),
-      clientAutoReloadCapable: true,
-      hasPageError: isPageInErrorState(),
-      ...payload,
-    },
-  });
-}
-
-function activateReadyVersion(version) {
-  if (!version) {
-    window.location.reload();
-    return;
-  }
-  pendingVersionActivation = version;
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.ACTIVATE_VERSION, {
-    version,
-  });
-  setTimeout(() => {
-    if (pendingVersionActivation === version) {
-      window.location.reload();
-    }
-  }, 3000);
-}
-
-function triggerAutoReloadForVersion(version, shouldActivateReady = false) {
-  isAutoReloading = true;
-  document.getElementById('sw-update-banner')?.remove();
-  if (shouldActivateReady && version) {
-    activateReadyVersion(version);
-    return;
-  }
-  if (version) {
-    markAutoReloadedForVersion(version);
-  }
-  window.location.reload();
-}
-
-function tryAutoReloadOnPageError() {
-  if (!isPageInErrorState()) {
-    return false;
-  }
-  if (isAutoReloading) {
-    return true;
-  }
-  if (
-    latestActiveVersion &&
-    latestActiveVersion !== getCurrentWebVersion() &&
-    !hasAlreadyAutoReloadedForVersion(latestActiveVersion)
-  ) {
-    triggerAutoReloadForVersion(latestActiveVersion, false);
-    return true;
-  }
-  if (
-    latestReadyVersion &&
-    latestReadyVersion !== getCurrentWebVersion() &&
-    !hasAlreadyAutoReloadedForVersion(latestReadyVersion)
-  ) {
-    triggerAutoReloadForVersion(latestReadyVersion, true);
-    return true;
-  }
-  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-    requestServiceWorkerVersionCheck();
-  }
-  return false;
-}
-
-function showReadyVersionBanner(version) {
-  if (!version || pendingVersionActivation === version || isAutoReloading) {
-    return;
-  }
-  latestReadyVersion = version;
-  if (
-    isPageInErrorState() &&
-    version !== getCurrentWebVersion() &&
-    !hasAlreadyAutoReloadedForVersion(version)
-  ) {
-    triggerAutoReloadForVersion(version, true);
-    return;
-  }
-  showUpdateBanner(() => activateReadyVersion(version));
-}
-
-function showActivatedVersionBanner(version) {
-  if (!version || version === getCurrentWebVersion()) {
-    return false;
-  }
-  if (isAutoReloading) {
-    return true;
-  }
-  latestActiveVersion = version;
-  if (isPageInErrorState() && !hasAlreadyAutoReloadedForVersion(version)) {
-    triggerAutoReloadForVersion(version, false);
-    return true;
-  }
-  showUpdateBanner(() => window.location.reload());
-  return true;
-}
-
-function requestServiceWorkerVersionCheck() {
-  if (!navigator.serviceWorker?.controller) {
-    return;
-  }
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.GET_VERSION_STATE);
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
-}
-
-function setupServiceWorkerVersionProtocol() {
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    const type = event.data?.type;
-    const payload = event.data?.payload || {};
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.UPDATE_READY) {
-      showReadyVersionBanner(payload.version);
-    }
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE) {
-      latestActiveVersion =
-        typeof payload.activeVersion === 'string' ? payload.activeVersion : '';
-      latestReadyVersion =
-        typeof payload.readyVersion === 'string' ? payload.readyVersion : '';
-      if (
-        pendingVersionActivation &&
-        latestReadyVersion !== pendingVersionActivation &&
-        latestActiveVersion !== pendingVersionActivation
-      ) {
-        pendingVersionActivation = '';
-        isAutoReloading = false;
-      }
-      if (
-        payload.activeVersion &&
-        showActivatedVersionBanner(payload.activeVersion)
-      ) {
-        return;
-      }
-      if (payload.readyVersion) {
-        showReadyVersionBanner(payload.readyVersion);
-        return;
-      }
-      document.getElementById('sw-update-banner')?.remove();
-    }
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.UPDATE_FAILED) {
-      if (pendingVersionActivation) {
-        pendingVersionActivation = '';
-        isAutoReloading = false;
-      }
-    }
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_ACTIVATED) {
-      const version = payload.version;
-      if (
-        (version && pendingVersionActivation === version) ||
-        (payload.autoReload &&
-          version &&
-          version !== getCurrentWebVersion() &&
-          !hasAlreadyAutoReloadedForVersion(version))
-      ) {
-        pendingVersionActivation = '';
-        triggerAutoReloadForVersion(version, false);
-        return;
-      }
-      showActivatedVersionBanner(version);
-    }
-  });
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    requestServiceWorkerVersionCheck();
-  });
-
-  requestServiceWorkerVersionCheck();
-  setInterval(
-    requestServiceWorkerVersionCheck,
-    SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS,
-  );
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      requestServiceWorkerVersionCheck();
-    }
-  });
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener(WEB_ROUTE_NOT_FOUND_EVENT, () => {
-    tryAutoReloadOnPageError();
-  });
-}
-
 // Register service worker in production only
 if (
   typeof window !== 'undefined' &&
@@ -517,9 +278,9 @@ if (
         updateViaCache: 'none',
       })
       .then((registration) => {
-        setupServiceWorkerVersionProtocol();
+        versionProtocol.setup();
         navigator.serviceWorker.ready
-          .then(() => requestServiceWorkerVersionCheck())
+          .then(() => versionProtocol.requestVersionCheck())
           .catch(() => {});
         setInterval(() => {
           registration.update().catch(() => {});

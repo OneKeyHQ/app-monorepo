@@ -13,6 +13,7 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import {
   WEB_ROUTE_NOT_FOUND_EVENT,
+  WEB_ROUTE_RECOVERED_EVENT,
   clearWebRouteNotFoundState,
   getWebDappAllowListRule,
   getWebDappUrlFallback,
@@ -406,6 +407,22 @@ describe('syncWebRouteNotFoundState and shouldPreserveUnmatchedWebUrl', () => {
       expect(
         (globalThis as Record<string, unknown>).__onekeyWebUnmatchedPath,
       ).toBe('');
+      expect(dispatchSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ type: WEB_ROUTE_RECOVERED_EVENT }),
+      );
+
+      syncWebRouteNotFoundState({
+        path: unmatchedPath,
+        state: parsedNotFoundState,
+      });
+      clearWebRouteNotFoundState();
+      clearWebRouteNotFoundState();
+      expect(dispatchSpy).toHaveBeenNthCalledWith(
+        4,
+        expect.objectContaining({ type: WEB_ROUTE_RECOVERED_EVENT }),
+      );
+      expect(dispatchSpy).toHaveBeenCalledTimes(4);
     } finally {
       globalThis.dispatchEvent = originalDispatchEvent;
     }

@@ -55,6 +55,7 @@ const MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
   ACTIVATE_VERSION: 'ACTIVATE_VERSION',
+  REPORT_CLIENT_STATE: 'REPORT_CLIENT_STATE',
   VERSION_STATE: 'VERSION_STATE',
   UPDATE_CHECKING: 'UPDATE_CHECKING',
   UPDATE_READY: 'UPDATE_READY',
@@ -1718,22 +1719,21 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
 
   if (state.readyVersion && (await isReadyVersionCacheValid(state))) {
     const candidateReadyVersion = state.readyVersion;
-    const clientsToReload = allClients.filter((item) =>
-      shouldClientAutoReload(item, candidateReadyVersion),
-    );
-    if (clientsToReload.length > 0) {
+    if (
+      allClients.some((item) =>
+        shouldClientAutoReload(item, candidateReadyVersion),
+      )
+    ) {
       const promotedState = await promoteReadyVersionState(state, {
         shouldBroadcast: false,
       });
       if (promotedState.activeVersion === candidateReadyVersion) {
-        const reloadSet = new Set(clientsToReload);
-        clientsToReload.forEach((item) => {
-          sendAutoReloadToClient(item, promotedState.activeVersion);
-        });
         allClients.forEach((item) => {
-          if (!reloadSet.has(item)) {
+          if (shouldClientAutoReload(item, candidateReadyVersion)) {
+            sendAutoReloadToClient(item, candidateReadyVersion);
+          } else {
             sendMessageToClient(item, MESSAGE_TYPES.VERSION_ACTIVATED, {
-              version: promotedState.activeVersion,
+              version: candidateReadyVersion,
             });
           }
         });
@@ -1893,6 +1893,8 @@ async function runVersionUpdateCheck({ client } = {}) {
     await writeVersionState(nextState);
     sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
       errorCode: nextState.lastError,
+      operation: MESSAGE_TYPES.CHECK_VERSION,
+      version: attemptedVersion,
     });
     return nextState;
   }
@@ -1971,8 +1973,12 @@ async function promoteReadyVersionState(
   return nextState;
 }
 
-async function activateReadyVersion(version, { client } = {}) {
+async function activateReadyVersion(version, { client, requestId } = {}) {
   const state = await readVersionState();
+  if (version && state.activeVersion === version) {
+    sendMessageToClient(client, MESSAGE_TYPES.VERSION_ACTIVATED, { version });
+    return state;
+  }
   if (!state.readyVersion || state.readyVersion !== version) {
     return state;
   }
@@ -1981,6 +1987,9 @@ async function activateReadyVersion(version, { client } = {}) {
     const nextState = await clearReadyVersionState(state);
     sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
       errorCode: nextState.lastError,
+      operation: MESSAGE_TYPES.ACTIVATE_VERSION,
+      version,
+      requestId,
     });
     await checkForVersionUpdate({ client });
     return nextState;
@@ -2192,6 +2201,11 @@ self.addEventListener('message', (event) => {
     return;
   }
 
+  if (type === MESSAGE_TYPES.REPORT_CLIENT_STATE) {
+    updateClientRuntimeState(client, payload);
+    return;
+  }
+
   if (type === MESSAGE_TYPES.GET_VERSION_STATE) {
     updateClientRuntimeState(client, payload);
     event.waitUntil(
@@ -2231,7 +2245,10 @@ self.addEventListener('message', (event) => {
         if (versionCheckPromise) {
           await versionCheckPromise.catch(() => undefined);
         }
-        await activateReadyVersion(payload.version, { client });
+        await activateReadyVersion(payload.version, {
+          client,
+          requestId: payload.requestId,
+        });
       })(),
     );
     return;
