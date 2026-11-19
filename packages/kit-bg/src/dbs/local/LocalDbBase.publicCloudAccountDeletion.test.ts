@@ -16,7 +16,7 @@ import {
   rememberPublicAccountSnapshotWrite,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
-import { EDBAccountType } from './consts';
+import { EDBAccountType, INDEXED_DB_VERSION, REALM_DB_VERSION } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
@@ -339,6 +339,11 @@ function attachRealSnapshotManager(db: DeletionTestDb) {
 describe('public account deletion tombstones', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
+
+  test('requires the pending account deletion schema in both databases', () => {
+    expect(REALM_DB_VERSION).toBeGreaterThanOrEqual(21);
+    expect(INDEXED_DB_VERSION).toBe(REALM_DB_VERSION);
+  });
 
   test('single HD/HW deletion retains the tombstone and triggers sync after commit', async () => {
     const db = new DeletionTestDb();
