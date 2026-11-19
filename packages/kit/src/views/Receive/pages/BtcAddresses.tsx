@@ -380,23 +380,18 @@ function BtcAddresses() {
   useEffect(() => {
     setReceivePage(1);
     setChangePage(1);
-  }, [effectiveAccountId, networkId, currentDeriveType]);
+  }, [effectiveAccountId, networkId]);
 
   const decimals = network?.decimals ?? 8;
   const symbol = network?.symbol ?? 'BTC';
 
+  // Each BTC address type has its own account. The service resolves its encoding.
   const addressParams = useMemo(
-    () => ({
-      accountId: effectiveAccountId,
-      networkId,
-      deriveType: currentDeriveType,
-    }),
-    [effectiveAccountId, networkId, currentDeriveType],
+    () => ({ accountId: effectiveAccountId, networkId }),
+    [effectiveAccountId, networkId],
   );
   const addressScopeKey =
-    effectiveAccountId && networkId
-      ? `${networkId}:${effectiveAccountId}:${currentDeriveType ?? ''}`
-      : '';
+    effectiveAccountId && networkId ? `${networkId}:${effectiveAccountId}` : '';
 
   const { result: nextFresh, run: refreshNextFresh } = useBtcAddressResult(
     addressScopeKey,
@@ -802,7 +797,7 @@ function BtcAddresses() {
             >
               {showFindAddressEntry ? (
                 <BtcFindAddressSection
-                  key={`${networkId}:${effectiveAccountId}`}
+                  key={addressScopeKey}
                   accountId={effectiveAccountId}
                   networkId={networkId}
                   decimals={decimals}
