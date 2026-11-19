@@ -8,10 +8,13 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
@@ -27,9 +30,16 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { Types } from 'tronweb';
 
+const TRON_CHAIN_ID = {
+  main: '0x2b6653dc',
+  shasta: '0x94a9059e',
+  nile: '0xcd8690dc',
+} as const;
+
 const TRON_SCAN_REQUESTED_URL = {
   main: 'https://api.trongrid.io',
   shasta: 'https://api.shasta.trongrid.io',
+  nile: 'https://nile.trongrid.io',
 };
 
 export const TRON_SCAN_HOST_WHITE_LIST = [
@@ -38,6 +48,30 @@ export const TRON_SCAN_HOST_WHITE_LIST = [
   'shasta.tronscan.org',
 ];
 
+function toHexChainId(raw?: string): string | undefined {
+  if (isNil(raw) || raw === '') {
+    return undefined;
+  }
+  // Preset/server testnets can store prefixed chainIds such as "tron--0xcd8690dc".
+  const candidate = raw.includes(SEPERATOR)
+    ? networkUtils.parseNetworkId({ networkId: raw }).chainId
+    : raw;
+  const numeric = Number(candidate);
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return hexUtils.hexlify(numeric);
+}
+
+function resolveTronChainId(
+  network?: Pick<IServerNetwork, 'id' | 'chainId'>,
+): string | undefined {
+  if (!network) {
+    return undefined;
+  }
+  return toHexChainId(network.chainId) ?? toHexChainId(network.id);
+}
+
 @backgroundClass()
 class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
@@ -45,9 +79,7 @@ class ProviderApiTron extends ProviderApiBase {
   async tron_chainId(request: IJsBridgeMessagePayload) {
     const networks =
       await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
-    if (!isNil(networks?.[0]?.chainId)) {
-      return hexUtils.hexlify(Number(networks?.[0]?.chainId));
-    }
+    return resolveTronChainId(networks?.[0]);
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
@@ -150,17 +182,18 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   async tron_nodes(request: IJsBridgeMessagePayload) {
-    let url = '';
-
     const networks =
       await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
+    const network = networks?.[0];
+    const chainId = resolveTronChainId(network)?.toLowerCase();
 
-    if (networks[0]) {
-      url = networks[0].isTestnet
-        ? TRON_SCAN_REQUESTED_URL.shasta
-        : TRON_SCAN_REQUESTED_URL.main;
-    } else {
-      url = TRON_SCAN_REQUESTED_URL.main;
+    let url: string = TRON_SCAN_REQUESTED_URL.main;
+    if (chainId === TRON_CHAIN_ID.nile) {
+      url = TRON_SCAN_REQUESTED_URL.nile;
+    } else if (chainId === TRON_CHAIN_ID.shasta) {
+      url = TRON_SCAN_REQUESTED_URL.shasta;
+    } else if (network?.isTestnet) {
+      url = TRON_SCAN_REQUESTED_URL.shasta;
     }
 
     return Promise.resolve({
