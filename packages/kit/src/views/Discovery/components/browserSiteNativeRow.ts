@@ -11,11 +11,13 @@ import type {
 
 // Matches ListItem (py $2 around a 44pt text block) and the old CELL_HEIGHT.
 export const BROWSER_SITE_ROW_HEIGHT = 60;
-// React Native rounds every text box up to the next physical pixel on iOS and
-// Android, so the 24pt title and 20pt URL each occupy one extra pixel
-// (24.33/20.33 at 3x). React Native Web keeps the exact 24/20 line boxes.
-const PX = platformEnv.isNative ? 1 / PixelRatio.get() : 0;
-// Unconstrained ListItem height (History): py 8 + 24.33 + 20.33 on native.
+// One physical pixel on iOS and Android, zero on Web.
+const DEVICE_PX = platformEnv.isNative ? 1 / PixelRatio.get() : 0;
+// React Native on iOS rounds every text box up to the next physical pixel, so
+// the 24pt title and 20pt URL each occupy one extra pixel (24.33/20.33 at 3x).
+// Android and Web keep the exact 24/20 line boxes.
+const PX = platformEnv.isNativeIOS ? DEVICE_PX : 0;
+// Unconstrained ListItem height (History): py 8 + 24.33 + 20.33 on iOS.
 export const BROWSER_SITE_AUTO_ROW_HEIGHT = 60 + 2 * PX;
 // UIKit places single-line text half a pixel lower than React Native's layout,
 // which snaps the rounded-up text boxes up; lift rows and headers one pixel.
@@ -162,12 +164,12 @@ export function buildBrowserSectionHeaderRow({
       container: { contentVerticalAlignment: 'top' },
       // The list's 8pt content inset plus 12 gives SectionHeader's 20pt.
       horizontalPadding: 12,
-      verticalPadding: PX
-        ? Math.floor((36 - (20 + PX)) / 2 / PX + 1e-6) * PX
+      verticalPadding: DEVICE_PX
+        ? Math.floor((36 - (20 + DEVICE_PX)) / 2 / DEVICE_PX + 1e-6) * DEVICE_PX
         : (36 - 20) / 2,
       title: {
         fontSize: 14,
-        lineHeight: 20 + PX,
+        lineHeight: 20 + DEVICE_PX,
         fontWeight: 'semibold',
         letterSpacing: 0,
         // SizableText's app-wide default.
