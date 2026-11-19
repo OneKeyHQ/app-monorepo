@@ -15,32 +15,26 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   Icon,
   IconButton,
-  Popover,
   SizableText,
   XStack,
   YStack,
-  getFontSize,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_HEIGHT } from '@onekeyhq/components/src/utils/animationConstants';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   settingsValuePersistAtom,
-  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../../testIDs';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
-import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import {
   ProtocolSplit,
+  ProtocolSplitEmpty,
   ProtocolSplitSkeleton,
   SkeletonLine,
 } from './EarnDesktopProtocolSplit';
@@ -50,11 +44,7 @@ import {
   EarnEarnings24hLine,
   TEXT_BEFORE_ICON_SPACE,
 } from './EarnEarnings24hLine';
-import {
-  ASTERISK_DROP,
-  TickingTotalValue,
-  TotalValue,
-} from './EarnTickingTotal';
+import { TickingTotalValue } from './EarnTickingTotal';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 
@@ -175,7 +165,6 @@ function BasicEarnDesktopHero({
   earnings24h,
   borrowInterest24h,
   shares,
-  readyToEarn,
   isLoading,
   isRefreshing,
   hasPositions,
@@ -192,20 +181,13 @@ function BasicEarnDesktopHero({
   earnings24h: string;
   borrowInterest24h: number;
   shares: IEarnDesktopShares;
-  /**
-   * Without positions: what the wallet's tokens that can earn here are
-   * worth, about what they would earn in a year at their rows' rates (USD),
-   * and the split by token. The hero shows these in place of a zero
-   */
-  readyToEarn?: {
-    valueUsd: number;
-    yearlyUsd: number;
-    shares: IEarnDesktopShares;
-  };
   /** Until every source has answered for this account once */
   isLoading: boolean;
   isRefreshing?: boolean;
-  /** Without positions there are no earnings to state */
+  /**
+   * Without positions every part shows its own empty state: the total and
+   * the day's earnings at zero, the split as its bare track
+   */
   hasPositions: boolean;
   isActive: boolean;
   /** The banner card's shortest height, when the banner sits beside */
@@ -230,28 +212,13 @@ function BasicEarnDesktopHero({
   // Net worth grows by the earnings less what the loans accrue
   const change24h = earnings - borrowInterest24h;
   const isTicking = isActive && !isHidden && !isLoading;
-  const [{ currencyMap }] = useCurrencyPersistAtom();
-  const isReadyToEarn = !isLoading && !hasPositions && Boolean(readyToEarn);
-  const toShownCurrency = (usd: number) =>
-    new BigNumber(
-      convertFiat({
-        value: usd,
-        sourceCurrency: USD_CURRENCY_ID,
-        targetCurrency: settings.currencyInfo.id,
-        currencyMap,
-      }),
-    ).toNumber() || 0;
-  const readyValue =
-    isReadyToEarn && readyToEarn ? toShownCurrency(readyToEarn.valueUsd) : 0;
   const handleToggleHideValue = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
     await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
   }, []);
-  const label = isReadyToEarn
-    ? EARN_DESKTOP_DEMO_COPY.readyToEarn
-    : intl.formatMessage({
-        id: ETranslations.defi_net_worth,
-      });
+  const label = intl.formatMessage({
+    id: ETranslations.defi_net_worth,
+  });
   const reduceMotion = useReducedMotion();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -296,7 +263,8 @@ function BasicEarnDesktopHero({
   if (heroWidth && fullWidth) {
     const fits = (size: ITotalFontSize) =>
       (fullWidth * size) / TOTAL_FONT_SIZE +
-        (isReadyToEarn ? 0 : ENTRY_PADDING_WIDTH + CHEVRON_SIZE[size].px) +
+        ENTRY_PADDING_WIDTH +
+        CHEVRON_SIZE[size].px +
         (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
       heroWidth;
@@ -306,75 +274,17 @@ function BasicEarnDesktopHero({
     }
   }
 
-  let earningsRow: ReactNode = null;
-  if (isLoading) {
-    earningsRow = <SkeletonLine height={20} width={180} barHeight={14} />;
-  } else if (hasPositions) {
-    earningsRow = (
-      <EarnEarnings24hLine
-        earnings24h={earnings24h}
-        currency={currency}
-        isHidden={isHidden}
-      />
-    );
-  }
-
-  if (isReadyToEarn && readyToEarn) {
-    const yearly = toShownCurrency(readyToEarn.yearlyUsd);
-    // Under a cent the value formatter writes "< 0.01", a bound already, so
-    // no "≈" goes in front, as on the rows below
-    const isUnderCent = yearly > 0 && yearly < 0.01;
-    earningsRow = (
-      <XStack ai="center" gap="$1.5">
-        <XStack ai="baseline" gap="$1">
-          {isHidden || !isUnderCent ? (
-            <SizableText size="$bodyMdMedium">≈</SizableText>
-          ) : null}
-          <NumberSizeableTextWrapper
-            hideValue
-            size="$bodyMdMedium"
-            formatter="value"
-            formatterOptions={{ currency }}
-            y={
-              isHidden
-                ? Math.round(getFontSize('$bodyMdMedium') * ASTERISK_DROP)
-                : undefined
-            }
-          >
-            {String(yearly)}
-          </NumberSizeableTextWrapper>
-        </XStack>
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          mr={TEXT_BEFORE_ICON_SPACE}
-        >
-          {EARN_DESKTOP_DEMO_COPY.aYear}
-        </SizableText>
-        <Popover
-          placement="bottom-start"
-          renderTrigger={
-            <IconButton
-              testID="earn-desktop-ready-to-earn-info"
-              hotKey
-              aria-label={intl.formatMessage({ id: ETranslations.global_info })}
-              variant="tertiary"
-              size="small"
-              icon="InfoCircleOutline"
-              transition={reduceMotion ? undefined : 'quick'}
-              animateOnly={ANIMATE_ONLY_BG_COLOR}
-            />
-          }
-          title={EARN_DESKTOP_DEMO_COPY.readyToEarn}
-          renderContent={
-            <SizableText px="$pagePadding" py="$4">
-              {EARN_DESKTOP_DEMO_COPY.readyToEarnInfo}
-            </SizableText>
-          }
-        />
-      </XStack>
-    );
-  }
+  // Without positions the day's earnings read zero, as they do for
+  // positions that have earned nothing yet
+  const earningsRow: ReactNode = isLoading ? (
+    <SkeletonLine height={20} width={180} barHeight={14} />
+  ) : (
+    <EarnEarnings24hLine
+      earnings24h={earnings24h}
+      currency={currency}
+      isHidden={isHidden}
+    />
+  );
 
   let split: ReactNode = null;
   if (hidesSplit) {
@@ -389,13 +299,14 @@ function BasicEarnDesktopHero({
         onWarm={warmEarnPositions}
       />
     );
-  } else if (isReadyToEarn && readyToEarn?.shares.top.length) {
-    split = <ProtocolSplit shares={readyToEarn.shares} />;
+  } else if (!hasPositions) {
+    split = <ProtocolSplitEmpty />;
   }
 
   return (
-    // Never shorter than the banner beside it: without positions the buttons
-    // then sit on the banner's bottom edge instead of above an empty gap
+    // Never shorter than the banner beside it: without positions the split's
+    // bare track then sits on the banner's bottom edge, as the legend does
+    // with positions
     <YStack
       flex={1}
       minWidth={0}
@@ -424,23 +335,14 @@ function BasicEarnDesktopHero({
             setFullWidth(Math.ceil(event.nativeEvent.layout.width))
           }
         >
-          {isReadyToEarn ? (
-            <TotalValue
-              value={readyValue}
-              currency={currency}
-              fontSize={TOTAL_FONT_SIZE}
-              isHidden={isHidden}
-            />
-          ) : (
-            <TickingTotalValue
-              total={total}
-              change24h={change24h}
-              isRunning={isTicking}
-              currency={currency}
-              fontSize={TOTAL_FONT_SIZE}
-              isHidden={isHidden}
-            />
-          )}
+          <TickingTotalValue
+            total={total}
+            change24h={change24h}
+            isRunning={isTicking}
+            currency={currency}
+            fontSize={TOTAL_FONT_SIZE}
+            isHidden={isHidden}
+          />
         </XStack>
       )}
       <YStack gap="$2">
@@ -482,71 +384,53 @@ function BasicEarnDesktopHero({
         ) : (
           // The refresh button follows the total, as on the wallet home
           <XStack ai="center" gap="$3" alignSelf="flex-start" maxWidth="100%">
-            {isReadyToEarn ? (
-              // Not a way into My portfolio, which has nothing yet
+            <XStack
+              testID={EarnTestIDs.portfolioEntry}
+              role="button"
+              aria-label={label}
+              ai="center"
+              gap="$1"
+              minWidth={0}
+              flexShrink={1}
+              pl="$2.5"
+              ml="$-2.5"
+              py="$1"
+              my="$-1"
+              borderRadius="$3"
+              cursor="pointer"
+              userSelect="none"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              transition={reduceMotion ? undefined : 'quick'}
+              animateOnly={ANIMATE_ONLY_BG_COLOR}
+              onPress={onOpenPortfolio}
+              onHoverIn={warmEarnPositions}
+              onFocus={warmEarnPositions}
+              {...buildKeyboardPressProps(onOpenPortfolio)}
+            >
+              {/* Every size keeps the 48px line, so nothing below moves */}
               <YStack
-                testID="earn-desktop-ready-to-earn"
                 h={TOTAL_FONT_SIZE}
                 jc="center"
                 minWidth={0}
                 flexShrink={1}
               >
-                <TotalValue
-                  value={readyValue}
+                <TickingTotalValue
+                  total={total}
+                  change24h={change24h}
+                  isRunning={isTicking}
                   currency={currency}
                   fontSize={fontSize}
                   isHidden={isHidden}
                 />
               </YStack>
-            ) : (
-              <XStack
-                testID={EarnTestIDs.portfolioEntry}
-                role="button"
-                aria-label={label}
-                ai="center"
-                gap="$1"
-                minWidth={0}
-                flexShrink={1}
-                pl="$2.5"
-                ml="$-2.5"
-                py="$1"
-                my="$-1"
-                borderRadius="$3"
-                cursor="pointer"
-                userSelect="none"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                transition={reduceMotion ? undefined : 'quick'}
-                animateOnly={ANIMATE_ONLY_BG_COLOR}
-                onPress={onOpenPortfolio}
-                onHoverIn={warmEarnPositions}
-                onFocus={warmEarnPositions}
-                {...buildKeyboardPressProps(onOpenPortfolio)}
-              >
-                {/* Every size keeps the 48px line, so nothing below moves */}
-                <YStack
-                  h={TOTAL_FONT_SIZE}
-                  jc="center"
-                  minWidth={0}
-                  flexShrink={1}
-                >
-                  <TickingTotalValue
-                    total={total}
-                    change24h={change24h}
-                    isRunning={isTicking}
-                    currency={currency}
-                    fontSize={fontSize}
-                    isHidden={isHidden}
-                  />
-                </YStack>
-                <Icon
-                  name="ChevronRightSmallOutline"
-                  size={CHEVRON_SIZE[fontSize].token}
-                  color="$iconSubdued"
-                  flexShrink={0}
-                />
-              </XStack>
-            )}
+              <Icon
+                name="ChevronRightSmallOutline"
+                size={CHEVRON_SIZE[fontSize].token}
+                color="$iconSubdued"
+                flexShrink={0}
+              />
+            </XStack>
             {onRefresh ? (
               <IconButton
                 testID="earn-desktop-refresh"
@@ -572,7 +456,7 @@ function BasicEarnDesktopHero({
         onHasRow={handleHasRewards}
         onEase={handleRewardsEase}
       >
-        {isReadyToEarn ? null : rewards}
+        {rewards}
       </RewardsRow>
       {split}
     </YStack>

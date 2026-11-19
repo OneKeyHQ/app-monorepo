@@ -31,13 +31,11 @@ import {
 import { EarnDesktopEarnTab } from './EarnDesktopEarnTab';
 import { EarnDesktopHero } from './EarnDesktopHero';
 import {
-  buildHoldingShares,
   buildProtocolShares,
   collectTileRows,
   computeNetWorth,
   estimateBorrowInterest24h,
   sumBorrowedFiat,
-  sumHoldRows,
   sumPortfolioDeposits,
 } from './earnDesktopHome.utils';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
@@ -392,25 +390,11 @@ export function EarnDesktopHome({
     lending.lendingTotal > 0 ||
     accountMarkets.loans.length > 0;
 
-  // Without positions the hero shows what the wallet's tokens that can earn
-  // here are worth, from the rows of Earns on your holding
-  const readyToEarn = useMemo(() => {
-    if (hasPositions || !hold.isLoaded || !hold.rows.length) {
-      return undefined;
-    }
-    return {
-      ...sumHoldRows(hold.rows),
-      shares: buildHoldingShares({ rows: hold.rows }),
-    };
-  }, [hasPositions, hold.isLoaded, hold.rows]);
   // Partial sums are wrong numbers: the hero waits for the portfolio and the
-  // markets, and without positions for the wallet's rows too, so it never
-  // shows a zero first; then it shows at once
+  // markets, so it never shows a zero first; then it shows at once. Without
+  // positions it shows its own parts empty
   const isHeroLoading =
-    !hasNoWallet &&
-    (!isPortfolioSettled ||
-      !accountMarkets.isLoaded ||
-      (!hasPositions && !hold.isLoaded));
+    !hasNoWallet && (!isPortfolioSettled || !accountMarkets.isLoaded);
   // The guide's checklist floats over the page while the account has no
   // positions; it reads what the home knows from here
   useEarnDesktopGuide({
@@ -662,7 +646,6 @@ export function EarnDesktopHome({
               earnings24h={earnings24h}
               borrowInterest24h={borrowInterest24h}
               shares={shares}
-              readyToEarn={readyToEarn}
               isLoading={isHeroLoading}
               isRefreshing={isRefreshing}
               hasPositions={hasPositions}
@@ -731,7 +714,6 @@ export function EarnDesktopHome({
               earnings24h={earnings24h}
               borrowInterest24h={borrowInterest24h}
               shares={shares}
-              readyToEarn={readyToEarn}
               isLoading={isHeroLoading}
               isRefreshing={isRefreshing}
               hasPositions={hasPositions}

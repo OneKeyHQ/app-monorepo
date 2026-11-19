@@ -56,10 +56,6 @@ const EN = {
   // Under "Transaction submitted" once a deposit or withdrawal is out
   depositedTo: (amount: string, target: string) => `${amount} to ${target}`,
   withdrewFrom: (amount: string, target: string) => `${amount} from ${target}`,
-  // The hero without positions: the wallet's tokens that can earn here
-  readyToEarn: 'Ready to earn',
-  readyToEarnInfo:
-    'What the tokens under Earns on your holding are worth, and about what they would earn in a year, each at the rate its row shows. Rates change.',
   // Loans as collateral and borrow pairs
   inYourWallet: 'In your wallet',
   showMore: (count: number) => `Show ${count} more`,
@@ -197,9 +193,6 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   depositedTo: (amount: string, target: string) => `${amount} 存入 ${target}`,
   withdrewFrom: (amount: string, target: string) =>
     `从 ${target} 赎回 ${amount}`,
-  readyToEarn: '可生息资产',
-  readyToEarnInfo:
-    '“持币生息”下各代币的价值，以及按每行显示的利率估算的一年收益。利率会变动。',
   inYourWallet: '钱包中',
   showMore: (count: number) => `再显示 ${count} 个`,
   loanNetApyHeader: (ltv: string) => `净 APY (${ltv} LTV)`,

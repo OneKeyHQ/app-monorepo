@@ -674,49 +674,6 @@ function rankShares(
   };
 }
 
-// The hero's bar without positions: the tokens that can earn here, by token
-// across networks, by what they are worth
-export function buildHoldingShares({
-  rows,
-  topCount = 3,
-}: {
-  rows: IEarnDesktopHoldRow[];
-  topCount?: number;
-}): IEarnDesktopShares {
-  const byToken = new Map<string, Omit<IEarnDesktopShare, 'percent'>>();
-  rows.forEach((row) => {
-    const value = toNumber(row.fiatValueUsd);
-    if (value <= 0) {
-      return;
-    }
-    const key = row.token.symbol.toUpperCase();
-    const current = byToken.get(key);
-    byToken.set(key, {
-      key,
-      name: current?.name ?? row.token.symbol,
-      logoURI: current?.logoURI ?? (row.token.logoURI || row.asset.logoURI),
-      value: (current?.value ?? 0) + value,
-    });
-  });
-  return rankShares(byToken.values(), topCount);
-}
-
-// What the same rows are worth, and about what they would earn in a year,
-// each at the rate its row shows, in USD
-export function sumHoldRows(rows: IEarnDesktopHoldRow[]) {
-  return rows.reduce(
-    (sum, row) => {
-      const value = toNumber(row.fiatValueUsd);
-      const apr = row.offers[0] ? toNumber(row.offers[0].apr) : 0;
-      return {
-        valueUsd: sum.valueUsd + value,
-        yearlyUsd: sum.yearlyUsd + (value * apr) / 100,
-      };
-    },
-    { valueUsd: 0, yearlyUsd: 0 },
-  );
-}
-
 // ---------- Tiles ----------
 
 type IPortfolioAsset = IEarnPortfolioInvestment['assets'][number];

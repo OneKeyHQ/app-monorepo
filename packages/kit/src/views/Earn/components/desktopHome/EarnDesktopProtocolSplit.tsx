@@ -35,6 +35,8 @@ import type {
 // status (earnings, risk), so the protocols' logos tell them apart instead
 const SHARE_COLORS = ['$neutral11', '$neutral9', '$neutral7'] as const;
 const REST_SHARE_COLOR = '$neutral5';
+// The app's progress bars leave the part not yet filled in this grey
+const EMPTY_TRACK_COLOR = '$neutral5';
 // The share pointed at takes the strongest step; the others step back
 const ACTIVE_SHARE_COLOR = '$neutral12';
 const RESTING_SHARE_OPACITY = 0.4;
@@ -94,6 +96,20 @@ export function ProtocolSplitSkeleton() {
         ))}
       </XStack>
     </YStack>
+  );
+}
+
+// No positions yet: the bar's track alone, as wide and as tall as the bar.
+// It stays still and has no legend under it, so it doesn't read as loading
+export function ProtocolSplitEmpty() {
+  return (
+    <XStack
+      testID="earn-split-empty"
+      h="$2.5"
+      borderRadius="$full"
+      bg={EMPTY_TRACK_COLOR}
+      aria-hidden
+    />
   );
 }
 
