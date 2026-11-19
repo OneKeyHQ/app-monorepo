@@ -137,7 +137,7 @@ jest.mock('react-native-reanimated', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDesktop: true, isNative: false },
+  default: { isDesktop: true, isDesktopWin: true, isNative: false },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
@@ -822,6 +822,27 @@ describe('third-party Bluetooth recovery in wallet finalization', () => {
       eligible: false,
       hasUnclaimedGift: false,
     });
+  });
+
+  it('returns to discovery without a failure screen when Windows pairing is declined', async () => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BlePairingCancelled,
+        error: 'Pairing declined',
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    await waitFor(() => expect(mockNavigation.pop).toHaveBeenCalledTimes(1));
+    expect(mockEndBurst).toHaveBeenCalledWith({
+      error: expect.objectContaining({
+        code: HardwareErrorCode.BlePairingCancelled,
+      }),
+    });
+    expect(
+      screen.queryByText(ETranslations.failed_to_create_wallet),
+    ).toBeNull();
+    expect(mockCreateThirdPartyWallet).not.toHaveBeenCalled();
   });
 
   it('shows device preparation and returns to discovery without reconnecting the expired identifier', async () => {

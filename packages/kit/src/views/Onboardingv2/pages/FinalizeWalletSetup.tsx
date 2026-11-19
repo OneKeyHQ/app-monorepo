@@ -41,6 +41,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IHardwareErrorRecoveryHint,
   IOneKeyError,
@@ -439,6 +440,7 @@ function FinalizeWalletSetupPage({
     // The operation this run opened itself, so a superseded run can still
     // release it without touching the ref a newer run owns.
     let ownThirdPartyOperation: IFinalizeWalletSetupOperation | undefined;
+    let pairingCancellation: { error: unknown } | undefined;
     const isCurrentAttempt = () => setupAttemptsRef.current.isCurrent(attempt);
     // The stage hold is opened inside the hardware branch below, and only
     // there: a software wallet (new mnemonic, import, keyless restore) has
@@ -1030,7 +1032,6 @@ function FinalizeWalletSetupPage({
         // A throw means connectDevice has settled; nothing is left to cancel.
         setupAttemptsRef.current.finishFirstContact(attempt);
       }
-      console.error('createWallet error:', error);
       const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
         messageId?: ETranslations;
         payload?: {
@@ -1043,6 +1044,16 @@ function FinalizeWalletSetupPage({
       if (!isCurrentAttempt()) {
         return;
       }
+      if (
+        platformEnv.isDesktopWin &&
+        deviceData?.searchTarget?.connectionType === 'ble' &&
+        !ownThirdPartyOperation &&
+        hardwareError?.code === THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE
+      ) {
+        pairingCancellation = { error };
+        return;
+      }
+      console.error('createWallet error:', error);
       setSetupError({
         code: hardwareError?.code,
         recovery: hardwareError?.payload?.recovery,
@@ -1081,7 +1092,13 @@ function FinalizeWalletSetupPage({
           });
       }
       // A replacement attempt reuses the flow's hold; only its owner may end it.
-      if (!deviceData?.vendor || isCurrentAttempt()) await endBurst();
+      if (!deviceData?.vendor || isCurrentAttempt()) {
+        await endBurst(pairingCancellation);
+        if (pairingCancellation) {
+          await waitForDeviceStageExit();
+          if (isCurrentAttempt()) navigation.pop();
+        }
+      }
     }
   }, [
     ensureBurst,
