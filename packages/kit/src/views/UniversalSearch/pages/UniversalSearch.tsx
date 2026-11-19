@@ -146,7 +146,8 @@ const SEARCH_DEBOUNCE_MS = 500;
 // The longest the other results wait for the stock search's first page.
 const STOCK_FIRST_PAGE_WAIT_MS = 3000;
 // How long, from the start of a search, the results wait for help center
-// articles. A slower response is left out of that search.
+// articles. Articles that land before the other rounds finish are always
+// used; a response later than both is left out of that search.
 const HELP_CENTER_RESULT_WAIT_MS = 1500;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
@@ -903,25 +904,22 @@ export function UniversalSearch({
         // aggregate sub-token (contract-address) matching is preserved.
         aggregateTokenListCacheMap: undefined,
       };
-      // Requested alongside the other rounds. The budget starts with the
-      // request, so it only adds a wait when the other rounds finish first.
-      const helpCenterPromise = shouldIncludeHelpCenter
-        ? Promise.race([
-            backgroundApiProxy.serviceUniversalSearch
-              .universalSearchOfHelpCenter({ input })
-              .then(
-                (helpCenter): IUniversalSearchBatchResult => ({
-                  [EUniversalSearchType.HelpCenter]: helpCenter,
-                }),
-              )
-              .catch((error): IUniversalSearchBatchResult => {
-                console.error('[universalSearch] help center failed', error);
-                return {};
-              }),
-            timerUtils
-              .wait(HELP_CENTER_RESULT_WAIT_MS)
-              .then((): IUniversalSearchBatchResult => ({})),
-          ])
+      // Requested alongside the other rounds and kept as soon as it lands.
+      let helpCenterResult: IUniversalSearchBatchResult = {};
+      const helpCenterRequest = shouldIncludeHelpCenter
+        ? backgroundApiProxy.serviceUniversalSearch
+            .universalSearchOfHelpCenter({ input })
+            .then((helpCenter) => {
+              helpCenterResult = {
+                [EUniversalSearchType.HelpCenter]: helpCenter,
+              };
+            })
+            .catch((error) => {
+              console.error('[universalSearch] help center failed', error);
+            })
+        : undefined;
+      const helpCenterDeadline = helpCenterRequest
+        ? timerUtils.wait(HELP_CENTER_RESULT_WAIT_MS)
         : undefined;
       let paintedSections: IUniversalSection[] = [];
       let searchFailed = false;
@@ -986,14 +984,16 @@ export function UniversalSearch({
         searchFailed = true;
         paintedSections = primarySections;
       }
-      if (helpCenterPromise) {
+      if (helpCenterRequest && helpCenterDeadline) {
         // Show what is ready; an empty set keeps the skeleton rather than
         // flashing "No results" before the articles arrive.
         if (paintedSections.length > 0) {
           setSections(paintedSections);
           setSearchStatus(ESearchStatus.done);
         }
-        const helpCenterResult = await helpCenterPromise;
+        // Only the wait past the other rounds is capped: a response that has
+        // already landed is used even when the budget has run out.
+        await Promise.race([helpCenterRequest, helpCenterDeadline]);
         if (isResponseStale()) {
           return;
         }

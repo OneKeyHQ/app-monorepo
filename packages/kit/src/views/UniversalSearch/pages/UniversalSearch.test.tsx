@@ -429,6 +429,7 @@ beforeEach(() => {
   mockStocks = [];
   mockResults = {};
   mockSearch.mockClear();
+  mockSearch.mockImplementation(async () => mockResults);
   mockHelpCenterSearch.mockReset();
   mockHelpCenterSearch.mockImplementation(async () => ({ items: [] }));
   mockUniversalSearchQuery.mockClear();
@@ -622,6 +623,26 @@ it('shows help center articles within the wait budget and counts them once', asy
   );
   expect(mockUniversalSearchQuery).toHaveBeenCalledWith(
     expect.objectContaining({ resultCount: 1, exposedTypes: 'helpCenter:1' }),
+  );
+});
+
+it('uses help center articles that land before slower search rounds finish', async () => {
+  resolveHelpCenterAfter(1700);
+  mockSearch.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve(mockResults), 1000);
+      }),
+  );
+  typeQuery();
+  await waitFor(() => expect(screen.getByText('Backup article')).toBeTruthy(), {
+    timeout: 4000,
+  });
+  expect(screen.queryByText(ETranslations.global_no_results)).toBeNull();
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ exposedTypes: 'helpCenter:1' }),
+    ),
   );
 });
 
