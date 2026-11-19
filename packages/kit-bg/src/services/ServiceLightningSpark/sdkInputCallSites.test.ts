@@ -30,6 +30,10 @@ const ALLOWED_USES = [
   'services/ServiceLightningSpark/ServiceLightningSpark.ts | createInvoice | parse',
   // The invoice of an encodedTx, after the format check.
   'services/ServiceLightningSpark/ServiceLightningSpark.ts | prepareInvoicePayment | prepareSendPayment',
+  // The native adapter passes the two calls above on to the native SDK and
+  // takes input from nowhere else.
+  'services/ServiceLightningSpark/sdk/breezSdkNativeAdapter.ts | parse | parse',
+  'services/ServiceLightningSpark/sdk/breezSdkNativeAdapter.ts | prepareSendPayment | prepareSendPayment',
 ];
 
 const KIT_BG_SRC = path.resolve(__dirname, '../..');
