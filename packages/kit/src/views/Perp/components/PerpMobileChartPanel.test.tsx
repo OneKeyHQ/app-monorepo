@@ -466,6 +466,9 @@ describe('PerpMobileChartPanel', () => {
     expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
       'BTC',
     );
+    expect(
+      view.getByText('Native chart').getAttribute('data-main-indicators'),
+    ).toBe('true');
     expect(view.queryByTestId('mock-native-chart-close')).toBeNull();
 
     view.rerender(
