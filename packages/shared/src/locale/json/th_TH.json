@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "ซื้อสปอต {token}",
   "perps_spot_deposit_to_usdc__desc": "ฝากสินทรัพย์ออนเชนเข้าบัญชีของคุณ",
   "perps_spot_deposit_to_usdc__title": "ฝากเข้า USDC",
+  "perps_tp_long_loss__desc": "ราคาทริกเกอร์ต่ำกว่าราคาเข้า คาดว่าการปิดสถานะจะยังคงขาดทุน",
+  "perps_tp_short_loss__desc": "ราคาทริกเกอร์สูงกว่าราคาเข้า คาดว่าการปิดสถานะจะยังคงขาดทุน",
   "perps_trading_page_chart__title": "กราฟแท่งเทียนในหน้าการซื้อขาย",
   "perps_trigger_price_equal_current": "ราคาทริกเกอร์ต้องแตกต่างจากราคาปัจจุบัน",
   "photo_library_access_denied__desc": "OneKey ต้องการสิทธิ์เข้าถึงคลังรูปภาพเพื่อบันทึกรูปภาพ โปรดไปที่การตั้งค่าและเปิดใช้งานสิทธิ์คลังรูปภาพ.",

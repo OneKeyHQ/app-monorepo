@@ -51,6 +51,9 @@ const useAutoSize = (value?: string, numberOfLines = 2) => {
   };
 };
 
+// Matches the `$px` border width from getSharedInputStyles.
+const GROUP_BORDER_WIDTH = 1;
+
 export type IBaseInputProps = {
   extension?: React.ReactNode;
   numberOfLines?: number;
@@ -79,8 +82,24 @@ function BaseInput(props: IBaseInputProps) {
     numberOfLinesProp,
   );
 
+  // On Android, painting the background and border on both items leaves a
+  // light seam where the two translucent fills meet on a sub-pixel boundary
+  // (fractional densities such as 2.625). Let the group paint them once.
+  const paintOnGroup = platformEnv.isNativeAndroid && !!extension;
+  const callerMinHeight = rest.minHeight;
+
   return (
-    <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
+    <Group
+      borderRadius={sharedStyles.borderRadius}
+      disabled={disabled}
+      {...(paintOnGroup
+        ? {
+            bg: sharedStyles.backgroundColor,
+            borderWidth: GROUP_BORDER_WIDTH,
+            borderColor: sharedStyles.borderColor,
+          }
+        : undefined)}
+    >
       <Group.Item>
         <TextArea
           testID="base-input-shared-styles-textarea"
@@ -98,6 +117,17 @@ function BaseInput(props: IBaseInputProps) {
           // focusVisibleStyle={undefined}
           minHeight={minHeight}
           {...rest}
+          {...(paintOnGroup
+            ? {
+                bg: '$transparent',
+                borderWidth: 0,
+                // A caller's minHeight used to include this item's top border,
+                // which now belongs to the group; keep the overall height.
+                ...(typeof callerMinHeight === 'number'
+                  ? { minHeight: callerMinHeight - GROUP_BORDER_WIDTH }
+                  : undefined),
+              }
+            : undefined)}
         />
       </Group.Item>
       {extension ? (
@@ -105,10 +135,14 @@ function BaseInput(props: IBaseInputProps) {
           <Stack
             px={sharedStyles.px}
             py={size === 'large' ? '$3.5' : '$1.5'}
-            borderWidth={sharedStyles.borderWidth}
-            bg={sharedStyles.backgroundColor}
-            borderTopWidth={0}
-            borderColor={sharedStyles.borderColor}
+            {...(paintOnGroup
+              ? undefined
+              : {
+                  borderWidth: sharedStyles.borderWidth,
+                  bg: sharedStyles.backgroundColor,
+                  borderTopWidth: 0,
+                  borderColor: sharedStyles.borderColor,
+                })}
           >
             {extension}
           </Stack>

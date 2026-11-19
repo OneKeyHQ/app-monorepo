@@ -10,6 +10,7 @@ const searchTypeTrackingNameMap: Record<EUniversalSearchType, string> = {
   [EUniversalSearchType.Dapp]: 'dApps',
   [EUniversalSearchType.Perp]: 'perps',
   [EUniversalSearchType.Settings]: 'settings',
+  [EUniversalSearchType.HelpCenter]: 'helpCenter',
 };
 
 export function getSearchTypeTrackingName(type: EUniversalSearchType): string {

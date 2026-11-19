@@ -19,7 +19,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
@@ -86,6 +85,7 @@ function BannerContainerDesktop({
   itemCount,
   hidden = false,
   divided,
+  compactTopSpacing,
 }: {
   children: ReactNode;
   itemCount: number;
@@ -93,11 +93,16 @@ function BannerContainerDesktop({
   // True when every card renders token previews, which desktop web separates
   // with dividers.
   divided: boolean;
+  compactTopSpacing?: boolean;
 }) {
   if (!platformEnv.isNative) {
     // Web never renders a hidden desktop banner; it unmounts the row instead.
     return (
-      <MarketBannerDesktopScroller itemCount={itemCount} divided={divided}>
+      <MarketBannerDesktopScroller
+        itemCount={itemCount}
+        divided={divided}
+        compactTopSpacing={compactTopSpacing}
+      >
         {children}
       </MarketBannerDesktopScroller>
     );
@@ -122,8 +127,10 @@ function BannerContainerDesktop({
 
 function MarketBannerListSkeletonComponent({
   isSmallScreen,
+  compactTopSpacing,
 }: {
   isSmallScreen: boolean;
+  compactTopSpacing?: boolean;
 }) {
   const skeletonCount = isSmallScreen ? 3 : 7;
   const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
@@ -135,7 +142,11 @@ function MarketBannerListSkeletonComponent({
   }
 
   return (
-    <BannerContainerDesktop itemCount={skeletonCount} divided>
+    <BannerContainerDesktop
+      itemCount={skeletonCount}
+      divided
+      compactTopSpacing={compactTopSpacing}
+    >
       {skeletonItems}
     </BannerContainerDesktop>
   );
@@ -143,7 +154,11 @@ function MarketBannerListSkeletonComponent({
 
 const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
 
-function MarketBannerListComponent() {
+function MarketBannerListComponent({
+  compactTopSpacing,
+}: {
+  compactTopSpacing?: boolean;
+}) {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
   const { bannerList, isLoading, isFetched } = useMarketBannerState();
@@ -169,7 +184,12 @@ function MarketBannerListComponent() {
   // navigating back with no banners.
   const showSkeleton = isLoading && !isFetched;
   if (showSkeleton && (isSmallScreen || platformEnv.isNative)) {
-    return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
+    return (
+      <MarketBannerListSkeleton
+        isSmallScreen={isSmallScreen}
+        compactTopSpacing={compactTopSpacing}
+      />
+    );
   }
 
   const hidden = !showSkeleton && bannerList.length === 0;
@@ -213,15 +233,25 @@ function MarketBannerListComponent() {
       itemCount={bannerItems.length}
       hidden={hidden}
       divided={isDividedList}
+      compactTopSpacing={compactTopSpacing}
     >
       {bannerItems}
     </BannerContainerDesktop>
   );
 }
 
-export const MarketBannerList = memo(function MarketBannerList() {
+export const MarketBannerList = memo(function MarketBannerList({
+  compactTopSpacing,
+}: {
+  compactTopSpacing?: boolean;
+}) {
   const { scope } = useMarketBannerState();
-  return <MarketBannerListComponent key={scope} />;
+  return (
+    <MarketBannerListComponent
+      key={scope}
+      compactTopSpacing={compactTopSpacing}
+    />
+  );
 });
 
 export function MarketBannerLayout({
@@ -241,16 +271,18 @@ export function MarketBannerLayout({
   const [painted, setPainted] = useState(false);
 
   useLayoutEffect(() => {
+    const header = headerRef.current as HTMLElement | null;
+    const cover = coverRef.current as HTMLElement | null;
+    if (!header || !cover) return;
+    // A second React header would restart stateful content such as the ticker.
+    // Copy its rendered position and quotes before the recovery cover paints.
+    cover.replaceChildren(header.cloneNode(true));
     const selector = `[data-testid="${MarketTestIDs.bannerScrollView}"]`;
-    const source = (
-      rootRef.current as HTMLElement | null
-    )?.querySelector<HTMLElement>(selector);
-    const cover = (
-      coverRef.current as HTMLElement | null
-    )?.querySelector<HTMLElement>(selector);
-    // The recovery cover must show the same cards before its first paint.
-    if (source && cover) cover.scrollLeft = source.scrollLeft;
-  }, [active, ready, painted]);
+    const sourceScroller = header.querySelector<HTMLElement>(selector);
+    const coverScroller = cover.querySelector<HTMLElement>(selector);
+    if (sourceScroller && coverScroller)
+      coverScroller.scrollLeft = sourceScroller.scrollLeft;
+  });
 
   useLayoutEffect(() => {
     if (!ready) {
@@ -333,11 +365,7 @@ export function MarketBannerLayout({
           pointerEvents="none"
           bg="$bgApp"
           aria-hidden
-        >
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
-            <MarketBannerList />
-          </YStack>
-        </YStack>
+        />
       ) : null}
       <YStack
         ref={rootRef}
