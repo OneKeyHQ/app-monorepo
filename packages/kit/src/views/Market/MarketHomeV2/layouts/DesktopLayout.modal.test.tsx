@@ -23,6 +23,13 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocused,
 }));
+jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
+  useMarketHighlights: () => ({ items: [], isLoading: false }),
+}));
+jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
+  MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT: 72,
+  MarketHighlightStrip: () => null,
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));

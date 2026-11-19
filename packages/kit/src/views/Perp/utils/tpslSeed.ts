@@ -19,25 +19,3 @@ export function buildDefaultTpSlPercent(
     slValue: slValue || DEFAULT_TPSL_ROE_PERCENT,
   };
 }
-
-export function shouldSeedPositionTpSlLeg({
-  hasExistingOrder,
-  hasPreset,
-  currentValue,
-  userEdited,
-  seeded,
-}: {
-  hasExistingOrder: boolean;
-  hasPreset: boolean;
-  currentValue: string;
-  userEdited: boolean;
-  seeded: boolean;
-}) {
-  return Boolean(
-    !hasExistingOrder &&
-    !hasPreset &&
-    !currentValue.trim() &&
-    !userEdited &&
-    !seeded,
-  );
-}
