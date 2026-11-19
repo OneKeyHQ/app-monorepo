@@ -36,11 +36,35 @@ import {
   classifyThirdPartyHwCreateFailures,
   convertThirdPartyDeviceError,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyHardwareCancelCode,
   isThirdPartyInstallAppUserCancelCode,
   normalizeThirdPartyDeviceErrorCode,
   normalizeThirdPartyHardwareRecoveryHint,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from './thirdPartyDeviceErrorUtils';
+
+describe('isThirdPartyHardwareCancelCode', () => {
+  it('names our abort and a declined pairing, as numbers or strings', () => {
+    expect(
+      isThirdPartyHardwareCancelCode(ThirdPartyHwErrorCode.UserAborted),
+    ).toBe(true);
+    expect(
+      isThirdPartyHardwareCancelCode(
+        String(ThirdPartyHwErrorCode.BlePairingCancelled),
+      ),
+    ).toBe(true);
+  });
+
+  it('leaves a device-side reject and other failures to their own copy', () => {
+    for (const code of [
+      ThirdPartyHwErrorCode.UserRejected,
+      ThirdPartyHwErrorCode.BlePairingTimeout,
+      undefined,
+    ]) {
+      expect(isThirdPartyHardwareCancelCode(code)).toBe(false);
+    }
+  });
+});
 
 describe('convertThirdPartyDeviceError', () => {
   it('shows system Bluetooth removal guidance for a stale Ledger pairing', () => {
@@ -562,11 +586,20 @@ describe('convertThirdPartyDeviceError', () => {
       ).toBe(keystoneKey);
       expect(
         convertThirdPartyDeviceError(payload, {
-          vendor: EHardwareVendor.ledger,
+          vendor: EHardwareVendor.trezor,
           silentMode: true,
         }).key,
       ).toBe(otherKey);
     }
+  });
+
+  it('asks to unlock a Ledger that was not detected', () => {
+    expect(
+      convertThirdPartyDeviceError(
+        { code: ThirdPartyHwErrorCode.DeviceNotFound, error: 'failed' },
+        { vendor: EHardwareVendor.ledger, silentMode: true },
+      ).key,
+    ).toBe(ETranslations.hardware_third_party_connect_ledger_message);
   });
 });
 
