@@ -653,6 +653,41 @@ describe('inline TRON energy claim', () => {
     expect(onIssued).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ['claim', RewardCenterTestIDs.claimBtn, mockClaim],
+    ['redemption', RewardCenterTestIDs.redeemBtn, mockRedeem],
+  ])(
+    'reports a %s through the callback it was requested with',
+    async (_name, buttonTestID, request) => {
+      let finish!: (value: IMockIssuanceResponse) => void;
+      request.mockReturnValue(
+        new Promise<IMockIssuanceResponse>((resolve) => {
+          finish = resolve;
+        }),
+      );
+      mockRedeemCode = 'test-coupon';
+      const requestedWith = jest.fn();
+      const replacedBy = jest.fn();
+      const view = render(inlineCenter(undefined, requestedWith));
+      const button = await screen.findByTestId(buttonTestID);
+      await waitFor(() => expect(button).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      fireEvent.click(button);
+      await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+      // The owner binds the callback to the signed-in member; another member
+      // signs in while the request is still in flight.
+      view.rerender(inlineCenter(undefined, replacedBy));
+      await act(async () => {
+        finish({ success: true });
+      });
+
+      expect(requestedWith).toHaveBeenCalledTimes(1);
+      expect(replacedBy).not.toHaveBeenCalled();
+    },
+  );
+
   // The live proxy answers a delivered claim with an empty body and throws
   // for every rejection (e.g. code 110 "already claimed within 24 hours").
   it.each([null, undefined])(

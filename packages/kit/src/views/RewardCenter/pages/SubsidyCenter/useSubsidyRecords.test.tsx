@@ -10,6 +10,7 @@ import {
   useSubsidyHistoryPage,
   useSubsidyIdentity,
   useSubsidyRecentHistory,
+  useSubsidyRecordsRefresh,
   useSubsidySummary,
 } from './useSubsidyRecords';
 
@@ -389,13 +390,25 @@ describe('useSubsidyRecentHistory', () => {
     const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(result.current.data?.total).toBe(0));
 
-    act(() => refreshSubsidyRecords());
+    act(() => refreshSubsidyRecords('user-a'));
 
     // The current list stays up while the new one loads.
     expect(result.current.data?.total).toBe(0);
     expect(result.current.isFetching).toBe(true);
     await waitFor(() => expect(result.current.data?.total).toBe(1));
     expect(result.current.isFetching).toBe(false);
+  });
+
+  it('ignores an issuance reported for another member', async () => {
+    mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-b'));
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    // A claim the previous member started before signing out completes now.
+    act(() => refreshSubsidyRecords('user-a'));
+
+    expect(result.current.isFetching).toBe(false);
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(1);
   });
 
   it('starts nothing for a page that was closed before the issuance finished', async () => {
@@ -412,7 +425,7 @@ describe('useSubsidyRecentHistory', () => {
     );
 
     act(() => {
-      refreshSubsidyRecords();
+      refreshSubsidyRecords('user-a');
       reload();
     });
 
@@ -587,7 +600,7 @@ describe('useSubsidyHistoryPage', () => {
       expect(result.current.data?.items[0].id).toBe('tron_energy:8'),
     );
 
-    act(() => refreshSubsidyRecords());
+    act(() => refreshSubsidyRecords('user-a'));
 
     // The list decides which page to load (it returns to page 1), so the
     // hook sends nothing by itself.
@@ -605,6 +618,33 @@ describe('useSubsidyHistoryPage', () => {
     await waitFor(() =>
       expect(result.current.data?.items[0].id).toBe('tron_energy:0'),
     );
+  });
+
+  it('keeps the cached pages of a member when another member is issued a subsidy', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(pageOf('tron_energy:1'));
+    mockFetchSubsidyHistory.mockResolvedValueOnce(
+      pageOf('tron_energy:8', { total: undefined }),
+    );
+    const { result, rerender } = renderHook(
+      ({ page }: { page: number }) =>
+        useSubsidyHistoryPage('user-b', { page, pageSize: 7 }),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:1'),
+    );
+    rerender({ page: 2 });
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:8'),
+    );
+
+    act(() => refreshSubsidyRecords('user-a'));
+
+    mockFetchSubsidyHistory.mockReturnValueOnce(new Promise(() => {}));
+    rerender({ page: 1 });
+    // This member's pages did not move: page 1 is painted from the cache.
+    expect(result.current.isPreviousData).toBe(false);
+    expect(result.current.data?.items[0].id).toBe('tron_energy:1');
   });
 
   it('starts over when the page size changes', async () => {
@@ -626,6 +666,40 @@ describe('useSubsidyHistoryPage', () => {
         page: undefined,
       }),
     );
+  });
+});
+
+describe('useSubsidyRecordsRefresh', () => {
+  it('answers only the issuances of the member it is mounted for', () => {
+    const listener = jest.fn();
+    const { rerender, unmount } = renderHook(
+      ({ identity }: { identity: string | undefined }) =>
+        useSubsidyRecordsRefresh(identity, listener),
+      { initialProps: { identity: 'user-b' as string | undefined } },
+    );
+
+    refreshSubsidyRecords('user-a');
+    expect(listener).not.toHaveBeenCalled();
+    refreshSubsidyRecords('user-b');
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // The page stays mounted across an account switch.
+    rerender({ identity: 'user-a' });
+    refreshSubsidyRecords('user-b');
+    expect(listener).toHaveBeenCalledTimes(1);
+    refreshSubsidyRecords('user-a');
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    // Signed out: an issuance without a member reaches nobody.
+    rerender({ identity: undefined });
+    refreshSubsidyRecords(undefined);
+    refreshSubsidyRecords('user-a');
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    rerender({ identity: 'user-a' });
+    unmount();
+    refreshSubsidyRecords('user-a');
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
 

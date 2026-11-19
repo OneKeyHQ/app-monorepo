@@ -325,9 +325,10 @@ export function SubsidyRecordsPaged({
   const { data, isLoading, isError, isPreviousData, isFetching, reload } =
     query;
 
-  // A claim or a redemption added a record: the newest page is the one that
-  // changed, and it is also the page that carries the new total.
-  useSubsidyRecordsRefresh(() => {
+  // A claim or a redemption added a record for this member: the newest page
+  // is the one that changed, and it is also the page that carries the new
+  // total.
+  useSubsidyRecordsRefresh(identity, () => {
     if (page === 1) {
       reload();
     } else {

@@ -48,45 +48,82 @@ const UNKNOWN_IDENTITY = 'signed-in';
 
 const HISTORY_PAGE_SCOPE = 'history-page';
 
-// Last result per signed-in identity and scope, kept for the app session.
-// Reopening the page paints it at once and refreshes behind it, so the page
-// does not rebuild from placeholders (and reflow) on every open. Keyed by
-// identity: one user's records are never painted for another.
-const subsidyQueryCache = new Map<string, unknown>();
+// Last result per signed-in identity, then per scope, kept for the app
+// session. Reopening the page paints it at once and refreshes behind it, so
+// the page does not rebuild from placeholders (and reflow) on every open.
+// Keyed by identity first: one user's records are never painted for another,
+// and one user's issuance never drops the pages of another.
+const subsidyQueryCache = new Map<string, Map<string, unknown>>();
 
 export function clearSubsidyRecordsCache() {
   subsidyQueryCache.clear();
 }
 
-function getCacheKey(identity: string | undefined, scope: string) {
+function getCachedScopes(identity: string | undefined) {
   return identity && identity !== UNKNOWN_IDENTITY
-    ? `${scope}:${identity}`
+    ? subsidyQueryCache.get(identity)
     : undefined;
 }
 
-// Mounted queries and lists that follow `refreshSubsidyRecords`. A listener
-// leaves the set on unmount, so a signal that arrives late (an issuance that
-// completes after the page was closed) starts no request for a page that is
-// gone and cannot store a response under an identity it no longer shows.
-const subsidyRefreshListeners = new Set<() => void>();
-
-// A claim or a redemption adds a record and can change the totals: whatever
-// is on screen loads again. Cached pages of the full list are dropped as
-// well, because a new record moves every page boundary.
-export function refreshSubsidyRecords() {
-  Array.from(subsidyQueryCache.keys()).forEach((key) => {
-    if (key.startsWith(`${HISTORY_PAGE_SCOPE}:`)) {
-      subsidyQueryCache.delete(key);
-    }
-  });
-  Array.from(subsidyRefreshListeners).forEach((listener) => listener());
+function readCache<T>(identity: string | undefined, scope: string) {
+  return getCachedScopes(identity)?.get(scope) as T | undefined;
 }
 
-export function useSubsidyRecordsRefresh(listener: () => void) {
+function writeCache(identity: string, scope: string, data: unknown) {
+  if (identity === UNKNOWN_IDENTITY) {
+    return;
+  }
+  const scopes = subsidyQueryCache.get(identity) ?? new Map<string, unknown>();
+  scopes.set(scope, data);
+  subsidyQueryCache.set(identity, scopes);
+}
+
+// Mounted queries and lists that follow `refreshSubsidyRecords`, called with
+// the identity the issuance was made for. A listener leaves the set on
+// unmount, so a signal that arrives late (an issuance that completes after
+// the page was closed) starts no request for a page that is gone and cannot
+// store a response under an identity it no longer shows.
+const subsidyRefreshListeners = new Set<(identity: string) => void>();
+
+// A claim or a redemption adds a record and can change the totals of the
+// member it was issued to: whatever that member has on screen loads again.
+// Their cached pages of the full list are dropped as well, because a new
+// record moves every page boundary. `identity` is the member who started the
+// issuance, not whoever is signed in when it completes: the response can
+// arrive after an account switch, and the next member's records did not
+// change.
+export function refreshSubsidyRecords(identity: string | undefined) {
+  if (!identity) {
+    return;
+  }
+  const scopes = getCachedScopes(identity);
+  if (scopes) {
+    Array.from(scopes.keys()).forEach((scope) => {
+      if (scope.startsWith(`${HISTORY_PAGE_SCOPE}:`)) {
+        scopes.delete(scope);
+      }
+    });
+  }
+  Array.from(subsidyRefreshListeners).forEach((listener) =>
+    listener(identity),
+  );
+}
+
+// Calls `listener` for the issuances of `identity` only.
+export function useSubsidyRecordsRefresh(
+  identity: string | undefined,
+  listener: () => void,
+) {
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
   const listenerRef = useRef(listener);
   listenerRef.current = listener;
   useEffect(() => {
-    const handleRefresh = () => listenerRef.current();
+    const handleRefresh = (issuedTo: string) => {
+      if (issuedTo === identityRef.current) {
+        listenerRef.current();
+      }
+    };
     subsidyRefreshListeners.add(handleRefresh);
     return () => {
       subsidyRefreshListeners.delete(handleRefresh);
@@ -129,10 +166,7 @@ function getInitialQueryState<T>({
   if (!identity) {
     return base;
   }
-  const cacheKey = getCacheKey(identity, scope);
-  const cached = cacheKey
-    ? (subsidyQueryCache.get(cacheKey) as T | undefined)
-    : undefined;
+  const cached = readCache<T>(identity, scope);
   return cached === undefined
     ? { ...base, isLoading: true, isFetching: enabled }
     : { ...base, data: cached, dataScope: scope, isFetching: enabled };
@@ -168,7 +202,6 @@ function useSubsidyQuery<T>({
   // the request must be answered for that member or fail.
   fetcher: (onekeyUserId: string | undefined) => Promise<T>;
 }): ISubsidyQuery<T> {
-  const cacheKey = getCacheKey(identity, scope);
   const [state, setState] = useState<ISubsidyQueryState<T>>(() =>
     getInitialQueryState<T>({ identity, scope, enabled }),
   );
@@ -211,9 +244,7 @@ function useSubsidyQuery<T>({
         );
         return;
       }
-      const cached = cacheKey
-        ? (subsidyQueryCache.get(cacheKey) as T | undefined)
-        : undefined;
+      const cached = readCache<T>(identity, scope);
       setState((prev) => {
         const ownsData = prev.identity === identity && prev.data !== undefined;
         if (isReload && ownsData && prev.dataScope === scope) {
@@ -237,9 +268,7 @@ function useSubsidyQuery<T>({
           identity === UNKNOWN_IDENTITY ? undefined : identity,
         );
         if (requestRef.current === request) {
-          if (cacheKey) {
-            subsidyQueryCache.set(cacheKey, data);
-          }
+          writeCache(identity, scope, data);
           setState({ ...idle, data, dataScope: scope });
         }
       } catch {
@@ -257,7 +286,7 @@ function useSubsidyQuery<T>({
         }
       }
     },
-    [identity, scope, enabled, cacheKey, keepPreviousData],
+    [identity, scope, enabled, keepPreviousData],
   );
 
   useEffect(() => {
@@ -272,7 +301,7 @@ function useSubsidyQuery<T>({
     void load({ isReload: true });
   }, [load]);
 
-  useSubsidyRecordsRefresh(() => {
+  useSubsidyRecordsRefresh(identity, () => {
     if (followRefresh) {
       reload();
     }

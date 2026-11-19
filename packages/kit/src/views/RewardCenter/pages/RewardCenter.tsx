@@ -553,24 +553,31 @@ function RewardCenterDetails({
   }, [accountActivation?.isActived, setStopActivationPolling]);
 
   const isInline = Boolean(renderInline);
-  const notifyRewardSuccess = useCallback(() => {
-    if (!isInline) {
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.global_success }),
-      });
-    }
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    refreshTimerRef.current = setTimeout(() => {
-      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-    }, 1000);
-    onIssuedRef.current?.();
-  }, [intl, isInline]);
+  // `onIssuedForRequest` is the `onIssued` of the moment the request was
+  // sent. The owner binds it to the member the subsidy is issued to, and the
+  // response can arrive after another member signed in.
+  const notifyRewardSuccess = useCallback(
+    (onIssuedForRequest: (() => void) | undefined) => {
+      if (!isInline) {
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
+      }
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      }, 1000);
+      onIssuedForRequest?.();
+    },
+    [intl, isInline],
+  );
 
   const handleClaimResource = useCallback(async () => {
     if (!account || !network || !result || isClaimed || claimPending.current)
       return;
     claimPending.current = true;
     setIsClaiming(true);
+    const onIssuedForRequest = onIssuedRef.current;
     const startedAt = Date.now();
     try {
       const { timestamp, signed } =
@@ -642,7 +649,7 @@ function RewardCenterDetails({
       });
       closeResult.current.isResourceClaimed = true;
 
-      notifyRewardSuccess();
+      notifyRewardSuccess(onIssuedForRequest);
       return resp;
     } catch (_error) {
       // The proxy reports request errors. Keep the claim available for retry.
@@ -674,6 +681,7 @@ function RewardCenterDetails({
 
     redeemPending.current = true;
     setIsRedeeming(true);
+    const onIssuedForRequest = onIssuedRef.current;
     try {
       const resp =
         await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
@@ -725,7 +733,7 @@ function RewardCenterDetails({
       }
       if (isInline) setRedeemedSelection(selectionKey);
       closeResult.current.isResourceRedeemed = true;
-      notifyRewardSuccess();
+      notifyRewardSuccess(onIssuedForRequest);
       return resp;
     } catch (_error) {
       // Keep the code so the user can retry.

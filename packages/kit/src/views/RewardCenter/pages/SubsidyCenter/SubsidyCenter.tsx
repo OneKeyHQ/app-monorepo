@@ -590,6 +590,15 @@ function SubsidyCenter() {
       setClaimDialogOpen(true);
     }
   }, [opensTronClaim, wide]);
+  // A claim or redemption adds a record and can change the totals: the
+  // summary, the recent records and an open record list of the member it was
+  // issued to reload. The request can outlive this page and the session, so
+  // the member is bound into the callback the request starts with, not read
+  // when it completes.
+  const handleIssued = useCallback(
+    () => refreshSubsidyRecords(identity),
+    [identity],
+  );
   // What the claim panel shows until the account is resolved: the same
   // structure as the loaded panel, so it settles in place instead of
   // replacing a single placeholder line. Today's pool is shared by every
@@ -923,9 +932,7 @@ function SubsidyCenter() {
         }}
         renderLoading={renderSubsidyBenefits}
         renderInline={renderSubsidyBenefits}
-        // A claim or redemption adds a record and can change the totals:
-        // the summary, the recent records and an open record list reload.
-        onIssued={refreshSubsidyRecords}
+        onIssued={handleIssued}
       />
     );
   } else {
