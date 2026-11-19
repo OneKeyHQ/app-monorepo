@@ -802,7 +802,7 @@ function BtcAddresses() {
             >
               {showFindAddressEntry ? (
                 <BtcFindAddressSection
-                  key={addressScopeKey}
+                  key={`${networkId}:${effectiveAccountId}`}
                   accountId={effectiveAccountId}
                   networkId={networkId}
                   decimals={decimals}
