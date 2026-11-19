@@ -25280,6 +25280,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/stockPriceSourceState.ts": 15713,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useAutoRefreshTokenDetail.ts": 21393,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useBtcMetadata.ts": 10036,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useLegacyMarketAsset.ts": 8990,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketChartPriceUpdate.ts": 16639,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailBackNavigation.ts": 7361,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailChartMode.ts": 22490,
