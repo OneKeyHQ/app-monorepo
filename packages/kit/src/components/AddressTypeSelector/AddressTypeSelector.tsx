@@ -458,8 +458,6 @@ function AddressTypeSelectorPopoverContent({
   dynamicContextValue,
   networkAccounts,
   refreshNetworkAccounts,
-  refreshTokenMapOnOpen,
-  balanceAccountIds,
   selectorTitle,
   selectorHelpLink,
   ...props
@@ -468,8 +466,6 @@ function AddressTypeSelectorPopoverContent({
   dynamicContextValue: ContextType<typeof AddressTypeSelectorDynamicContext>;
   networkAccounts: IDerivedAccount[];
   refreshNetworkAccounts: () => Promise<void>;
-  refreshTokenMapOnOpen?: (accountIds: string[]) => () => void;
-  balanceAccountIds: string[];
   selectorTitle: IProps['title'];
   selectorHelpLink: string;
 }) {
@@ -477,13 +473,6 @@ function AddressTypeSelectorPopoverContent({
   const handleClosePopover = useCallback(() => {
     void closePopover?.();
   }, [closePopover]);
-
-  // Wallet updates can return fresh account objects with the same IDs.
-  useDeepCompareEffect(() => {
-    if (isOpen) {
-      return refreshTokenMapOnOpen?.(balanceAccountIds);
-    }
-  }, [isOpen, refreshTokenMapOnOpen, balanceAccountIds]);
 
   return (
     <AccountSelectorProviderMirror
@@ -745,10 +734,27 @@ function AddressTypeSelector(props: IProps) {
     };
   }, [refreshNetworkAccounts]);
 
-  // Only 'skip' needs the open state: the press has to be answered before the
-  // list may open. Everything else stays uncontrolled.
   const skipWhenCollapsed = whenCollapsed === 'skip';
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  // The menu content remounts when switching between a sheet and a popover.
+  useDeepCompareEffect(() => {
+    if (!isPopoverOpen) return;
+    if (isHiddenByCollapse || isSelectorDisabled) {
+      setIsPopoverOpen(false);
+      return;
+    }
+    if (refreshOnOpen) {
+      return refreshTokenMap(balanceAccountIds);
+    }
+  }, [
+    isPopoverOpen,
+    isHiddenByCollapse,
+    isSelectorDisabled,
+    refreshOnOpen,
+    refreshTokenMap,
+    balanceAccountIds,
+  ]);
+
   // On narrow web layouts the popover reports a single press twice, which
   // would run a skipped entry (open a page, start a purchase) twice.
   const isSkipPressPendingRef = useRef(false);
@@ -794,7 +800,7 @@ function AddressTypeSelector(props: IProps) {
         isSkipPressPendingRef.current = false;
       }
     }
-    if (skipWhenCollapsed) {
+    if (skipWhenCollapsed || refreshOnOpen) {
       setIsPopoverOpen(open);
     }
     if (!open && doubleConfirm) {
@@ -845,8 +851,6 @@ function AddressTypeSelector(props: IProps) {
           dynamicContextValue={dynamicContextValue}
           networkAccounts={networkAccounts}
           refreshNetworkAccounts={refreshNetworkAccounts}
-          balanceAccountIds={balanceAccountIds}
-          refreshTokenMapOnOpen={refreshOnOpen ? refreshTokenMap : undefined}
           selectorTitle={title}
           selectorHelpLink={helpLink}
         />

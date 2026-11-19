@@ -26,6 +26,7 @@ const mockFetchAccountTokens = jest.fn(async (_params: unknown) =>
 );
 const mockAccountsByScope = new Map<string, string[]>();
 let mockPopoverProps: IPopoverProps | undefined;
+let mockSetNarrowLayout: (narrow: boolean) => void;
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -58,6 +59,8 @@ jest.mock('@onekeyhq/components', () => {
     }),
     Popover: (props: IPopoverProps) => {
       const [open, setOpen] = React.useState(false);
+      const [narrow, setNarrow] = React.useState(false);
+      mockSetNarrowLayout = setNarrow;
       mockPopoverProps = {
         ...props,
         onOpenChange: (next) => {
@@ -66,7 +69,10 @@ jest.mock('@onekeyhq/components', () => {
         },
       };
       return (
-        <OpenContext.Provider value={props.open ?? open}>
+        <OpenContext.Provider
+          key={narrow ? 'sheet' : 'popover'}
+          value={props.open ?? open}
+        >
           {React.isValidElement(props.renderContent)
             ? props.renderContent
             : null}
@@ -355,6 +361,27 @@ describe('AddressTypeSelector refreshOnOpen', () => {
       );
     },
   );
+
+  it('keeps the pending balance request when an open popover switches to a sheet', async () => {
+    const pending = Promise.withResolvers<ReturnType<typeof balanceResponse>>();
+    mockFetchAccountTokens.mockReturnValueOnce(pending.promise);
+    const view = render(refreshSelector());
+    await loadAccounts(['a1']);
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+    const originalNode = view.getByTestId('balance');
+
+    await act(async () => mockSetNarrowLayout(true));
+    expect(view.getByTestId('balance')).not.toBe(originalNode);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(balanceResponse('12')));
+    expect(view.getByTestId('balance').textContent).toBe('12');
+
+    await setPopoverOpen(false);
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+    expect(view.getByTestId('balance').textContent).toBe('0');
+  });
 
   it('reuses balances for the same account IDs until the selector reopens', async () => {
     const firstOpen =
