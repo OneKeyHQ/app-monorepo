@@ -405,7 +405,7 @@ export const TpslInput = memo(
                   {tpLossHint ? (
                     <SizableText
                       size="$bodySm"
-                      color="$textSubdued"
+                      color="$textCaution"
                       flexShrink={1}
                     >
                       {tpLossHint}
@@ -622,7 +622,7 @@ export const TpslInput = memo(
             {tpLossHint ? (
               <SizableText
                 size={feedbackTextSize}
-                color="$textSubdued"
+                color="$textCaution"
                 flexShrink={1}
               >
                 {tpLossHint}
