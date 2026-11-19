@@ -23,7 +23,10 @@ export interface IBrowserSubmenuColumnProps {
   multiTabBrowserRouteName?: string;
 }
 
-const HOVER_DELAY_MS = 150;
+// Hover-intent delay before the tab column expands. Short enough to feel
+// responsive, long enough that a cursor passing through the narrow column
+// (e.g. on its way to the primary sidebar) does not pop the overlay open.
+const HOVER_DELAY_MS = 300;
 
 // Browser submenu only shows in the desktop app.
 const isShowWebTabBar = platformEnv.isDesktop;

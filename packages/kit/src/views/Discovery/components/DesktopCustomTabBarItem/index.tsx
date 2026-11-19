@@ -237,6 +237,10 @@ function DesktopCustomTabBarItem({
         closeButtonIcon={tab?.isPinned ? 'ThumbtackOutline' : undefined}
         closeButtonTitle={closeButtonTitle}
         alwaysShowCloseButton={!!tab?.isPinned}
+        // Unpinned tabs swap the favicon for the close button in place, so
+        // closing needs no travel to the far edge of the expanded column.
+        // Pinned tabs keep the trailing unpin button.
+        leadingCloseButton={!isCollapse && !tab?.isPinned}
         tabBarStyle={
           isCollapse ? { justifyContent: 'center' as const } : undefined
         }
