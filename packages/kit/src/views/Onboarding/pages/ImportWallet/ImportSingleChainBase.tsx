@@ -49,6 +49,7 @@ type IPendingSubmit = {
   networkId: string;
   input: string;
   accountName: string;
+  deriveType?: IAccountDeriveTypes;
 };
 
 export const fixInputImportSingleChain = (text: string) => trim(text);
@@ -266,18 +267,21 @@ export function ImportSingleChainBase({
       values.networkId === validationRequest.networkId,
     [validationRequest],
   );
+  const matchesActiveValidation = useCallback(
+    (values: IFormValues) =>
+      activeValidationRequestId.current === validationRequest.id &&
+      matchesValidationRequest(values),
+    [matchesValidationRequest, validationRequest.id],
+  );
   const guardDeriveTypeChange = useCallback(
     (value: IAccountDeriveTypes) => {
       // The selector can deliver a choice after the form has switched keys.
-      if (
-        activeValidationRequestId.current !== validationRequest.id ||
-        !matchesValidationRequest(form.getValues())
-      ) {
+      if (!matchesActiveValidation(form.getValues())) {
         return { defaultPrevented: true };
       }
       return value;
     },
-    [form, matchesValidationRequest, validationRequest.id],
+    [form, matchesActiveValidation],
   );
   const isDeriveTypeReady = useCallback(
     (value: IAccountDeriveTypes | undefined) =>
@@ -336,8 +340,17 @@ export function ImportSingleChainBase({
       pendingSubmitRef.current = undefined;
       return;
     }
+    // A default filled after Enter still needs confirmation if other paths are available.
+    if (
+      deriveItems &&
+      deriveItems.length > 1 &&
+      (!pending.deriveType || pending.deriveType !== values.deriveType)
+    ) {
+      return;
+    }
     return submit();
   }, [
+    deriveItems,
     form,
     matchesValidationRequest,
     nameIsValid,
@@ -349,6 +362,22 @@ export function ImportSingleChainBase({
   useEffect(() => {
     void flushPendingSubmit()?.catch(errorToastUtils.showToastOfError);
   }, [flushPendingSubmit, networkId, normalizedInput, trimmedAccountName]);
+
+  const handleUserDeriveTypeSelect = useCallback(
+    (value: IAccountDeriveTypes) => {
+      const pending = pendingSubmitRef.current;
+      const values = form.getValues();
+      if (
+        pending &&
+        values.deriveType === value &&
+        matchesActiveValidation(values)
+      ) {
+        pending.deriveType = value;
+        void flushPendingSubmit()?.catch(errorToastUtils.showToastOfError);
+      }
+    },
+    [flushPendingSubmit, form, matchesActiveValidation],
+  );
 
   const submitOnEnter = useCallback(async () => {
     const values = form.getValues();
@@ -366,9 +395,21 @@ export function ImportSingleChainBase({
       input,
       networkId: values.networkId,
       accountName: values.accountName?.trim() ?? '',
+      deriveType:
+        deriveType === values.deriveType &&
+        matchesActiveValidation(values) &&
+        deriveItems?.some((item) => item.value === deriveType)
+          ? deriveType
+          : undefined,
     };
     await flushPendingSubmit();
-  }, [flushPendingSubmit, form]);
+  }, [
+    deriveItems,
+    deriveType,
+    flushPendingSubmit,
+    form,
+    matchesActiveValidation,
+  ]);
 
   const formWithSubmit = useMemo(
     () => ({ ...form, submit: submitOnEnter }),
@@ -427,6 +468,7 @@ export function ImportSingleChainBase({
                 networkId={networkId || ''}
                 preloadedItems={deriveItems}
                 onChange={guardDeriveTypeChange}
+                onUserSelect={handleUserDeriveTypeSelect}
                 renderTrigger={({ label, onPress }) => (
                   <Stack
                     testID="wallet-derivation-path-selector-trigger"

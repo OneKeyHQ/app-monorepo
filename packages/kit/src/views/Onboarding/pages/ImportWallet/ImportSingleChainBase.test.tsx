@@ -1,11 +1,12 @@
 /** @jest-environment jsdom */
 
 import type { ReactElement, ReactNode } from 'react';
-import { cloneElement, useEffect } from 'react';
+import { cloneElement, useEffect, useState } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useController } from 'react-hook-form';
 
+import type { ISelectProps } from '@onekeyhq/components';
 import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
@@ -36,7 +37,14 @@ const mockValidateInput = jest.fn(
   }),
 );
 const mockLoadDeriveItems = jest.fn(async () => btcDeriveItems);
-const mockDeriveTypeChange = jest.fn<void, [(value: string) => void]>();
+const mockGlobalDeriveType = jest.fn<
+  Promise<IAccountDeriveTypes | undefined>,
+  []
+>(async () => undefined);
+const mockDeriveTypeChange = jest.fn<
+  void,
+  [ISelectProps<string>['onChange']]
+>();
 const mockOnBlur = jest.fn<void, [() => void]>();
 const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
   if (name === 'taken') {
@@ -45,6 +53,7 @@ const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
 });
 
 jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
@@ -85,13 +94,13 @@ jest.mock('@onekeyhq/components', () => {
       if (typeof nextValue === 'string') {
         field.onChange(nextValue);
       }
+      return nextValue;
     };
-    if (name === 'deriveType') {
-      mockDeriveTypeChange(onChangeText);
-    }
     return cloneElement(children, {
       value: field.value as string,
-      onChangeText,
+      ...(name === 'deriveType'
+        ? { onChange: onChangeText }
+        : { onChangeText }),
     });
   };
   const Form = ({
@@ -136,7 +145,25 @@ jest.mock('@onekeyhq/components', () => {
         </button>
       ),
     }),
+    Select: ({ items, onChange, value }: ISelectProps<string>) => {
+      mockDeriveTypeChange(onChange);
+      return (
+        <select
+          aria-label="Derivation path"
+          value={value ?? ''}
+          onChange={(event) => void onChange?.(event.target.value)}
+        >
+          <option value="">Choose a derivation path</option>
+          {items?.map((item) => (
+            <option key={String(item.value)} value={String(item.value)}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      );
+    },
     SizableText: Wrapper,
+    Stack: Wrapper,
     useClipboard: () => ({}),
     useMedia: () => ({}),
     useForm,
@@ -152,6 +179,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceNetwork: {
       getDeriveInfoItemsOfNetwork: () => mockLoadDeriveItems(),
+      getGlobalDeriveTypeOfNetwork: () => mockGlobalDeriveType(),
     },
     serviceAccount: {
       ensureAccountNameNotDuplicate: (params: { name: string }) =>
@@ -177,33 +205,32 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
     />
   ),
 }));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: <T,>(load: () => Promise<T>, dependencies: unknown[]) => {
+    const [result, setResult] = useState<T>();
+    useEffect(() => {
+      let cancelled = false;
+      void load().then((value) => {
+        if (!cancelled) setResult(value);
+      });
+      return () => {
+        cancelled = true;
+      };
+      // Match the hook's caller-provided request dependencies.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, dependencies);
+    return { result };
+  },
+}));
 jest.mock(
-  '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger',
-  () => ({
-    DeriveTypeSelectorFormInput: ({
-      preloadedItems,
-      value,
-      onChangeText,
-    }: {
-      preloadedItems?: IAccountDeriveInfoItems[];
-      value?: string;
-      onChangeText?: (value: string) => void;
-    }) => (
-      <select
-        aria-label="Derivation path"
-        value={value ?? ''}
-        onChange={(event) => onChangeText?.(event.target.value)}
-      >
-        <option value="">Choose a derivation path</option>
-        {preloadedItems?.map((item) => (
-          <option key={item.value} value={item.value}>
-            {item.label}
-          </option>
-        ))}
-      </select>
-    ),
-  }),
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector',
+  () => ({}),
 );
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions',
+  () => ({}),
+);
+jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({}));
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger',
   () => ({
@@ -241,6 +268,7 @@ describe('private key import submission', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockGlobalDeriveType.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -372,31 +400,72 @@ describe('private key import submission', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('waits for the available BTC derivation types and a selection before confirming', async () => {
+  it.each([
+    { action: 'select Legacy', deriveType: 'BIP44' },
+    {
+      action: 'press Enter again',
+      preference: 'BIP44' as const,
+      deriveType: 'BIP44',
+    },
+    { action: 'click Confirm', deriveType: 'BIP86' },
+  ])(
+    'waits for the user to $action after auto-selecting a BTC path',
+    async ({ action, deriveType, preference }) => {
+      const onConfirm = jest.fn(async () => undefined);
+      const input = renderImport(onConfirm);
+      const footer = screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Confirm',
+      });
+      const deriveItems = Promise.withResolvers<IAccountDeriveInfoItems[]>();
+      mockValidateInput.mockResolvedValueOnce(btcValidation);
+      mockLoadDeriveItems.mockReturnValueOnce(deriveItems.promise);
+      mockGlobalDeriveType.mockResolvedValue(preference);
+
+      fireEvent.change(input, { target: { value: 'test-xprv' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await finishValidation();
+      expect(footer.disabled).toBe(true);
+      expect(onConfirm).not.toHaveBeenCalled();
+
+      await act(async () => deriveItems.resolve(btcDeriveItems));
+      const selector = screen.getByRole<HTMLSelectElement>('combobox', {
+        name: 'Derivation path',
+      });
+      expect(selector.value).toBe(preference ?? 'BIP86');
+      expect(footer.disabled).toBe(false);
+      expect(onConfirm).not.toHaveBeenCalled();
+
+      await act(async () => {
+        if (action === 'select Legacy') {
+          fireEvent.change(selector, { target: { value: 'BIP44' } });
+        } else if (action === 'press Enter again') {
+          fireEvent.keyDown(input, { key: 'Enter' });
+        } else {
+          fireEvent.click(footer);
+        }
+      });
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({ deriveType }),
+        undefined,
+      );
+    },
+  );
+
+  it('continues a queued Enter when BTC has only one valid derivation path', async () => {
     const onConfirm = jest.fn(async () => undefined);
     const input = renderImport(onConfirm);
-    const footer = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Confirm',
+    const deriveItems = btcDeriveItems.slice(0, 1);
+    mockValidateInput.mockResolvedValueOnce({
+      isValid: true,
+      deriveInfoItems: deriveItems.map(({ item }) => item),
     });
-    const deriveItems = Promise.withResolvers<IAccountDeriveInfoItems[]>();
-    mockValidateInput.mockResolvedValueOnce(btcValidation);
-    mockLoadDeriveItems.mockReturnValueOnce(deriveItems.promise);
+    mockLoadDeriveItems.mockResolvedValueOnce(deriveItems);
 
     fireEvent.change(input, { target: { value: 'test-xprv' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
     await finishValidation();
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(footer.disabled).toBe(true);
-    expect(onConfirm).not.toHaveBeenCalled();
-
-    await act(async () => deriveItems.resolve(btcDeriveItems));
-    const selector = screen.getByRole('combobox', { name: 'Derivation path' });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(footer.disabled).toBe(true);
-    expect(onConfirm).not.toHaveBeenCalled();
-
-    await act(async () => {
-      fireEvent.change(selector, { target: { value: 'BIP86' } });
-    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ deriveType: 'BIP86' }),
       undefined,
@@ -493,17 +562,16 @@ describe('private key import submission', () => {
     fireEvent.change(input, { target: { value: '' } });
     mockValidateInput.mockResolvedValueOnce(btcValidation);
     fireEvent.change(input, { target: { value: 'test-xprv-b' } });
-    await finishValidation();
-    expect(getSelector().value).toBe('');
-    act(() => {
-      delayedChange?.('BIP44');
-    });
-    expect(getSelector().value).toBe('');
-    expect(footer.disabled).toBe(true);
     fireEvent.keyDown(input, { key: 'Enter' });
+    await finishValidation();
+    expect(getSelector().value).toBe('BIP86');
+    await act(async () => {
+      await delayedChange?.('BIP44');
+    });
+    expect(getSelector().value).toBe('BIP86');
+    expect(footer.disabled).toBe(false);
     expect(onConfirm).not.toHaveBeenCalled();
 
-    fireEvent.change(getSelector(), { target: { value: 'BIP86' } });
     await act(async () => {
       fireEvent.keyDown(input, { key: 'Enter' });
     });

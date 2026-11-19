@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -397,6 +397,7 @@ export function DeriveTypeSelectorFormInput(
     preloadedItems?: IAccountDeriveInfoItems[];
     networkId: string;
     onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
+    onUserSelect?: (type: IAccountDeriveTypes) => void;
     hideIfItemsLTEOne?: boolean; // <=1
     undefinedResultIfReRun?: boolean;
   },
@@ -409,6 +410,7 @@ export function DeriveTypeSelectorFormInput(
     value: deriveType,
     onChange: onDeriveTypeChange,
     onItemsChange,
+    onUserSelect,
     undefinedResultIfReRun = true,
     ...others
   } = props;
@@ -504,6 +506,14 @@ export function DeriveTypeSelectorFormInput(
     };
   }, [deriveType, networkId, onDeriveTypeChange, viewItems]);
 
+  const handleUserSelect = useCallback(
+    (type: IAccountDeriveTypes) => {
+      onDeriveTypeChange?.(type);
+      onUserSelect?.(type);
+    },
+    [onDeriveTypeChange, onUserSelect],
+  );
+
   onItemsChange?.(options);
 
   if (!viewItems) {
@@ -516,7 +526,7 @@ export function DeriveTypeSelectorFormInput(
       items={options}
       networkId={networkId}
       value={deriveType}
-      onChange={onDeriveTypeChange}
+      onChange={onUserSelect ? handleUserSelect : onDeriveTypeChange}
       {...others}
       renderTrigger={
         hideIfItemsLTEOne && options.length <= 1
