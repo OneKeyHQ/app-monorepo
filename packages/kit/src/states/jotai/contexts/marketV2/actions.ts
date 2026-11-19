@@ -109,10 +109,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         tokenAddress: string;
         networkId: string;
         isNative: boolean;
+        legacyDetail?: { tokenAddress: string; swrKey: string };
       },
     ) => {
       const detail = get(tokenDetailAtom());
       const preview = get(tokenDetailPreviewAtom());
+      const legacyDetail = retainedTarget?.legacyDetail;
+      const detailSwrKey = get(tokenDetailSwrScopeAtom());
       // Retained routes may reconnect their effects without changing identity.
       // Read the shared store now: another route may have owned it while hidden.
       if (
@@ -120,6 +123,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         get(tokenAddressAtom()) === retainedTarget.tokenAddress &&
         get(networkIdAtom()) === retainedTarget.networkId &&
         get(isNativeAtom()) === Boolean(retainedTarget.isNative) &&
+        (!legacyDetail ||
+          !detailSwrKey ||
+          detailSwrKey === legacyDetail.swrKey) &&
         (!detail ||
           isSameMarketTokenDetail({
             tokenDetail: detail,
@@ -131,9 +137,35 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       ) {
         return;
       }
+      const retainedDetail =
+        detail &&
+        retainedTarget &&
+        legacyDetail &&
+        detailSwrKey === legacyDetail.swrKey &&
+        get(networkIdAtom()) === retainedTarget.networkId &&
+        get(tokenAddressAtom()) === legacyDetail.tokenAddress &&
+        get(isNativeAtom()) === retainedTarget.isNative &&
+        (isSameMarketTokenDetail({
+          tokenDetail: detail,
+          tokenAddress: legacyDetail.tokenAddress,
+          networkId: retainedTarget.networkId,
+        }) ||
+          (retainedTarget.isNative &&
+            (isSameMarketTokenDetail({
+              tokenDetail: detail,
+              ...retainedTarget,
+            }) ||
+              (detail.isNative === true &&
+                detail.networkId === retainedTarget.networkId))))
+          ? { ...detail, address: retainedTarget.tokenAddress }
+          : undefined;
       set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
-      set(tokenDetailAtom(), undefined);
-      set(tokenDetailPreviewAtom(), payload);
+      set(tokenDetailAtom(), retainedDetail);
+      set(
+        tokenDetailSwrScopeAtom(),
+        retainedDetail ? legacyDetail?.swrKey : undefined,
+      );
+      set(tokenDetailPreviewAtom(), retainedDetail ? undefined : payload);
       set(tokenDetailLoadingAtom(), false);
       set(tokenDetailWebsocketAtom(), undefined);
       set(perpsInfoAtom(), undefined);

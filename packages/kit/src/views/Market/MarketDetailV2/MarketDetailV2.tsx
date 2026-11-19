@@ -119,6 +119,7 @@ function LegacyTokenPreviewInitializer({
     tokenAddress: string;
     networkId: string;
     isNative: boolean;
+    legacyDetail?: { tokenAddress: string; swrKey: string };
   };
   stockTarget?: {
     tokenAddress: string;
@@ -378,14 +379,6 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-  const tokenDetailTarget = useMemo(
-    () =>
-      isMarketAssetResolving
-        ? { tokenAddress: '', networkId: '', isNative: false }
-        : { tokenAddress, networkId, isNative: isNativeBoolean },
-    [isMarketAssetResolving, isNativeBoolean, networkId, tokenAddress],
-  );
-
   // Track market entry analytics
   useMarketEnterAnalytics();
 
@@ -395,6 +388,7 @@ function MarketDetail({
     marketAssetDetail,
     isMarketAssetDetailLoading,
     isInitialTokenDetailPending,
+    legacyDetailSwrKey,
   } = useAutoRefreshTokenDetail({
     active: shouldOwnSharedMarketDetailState && !isMarketAssetResolving,
     resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
@@ -405,7 +399,39 @@ function MarketDetail({
     marketTokenId,
     marketVariantId,
     marketTokenCategory,
+    legacyTokenAddress:
+      legacyAssetParams?.network === networkId &&
+      legacyAssetParams.isNative === isNativeBoolean &&
+      !selectedTokenVariant
+        ? routeTokenAddress
+        : undefined,
   });
+  const tokenDetailTarget = useMemo(
+    () =>
+      isMarketAssetResolving
+        ? { tokenAddress: '', networkId: '', isNative: false }
+        : {
+            tokenAddress,
+            networkId,
+            isNative: isNativeBoolean,
+            ...(legacyDetailSwrKey
+              ? {
+                  legacyDetail: {
+                    tokenAddress: routeTokenAddress,
+                    swrKey: legacyDetailSwrKey,
+                  },
+                }
+              : {}),
+          },
+    [
+      isMarketAssetResolving,
+      isNativeBoolean,
+      legacyDetailSwrKey,
+      networkId,
+      routeTokenAddress,
+      tokenAddress,
+    ],
+  );
   // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
