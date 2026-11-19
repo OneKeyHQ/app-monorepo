@@ -121,9 +121,18 @@ describe('OutputFormatter', () => {
   });
 
   describe('quiet mode', () => {
-    it('outputs only first value', () => {
+    it('outputs only first value by default', () => {
       const formatter = new OutputFormatter('quiet');
       formatter.success({ balance: '1.5', chain: 'eth' });
+      expect(stdoutData.trim()).toBe('1.5');
+    });
+
+    it('uses quietValueKey when provided', () => {
+      const formatter = new OutputFormatter('quiet');
+      formatter.success(
+        { address: '0xabc', chain: 'eth', balance: '1.5' },
+        { quietValueKey: 'balance' },
+      );
       expect(stdoutData.trim()).toBe('1.5');
     });
 
