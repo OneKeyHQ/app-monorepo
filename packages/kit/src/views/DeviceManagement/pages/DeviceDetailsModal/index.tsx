@@ -3,7 +3,13 @@ import { useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  ScrollView,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -196,8 +202,66 @@ function DeviceDetailsModalV2Cmp({
     !isModalStack &&
     Boolean(showDeviceSettings && showInteractiveSections);
 
+  const settingsColumn = (
+    <YStack
+      flex={showHelpSidebar ? undefined : 1}
+      minWidth={0}
+      alignItems="center"
+      px="$2"
+      pb="$8"
+      $gtMd={{ px: '$6', pt: '$12', pb: '$16' }}
+    >
+      <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
+        {/* DeviceBasicInfo self-manages its skeleton; sections gate on
+                  their own hasLoadedDevice. The offer shares this slot so a
+                  0-height entrance does not consume the column gap. */}
+        <YStack w="100%">
+          <DeviceBasicInfo
+            showFirmwareVersion={Boolean(vendorProfile?.firmware.showVersion)}
+            showDeviceVerification={Boolean(vendorProfile?.firmware.verify)}
+            showFirmwareUpdate={showFirmwareActions}
+          />
+          {device && !isQrWallet ? (
+            <PrimeGiftOffer device={device} source="deviceDetails" />
+          ) : null}
+        </YStack>
+        {isQrWallet ? <DeviceSectionQrInfo /> : null}
+        {showDeviceSupport ? (
+          <DeviceSectionSupport
+            onPressCheckForUpdates={onPressCheckForUpdates}
+            showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+            showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
+            showTroubleshooting={!showHelpSidebar}
+          />
+        ) : null}
+        {showDeviceSettings && showInteractiveSections ? (
+          <>
+            <DeviceSectionGeneral />
+            <DeviceSectionSecurity />
+          </>
+        ) : null}
+        {showPassphraseSettings && showInteractiveSections ? (
+          <DeviceSectionAdvance />
+        ) : null}
+        {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+        {/* Last of the user-facing sections so a destructive action is
+                  never adjacent to the routine settings above. Wipe device is a
+                  OneKey-SDK op; the danger zone is wipe-only for third-party
+                  (Trezor/Ledger), so hide it for them. */}
+        {showDeviceSettings && !vendorProfile?.isThirdParty ? (
+          <DeviceSectionDangerZone
+            onPressCheckForUpdates={onPressCheckForUpdates}
+          />
+        ) : null}
+        {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
+      </YStack>
+    </YStack>
+  );
+
   return (
-    <Page scrollEnabled>
+    // With help beside them, the settings and the help each scroll on their
+    // own; otherwise the whole page scrolls.
+    <Page scrollEnabled={!showHelpSidebar}>
       <DeviceCommonHeader
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
@@ -207,66 +271,18 @@ function DeviceDetailsModalV2Cmp({
         pb="$0"
         testID="device-details-content"
       >
-        <XStack w="100%" alignItems="flex-start">
-          <YStack
-            flex={1}
-            minWidth={0}
-            alignItems="center"
-            px="$2"
-            pb="$8"
-            $gtMd={{ px: '$6', pt: '$12', pb: '$16' }}
-          >
-            <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
-              {/* DeviceBasicInfo self-manages its skeleton; sections gate on
-                  their own hasLoadedDevice. The offer shares this slot so a
-                  0-height entrance does not consume the column gap. */}
-              <YStack w="100%">
-                <DeviceBasicInfo
-                  showFirmwareVersion={Boolean(
-                    vendorProfile?.firmware.showVersion,
-                  )}
-                  showDeviceVerification={Boolean(
-                    vendorProfile?.firmware.verify,
-                  )}
-                  showFirmwareUpdate={showFirmwareActions}
-                />
-                {device && !isQrWallet ? (
-                  <PrimeGiftOffer device={device} source="deviceDetails" />
-                ) : null}
-              </YStack>
-              {isQrWallet ? <DeviceSectionQrInfo /> : null}
-              {showDeviceSupport ? (
-                <DeviceSectionSupport
-                  onPressCheckForUpdates={onPressCheckForUpdates}
-                  showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
-                  showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
-                  showTroubleshooting={!showHelpSidebar}
-                />
-              ) : null}
-              {showDeviceSettings && showInteractiveSections ? (
-                <>
-                  <DeviceSectionGeneral />
-                  <DeviceSectionSecurity />
-                </>
-              ) : null}
-              {showPassphraseSettings && showInteractiveSections ? (
-                <DeviceSectionAdvance />
-              ) : null}
-              {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
-              {/* Last of the user-facing sections so a destructive action is
-                  never adjacent to the routine settings above. Wipe device is a
-                  OneKey-SDK op; the danger zone is wipe-only for third-party
-                  (Trezor/Ledger), so hide it for them. */}
-              {showDeviceSettings && !vendorProfile?.isThirdParty ? (
-                <DeviceSectionDangerZone
-                  onPressCheckForUpdates={onPressCheckForUpdates}
-                />
-              ) : null}
-              {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
-            </YStack>
-          </YStack>
-          {showHelpSidebar ? <DeviceHelpSidebar /> : null}
-        </XStack>
+        {showHelpSidebar ? (
+          <XStack flex={1}>
+            <ScrollView flex={1} minWidth={0}>
+              {settingsColumn}
+            </ScrollView>
+            <DeviceHelpSidebar />
+          </XStack>
+        ) : (
+          <XStack w="100%" alignItems="flex-start">
+            {settingsColumn}
+          </XStack>
+        )}
       </Page.Body>
     </Page>
   );
