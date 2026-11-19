@@ -2,6 +2,10 @@
 import { sha256 } from '@noble/hashes/sha256';
 import BigNumber from 'bignumber.js';
 
+import type {
+  ISparkPayment,
+  ISparkPreparedPayment,
+} from '@onekeyhq/kit-bg/src/services/ServiceLightningSpark/sdk/types';
 import {
   InvalidLightningPaymentRequest,
   OneKeyLocalError,
@@ -11,11 +15,6 @@ import type {
   IEncodedTxLightningSpark,
   IInvoiceDecodedResponse,
 } from '@onekeyhq/shared/types/lightning';
-
-import type {
-  Payment,
-  PrepareSendPaymentResponse,
-} from '@breeztech/breez-sdk-spark';
 
 // The Breez SDK resolves some inputs over the network before it decodes
 // anything: Lightning addresses, LNURL and URLs. A string made of letters and
@@ -106,7 +105,7 @@ export function getPrepareAmountSats(encodedTx: IEncodedTxLightningSpark) {
     : undefined;
 }
 
-export function getPreparedFeeSats(prepared: PrepareSendPaymentResponse) {
+export function getPreparedFeeSats(prepared: ISparkPreparedPayment) {
   if (prepared.paymentMethod.type !== 'bolt11Invoice') {
     throw new InvalidLightningPaymentRequest();
   }
@@ -122,7 +121,7 @@ export function checkPreparedInvoicePayment({
   prepared,
   encodedTx,
 }: {
-  prepared: PrepareSendPaymentResponse;
+  prepared: ISparkPreparedPayment;
   encodedTx: IEncodedTxLightningSpark;
 }) {
   const method = prepared.paymentMethod;
@@ -157,7 +156,7 @@ export function checkPreparedFeeApproved({
   prepared,
   encodedTx,
 }: {
-  prepared: PrepareSendPaymentResponse;
+  prepared: ISparkPreparedPayment;
   encodedTx: IEncodedTxLightningSpark;
 }) {
   const { maxFeeSats } = encodedTx;
@@ -179,7 +178,7 @@ export function findSettledInvoicePaymentProblem({
   payment,
   encodedTx,
 }: {
-  payment: Payment;
+  payment: ISparkPayment;
   encodedTx: IEncodedTxLightningSpark;
 }): string | undefined {
   const { details } = payment;

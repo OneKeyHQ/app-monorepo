@@ -1,0 +1,23 @@
+diff --git a/node_modules/uniffi-bindgen-react-native/typescript/src/objects.ts b/node_modules/uniffi-bindgen-react-native/typescript/src/objects.ts
+index 7f5e9af..49dc312 100644
+--- a/node_modules/uniffi-bindgen-react-native/typescript/src/objects.ts
++++ b/node_modules/uniffi-bindgen-react-native/typescript/src/objects.ts
+@@ -109,11 +109,16 @@ export class FfiConverterObjectWithCallbacks<T> extends FfiConverterObject<T> {
+     super(factory);
+   }
+ 
+-  lower(value: T): UnsafeMutableRawPointer {
++  // OneKey patch: `override` added. The package ships its TypeScript source
++  // as the entry, and this repo type-checks with noImplicitOverride.
++  // lower(value: T): UnsafeMutableRawPointer {
++  override lower(value: T): UnsafeMutableRawPointer {
+     return this.handleMap.insert(value);
+   }
+ 
+-  lift(value: UnsafeMutableRawPointer): T {
++  // OneKey patch: `override` added, for the same reason.
++  // lift(value: UnsafeMutableRawPointer): T {
++  override lift(value: UnsafeMutableRawPointer): T {
+     if (this.handleMap.has(value)) {
+       return this.handleMap.get(value);
+     } else {

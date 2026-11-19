@@ -39,15 +39,15 @@ import ServiceBase from '../ServiceBase';
 import { loadBreezSdk } from './sdk/breezSdk';
 import { toSparkSerializable } from './sparkSerializeUtils';
 
+import type {
+  ISparkListPaymentsRequest,
+  ISparkPreparedPayment,
+  ISparkReceivePaymentMethod,
+  ISparkSdk,
+  ISparkSdkEvent,
+} from './sdk/types';
 import type { ISparkSerializable } from './sparkSerializeUtils';
 import type { KeyringHd as KeyringHdSpark } from '../../vaults/impls/spark/KeyringHd';
-import type {
-  BreezSdk,
-  ListPaymentsRequest,
-  PrepareSendPaymentResponse,
-  ReceivePaymentMethod,
-  SdkEvent,
-} from '@breeztech/breez-sdk-spark';
 
 // The wasm build cannot cancel a pending connect, so a connect that misses
 // this deadline is treated as failed and disconnected if it resolves later.
@@ -63,7 +63,7 @@ const SPARK_PAYMENT_REFRESH_DELAYS_MS = [6000, 20_000];
 // How long a send waits for its Lightning payment to finish. A payment still
 // in flight after that is returned as pending, and history shows the result.
 const SPARK_SEND_COMPLETION_TIMEOUT_SECS = 30;
-const SPARK_PAYMENT_EVENTS = new Set<SdkEvent['type']>([
+const SPARK_PAYMENT_EVENTS = new Set<ISparkSdkEvent['type']>([
   'paymentSucceeded',
   'paymentPending',
   'paymentFailed',
@@ -72,7 +72,7 @@ const SPARK_PAYMENT_EVENTS = new Set<SdkEvent['type']>([
 type ISparkRecentEvent = {
   walletId: string;
   receivedAt: number;
-  event: ISparkSerializable<SdkEvent>;
+  event: ISparkSerializable<ISparkSdkEvent>;
 };
 
 // Breez keeps one wallet's state per storage directory, so the network is part
@@ -147,7 +147,7 @@ class ServiceLightningSpark extends ServiceBase {
     });
   }
 
-  private sdk: BreezSdk | undefined;
+  private sdk: ISparkSdk | undefined;
 
   private connectedWalletId: string | undefined;
 
@@ -175,7 +175,7 @@ class ServiceLightningSpark extends ServiceBase {
 
   private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
 
-  private getConnectedSdk(): { sdk: BreezSdk; walletId: string } {
+  private getConnectedSdk(): { sdk: ISparkSdk; walletId: string } {
     if (!this.sdk || !this.connectedWalletId) {
       throw new OneKeyLocalError('Lightning wallet is not connected');
     }
@@ -186,14 +186,14 @@ class ServiceLightningSpark extends ServiceBase {
    * `privateEnabledDefault: false` covers new wallets; a wallet that was
    * connected with the Breez default before is switched back here.
    */
-  private async ensureSparkPublicMode(sdk: BreezSdk) {
+  private async ensureSparkPublicMode(sdk: ISparkSdk) {
     const settings = await sdk.getUserSettings();
     if (settings.sparkPrivateModeEnabled) {
       await sdk.updateUserSettings({ sparkPrivateModeEnabled: false });
     }
   }
 
-  private onSdkEvent(walletId: string, event: SdkEvent) {
+  private onSdkEvent(walletId: string, event: ISparkSdkEvent) {
     this.recentEvents = [
       { walletId, receivedAt: Date.now(), event: toSparkSerializable(event) },
       ...this.recentEvents,
@@ -278,8 +278,8 @@ class ServiceLightningSpark extends ServiceBase {
 
   private async connectHeldSession() {
     const held = [...this.sessionHolders.values()].at(-1);
-    // Native and the extension cannot load the SDK yet.
-    if (!held || platformEnv.isNative || platformEnv.isExtension) {
+    // The extension cannot load the SDK yet.
+    if (!held || platformEnv.isExtension) {
       return;
     }
     // Reading the cache this way does not extend its lifetime.
@@ -349,7 +349,7 @@ class ServiceLightningSpark extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-  }): Promise<BreezSdk> {
+  }): Promise<ISparkSdk> {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     const network = getSparkNetworkFromImpl(
       networkUtils.getNetworkImpl({ networkId }),
@@ -525,9 +525,9 @@ class ServiceLightningSpark extends ServiceBase {
     sdk,
     encodedTx,
   }: {
-    sdk: BreezSdk;
+    sdk: ISparkSdk;
     encodedTx: IEncodedTxLightningSpark;
-  }): Promise<PrepareSendPaymentResponse> {
+  }): Promise<ISparkPreparedPayment> {
     if (!isSparkPayableInvoice(encodedTx.invoice)) {
       throw new InvalidLightningPaymentRequest();
     }
@@ -565,8 +565,8 @@ class ServiceLightningSpark extends ServiceBase {
 
     const startedAt = Date.now();
     let initMs = 0;
-    let connectPromise: Promise<BreezSdk> | undefined;
-    let sdk: BreezSdk;
+    let connectPromise: Promise<ISparkSdk> | undefined;
+    let sdk: ISparkSdk;
     try {
       const breez = await loadBreezSdk();
       initMs = Date.now() - startedAt;
@@ -637,7 +637,7 @@ class ServiceLightningSpark extends ServiceBase {
   @backgroundMethodForDev()
   async devReceivePayment(
     params: IBackgroundMethodWithDevOnlyPassword & {
-      paymentMethod: ReceivePaymentMethod;
+      paymentMethod: ISparkReceivePaymentMethod;
     },
   ) {
     const { sdk } = this.getConnectedSdk();
@@ -650,7 +650,7 @@ class ServiceLightningSpark extends ServiceBase {
   @backgroundMethodForDev()
   async devListPayments(
     params: IBackgroundMethodWithDevOnlyPassword &
-      Pick<ListPaymentsRequest, 'limit' | 'offset'>,
+      Pick<ISparkListPaymentsRequest, 'limit' | 'offset'>,
   ) {
     const { sdk } = this.getConnectedSdk();
     const { payments } = await sdk.listPayments({

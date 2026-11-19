@@ -1,3 +1,4 @@
+// cspell:ignore breeztech
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IBreezSdkSparkModule } from './types';
@@ -9,7 +10,7 @@ let loadPromise: Promise<IBreezSdkSparkModule> | undefined;
 
 // Sends the SDK's own warnings and errors to the app log. The SDK accepts one
 // logger per runtime, so this runs once, right after the wasm init.
-function forwardSdkLogs(mod: IBreezSdkSparkModule) {
+function forwardSdkLogs(mod: typeof import('@breeztech/breez-sdk-spark')) {
   return mod.initLogging(
     {
       log: ({ level, line }) => {
