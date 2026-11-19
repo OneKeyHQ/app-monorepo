@@ -188,9 +188,19 @@ export function DesktopTabItem(
   const onMouseLeave = useCallback(() => {
     setIsHovered(false);
   }, []);
+  // Leading close mode shows the close button only while hovered, so hover
+  // must reflect the real pointer after a click or a context menu closes,
+  // instead of being force-cleared while the cursor is still on the row.
+  const isPointerOverItem = useCallback(
+    () =>
+      leadingCloseButton &&
+      !platformEnv.isNative &&
+      !!(stackRef.current as HTMLElement | null)?.matches?.(':hover'),
+    [leadingCloseButton],
+  );
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
-      setIsHovered(false);
+      setIsHovered(isPointerOverItem());
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -207,7 +217,7 @@ export function DesktopTabItem(
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [onPress, selected, trackId, onPressWhenSelected],
+    [onPress, selected, trackId, onPressWhenSelected, isPointerOverItem],
   );
   const handleRenderItems = useCallback(
     ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
@@ -220,9 +230,9 @@ export function DesktopTabItem(
     (isOpened: boolean) => {
       reportPopoverOpen(isOpened);
       setIsContextMenuOpened(isOpened);
-      setIsHovered(isOpened);
+      setIsHovered(isOpened || isPointerOverItem());
     },
-    [reportPopoverOpen],
+    [reportPopoverOpen, isPointerOverItem],
   );
   const tabItemGtMdStyle = useMemo(
     () =>
@@ -236,13 +246,17 @@ export function DesktopTabItem(
   );
   const defaultCloseButtonTitle = useMemo(
     () => (
-      <LazyTooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+      // The CloseTab shortcut closes the active tab, so only advertise it on
+      // the selected item.
+      <LazyTooltip.Text
+        shortcutKey={selected ? EShortcutEvents.CloseTab : undefined}
+      >
         {intl.formatMessage({
           id: ETranslations.global_close,
         })}
       </LazyTooltip.Text>
     ),
-    [intl],
+    [intl, selected],
   );
   const canClose = !hideCloseButton && !!actionList;
   const showLeadingCloseButton = leadingCloseButton && canClose && isHovered;
@@ -253,12 +267,30 @@ export function DesktopTabItem(
   // The leading icon stays mounted (only faded) while the close button
   // overlays it, so hovering does not reload the favicon image.
   const leadingIconOpacity = showLeadingCloseButton ? 0 : 1;
+  const closeButton = useMemo(
+    () => (
+      <IconButton
+        size="small"
+        icon={closeButtonIcon ?? 'CrossedSmallOutline'}
+        {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
+        variant="tertiary"
+        focusVisibleStyle={undefined}
+        title={closeButtonTitle ?? defaultCloseButtonTitle}
+        m={-3}
+        testID="browser-bar-options"
+        onPress={onClose}
+      />
+    ),
+    [closeButtonIcon, closeButtonTitle, defaultCloseButtonTitle, onClose],
+  );
   const trigger = useMemo(
     () => (
       <YStack
         {...tabBarItemStyle}
         alignItems="center"
         py="$2"
+        // Anchor the leading close overlay to this row.
+        position={leadingCloseButton ? 'relative' : undefined}
         $gtMd={tabItemGtMdStyle}
         userSelect="none"
         {...((!selected && {
@@ -326,17 +358,7 @@ export function DesktopTabItem(
             alignItems="center"
             justifyContent="center"
           >
-            <IconButton
-              size="small"
-              icon="CrossedSmallOutline"
-              p="$0.5"
-              variant="tertiary"
-              focusVisibleStyle={undefined}
-              title={defaultCloseButtonTitle}
-              m={-3}
-              testID="browser-bar-options"
-              onPress={onClose}
-            />
+            {closeButton}
           </XStack>
         ) : null}
         {label ? (
@@ -351,19 +373,7 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {showTrailingCloseButton ? (
-          <IconButton
-            size="small"
-            icon={closeButtonIcon ?? 'CrossedSmallOutline'}
-            {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
-            variant="tertiary"
-            focusVisibleStyle={undefined}
-            title={closeButtonTitle ?? defaultCloseButtonTitle}
-            m={-3}
-            testID="browser-bar-options"
-            onPress={onClose}
-          />
-        ) : null}
+        {showTrailingCloseButton ? closeButton : null}
         {actionList ? (
           <ActionList
             title=""
@@ -399,13 +409,11 @@ export function DesktopTabItem(
       leadingIconOpacity,
       showLeadingCloseButton,
       showTrailingCloseButton,
-      closeButtonIcon,
-      closeButtonTitle,
-      defaultCloseButtonTitle,
+      leadingCloseButton,
+      closeButton,
       actionList,
       handleRenderItems,
       handleActionListOpenChange,
-      onClose,
       children,
     ],
   );

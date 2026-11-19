@@ -8,7 +8,7 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { Tooltip } from '@onekeyhq/components/src/actions';
-import { useBrowserSubmenu } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
+import { useBrowserSubmenuCloseArmed } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -75,7 +75,7 @@ function DesktopCustomTabBarItem({
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
   const { activeTabId } = useActiveTabId();
-  const { hasPointerMovedSinceExpand } = useBrowserSubmenu();
+  const isCloseArmed = useBrowserSubmenuCloseArmed();
   const isActive = activeTabId === id;
   const closeOrUnpinTab = useCallback(() => {
     if (tab?.isPinned) {
@@ -222,9 +222,7 @@ function DesktopCustomTabBarItem({
   const tabItem = useMemo(() => {
     return (
       <DesktopTabItem
-        hideCloseButton={
-          isCollapse || (!tab?.isPinned && !hasPointerMovedSinceExpand)
-        }
+        hideCloseButton={isCollapse || (!tab?.isPinned && !isCloseArmed)}
         size="small"
         showAvatar={!isHomeTab}
         icon={isHomeTab ? 'EarthOutline' : undefined}
@@ -252,7 +250,7 @@ function DesktopCustomTabBarItem({
     );
   }, [
     isCollapse,
-    hasPointerMovedSinceExpand,
+    isCloseArmed,
     isHomeTab,
     shortcutKey,
     id,
