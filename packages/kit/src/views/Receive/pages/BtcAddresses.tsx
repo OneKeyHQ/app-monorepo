@@ -78,6 +78,41 @@ type IAddressesPageResult = {
   items: IBtcFreshAddress[];
 };
 
+const EMPTY_NEXT_RECEIVE = { next: undefined, totalFresh: 0 };
+const EMPTY_NEXT_CHANGE = { next: undefined };
+const EMPTY_ADDRESS_PAGE: IAddressesPageResult = { total: 0, items: [] };
+
+function useBtcAddressResult<T>(
+  scopeKey: string,
+  fetchResult: () => Promise<T>,
+  emptyResult: T,
+  options?: { watchLoading: boolean },
+) {
+  const { result, isLoading, run } = usePromiseResult(
+    async () => {
+      let data = emptyResult;
+      if (scopeKey) {
+        try {
+          data = await fetchResult();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      return { scopeKey, data };
+    },
+    [scopeKey, fetchResult, emptyResult],
+    options,
+  );
+
+  // Old rows must stop accepting presses as soon as the type label changes.
+  const isCurrent = result?.scopeKey === scopeKey;
+  return {
+    result: isCurrent ? result.data : emptyResult,
+    isLoading: !isCurrent || isLoading,
+    run,
+  };
+}
+
 function formatAmount({
   raw,
   decimals,
@@ -350,97 +385,79 @@ function BtcAddresses() {
   const decimals = network?.decimals ?? 8;
   const symbol = network?.symbol ?? 'BTC';
 
-  const { result: nextFresh, run: refreshNextFresh } = usePromiseResult(
-    async () => {
-      if (!effectiveAccountId || !networkId)
-        return { next: undefined, totalFresh: 0 };
-      try {
-        return await backgroundApiProxy.serviceFreshAddress.getBtcNextFreshAddress(
-          {
-            accountId: effectiveAccountId,
-            networkId,
-            deriveType: currentDeriveType,
-          },
-        );
-      } catch (error) {
-        console.error(error);
-        return { next: undefined, totalFresh: 0 };
-      }
-    },
+  const addressParams = useMemo(
+    () => ({
+      accountId: effectiveAccountId,
+      networkId,
+      deriveType: currentDeriveType,
+    }),
     [effectiveAccountId, networkId, currentDeriveType],
-    { initResult: { next: undefined, totalFresh: 0 } },
+  );
+  const addressScopeKey =
+    effectiveAccountId && networkId
+      ? `${networkId}:${effectiveAccountId}:${currentDeriveType ?? ''}`
+      : '';
+
+  const { result: nextFresh, run: refreshNextFresh } = useBtcAddressResult(
+    addressScopeKey,
+    useCallback(
+      () =>
+        backgroundApiProxy.serviceFreshAddress.getBtcNextFreshAddress(
+          addressParams,
+        ),
+      [addressParams],
+    ),
+    EMPTY_NEXT_RECEIVE,
   );
 
-  const { result: nextChange, run: refreshNextChange } = usePromiseResult(
-    async () => {
-      if (!effectiveAccountId || !networkId) return { next: undefined };
-      try {
-        return await backgroundApiProxy.serviceFreshAddress.getBtcNextChangeAddress(
-          {
-            accountId: effectiveAccountId,
-            networkId,
-            deriveType: currentDeriveType,
-          },
-        );
-      } catch (error) {
-        console.error(error);
-        return { next: undefined };
-      }
-    },
-    [effectiveAccountId, networkId, currentDeriveType],
-    { initResult: { next: undefined } },
+  const { result: nextChange, run: refreshNextChange } = useBtcAddressResult(
+    addressScopeKey,
+    useCallback(
+      () =>
+        backgroundApiProxy.serviceFreshAddress.getBtcNextChangeAddress(
+          addressParams,
+        ),
+      [addressParams],
+    ),
+    EMPTY_NEXT_CHANGE,
   );
 
   const {
     result: usedResult,
     isLoading: usedLoading,
     run: refreshUsedAddresses,
-  } = usePromiseResult<IAddressesPageResult>(
-    async () => {
-      if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
-      try {
-        return await backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage(
-          {
-            accountId: effectiveAccountId,
-            networkId,
-            deriveType: currentDeriveType,
-            page: receivePage,
-            pageSize: PAGE_SIZE,
-          },
-        );
-      } catch (error) {
-        console.error(error);
-        return { total: 0, items: [] };
-      }
-    },
-    [effectiveAccountId, networkId, receivePage, currentDeriveType],
-    { initResult: { total: 0, items: [] }, watchLoading: true },
+  } = useBtcAddressResult(
+    addressScopeKey,
+    useCallback(
+      () =>
+        backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage({
+          ...addressParams,
+          page: receivePage,
+          pageSize: PAGE_SIZE,
+        }),
+      [addressParams, receivePage],
+    ),
+    EMPTY_ADDRESS_PAGE,
+    { watchLoading: true },
   );
 
   const {
     result: changeResult,
     isLoading: changeLoading,
     run: refreshChangeAddresses,
-  } = usePromiseResult<IAddressesPageResult>(
-    async () => {
-      if (!effectiveAccountId || !networkId) return { total: 0, items: [] };
-      try {
-        return await backgroundApiProxy.serviceFreshAddress.getBtcChangeAddressesByPage(
-          {
-            accountId: effectiveAccountId,
-            networkId,
-            deriveType: currentDeriveType,
-            page: changePage,
-            pageSize: PAGE_SIZE,
-          },
-        );
-      } catch (error) {
-        console.error(error);
-        return { total: 0, items: [] };
-      }
-    },
-    [effectiveAccountId, networkId, changePage, currentDeriveType],
-    { initResult: { total: 0, items: [] }, watchLoading: true },
+  } = useBtcAddressResult(
+    addressScopeKey,
+    useCallback(
+      () =>
+        backgroundApiProxy.serviceFreshAddress.getBtcChangeAddressesByPage({
+          ...addressParams,
+          page: changePage,
+          pageSize: PAGE_SIZE,
+        }),
+      [addressParams, changePage],
+    ),
+    EMPTY_ADDRESS_PAGE,
+    { watchLoading: true },
   );
 
   useEffect(() => {
@@ -712,6 +729,7 @@ function BtcAddresses() {
                 <AddressTypeSelector
                   placement="bottom-end"
                   changeDefaultAddressTypeAfterSelect={false}
+                  refreshOnOpen
                   walletId={effectiveWalletId ?? ''}
                   networkId={networkId}
                   indexedAccountId={headerRightIndexedAccountId}
@@ -784,6 +802,7 @@ function BtcAddresses() {
             >
               {showFindAddressEntry ? (
                 <BtcFindAddressSection
+                  key={addressScopeKey}
                   accountId={effectiveAccountId}
                   networkId={networkId}
                   decimals={decimals}

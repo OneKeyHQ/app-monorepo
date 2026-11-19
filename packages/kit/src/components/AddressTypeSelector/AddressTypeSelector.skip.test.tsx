@@ -7,9 +7,13 @@ import type { IPopoverProps } from '@onekeyhq/components';
 import AddressTypeSelector from './AddressTypeSelector';
 
 const mockGetDeriveTypesCollapseState = jest.fn<Promise<unknown>, unknown[]>();
+const mockFetchAccountTokens = jest.fn(async (_params: unknown) => ({}));
+let mockResolveNetworkAccounts: (value: unknown) => void;
 let mockPopoverProps: IPopoverProps | undefined;
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const OpenContext = React.createContext(false);
   const Stub = () => null;
   return {
     Button: Stub,
@@ -20,10 +24,26 @@ jest.mock('@onekeyhq/components', () => {
     Toast: { success: jest.fn(), error: jest.fn() },
     XStack: Stub,
     YStack: Stub,
-    usePopoverContext: () => ({ closePopover: jest.fn() }),
+    usePopoverContext: () => ({
+      open: React.useContext(OpenContext),
+      closePopover: jest.fn(),
+    }),
     Popover: (props: IPopoverProps) => {
-      mockPopoverProps = props;
-      return null;
+      const [open, setOpen] = React.useState(false);
+      mockPopoverProps = {
+        ...props,
+        onOpenChange: (next) => {
+          setOpen(next);
+          props.onOpenChange?.(next);
+        },
+      };
+      return (
+        <OpenContext.Provider value={props.open ?? open}>
+          {React.isValidElement(props.renderContent)
+            ? props.renderContent
+            : null}
+        </OpenContext.Provider>
+      );
     },
   };
 });
@@ -49,6 +69,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceToken: {
+      fetchAccountTokens: (params: unknown) => mockFetchAccountTokens(params),
       getDeriveTypesCollapseState: (...args: unknown[]) =>
         mockGetDeriveTypesCollapseState(...args),
     },
@@ -62,13 +83,22 @@ jest.mock('../../hooks/useAccountData', () => ({
   useAccountData: () => ({ network: undefined }),
 }));
 
-jest.mock('../../hooks/usePromiseResult', () => ({
-  usePromiseResult: (
-    _loader: unknown,
-    _deps: unknown,
-    options?: { initResult?: unknown },
-  ) => ({ result: options?.initResult, run: jest.fn() }),
-}));
+jest.mock('../../hooks/usePromiseResult', () => {
+  const { useState } = jest.requireActual<typeof import('react')>('react');
+  return {
+    usePromiseResult: (
+      _loader: unknown,
+      _deps: unknown,
+      options?: { initResult?: unknown },
+    ) => {
+      const [result, setResult] = useState(options?.initResult);
+      if (Array.isArray(options?.initResult)) {
+        mockResolveNetworkAccounts = setResult;
+      }
+      return { result, run: jest.fn() };
+    },
+  };
+});
 
 jest.mock('../AccountSelector/AccountSelectorProvider', () => ({
   AccountSelectorProviderMirror: ({ children }: { children: unknown }) =>
@@ -238,4 +268,46 @@ describe('AddressTypeSelector whenCollapsed="skip"', () => {
 
     expect(onSelect).not.toHaveBeenCalled();
   });
+});
+
+describe('AddressTypeSelector refreshOnOpen', () => {
+  it.each([false, true])(
+    'fetches balances only while open (open before accounts resolve: %s)',
+    async (openBeforeAccountsResolve) => {
+      mockFetchAccountTokens.mockClear();
+      render(
+        <AddressTypeSelector
+          walletId="hd-1"
+          networkId="btc--0"
+          indexedAccountId="hd-1--0"
+          refreshOnOpen
+        />,
+      );
+      const open = () =>
+        act(async () => mockPopoverProps?.onOpenChange?.(true));
+      if (openBeforeAccountsResolve) {
+        await open();
+      }
+      expect(mockFetchAccountTokens).not.toHaveBeenCalled();
+
+      act(() => {
+        mockResolveNetworkAccounts([
+          { account: { id: 'a1' }, deriveType: 'BIP86' },
+        ]);
+      });
+      if (!openBeforeAccountsResolve) {
+        expect(mockFetchAccountTokens).not.toHaveBeenCalled();
+        await open();
+      }
+      await waitFor(() =>
+        expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1),
+      );
+      expect(mockFetchAccountTokens).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'a1',
+          flag: 'address-type-selector',
+        }),
+      );
+    },
+  );
 });

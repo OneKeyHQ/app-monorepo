@@ -453,6 +453,7 @@ function AddressTypeSelectorPopoverContent({
   dynamicContextValue,
   networkAccounts,
   refreshNetworkAccounts,
+  refreshTokenMapOnOpen,
   selectorTitle,
   selectorHelpLink,
   ...props
@@ -465,6 +466,7 @@ function AddressTypeSelectorPopoverContent({
     deriveType: IAccountDeriveTypes;
   }[];
   refreshNetworkAccounts: () => Promise<void>;
+  refreshTokenMapOnOpen?: () => Promise<void>;
   selectorTitle: IProps['title'];
   selectorHelpLink: string;
 }) {
@@ -472,6 +474,12 @@ function AddressTypeSelectorPopoverContent({
   const handleClosePopover = useCallback(() => {
     void closePopover?.();
   }, [closePopover]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void refreshTokenMapOnOpen?.();
+    }
+  }, [isOpen, refreshTokenMapOnOpen]);
 
   return (
     <AccountSelectorProviderMirror
@@ -767,9 +775,6 @@ function AddressTypeSelector(props: IProps) {
     if (skipWhenCollapsed) {
       setIsPopoverOpen(open);
     }
-    if (open && refreshOnOpen) {
-      void fetchTokenMap();
-    }
     if (!open && doubleConfirm) {
       void backgroundApiProxy.serviceNetwork
         .getGlobalDeriveTypeOfNetwork({
@@ -818,6 +823,7 @@ function AddressTypeSelector(props: IProps) {
           dynamicContextValue={dynamicContextValue}
           networkAccounts={networkAccounts}
           refreshNetworkAccounts={refreshNetworkAccounts}
+          refreshTokenMapOnOpen={refreshOnOpen ? fetchTokenMap : undefined}
           selectorTitle={title}
           selectorHelpLink={helpLink}
         />
