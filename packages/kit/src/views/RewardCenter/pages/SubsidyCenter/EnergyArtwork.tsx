@@ -1,6 +1,8 @@
 import { Image } from '@onekeyhq/components';
 
-import energyOrbit from './assets/energy-orbit-matte.png';
+// 720px WebP: three times the largest size the artwork is drawn at on phones
+// (240pt); the desktop panel draws it at 280pt on 2x screens.
+import energyOrbit from './assets/energy-orbit-matte.webp';
 
 export function EnergyArtwork() {
   return (
