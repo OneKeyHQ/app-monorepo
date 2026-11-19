@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList, View } from 'react-native';
@@ -9,6 +17,7 @@ import {
   Image,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   TextArea,
   XStack,
@@ -27,14 +36,20 @@ import type {
   IIntercomImage as IPickedImage,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { uploadIntercomImage } from '@onekeyhq/shared/src/modules3rdParty/intercom/upload';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IIntercomParamList,
   IIntercomSupportRoute,
 } from '@onekeyhq/shared/src/routes/intercom';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  getKeyboardEventKey,
+  useImeCompositionLock,
+} from '@onekeyhq/shared/src/utils/imeUtils';
+import type { IImeKeyboardEventLike } from '@onekeyhq/shared/src/utils/imeUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import { MessagePart } from '../components/MessagePart';
+import { MessagePart, MessagePartSkeleton } from '../components/MessagePart';
 import { SupportAvatars } from '../components/SupportAvatar';
 import { SupportError } from '../components/SupportError';
 import { SupportSessionBoundary } from '../components/SupportSessionBoundary';
@@ -53,6 +68,13 @@ type IOutgoing = {
   quickReply?: { partId: string; replyId: string };
   status: 'sending' | 'failed';
 };
+
+// Stands in for an existing thread, which has bubbles from both sides.
+const MESSAGE_PLACEHOLDERS = [
+  { isAdmin: true, width: 220 },
+  { isAdmin: false, width: 160 },
+  { isAdmin: true, width: 260 },
+];
 
 async function findCreatedConversation(
   session: IIntercomMessengerSession,
@@ -96,6 +118,163 @@ async function findCreatedConversation(
   }
 }
 
+type ISupportComposerHandle = { setText: (text: string) => void };
+
+type IComposerKeyEvent = IImeKeyboardEventLike & {
+  shiftKey?: boolean;
+  preventDefault?: () => void;
+};
+
+// Page.Footer hands its children to the page one effect after the screen
+// renders. The draft therefore lives here, beside the field: a value arriving
+// that late resets the field mid-keystroke, dropping characters and breaking
+// IME composition.
+function SupportComposer({
+  ref,
+  editable,
+  placeholder,
+  image,
+  failed,
+  onPickImage,
+  onRemoveImage,
+  onSend,
+}: {
+  ref: Ref<ISupportComposerHandle>;
+  editable: boolean;
+  placeholder?: string;
+  image?: IPickedImage;
+  failed: boolean;
+  onPickImage: () => Promise<void>;
+  onRemoveImage: () => void;
+  // True when the message was taken and the draft can be cleared.
+  onSend: (text: string) => boolean;
+}) {
+  const intl = useIntl();
+  const [draft, setDraft] = useState('');
+  const [focused, setFocused] = useState(false);
+  const composition = useImeCompositionLock();
+  useImperativeHandle(ref, () => ({ setText: setDraft }), []);
+  const submit = () => {
+    if (onSend(draft)) setDraft('');
+  };
+  const onKeyPress = (event: IComposerKeyEvent) => {
+    // Enter sends and Shift+Enter breaks the line. An Enter that only confirms
+    // an IME candidate belongs to the input method.
+    if (
+      getKeyboardEventKey(event) !== 'Enter' ||
+      event.shiftKey ||
+      composition.shouldIgnoreKeyboardEvent(event)
+    )
+      return;
+    event.preventDefault?.();
+    submit();
+  };
+  // The on-screen keyboard's return key keeps breaking the line.
+  const keyboardProps = platformEnv.isNative
+    ? undefined
+    : {
+        onKeyPress,
+        onCompositionStart: composition.start,
+        onCompositionEnd: composition.end,
+      };
+  return (
+    <YStack px="$3" pb="$3" pt="$2" bg="$bgApp">
+      {failed ? (
+        <SizableText px="$5" color="$textCritical">
+          {intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          })}
+        </SizableText>
+      ) : null}
+      <YStack
+        testID="support-composer"
+        borderWidth={1.5}
+        borderColor={focused ? '$borderActive' : '$borderStrong'}
+        borderRadius={20}
+        bg="$bgApp"
+        overflow="hidden"
+      >
+        {image ? (
+          <XStack px="$3" pt="$3" gap="$3" alignItems="center">
+            <Image
+              source={{ uri: image.path }}
+              cachePolicy="none"
+              width={64}
+              height={64}
+              resizeMode="contain"
+            />
+            <IconButton
+              testID="support-remove-image"
+              icon="CrossedLargeOutline"
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.global_cancel,
+              })}
+              onPress={onRemoveImage}
+            />
+          </XStack>
+        ) : null}
+        <TextArea
+          testID="support-message-input"
+          accessibilityLabel={intl.formatMessage({
+            id: ETranslations.global_contact_us,
+          })}
+          minHeight={64}
+          maxHeight={140}
+          numberOfLines={2}
+          borderWidth={0}
+          borderRadius={0}
+          bg="transparent"
+          px="$5"
+          pt="$4"
+          pb="$2"
+          focusStyle={{ outlineWidth: 0 }}
+          maxLength={10_000}
+          value={draft}
+          onChangeText={setDraft}
+          {...keyboardProps}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          editable={editable}
+          placeholder={placeholder}
+        />
+        <XStack
+          px="$2"
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <IconButton
+            testID="support-add-image"
+            variant="tertiary"
+            icon="ImageMountainsOutline"
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.global_add,
+            })}
+            disabled={!editable}
+            onPress={() => {
+              void onPickImage();
+            }}
+          />
+          <IconButton
+            testID="support-send"
+            icon="ArrowTopOutline"
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.global_send,
+            })}
+            variant="primary"
+            borderRadius={18}
+            width={36}
+            height={36}
+            mr="$0.5"
+            disabled={!editable || (!draft.trim() && !image)}
+            onPress={submit}
+          />
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
 function SupportConversationContent({
   session,
   active,
@@ -126,8 +305,9 @@ function SupportConversationContent({
   }, [session, conversationId]);
   const resource = useSupportResource(load, active, !!conversationId);
   const refreshConversation = resource.refresh;
-  const [draft, setDraft] = useState('');
-  const [composerFocused, setComposerFocused] = useState(false);
+  // Placeholders cover only the first answer; later retries keep the screen.
+  const initialLoading = !sessionError && !resource.settled;
+  const composer = useRef<ISupportComposerHandle>(null);
   const [image, setImage] = useState<IPickedImage>();
   const [pending, setPending] = useState<IOutgoing>();
   const [confirmed, setConfirmed] = useState<IIntercomPart[]>([]);
@@ -212,24 +392,34 @@ function SupportConversationContent({
   const repliesBlocked = current?.repliesBlocked ?? false;
   const header = current?.header ?? open?.header;
   const renderHeaderTitle = useCallback(
-    () => (
-      <XStack gap="$2.5" alignItems="center" maxWidth={240}>
-        {header?.avatars.length ? (
-          <SupportAvatars avatars={header.avatars} size={28} />
-        ) : null}
-        <YStack flexShrink={1}>
-          <SizableText size="$headingMd" numberOfLines={1}>
-            {header?.title || 'OneKey'}
-          </SizableText>
-          {header?.subtitle ? (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {header.subtitle}
-            </SizableText>
+    () =>
+      initialLoading ? (
+        <XStack gap="$2.5" alignItems="center">
+          <Skeleton w={28} h={28} radius="round" />
+          <Skeleton.HeadingMd />
+        </XStack>
+      ) : (
+        <XStack gap="$2.5" alignItems="center" maxWidth={240}>
+          {header?.avatars.length ? (
+            <SupportAvatars avatars={header.avatars} size={28} />
           ) : null}
-        </YStack>
-      </XStack>
-    ),
-    [header],
+          <YStack flexShrink={1}>
+            <SizableText size="$headingMd" numberOfLines={1}>
+              {header?.title || 'OneKey'}
+            </SizableText>
+            {header?.subtitle ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {header.subtitle}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </XStack>
+      ),
+    [header, initialLoading],
   );
   const send = useCallback(
     async (outgoing: IOutgoing) => {
@@ -351,19 +541,17 @@ function SupportConversationContent({
       if (alive.current) setActionFailed(true);
     }
   }, []);
-  const sendDraft = useCallback(() => {
-    if ((!draft.trim() && !image) || !canReply || pending || sending.current)
-      return;
-    const outgoing: IOutgoing = {
-      id: generateUUID(),
-      text: draft,
-      image,
-      status: 'sending',
-    };
-    setDraft('');
-    setImage(undefined);
-    void send(outgoing);
-  }, [draft, image, canReply, pending, send]);
+  const sendDraft = useCallback(
+    (text: string) => {
+      if ((!text.trim() && !image) || !canReply || pending || sending.current)
+        return false;
+      setImage(undefined);
+      void send({ id: generateUUID(), text, image, status: 'sending' });
+      return true;
+    },
+    [image, canReply, pending, send],
+  );
+  const removeImage = useCallback(() => setImage(undefined), []);
   const footer = (
     <YStack gap="$3" py="$3">
       {!conversationId && open?.suggestionPrompt ? (
@@ -439,7 +627,7 @@ function SupportConversationContent({
                 size="small"
                 variant="tertiary"
                 onPress={() => {
-                  setDraft(pending.text);
+                  composer.current?.setText(pending.text);
                   setImage(pending.image);
                   setPending(undefined);
                 }}
@@ -452,6 +640,27 @@ function SupportConversationContent({
       ) : null}
     </YStack>
   );
+  let emptyState: ReactElement | undefined;
+  if (initialLoading) {
+    emptyState = (
+      <YStack testID="support-chat-skeleton">
+        {conversationId ? (
+          MESSAGE_PLACEHOLDERS.map((placeholder, index) => (
+            <MessagePartSkeleton key={index} {...placeholder} />
+          ))
+        ) : (
+          // A new conversation opens with a line of welcome text, not a bubble.
+          <Skeleton.BodyMd w={240} maxWidth="100%" />
+        )}
+      </YStack>
+    );
+  } else if (resource.loading) {
+    emptyState = (
+      <View>
+        <Spinner />
+      </View>
+    );
+  }
   return (
     <Page>
       <Page.Body>
@@ -485,13 +694,7 @@ function SupportConversationContent({
             }}
             keyboardShouldPersistTaps="handled"
             {...scrollProps}
-            ListEmptyComponent={
-              resource.loading ? (
-                <View>
-                  <Spinner />
-                </View>
-              ) : undefined
-            }
+            ListEmptyComponent={emptyState}
             ListFooterComponent={footer}
             renderItem={({ item, index }) => {
               const previous = parts[index - 1];
@@ -553,105 +756,16 @@ function SupportConversationContent({
             }}
           />
           <Page.Footer>
-            <YStack px="$3" pb="$3" pt="$2" bg="$bgApp">
-              {actionFailed ? (
-                <SizableText px="$5" color="$textCritical">
-                  {intl.formatMessage({
-                    id: ETranslations.global_unknown_error_retry_message,
-                  })}
-                </SizableText>
-              ) : null}
-              <YStack
-                testID="support-composer"
-                borderWidth={1.5}
-                borderColor={
-                  composerFocused ? '$borderActive' : '$borderStrong'
-                }
-                borderRadius={20}
-                bg="$bgApp"
-                overflow="hidden"
-              >
-                {image ? (
-                  <XStack px="$3" pt="$3" gap="$3" alignItems="center">
-                    <Image
-                      source={{ uri: image.path }}
-                      cachePolicy="none"
-                      width={64}
-                      height={64}
-                      resizeMode="contain"
-                    />
-                    <IconButton
-                      testID="support-remove-image"
-                      icon="CrossedLargeOutline"
-                      accessibilityLabel={intl.formatMessage({
-                        id: ETranslations.global_cancel,
-                      })}
-                      onPress={() => setImage(undefined)}
-                    />
-                  </XStack>
-                ) : null}
-                <TextArea
-                  testID="support-message-input"
-                  accessibilityLabel={intl.formatMessage({
-                    id: ETranslations.global_contact_us,
-                  })}
-                  minHeight={64}
-                  maxHeight={140}
-                  numberOfLines={2}
-                  borderWidth={0}
-                  borderRadius={0}
-                  bg="transparent"
-                  px="$5"
-                  pt="$4"
-                  pb="$2"
-                  focusStyle={{ outlineWidth: 0 }}
-                  maxLength={10_000}
-                  value={draft}
-                  onChangeText={setDraft}
-                  onFocus={() => setComposerFocused(true)}
-                  onBlur={() => setComposerFocused(false)}
-                  editable={canReply && !pending}
-                  placeholder={
-                    current?.placeholder || open?.composerPlaceholder
-                  }
-                />
-                <XStack
-                  px="$2"
-                  pb="$2"
-                  alignItems="center"
-                  justifyContent="space-between"
-                >
-                  <IconButton
-                    testID="support-add-image"
-                    variant="tertiary"
-                    icon="ImageMountainsOutline"
-                    accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.global_add,
-                    })}
-                    disabled={!canReply || !!pending}
-                    onPress={() => {
-                      void pickImage();
-                    }}
-                  />
-                  <IconButton
-                    testID="support-send"
-                    icon="ArrowTopOutline"
-                    accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.global_send,
-                    })}
-                    variant="primary"
-                    borderRadius={18}
-                    width={36}
-                    height={36}
-                    mr="$0.5"
-                    disabled={
-                      !canReply || !!pending || (!draft.trim() && !image)
-                    }
-                    onPress={sendDraft}
-                  />
-                </XStack>
-              </YStack>
-            </YStack>
+            <SupportComposer
+              ref={composer}
+              editable={canReply && !pending}
+              placeholder={current?.placeholder || open?.composerPlaceholder}
+              image={image}
+              failed={actionFailed}
+              onPickImage={pickImage}
+              onRemoveImage={removeImage}
+              onSend={sendDraft}
+            />
           </Page.Footer>
         </YStack>
       </Page.Body>

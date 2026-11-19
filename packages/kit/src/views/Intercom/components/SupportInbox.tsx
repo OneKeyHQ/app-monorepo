@@ -7,11 +7,13 @@ import { FlatList, View } from 'react-native';
 import {
   Button,
   Empty,
+  HeaderIconButton,
   Icon,
   IconButton,
   LinearGradient,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   XStack,
   YStack,
@@ -36,12 +38,21 @@ import type {
 } from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { ConversationRow } from '../components/ConversationRow';
+import {
+  ConversationRow,
+  ConversationRowSkeleton,
+} from '../components/ConversationRow';
 import { SupportHomeHeader } from '../components/SupportHomeHeader';
 import { SupportNavigation } from '../components/SupportNavigation';
 import { useSupportResource } from '../hooks/useSupportResource';
 
 import { SupportError } from './SupportError';
+
+const ARTICLE_PLACEHOLDER_WIDTHS = ['80%', '60%', '70%', '50%'] as const;
+const CONVERSATION_PLACEHOLDER_ROWS = 5;
+// Module-level so the navigation header sees a stable render function.
+const renderTitleSkeleton = () => <Skeleton.HeadingLg />;
+
 export function SupportInbox({
   session,
   active,
@@ -167,6 +178,16 @@ export function SupportInbox({
       setRefreshing(false);
     }
   }, [refreshInbox, refreshOpen, refreshHome]);
+  // A section shows placeholders until its first answer. Without a session it
+  // has only the retry prompt to show.
+  const awaiting = (resource: { settled: boolean }) =>
+    !sessionError && !resource.settled;
+  const inboxLoading = awaiting(inbox);
+  const openLoading = awaiting(open);
+  const labelsLoading = awaiting(homeContent);
+  // Home stacks cards from all three responses. Holding every placeholder until
+  // the last one answers swaps the page in whole instead of card by card.
+  const homeLoading = home && (inboxLoading || openLoading || labelsLoading);
   const appearance = open.data?.appearance;
   const newConversationLabel =
     homeContent.data?.newConversationLabel ||
@@ -181,36 +202,32 @@ export function SupportInbox({
     if (home) navigation.push(EIntercomRoutes.Messages, route);
   };
   const showHelp = () => navigation.push(EIntercomRoutes.Help, route);
-  const recentLimit = homeContent.data?.recentConversationLimit ?? 0;
+  const renderRefresh = useCallback(
+    () => (
+      <HeaderIconButton
+        testID="support-refresh"
+        icon="RefreshCcwOutline"
+        title={intl.formatMessage({ id: ETranslations.global_refresh })}
+        onPress={() => {
+          void refresh();
+        }}
+      />
+    ),
+    [intl, refresh],
+  );
+  // Cards that already answered stay behind the placeholders until then.
+  const homeCards = homeLoading ? undefined : homeContent.data;
+  const recentLimit = homeCards?.recentConversationLimit ?? 0;
   const header = (
     <YStack>
       {home ? (
         <SupportHomeHeader
           appearance={appearance}
           avatars={open.data?.header.avatars}
+          loading={homeLoading}
           onClose={navigation.popStack}
         />
-      ) : (
-        <XStack
-          px="$5"
-          py="$3"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <SizableText size="$headingXl">
-            {homeContent.data?.messagesLabel}
-          </SizableText>
-          <IconButton
-            testID="support-refresh"
-            variant="tertiary"
-            icon="RefreshCcwOutline"
-            onPress={refresh}
-            accessibilityLabel={intl.formatMessage({
-              id: ETranslations.global_refresh,
-            })}
-          />
-        </XStack>
-      )}
+      ) : null}
       <YStack px="$5" gap="$3" pb="$4">
         {home && recentLimit && conversations.length ? (
           <YStack
@@ -294,14 +311,18 @@ export function SupportInbox({
             elevation={platformEnv.isNativeAndroid ? 2 : undefined}
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
-            opacity={open.data?.canCreateConversation ? 1 : 0.5}
+            opacity={homeLoading || open.data?.canCreateConversation ? 1 : 0.5}
           >
             <YStack flex={1} gap="$1">
-              <SizableText size="$bodyLgMedium">
-                {newConversationLabel}
-              </SizableText>
+              {homeLoading ? (
+                <Skeleton.BodyLg w={140} />
+              ) : (
+                <SizableText size="$bodyLgMedium">
+                  {newConversationLabel}
+                </SizableText>
+              )}
             </YStack>
-            {open.loading && !open.data ? (
+            {!homeLoading && open.loading && !open.data ? (
               <Spinner />
             ) : (
               <Icon name="SendSolid" size="$5" color="$icon" flexShrink={0} />
@@ -346,7 +367,14 @@ export function SupportInbox({
               <Icon name="SearchOutline" size="$5" />
             </XStack>
             <YStack pt="$2">
-              {homeContent.data?.articles.map((article) => (
+              {homeLoading
+                ? ARTICLE_PLACEHOLDER_WIDTHS.map((width) => (
+                    <YStack key={width} px="$3" py="$2.5">
+                      <Skeleton.BodyLg w={width} />
+                    </YStack>
+                  ))
+                : null}
+              {homeCards?.articles.map((article) => (
                 <XStack
                   key={article.id}
                   testID={`support-article-${article.id}`}
@@ -376,7 +404,7 @@ export function SupportInbox({
         ) : null}
         {homeContent.failed ? <SupportError retry={refreshHome} /> : null}
         {home
-          ? homeContent.data?.links.map((link) => (
+          ? homeCards?.links.map((link) => (
               <XStack
                 key={link.url}
                 testID="support-home-external-link"
@@ -428,7 +456,15 @@ export function SupportInbox({
           bg="$bgApp"
           pt={home && platformEnv.isNativeAndroid ? top : 0}
         >
-          <Page.Header title="" headerShown={!home} />
+          {/* The message list titles itself in the navigation bar. */}
+          <Page.Header
+            title={homeContent.data?.messagesLabel ?? ''}
+            headerTitle={
+              !home && labelsLoading ? renderTitleSkeleton : undefined
+            }
+            headerRight={home ? undefined : renderRefresh}
+            headerShown={!home}
+          />
           {home ? (
             <LinearGradient
               pointerEvents="none"
@@ -450,8 +486,23 @@ export function SupportInbox({
             onRefresh={refresh}
             ListEmptyComponent={
               <View>
-                {inbox.loading && !inbox.data ? <Spinner /> : null}
-                {!home && !inbox.loading && !inbox.failed ? (
+                {!home && inboxLoading ? (
+                  <YStack testID="support-conversation-list-skeleton">
+                    {Array.from(
+                      { length: CONVERSATION_PLACEHOLDER_ROWS },
+                      (_, index) => (
+                        <ConversationRowSkeleton
+                          key={index}
+                          divider={index < CONVERSATION_PLACEHOLDER_ROWS - 1}
+                        />
+                      ),
+                    )}
+                  </YStack>
+                ) : null}
+                {inbox.settled && inbox.loading && !inbox.data ? (
+                  <Spinner />
+                ) : null}
+                {!home && inbox.data && !inbox.failed ? (
                   <Empty
                     icon="BubblesOutline"
                     title={intl.formatMessage({
@@ -495,17 +546,23 @@ export function SupportInbox({
             <YStack bg="$bgApp">
               {!home && !open.failed ? (
                 <YStack px="$5" py="$3">
-                  <Button
-                    testID="support-new-conversation"
-                    icon="SendOutline"
-                    variant="primary"
-                    borderRadius={12}
-                    loading={open.loading && !open.data}
-                    disabled={!open.data?.canCreateConversation}
-                    onPress={startConversation}
-                  >
-                    {newConversationLabel}
-                  </Button>
+                  {openLoading || labelsLoading ? (
+                    // Either response can carry the label; a button shown
+                    // earlier would change its text when the other lands.
+                    <Skeleton h={50} radius="round" />
+                  ) : (
+                    <Button
+                      testID="support-new-conversation"
+                      icon="SendOutline"
+                      variant="primary"
+                      size="large"
+                      loading={open.loading && !open.data}
+                      disabled={!open.data?.canCreateConversation}
+                      onPress={startConversation}
+                    >
+                      {newConversationLabel}
+                    </Button>
+                  )}
                 </YStack>
               ) : null}
               <SupportNavigation
@@ -520,6 +577,7 @@ export function SupportInbox({
                 onMessages={showMessages}
                 homeLabel={homeContent.data?.homeLabel}
                 messagesLabel={homeContent.data?.messagesLabel}
+                loading={labelsLoading}
               />
             </YStack>
           </Page.Footer>

@@ -6,15 +6,14 @@ import { FlatList } from 'react-native';
 
 import {
   Empty,
-  Icon,
   Input,
   Page,
-  SizableText,
+  Skeleton,
   Spinner,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -36,6 +35,7 @@ import { useSupportResource } from '../hooks/useSupportResource';
 
 // Stable empty list: FlatList treats a new array as changed data.
 const NO_ARTICLES: IIntercomArticleLink[] = [];
+const ARTICLE_PLACEHOLDER_WIDTHS = ['80%', '60%', '70%', '50%'] as const;
 
 function SupportHelpContent({
   session,
@@ -70,13 +70,34 @@ function SupportHelpContent({
   const search = useSupportResource(loadSearch, active && !!phrase);
   const isSearching = !!input.trim();
   const waiting = input.trim() !== phrase;
+  // Placeholders cover only the first answer; later retries keep the screen.
+  const homeLoading = !sessionError && !home.settled;
+  const showSkeleton = homeLoading && !isSearching;
   const loading = isSearching ? waiting || search.loading : home.loading;
   const failed = !!sessionError || (isSearching ? search.failed : home.failed);
   let articles = NO_ARTICLES;
   if (!failed && !waiting)
     articles = (isSearching ? search.data : home.data?.articles) ?? NO_ARTICLES;
   let emptyState: ReactElement | undefined;
-  if (failed) {
+  if (showSkeleton) {
+    emptyState = (
+      <YStack testID="support-help-skeleton">
+        {/* Same box as a ListItem row. */}
+        {ARTICLE_PLACEHOLDER_WIDTHS.map((width) => (
+          <YStack
+            key={width}
+            minHeight="$11"
+            justifyContent="center"
+            mx="$2"
+            px="$3"
+            py="$2"
+          >
+            <Skeleton.BodyLg w={width} />
+          </YStack>
+        ))}
+      </YStack>
+    );
+  } else if (failed) {
     emptyState = (
       <Empty
         title={intl.formatMessage({
@@ -128,36 +149,20 @@ function SupportHelpContent({
           data={articles}
           keyExtractor={(article) => article.id}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
-          ListHeaderComponent={loading ? <Spinner /> : undefined}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListHeaderComponent={
+            loading && !showSkeleton ? <Spinner /> : undefined
+          }
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
-            <XStack
+            <ListItem
               testID={`support-help-result-${item.id}`}
-              role="button"
-              py="$4"
-              gap="$3"
-              alignItems="center"
-              borderBottomWidth={1}
-              borderBottomColor="$borderSubdued"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
+              title={item.title}
+              subtitle={item.summary}
+              subtitleProps={{ numberOfLines: 2 }}
+              drillIn
               onPress={() => openUrlExternal(item.url)}
-            >
-              <YStack flex={1} gap="$1">
-                <SizableText size="$bodyLgMedium">{item.title}</SizableText>
-                {item.summary ? (
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={2}
-                  >
-                    {item.summary}
-                  </SizableText>
-                ) : null}
-              </YStack>
-              <Icon name="ChevronRightOutline" size="$5" />
-            </XStack>
+            />
           )}
         />
       </Page.Body>
@@ -167,6 +172,7 @@ function SupportHelpContent({
           unread={unread}
           homeLabel={home.data?.homeLabel}
           messagesLabel={home.data?.messagesLabel}
+          loading={homeLoading}
           onHome={navigation.pop}
           onMessages={() => navigation.replace(EIntercomRoutes.Messages, route)}
         />
