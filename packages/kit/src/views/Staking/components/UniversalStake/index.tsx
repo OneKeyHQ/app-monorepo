@@ -1,6 +1,7 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -23,6 +24,7 @@ import {
   Icon,
   IconButton,
   Image,
+  NumberSizeableText,
   Page,
   Popover,
   SizableText,
@@ -33,6 +35,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
+  ANIMATE_ONLY_HEIGHT,
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
@@ -51,8 +54,13 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
-import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import {
+  fillLeadingZero,
+  getStartAmount,
+  validateAmountInputForStaking,
+} from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import { useEarnDesktopHomeCopy } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
@@ -110,8 +118,10 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
+  EARN_EMPTIED_HOLD_MS,
   countDecimalPlaces,
   getStakeTransactionConfirmationAction,
+  getTypedAmountValue,
   isInvalidAmount,
   normalizeEarnActionAmountScope,
   resolveStakeSubmissionConfirmation,
@@ -120,6 +130,7 @@ import {
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
+import { EarnFormFooter } from '../EarnFormFooter';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
   EstimateNetworkFee,
@@ -138,8 +149,9 @@ import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
+  usePendleTransactionDetails,
 } from '../ProtocolDetails/PendleSharedComponents';
-import { ProtocolImage, formatTvl } from '../ProtocolDisplayShared';
+import { formatTvl } from '../ProtocolDisplayShared';
 import {
   calcPriceImpactInfo,
   showHighPriceImpactDialog,
@@ -153,11 +165,28 @@ import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
-import { StakingAmountInputSkeleton } from '../StakingAmountInput/StakingAmountInputSkeleton';
+import { StakingAmountResultLine } from '../StakingAmountResultLine';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import {
+  EarnFormCompactContext,
+  EarnFormRow,
+  EarnFormSummary,
+  EarnFormSummaryPart,
+  buildOutcomeValueFromText,
+  buildRewardNoteRows,
+  buildRewardsOutcome,
+  buildRowKeys,
+  splitPendleRewardRows,
+} from './EarnFormSummary';
+import { ProtocolSwitchRow } from './ProtocolSwitchRow';
+import { hasStakingRewardsSummary } from './StakingConfirmationSummary';
+import { useEarnRewardTokens } from './useEarnRewardTokens';
+
+import type { IEarnConfirmWordId } from './earnConfirmWord';
+import type { IEarnOutcome } from './EarnFormSummary';
 import type { IDepositTaskState } from '../../earnDepositTask/state';
 import type {
   IDirectDepositTaskConfig,
@@ -172,11 +201,26 @@ import type {
 } from '../../pages/ManagePosition/components/ManagePositionContent';
 import type { FontSizeTokens } from 'tamagui';
 
+function ClosingDepositLine() {
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setClosed(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <YStack
+      h={closed ? 0 : 28}
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_HEIGHT}
+    />
+  );
+}
+
 function withRewardUnit(text: string, rewardUnit: string): string {
   return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
 }
 
-function getProtocolAprDisplay({
+export function getProtocolAprDisplay({
   protocol,
   fallbackText,
 }: {
@@ -227,6 +271,8 @@ function getProtocolAprDisplay({
 
   return undefined;
 }
+
+export { ProtocolSwitchRow } from './ProtocolSwitchRow';
 
 function ProtocolSwitchTriggerRow({
   currentProtocol,
@@ -290,63 +336,23 @@ function ProtocolSwitchTriggerRow({
   }
 
   return (
-    <XStack
+    <ProtocolSwitchRow
       testID="earn-protocol-switch-trigger"
-      role={isSwitchEnabled ? 'button' : undefined}
-      userSelect={isSwitchEnabled ? 'none' : undefined}
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
-      px="$3"
-      py="$2"
-      bg="$bgSubdued"
-      borderRadius="$2"
-      hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
-      pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
-      onPress={isSwitchEnabled ? onPress : undefined}
-    >
-      <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
-        <ProtocolImage
-          logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
-          networkLogoURI={currentProtocol?.network.logoURI}
-        />
-        <YStack flex={1} minWidth={0} gap="$0.5">
-          {isLoading && !providerName ? (
-            <Skeleton h="$5" w={96} borderRadius="$2" />
-          ) : (
-            <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-              {providerName}
-            </SizableText>
-          )}
-          {subtitle ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {subtitle}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </XStack>
-      <XStack alignItems="center" gap="$1" flexShrink={0}>
-        <YStack alignItems="flex-end" gap="$0.5">
-          {aprElement}
-          {tvlText ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`TVL ${tvlText}`}
-            </SizableText>
-          ) : null}
-        </YStack>
-        {showChevron ? (
-          <Icon
-            name="ChevronGrabberVerSolid"
-            color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
-            size="$5"
-          />
-        ) : null}
-      </XStack>
-    </XStack>
+      logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
+      networkLogoURI={currentProtocol?.network.logoURI}
+      name={providerName}
+      subtitle={subtitle}
+      aprElement={aprElement}
+      tvlText={tvlText}
+      isLoading={isLoading}
+      isSwitchEnabled={isSwitchEnabled}
+      showChevron={Boolean(showChevron)}
+      onPress={onPress}
+    />
   );
 }
 
-function ProtocolSwitcher({
+export function ProtocolSwitcher({
   tokenSymbol,
   accountId,
   fallbackProviderName,
@@ -486,6 +492,9 @@ type IUniversalStakeProps = {
   isStakeAssetRefreshing?: boolean;
 
   decimals?: number;
+  collapsesDepositLine?: boolean;
+  initialAmount?: string;
+  preserveSubmittedAmount?: boolean;
 
   providerName?: string;
   providerLogo?: string;
@@ -494,6 +503,7 @@ type IUniversalStakeProps = {
   apr?: string;
 
   isDisabled?: boolean;
+  balanceLoading?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
@@ -527,9 +537,15 @@ type IUniversalStakeProps = {
   // Setup transactions must settle before deposit is quoted and submitted.
   preparationPolicy?: 'confirm-setup-before-deposit';
   footerActionOverride?: IManagePositionFooterAction;
+  confirmWordIdWhileLoading?: IEarnConfirmWordId;
+  autoSubmitKey?: number;
+  onAutoSubmit?: () => void;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
+  hideTradeOrBuy?: boolean;
+  offerSwitch?: ReactNode;
+  onAmountChange?: (amount: string) => void;
   isInModalContext?: boolean;
   showStandaloneKeyboardFooter?: boolean;
   ongoingValidator?: IEarnSelectField;
@@ -542,6 +558,9 @@ type IUniversalStakeProps = {
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
+  onRefreshBalance?: () => Promise<unknown> | void;
   isQuoteExpired?: boolean;
   onQuoteReset?: () => void;
   onTaskRecoveryComplete?: (reason?: 'remoteUnknown') => void;
@@ -556,6 +575,9 @@ export function UniversalStake({
   networkId,
   balance,
   decimals,
+  collapsesDepositLine,
+  initialAmount,
+  preserveSubmittedAmount,
   minTransactionFee = '0',
   tokenImageUri,
   tokenImageLoading,
@@ -566,6 +588,7 @@ export function UniversalStake({
   providerLogo,
   estimateFeeUTXO,
   isDisabled,
+  balanceLoading,
   onConfirm,
   onFeeRateChange,
   protocolInfo,
@@ -578,9 +601,15 @@ export function UniversalStake({
   actionGuard,
   preparationPolicy: configuredPreparationPolicy,
   footerActionOverride,
+  confirmWordIdWhileLoading,
+  autoSubmitKey,
+  onAutoSubmit,
   protocolSwitchConfig,
   showApyDetail = false,
   suppressPlatformBonus = false,
+  hideTradeOrBuy = false,
+  offerSwitch,
+  onAmountChange,
   isInModalContext = false,
   showStandaloneKeyboardFooter = false,
   ongoingValidator,
@@ -591,6 +620,9 @@ export function UniversalStake({
   stakeType,
   inputTitle,
   tokenSelectorTriggerProps,
+  amountBoxBottom,
+  amountBoxTestID,
+  onRefreshBalance,
   isQuoteExpired,
   onQuoteReset,
   onTaskRecoveryComplete,
@@ -601,11 +633,17 @@ export function UniversalStake({
 }: PropsWithChildren<IUniversalStakeProps>) {
   const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const intl = useIntl();
+  const earnCopy = useEarnDesktopHomeCopy();
+  const isCompact = useContext(EarnFormCompactContext);
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const [editableAmountValue, setAmountValue] = useState('');
-  const amountValue = retainedTask?.task.identity.amount ?? editableAmountValue;
+  const [editableAmountValue, setAmountValue] = useState(() =>
+    getStartAmount(initialAmount, decimals),
+  );
+  const typedAmountValue =
+    retainedTask?.task.identity.amount ?? editableAmountValue;
+  const amountValue = getTypedAmountValue(typedAmountValue);
   const isRetainedTask = Boolean(retainedTask);
   const transactionConfirmationAmountRef = useRef(amountValue);
   const [approving, setApproving] = useState<boolean>(false);
@@ -902,6 +940,28 @@ export function UniversalStake({
       preparationPolicy,
     ]),
   );
+  const feeDisplayScopeKey = JSON.stringify([
+    accountId,
+    protocolInfo?.earnAccount?.accountAddress,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    tokenInfo?.token.address,
+    actionSymbol,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    stakeType,
+    approveTarget.spenderAddress,
+    approveType,
+    allowance,
+    confirmationAction,
+    preparationPolicy,
+  ]);
+  const [displayFee, setDisplayFee] = useState<{
+    scope: string;
+    amount: string;
+    fee?: IEarnEstimateFeeResp;
+  }>();
   const hideYieldPreview = Boolean(
     preparationPolicy && (isPreparationStep || shouldApprove),
   );
@@ -983,6 +1043,11 @@ export function UniversalStake({
     | { fetchConfirmation: typeof fetchTransactionConfirmation; amount: string }
     | undefined
   >(undefined);
+  const [displayQuote, setDisplayQuote] = useState<{
+    fetchConfirmation: typeof fetchTransactionConfirmation;
+    amount: string;
+    confirmation?: IStakeTransactionConfirmation;
+  }>();
   const updateTransactionConfirmation = useCallback(
     (
       response: IStakeTransactionConfirmation | undefined,
@@ -993,12 +1058,21 @@ export function UniversalStake({
         amount,
       };
       setTransactionConfirmation(response);
+      setDisplayQuote({
+        fetchConfirmation: fetchTransactionConfirmation,
+        amount,
+        confirmation: response,
+      });
     },
     [fetchTransactionConfirmation, amountValue],
   );
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  const [failedQuote, setFailedQuote] = useState<{
+    fetchConfirmation: typeof fetchTransactionConfirmation;
+    amount: string;
+  }>();
   // Whether getTransactionConfirmation has settled at least once (success OR
   // failure). The summary placeholder below is restricted to this first-load
   // window: protocols whose response carries no summary would otherwise pulse
@@ -1021,6 +1095,7 @@ export function UniversalStake({
           return;
         }
         updateTransactionConfirmation(resp, amount);
+        setFailedQuote(undefined);
         if (
           resp &&
           amount &&
@@ -1030,7 +1105,9 @@ export function UniversalStake({
           onQuoteReset?.();
         }
       } catch {
-        // keep stale state
+        if (isCurrentRequest()) {
+          setFailedQuote({ fetchConfirmation, amount: amount || '' });
+        }
       } finally {
         if (isCurrentRequest()) {
           setTransactionConfirmationSettled(true);
@@ -1140,16 +1217,23 @@ export function UniversalStake({
         amountNumber.gt(allowanceNumber)
       ) {
         setEstimateFeeResp(undefined);
+        setDisplayFee({ scope: feeDisplayScopeKey, amount: amount ?? '' });
         return;
       }
       try {
         const resp = await fetchEstimateFeeResp(amount);
         if (isCurrentScope() && requestId === estimateFeeRequestIdRef.current) {
           setEstimateFeeResp(resp);
+          setDisplayFee({
+            scope: feeDisplayScopeKey,
+            amount: amount ?? '',
+            fee: resp,
+          });
         }
       } catch (error) {
         if (!isCurrentScope() || requestId !== estimateFeeRequestIdRef.current)
           return;
+        setDisplayFee({ scope: feeDisplayScopeKey, amount: amount ?? '' });
         throw error;
       }
     },
@@ -1442,6 +1526,10 @@ export function UniversalStake({
     setCheckAmountLoading(loading);
   }, []);
   const checkAmountRequestIdRef = useRef(0);
+  const [checkedAmount, setCheckedAmount] = useState<{
+    amount: string;
+    requestId: number;
+  }>();
   const wrapValidationAttemptRef = useRef(0);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
@@ -1516,6 +1604,7 @@ export function UniversalStake({
             message: '',
             alerts: response.data?.alerts || [],
           });
+          setCheckedAmount({ amount, requestId });
         } else {
           updateAmountValidation({ message: response.message, alerts: [] });
         }
@@ -1572,10 +1661,11 @@ export function UniversalStake({
     updateAmountValidation,
     updateCheckAmountLoading,
     isRetainedTask,
+    requestCheckAmount,
   ]);
 
   const onChangeAmountValue = useCallback(
-    (value: string) => {
+    (text: string) => {
       if (
         submitting ||
         submissionLockRef.current ||
@@ -1583,16 +1673,19 @@ export function UniversalStake({
         getCurrentDepositTaskHandle()
       )
         return;
+      const value = fillLeadingZero(text);
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
-      estimateFeeRequestIdRef.current += 1;
+      const normalizedAmount = getTypedAmountValue(value);
+      const amountChanged = normalizedAmount !== amountValue;
+      if (amountChanged) estimateFeeRequestIdRef.current += 1;
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
           updateAmountValidation({ message: '', alerts: [] });
-          void debouncedFetchEstimateFeeResp();
+          if (amountChanged) void debouncedFetchEstimateFeeResp();
         }
         return;
       }
@@ -1603,12 +1696,13 @@ export function UniversalStake({
       );
       if (!isOverflowDecimals) {
         setAmountValue(value);
-        void debouncedFetchEstimateFeeResp(value);
+        if (amountChanged) void debouncedFetchEstimateFeeResp(normalizedAmount);
       }
     },
     [
       decimals,
       debouncedFetchEstimateFeeResp,
+      amountValue,
       submitting,
       updateAmountValidation,
       getCurrentDepositTaskHandle,
@@ -1616,7 +1710,34 @@ export function UniversalStake({
     ],
   );
 
-  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+  const isInitialAmountAppliedRef = useRef(
+    Boolean(getStartAmount(initialAmount, decimals)),
+  );
+  const onAmountChangeRef = useRef(onAmountChange);
+  onAmountChangeRef.current = onAmountChange;
+  const initialAmountRef = useRef(initialAmount);
+  initialAmountRef.current = initialAmount;
+  useEffect(() => {
+    if (initialAmountRef.current && !isInitialAmountAppliedRef.current) return;
+    onAmountChangeRef.current?.(typedAmountValue);
+  }, [typedAmountValue]);
+  useEffect(() => {
+    if (
+      isInitialAmountAppliedRef.current ||
+      !initialAmount ||
+      decimals === undefined ||
+      isRetainedTask
+    ) {
+      return;
+    }
+    isInitialAmountAppliedRef.current = true;
+    onChangeAmountValue(initialAmount);
+  }, [decimals, initialAmount, isRetainedTask, onChangeAmountValue]);
+
+  const onBlurAmountValue = useOnBlurAmountValue(
+    typedAmountValue,
+    setAmountValue,
+  );
   const [stakeProgressStep, setStakeProgressStep] = useState(
     EStakeProgressStep.approve,
   );
@@ -1716,7 +1837,7 @@ export function UniversalStake({
         calcPercentBalance({
           balance,
           percent,
-          decimals,
+          decimals: Math.min(decimals ?? 6, 6),
         }),
       );
     },
@@ -1749,9 +1870,19 @@ export function UniversalStake({
 
   const amountInputDisabled = useMemo(() => {
     return (
-      isDisabled || isStakingCapFull || submitting || Boolean(activeDepositTask)
+      isDisabled ||
+      isStakeAssetLoading ||
+      isStakingCapFull ||
+      submitting ||
+      Boolean(activeDepositTask)
     );
-  }, [activeDepositTask, isDisabled, isStakingCapFull, submitting]);
+  }, [
+    activeDepositTask,
+    isDisabled,
+    isStakeAssetLoading,
+    isStakingCapFull,
+    submitting,
+  ]);
 
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
@@ -2481,7 +2612,7 @@ export function UniversalStake({
             return;
           }
           if (!isCurrent()) return;
-          if (!taskSettled && !isWrapStake) {
+          if (!taskSettled && !isWrapStake && !preserveSubmittedAmount) {
             resetAmount();
             // Auto-refresh quote countdown after swap completes
             onQuoteReset?.();
@@ -2603,6 +2734,7 @@ export function UniversalStake({
       verifyDepositTaskSend,
       canSendDepositTask,
       prepareDepositTask,
+      preserveSubmittedAmount,
       updateAmountValidation,
     ],
   );
@@ -3785,6 +3917,24 @@ export function UniversalStake({
     const amountBN = new BigNumber(amountValue);
     return !amountBN.isNaN() && amountBN.gt(0);
   }, [amountValue]);
+  const hadPositiveAmountRef = useRef(isPositiveAmount);
+  const [holdingEmptiedAmount, setHoldingEmptiedAmount] = useState(false);
+  const isEmptiedHolding =
+    !isPositiveAmount && (holdingEmptiedAmount || hadPositiveAmountRef.current);
+  useEffect(() => {
+    if (isPositiveAmount) {
+      hadPositiveAmountRef.current = true;
+      setHoldingEmptiedAmount(false);
+      return undefined;
+    }
+    if (!hadPositiveAmountRef.current) return undefined;
+    setHoldingEmptiedAmount(true);
+    const timer = setTimeout(() => {
+      hadPositiveAmountRef.current = false;
+      setHoldingEmptiedAmount(false);
+    }, EARN_EMPTIED_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [isPositiveAmount, typedAmountValue]);
   const hasVisibleTaskSetup = activeDepositTask?.steps.some((step) => {
     if (step.kind === 'deposit' || step.status.type === 'skipped') return false;
     if (
@@ -3932,7 +4082,12 @@ export function UniversalStake({
             activeDepositTask.currentStepIndex + 1)
       )
         status = 'current';
-      return { id: step.id, label, status };
+      const isRunning =
+        status === 'current' &&
+        ['preparing', 'sending', 'confirming', 'verifying'].includes(
+          step.status.type,
+        );
+      return { id: step.id, label, status, isRunning };
     });
   const stakeProgress = taskProgressSteps ? (
     <StakeTaskProgress steps={taskProgressSteps} />
@@ -4230,12 +4385,15 @@ export function UniversalStake({
         : actionGuard,
     identity: actionIdentity,
   });
+  const loadingConfirmText = confirmWordIdWhileLoading
+    ? intl.formatMessage({ id: confirmWordIdWhileLoading })
+    : '';
   const effectiveOnConfirmText =
     isStakeAssetLoading &&
     !depositTaskCanQuery &&
     !depositRecordingCanRetry &&
     !depositRecordingCanFinish
-      ? ''
+      ? loadingConfirmText
       : guardedAction.text;
   const effectiveConfirmOnPress = guardedAction.onPress;
   const effectiveConfirmLoading = Boolean(
@@ -4255,6 +4413,55 @@ export function UniversalStake({
       !depositRecordingCanFinish) ||
     guardedAction.disabled,
   );
+
+  const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      autoSubmitKey === undefined ||
+      autoSubmittedKeyRef.current === autoSubmitKey
+    ) {
+      return;
+    }
+    if (
+      isInitialAmountAppliedRef.current &&
+      initialAmount &&
+      getTypedAmountValue(initialAmount) !== amountValue
+    ) {
+      autoSubmittedKeyRef.current = autoSubmitKey;
+      onAutoSubmit?.();
+      return;
+    }
+    if (
+      !isInitialAmountAppliedRef.current ||
+      !initialAmount ||
+      checkedAmount?.amount !== amountValue ||
+      checkedAmount.requestId !== checkAmountRequestIdRef.current ||
+      effectiveShowExpiredRefresh ||
+      effectiveConfirmDisabled ||
+      effectiveConfirmLoading ||
+      footerActionOverride ||
+      actionGuard?.action ||
+      isRetainedTask
+    ) {
+      return;
+    }
+    autoSubmittedKeyRef.current = autoSubmitKey;
+    onAutoSubmit?.();
+    void effectiveConfirmOnPress();
+  }, [
+    actionGuard?.action,
+    amountValue,
+    autoSubmitKey,
+    checkedAmount,
+    effectiveConfirmDisabled,
+    effectiveConfirmLoading,
+    effectiveConfirmOnPress,
+    effectiveShowExpiredRefresh,
+    footerActionOverride,
+    initialAmount,
+    isRetainedTask,
+    onAutoSubmit,
+  ]);
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
@@ -4426,7 +4633,7 @@ export function UniversalStake({
   });
 
   let tradeOrBuyContent: ReactElement | null = null;
-  if (stakePresentation.transactionLayout !== 'market') {
+  if (!hideTradeOrBuy && stakePresentation.transactionLayout !== 'market') {
     tradeOrBuyContent = isStakeAssetLoading ? (
       <XStack h="$8" />
     ) : (
@@ -4506,77 +4713,319 @@ export function UniversalStake({
     (!shouldShowPlatformBonus && tradeOrBuyContent),
   );
 
+  const shownQuoteScope = displayQuote;
+  const hasMatchingQuoteScope =
+    shownQuoteScope?.fetchConfirmation === fetchTransactionConfirmation;
+  const shownConfirmation =
+    hasMatchingQuoteScope && !isPreparationQuoteDeferred && !isRetainedTask
+      ? displayQuote?.confirmation
+      : undefined;
+  const hasFailedCurrentQuote =
+    failedQuote?.fetchConfirmation === fetchTransactionConfirmation &&
+    failedQuote.amount === amountValue;
+  const hasSummaryValues =
+    (isPositiveAmount || isEmptiedHolding) &&
+    Boolean(shownConfirmation) &&
+    !hasFailedCurrentQuote;
+  const isSummaryUpdating = Boolean(
+    !isPreparationQuoteDeferred &&
+    ((isEmptiedHolding && !shownConfirmation) ||
+      (isPositiveAmount &&
+        !hasFailedCurrentQuote &&
+        (quoteLoading || shownQuoteScope?.amount !== amountValue))),
+  );
+  const pendleSummaryRows = splitPendleRewardRows(
+    isPendleLikeLayout
+      ? (shownConfirmation?.rewards ?? []).filter(
+          (reward) =>
+            Boolean(reward?.title?.text?.trim()) &&
+            Boolean(reward?.description?.text?.trim()),
+        )
+      : [],
+  );
+  const pendleDetailRows = usePendleTransactionDetails({
+    transactionConfirmation: shownConfirmation,
+    amountValue: shownQuoteScope?.amount ?? '',
+    isPendleLikeLayout,
+    placeholder: !hasSummaryValues,
+  });
+  const offerRewardTokens = useEarnRewardTokens({
+    networkId,
+    providerName: providerName ?? '',
+    symbol: actionSymbol,
+    vault: protocolInfo?.vault,
+    enabled: !isPendleLikeLayout && !hideYieldPreview,
+  });
+  let outcome: IEarnOutcome | undefined;
+  if (!hideYieldPreview && isPendleLikeLayout) {
+    const row = pendleSummaryRows.outcomeRow;
+    const value = hasSummaryValues
+      ? buildOutcomeValueFromText(row?.description)
+      : undefined;
+    outcome = {
+      label: row?.title.text.trim() || earnCopy.atMaturityYouGet,
+      tooltip: row?.tooltip,
+      values: value ? [value] : [],
+      isEarning: true,
+      hasNoteLine: true,
+    };
+  } else if (
+    !hideYieldPreview &&
+    (!shownConfirmation ||
+      hasStakingRewardsSummary({ transactionConfirmation: shownConfirmation }))
+  ) {
+    outcome = buildRewardsOutcome({
+      transactionConfirmation: shownConfirmation,
+      placeholderLabel: earnCopy.estAnnualRewards,
+      withoutValues: !hasSummaryValues,
+      offerTokens: offerRewardTokens,
+    });
+  }
+  const formSummaryRows: ReactElement[] = [];
+  const isPendleRowsReserved =
+    isPendleLikeLayout &&
+    !pendleSummaryRows.detailRows.length &&
+    !pendleDetailRows.length;
+  const scopedDisplayFee =
+    displayFee?.scope === feeDisplayScopeKey ? displayFee : undefined;
+  const shownFee =
+    isPositiveAmount || isEmptiedHolding ? scopedDisplayFee?.fee : undefined;
+  const isFeeUpdating = Boolean(
+    isPositiveAmount && scopedDisplayFee?.amount !== amountValue,
+  );
+  if (isPendleLikeLayout) {
+    if (isPendleRowsReserved) {
+      earnCopy.pendleRowTitles.forEach((title) => {
+        formSummaryRows.push(<EarnFormRow key={title} label={title} />);
+      });
+    }
+    const keys = buildRowKeys(
+      pendleSummaryRows.detailRows.map((row) => row.title.text),
+    );
+    pendleSummaryRows.detailRows.forEach((row, index) => {
+      formSummaryRows.push(
+        <EarnFormRow
+          key={keys[index]}
+          label={row.title.text}
+          tooltip={row.tooltip}
+          value={
+            hasSummaryValues ? (
+              <EarnText text={row.description} size="$bodyMdMedium" />
+            ) : undefined
+          }
+        />,
+      );
+    });
+    formSummaryRows.push(...pendleDetailRows);
+  } else {
+    formSummaryRows.push(
+      ...buildRewardNoteRows({
+        transactionConfirmation: shownConfirmation,
+        withoutValues: !hasSummaryValues,
+      }),
+    );
+    if (shownConfirmation?.receive) {
+      const receive = shownConfirmation.receive;
+      formSummaryRows.push(
+        <EarnFormRow
+          key="receive"
+          label={receive.title.text}
+          tooltip={receive.tooltip}
+          value={
+            hasSummaryValues ? (
+              <EarnText text={receive.description} size="$bodyMdMedium" />
+            ) : undefined
+          }
+        />,
+      );
+    }
+    if (preparationPolicy && estimateFeeResp) {
+      formSummaryRows.push(
+        <EstimateNetworkFee
+          key="network-fee"
+          isVisible
+          estimateFeeResp={estimateFeeResp}
+          onPress={() =>
+            showEstimateGasAlert({
+              daysConsumed: daysSpent,
+              estFiatValue: estimateFeeResp.feeFiatValue,
+            })
+          }
+        />,
+      );
+    } else if (!usePermit2Approve) {
+      formSummaryRows.push(
+        <EarnFormRow
+          key="network-fee"
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
+          isLoading={isFeeUpdating}
+          value={
+            shownFee && Number(shownFee.feeFiatValue) > 0 ? (
+              <XStack
+                ai="center"
+                cursor="pointer"
+                onPress={() =>
+                  showEstimateGasAlert({
+                    daysConsumed: daysSpent,
+                    estFiatValue: shownFee.feeFiatValue,
+                  })
+                }
+              >
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="value"
+                  formatterOptions={{ currency: currencySymbol }}
+                >
+                  {shownFee.feeFiatValue}
+                </NumberSizeableText>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </XStack>
+            ) : undefined
+          }
+        />,
+      );
+    }
+  }
+  const formSummary = (
+    <EarnFormSummary
+      outcome={outcome}
+      isLoading={isSummaryUpdating}
+      isDimmed={isEmptiedHolding}
+      rows={formSummaryRows}
+      detailsPlaceholder={isPendleRowsReserved}
+      footnote={
+        pendleTipText || (!shouldShowPlatformBonus && tradeOrBuyContent) ? (
+          <YStack gap="$3">
+            {pendleTipText ? (
+              <EarnText text={pendleTipText} size="$bodySm" />
+            ) : null}
+            {shouldShowPlatformBonus ? null : tradeOrBuyContent}
+          </YStack>
+        ) : undefined
+      }
+    />
+  );
+  const receiveAmount = earnUtils.extractAmountFromText(
+    shownConfirmation?.receive?.description,
+  );
+  const hasReceiveFigure =
+    hasSummaryValues && new BigNumber(receiveAmount).gt(0);
+  const receiveLine = hasReceiveFigure
+    ? `≈ ${numberFormat(receiveAmount, { formatter: 'balance' })} ${effectiveReceiveInputConfig?.tokenSymbol ?? ''}`
+    : '–';
+  let amountErrorText: string | undefined;
+  if (isPositiveAmount && !isDisabled) {
+    if (isInsufficientBalance) {
+      amountErrorText = intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    } else if (isCheckAmountMessageError) {
+      amountErrorText = checkAmountMessage;
+    }
+  }
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
         <YStack gap="$2">
-          {isStakeAssetLoading ? (
-            <StakingAmountInputSkeleton
+          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+            <StakingAmountInput
               title={
                 inputTitle ||
                 intl.formatMessage({ id: ETranslations.earn_deposit })
               }
+              disabled={amountInputDisabled}
+              hasError={isInsufficientBalance || isCheckAmountMessageError}
+              value={typedAmountValue}
+              onChange={onChangeAmountValue}
+              onBlur={onBlurAmountValue}
+              tokenSelectorTriggerProps={{
+                selectedTokenImageUri: tokenImageUri,
+                selectedTokenImageLoading: tokenImageLoading,
+                selectedTokenSymbol: tokenSymbol,
+                selectedNetworkImageUri: networkLogoURI,
+                ...tokenSelectorTriggerProps,
+                disabled:
+                  amountInputDisabled || tokenSelectorTriggerProps?.disabled,
+              }}
+              balanceProps={{
+                value: balance,
+                onPress: onMax,
+                // During a protocol switch the on-screen balance still belongs
+                // to the previous protocol/network — show the built-in balance
+                // skeleton instead of a stale value that jumps on load.
+                loading:
+                  Boolean(balanceLoading) ||
+                  Boolean(isStakeAssetLoading) ||
+                  (Boolean(footerActionOverride?.loading) && !offerSwitch),
+              }}
+              inputProps={{
+                placeholder: '0',
+                autoFocus: !amountInputDisabled,
+              }}
+              valueProps={{
+                value: currentValue,
+                currency: currencySymbol,
+              }}
+              enableMaxAmount
+              usePercentageKeyboardAccessory
+              onAmountFocusChange={onAmountFocusChange}
+              onSelectPercentageStage={onSelectPercentageStage}
+              bottomContent={amountBoxBottom}
+              boxTestID={amountBoxTestID}
+              onRefreshBalance={onRefreshBalance}
             />
+            {amountInputDisabled ? (
+              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+            ) : null}
+          </Stack>
+          {collapsesDepositLine ? <ClosingDepositLine /> : null}
+          {isPendleLikeLayout && showReceiveInput ? (
+            <HeightTransition duration={200} skipInitialAnimation>
+              <YStack pt="$2">
+                {amountErrorText ? (
+                  <SizableText
+                    testID="earn-amount-error"
+                    px="$3.5"
+                    size="$bodyMd"
+                    color="$textCritical"
+                  >
+                    {amountErrorText}
+                  </SizableText>
+                ) : (
+                  <StakingAmountResultLine
+                    testID="earn-pendle-receive-amount"
+                    label={intl.formatMessage({
+                      id: ETranslations.swap_review_you_receive,
+                    })}
+                    value={receiveLine}
+                    isPlaceholder={!hasReceiveFigure}
+                    loading={isSummaryUpdating || isEmptiedHolding}
+                  />
+                )}
+              </YStack>
+            </HeightTransition>
           ) : (
-            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-              <StakingAmountInput
-                title={
-                  inputTitle ||
-                  intl.formatMessage({ id: ETranslations.earn_deposit })
-                }
-                disabled={amountInputDisabled}
-                hasError={isInsufficientBalance || isCheckAmountMessageError}
-                value={amountValue}
-                onChange={onChangeAmountValue}
-                onBlur={onBlurAmountValue}
-                tokenSelectorTriggerProps={{
-                  selectedTokenImageUri: tokenImageUri,
-                  selectedTokenImageLoading: tokenImageLoading,
-                  selectedTokenSymbol: tokenSymbol,
-                  selectedNetworkImageUri: networkLogoURI,
-                  ...tokenSelectorTriggerProps,
-                  disabled:
-                    amountInputDisabled || tokenSelectorTriggerProps?.disabled,
-                }}
-                balanceProps={{
-                  value: balance,
-                  onPress: onMax,
-                  // During a protocol switch the on-screen balance still belongs
-                  // to the previous protocol/network — show the built-in balance
-                  // skeleton instead of a stale value that jumps on load.
-                  loading: Boolean(footerActionOverride?.loading),
-                }}
-                inputProps={{
-                  placeholder: '0',
-                  autoFocus: !amountInputDisabled,
-                }}
-                valueProps={{
-                  value: currentValue,
-                  currency: currentValue ? currencySymbol : undefined,
-                }}
-                enableMaxAmount
-                usePercentageKeyboardAccessory
-                onAmountFocusChange={onAmountFocusChange}
-                onSelectPercentageStage={onSelectPercentageStage}
-              />
-              {amountInputDisabled ? (
-                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-              ) : null}
-            </Stack>
+            <ManagePageV2ReceiveInput
+              receive={
+                isPreparationQuoteDeferred
+                  ? undefined
+                  : transactionConfirmation?.receive
+              }
+              config={effectiveReceiveInputConfig}
+              fiatSymbol={currencySymbol}
+              payFiatValue={currentValue}
+              loading={quoteLoading}
+            />
           )}
-          <ManagePageV2ReceiveInput
-            receive={
-              isPreparationQuoteDeferred
-                ? undefined
-                : transactionConfirmation?.receive
-            }
-            config={effectiveReceiveInputConfig}
-            fiatSymbol={currencySymbol}
-            payFiatValue={currentValue}
-            loading={quoteLoading}
-          />
         </YStack>
-        {showReceiveInput ? (
+        {showReceiveInput && !isPendleLikeLayout ? (
           <Stack
             ai="center"
             position="absolute"
@@ -4602,7 +5051,8 @@ export function UniversalStake({
           </Stack>
         ) : null}
       </Stack>
-      {isCheckAmountMessageError ? (
+      {isCheckAmountMessageError &&
+      !(isPendleLikeLayout && showReceiveInput) ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
@@ -4654,9 +5104,39 @@ export function UniversalStake({
           protocolSwitchConfig={protocolSwitchConfig}
           disabled={approving || submitting || Boolean(activeDepositTask)}
         />
-      ) : null}
+      ) : (
+        offerSwitch
+      )}
 
-      {shouldShowSummaryCard &&
+      {stakePresentation.transactionLayout !== 'market' ? (
+        <>
+          {ongoingValidator ? (
+            <EarnValidatorSelect
+              field={ongoingValidator}
+              value={selectedValidator}
+              onChange={setSelectedValidator}
+              disabled={amountInputDisabled}
+            />
+          ) : null}
+          {isCompact ? (
+            <EarnFormSummaryPart part="result">
+              {formSummary}
+            </EarnFormSummaryPart>
+          ) : (
+            formSummary
+          )}
+          {stakePresentation.feeInput === 'utxo' &&
+          estimateFeeUTXO &&
+          isPositiveAmount ? (
+            <BtcFeeRateInput
+              estimateFeeUTXO={estimateFeeUTXO}
+              onFeeRateChange={onFeeRateChange}
+            />
+          ) : null}
+        </>
+      ) : null}
+      {stakePresentation.transactionLayout === 'market' &&
+      shouldShowSummaryCard &&
       (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
@@ -4823,39 +5303,27 @@ export function UniversalStake({
       ) : null}
       {beforeFooter}
       {isInModalContext ? (
-        <Page.Footer>
-          <Stack
-            bg="$bgApp"
-            flexDirection="column"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              jc: 'space-between',
-            }}
-          >
-            <Stack pl="$5" $md={{ pt: '$5' }}>
-              {isShowStakeProgress ? stakeProgress : null}
-            </Stack>
-
-            <Page.FooterActions
-              onConfirmText={effectiveOnConfirmText}
-              confirmButtonProps={{
-                onPress: effectiveConfirmOnPress,
-                loading: effectiveConfirmLoading,
-                disabled: effectiveConfirmDisabled,
-              }}
-            />
-          </Stack>
-          {platformEnv.isNativeIOSPhone ? null : (
-            <PercentageStageOnKeyboard
-              isAmountFocused={isAmountFocused && !amountInputDisabled}
-              onSelectPercentageStage={
-                amountInputDisabled ? undefined : onSelectPercentageStage
-              }
-              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-            />
-          )}
-        </Page.Footer>
+        <EarnFormFooter
+          isInModalContext
+          progress={isShowStakeProgress ? stakeProgress : null}
+          confirmText={effectiveOnConfirmText}
+          confirmButtonProps={{
+            onPress: effectiveConfirmOnPress,
+            loading: effectiveConfirmLoading,
+            disabled: effectiveConfirmDisabled,
+          }}
+          keyboardStage={
+            platformEnv.isNativeIOSPhone ? null : (
+              <PercentageStageOnKeyboard
+                isAmountFocused={isAmountFocused && !amountInputDisabled}
+                onSelectPercentageStage={
+                  amountInputDisabled ? undefined : onSelectPercentageStage
+                }
+                reserveSpaceUntilKeyboardShown={!amountInputDisabled}
+              />
+            )
+          }
+        />
       ) : (
         <>
           <YStack>{footerContent}</YStack>
@@ -4873,6 +5341,9 @@ export function UniversalStake({
           ) : null}
         </>
       )}
+      {stakePresentation.transactionLayout !== 'market' && isCompact ? (
+        <EarnFormSummaryPart part="details">{formSummary}</EarnFormSummaryPart>
+      ) : null}
     </StakingFormWrapper>
   );
 }

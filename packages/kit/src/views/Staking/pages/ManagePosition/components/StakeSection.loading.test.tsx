@@ -2,6 +2,53 @@
 /* eslint-disable import/first */
 
 const mockGetEarnAssetsList = jest.fn<Promise<unknown>, unknown[]>();
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouterSwap',
+  () => ({
+    readEarnSwapBalance: jest.fn(async () => undefined),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith',
+  () => ({
+    PAY_WITH_TRIGGER_TEST_ID: 'pay-with-trigger',
+    refreshPickedPayToken: jest.fn(async () => undefined),
+    rememberPickedPayToken: jest.fn(),
+    usePayTokens: () => ({
+      tokens: [],
+      heldTokens: [],
+      isLoaded: true,
+      isNetworkEmpty: false,
+      refresh: jest.fn(async () => undefined),
+    }),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterOffer',
+  () => ({
+    useEarnRouterOffers: () => ({ offers: [] }),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm',
+  () => ({
+    EarnRouterSwapDepositForm: () => null,
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnPayWithPickerData',
+  () => ({
+    readPayWithPickerAccountAddress: jest.fn(),
+    readPayWithPickerNetwork: jest.fn(),
+    warmPayWithPickerTokens: jest.fn(),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable',
+  () => ({
+    buildKeyboardPressProps: () => ({}),
+  }),
+);
 const mockFetchTokensDetails = jest.fn<Promise<unknown>, unknown[]>();
 const mockRetainedAccountAddress = jest.fn<Promise<string>, []>();
 const mockRetainedStakeForm = jest.fn<void, [unknown]>();
@@ -84,6 +131,7 @@ jest.mock('@onekeyhq/components', () => {
     onVisibilityStateChange: () => () => undefined,
     useDeferredPromise,
     useNetInfo: () => ({ isRawInternetReachable: true }),
+    useMedia: () => ({ gtMd: false }),
     Spinner: () => <div data-testid="task-loading" />,
     YStack: ({ children }: { children?: import('react').ReactNode }) => (
       <div>{children}</div>
@@ -195,6 +243,18 @@ jest.mock('../../../hooks/useBorrowApiParams', () => ({
 }));
 jest.mock('../../../hooks/useEtherFiStakeApproval', () => ({
   useEtherFiStakeApproval: (params: unknown) => mockStakeApproval(params),
+}));
+jest.mock('../../../hooks/useEtherFiLegacyActionGuard', () => ({
+  useEtherFiLegacyActionGuard: () => undefined,
+}));
+jest.mock('../../../hooks/useFitModalHeight', () => ({
+  easeModalHeightChanges: jest.fn(),
+}));
+jest.mock('../../../router', () => ({
+  preloadEarnPayWithTokenSelect: jest.fn(async () => undefined),
+}));
+jest.mock('../../../components/EarnRiskWarningDialog', () => ({
+  useEarnRiskWarningGate: () => async () => true,
 }));
 jest.mock('../../../hooks/useUniversalHooks', () => ({
   useUniversalStake: () => mockHandleStake,

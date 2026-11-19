@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/stakeProgressStep';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EBorrowProviderEnum,

@@ -149,7 +149,9 @@ const WrappedActionButtonCmp = ({
   claimSourceIdentity,
   rewardSymbol,
   buttonProps,
+  isAlwaysButton,
   onBeforeAction,
+  renderTrigger,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -159,8 +161,17 @@ const WrappedActionButtonCmp = ({
   rewardSymbol?: string;
   /** phone positions page: its cards want a medium, full-width button */
   buttonProps?: Partial<React.ComponentProps<typeof Button>>;
+  /** desktop home tiles: a button, not the desktop layout's link */
+  isAlwaysButton?: boolean;
   /** phone positions page: the claim sheet closes itself as a claim starts */
   onBeforeAction?: () => void;
+  /** desktop home's reward pills: the claim's trigger drawn by the caller */
+  renderTrigger?: (trigger: {
+    onPress: () => void;
+    loading: boolean;
+    disabled: boolean;
+    text: NonNullable<ReturnType<typeof getRewardButtonText>>;
+  }) => React.ReactNode;
 }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -319,7 +330,15 @@ const WrappedActionButtonCmp = ({
         text: `${intl.formatMessage({ id: ETranslations.global_failed })} · ${intl.formatMessage({ id: ETranslations.global_retry })}`,
       }
     : buttonText;
-  if (!isDesktopLayout) {
+  if (renderTrigger) {
+    return renderTrigger({
+      onPress,
+      loading: loading || isPending,
+      disabled: Boolean(loading || buttonDisabled),
+      text: displayButtonText,
+    });
+  }
+  if (!isDesktopLayout || isAlwaysButton) {
     return (
       <Button
         testID="earn-button-text-btn"

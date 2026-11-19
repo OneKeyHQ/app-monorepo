@@ -124,8 +124,10 @@ export const BorrowCard = () => {
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    // What the market can lend the account, as the forms name it
+    // (demo 10-29)
     const balance = intl.formatMessage({
-      id: ETranslations.global_balance,
+      id: ETranslations.global_available,
     });
     return {
       asset,

@@ -288,6 +288,7 @@ const portfolioData: IUseEarnPortfolioReturn = {
   cachedOverviewTotalFiatValue: undefined,
   cachedOverviewEarnings24h: undefined,
   isLoading: false,
+  isSettled: true,
   refresh: async () => undefined,
 };
 const props = { faqList: [], portfolioData };

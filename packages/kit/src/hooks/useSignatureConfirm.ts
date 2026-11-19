@@ -36,6 +36,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { captureEarnWindowReturnOnSend } from '../views/Earn/earnWindowReturn';
 
 import useAppNavigation from './useAppNavigation';
 
@@ -141,8 +142,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     async (params: IBuildUnsignedTxParams) => {
       const {
         sameModal,
-        onSuccess,
-        onLateBroadcastAccepted,
+        onSuccess: onSuccessBase,
+        onLateBroadcastAccepted: onLateBroadcastAcceptedBase,
         onFail,
         onConfirmationFail,
         onSafePreSendFail,
@@ -168,6 +169,32 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       if (isNavigationCurrent && !isNavigationCurrent()) {
         return;
       }
+      const markEarnSent =
+        stakingInfo && !signOnly
+          ? captureEarnWindowReturnOnSend(stakingInfo.label, {
+              accountId,
+              networkId,
+            })
+          : undefined;
+      const onSuccess: typeof onSuccessBase = markEarnSent
+        ? (data) => {
+            markEarnSent();
+            onSuccessBase?.(data);
+          }
+        : onSuccessBase;
+      const onLateBroadcastAccepted: typeof onLateBroadcastAcceptedBase =
+        markEarnSent
+          ? (fact) => {
+              if (
+                fact.accountId === accountId &&
+                fact.networkId === networkId &&
+                fact.txid
+              ) {
+                markEarnSent();
+              }
+              return onLateBroadcastAcceptedBase?.(fact);
+            }
+          : onLateBroadcastAcceptedBase;
       try {
         let unsignedTxs: IUnsignedTxPro[] = [];
         if (unsignedTxsFromParams?.length) {

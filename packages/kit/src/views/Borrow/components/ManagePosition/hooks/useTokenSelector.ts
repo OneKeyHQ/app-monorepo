@@ -13,6 +13,7 @@ import {
   type IBorrowAssetSelectAction,
   createBorrowAssetSelectPopoverContent,
 } from '../../BorrowAssetSelectPopover';
+import { useBorrowReserveFormScope } from '../reserveFormScope';
 
 import type {
   IBorrowActionType,
@@ -58,9 +59,14 @@ export function useTokenSelector({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalStakingParamList>>();
   const intl = useIntl();
+  // On a reserve's own page the form keeps to that reserve
+  const isReservePage = Boolean(useBorrowReserveFormScope());
 
   // Determine selector mode based on action
   const selectorMode = useMemo<ITokenSelectorMode>(() => {
+    if (isReservePage) {
+      return 'disabled';
+    }
     if (action === 'supply' || action === 'borrow') {
       // Check if we have the required params for navigation
       if (accountId && networkId && providerName && borrowMarketAddress) {
@@ -75,6 +81,7 @@ export function useTokenSelector({
     }
     return 'disabled';
   }, [
+    isReservePage,
     action,
     accountId,
     networkId,

@@ -6,8 +6,12 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
-import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
+import type {
+  IAvailableAsset,
+  IRecommendAsset,
+} from '@onekeyhq/shared/types/staking';
 
 import { useEarnActions } from './actions';
 import {
@@ -249,5 +253,69 @@ describe('useEarnActions', () => {
     expect(result.current.getPermitCache(key)?.signature).toBe('new');
     act(() => result.current.removePermitCache(key));
     expect(result.current.getPermitCache(key)).toBeNull();
+  });
+
+  it('keeps the stored asset list when a refetch answers with an equal one', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useEarnActions().current;
+        const [earnState] = useEarnAtom();
+
+        return {
+          actions,
+          earnState,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const assets: IAvailableAsset[] = [
+      {
+        name: 'USD Coin',
+        symbol: 'USDC',
+        logoURI: '',
+        apr: '2',
+        aprWithoutFee: '2',
+        tags: [],
+        rewardUnit: 'APY',
+        protocols: [],
+      },
+    ];
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        assets,
+      );
+    });
+    const stored = result.current.earnState.availableAssetsByType;
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        structuredClone(assets),
+      );
+    });
+    expect(result.current.earnState.availableAssetsByType).toBe(stored);
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        [...assets, ...assets],
+      );
+    });
+    expect(
+      result.current.earnState.availableAssetsByType?.[
+        EAvailableAssetsTypeEnum.SimpleEarn
+      ],
+    ).toHaveLength(2);
+    expect(mockSetRawData).toHaveBeenCalledTimes(2);
   });
 });

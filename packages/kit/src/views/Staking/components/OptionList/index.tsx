@@ -29,6 +29,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IClaimableListItem } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { EARN_FULL_WIDTH_BUTTONS, EARN_HALF_BUTTON } from '../EarnFormFooter';
+
 type IOptionItem = IClaimableListItem;
 
 type IExtraField = {
@@ -308,12 +310,15 @@ export const OptionList = ({
         <Page.Footer
           onConfirmText={onConfirmText}
           onCancelText={onCancelText}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
             onPress: onSubmit,
             disabled: isDisabled,
             loading,
           }}
           cancelButtonProps={{
+            ...EARN_HALF_BUTTON,
             onPress: () => {
               appNavigation.pop();
             },

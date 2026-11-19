@@ -12,6 +12,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceStaking: {
       getEarnAccount: jest.fn(),
+      getBorrowManagePage: jest.fn(),
       getManagePage: jest.fn(),
       getProtocolList: jest.fn(),
       getStakingConfigs: jest.fn(),
@@ -43,6 +44,39 @@ const params = {
   vault,
   type: EManagePositionType.Staking,
 };
+
+it('loads lending data for the account resolved on the requested network', async () => {
+  const staking = jest.mocked(backgroundApiProxy.serviceStaking);
+  staking.getEarnAccount.mockResolvedValue({
+    accountId: 'target-network-account',
+    accountAddress: '0xtarget',
+  } as NonNullable<Awaited<ReturnType<typeof staking.getEarnAccount>>>);
+  staking.getBorrowManagePage.mockResolvedValue({
+    withdrawApprove: undefined,
+  } as Awaited<ReturnType<typeof staking.getBorrowManagePage>>);
+  const hook = jest.mocked(usePromiseResult);
+  hook.mockReturnValue(response());
+  renderHook(() =>
+    useManagePage({
+      ...params,
+      accountId: '',
+      indexedAccountId: 'indexed-account',
+      type: EManagePositionType.Supply,
+      marketAddress: 'market',
+      reserveAddress: 'reserve',
+    }),
+  );
+  const call = hook.mock.lastCall;
+  if (!call)
+    throw new OneKeyLocalError('Manage-page loader was not registered');
+  await call[0]();
+  expect(staking.getBorrowManagePage.mock.calls).toContainEqual([
+    expect.objectContaining({
+      accountId: 'target-network-account',
+      networkId: params.networkId,
+    }),
+  ]);
+});
 
 function response(selection = params) {
   // Deliberately return a usable form even for an invalid URL. The UI must

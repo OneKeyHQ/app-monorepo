@@ -801,6 +801,7 @@ export interface IAppEventBusPayload {
     orderId: string;
     status: 'success' | 'failed';
   };
+  [EAppEventBusNames.EarnFundingChanged]: { scope: string };
   [EAppEventBusNames.SwitchEarnMode]: {
     mode: 'earn' | 'borrow';
     switchType?: 'default' | 'tap';

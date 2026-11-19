@@ -76,6 +76,11 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       actionIconName?: IKeyOfIcons;
       // Spins the action icon in place while its request runs.
       actionLoading?: boolean;
+      // Web: Tab reaches the balance's action and Enter or Space press it
+      isKeyboardPressable?: boolean;
+      // Words in place of the figure and its icon, where a 0 would say too
+      // little (Earn's Pay with: nothing on the network at all)
+      valueText?: string;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -209,6 +214,8 @@ export function AmountInput({
           size="$bodySm"
           color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
+          numberOfLines={1}
+          flexShrink={1}
         >
           {valueProps.value || '0.00'}
         </NumberSizeableText>
@@ -220,6 +227,9 @@ export function AmountInput({
     );
   }, [valueProps, reversible]);
 
+  // A token list in a popover opens from the keyboard too (web): the
+  // trigger takes focus, and Enter or Space opens the list
+  const [isTokenPopoverOpen, setIsTokenPopoverOpen] = useState(false);
   const TokenSelectorTrigger = useMemo(() => {
     const {
       popover: popoverProps,
@@ -250,6 +260,31 @@ export function AmountInput({
 
     const hasPopover = !!popoverProps?.content;
     const hasOnPress = !!onPress || hasPopover;
+    const popoverKeyboardProps =
+      hasPopover && !disabled && platformEnv.isRuntimeBrowser
+        ? {
+            tabIndex: 0,
+            focusVisibleStyle: {
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+            },
+            onKeyDown: (event: {
+              key: string;
+              target?: unknown;
+              currentTarget?: unknown;
+              preventDefault: () => void;
+            }) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setIsTokenPopoverOpen(true);
+              }
+            },
+          }
+        : undefined;
 
     const triggerContent = (
       <XStack
@@ -274,6 +309,7 @@ export function AmountInput({
         })}
         disabled={disabled}
         onPress={hasPopover ? undefined : onPress}
+        {...popoverKeyboardProps}
       >
         <Stack mr="$2">
           {selectedTokenImageLoading ? (
@@ -364,6 +400,8 @@ export function AmountInput({
       return (
         <Popover
           title={popoverProps.title}
+          open={isTokenPopoverOpen}
+          onOpenChange={setIsTokenPopoverOpen}
           renderTrigger={triggerContent}
           renderContent={popoverProps.content}
           floatingPanelProps={{
@@ -374,7 +412,7 @@ export function AmountInput({
     }
 
     return triggerContent;
-  }, [intl, tokenSelectorTriggerProps]);
+  }, [intl, isTokenPopoverOpen, tokenSelectorTriggerProps]);
 
   const BalanceElement = useMemo(() => {
     if (!balanceProps) {
@@ -401,7 +439,7 @@ export function AmountInput({
             {balanceProps.iconText}
           </SizableText>
         );
-      } else if (!balanceProps.hideIcon) {
+      } else if (!balanceProps.hideIcon && !balanceProps.valueText) {
         balanceLeadingElement = (
           <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
         );
@@ -414,6 +452,33 @@ export function AmountInput({
       const balanceActionColor = balanceProps.onPress
         ? '$textInteractive'
         : '$textPlaceholder';
+      const balanceKeyboardProps =
+        balanceProps.isKeyboardPressable &&
+        balanceActionPress &&
+        platformEnv.isRuntimeBrowser
+          ? {
+              tabIndex: 0,
+              focusVisibleStyle: {
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+              },
+              onKeyDown: (event: {
+                key: string;
+                target?: unknown;
+                currentTarget?: unknown;
+                preventDefault: () => void;
+              }) => {
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  balanceActionPress();
+                }
+              },
+            }
+          : undefined;
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -422,6 +487,7 @@ export function AmountInput({
           py="$1"
           borderRadius={6}
           onPress={balanceActionPress}
+          {...balanceKeyboardProps}
           testID={balanceProps.testID}
           {...(enableMaxAmount && balanceActionPress
             ? {
@@ -440,7 +506,11 @@ export function AmountInput({
           })}
         >
           {balanceLeadingElement}
-          <>
+          {balanceProps.valueText ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {balanceProps.valueText}
+            </SizableText>
+          ) : (
             <NumberSizeableText
               size="$bodySm"
               color="$textSubdued"
@@ -448,7 +518,7 @@ export function AmountInput({
             >
               {balanceProps.value ?? 0}
             </NumberSizeableText>
-          </>
+          )}
           {balanceProps.tokenSymbol ? (
             <SizableText pl="$1" size="$bodySm" color="$textSubdued">
               {balanceProps.tokenSymbol}
@@ -529,9 +599,12 @@ export function AmountInput({
         {InputElement}
         {TokenSelectorTrigger}
       </XStack>
+      {/* A long value gives way, so the balance and Max keep their place */}
       <XStack alignItems="center" justifyContent="space-between">
         <XStack
           alignItems="center"
+          flexShrink={1}
+          minWidth={0}
           m="$1"
           px="$2.5"
           py="$1"
@@ -550,7 +623,7 @@ export function AmountInput({
         >
           {AmountElement}
         </XStack>
-        <XStack alignItems="center">
+        <XStack alignItems="center" flexShrink={0}>
           {BalanceElement}
           {balanceHelper}
         </XStack>

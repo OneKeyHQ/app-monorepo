@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -18,6 +19,7 @@ import {
   useEarnAtom,
   useEarnLoadingStatesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -142,7 +144,13 @@ export function AvailableAssetItem({
   );
 }
 
-function AvailableAssetsFlatListComponent() {
+function AvailableAssetsFlatListComponent({
+  namesLiquidity = false,
+}: {
+  // The DeFi home at a phone's width on web: Fixed Income's title names
+  // the rows' second figure. The phone apps keep the title bare
+  namesLiquidity?: boolean;
+}) {
   const intl = useIntl();
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
@@ -238,6 +246,25 @@ function AvailableAssetsFlatListComponent() {
                 color="$iconSubdued"
                 pointerEvents="none"
               />
+              {/* The rows' second figure named once, where the Loans
+                  section under it names its own: the rows keep the bare
+                  amount (a caption on each wrapped in longer locales) */}
+              {namesLiquidity &&
+              type === EAvailableAssetsTypeEnum.FixedRate &&
+              assets
+                .slice(0, MAX_INLINE_ASSETS)
+                .some((asset) => asset.liquidity) ? (
+                <Stack flex={1} ai="flex-end" pointerEvents="none">
+                  <SizableText
+                    testID="earn-fixed-income-liquidity-label"
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_liquidity })}
+                  </SizableText>
+                </Stack>
+              ) : null}
             </XStack>
             <YStack gap={EARN_LIST_ROW_GAP}>
               {assets.slice(0, MAX_INLINE_ASSETS).map((asset) => (

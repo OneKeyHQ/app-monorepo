@@ -131,6 +131,13 @@ const BreadcrumbLinkText = styled(SizableText, {
   } as const,
 });
 
+// An item that goes nowhere (the page itself, a name alone) stays still
+// under the pointer, so it does not read as a link
+const INERT_ITEM_STYLE = {
+  hoverStyle: { bg: '$transparent' },
+  pressStyle: { bg: '$transparent' },
+} as const;
+
 function BreadcrumbItemWrapper({
   item,
   onItemPress,
@@ -144,15 +151,13 @@ function BreadcrumbItemWrapper({
     onItemPress(item);
   }, [onItemPress, item]);
 
+  const isInert = !item.onClick && !item.href;
   return (
     <BreadcrumbItem
-      role={
-        !platformEnv.isNative && (item.onClick || item.href)
-          ? 'button'
-          : undefined
-      }
+      role={!platformEnv.isNative && !isInert ? 'button' : undefined}
       onPress={handlePress}
-      disabled={!item.onClick ? !item.href : undefined}
+      disabled={isInert || undefined}
+      {...(isInert ? INERT_ITEM_STYLE : null)}
     >
       {element}
     </BreadcrumbItem>

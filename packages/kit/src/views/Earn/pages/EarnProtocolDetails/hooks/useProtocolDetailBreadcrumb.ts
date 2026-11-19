@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
 
@@ -89,6 +90,14 @@ export function useProtocolDetailBreadcrumb({
       items.push({
         label: symbol,
         onClick: () => {
+          // On web the desktop home lists every offer for the token, the
+          // lending markets with them, under its row (demo 10-27)
+          if (!platformEnv.isNative) {
+            void EarnNavigation.popToEarnHome(appNavigation, {
+              openSymbol: symbol,
+            });
+            return;
+          }
           EarnNavigation.pushToEarnProtocols(appNavigation, {
             symbol,
             logoURI: encodeURIComponent(tokenInfo.token.logoURI),

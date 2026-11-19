@@ -10,37 +10,24 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ColorTokens } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IBorrowHealthFactorRiskDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowTestIDs } from '../testIDs';
 
 import { HealthFactor } from './HealthFactor';
+import { resolveHealthFactorValueColor } from './healthFactorValueColor';
 
-export type IHealthFactorDetail =
-  IBorrowHealthFactorRiskDetail['data']['healthFactorDetail'];
+import type { IHealthFactorDetail } from './healthFactorValueColor';
+
+export type { IHealthFactorDetail } from './healthFactorValueColor';
+// Where the Borrow page and its summary read it; plain, so a page without
+// the tooltip can color a health factor the same way
+export { resolveHealthFactorValueColor } from './healthFactorValueColor';
 
 type IBorrowHealthFactorTooltipProps = {
   detail?: IHealthFactorDetail;
 };
-
-export function resolveHealthFactorValueColor(
-  detail?: IHealthFactorDetail,
-): ColorTokens {
-  if (detail?.valueColor) {
-    return detail.valueColor;
-  }
-  const badgeType = detail?.status?.badge;
-  if (badgeType === 'success') {
-    return '$textSuccess';
-  }
-  if (badgeType === 'critical') {
-    return '$textCritical';
-  }
-  return '$textCaution';
-}
 
 function parseHealthFactorBarProps(detail?: IHealthFactorDetail): {
   value: number;

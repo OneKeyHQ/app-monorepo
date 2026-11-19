@@ -147,6 +147,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -2275,6 +2276,28 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
 });
 
 describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
+  type ISupplyConfirmation = {
+    onBeforeSend: () => Promise<void>;
+    onCancel: () => void;
+    onSuccess: (
+      data: { signedTx: { txid: string }; decodedTx: { txid: string } }[],
+    ) => Promise<void> | void;
+  };
+
+  function captureSupplyConfirmation() {
+    let confirmation: ISupplyConfirmation | undefined;
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async (params: ISupplyConfirmation) => {
+        confirmation = params;
+      },
+    );
+    return () => {
+      if (!confirmation)
+        throw new OneKeyLocalError('Supply confirmation did not open');
+      return confirmation;
+    };
+  }
+
   beforeEach(() => {
     signatureConfirmMock.navigationToTxConfirm.mockReset();
     backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockReset();
@@ -2336,6 +2359,151 @@ describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
       backgroundMock.serviceStaking.borrowBuildSupplyTransaction,
     ).not.toHaveBeenCalled();
     expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+  });
+
+  it('claims funding before the supply send and records the accepted transaction', async () => {
+    const getConfirmation = captureSupplyConfirmation();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'supply-order-id',
+      },
+    );
+    const fundingGuard = {
+      beforeSend: jest.fn(async () => undefined),
+      onAccepted: jest.fn(async () => undefined),
+      onSafeCancel: jest.fn(async () => undefined),
+    };
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        fundingGuard,
+      });
+    });
+    const confirmation = getConfirmation();
+    await act(async () => {
+      await confirmation.onBeforeSend();
+      await confirmation.onSuccess([
+        { signedTx: { txid: 'supply-tx' }, decodedTx: { txid: 'supply-tx' } },
+      ]);
+    });
+    expect(fundingGuard.beforeSend).toHaveBeenCalledTimes(1);
+    expect(fundingGuard.onAccepted).toHaveBeenCalledWith('supply-tx');
+    expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
+  });
+
+  it('waits for an in-flight funding claim before releasing on cancellation', async () => {
+    const getConfirmation = captureSupplyConfirmation();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'supply-order-id',
+      },
+    );
+    let resolveClaim: (() => void) | undefined;
+    const fundingGuard = {
+      beforeSend: jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveClaim = resolve;
+          }),
+      ),
+      onAccepted: jest.fn(async () => undefined),
+      onSafeCancel: jest.fn(async () => undefined),
+    };
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        fundingGuard,
+      });
+    });
+    const confirmation = getConfirmation();
+    let sending: Promise<void> | undefined;
+    await act(async () => {
+      sending = confirmation.onBeforeSend();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(resolveClaim).toBeDefined());
+    await act(async () => {
+      confirmation.onCancel();
+    });
+    expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveClaim?.();
+      await expect(sending).rejects.toThrow('Borrow confirmation cancelled');
+    });
+    expect(fundingGuard.onSafeCancel).toHaveBeenCalledTimes(1);
+    expect(fundingGuard.onAccepted).not.toHaveBeenCalled();
+  });
+
+  it('retains the funding lock after send and records a late accepted transaction after unmount', async () => {
+    const getConfirmation = captureSupplyConfirmation();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'supply-order-id',
+      },
+    );
+    const fundingGuard = {
+      beforeSend: jest.fn(async () => undefined),
+      onAccepted: jest.fn(async () => undefined),
+      onSafeCancel: jest.fn(async () => undefined),
+    };
+    const { result, unmount } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        fundingGuard,
+      });
+    });
+    const confirmation = getConfirmation();
+    await act(async () => {
+      await confirmation.onBeforeSend();
+    });
+    unmount();
+    await act(async () => {
+      confirmation.onCancel();
+    });
+    await act(async () => {
+      await confirmation.onSuccess([
+        {
+          signedTx: { txid: 'late-supply-tx' },
+          decodedTx: { txid: 'late-supply-tx' },
+        },
+      ]);
+    });
+    expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
+    expect(fundingGuard.onAccepted).toHaveBeenCalledWith('late-supply-tx');
   });
 });
 

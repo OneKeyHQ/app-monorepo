@@ -6,11 +6,23 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type {
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import { useSignatureConfirm } from './useSignatureConfirm';
 
 const mockPush = jest.fn();
 const mockPushModal = jest.fn();
+const mockMarkEarnSent = jest.fn();
+const mockCaptureEarnWindowReturn = jest.fn(
+  (
+    _label: EEarnLabels | undefined,
+    _scope: { accountId: string; networkId: string },
+  ) => mockMarkEarnSent,
+);
 const mockPreActionsBeforeConfirm = jest.fn(
   async (_params: unknown): Promise<Record<string, never>> => ({}),
 );
@@ -32,6 +44,13 @@ jest.mock('./useAppNavigation', () => ({
     push: mockPush,
     pushModal: mockPushModal,
   }),
+}));
+
+jest.mock('../views/Earn/earnWindowReturn', () => ({
+  captureEarnWindowReturnOnSend: (
+    label: EEarnLabels | undefined,
+    scope: { accountId: string; networkId: string },
+  ) => mockCaptureEarnWindowReturn(label, scope),
 }));
 
 jest.mock('../background/instance/backgroundApiProxy', () => ({
@@ -59,6 +78,70 @@ describe('useSignatureConfirm', () => {
     jest.clearAllMocks();
     mockPrepareUnsigned.mockResolvedValue(unsignedTx);
     mockFindLnurl.mockResolvedValue(null);
+  });
+
+  it('binds the Earn return ticket when opening confirmation and releases it on send', async () => {
+    const onSuccess = jest.fn();
+    const onLate = jest.fn();
+    const { result } = renderHook(() =>
+      useSignatureConfirm({ accountId: 'account-id', networkId: 'network-id' }),
+    );
+    await act(async () => {
+      await result.current.normalizeTxConfirm({
+        unsignedTxs: [unsignedTx],
+        sameModal: true,
+        stakingInfo: {
+          protocol: 'EtherFi',
+          label: EEarnLabels.Stake,
+          tags: [],
+        },
+        onSuccess,
+        onLateBroadcastAccepted: onLate,
+      });
+    });
+    expect(mockCaptureEarnWindowReturn).toHaveBeenCalledWith(
+      EEarnLabels.Stake,
+      {
+        accountId: 'account-id',
+        networkId: 'network-id',
+      },
+    );
+    const route = mockPush.mock.calls[0][1] as {
+      onSuccess: (data: ISendTxOnSuccessData[]) => void;
+      onLateBroadcastAccepted: (fact: IBroadcastAcceptedFact) => void;
+    };
+    const fact = {
+      uuid: 'attempt',
+      accountId: 'account-id',
+      networkId: 'network-id',
+      txid: 'txid',
+    };
+    route.onSuccess([]);
+    route.onLateBroadcastAccepted({ ...fact, accountId: 'other-account' });
+    expect(mockMarkEarnSent).toHaveBeenCalledTimes(1);
+    route.onLateBroadcastAccepted(fact);
+    expect(mockMarkEarnSent).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledWith([]);
+    expect(onLate).toHaveBeenCalledWith(fact);
+  });
+
+  it('does not clear an Earn return ticket for signing without broadcast', async () => {
+    const { result } = renderHook(() =>
+      useSignatureConfirm({ accountId: 'account-id', networkId: 'network-id' }),
+    );
+    await act(async () => {
+      await result.current.normalizeTxConfirm({
+        unsignedTxs: [unsignedTx],
+        sameModal: true,
+        signOnly: true,
+        stakingInfo: {
+          protocol: 'EtherFi',
+          label: EEarnLabels.Stake,
+          tags: [],
+        },
+      });
+    });
+    expect(mockCaptureEarnWindowReturn).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(

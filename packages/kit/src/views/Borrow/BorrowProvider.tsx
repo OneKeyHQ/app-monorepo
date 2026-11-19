@@ -119,8 +119,10 @@ const BorrowMarketRequestProvider = ({ children }: PropsWithChildren) => {
 
 export const BorrowProvider = ({
   children,
+  preferredMarketKey,
 }: PropsWithChildren<{
   value?: IBorrowContextValue;
+  preferredMarketKey?: string;
 }>) => {
   const [markets, setMarkets] = useState<IBorrowMarketItem[]>([]);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
@@ -166,6 +168,7 @@ export const BorrowProvider = ({
     markets,
     market,
     setMarket,
+    preferredMarketKey,
   });
 
   const currentMarketKey = useMemo(

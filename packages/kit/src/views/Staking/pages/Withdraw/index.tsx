@@ -419,7 +419,6 @@ const WithdrawPage = () => {
           }
           receiveInputConfig={receiveInputConfig}
           tokenImageUri={token?.logoURI}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           protocolInfo={protocolInfo}
           tokenInfo={effectiveTokenInfo}

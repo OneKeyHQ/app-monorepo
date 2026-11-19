@@ -51,6 +51,7 @@ import { getDepositTaskOwnerKey } from '../earnDepositTask/useRetainedDepositTas
 
 import { useUniversalStake } from './useUniversalHooks';
 
+import type { IStakeFundingGuard } from '../earnDepositTask/fundedStakeConfirmation';
 import type { IDepositTaskHandle } from '../earnDepositTask/types';
 
 type IConfirmParams = {
@@ -272,6 +273,16 @@ function allowance(amount: string): IAllowance {
   return { allowance: amount, allowanceParsed: amount };
 }
 
+function createFundingGuard() {
+  return {
+    beforeSend: jest.fn(async () => undefined),
+    onAccepted: jest.fn(async (_txid: string) => undefined),
+    onSafeCancel: jest.fn(async () => undefined),
+    onNotStarted: jest.fn(async () => undefined),
+    onUncertain: jest.fn(async () => undefined),
+  } satisfies IStakeFundingGuard;
+}
+
 describe('useUniversalStake deposits and wrapping', () => {
   afterEach(() => {
     for (const provider of ['etherfi', 'native']) {
@@ -366,6 +377,95 @@ describe('useUniversalStake deposits and wrapping', () => {
     ).toBe(true);
     expect(snapshots.join()).not.toContain('private-signature');
     expect(snapshots.join()).not.toContain('provider-message');
+  });
+
+  it('keeps the ordinary Stake result pending until the accepted deposit is recorded', async () => {
+    const guard = createFundingGuard();
+    const saved = deferred<undefined>();
+    guard.onAccepted.mockReturnValueOnce(saved.promise);
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({
+        ...params,
+        stakeType: 'normal',
+        fundingGuard: guard,
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[0][0];
+    expect(guard.beforeSend).not.toHaveBeenCalled();
+
+    await confirmation.onBeforeSend?.();
+    expect(guard.beforeSend).toHaveBeenCalledTimes(1);
+    const completed = confirmation.onSuccess?.(successData('stake-tx'));
+    await waitFor(() =>
+      expect(guard.onAccepted).toHaveBeenCalledWith('stake-tx'),
+    );
+    expect(onSuccess).not.toHaveBeenCalled();
+    saved.resolve(undefined);
+    await completed;
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('records only the matching late Stake broadcast after the form closes', async () => {
+    const guard = createFundingGuard();
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: guard,
+      onSuccess,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await confirmation.onBeforeSend?.();
+    confirmation.onCancel?.();
+    unmount();
+    const fact = { ...account, uuid: 'stake-uuid', txid: 'stake-tx' };
+    await confirmation.onLateBroadcastAccepted?.({
+      ...fact,
+      accountId: 'another-account',
+    });
+    expect(guard.onAccepted).not.toHaveBeenCalled();
+    await confirmation.onLateBroadcastAccepted?.(fact);
+    expect(guard.onAccepted).toHaveBeenCalledWith(fact.txid);
+    expect(guard.onSafeCancel).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('releases a cancelled unsent deposit and retains an ambiguous confirmation failure', async () => {
+    const { result } = renderHook(() => useUniversalStake(account));
+    mockNavigate.mockResolvedValue(undefined);
+    const cancelled = createFundingGuard();
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: cancelled,
+    });
+    const cancelledConfirmation = mockNavigate.mock.calls[0][0];
+    cancelledConfirmation.onCancel?.();
+    await waitFor(() =>
+      expect(cancelled.onSafeCancel).toHaveBeenCalledTimes(1),
+    );
+    await expect(cancelledConfirmation.onBeforeSend?.()).rejects.toThrow(
+      'Stake confirmation closed',
+    );
+
+    const uncertain = createFundingGuard();
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: uncertain,
+    });
+    const uncertainConfirmation = mockNavigate.mock.calls[1][0];
+    uncertainConfirmation.onConfirmationFail?.(new Error('provider failed'));
+    uncertainConfirmation.onCancel?.();
+    await waitFor(() => expect(uncertain.onUncertain).toHaveBeenCalledTimes(1));
+    expect(uncertain.onSafeCancel).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(
@@ -1261,6 +1361,32 @@ describe('useUniversalStake deposits and wrapping', () => {
       ['deposit'],
     ]);
     expect(onStepChange).not.toHaveBeenCalled();
+  });
+
+  it('reserves cross-chain funding for the EtherFi deposit after wrap and approval', async () => {
+    const guard = createFundingGuard();
+    mockAllowance
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValue(allowance('1'));
+    mockNavigate.mockImplementation(
+      async ({ encodedTx, approvesInfo, onBeforeSend, onSuccess }) => {
+        const txid = confirmationTxid(encodedTx, approvesInfo);
+        expect(guard.beforeSend).not.toHaveBeenCalled();
+        expect(guard.onAccepted).not.toHaveBeenCalled();
+        await onBeforeSend?.();
+        expect(guard.beforeSend).toHaveBeenCalledTimes(
+          txid === 'deposit-tx' ? 1 : 0,
+        );
+        await onSuccess?.(successData(txid));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, taskMode: 'deposit', fundingGuard: guard }),
+    ).resolves.toBe(true);
+    expect(mockNavigate).toHaveBeenCalledTimes(3);
+    expect(guard.onAccepted).toHaveBeenCalledTimes(1);
+    expect(guard.onAccepted).toHaveBeenCalledWith('deposit-tx');
   });
 
   it('does not wrap or approve when the account changes during authorization validation', async () => {

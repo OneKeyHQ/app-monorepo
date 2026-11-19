@@ -3,7 +3,10 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
-import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import {
+  fillLeadingZero,
+  validateAmountInputForStaking,
+} from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useOnBlurAmountValue } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
@@ -27,7 +30,8 @@ export function useAmountInput({
   setAmountValue,
 }: IUseAmountInputParams) {
   const onChangeAmountValue = useCallback(
-    (value: string) => {
+    (text: string) => {
+      const value = fillLeadingZero(text);
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }

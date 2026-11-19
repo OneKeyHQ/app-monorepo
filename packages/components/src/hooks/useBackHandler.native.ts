@@ -4,6 +4,9 @@ import { BackHandler } from 'react-native';
 
 const stopDefaultBackHandler = () => true;
 
+// Escape presses are a web matter
+export const claimEscapePress = () => {};
+
 /**
  * Registers a hardware back press listener and invokes the provided callback
  * function when the back button is pressed on Android devices.

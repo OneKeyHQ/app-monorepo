@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getStartAmount } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -24,7 +25,12 @@ export function useManagePositionState(props: IManagePositionProps): {
   submitting: boolean;
   setSubmitting: (value: boolean) => void;
 } {
-  const [amountValue, setAmountValue] = useState('');
+  // A start amount (what was typed before a switch to another protocol) is
+  // in the box from the first frame, so the form drawn again doesn't flash
+  // empty
+  const [amountValue, setAmountValue] = useState(() =>
+    getStartAmount(props.initialAmount, props.decimals),
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const [
@@ -75,12 +81,18 @@ export function useManagePositionState(props: IManagePositionProps): {
     return undefined;
   }, [amountValue, price]);
 
-  // Validation: is amount invalid
+  const isEarnForm =
+    Boolean(props.isEarnForm) &&
+    (props.action === 'supply' || props.action === 'withdraw');
+  // Validation: is amount invalid. In the Earn form "1." on the way to "1.5"
+  // is the amount 1, as in the other Earn forms: the button keeps its look
   const isAmountInvalid = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
-      (typeof amountValue === 'string' && amountValue.endsWith('.')),
-    [amountValue],
+      (!isEarnForm &&
+        typeof amountValue === 'string' &&
+        amountValue.endsWith('.')),
+    [amountValue, isEarnForm],
   );
 
   // Validation: insufficient balance
@@ -175,6 +187,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       // UI configuration
       showApyDetail: props.showApyDetail ?? false,
       beforeFooter: props.beforeFooter,
+      isEarnForm,
     }),
     [
       props.accountId,
@@ -197,6 +210,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       props.selectableAssetsLoading,
       props.showApyDetail,
       props.beforeFooter,
+      isEarnForm,
       price,
       token,
       network?.logoURI,

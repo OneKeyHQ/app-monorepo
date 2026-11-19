@@ -28,6 +28,8 @@ export enum EAppSyncStorageKeys {
   onekey_intercom_native_support_opened = 'onekey_intercom_native_support_opened',
   onekey_onramper_id_signed_in = 'onekey_onramper_id_signed_in',
   onekey_onramper_pay_zone_height = 'onekey_onramper_pay_zone_height',
+  // Desktop Earn home guide (demo): each account's step progress
+  onekey_earn_desktop_guide_v1 = 'onekey_earn_desktop_guide_v1',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,

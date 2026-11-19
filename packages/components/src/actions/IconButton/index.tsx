@@ -84,8 +84,13 @@ export function IconButton(props: IIconButtonProps) {
   const inGlassHeader = useInGlassHeader();
   const resolvedIconColor = iconProps?.color ?? iconColor;
 
+  // Enter and Space don't press it (unless hotKey); every other key keeps
+  // its default, so Tab still moves focus on
   const onKeyDown = useCallback((event: GestureResponderEvent) => {
-    event.preventDefault();
+    const { key } = event as GestureResponderEvent & { key?: string };
+    if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
+      event.preventDefault();
+    }
   }, []);
 
   const iconButtonElement = useMemo(

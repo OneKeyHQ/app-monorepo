@@ -12,6 +12,16 @@ import type {
   IEarnEstimateFeeResp,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  buildSupplyEmptyFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from '../../../Earn/pages/EarnRouter/earnFirstFrameCache';
+import {
+  EARN_EMPTIED_HOLD_MS,
+  getTypedAmountValue,
+} from '../../../Staking/utils/utils';
+
 export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
 export type IUniversalBorrowActionParams = {
@@ -30,6 +40,9 @@ export type IUniversalBorrowActionParams = {
 export type IUniversalBorrowActionState = {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  // Until the first answer of a form opened with an amount: the market's
+  // rows for an empty amount, as last read, to lay its rows out by
+  transactionConfirmationStandIn?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
@@ -65,6 +78,22 @@ function createEmptyBorrowTransactionConfirmationState({
     transactionConfirmationLoading: false,
   };
 }
+
+// How long after the box moved off an amount its answer can be taken back
+const TAKE_BACK_MS = 3000;
+
+// An answer on screen as the box moved off its amount, and when
+type ILeftAnswer = {
+  transactionConfirmation: IBorrowTransactionConfirmation;
+  at: number;
+};
+// The emptied box: until when it keeps its figures (each key typed into it
+// while it still has no amount, "0." on the way to "0.5", keeps them a
+// moment more), and whether an amount was typed while it did
+type IEmptiedHold = {
+  heldUntil: number;
+  refilled: boolean;
+};
 
 export function resolveBorrowTransactionConfirmationStateForRequest({
   requestKey,
@@ -143,12 +172,16 @@ export function useUniversalBorrowAction({
   provider,
   marketAddress,
   reserveAddress,
-  amount,
+  amount: typedAmount,
   isDisabled = false,
   withdrawAll,
   repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
   const intl = useIntl();
+  // "1." and "1.0" on the way to "1.05" are the amount 1, not an invalid one
+  // or a new one: the form keeps its figures and its button for them and
+  // asks nothing new
+  const amount = getTypedAmountValue(typedAmount);
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
   >();
@@ -165,6 +198,47 @@ export function useUniversalBorrowAction({
   const transactionConfirmationRequestNonceRef = useRef(0);
   const estimateFeeRequestNonceRef = useRef(0);
   const checkAmountRequestNonceRef = useRef(0);
+  // The answers on screen as the box moved off their amounts (emptied, or a
+  // digit deleted), each kept a moment. The same amount typed again takes
+  // its answer back at once, also through the amounts typed on the way
+  // ("1" and "1." before "1.5"), rather than waiting for the market to say
+  // the same again. Once an emptied box has gone to dashes nothing comes
+  // back
+  const transactionConfirmationStateRef = useRef(transactionConfirmationState);
+  transactionConfirmationStateRef.current = transactionConfirmationState;
+  const leftAnswersRef = useRef(new Map<string, ILeftAnswer>());
+  const emptiedHoldRef = useRef<IEmptiedHold | undefined>(undefined);
+  const lastNormalizedAmountRef = useRef('0');
+  const readLeftAnswer = useCallback((requestKey: string) => {
+    const hold = emptiedHoldRef.current;
+    if (hold && !hold.refilled && Date.now() > hold.heldUntil) {
+      return undefined;
+    }
+    const left = leftAnswersRef.current.get(requestKey);
+    return left && Date.now() - left.at <= TAKE_BACK_MS
+      ? left.transactionConfirmation
+      : undefined;
+  }, []);
+  // Typed into while the emptied box still keeps its figures: an amount
+  // can take its answer back; a key that leaves it without one ("0" or "0."
+  // on the way to "0.5") keeps the figures a moment more. Typed into later,
+  // the box had gone to dashes: nothing comes back. Before the effect
+  // below, which takes the answer back
+  useEffect(() => {
+    const hold = emptiedHoldRef.current;
+    if (!hold || hold.refilled) {
+      return;
+    }
+    const now = Date.now();
+    if (now > hold.heldUntil) {
+      emptiedHoldRef.current = undefined;
+      leftAnswersRef.current.clear();
+    } else if (new BigNumber(typedAmount).gt(0)) {
+      hold.refilled = true;
+    } else {
+      hold.heldUntil = now + EARN_EMPTIED_HOLD_MS;
+    }
+  }, [typedAmount]);
 
   const isReady = useMemo(
     () =>
@@ -186,6 +260,18 @@ export function useUniversalBorrowAction({
   }, [amount]);
 
   const shouldFetchTransactionConfirmation = isReady && !isDisabled;
+  // A supply's answer for an empty amount is kept for the next form on this
+  // market (this one built again, or paying with another token)
+  const supplyEmptyKey =
+    action === 'supply' && isReady
+      ? buildSupplyEmptyFirstFrameKey({
+          accountId,
+          networkId,
+          provider,
+          marketAddress,
+          reserveAddress,
+        })
+      : undefined;
 
   const transactionConfirmationScopeKey = useMemo(
     () =>
@@ -299,6 +385,9 @@ export function useUniversalBorrowAction({
       }
       try {
         const resp = await fetchTransactionConfirmation(value);
+        if (supplyEmptyKey && value === '0') {
+          keepFirstFrame(supplyEmptyKey, resp);
+        }
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
           setTransactionConfirmationState({
             requestKey,
@@ -323,6 +412,46 @@ export function useUniversalBorrowAction({
     debouncedFetchTransactionConfirmation.cancel();
     transactionConfirmationRequestNonceRef.current += 1;
     const requestNonce = transactionConfirmationRequestNonceRef.current;
+    const previousState = transactionConfirmationStateRef.current;
+    const previousAmount = lastNormalizedAmountRef.current;
+    lastNormalizedAmountRef.current = normalizedAmount;
+    if (previousAmount !== normalizedAmount) {
+      const now = Date.now();
+      const left = leftAnswersRef.current;
+      left.forEach((entry, key) => {
+        if (now - entry.at > TAKE_BACK_MS) {
+          left.delete(key);
+        }
+      });
+      if (
+        previousAmount !== '0' &&
+        previousState.transactionConfirmation &&
+        previousState.requestKey !== transactionConfirmationRequestKey
+      ) {
+        left.set(previousState.requestKey, {
+          transactionConfirmation: previousState.transactionConfirmation,
+          at: now,
+        });
+      }
+      if (normalizedAmount === '0') {
+        emptiedHoldRef.current = {
+          heldUntil: now + EARN_EMPTIED_HOLD_MS,
+          refilled: false,
+        };
+      }
+    }
+    const leftAnswer = shouldFetchTransactionConfirmation
+      ? readLeftAnswer(transactionConfirmationRequestKey)
+      : undefined;
+    if (leftAnswer) {
+      leftAnswersRef.current.delete(transactionConfirmationRequestKey);
+      setTransactionConfirmationState({
+        requestKey: transactionConfirmationRequestKey,
+        transactionConfirmation: leftAnswer,
+        transactionConfirmationLoading: false,
+      });
+      return;
+    }
     setTransactionConfirmationState((currentState) =>
       resolveBorrowTransactionConfirmationStateForRequest({
         requestKey: transactionConfirmationRequestKey,
@@ -354,6 +483,7 @@ export function useUniversalBorrowAction({
     networkId,
     normalizedAmount,
     provider,
+    readLeftAnswer,
     repayAll,
     reserveAddress,
     shouldFetchTransactionConfirmation,
@@ -562,22 +692,65 @@ export function useUniversalBorrowAction({
     state: checkAmountState,
   });
 
-  const effectiveTransactionConfirmationState =
-    resolveBorrowTransactionConfirmationStateForRequest({
-      requestKey: transactionConfirmationRequestKey,
-      shouldFetch: shouldFetchTransactionConfirmation,
-      state: transactionConfirmationState,
-    });
+  // Taken back from the frame the amount is typed again in
+  const takenBackAnswer =
+    shouldFetchTransactionConfirmation &&
+    transactionConfirmationState.requestKey !==
+      transactionConfirmationRequestKey
+      ? readLeftAnswer(transactionConfirmationRequestKey)
+      : undefined;
+  const effectiveTransactionConfirmationState = takenBackAnswer
+    ? {
+        requestKey: transactionConfirmationRequestKey,
+        transactionConfirmation: takenBackAnswer,
+        transactionConfirmationLoading: false,
+      }
+    : resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: transactionConfirmationRequestKey,
+        shouldFetch: shouldFetchTransactionConfirmation,
+        state: transactionConfirmationState,
+      });
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!effectiveCheckAmountState.checkAmountMessage,
     [amount, effectiveCheckAmountState.checkAmountMessage],
   );
 
+  // Supplying with nothing typed: until the market first answers, its last
+  // answer for an empty amount, so the form opens with the market's rows.
+  // Only until then: a box emptied later keeps its last figures a moment
+  // (dimmed), which this answer would replace at once
+  let { transactionConfirmation } = effectiveTransactionConfirmationState;
+  const hasAnsweredRef = useRef(false);
+  if (transactionConfirmation) {
+    hasAnsweredRef.current = true;
+  }
+  if (
+    !transactionConfirmation &&
+    !hasAnsweredRef.current &&
+    supplyEmptyKey &&
+    normalizedAmount === '0' &&
+    shouldFetchTransactionConfirmation
+  ) {
+    transactionConfirmation =
+      readFirstFrame<IBorrowTransactionConfirmation>(supplyEmptyKey);
+  }
+  // Opened with an amount: the rows for an empty amount (kept from the last
+  // read, or read ahead as the protocol list opened) stand in until the
+  // first answer, so the rows are in place from the first frame and the
+  // answer only fills in their figures
+  const transactionConfirmationStandIn =
+    !transactionConfirmation &&
+    !hasAnsweredRef.current &&
+    supplyEmptyKey &&
+    shouldFetchTransactionConfirmation
+      ? readFirstFrame<IBorrowTransactionConfirmation>(supplyEmptyKey)
+      : undefined;
+
   return {
     estimateFeeResp,
-    transactionConfirmation:
-      effectiveTransactionConfirmationState.transactionConfirmation,
+    transactionConfirmation,
+    transactionConfirmationStandIn,
     transactionConfirmationLoading:
       effectiveTransactionConfirmationState.transactionConfirmationLoading,
     checkAmountMessage: effectiveCheckAmountState.checkAmountMessage,

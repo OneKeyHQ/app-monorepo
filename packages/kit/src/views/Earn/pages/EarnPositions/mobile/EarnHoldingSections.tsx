@@ -16,6 +16,7 @@ import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/De
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPositionEffectiveDeposit } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -25,10 +26,16 @@ import {
   getRewardButtonText,
 } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
+import {
+  LendingCollateralLine,
+  LendingRowButton,
+  useLendingCardRewards,
+} from '../EarnLendingActions';
 
 import { isCheckRow } from './earnPositionModel';
 import { holdingRowActionOf } from './myPortfolio.utils';
 
+import type { IEarnLendingRewardRow } from './earnLendingPositions';
 import type {
   IEarnPositionSectionAsset,
   IEarnPositionSectionView,
@@ -45,6 +52,8 @@ export type IEarnHoldingRedeem = {
   label: string;
   disabled?: boolean;
   onPress: () => void | Promise<void>;
+  /** reads the withdraw form's ways out ahead, for the row's token ('' for a network's own coin) */
+  onWarm?: (inputTokenAddress: string) => void;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -57,7 +66,7 @@ const ROW_ACTION_HIT_SLOP = { top: 7, bottom: 7, left: 8, right: 12 };
 const ROW_TEXT_INSET = '$10';
 
 /** Whole days until a withdrawal frees up, counted up; none once the date has passed. */
-function daysLeftOf(unlockAt: number | undefined): number | undefined {
+export function daysLeftOf(unlockAt: number | undefined): number | undefined {
   if (!unlockAt) {
     return undefined;
   }
@@ -65,7 +74,7 @@ function daysLeftOf(unlockAt: number | undefined): number | undefined {
   return days > 0 ? days : undefined;
 }
 
-function DaysLeftText({ days }: { days: number }) {
+export function DaysLeftText({ days }: { days: number }) {
   const intl = useIntl();
   return (
     <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -83,7 +92,7 @@ function DaysLeftText({ days }: { days: number }) {
  * badge is 20 pt tall; padding that the negative margins take back makes
  * its tap area 44 pt without moving it.
  */
-function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
+export function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
   const intl = useIntl();
   const badge = (
     <Badge badgeType="info" badgeSize="sm">
@@ -108,20 +117,38 @@ function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
   );
 }
 
-type IRowButton = Extract<IEarnHoldingRowAction, { kind: 'redeem' | 'button' }>;
+export type IRowButton = Extract<
+  IEarnHoldingRowAction,
+  { kind: 'redeem' | 'button' | 'lending' }
+>;
+
+/** The row's button, if its action is one (a Pending badge isn't) */
+export function rowButtonOf(
+  action: IEarnHoldingRowAction | undefined,
+): IRowButton | undefined {
+  return action?.kind === 'redeem' ||
+    action?.kind === 'button' ||
+    action?.kind === 'lending'
+    ? action
+    : undefined;
+}
 
 /**
- * A row's Redeem, Claim, Check or Cancel: the app's small secondary button,
- * the same for every action. Several rows of a panel can read "Claim", so a
- * screen reader hears the token as well.
+ * A row's Redeem, Claim, Check or Cancel, or a lending row's Withdraw or
+ * Repay: the app's small secondary button, the same for every action.
+ * Several rows of a panel can read "Claim", so a screen reader hears the
+ * token as well.
  */
-function RowAction({
+export function RowAction({
   action,
   symbol,
+  tokenAddress,
   redeem,
 }: {
   action: IRowButton;
   symbol: string;
+  /** the row's token, '' for a network's own coin */
+  tokenAddress: string;
   redeem?: IEarnHoldingRedeem;
 }) {
   // A Redeem that reads the detail before it opens (the order picker's)
@@ -146,6 +173,15 @@ function RowAction({
       }
     });
   }, [redeem]);
+  if (action.kind === 'lending') {
+    return (
+      <LendingRowButton
+        lending={action.lending}
+        disabled={action.disabled}
+        hitSlop={ROW_ACTION_HIT_SLOP}
+      />
+    );
+  }
   if (action.kind === 'redeem') {
     if (!redeem) {
       return null;
@@ -160,6 +196,10 @@ function RowAction({
         disabled={redeem.disabled}
         loading={isOpening}
         onPress={handleRedeem}
+        // Pointed at or focused, the form's ways out are read ahead, so it
+        // opens with its Instant and Queued cards in place
+        onHoverIn={() => redeem.onWarm?.(tokenAddress)}
+        onFocus={() => redeem.onWarm?.(tokenAddress)}
       >
         {redeem.label}
       </Button>
@@ -172,6 +212,8 @@ function RowAction({
       asset={claim.asset}
       reward={claim.reward}
       rewardSymbol={claim.rewardSymbol}
+      // A button in the wide layout too: every row action reads the same
+      isAlwaysButton
       buttonProps={{
         hitSlop: ROW_ACTION_HIT_SLOP,
         'aria-label': label ? `${label} ${symbol}` : undefined,
@@ -181,28 +223,19 @@ function RowAction({
 }
 
 /**
- * The part of the deposit that came through OneKey (Spark): a line hung
- * under the deposit row, flush with its text the way a withdrawal's days
- * left are (the margin takes back the row's padding and the panel's gap;
- * the padding below gives a row's back). The label is the way to its
- * explanation, padded to a finger's height; the amount hides with the
- * balances.
+ * The part of the deposit that came through OneKey (Spark): the label, the
+ * way to its explanation padded to a finger's height, and the amount, which
+ * hides with the balances. The phone hangs it under the deposit row; the
+ * wide layout's table puts it under the deposit's balance.
  */
-function EffectiveDepositRow({
+export function EffectiveDepositText({
   effectiveDeposit,
 }: {
   effectiveDeposit: IEarnPositionEffectiveDeposit;
 }) {
   const { label, tooltip } = effectiveDeposit;
   return (
-    <XStack
-      pl={ROW_TEXT_INSET}
-      mt="$-2"
-      pb="$1"
-      ai="center"
-      columnGap="$2"
-      flexWrap="wrap"
-    >
+    <>
       {tooltip ? (
         <EarnTooltip
           title={label.text}
@@ -233,6 +266,30 @@ function EffectiveDepositRow({
       >
         {effectiveDeposit.amount}
       </NumberSizeableTextWrapper>
+    </>
+  );
+}
+
+/**
+ * The effective deposit hung under the deposit row, flush with its text the
+ * way a withdrawal's days left are (the margin takes back the row's padding
+ * and the panel's gap; the padding below gives a row's back).
+ */
+function EffectiveDepositRow({
+  effectiveDeposit,
+}: {
+  effectiveDeposit: IEarnPositionEffectiveDeposit;
+}) {
+  return (
+    <XStack
+      pl={ROW_TEXT_INSET}
+      mt="$-2"
+      pb="$1"
+      ai="center"
+      columnGap="$2"
+      flexWrap="wrap"
+    >
+      <EffectiveDepositText effectiveDeposit={effectiveDeposit} />
     </XStack>
   );
 }
@@ -242,10 +299,10 @@ function EffectiveDepositRow({
  * its value on the left, and the row's one button, or its Pending badge,
  * alone on the right. With every number on the left, a button never pushes
  * a number aside. The logo and the button center on the amount and value;
- * a withdrawal's days left hang under them, so a taller row keeps that
- * alignment, and the same padding on every row keeps rows apart however
- * many lines they have. Lista's reward is unknown until Check reveals it,
- * so that row shows the name alone.
+ * a withdrawal's days left, or a lending supply's collateral switch, hang
+ * under them, so a taller row keeps that alignment, and the same padding on
+ * every row keeps rows apart however many lines they have. Lista's reward
+ * is unknown until Check reveals it, so that row shows the name alone.
  */
 function PositionRow({
   asset,
@@ -262,8 +319,7 @@ function PositionRow({
   const currencyInfo = useCurrency();
   const isCheck = isCheckRow(asset);
   const days = daysLeftOf(asset.unlockAt);
-  const button =
-    action?.kind === 'redeem' || action?.kind === 'button' ? action : undefined;
+  const button = rowButtonOf(action);
   return (
     <YStack py="$1">
       <XStack ai="center" gap="$3" minHeight={36}>
@@ -307,7 +363,12 @@ function PositionRow({
           </YStack>
         </XStack>
         {button ? (
-          <RowAction action={button} symbol={asset.symbol} redeem={redeem} />
+          <RowAction
+            action={button}
+            symbol={asset.symbol}
+            tokenAddress={asset.address}
+            redeem={redeem}
+          />
         ) : null}
         {action?.kind === 'pending' ? <PendingBadge asset={asset} /> : null}
       </XStack>
@@ -325,6 +386,7 @@ function PositionRow({
           </SizableText>
         </Stack>
       ) : null}
+      <LendingCollateralLine asset={asset} pl={ROW_TEXT_INSET} />
     </YStack>
   );
 }
@@ -366,6 +428,101 @@ function HoldingSection({
       (section.kind === 'deposited' || section.kind === 'supplied') ? (
         <EffectiveDepositRow effectiveDeposit={effectiveDeposit} />
       ) : null}
+    </YStack>
+  );
+}
+
+/**
+ * A lending reward's Claim, the rows' small secondary button, opening the
+ * market's rewards window; the rows' Pending badge while its claim is out
+ */
+export function LendingRewardAction({
+  row,
+  rewards,
+}: {
+  row: IEarnLendingRewardRow;
+  rewards: NonNullable<ReturnType<typeof useLendingCardRewards>>;
+}) {
+  const intl = useIntl();
+  if (rewards.isPending(row)) {
+    return (
+      <Badge badgeType="info" badgeSize="sm">
+        <Badge.Text>
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </Badge.Text>
+      </Badge>
+    );
+  }
+  const label =
+    rewards.rewards.buttonText ||
+    intl.formatMessage({ id: ETranslations.earn_claim });
+  return (
+    <Button
+      testID="earn-portfolio-lending-claim"
+      size="small"
+      variant="secondary"
+      hitSlop={ROW_ACTION_HIT_SLOP}
+      aria-label={`${label} ${row.symbol}`}
+      onPress={rewards.open}
+    >
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * A lending market's rewards as the phone card's last panel (demo 11-10):
+ * a line per reward as the panels above have theirs, its amount over what
+ * it is worth and Claim at its end. Nothing while there is nothing to claim
+ */
+export function LendingRewardsPanel() {
+  const intl = useIntl();
+  const rewards = useLendingCardRewards();
+  if (!rewards) {
+    return null;
+  }
+  return (
+    <YStack
+      testID="earn-portfolio-lending-rewards"
+      gap="$1"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      bg="$bgSubdued"
+    >
+      <SizableText size="$bodySmMedium" color="$textSubdued" py="$1">
+        {rewards.rewards.title ||
+          intl.formatMessage({ id: ETranslations.earn_rewards })}
+      </SizableText>
+      {rewards.rewards.rows.map((row) => (
+        <XStack key={row.key} ai="center" gap="$3" minHeight={36} my="$1">
+          <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+            <Token
+              size="md"
+              tokenImageUri={row.logoURI}
+              showNetworkIcon
+              networkId={rewards.networkId}
+            />
+            <YStack flexShrink={1} minWidth={0}>
+              <EarnText
+                size="$bodyMdMedium"
+                color="$text"
+                numberOfLines={1}
+                text={row.amount}
+              />
+              {row.value ? (
+                <EarnText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  text={row.value}
+                />
+              ) : null}
+            </YStack>
+          </XStack>
+          <LendingRewardAction row={row} rewards={rewards} />
+        </XStack>
+      ))}
     </YStack>
   );
 }

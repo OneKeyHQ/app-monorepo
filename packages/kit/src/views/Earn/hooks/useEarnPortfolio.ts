@@ -509,6 +509,12 @@ export interface IUseEarnPortfolioReturn {
   cachedOverviewTotalFiatValue: string | undefined;
   cachedOverviewEarnings24h: string | undefined;
   isLoading: boolean;
+  /**
+   * A full fetch finished for the current account (or its cached list was
+   * shown). Unlike isLoading it stays true through polls, and it turns false
+   * in the same render an account switch lands.
+   */
+  isSettled: boolean;
   refresh: (options?: IRefreshOptions) => Promise<void>;
 }
 
@@ -559,6 +565,14 @@ export const useEarnPortfolio = ({
   const [isLoading, setIsLoading] = useState(
     () => !(cachedInvestments && cachedInvestments.length > 0),
   );
+  const [settledScope, setSettledScope] = useState(() =>
+    cachedInvestments && cachedInvestments.length > 0
+      ? accountScope
+      : undefined,
+  );
+  useLayoutEffect(() => {
+    setSettledScope((scope) => (scope === accountScope ? scope : undefined));
+  }, [accountScope]);
 
   const {
     investments,
@@ -652,6 +666,7 @@ export const useEarnPortfolio = ({
       if (!accountIdValue && !indexedAccountIdValue) {
         if (isMountedRef.current) {
           setIsLoading(false);
+          setSettledScope(accountScope);
         }
         return;
       }
@@ -1072,6 +1087,7 @@ export const useEarnPortfolio = ({
 
           if (!isPartialRefresh && isLatestFull(requestId)) {
             hasSettledSnapshotRef.current = true;
+            setSettledScope(accountScope);
             finishLoadingNewAccount();
             setIsLoading(false);
           }
@@ -1101,6 +1117,8 @@ export const useEarnPortfolio = ({
         ) {
           if (hasSettledSnapshotRef.current) finishLoadingNewAccount();
           setIsLoading(false);
+          // Settled on what it has, so a failed fetch never shimmers forever
+          setSettledScope(accountScope);
         }
       }
     },
@@ -1313,6 +1331,7 @@ export const useEarnPortfolio = ({
     cachedOverviewTotalFiatValue: currentOverviewData?.totalFiatValue,
     cachedOverviewEarnings24h: currentOverviewData?.earnings24h,
     isLoading,
+    isSettled: displayScope === accountScope && settledScope === accountScope,
     refresh,
   };
 };

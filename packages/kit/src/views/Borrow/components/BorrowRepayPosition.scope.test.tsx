@@ -134,6 +134,9 @@ jest.mock(
   '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip',
   () => ({ EarnTooltip: () => null }),
 );
+jest.mock('@onekeyhq/kit/src/views/Staking/components/EarnFormFooter', () => ({
+  EarnFormFooter: () => null,
+}));
 jest.mock('@onekeyhq/kit/src/views/Staking/components/StakeProgress', () => ({
   StakeProgress: () => null,
 }));

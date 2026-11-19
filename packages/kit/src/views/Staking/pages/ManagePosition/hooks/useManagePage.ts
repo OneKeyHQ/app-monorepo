@@ -6,6 +6,10 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  buildManagePageFirstFrameKey,
+  warmFirstFrame,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFirstFrameCache';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -26,6 +30,81 @@ import {
 } from './useManagePage.utils';
 
 export { EManagePositionType };
+
+type IWarmManagePageParams = {
+  accountId: string;
+  indexedAccountId: string | undefined;
+  networkId: string;
+  symbol: ISupportedSymbol;
+  provider: string;
+  vault: string | undefined;
+  type?: EManagePositionType;
+  reserveAddress?: string;
+  marketAddress?: string;
+};
+
+export function warmManagePageData(params: IWarmManagePageParams) {
+  const type = params.type ?? EManagePositionType.Staking;
+  const requestKey = buildManagePageRequestKey({ ...params, type });
+  return warmFirstFrame(buildManagePageFirstFrameKey(requestKey), async () => {
+    const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
+      params;
+    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+      accountId,
+      networkId,
+      indexedAccountId,
+      btcOnlyTaproot: true,
+    });
+    if (!earnAccount?.accountAddress) return undefined;
+    if (type !== EManagePositionType.Staking) {
+      const managePageData =
+        await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+          accountId: earnAccount.accountId,
+          networkId,
+          provider,
+          marketAddress: params.marketAddress || '',
+          reserveAddress: params.reserveAddress || '',
+          type,
+        });
+      return { earnAccount, managePageData, requestKey };
+    }
+    const needsVerifiedProtocol = earnUtils.shouldSendEarnProtocolVault({
+      providerName: provider,
+    });
+    const [managePageData, protocolList] = await Promise.all([
+      backgroundApiProxy.serviceStaking.getManagePage({
+        accountId,
+        networkId,
+        symbol,
+        provider,
+        vault,
+        accountAddress: earnAccount.accountAddress,
+        publicKey: networkUtils.isBTCNetwork(networkId)
+          ? earnAccount.account.pub
+          : undefined,
+      }),
+      backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol,
+        accountId,
+        networkId,
+        filterNetworkId: networkId,
+        includeWithdrawOnly: true,
+        skipStakingConfigFilter: needsVerifiedProtocol,
+      }),
+    ]);
+    if (
+      needsVerifiedProtocol &&
+      !earnUtils.findEarnProtocol({
+        protocols: protocolList ?? [],
+        networkId,
+        providerName: provider,
+        protocolVault: vault,
+      })
+    )
+      return undefined;
+    return { earnAccount, managePageData, protocolList, requestKey };
+  }).catch(() => undefined);
+}
 
 /**
  * Load account actions and protocol metadata, resolving missing receipt
@@ -109,7 +188,7 @@ export const useManagePage = ({
         if (isBorrowType) {
           const managePageData =
             await backgroundApiProxy.serviceStaking.getBorrowManagePage({
-              accountId,
+              accountId: earnAccount.accountId,
               networkId,
               provider,
               marketAddress: marketAddress || '',

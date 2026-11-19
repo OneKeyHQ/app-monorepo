@@ -70,6 +70,12 @@ export type IBorrowWorkflowHandoff = {
   ) => Promise<boolean>;
 };
 
+export type IBorrowFundingGuard = {
+  beforeSend: () => Promise<void>;
+  onAccepted: (txid: string) => Promise<void>;
+  onSafeCancel: () => Promise<void>;
+};
+
 type IBorrowConfirmationTaskParams<TIntent> = {
   identity: IBorrowConfirmationIdentity<TIntent>;
   build: () => Promise<{ tx: string; orderId?: string }>;
@@ -89,6 +95,7 @@ type IBorrowConfirmationTaskParams<TIntent> = {
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
   onCancel?: IModalSendParamList['SendConfirm']['onCancel'];
   workflowHandoff?: IBorrowWorkflowHandoff;
+  fundingGuard?: IBorrowFundingGuard;
 };
 
 export function createBorrowConfirmationAdapter<
@@ -110,11 +117,31 @@ export function createBorrowConfirmationAdapter<
   onFail,
   onCancel,
   workflowHandoff,
+  fundingGuard,
 }: IBorrowConfirmationTaskParams<TIntent>) {
   let cancelled = false;
+  let sendObserved = false;
+  let beforeSendPending = false;
   let acceptedLateTxid: string | undefined;
   let successTxid: string | undefined;
   let lateRecord: Promise<void> | undefined;
+  const pendingFundingFacts = new Map<string, Promise<void>>();
+  const reportFundingAccepted = (txid: string) => {
+    const id = txid.trim();
+    if (!id || !fundingGuard || pendingFundingFacts.has(id)) return;
+    const pending = fundingGuard.onAccepted(id).catch(() => {
+      pendingFundingFacts.delete(id);
+      console.error('Unable to record accepted Borrow funding');
+    });
+    pendingFundingFacts.set(id, pending);
+  };
+  const releaseSafeFunding = () => {
+    if (fundingGuard) {
+      void fundingGuard.onSafeCancel().catch(() => {
+        console.error('Unable to release unsubmitted Borrow funding');
+      });
+    }
+  };
   const isOwnerCurrent = async () => {
     if (!isCurrent()) return false;
     if (identity.accountAddress) {
@@ -187,7 +214,11 @@ export function createBorrowConfirmationAdapter<
       navigationToTxConfirm({
         encodedTx: prepared.encodedTx,
         stakingInfo: prepared.stakingInfo,
-        onSuccess: callbacks.onSuccess,
+        onSuccess: (data) => {
+          const txid = getBorrowTxid(data);
+          if (txid) reportFundingAccepted(txid);
+          return callbacks.onSuccess(data);
+        },
         onLateBroadcastAccepted: async (fact) => {
           if (workflowHandoff && successTxid === fact.txid) return;
           const recording = observeLateOrder({
@@ -196,7 +227,10 @@ export function createBorrowConfirmationAdapter<
             orderId: prepared.orderId,
             onAccepted: (txid) => {
               const accepted = callbacks.onLateBroadcastAccepted(txid);
-              if (accepted) acceptedLateTxid = txid;
+              if (accepted) {
+                acceptedLateTxid = txid;
+                reportFundingAccepted(txid);
+              }
               return accepted;
             },
           });
@@ -215,10 +249,36 @@ export function createBorrowConfirmationAdapter<
         },
         onCancel: () => {
           cancelled = true;
+          if (!sendObserved && !beforeSendPending) releaseSafeFunding();
           callbacks.onCancel();
         },
         onBeforeSend: async () => {
-          await verifyAccount();
+          if (!fundingGuard) {
+            await verifyAccount();
+            callbacks.onSendObserved();
+            return;
+          }
+          if (beforeSendPending || sendObserved) {
+            throw new OneKeyLocalError(
+              'Borrow confirmation is already sending',
+            );
+          }
+          beforeSendPending = true;
+          try {
+            await verifyAccount();
+            await fundingGuard.beforeSend();
+            if (cancelled)
+              throw new OneKeyLocalError('Borrow confirmation cancelled');
+            await verifyAccount();
+            if (cancelled)
+              throw new OneKeyLocalError('Borrow confirmation cancelled');
+          } catch (error) {
+            await fundingGuard.onSafeCancel();
+            throw error;
+          } finally {
+            beforeSendPending = false;
+          }
+          sendObserved = true;
           callbacks.onSendObserved();
         },
         isNavigationCurrent: isCurrent,

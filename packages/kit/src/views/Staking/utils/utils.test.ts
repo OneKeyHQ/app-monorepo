@@ -5,6 +5,7 @@ import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
   createEarnActionScopeGuard,
+  getTypedAmountValue,
   normalizeEarnActionAmountScope,
   parseBorrowTag,
   resolveEarnStakeRequestSymbol,
@@ -14,6 +15,23 @@ import {
   resolveWrappedStakeAsset,
   validateWrapStake,
 } from './utils';
+
+describe('getTypedAmountValue', () => {
+  it.each([
+    ['1.', '1'],
+    ['1.0', '1'],
+    ['1.50', '1.5'],
+    ['100.00', '100'],
+    ['0.0003', '0.0003'],
+    ['123456789.123456789123', '123456789.123456789123'],
+    ['0.', '0'],
+    ['0.000', '0'],
+    ['', ''],
+    ['.', ''],
+  ])('normalizes %s to %s without changing precision', (input, expected) => {
+    expect(getTypedAmountValue(input)).toBe(expected);
+  });
+});
 
 describe('wrap stake validation', () => {
   it('accepts only a successful current validation', async () => {

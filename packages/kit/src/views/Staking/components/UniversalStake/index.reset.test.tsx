@@ -127,6 +127,13 @@ const mockGasAlert = jest.fn<
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
+  Easing: { bezierFn: () => (value: number) => value },
+}));
+jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
+  FormatHyperlinkText: ({ children }: { children?: ReactNode }) => children,
+}));
 jest.mock('../../../Earn/earnSwap', () => ({
   prepareEarnWrap: (input: unknown) => mockPrepareWrap(input),
 }));
@@ -199,12 +206,17 @@ jest.mock('@onekeyhq/components', () => {
         <div data-testid={`alert-${type ?? ''}`}>{title}</div>
       ),
     Divider: Container,
+    AnimatePresence: Container,
     HeightTransition: Container,
     Icon: Container,
     IconButton: Container,
     Image: Container,
+    NumberSizeableText: Container,
     SizableText: Container,
-    Skeleton: Container,
+    Skeleton: Object.assign(Container, {
+      BodyMd: Container,
+      BodyLg: Container,
+    }),
     Stack: Container,
     XStack: Container,
     YStack: Container,
@@ -394,6 +406,7 @@ jest.mock('../ProtocolDetails/EarnValidatorSelect', () => ({
 jest.mock('../ProtocolDetails/PendleSharedComponents', () => ({
   PendleAccordionTriggerContent: () => null,
   PendleSummarySection: () => null,
+  usePendleTransactionDetails: () => [],
 }));
 jest.mock('../ProtocolDisplayShared', () => ({
   ProtocolImage: () => null,
@@ -781,6 +794,67 @@ describe('EtherFi USDT approval reset', () => {
       ),
     );
     permitReservations.clear();
+  });
+
+  it('waits for the current amount check before continuing a funded deposit', async () => {
+    const check = deferred<unknown>();
+    mockCheck.mockReturnValueOnce(check.promise);
+    mockAllowanceState.value = '5';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '5' });
+    const onAutoSubmit = jest.fn();
+    const onAmountChange = jest.fn();
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        initialAmount="2"
+        currentAllowance="5"
+        autoSubmitKey={1}
+        onAutoSubmit={onAutoSubmit}
+        onAmountChange={onAmountChange}
+      />,
+    );
+    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+      '2',
+    );
+    await waitFor(() => expect(mockCheck).toHaveBeenCalled());
+    expect(onAutoSubmit).not.toHaveBeenCalled();
+    expect(onAmountChange).toHaveBeenCalledWith('2');
+    await act(async () =>
+      check.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    await waitFor(() => expect(onAutoSubmit).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not auto-submit a funding amount after the input changes', async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    mockCheck
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const onAutoSubmit = jest.fn();
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        initialAmount="2"
+        autoSubmitKey={1}
+        onAutoSubmit={onAutoSubmit}
+      />,
+    );
+    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '3' },
+    });
+    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      first.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () =>
+      second.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    await waitFor(() => expect(onAutoSubmit).toHaveBeenCalledTimes(1));
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('opens the high fee dialog after Stakefish validator signing and builds only after confirmation', async () => {

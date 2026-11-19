@@ -199,6 +199,7 @@ export function useUniversalBorrowSupply({
       stakingInfo,
       accountAddress: approvalAccountAddress,
       workflowHandoff,
+      fundingGuard,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
@@ -249,6 +250,7 @@ export function useUniversalBorrowSupply({
         onSuccess,
         onFail,
         workflowHandoff,
+        fundingGuard,
       });
     },
     [

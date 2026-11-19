@@ -12,7 +12,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
  * is absent — telling the user "no search results" there would misread an
  * outage or an empty category as something they typed.
  */
-export function EarnListEmptyState({ isFiltered }: { isFiltered: boolean }) {
+export function EarnListEmptyState({
+  isFiltered,
+  onReset,
+}: {
+  isFiltered: boolean;
+  /** Clears the filters a miss came from, where a list sets some itself */
+  onReset?: () => void;
+}) {
   const intl = useIntl();
 
   if (isFiltered) {
@@ -23,6 +30,16 @@ export function EarnListEmptyState({ isFiltered }: { isFiltered: boolean }) {
         title={intl.formatMessage({
           id: ETranslations.global_search_no_results_title,
         })}
+        buttonProps={
+          onReset
+            ? {
+                children: intl.formatMessage({
+                  id: ETranslations.global_reset,
+                }),
+                onPress: onReset,
+              }
+            : undefined
+        }
       />
     );
   }

@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import type {
   EApproveType,
   IBorrowAsset,
@@ -79,6 +80,34 @@ export interface IManagePositionProps {
   // Token info
   balance: string;
   maxBalance?: string;
+  // An amount to start on, entered once as if typed (the Earn Router page
+  // after a withdrawal: what it took out)
+  initialAmount?: string;
+  // The caller's own token picker (Pay with) in place of the reserve picker
+  onTokenSelectorPress?: () => void;
+  // Pay with's chip as the caller has it (the token just picked while its
+  // list folds, the chevron turned while open), and its list, inside the
+  // amount box under the balance line
+  payWithTrigger?: Partial<ITokenSelectorTriggerProps>;
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
+  // A balance read as zero gets Swap's refresh in place of Max (Pay with)
+  onRefreshBalance?: () => Promise<unknown> | void;
+  // The amount box's label, in place of the action's name
+  inputTitle?: string;
+  // Off where the caller pays with another token itself (Pay with): no
+  // "Not enough X? Swap" row
+  showSwapOrBridge?: boolean;
+  // The caller's own protocol selector (the Earn deposit modal's offers),
+  // under the amount box
+  offerSwitch?: ReactNode;
+  // What is typed, so a caller that starts the form over can carry it
+  onAmountChange?: (amount: string) => void;
+  // A new key presses the button once by itself, as soon as the amount has
+  // passed its checks: the swap that paid for this supply asked for it
+  autoSubmitKey?: number;
+  // Told when that press happens, so a remounted form doesn't press again
+  onAutoSubmit?: () => void;
   repayAllBalance?: string;
   debtBalance?: string;
   tokenSymbol?: string;
@@ -97,6 +126,11 @@ export interface IManagePositionProps {
   showApyDetail?: boolean;
   actionLabel?: string;
   isInModalContext?: boolean;
+  // The Earn deposit forms' layout for a supply: the result first ("Est.
+  // annual rewards" at the supply rate), plain rows, "$0.00", an amount
+  // error as a line under the box, and the steps only once pressed. A
+  // withdrawal's the same way, its result what arrives
+  isEarnForm?: boolean;
 
   // Token selection (for withdraw/repay popover mode)
   selectableAssets?: IBorrowAsset[];
@@ -167,6 +201,10 @@ export interface IManagePositionState {
   // UI configuration
   showApyDetail: boolean;
   beforeFooter?: ReactElement | null;
+  isEarnForm: boolean;
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
+  onRefreshBalance?: () => Promise<unknown> | void;
 }
 
 // ============================================================================
@@ -192,6 +230,7 @@ export interface IManagePositionActions {
 export interface IManagePositionActionResult {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationStandIn?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
@@ -226,6 +265,9 @@ export interface IActionTabBarProps {
 export interface IAmountInputSectionProps {
   title?: string;
   onAmountFocusChange: (inputId: string, focused: boolean) => void;
+  // Right under the amount box, above the alerts typing brings up (the Earn
+  // deposit modal's protocol)
+  afterInput?: ReactNode;
 }
 
 export interface IInfoDisplaySectionProps {
@@ -237,6 +279,8 @@ export interface IActionFooterProps {
   isInModalContext?: boolean;
   beforeFooter?: ReactElement | null;
   isAmountFocused: boolean;
+  autoSubmitKey?: number;
+  onAutoSubmit?: () => void;
 }
 
 // ============================================================================
@@ -279,12 +323,17 @@ export interface ISwapOrBridgeInfoProps {
 // Token Selector Props
 // ============================================================================
 
-export interface ITokenSelectorTriggerProps {
+export interface ITokenSelectorTriggerProps extends Pick<
+  IXStackProps,
+  'tabIndex' | 'onKeyDown' | 'focusVisibleStyle' | 'testID'
+> {
   selectedTokenImageUri?: string;
   selectedTokenSymbol?: string;
   selectedNetworkImageUri?: string;
   onPress?: () => void;
   disabled?: boolean;
+  // A list unfolding in place under the trigger is open (Earn's Pay with)
+  isExpanded?: boolean;
   popover?: {
     title: string;
     content:

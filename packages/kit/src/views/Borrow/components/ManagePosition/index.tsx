@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
+import {
+  EarnFormCompactContext,
+  EarnFormSummaryPart,
+} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import { getTypedAmountValue } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
@@ -24,6 +30,7 @@ import type { IBorrowWorkflowHandoff } from '../../hooks/borrowConfirmationTask'
 
 export function ManagePosition(props: IManagePositionProps) {
   const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
+  const isCompact = useContext(EarnFormCompactContext);
   const {
     accountId,
     networkId,
@@ -103,10 +110,42 @@ export function ManagePosition(props: IManagePositionProps) {
     repayAll: baseState.isRepayAll,
   });
 
-  // Clear amount when the transaction reserve scope changes.
+  // Clear amount when the transaction reserve scope changes (not as it
+  // mounts: a start amount is already in the box)
+  const reserveScope = `${action}|${borrowReserveAddress ?? ''}`;
+  const reserveScopeRef = useRef(reserveScope);
   useEffect(() => {
+    if (reserveScopeRef.current === reserveScope) {
+      return;
+    }
+    reserveScopeRef.current = reserveScope;
     setAmountValue('');
-  }, [action, borrowReserveAddress, setAmountValue]);
+  }, [reserveScope, setAmountValue]);
+
+  // Entered once, as soon as both it and the decimals are in. After the clear
+  // above, which also runs on mount (effects run in order). The loading form
+  // StakeSection shows first is this same instance, without either
+  const { initialAmount, onAmountChange } = props;
+  const isInitialAmountAppliedRef = useRef(false);
+  // What is typed goes out as it changes; while the start amount is still
+  // to come the box is only empty for now
+  useEffect(() => {
+    if (initialAmount && !isInitialAmountAppliedRef.current) {
+      return;
+    }
+    onAmountChange?.(amountValue);
+  }, [amountValue, initialAmount, onAmountChange]);
+  useEffect(() => {
+    if (
+      isInitialAmountAppliedRef.current ||
+      !initialAmount ||
+      decimals === undefined
+    ) {
+      return;
+    }
+    isInitialAmountAppliedRef.current = true;
+    onChangeAmountValue(initialAmount);
+  }, [decimals, initialAmount, onChangeAmountValue]);
 
   // Submit handler
   const submitBorrowAction = useCallback(
@@ -117,7 +156,7 @@ export function ManagePosition(props: IManagePositionProps) {
       if (!onConfirm) return;
 
       const started = await onConfirm({
-        amount: amountValue,
+        amount: getTypedAmountValue(amountValue),
         withdrawAll: baseState.isWithdrawAll,
         repayAll: baseState.isRepayAll,
         accountAddress,
@@ -153,17 +192,40 @@ export function ManagePosition(props: IManagePositionProps) {
     onApprovedTaskSubmit: submitBorrowAction,
   });
 
+  const {
+    onTokenSelectorPress,
+    payWithTrigger,
+    amountBoxBottom,
+    amountBoxTestID,
+    onRefreshBalance,
+  } = props;
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!approval.isFormInteractionLocked) {
-      return tokenSelectorTriggerProps;
+    if (approval.isFormInteractionLocked) {
+      return {
+        ...tokenSelectorTriggerProps,
+        disabled: true,
+        onPress: undefined,
+        popover: undefined,
+      };
     }
-    return {
-      ...tokenSelectorTriggerProps,
-      disabled: true,
-      onPress: undefined,
-      popover: undefined,
-    };
-  }, [approval.isFormInteractionLocked, tokenSelectorTriggerProps]);
+    if (onTokenSelectorPress) {
+      return {
+        ...tokenSelectorTriggerProps,
+        disabled: false,
+        onPress: onTokenSelectorPress,
+        popover: undefined,
+        // Reachable from the keyboard, as a picker that opens on press
+        ...buildKeyboardPressProps(onTokenSelectorPress),
+        ...payWithTrigger,
+      };
+    }
+    return tokenSelectorTriggerProps;
+  }, [
+    approval.isFormInteractionLocked,
+    onTokenSelectorPress,
+    payWithTrigger,
+    tokenSelectorTriggerProps,
+  ]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(
@@ -173,6 +235,9 @@ export function ManagePosition(props: IManagePositionProps) {
       submitting,
       tokenSelectorMode: selectorMode,
       tokenSelectorTriggerProps: effectiveTokenSelectorTriggerProps,
+      amountBoxBottom,
+      amountBoxTestID,
+      onRefreshBalance,
     }),
     [
       baseState,
@@ -180,6 +245,9 @@ export function ManagePosition(props: IManagePositionProps) {
       submitting,
       selectorMode,
       effectiveTokenSelectorTriggerProps,
+      amountBoxBottom,
+      amountBoxTestID,
+      onRefreshBalance,
     ],
   );
 
@@ -220,12 +288,37 @@ export function ManagePosition(props: IManagePositionProps) {
     [state, actions, actionResult, approval],
   );
 
+  const splitsSummary = isCompact && Boolean(state.isEarnForm);
+
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
-        <AmountInputSection onAmountFocusChange={onAmountFocusChange} />
-        <InfoDisplaySection />
-        <ActionFooter isAmountFocused={isAmountFocused} />
+        {/* The protocol stays under the amount; the alerts typing brings
+            up go below it */}
+        <AmountInputSection
+          title={props.inputTitle}
+          afterInput={props.offerSwitch}
+          onAmountFocusChange={onAmountFocusChange}
+        />
+        {/* In a compact window the result stands over the button and the
+            rows fold under it, so the button keeps its place */}
+        {splitsSummary ? (
+          <EarnFormSummaryPart part="result">
+            <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+          </EarnFormSummaryPart>
+        ) : (
+          <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+        )}
+        <ActionFooter
+          autoSubmitKey={props.autoSubmitKey}
+          onAutoSubmit={props.onAutoSubmit}
+          isAmountFocused={isAmountFocused}
+        />
+        {splitsSummary ? (
+          <EarnFormSummaryPart part="details">
+            <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+          </EarnFormSummaryPart>
+        ) : null}
       </StakingFormWrapper>
     </ManagePositionContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
@@ -9,16 +9,23 @@ import {
   RefreshControl,
   ScrollView,
   YStack,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETabEarnRoutes,
+  ITabEarnParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { EarnPortfolioSettingsTrigger } from '../../components/EarnPortfolioSettings';
 import { PortfolioTabContent } from '../../components/PortfolioTabContent';
+import { ScopedEarnWindowReturn } from '../../components/ScopedEarnWindowReturn';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnHideSmallAssets } from '../../hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
@@ -138,9 +145,37 @@ function EarnPositionsContent() {
 }
 
 export default function EarnPositions() {
-  // Phones get the revamped "My portfolio" page; every other layout keeps the
-  // existing page and its shared PortfolioTabContent exactly as before.
+  // Phones get the revamped "My portfolio" page, and wide layouts get it laid
+  // out for desktop, the way the wallet DeFi Portfolio switches on gtMd. The
+  // layouts between (a narrow extension or desktop window) keep the existing
+  // page and its shared PortfolioTabContent exactly as before.
   const isMyPortfolioLayout = useMyPortfolioLayout();
+  const { gtMd } = useMedia();
+  // A share of the DeFi home's split asks for its protocols' cards
+  const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnPositions>();
+  const focusProtocols = route.params?.focusProtocols;
+  const focusTab = route.params?.focusTab;
+  const focusMarket = route.params?.focusMarket;
+  const focusAt = route.params?.focusAt;
+  const focusRequest = useMemo(
+    () =>
+      focusProtocols?.length && focusAt
+        ? { protocols: focusProtocols, at: focusAt }
+        : undefined,
+    [focusAt, focusProtocols],
+  );
+  // A Your loans card asks for its market's card
+  const marketRequest = useMemo(
+    () =>
+      focusMarket && focusAt
+        ? { marketKey: focusMarket, at: focusAt }
+        : undefined,
+    [focusAt, focusMarket],
+  );
+  const tabRequest = useMemo(
+    () => (focusTab && focusAt ? { tab: focusTab, at: focusAt } : undefined),
+    [focusAt, focusTab],
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -150,7 +185,19 @@ export default function EarnPositions() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        {isMyPortfolioLayout ? <MyPortfolioPage /> : <EarnPositionsContent />}
+        {route.params?.returnScope ? (
+          <ScopedEarnWindowReturn scope={route.params.returnScope} />
+        ) : null}
+        {isMyPortfolioLayout || gtMd ? (
+          <MyPortfolioPage
+            tableLayout={gtMd}
+            focusRequest={focusRequest}
+            marketRequest={marketRequest}
+            tabRequest={tabRequest}
+          />
+        ) : (
+          <EarnPositionsContent />
+        )}
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

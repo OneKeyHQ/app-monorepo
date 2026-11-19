@@ -1,10 +1,12 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   BorrowRepayPosition,
@@ -33,6 +35,7 @@ import {
   useUniversalBorrowRepayWithCollateral,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -53,6 +56,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnWithdrawForm } from '../../../components/EarnProtocolForms/Withdraw';
+import { ProtocolSwitchRow } from '../../../components/UniversalStake/ProtocolSwitchRow';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useEarnWithdrawAssets } from '../../../hooks/useEarnWithdrawAssets';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
@@ -71,6 +75,16 @@ import {
 import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import type { IUniversalWithdrawWorkflowHandoff } from '../../../earnWithdrawTask/types';
+
+// What a withdrawal took, for whoever opened the form
+export type IWithdrawSuccessInfo = {
+  amount?: string;
+  // The token, for a deposit's done view
+  symbol?: string;
+  logoURI?: string;
+  // It waits out a cooldown or a queue, so the tokens are not in the wallet yet
+  isQueued?: boolean;
+};
 
 type IBorrowSelectedAssetState = {
   asset: IBorrowAsset;
@@ -106,13 +120,16 @@ export const WithdrawSection = ({
   onQuoteRefreshingChange,
   repayWithCollateralSetupReadyProgressKey,
   onRepayWithCollateralSetupReadyProgressKeyChange,
+  offerSwitch,
+  isEarnLending,
+  actionLabel,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
-  onSuccess?: () => void;
+  onSuccess?: (info?: IWithdrawSuccessInfo) => void;
   onLegacyApprovalCleared?: () => void;
   isLegacyApprovalBlocked?: boolean;
   beforeFooter?: ReactElement | null;
@@ -124,6 +141,11 @@ export const WithdrawSection = ({
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
+  // The Earn lending details page's form: the withdrawal is of the page's
+  // asset alone, in the Earn forms' look
+  isEarnLending?: boolean;
+  // The side's verb as its tab names it, for the button
+  actionLabel?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   defaultCollateralReserveAddress?: string;
   borrowActionLabel?: string;
@@ -137,6 +159,9 @@ export const WithdrawSection = ({
   onRepayWithCollateralSetupReadyProgressKeyChange?: (
     progressKey: string,
   ) => void;
+  // The position's protocol, named in a row under the amount box (a modal
+  // for one side of a position)
+  offerSwitch?: ReactNode;
 }) => {
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
@@ -171,6 +196,38 @@ export const WithdrawSection = ({
       providerName,
     });
   }, [protocolInfo?.providerDetail.name, providerName]);
+  // In a modal or on the withdraw page the card names what the withdrawal
+  // takes from: the caller's offer card, else one from the position's own
+  // details (Lido, which the token's offers don't list)
+  const networkLogoURI = useNetworkLogoUri({ networkId });
+  const apyText = protocolInfo?.apyDetail?.description?.text;
+  const shownOfferSwitch = useMemo(() => {
+    if (offerSwitch || !isInModalContext || !protocolInfo) {
+      return offerSwitch;
+    }
+    return (
+      <ProtocolSwitchRow
+        logoURI={protocolInfo.providerDetail.logoURI}
+        networkLogoURI={networkLogoURI}
+        name={borrowProviderDisplayName}
+        aprElement={
+          apyText ? (
+            <EarnAprSuffixText text={apyText} size="$headingLg" />
+          ) : null
+        }
+        isSwitchEnabled={false}
+        showChevron={false}
+        onPress={noop}
+      />
+    );
+  }, [
+    apyText,
+    borrowProviderDisplayName,
+    isInModalContext,
+    networkLogoURI,
+    offerSwitch,
+    protocolInfo,
+  ]);
 
   const token = useMemo(
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
@@ -1091,7 +1148,12 @@ export const WithdrawSection = ({
         withdrawAll,
         isTaskIntentCurrent,
         onSuccess: () => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            logoURI: token?.logoURI,
+            // A cooldown or a withdrawal queue: the tokens come later
+            isQueued: Boolean(useEthenaCooldown) || withdrawType === 'queued',
+          });
           defaultLogger.staking.page.unstaking({
             token,
             stakingProtocol: providerName,
@@ -1214,7 +1276,10 @@ export const WithdrawSection = ({
             }
           : undefined,
         onSuccess: () => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            logoURI: (receiveToken ?? effectiveToken)?.logoURI,
+          });
         },
       });
     },
@@ -1384,6 +1449,7 @@ export const WithdrawSection = ({
     ) {
       return (
         <ManagePosition
+          offerSwitch={shownOfferSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName=""
@@ -1397,7 +1463,9 @@ export const WithdrawSection = ({
           tokenImageUri={fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           actionLabel={borrowActionLabel}
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
           isInModalContext={isInModalContext}
+          isEarnForm={isEarnLending}
         />
       );
     }
@@ -1405,6 +1473,7 @@ export const WithdrawSection = ({
       <EarnWithdrawForm
         onLegacyApprovalCleared={onLegacyApprovalCleared}
         isLegacyApprovalBlocked={isLegacyApprovalBlocked}
+        offerSwitch={shownOfferSwitch}
         accountAddress=""
         price="0"
         balance="0"
@@ -1419,6 +1488,7 @@ export const WithdrawSection = ({
         footerActionOverride={footerActionOverride}
         tokenImageUri={fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
+        inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
       />
     );
   }
@@ -1483,6 +1553,7 @@ export const WithdrawSection = ({
     } else {
       borrowWithdrawContent = (
         <ManagePosition
+          offerSwitch={shownOfferSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
@@ -1510,10 +1581,12 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
-          selectableAssets={selectableBorrowAssets}
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
+          selectableAssets={isEarnLending ? undefined : selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
-          onTokenSelect={handleTokenSelect}
+          onTokenSelect={isEarnLending ? undefined : handleTokenSelect}
           isInModalContext={isInModalContext}
+          isEarnForm={isEarnLending}
         />
       );
     }
@@ -1527,6 +1600,7 @@ export const WithdrawSection = ({
         <EarnWithdrawForm
           onLegacyApprovalCleared={onLegacyApprovalCleared}
           isLegacyApprovalBlocked={isLegacyApprovalBlocked}
+          offerSwitch={shownOfferSwitch}
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
@@ -1545,11 +1619,10 @@ export const WithdrawSection = ({
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
           onConfirm={onConfirm}
-          inputTitle={
-            withdrawUiPolicy.transactionLayout === 'market'
-              ? intl.formatMessage({ id: ETranslations.content__amount })
-              : undefined
-          }
+          // The box says what it takes; the action's name is on the tab and
+          // the button
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
+          actionLabel={actionLabel}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)

@@ -1,7 +1,11 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Empty, Spinner, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useCardFocus, useFocusRequestOnce } from '../useCardFocus';
 
 import { EarnPositionProtocolList } from './EarnPositionProtocolList';
 import { useGroupExpansion } from './GroupRow';
@@ -10,13 +14,17 @@ import type { IEarnPositionCardHandlers } from './EarnPositionCard';
 import type { IEarnProtocolView } from './earnPositionModel';
 
 export function DeFiAssetsTab({
+  focusCardRequest,
   protocols,
   isLoading,
   pendingCountByProvider,
   networkFilter,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: {
+  /** A Your loans card: its market's card, opened and scrolled to (web) */
+  focusCardRequest?: { cardKeys: string[]; at: number };
   protocols: IEarnProtocolView[];
   isLoading: boolean;
   pendingCountByProvider: Record<string, number>;
@@ -25,6 +33,19 @@ export function DeFiAssetsTab({
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const expansion = useGroupExpansion();
+  // As in the wide layout: the group opens, the page scrolls to it and its
+  // header lights up
+  const { flashKeys, registerAnchor, scrollToCards } = useCardFocus({
+    isOpen: expansion.isExpanded,
+    open: expansion.open,
+  });
+  useFocusRequestOnce(
+    focusCardRequest,
+    useCallback(
+      (request: { cardKeys: string[] }) => scrollToCards(request.cardKeys),
+      [scrollToCards],
+    ),
+  );
 
   let placeholder: React.ReactNode = null;
   if (protocols.length === 0) {
@@ -53,9 +74,12 @@ export function DeFiAssetsTab({
       <EarnPositionProtocolList
         protocols={protocols}
         expansion={expansion}
+        registerAnchor={registerAnchor}
+        flashKeys={flashKeys}
         pendingCountByProvider={pendingCountByProvider}
         onManage={onManage}
         onRedeem={onRedeem}
+        onWarmRedeem={onWarmRedeem}
       />
       {/* scopes still landing behind the rows already shown */}
       {isLoading && protocols.length > 0 ? (

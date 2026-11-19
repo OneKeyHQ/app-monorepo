@@ -8,12 +8,14 @@ import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IBorrowReserveFormTab,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { EarnNavigation, safePushToEarnRoute } from '../Earn/earnUtils';
+import { safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -21,25 +23,27 @@ import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/
 export { getBorrowTxTitle } from './borrowTxTitle';
 
 export const BorrowNavigation = {
-  pushToBorrowHome(navigation: IAppNavigation) {
-    if (platformEnv.isNative) {
-      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
-      return;
-    }
-
-    navigation.navigate(ETabRoutes.Earn, {
-      screen: ETabEarnRoutes.EarnHome,
-      params: { mode: 'borrow' },
-    });
+  // Borrow is its own page on every platform; `market` opens that market
+  // instead of the remembered one.
+  pushToBorrowHome(
+    navigation: IAppNavigation,
+    market?: { provider: string; networkId: string; marketAddress: string },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.BorrowHome,
+      market
+        ? {
+            provider: market.provider,
+            networkId: market.networkId,
+            marketAddress: market.marketAddress,
+          }
+        : undefined,
+    );
   },
 
   popToBorrowHome(navigation: IAppNavigation) {
-    if (platformEnv.isNative) {
-      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
-      return;
-    }
-
-    void EarnNavigation.popToEarnHome(navigation, { mode: 'borrow' });
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
   },
 
   // Navigate from deep link (when user clicks a borrow share link)
@@ -76,6 +80,8 @@ export const BorrowNavigation = {
       isModal?: boolean;
       accountId?: string;
       indexedAccountId?: string;
+      tab?: IBorrowReserveFormTab;
+      amount?: string;
     },
   ) {
     const routeParams = {
@@ -87,6 +93,8 @@ export const BorrowNavigation = {
       logoURI: params.logoURI,
       accountId: params.accountId,
       indexedAccountId: params.indexedAccountId,
+      tab: params.tab,
+      amount: params.amount,
     };
 
     if (params.isModal) {
@@ -176,6 +184,7 @@ export const BorrowNavigation = {
       providerDisplayName?: string;
       providerLogoURI?: string;
       type: EManagePositionType;
+      withdrawOnly?: boolean;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -192,6 +201,7 @@ export const BorrowNavigation = {
         providerDisplayName: params.providerDisplayName,
         providerLogoURI: params.providerLogoURI,
         type: params.type,
+        withdrawOnly: params.withdrawOnly,
       },
     });
   },

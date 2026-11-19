@@ -44,6 +44,7 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IEarnFundingChange } from '@onekeyhq/shared/types/earn/funding';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -121,6 +122,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import { SimpleDbEntityEarnFunding } from '../dbs/simple/entity/SimpleDbEntityEarnFunding';
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -190,6 +192,8 @@ const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private readonly earnFunding = new SimpleDbEntityEarnFunding();
+
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};
 
@@ -239,6 +243,25 @@ class ServiceStaking extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async getEarnFunding(scope: string) {
+    return this.earnFunding.getFunding(scope);
+  }
+
+  @backgroundMethod()
+  async changeEarnFunding(scope: string, change: IEarnFundingChange) {
+    const result = await this.earnFunding.changeFunding(scope, change);
+    if (result.applied) {
+      appEventBus.emit(EAppEventBusNames.EarnFundingChanged, { scope });
+      if (result.consumedScope) {
+        appEventBus.emit(EAppEventBusNames.EarnFundingChanged, {
+          scope: result.consumedScope,
+        });
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()

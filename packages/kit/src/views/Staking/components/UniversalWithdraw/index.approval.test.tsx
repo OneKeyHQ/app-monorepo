@@ -12,10 +12,18 @@ import { UniversalWithdraw } from '.';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable',
+  () => ({
+    buildKeyboardPressProps: () => undefined,
+  }),
+);
 
 jest.mock('../ServerExecutedOrderDialog', () => ({
   showServerExecutedOrderDialog: jest.fn(),
@@ -57,6 +65,41 @@ const mockRouteFocus = { current: true };
 const mockShowTransactionSection = { current: false };
 const mockVerify = jest.fn<Promise<boolean>, []>();
 const mockFooterAction = jest.fn<void, [() => void]>();
+
+jest.mock('../EarnFormFooter', () => ({
+  EarnFormFooter: ({
+    confirmText,
+    confirmButtonProps,
+    progress,
+    keyboardStage,
+  }: {
+    confirmText: string;
+    confirmButtonProps: {
+      onPress: () => void;
+      disabled?: boolean;
+      loading?: boolean;
+    };
+    progress?: ReactNode;
+    keyboardStage?: ReactNode;
+  }) => {
+    mockFooterAction(confirmButtonProps.onPress);
+    return (
+      <div>
+        {progress}
+        <button
+          type="button"
+          disabled={confirmButtonProps.disabled}
+          data-loading={Boolean(confirmButtonProps.loading)}
+          onClick={confirmButtonProps.onPress}
+        >
+          {confirmText}
+        </button>
+        {keyboardStage}
+      </div>
+    );
+  },
+}));
+
 type IConfirmParams = Parameters<NonNullable<IProps['onConfirm']>>[0] & {
   isSendCurrent?: () => boolean;
   isResultCurrent?: () => boolean;
@@ -376,8 +419,35 @@ jest.mock('../ProtocolDetails/EarnTooltip', () => ({
   EarnTooltip: () => null,
 }));
 jest.mock('../ProtocolDetails/PendleSharedComponents', () => ({
-  PendleAccordionTriggerContent: () => null,
-  PendleSummarySection: () => null,
+  usePendleTransactionDetails: () => [],
+}));
+jest.mock('../UniversalStake/EarnFormSummary', () => ({
+  EarnFormSummary: ({
+    outcome,
+    rows,
+    footnote,
+  }: {
+    outcome?: { label: string; values?: { main: string }[] };
+    rows?: ReactNode[];
+    footnote?: ReactNode;
+  }) => (
+    <div>
+      {outcome?.label}
+      <span data-testid="summary-outcome">
+        {outcome?.values?.map((value) => value.main).join(',')}
+      </span>
+      {rows}
+      {footnote}
+    </div>
+  ),
+  EarnFormRow: ({ label, value }: { label: string; value?: ReactNode }) => (
+    <div>
+      {label}
+      {value}
+    </div>
+  ),
+  buildRewardNoteRows: () => [],
+  buildRewardsOutcome: () => ({ values: [] }),
 }));
 jest.mock('../showHighPriceImpactDialog', () => ({
   calcPriceImpactInfo: (params: unknown) => mockPriceImpact(params),
@@ -678,6 +748,105 @@ describe('UniversalWithdraw share approval continuation', () => {
         },
       },
     });
+  });
+
+  it('prefetches the other path for display and still waits for a fresh quote before sending', async () => {
+    const pending = deferred<unknown>();
+    const quote = {
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+            {
+              withdrawType: 'instant',
+              title: { text: 'Instant' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    };
+    let instantRequests = 0;
+    mockQuote.mockImplementation(async (...args: unknown[]) => {
+      const request = args[0] as { withdrawType?: string };
+      if (request.withdrawType === 'instant') {
+        instantRequests += 1;
+        if (instantRequests === 2) return pending.promise;
+        return {
+          withdrawPath: {
+            data: {
+              confirmBoxes: [
+                quote.withdrawPath.data.confirmBoxes[0],
+                {
+                  ...quote.withdrawPath.data.confirmBoxes[1],
+                  description: { text: '1.2345' },
+                },
+              ],
+            },
+          },
+        };
+      }
+      return quote;
+    });
+    const screen = render(
+      <UniversalWithdraw {...props} approveTarget={undefined} />,
+    );
+    await waitFor(() => expect(instantRequests).toBe(1), { timeout: 5000 });
+    expect(
+      mockQuote.mock.calls.every(
+        ([request]) => Number((request as { amount: string }).amount) > 0,
+      ),
+    ).toBe(true);
+    fireEvent.click(screen.getByText('Instant'));
+    await waitFor(() => expect(instantRequests).toBe(2), { timeout: 5000 });
+    const button = screen.getByRole('button', { name: 'global.withdraw' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('summary-outcome').textContent).toBe('1.2345');
+    fireEvent.click(button);
+    expect(mockConfirm).not.toHaveBeenCalled();
+    await act(async () => pending.resolve(quote));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+  });
+
+  it('disables a withdrawal immediately when the typed amount exceeds the displayed balance', async () => {
+    const screen = render(
+      <UniversalWithdraw
+        {...props}
+        approveTarget={undefined}
+        initialAmount={undefined}
+      />,
+    );
+    const input = screen.getByLabelText('amount');
+    fireEvent.change(input, { target: { value: '2.1' } });
+    expect(
+      screen.getByText(ETranslations.earn_insufficient_balance),
+    ).toBeTruthy();
+    const button = screen.getByRole('button', { name: 'global.withdraw' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps the typed decimal and normalizes a leading decimal point', () => {
+    const screen = render(
+      <UniversalWithdraw
+        {...props}
+        approveTarget={undefined}
+        initialAmount={undefined}
+      />,
+    );
+    const input = screen.getByLabelText('amount') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '.5' } });
+    expect(input.value).toBe('0.5');
+    fireEvent.change(input, { target: { value: '1.' } });
+    expect(input.value).toBe('1.');
   });
 
   it('does not open an approval when the registered target validation fails', async () => {
@@ -2085,6 +2254,67 @@ describe('UniversalWithdraw share approval continuation', () => {
     expect(isSendCurrent()).toBe(false);
   });
 
+  it('keeps a single-path claim available even when a single path card is hidden', async () => {
+    const claimToken = {
+      uniqueKey: 'single-claim',
+      address: '0xclaim',
+      decimals: 18,
+      isNative: false,
+      logoURI: '',
+      name: 'Claim',
+      symbol: 'CLAIM',
+      totalSupply: '0',
+      riskLevel: 0,
+      coingeckoId: '',
+      networkId: 'evm--1',
+    };
+    mockQuote.mockResolvedValue({
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+              tip: {
+                text: { text: 'Claim first' },
+                button: {
+                  type: 'claim',
+                  text: { text: 'Claim' },
+                  data: { balance: '1', token: { info: claimToken } },
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    const screen = render(
+      <UniversalWithdraw
+        {...props}
+        approveTarget={undefined}
+        showSingleWithdrawPath={false}
+        tokenInfo={{
+          accountId: 'account-a',
+          networkId: 'evm--1',
+          provider: 'etherfi',
+          vault: '0xvault',
+          balanceParsed: '2',
+          token: claimToken,
+          price: '1',
+        }}
+      />,
+    );
+    const claim = await screen.findByRole(
+      'button',
+      { name: 'Claim' },
+      { timeout: 5000 },
+    );
+    fireEvent.click(claim);
+    expect(mockClaimStart).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
   it('refreshes the share withdrawal quote after the claim success callback', async () => {
     const pending = deferred<unknown>();
     const claimToken = {
@@ -2151,13 +2381,13 @@ describe('UniversalWithdraw share approval continuation', () => {
       () => expect(withdrawButton.hasAttribute('disabled')).toBe(false),
       { timeout: 5000 },
     );
-    fireEvent.click(screen.getByText('Queued'));
-    const dialog = mockDialog.mock.calls[0][0];
-    const renderedDialog = render(<>{dialog.renderContent}</>);
-    fireEvent.click(renderedDialog.getByRole('button', { name: 'Claim' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Claim' }));
     await waitFor(() => expect(mockClaimStart).toHaveBeenCalledTimes(1));
     const quoteCount = mockQuote.mock.calls.length;
-    const originalRequest = mockQuote.mock.calls[quoteCount - 1];
+    const originalRequest = mockQuote.mock.calls.findLast(
+      ([request]) =>
+        (request as { withdrawType?: string }).withdrawType === 'queued',
+    );
     expect(originalRequest).toEqual([
       expect.objectContaining({
         accountAddress: '0xaccount',
@@ -2221,12 +2451,7 @@ describe('UniversalWithdraw share approval continuation', () => {
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
     const isSendCurrent = mockConfirm.mock.calls[0][0].isSendCurrent;
     expect(isSendCurrent?.()).toBe(true);
-    fireEvent.click(screen.getByText('Queued'));
-    expect(mockDialog).toHaveBeenCalledTimes(1);
-    const dialog = mockDialog.mock.calls[0][0];
-    const renderedDialog = render(<>{dialog.renderContent}</>);
-    fireEvent.click(renderedDialog.getByText('Instant'));
-    act(() => dialog.onConfirm());
+    fireEvent.click(screen.getByText('Instant'));
     expect(isSendCurrent?.()).toBe(false);
     await act(async () => pending.resolve(false));
   });

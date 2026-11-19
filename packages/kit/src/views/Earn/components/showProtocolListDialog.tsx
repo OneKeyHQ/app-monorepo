@@ -165,7 +165,7 @@ const groupProtocolsByGroup = (
 
 // Keep the APY/APR suffix; EarnAprSuffixText splits it into "value + smaller
 // unit" rendering (OK-58854)
-const getProtocolAprText = (item: IStakeProtocolListItem) => {
+export const getProtocolAprText = (item: IStakeProtocolListItem) => {
   return (
     item.aprInfo?.highlight?.text ||
     item.aprInfo?.normal?.text ||

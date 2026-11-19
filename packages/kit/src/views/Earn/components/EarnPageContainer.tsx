@@ -133,10 +133,17 @@ export function EarnPageContainer({
     headerLeftMaxWidth,
   ]);
 
-  const showBreadcrumb = useMemo(
-    () => breadcrumbProps && media.gtSm,
-    [breadcrumbProps, media],
-  );
+  // The web app's header has no back button or page title, and a phone-wide
+  // screen has no breadcrumbs either, so there a pushed page gets the phone's
+  // header instead: back and title, as My portfolio's (demo 10-28)
+  const usePhoneWebHeader =
+    showBackButton && platformEnv.isWebDappMode && !media.gtMd;
+
+  // Read on every render: useMedia's object keeps its identity when the
+  // width changes, so a memo keyed on it kept the first width's answer (the
+  // breadcrumb and title stayed hidden after widening, shown after narrowing)
+  const showBreadcrumb =
+    Boolean(breadcrumbProps) && media.gtSm && !usePhoneWebHeader;
   const showHeader = useMemo(() => header, [header]);
 
   // In WebDapp mode, always use TabPageHeader for consistent mobile layout
@@ -283,6 +290,25 @@ export function EarnPageContainer({
       </ScrollView>
     </Page.Body>
   );
+
+  if (usePhoneWebHeader) {
+    return (
+      <Page>
+        {/* A page's header options are merged, so the web bar's own (its logo
+            in the back button's place, its centered title) would stay after
+            the window narrows; these take them back */}
+        <Page.Header
+          headerShown
+          headerLeft={undefined}
+          headerTitleAlign="left"
+          headerTitle={renderNativeHeaderTitle}
+          headerRight={renderNativeHeaderRight}
+        />
+        {body}
+        {footer}
+      </Page>
+    );
+  }
 
   if (useNativeHeader) {
     return (

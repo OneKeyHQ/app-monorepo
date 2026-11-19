@@ -15,7 +15,10 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { runBorrowConfirmationTask } from './borrowConfirmationTask';
 import { useBorrowConfirmationScope } from './useBorrowConfirmationScope';
 
-import type { IBorrowWorkflowHandoff } from './borrowConfirmationTask';
+import type {
+  IBorrowFundingGuard,
+  IBorrowWorkflowHandoff,
+} from './borrowConfirmationTask';
 import type { IBorrowSettleResult } from './borrowTransactionUtils';
 
 export {
@@ -44,6 +47,7 @@ export type IBorrowBuildTxParams = {
   canContinueAfterOwnerClose?: () => boolean;
   accountAddress?: string;
   workflowHandoff?: IBorrowWorkflowHandoff;
+  fundingGuard?: IBorrowFundingGuard;
   ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,

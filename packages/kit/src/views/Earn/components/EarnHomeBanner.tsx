@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { AppState, StyleSheet } from 'react-native';
+import { AppState, Platform, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -29,6 +29,8 @@ import {
   tryHandleOneKeyUniversalLink,
 } from '../../../routes/config/deeplink';
 import { EarnTestIDs } from '../testIDs';
+
+import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
 
 const BANNER_HEIGHT = 200;
 // Card 200 + 8 gap + 6 dot + 16 to the next section. Kept fixed so a cold
@@ -90,6 +92,16 @@ const BANNER_INFO_GLASS_EDGE_COLORS = [
 ];
 const BANNER_INFO_GLASS_EDGE_START = { x: 0, y: 0 } as const;
 const BANNER_INFO_GLASS_EDGE_END = { x: 1, y: 0 } as const;
+// Web: the element carrying the backdrop-filter takes the bottom radii too.
+// Inside a second rounded clip (the desktop app's content panel) Chromium
+// stops clipping the blur to the wrapper's corners, and they show square
+const BANNER_INFO_GLASS_CONTENT_STYLE = Platform.select({
+  web: {
+    flex: 1,
+    borderBottomLeftRadius: '$3',
+    borderBottomRightRadius: '$3',
+  } as const,
+});
 // Half of $bodyMdMedium's extra leading (20 - 14 = 6), which iOS places
 // entirely above the glyphs. Paint-only, so no script can be clipped by it.
 const BANNER_BUTTON_LABEL_NUDGE = {
@@ -128,6 +140,12 @@ type IBannerArtworkState = {
   // 'slow': still loading after BANNER_ARTWORK_PATIENCE_MS.
   status: 'displayed' | 'failed' | 'slow';
 };
+
+// Artwork already shown in this runtime shows at once when a card mounts
+// again: the carousel remounts its pages when its height changes (the hero
+// beside it growing or shrinking) and clones its edge pages to loop, and a
+// fresh card would hide its copy until the cached image reported in
+const displayedArtwork = new Set<string>();
 
 // iOS has no balanced line breaking, so wrapped copy can end on a lone word
 // ("…APR with / Bitway"). A no-break space between the last two words moves
@@ -174,6 +192,7 @@ function EarnHomeBannerInfoGlass() {
         borderBottomLeftRadius="$3"
         borderBottomRightRadius="$3"
         overflow="hidden"
+        contentStyle={BANNER_INFO_GLASS_CONTENT_STYLE}
       />
       <Stack
         position="absolute"
@@ -223,9 +242,14 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   // Keyed by URL so a refreshed list that swaps the artwork starts loading
   // again instead of inheriting the old image's state.
   const [artwork, setArtwork] = useState<IBannerArtworkState>();
-  const artworkStatus =
-    artwork?.uri === item.backgroundImage ? artwork.status : 'loading';
+  let artworkStatus: IBannerArtworkState['status'] | 'loading' = 'loading';
+  if (artwork?.uri === item.backgroundImage) {
+    artworkStatus = artwork.status;
+  } else if (displayedArtwork.has(item.backgroundImage)) {
+    artworkStatus = 'displayed';
+  }
   const handleArtworkDisplay = useCallback(() => {
+    displayedArtwork.add(item.backgroundImage);
     setArtwork((current) =>
       current?.uri === item.backgroundImage && current.status === 'displayed'
         ? current
@@ -274,7 +298,11 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     // responder wins, so it does not fire twice.
     <YStack
       testID={EarnTestIDs.bannerItem(item.bannerId)}
-      h={BANNER_HEIGHT}
+      // The page's height less the shadow's room under the card, not the
+      // height asked for: the pager measures its new height a moment after
+      // the ask, and a card taller than the old page lost its bar to the clip
+      flex={1}
+      mb={BANNER_SHADOW_ROOM_BOTTOM}
       // react-native-pager-view's viewport clips at the page edge, and a page
       // is exactly as wide as the carousel. Without this inset the card's
       // shadow is sliced off flush with its own left/right sides, which is
@@ -296,6 +324,9 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             cursor: 'pointer' as const,
             pressStyle: { scale: 0.98 },
             onPress: handlePress,
+            // Web only: a tab stop and Enter or Space, which a bare click
+            // handler lacks. The Join pill does the same, so it takes none
+            ...buildKeyboardPressProps(() => void handlePress(), 2),
           }
         : undefined)}
     >
@@ -469,10 +500,13 @@ export function EarnHomeBanner({
   banners,
   isLoading,
   autoPlayEnabled = true,
+  cardHeight = BANNER_HEIGHT,
 }: {
   banners: IEarnPageBannerListItem[];
   isLoading: boolean;
   autoPlayEnabled?: boolean;
+  /** the desktop home matches the hero beside it */
+  cardHeight?: number;
 }) {
   const [isAppActive, setIsAppActive] = useState(
     () => AppState.currentState === 'active',
@@ -487,6 +521,8 @@ export function EarnHomeBanner({
     return () => subscription.remove();
   }, []);
 
+  const blockHeight =
+    cardHeight + EARN_HOME_BANNER_BLOCK_HEIGHT - BANNER_HEIGHT;
   const validBanners = useMemo(
     () =>
       banners.filter(
@@ -505,17 +541,13 @@ export function EarnHomeBanner({
 
   if (isLoading && validBanners.length === 0) {
     return (
-      <YStack
-        h={EARN_HOME_BANNER_BLOCK_HEIGHT}
-        px={BANNER_CONTAINER_PADDING}
-        pb="$3"
-      >
-        <Skeleton
-          h={BANNER_HEIGHT}
-          mx={BANNER_SHADOW_ROOM}
-          borderRadius="$3"
-          borderCurve="continuous"
-        />
+      <YStack h={blockHeight} px={BANNER_CONTAINER_PADDING} pb="$3">
+        {/* The card's inset goes on a box around the skeleton: a skeleton
+            takes its box's full width, so a margin on it would only shift it
+            past the card's right edge */}
+        <YStack px={BANNER_SHADOW_ROOM}>
+          <Skeleton h={cardHeight} borderRadius="$3" borderCurve="continuous" />
+        </YStack>
       </YStack>
     );
   }
@@ -527,7 +559,7 @@ export function EarnHomeBanner({
   return (
     <YStack
       testID={EarnTestIDs.banner}
-      h={EARN_HOME_BANNER_BLOCK_HEIGHT}
+      h={blockHeight}
       px={BANNER_CONTAINER_PADDING}
       pb="$3"
     >
@@ -539,7 +571,7 @@ export function EarnHomeBanner({
         loop={validBanners.length > 1}
         infinite
         showPagination={validBanners.length > 1}
-        containerStyle={{ height: BANNER_HEIGHT + BANNER_SHADOW_ROOM_BOTTOM }}
+        containerStyle={{ height: cardHeight + BANNER_SHADOW_ROOM_BOTTOM }}
         paginationContainerStyle={{ mt: BANNER_PAGINATION_OFFSET }}
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (
           <YStack

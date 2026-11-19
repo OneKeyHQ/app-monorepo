@@ -1,11 +1,17 @@
 import BigNumber from 'bignumber.js';
 
 import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
+import { buildBorrowMarketKey } from '@onekeyhq/kit/src/views/Borrow/borrowMarketKey';
+import { isUnsupportedAaveNativeReserve } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { getCollateralCellState } from '@onekeyhq/kit/src/views/Borrow/components/collateralControls.utils';
+import type { ICollateralCellState } from '@onekeyhq/kit/src/views/Borrow/components/collateralControls.utils';
+import { normalizeEModeLabel } from '@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch/emodeUtils';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
+  IBorrowEModeStatus,
   IEarnActionIcon,
   IEarnPortfolioAirdropAsset,
   IEarnPortfolioAsset,
@@ -14,6 +20,13 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
+import { EARN_LENDING_MARKET_SOURCE } from './earnLendingPositions';
+
+import type {
+  IEarnLendingMarketRef,
+  IEarnLendingReserveRef,
+  IEarnLendingSuppliedReserve,
+} from './earnLendingPositions';
 import type {
   IEarnClaimableReward,
   IEarnPositionRewardGroup,
@@ -21,6 +34,7 @@ import type {
   IEarnPositionSectionAsset,
   IEarnPositionSectionKind,
   IEarnPositionView,
+  IEarnProtocolView,
 } from './earnPositionModel';
 import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioClaimUtils';
 
@@ -63,6 +77,22 @@ export function positionPendingTag(position: IEarnPortfolioPosition): string {
     tokenSymbol: position.earn.symbol,
     protocolVault: position.earn.vault,
   });
+}
+
+/**
+ * Whether a card holds a loan or a position read from its lending market.
+ * On web such a card has no page of its own to open since the market's
+ * page was retired (demo 11-10): the card carries the market's controls
+ * and figures itself, so its header line doesn't open anything there. The
+ * phone app keeps the detail page
+ */
+export function isLoanPositionCard(position: IEarnPositionView): boolean {
+  return position.sources.some(
+    (source) =>
+      source.category === 'lending' &&
+      (source.debts.length > 0 ||
+        source.source.provider === EARN_LENDING_MARKET_SOURCE),
+  );
 }
 
 /**
@@ -302,19 +332,44 @@ export function toPositionCancel(
 }
 
 /**
+ * Whether a lending row's Withdraw or Repay is off, as the market page has
+ * it: the server's flag on the row's button, or Aave's own coin on a network
+ * whose market has no gateway for it
+ */
+export function isLendingRowActionDisabled(
+  lending: IEarnLendingReserveRef,
+): boolean {
+  const { market } = lending.market;
+  const button =
+    lending.side === 'supplied'
+      ? lending.reserve.withdrawButton
+      : lending.reserve.repayButton;
+  return (
+    button?.disabled === true ||
+    isUnsupportedAaveNativeReserve({
+      networkId: market.networkId,
+      providerName: market.provider,
+      reserveAddress: lending.reserve.reserveAddress,
+    })
+  );
+}
+
+/**
  * What a row of the shared holding sections offers (product 10-14, the way
  * the detail page's Portfolio row does): Redeem on the deposit, the server's
  * claim (or Lista's Check) on a reward, a Pending badge on a reward the user
  * cannot claim yet, Cancel on a withdrawal the provider lets be called back
- * (Native), and the claim on the principal out of its cooldown. A loan's
- * Supplied and Borrowed rows carry none: taking collateral out or repaying
- * moves the health factor, which the Borrow flows handle. A claim or cancel
- * acts on its whole server position, so only the position's first row in
- * the section carries it.
+ * (Native), and the claim on the principal out of its cooldown. A lending
+ * market's rows read from the market itself (web, demo 11-03) open the
+ * market page's own windows: Withdraw on a supply and Repay on a loan, each
+ * off where the market page has it off; the windows show what the health
+ * factor becomes. A claim or cancel acts on its whole server position, so
+ * only the position's first row in the section carries it.
  */
 export type IEarnHoldingRowAction =
   | { kind: 'redeem' }
   | { kind: 'button'; claim: IEarnPositionClaim }
+  | { kind: 'lending'; lending: IEarnLendingReserveRef; disabled: boolean }
   | { kind: 'pending' };
 
 export function holdingRowActionOf({
@@ -327,10 +382,29 @@ export function holdingRowActionOf({
   /** whether the deposit rows offer Redeem here: the card does, the detail page keeps it in its footer */
   redeemable: boolean;
 }): IEarnHoldingRowAction | undefined {
-  const { origin } = asset;
+  const { origin, lending } = asset;
   switch (kind) {
+    // A lending supply's row too: the market's Withdraw where the row was
+    // read from its market, else its own way out where its page offers one
+    // (the supply page's Withdraw)
     case 'deposited':
+    case 'supplied':
+      if (lending?.side === 'supplied') {
+        return {
+          kind: 'lending',
+          lending,
+          disabled: isLendingRowActionDisabled(lending),
+        };
+      }
       return redeemable ? { kind: 'redeem' } : undefined;
+    case 'borrowed':
+      return lending?.side === 'borrowed'
+        ? {
+            kind: 'lending',
+            lending,
+            disabled: isLendingRowActionDisabled(lending),
+          }
+        : undefined;
     case 'rewards': {
       if (asset.status === 'pending') {
         return { kind: 'pending' };
@@ -356,6 +430,82 @@ export function holdingRowActionOf({
     default:
       return undefined;
   }
+}
+
+/**
+ * The market a lending card's rows were read from, for the card's own
+ * controls (E-Mode); none for a card the API sent
+ */
+export function lendingMarketOf(
+  position: IEarnPositionView,
+): IEarnLendingMarketRef | undefined {
+  for (const section of position.sections) {
+    const row = section.assets.find((asset) => asset.lending);
+    if (row?.lending) {
+      return row.lending.market;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The card (a protocol on a network) holding a lending market's position,
+ * found by the market its rows were read from: where a Your loans card
+ * takes the page (the key buildBorrowMarketKey writes)
+ */
+export function findLendingMarketCardKey(
+  protocols: IEarnProtocolView[],
+  marketKey: string,
+): string | undefined {
+  return protocols.find((protocol) =>
+    protocol.positions.some((position) => {
+      const market = lendingMarketOf(position);
+      return market ? buildBorrowMarketKey(market.market) === marketKey : false;
+    }),
+  )?.key;
+}
+
+/**
+ * The collateral control hung under a supplied row read from its market,
+ * as the market page's own rows have it: where the market says whether the
+ * supply counts as collateral (Aave; Kamino doesn't say), the switch, or the
+ * mark that the market never takes this asset as collateral
+ */
+export function lendingCollateralOf(asset: IEarnPositionSectionAsset):
+  | {
+      state: Exclude<ICollateralCellState, 'hidden'>;
+      reserve: IEarnLendingSuppliedReserve;
+      market: IEarnLendingMarketRef;
+    }
+  | undefined {
+  const { lending } = asset;
+  if (lending?.side !== 'supplied') {
+    return undefined;
+  }
+  const state = getCollateralCellState(lending.reserve);
+  return state === 'hidden'
+    ? undefined
+    : { state, reserve: lending.reserve, market: lending.market };
+}
+
+/**
+ * The account's E-Mode in a market as the market page's E-Mode bar names it
+ * (BorrowEModeMetric): the category on, else Off. Nothing where the market
+ * has no categories, where the bar hides too
+ */
+export function lendingEModeLabelOf(
+  eModeStatus: IBorrowEModeStatus | null | undefined,
+  offLabel: string,
+): string | undefined {
+  if (!eModeStatus?.categories?.length) {
+    return undefined;
+  }
+  const current = eModeStatus.categories.find(
+    (category) => category.eModeId === eModeStatus.eModeId,
+  );
+  return eModeStatus.eModeId !== 0 && current
+    ? normalizeEModeLabel(current.label)
+    : offLabel;
 }
 
 /**
@@ -421,6 +571,19 @@ export function positionMatured(
     return earn.maturityAt <= Date.now();
   }
   return earn.matured;
+}
+
+/**
+ * Whether a server-formatted amount ("+0.216 USDT", "< 0.0001 U") reads as
+ * more than nothing, for the gain's green. A loss, a zero or a text that
+ * isn't an amount reads as no gain.
+ */
+export function isPositiveAmountText(text: string): boolean {
+  const match = /^([+-]?)\s*<?\s*([+-]?)\s*([\d,]*\.?\d+)/.exec(text.trim());
+  if (!match || match[1] === '-' || match[2] === '-') {
+    return false;
+  }
+  return new BigNumber(match[3].replace(/,/g, '')).gt(0);
 }
 
 /**
@@ -567,11 +730,19 @@ export function toLedgerClaimAsset({
   item,
   networkName,
   networkLogoURI,
+  claimSymbol,
 }: {
   group: IEarnRewardsPortfolioGroup;
   item: IEarnRewardsPortfolioItem;
   networkName: string;
   networkLogoURI: string;
+  /**
+   * The token of the Earn product the reward's vault belongs to, where the
+   * product list names one: the claim the home's reward pills and DeFi
+   * Assets make for the same reward (demo 10-29). Without it the claim is
+   * matched to the account's positions
+   */
+  claimSymbol?: string;
 }): IEarnPortfolioAirdropAsset | undefined {
   const button = item.buttons?.[0];
   if (!button) {
@@ -597,6 +768,9 @@ export function toLedgerClaimAsset({
     metadata: {
       protocol: {
         vault: item.vault,
+        ...(claimSymbol
+          ? { claimSymbol, claimSymbolStatus: 'matched' as const }
+          : {}),
         providerDetail: {
           code: group.provider,
           name: group.providerName,

@@ -65,16 +65,16 @@ describe('EModeGetFundsAction', () => {
     expect(props.textEllipsis).toBe(true);
   });
 
-  // Page.Footer sizes its own confirm the same way, and for the same reason:
-  // above $md the button container is content-sized, and basis-0 children
-  // there split the sum of their content widths evenly, which truncates the
-  // longer label instead of letting each button take the room it needs.
-  it('splits the row evenly on phones only', () => {
+  // The footer takes the form's full width at every size, as the Earn forms'
+  // buttons do, so basis-0 children share it evenly there too, the way
+  // Page.Footer sizes its own confirm.
+  it('splits the full-width row evenly at every size', () => {
     render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
     const props = buttonProps[0];
 
-    expect(props.flexBasis).toBeUndefined();
-    expect(props.$md).toMatchObject({ flexBasis: 0, size: 'large' });
+    expect(props.flexBasis).toBe(0);
+    expect(props.size).toBe('large');
+    expect(props.$md).toBeUndefined();
   });
 
   // A recheck can land while this is on screen and move the shortfall out from

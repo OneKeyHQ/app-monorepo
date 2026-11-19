@@ -1,8 +1,15 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Alert, Stack, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  HeightTransition,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -22,6 +29,7 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
 
 export function AmountInputSection({
   title,
+  afterInput,
   onAmountFocusChange,
 }: IAmountInputSectionProps) {
   const { state, actions, actionResult, approval } = useManagePositionContext();
@@ -40,6 +48,10 @@ export function AmountInputSection({
     currentValue,
     currencySymbol,
     tokenSelectorTriggerProps,
+    isEarnForm,
+    amountBoxBottom,
+    amountBoxTestID,
+    onRefreshBalance,
   } = state;
 
   const { checkAmountMessage, checkAmountAlerts, isCheckAmountMessageError } =
@@ -99,23 +111,52 @@ export function AmountInputSection({
     [intl],
   );
 
+  // A supply spends the wallet's own balance, so it keeps the wallet icon
+  // while the market's cap is still loading rather than reading "Available"
+  // for a moment
   const balanceProps = useMemo(
     () => ({
       value: balance,
-      iconText: maxBalance ? undefined : balanceIconText,
+      iconText: maxBalance || action === 'supply' ? undefined : balanceIconText,
       onPress: amountInputDisabled ? undefined : onMax,
     }),
-    [balance, maxBalance, balanceIconText, amountInputDisabled, onMax],
+    [balance, maxBalance, action, balanceIconText, amountInputDisabled, onMax],
   );
 
-  // Value props
+  // Value props. The Earn forms show "$0.00" before an amount, as Swap does
   const valueProps = useMemo(
     () => ({
       value: currentValue,
-      currency: currentValue ? currencySymbol : undefined,
+      currency: currentValue || isEarnForm ? currencySymbol : undefined,
     }),
-    [currentValue, currencySymbol],
+    [currentValue, currencySymbol, isEarnForm],
   );
+
+  // The Earn forms say what is wrong with the amount in one red line under
+  // the box: the server's check, else more than the balance
+  let amountErrorText: string | undefined;
+  if (isEarnForm && new BigNumber(amountValue).gt(0)) {
+    if (isCheckAmountMessageError) {
+      amountErrorText = checkAmountMessage;
+    } else if (isInsufficientBalance) {
+      amountErrorText = intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    }
+  }
+
+  // A warning that says what the red line already says (the server's own
+  // check of the balance) would say it twice, and push the form down as it
+  // comes in a moment later
+  const lineText = amountErrorText?.trim().toLowerCase();
+  const shownAlerts = lineText
+    ? checkAmountAlerts.filter(
+        (alert) =>
+          ![alert.title?.text, alert.text?.text, alert.description?.text].some(
+            (text) => text?.trim().toLowerCase() === lineText,
+          ),
+      )
+    : checkAmountAlerts;
 
   // Max amount text
   const maxAmountText = useMemo(
@@ -123,34 +164,72 @@ export function AmountInputSection({
     [intl],
   );
 
+  const amountBox = (
+    <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+      <StakingAmountInput
+        title={actionLabel}
+        disabled={amountInputDisabled}
+        hasError={hasError}
+        value={amountValue}
+        onChange={onChangeAmountValue}
+        onBlur={onBlurAmountValue}
+        tokenSelectorTriggerProps={tokenSelectorTriggerProps}
+        inputProps={inputProps}
+        balanceProps={balanceProps}
+        valueProps={valueProps}
+        enableMaxAmount
+        maxAmountText={maxAmountText}
+        usePercentageKeyboardAccessory
+        onAmountFocusChange={onAmountFocusChange}
+        onSelectPercentageStage={handleSelectPercentageStage}
+        bottomContent={amountBoxBottom}
+        boxTestID={amountBoxTestID}
+        onRefreshBalance={onRefreshBalance}
+      />
+      {showOverlayMask ? (
+        <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+      ) : null}
+    </Stack>
+  );
+
+  // The line brings its own space, so no line leaves no gap
+  const amountErrorLine = (
+    <HeightTransition duration={200}>
+      {amountErrorText ? (
+        <YStack pt="$2" px="$3.5">
+          <SizableText
+            testID="earn-amount-error"
+            size="$bodyMd"
+            color="$textCritical"
+          >
+            {amountErrorText}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </HeightTransition>
+  );
+
   return (
-    <YStack gap="$3">
-      {/* Amount Input */}
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={actionLabel}
-          disabled={amountInputDisabled}
-          hasError={hasError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={tokenSelectorTriggerProps}
-          inputProps={inputProps}
-          balanceProps={balanceProps}
-          valueProps={valueProps}
-          enableMaxAmount
-          maxAmountText={maxAmountText}
-          usePercentageKeyboardAccessory
-          onAmountFocusChange={onAmountFocusChange}
-          onSelectPercentageStage={handleSelectPercentageStage}
-        />
-        {showOverlayMask ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-        ) : null}
-      </Stack>
+    // With a card under the box, the section spaces as the deposit forms do
+    <YStack gap={afterInput ? '$4' : '$3'}>
+      {isEarnForm ? (
+        <YStack>
+          {amountBox}
+          {afterInput ? null : amountErrorLine}
+        </YStack>
+      ) : (
+        amountBox
+      )}
+      {afterInput}
+      {/* Under the card (a phone's list of protocols), so the red line
+          coming and going doesn't move it; where the protocols are beside
+          the form, right under the box */}
+      {isEarnForm && afterInput ? (
+        <YStack mt="$-4">{amountErrorLine}</YStack>
+      ) : null}
 
       {/* Error Alert */}
-      {isCheckAmountMessageError ? (
+      {isCheckAmountMessageError && !isEarnForm ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
@@ -159,9 +238,9 @@ export function AmountInputSection({
       ) : null}
 
       {/* Warning Alerts */}
-      {checkAmountAlerts.length > 0 ? (
+      {shownAlerts.length > 0 ? (
         <>
-          {checkAmountAlerts.map((alert, index) => (
+          {shownAlerts.map((alert, index) => (
             <Alert
               key={index}
               type="warning"

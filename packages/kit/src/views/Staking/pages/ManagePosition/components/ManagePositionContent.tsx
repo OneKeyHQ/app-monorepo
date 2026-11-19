@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
@@ -20,8 +21,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
+import { useEarnDesktopHomeCopy } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
-import { StakingAmountInputSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput/StakingAmountInputSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -30,9 +31,18 @@ import type {
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  EarnFormFooter,
+  useIsEarnActionInline,
+} from '../../../components/EarnFormFooter';
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
+import { StakingAmountResultLine } from '../../../components/StakingAmountResultLine';
+import {
+  EarnFormRow,
+  EarnFormSummary,
+} from '../../../components/UniversalStake/EarnFormSummary';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
@@ -40,6 +50,10 @@ import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
+
+import type { IHeaderRightViewProps } from './HeaderRight';
+import type { IWithdrawSuccessInfo } from './WithdrawSection';
+import type { IEarnConfirmWordId } from '../../../components/UniversalStake/earnConfirmWord';
 
 export type IManagePositionSelectedProtocol = {
   networkId: string;
@@ -56,11 +70,27 @@ export type IManagePositionProtocolSwitchConfig = {
   onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
 };
 
+export type IManagePositionPayWith = {
+  preferDepositToken?: boolean;
+  selectedKey?: string;
+  preferSymbol?: string;
+  onSelectedKeyChange?: (key: string) => void;
+  pickerHeight?: number;
+  onTokenChange?: (token?: {
+    symbol: string;
+    networkId?: string;
+    isPicked: boolean;
+  }) => void;
+  acrossNetworks?: boolean;
+};
+
 export type IManagePositionFooterAction = {
   text: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  isPressOnly?: boolean;
+  isSwitchWait?: boolean;
 };
 
 export interface IManagePositionContentProps {
@@ -88,6 +118,18 @@ export interface IManagePositionContentProps {
   providerLogoUri?: string;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   suppressPlatformBonus?: boolean;
+  depositOnly?: boolean;
+  withdrawOnly?: boolean;
+  isEarnLending?: boolean;
+  payWith?: IManagePositionPayWith;
+  initialAmount?: string;
+  offerSwitch?: ReactNode;
+  onAmountChange?: (amount: string) => void;
+  onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
+  hidesTabLine?: boolean;
+  onWithdrawn?: (info: { amount: string; tokenImageUri?: string }) => void;
+  onDeposited?: (amount?: string, info?: IWithdrawSuccessInfo) => void;
+  footerActionOverride?: IManagePositionFooterAction;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -103,26 +145,52 @@ export interface IManagePositionContentProps {
 // only for the values that depend on the (slow) getManagePage response. This
 // keeps the layout stable (no jump when data lands) and makes the wait feel
 // smoother.
-const ManageSectionShell = ({
+export const ManageSectionShell = ({
   type,
   symbol,
   defaultTab,
-  usesMarketLayout,
+  fallbackTokenImageUri,
+  isPendleProvider,
   hasProtocolSwitch,
   isInModalContext,
+  depositOnly,
+  withdrawOnly,
+  hasPayWith,
+  offerSwitch,
+  liftsHeaderControls,
+  hidesTabLine,
+  rewardTokens,
+  confirmWordId,
 }: {
   type: EManagePositionType;
   symbol: string;
+  // The tokens the offer's rewards come in, as last read: the result holds a
+  // line for each, as the form will
+  rewardTokens?: string[];
+  // The deposit button's word as the offer's form last showed it
+  confirmWordId?: IEarnConfirmWordId;
   defaultTab?: 'deposit' | 'withdraw';
-  usesMarketLayout: boolean;
+  // As the loaded form: Pay with leaves out the "Not enough X?" row
+  hasPayWith?: boolean;
+  offerSwitch?: ReactNode;
+  // A one-side modal has its controls in its header and no tab line
+  liftsHeaderControls?: boolean;
+  // The caller draws the tab line, as the loaded form leaves it to it
+  hidesTabLine?: boolean;
+  depositOnly?: boolean;
+  withdrawOnly?: boolean;
+  fallbackTokenImageUri?: string;
+  isPendleProvider: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
-  // In the modal the action button lives in Page.Footer (bottom-right), so the
-  // shell must not render an inline full-width button there.
+  // In the modal the action button lives in the footer (the form's full
+  // width), so the shell must not render one under the form there.
   isInModalContext?: boolean;
 }) => {
   const intl = useIntl();
+  const copy = useEarnDesktopHomeCopy();
+  const isActionInline = useIsEarnActionInline(Boolean(isInModalContext));
   const { primaryLabel, secondaryLabel } = useMemo(() => {
     if (
       [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
@@ -148,11 +216,40 @@ const ManageSectionShell = ({
     };
   }, [intl, type]);
 
-  const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
-  const tabLabels = [primaryLabel, secondaryLabel];
+  const activeIndex = defaultTab === 'withdraw' || withdrawOnly ? 1 : 0;
+  let tabLabels = [primaryLabel, secondaryLabel];
+  if (depositOnly) {
+    tabLabels = [primaryLabel];
+  } else if (withdrawOnly) {
+    tabLabels = [secondaryLabel];
+  }
   let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
-  if (usesMarketLayout) {
+  if (isPendleProvider) {
     activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
+  }
+  // The Earn deposit form (with Pay with) as it lands before an amount: its
+  // box's title, then the result and its rows, each with a dash
+  const isEarnDepositForm =
+    hasPayWith && activeIndex === 0 && !isPendleProvider;
+  // Pendle's buy with Pay with, as it lands: the line under the box, what
+  // you get at maturity, its rows and "Details", and its button
+  const isPendleDepositForm =
+    hasPayWith && activeIndex === 0 && isPendleProvider;
+  const boxTitle =
+    isEarnDepositForm || isPendleDepositForm ? copy.payWith : activeLabel;
+  // A deposit says "Deposit" or "Continue" by whether it approves first,
+  // which only its form knows: the word it showed last time, or none (the
+  // word drawn transparent) until the form has it
+  const isStakeDeposit =
+    type === EManagePositionType.Staking &&
+    activeIndex === 0 &&
+    !isPendleProvider;
+  const holdsConfirmWord = isStakeDeposit && !confirmWordId;
+  let confirmLabel = activeLabel;
+  if (isPendleDepositForm) {
+    confirmLabel = intl.formatMessage({ id: ETranslations.global_buy });
+  } else if (isStakeDeposit && confirmWordId) {
+    confirmLabel = intl.formatMessage({ id: confirmWordId });
   }
   const borrowAction = useMemo(() => {
     if (
@@ -177,190 +274,251 @@ const ManageSectionShell = ({
   // exactly and doesn't jump on load.
   const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
 
+  const showsTabLine =
+    !hidesTabLine &&
+    !(isInModalContext && liftsHeaderControls && tabLabels.length === 1);
+  // The loaded deposit form shows "Not enough X?" only without Pay with, and
+  // the withdraw form never; its Details row waits for an amount
+  const showsTradeOrBuy = !hasPayWith && activeIndex === 0;
+  const shellAction = (
+    <EarnFormFooter
+      isInModalContext={Boolean(isInModalContext)}
+      confirmText={confirmLabel}
+      confirmButtonProps={{
+        testID: 'earn-manage-shell-confirm',
+        disabled: true,
+        color: holdsConfirmWord ? '$transparent' : undefined,
+      }}
+      keyboardStage={
+        platformEnv.isNativeIOSPhone ? null : (
+          <PercentageStageOnKeyboard
+            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+          />
+        )
+      }
+    />
+  );
+
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      <XStack px="$5">
-        {tabLabels.map((label, index) => {
-          const isFocused = index === activeIndex;
-          let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
-          if (usesMarketLayout) {
-            tabBackground = 'transparent';
-          } else if (isFocused) {
-            tabBackground = '$bgActive';
-          }
-          return (
-            <XStack
-              key={label}
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={tabBackground}
-              borderRadius="$2"
-              borderCurve="continuous"
-            >
-              {usesMarketLayout ? (
-                <Skeleton.HeadingMd
-                  w={index === 0 ? '$8' : '$12'}
-                  borderRadius="$2"
-                />
-              ) : (
-                <SizableText
-                  size="$headingMd"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                  letterSpacing={-0.15}
-                >
-                  {label}
-                </SizableText>
-              )}
-            </XStack>
-          );
-        })}
-      </XStack>
+      {showsTabLine ? (
+        <XStack px="$5">
+          {tabLabels.map((label, index) => {
+            // A lone tab is the one in use
+            const isFocused = tabLabels.length === 1 || index === activeIndex;
+            let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
+            if (isPendleProvider) {
+              tabBackground = 'transparent';
+            } else if (isFocused) {
+              tabBackground = '$bgActive';
+            }
+            return (
+              <XStack
+                key={label}
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={tabBackground}
+                borderRadius="$2"
+                borderCurve="continuous"
+              >
+                {isPendleProvider ? (
+                  <Skeleton.HeadingMd
+                    w={index === 0 ? '$8' : '$12'}
+                    borderRadius="$2"
+                  />
+                ) : (
+                  <SizableText
+                    size="$headingMd"
+                    color={isFocused ? '$text' : '$textSubdued'}
+                    letterSpacing={-0.15}
+                  >
+                    {label}
+                  </SizableText>
+                )}
+              </XStack>
+            );
+          })}
+        </XStack>
+      ) : null}
 
       {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
           the layout is identical when real data lands. */}
       <YStack px="$5" py="$2.5" gap="$4">
         {/* Amount input frame — fixed chrome, only the value pends. Dimensions
             mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
-        <StakingAmountInputSkeleton title={activeLabel} />
-
-        {hasProtocolSwitch ? (
-          <>
-            {/* Protocol switcher card — filled, mirrors ProtocolSwitchTriggerRow */}
-            <XStack
-              ai="center"
-              jc="space-between"
-              gap="$3"
-              px="$3"
-              py="$2"
-              bg="$bgSubdued"
-              borderRadius="$2"
-            >
-              <XStack flex={1} minWidth={0} gap="$3" ai="center">
-                <Skeleton w="$9" h="$9" borderRadius="$full" />
-                {/* Mirrors ProtocolSwitchTriggerRow text column: bodyLgMedium
-                    title + bodyMd subtitle with gap $0.5 (46px total). */}
-                <YStack flex={1} minWidth={0} gap="$0.5">
-                  <Skeleton.BodyLg w={80} />
-                  <Skeleton.BodyMd w={140} />
-                </YStack>
-              </XStack>
-              <XStack ai="center" gap="$1" flexShrink={0}>
-                <Skeleton h="$5" w={72} borderRadius="$2" />
-                <Skeleton w="$5" h="$5" borderRadius="$1" />
+        <YStack>
+          <YStack
+            borderRadius="$3"
+            bg="$bgSubdued"
+            px="$3.5"
+            py="$2.5"
+            gap="$2"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {boxTitle}
+            </SizableText>
+            <XStack h="$11" ai="center" jc="space-between">
+              <Skeleton h="$6" w="$24" borderRadius="$2" />
+              <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
+                {/* Pendle resolves the actual pair after this shell renders, so
+                  its route image is not authoritative during loading. Keep the
+                  icon as a skeleton until token metadata arrives; this also
+                  matches AmountInput's $7 token trigger size (OK-63661). */}
+                {fallbackTokenImageUri && !isPendleProvider ? (
+                  <Token
+                    size="sm"
+                    w="$7"
+                    h="$7"
+                    tokenImageUri={fallbackTokenImageUri}
+                  />
+                ) : (
+                  <Skeleton w="$7" h="$7" radius="round" />
+                )}
+                {/* The symbol is the one real string this frame used to draw, and
+                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
+                  a full-width name sitting among skeleton bars reads worse than
+                  no name at all, and the page title already carries it. Skeleton
+                  it like everything else and let the real symbol land with the
+                  rest of the data. */}
+                <Skeleton h="$6" w="$20" borderRadius="$2" />
               </XStack>
             </XStack>
-
-            {/* Keep only content that is also present with an empty amount;
-                quote-only rows are rendered after manage data is available. */}
-            <YStack
-              p="$3.5"
-              borderRadius="$3"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-            >
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: ETranslations.earn_not_enough_token },
-                    { token: symbol },
-                  )}
-                </SizableText>
-                <XStack gap="$2">
-                  <Button
-                    testID="earn-manage-shell-trade"
-                    size="small"
-                    disabled
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_trade })}
-                  </Button>
-                  <Button testID="earn-manage-shell-buy" size="small" disabled>
-                    {intl.formatMessage({ id: ETranslations.global_buy })}
-                  </Button>
-                </XStack>
-              </XStack>
+            <XStack jc="space-between" ai="center">
+              <Skeleton h="$3" w="$16" borderRadius="$2" />
+              <Skeleton h="$3" w="$20" borderRadius="$2" />
+            </XStack>
+          </YStack>
+          {isPendleDepositForm ? (
+            <YStack pt="$2">
+              <StakingAmountResultLine
+                label={intl.formatMessage({
+                  id: ETranslations.swap_review_you_receive,
+                })}
+                value="–"
+                isPlaceholder
+              />
             </YStack>
-          </>
+          ) : null}
+        </YStack>
+
+        {/* The caller's own selector stands where the protocol switcher
+            card goes */}
+        {offerSwitch}
+        {!offerSwitch && hasProtocolSwitch ? (
+          // Protocol switcher card — filled, mirrors ProtocolSwitchTriggerRow
+          <XStack
+            ai="center"
+            jc="space-between"
+            gap="$3"
+            px="$3"
+            py="$2"
+            bg="$bgSubdued"
+            borderRadius="$3"
+          >
+            <XStack flex={1} minWidth={0} gap="$3" ai="center">
+              <Skeleton w="$9" h="$9" borderRadius="$full" />
+              {/* Mirrors ProtocolSwitchTriggerRow text column: bodyLgMedium
+                  title + bodyMd subtitle with gap $0.5 (46px total). */}
+              <YStack flex={1} minWidth={0} gap="$0.5">
+                <Skeleton.BodyLg w={80} />
+                <Skeleton.BodyMd w={140} />
+              </YStack>
+            </XStack>
+            <XStack ai="center" gap="$1" flexShrink={0}>
+              <Skeleton h="$5" w={72} borderRadius="$2" />
+              <Skeleton w="$5" h="$5" borderRadius="$1" />
+            </XStack>
+          </XStack>
         ) : null}
 
-        {!hasProtocolSwitch && borrowAction ? (
-          <BorrowInfoSectionSkeleton action={borrowAction} />
-        ) : null}
-
-        {!hasProtocolSwitch && !borrowAction ? (
-          /* Summary card — single bordered box (details entry): provider +
-             trade/buy. Quote-only content is unavailable in this shell and
-             must not create a one-frame height that disappears on load. */
+        {(hasProtocolSwitch || !borrowAction) && showsTradeOrBuy ? (
+          // Only what the loaded card shows with an empty amount: the
+          // trade-or-buy row. The Details row and quote-only content wait for
+          // an amount, so they must not take a height that disappears on load
           <YStack
             p="$3.5"
             borderRadius="$3"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
           >
-            <YStack gap="$5">
-              {/* Provider accordion-trigger placeholder. minHeight matches the
-                  measured rendered height of the real Accordion.Trigger row
-                  (22px — the web button element renders slightly taller than
-                  its 20px content), so nothing shifts when it loads. */}
-              <XStack jc="space-between" ai="center" minHeight={22}>
-                <XStack ai="center" gap="$1.5">
-                  <Skeleton w="$5" h="$5" borderRadius="$2" />
-                  <Skeleton.BodyMd w={60} />
-                </XStack>
-                <Skeleton w="$5" h="$5" borderRadius="$1" />
+            <XStack jc="space-between" ai="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_not_enough_token },
+                  { token: symbol },
+                )}
+              </SizableText>
+              <XStack gap="$2">
+                <Button testID="earn-manage-shell-trade" size="small" disabled>
+                  {intl.formatMessage({ id: ETranslations.global_trade })}
+                </Button>
+                <Button testID="earn-manage-shell-buy" size="small" disabled>
+                  {intl.formatMessage({ id: ETranslations.global_buy })}
+                </Button>
               </XStack>
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: ETranslations.earn_not_enough_token },
-                    { token: symbol },
-                  )}
-                </SizableText>
-                <XStack gap="$2">
-                  <Button
-                    testID="earn-manage-shell-trade"
-                    size="small"
-                    disabled
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_trade })}
-                  </Button>
-                  <Button testID="earn-manage-shell-buy" size="small" disabled>
-                    {intl.formatMessage({ id: ETranslations.global_buy })}
-                  </Button>
-                </XStack>
-              </XStack>
-            </YStack>
+            </XStack>
           </YStack>
         ) : null}
 
-        {/* Inline action button only for the non-modal (details) layout. In the
-            modal the real button sits in Page.Footer, so we render nothing here
-            to avoid a stray full-width button that vanishes on load. */}
-        {isInModalContext ? null : (
-          <Button
-            testID="earn-manage-shell-confirm"
-            size="medium"
-            variant="primary"
-            disabled
-            width="100%"
-          >
-            {activeLabel}
-          </Button>
-        )}
-      </YStack>
-      {isInModalContext ? (
-        <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={activeLabel}
-            confirmButtonProps={{ disabled: true }}
+        {isEarnDepositForm ? (
+          <EarnFormSummary
+            outcome={{
+              label: copy.estAnnualRewards,
+              values: [],
+              isEarning: true,
+              tokens: rewardTokens,
+            }}
+            rows={
+              borrowAction
+                ? [
+                    <EarnFormRow
+                      key="my-supply"
+                      label={intl.formatMessage({
+                        id: ETranslations.defi_my_supply,
+                      })}
+                    />,
+                    <EarnFormRow
+                      key="collateral"
+                      label={intl.formatMessage({
+                        id: ETranslations.defi_use_as_collateral,
+                      })}
+                    />,
+                  ]
+                : [
+                    <EarnFormRow
+                      key="receive"
+                      label={intl.formatMessage({
+                        id: ETranslations.earn_est_receive,
+                      })}
+                    />,
+                  ]
+            }
           />
-          {platformEnv.isNativeIOSPhone ? null : (
-            <PercentageStageOnKeyboard
-              reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
-            />
-          )}
-        </Page.Footer>
-      ) : null}
+        ) : null}
+        {isPendleDepositForm ? (
+          <EarnFormSummary
+            outcome={{
+              label: copy.atMaturityYouGet,
+              values: [],
+              isEarning: true,
+              hasNoteLine: true,
+            }}
+            rows={copy.pendleRowTitles.map((title) => (
+              <EarnFormRow key={title} label={title} />
+            ))}
+            detailsPlaceholder
+          />
+        ) : null}
+        {!hasProtocolSwitch && borrowAction && !isEarnDepositForm ? (
+          <BorrowInfoSectionSkeleton action={borrowAction} />
+        ) : null}
+
+        {/* The loading form's button where the loaded form's will be: under
+            the form on a page and in a wide window, else the modal's footer */}
+        {isActionInline ? shellAction : null}
+      </YStack>
+      {isActionInline ? null : shellAction}
     </YStack>
   );
 };
@@ -454,8 +612,20 @@ export function ManagePositionContent({
   providerLogoUri,
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
+  depositOnly,
+  withdrawOnly,
+  isEarnLending,
+  payWith,
+  initialAmount,
+  offerSwitch,
+  onAmountChange,
+  onHeaderRightChange,
+  hidesTabLine,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  onWithdrawn,
+  onDeposited,
+  footerActionOverride,
   utm,
   isInModalContext = false,
 }: IManagePositionContentProps) {
@@ -646,7 +816,10 @@ export function ManagePositionContent({
   );
 
   // No-wallet CTA takes priority; otherwise the switch-loading state (if any).
-  const footerAction = noConnectedWalletFooterAction ?? switchingFooterAction;
+  const footerAction =
+    noConnectedWalletFooterAction ??
+    switchingFooterAction ??
+    footerActionOverride;
 
   // In the normal form footer, no-wallet state is represented by the primary
   // connect-wallet CTA. Keep warnings for connected wallets that need address
@@ -808,20 +981,39 @@ export function ManagePositionContent({
   // Ref to store refreshPending function from useStakingPendingTxs hook
   const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
 
-  const handleOperationSuccess = useCallback(() => {
-    void refreshManageData();
-    // Immediately refresh pending transactions after operation
-    void refreshPendingRef.current?.();
-    onStakeWithdrawSuccess?.();
-    if (isInModalContext) {
-      appNavigation.popStack();
-    }
-  }, [
-    refreshManageData,
-    onStakeWithdrawSuccess,
-    isInModalContext,
-    appNavigation,
-  ]);
+  const handleOperationSuccess = useCallback(
+    (info?: IWithdrawSuccessInfo) => {
+      void refreshManageData();
+      // Immediately refresh pending transactions after operation
+      void refreshPendingRef.current?.();
+      onStakeWithdrawSuccess?.();
+      if (withdrawOnly && onWithdrawn && info?.amount && !info.isQueued) {
+        onWithdrawn({
+          amount: info.amount,
+          tokenImageUri: info.logoURI || resolvedTokenImageUri,
+        });
+        return;
+      }
+      if (depositOnly && onDeposited) {
+        onDeposited(info?.amount, info);
+        return;
+      }
+      if (isInModalContext) {
+        appNavigation.popStack();
+      }
+    },
+    [
+      refreshManageData,
+      onStakeWithdrawSuccess,
+      withdrawOnly,
+      onWithdrawn,
+      depositOnly,
+      onDeposited,
+      resolvedTokenImageUri,
+      isInModalContext,
+      appNavigation,
+    ],
+  );
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
@@ -888,10 +1080,19 @@ export function ManagePositionContent({
         type={type}
         symbol={symbol}
         defaultTab={defaultTab}
-        usesMarketLayout={
+        isPendleProvider={
           getEarnProtocol(provider).getStakePresentation().transactionLayout ===
           'market'
         }
+        fallbackTokenImageUri={fallbackTokenImageUri}
+        depositOnly={depositOnly}
+        withdrawOnly={withdrawOnly}
+        hasPayWith={Boolean(payWith)}
+        offerSwitch={offerSwitch}
+        liftsHeaderControls={
+          Boolean(onHeaderRightChange) && Boolean(depositOnly || withdrawOnly)
+        }
+        hidesTabLine={hidesTabLine}
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
         isInModalContext={isInModalContext}
       />
@@ -1038,6 +1239,15 @@ export function ManagePositionContent({
       showApyDetail={showApyDetail}
       stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
       suppressPlatformBonus={suppressPlatformBonus}
+      depositOnly={depositOnly}
+      withdrawOnly={withdrawOnly}
+      isEarnLending={isEarnLending}
+      payWith={payWith}
+      initialAmount={initialAmount}
+      offerSwitch={offerSwitch}
+      onAmountChange={onAmountChange}
+      onHeaderRightChange={onHeaderRightChange}
+      hidesTabLine={hidesTabLine}
       utm={utm}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}

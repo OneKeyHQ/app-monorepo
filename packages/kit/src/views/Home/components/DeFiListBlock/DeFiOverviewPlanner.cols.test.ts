@@ -143,3 +143,63 @@ describe('buildDeFiOverviewRenderCells with cols', () => {
     ).toBe(16);
   });
 });
+
+describe('buildDeFiOverviewRenderCells with one collapsed row', () => {
+  it('keeps every protocol while they fit the row', () => {
+    const cells = buildDeFiOverviewRenderCells({
+      rankedProtocols: makeRanked(5),
+      protocolMap: makeMap(5),
+      isExpanded: false,
+      cols: 5,
+      collapsedRows: 1,
+      moreSpan: 1,
+    });
+    expect(cells).toHaveLength(5);
+    expect(cells.every((c) => c.kind === 'protocol')).toBe(true);
+  });
+
+  it('fills the row with the largest and a More cell one cell wide', () => {
+    const cells = buildDeFiOverviewRenderCells({
+      rankedProtocols: makeRanked(13),
+      protocolMap: makeMap(13),
+      isExpanded: false,
+      cols: 5,
+      collapsedRows: 1,
+      moreSpan: 1,
+    });
+    expect(cells).toHaveLength(5);
+    expect(cells.slice(0, 4).every((c) => c.kind === 'protocol')).toBe(true);
+    expect(cells[4]).toMatchObject({ kind: 'more', span: 1, extraCount: 9 });
+  });
+
+  it('lists every protocol and a Less cell once expanded', () => {
+    const cells = buildDeFiOverviewRenderCells({
+      rankedProtocols: makeRanked(13),
+      protocolMap: makeMap(13),
+      isExpanded: true,
+      cols: 5,
+      collapsedRows: 1,
+      moreSpan: 1,
+    });
+    expect(cells).toHaveLength(14);
+    expect(cells[13]).toMatchObject({ kind: 'less' });
+  });
+
+  it('counts the protocols a collapsed row mounts', () => {
+    expect(
+      getOverviewCollapsedProtocolLimit({
+        cols: 5,
+        protocolCount: 13,
+        rows: 1,
+        moreSpan: 1,
+      }),
+    ).toBe(4);
+    expect(
+      getOverviewCollapsedProtocolLimit({
+        cols: 4,
+        protocolCount: 13,
+        rows: 1,
+      }),
+    ).toBe(2);
+  });
+});

@@ -62,6 +62,7 @@ import {
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 import { runDirectDepositTask } from '../earnDepositTask/directDepositTask';
+import { withStakeFundingConfirmation } from '../earnDepositTask/fundedStakeConfirmation';
 import {
   depositTaskRegistry,
   getDepositTaskOwnerKey,
@@ -101,6 +102,7 @@ import type {
   IEarnTransactionTaskPreparation,
 } from '../../Earn/tasks/transactionTaskController';
 import type { IClaimConversionParams } from '../components/ClaimConversionDialog';
+import type { IStakeFundingGuard } from '../earnDepositTask/fundedStakeConfirmation';
 import type { IDepositTask, IDepositTaskState } from '../earnDepositTask/state';
 import type {
   IDepositTaskHandle,
@@ -313,13 +315,15 @@ function createSubmittedFactReporter({
         );
       attempts.set(key, pending);
     },
-    async wait(data: ISendTxOnSuccessData[]) {
+    async wait(data: ISendTxOnSuccessData[], requireSubmitted = false) {
       await Promise.resolve();
       const transaction = data[data.length - 1];
       const txid =
         transaction?.signedTx?.txid?.trim() ||
         transaction?.decodedTx?.txid?.trim();
-      return txid ? ((await attempts.get(txid)) ?? true) : true;
+      return txid
+        ? ((await attempts.get(txid)) ?? !requireSubmitted)
+        : !requireSubmitted;
     },
   };
 }
@@ -565,10 +569,11 @@ export function useUniversalStake({
         Parameters<typeof waitForEarnTransactionConfirm>[0],
         'navigationToTxConfirm' | 'expiredMessage'
       >,
+      navigate = navigationToTxConfirm,
     ) =>
       waitForEarnTransactionConfirm({
         ...params,
-        navigationToTxConfirm,
+        navigationToTxConfirm: navigate,
         expiredMessage: intl.formatMessage({
           id: ETranslations.privacy_error_review_expired__msg,
         }),
@@ -608,6 +613,7 @@ export function useUniversalStake({
       stakefishSignTask,
       workflowHandoff,
       workflowSpenderAddress,
+      fundingGuard,
       postWrapStakeToken,
       inputToken,
       postWrapApproveSpenderAddress,
@@ -661,6 +667,7 @@ export function useUniversalStake({
       stakefishSignTask?: IStakefishSignTaskConfig;
       workflowHandoff?: IStakeWorkflowHandoff;
       workflowSpenderAddress?: string;
+      fundingGuard?: IStakeFundingGuard;
       postWrapStakeToken?: IToken;
       inputToken?: IToken;
       postWrapApproveSpenderAddress?: string;
@@ -692,14 +699,36 @@ export function useUniversalStake({
       const resultAttempt = resultAttemptRef.current;
       const isResultOwnerCurrent = () =>
         isSendOwnerCurrent() && resultAttemptRef.current === resultAttempt;
+      const onFundingError = (error: unknown) => {
+        if (isResultOwnerCurrent()) errorToastUtils.showToastOfError(error);
+        else console.error('Unable to record Earn funding status');
+      };
+      const navigateToStakeConfirm = fundingGuard
+        ? withStakeFundingConfirmation({
+            navigationToTxConfirm,
+            guard: fundingGuard,
+            onFundingError,
+          })
+        : navigationToTxConfirm;
       const submittedFacts = createSubmittedFactReporter({
-        onSubmitted,
+        onSubmitted: fundingGuard
+          ? async (txid) => {
+              await Promise.all([
+                fundingGuard.onAccepted(txid),
+                onSubmitted?.(txid),
+              ]);
+            }
+          : onSubmitted,
         isOwnerCurrent: isResultOwnerCurrent,
       });
       const reportSubmitted = (txid: string) => submittedFacts.report(txid);
-      const notifyStakeSuccess = (data: ISendTxOnSuccessData[]) => {
-        if (!isResultOwnerCurrent()) return Promise.resolve();
-        return Promise.resolve(onSuccess?.(data));
+      const notifyStakeSuccess = async (data: ISendTxOnSuccessData[]) => {
+        if (
+          (fundingGuard && !(await submittedFacts.wait(data, true))) ||
+          !isResultOwnerCurrent()
+        )
+          return;
+        await Promise.resolve(onSuccess?.(data));
       };
       // OK-59196: one-time risk disclaimer gates the first earn trade on
       // this device; resolves immediately once accepted
@@ -827,7 +856,8 @@ export function useUniversalStake({
           signal: controller.signal,
           isCurrent,
           canRecoverRecording,
-          confirm: waitForTxConfirmResult,
+          confirm: (confirmation) =>
+            waitForTxConfirmResult(confirmation, navigateToStakeConfirm),
           confirmReset: directDepositTask.confirmReset,
           prepareDeposit: async (signal) => {
             const result = await directDepositTask.prepareDeposit(signal);
@@ -1077,7 +1107,10 @@ export function useUniversalStake({
             canRecoverRecording,
             confirm: async (confirmation) => {
               try {
-                return await waitForTxConfirmResult(confirmation);
+                return await waitForTxConfirmResult(
+                  confirmation,
+                  navigateToStakeConfirm,
+                );
               } catch (error) {
                 if (!usesLegacyProgress) throw error;
                 if (confirmation.wrappedInfo) reportWrapState('unknown');
@@ -1242,7 +1275,7 @@ export function useUniversalStake({
             });
           },
           navigate: async (payload, callbacks) =>
-            navigationToTxConfirm({
+            navigateToStakeConfirm({
               encodedTx: payload.encodedTx,
               stakingInfo: payload.stakeInfoWithOrderId,
               onSuccess: callbacks.onSuccess,
@@ -1427,7 +1460,7 @@ export function useUniversalStake({
             throw new OneKeyLocalError('Stake signing context unavailable');
           },
           navigate: async (payload, callbacks) => {
-            await navigationToTxConfirm({
+            await navigateToStakeConfirm({
               encodedTx: payload.encodedTx,
               stakingInfo: payload.stakeInfoWithOrderId,
               onSuccess: callbacks.onSuccess,
@@ -1688,7 +1721,7 @@ export function useUniversalStake({
         },
         navigate: async (payload, callbacks) => {
           if ('serverOrderId' in payload) return;
-          await navigationToTxConfirm({
+          await navigateToStakeConfirm({
             encodedTx: payload.encodedTx,
             stakingInfo: payload.stakeInfoWithOrderId,
             onSuccess: callbacks.onSuccess,

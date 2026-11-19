@@ -8,6 +8,14 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
+import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
+import { EARN_ASSET_SELECT_SIZE } from '../../Earn/pages/EarnAssetSelect/earnAssetSelectSize';
+import { EARN_LOAN_MODAL_SIZE } from '../../Earn/pages/EarnLoanRouter/loanRouterModal';
+import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
+import {
+  EARN_OFFERS_MODAL_WIDTH,
+  EARN_ROUTER_MODAL_HEIGHT,
+} from '../../Earn/pages/EarnRouter/earnRouter.utils';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
@@ -16,6 +24,9 @@ const InvestmentDetails = LazyLoad(
 const ManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
+// Loaded as a home row is pointed at (or the holdings show on a narrow
+// screen), so the deposit modal's first open doesn't suspend
+export const preloadManagePosition = () => ManagePosition.preload();
 
 const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
@@ -27,6 +38,41 @@ const ProtocolDetailsV2 = LazyLoad(
 
 const BorrowManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
+);
+
+const EarnGuide = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
+);
+
+// Loaded while the desktop Earn home shows the guide's card, through the lazy
+// route itself: its first open then renders at once instead of suspending,
+// which holds the modal back a few hundred ms more
+export const preloadEarnGuide = () => EarnGuide.preload();
+
+const EarnPayWithTokenSelect = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnPayWithTokenSelect'),
+);
+// Loaded while a deposit form with Pay with shows, the same way
+export const preloadEarnPayWithTokenSelect = () =>
+  EarnPayWithTokenSelect.preload();
+
+const EarnLoanRouter = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter'),
+);
+// Loaded as a Loans row is pointed at, so the modal's first open doesn't
+// suspend
+export const preloadEarnLoanRouter = () => EarnLoanRouter.preload();
+
+const EarnRouterAssetSelect = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSelect'),
+);
+// Loaded while a router's form shows, as Pay with's picker
+export const preloadEarnRouterAssetSelect = () =>
+  EarnRouterAssetSelect.preload();
+
+const EarnPayWithTokenRisk = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Swap/pages/modal/TokenRiskReminderModal'),
 );
 
 const BorrowEModeSwitch = LazyLoad(
@@ -121,11 +167,122 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
     exact: true,
+    // The full Earn router takes the routers' fixed size, wide for the
+    // offers beside the form where the window holds them, as the route says
+    options: ({ route }) => {
+      const earnOffers = (
+        route.params as
+          | IModalStakingParamList[EModalStakingRoutes.ManagePosition]
+          | undefined
+      )?.earnOffers;
+      return {
+        modalContentMaxWidth:
+          earnOffers?.wide && !earnOffers.narrow
+            ? EARN_OFFERS_MODAL_WIDTH
+            : undefined,
+        modalContentMaxHeight: earnOffers?.wide
+          ? EARN_ROUTER_MODAL_HEIGHT
+          : undefined,
+      };
+    },
   },
   {
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.EarnLoanRouter,
+    component: EarnLoanRouter,
+    // Taller than the usual 640: the page fits its height to what it holds
+    // up to this. The size goes here, as the navigator sets it over the
+    // options
+    modalContentMaxHeight: EARN_LOAN_MODAL_SIZE.height,
+    // Wide with the markets beside the form; the done view's one column at
+    // the usual width
+    options: ({ route }) => ({
+      modalContentMaxWidth:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnLoanRouter]
+            | undefined
+        )?.wide === false
+          ? undefined
+          : EARN_LOAN_MODAL_SIZE.width,
+    }),
+  },
+  {
+    name: EModalStakingRoutes.EarnGuide,
+    component: EarnGuide,
+    // The guide draws its own green header
+    options: {
+      headerShown: false,
+    },
+    // Tall enough for step 1's receive card without scrolling. The size goes
+    // here: the navigator sets it over the options
+    modalContentMaxWidth: EARN_GUIDE_MODAL_SIZE.width,
+    modalContentMaxHeight: EARN_GUIDE_MODAL_SIZE.height,
+    // The guide grows out of its card on the home and goes back into it:
+    // the card's ghost draws the way in and out, the modal and its backdrop
+    // show and hide at once under it
+    disableEnterScaleAnimation: true,
+    disableEnterExitAnimation: true,
+  },
+  {
+    name: EModalStakingRoutes.EarnPayWithTokenSelect,
+    component: EarnPayWithTokenSelect,
+    // It covers the deposit form it opens over: it opens as a modal over a
+    // page does, and the form under it stays still (no grow, no peek)
+    disableStackAnimation: true,
+    // Declared on the route, as Swap's picker does: the navigator grows a
+    // modal out of the one under it only when it knows the size as it
+    // opens. The size goes here, as the navigator sets it over the options.
+    // Narrow windows keep it full screen
+    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    // Over a taller modal (the guide) it takes that one's height: a stacked
+    // modal of the same size shows only the edge of the one under it, a
+    // shorter one would leave its title row showing above. The options'
+    // own value, as it reads the route
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnPayWithTokenSelect]
+            | undefined
+        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+    }),
+  },
+  {
+    name: EModalStakingRoutes.EarnRouterAssetSelect,
+    component: EarnRouterAssetSelect,
+    // Opens as Pay with's picker does, over the router it picks for: at its
+    // own size (Swap's token selector's, for the network column), the form
+    // under it still. Narrow windows keep it full screen
+    disableStackAnimation: true,
+    modalContentMaxWidth: EARN_ASSET_SELECT_SIZE.width,
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnRouterAssetSelect]
+            | undefined
+        )?.modalHeight ?? EARN_ASSET_SELECT_SIZE.height,
+    }),
+  },
+  {
+    name: EModalStakingRoutes.EarnPayWithTokenRisk,
+    component: EarnPayWithTokenRisk,
+    // Pushed in the picker's modal, it keeps the picker's size: the modal
+    // stays one size, and over the guide only the guide's edge shows
+    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnPayWithTokenRisk]
+            | undefined
+        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+    }),
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,
