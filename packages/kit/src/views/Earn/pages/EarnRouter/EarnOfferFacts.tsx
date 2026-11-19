@@ -28,6 +28,7 @@ import {
   isYieldSheetAvailable,
 } from '../EarnProtocolDetails/mobile/yieldSegments.utils';
 
+import { getEarnOfferTipText } from './earnRouter.utils';
 import { getOfferSymbol } from './EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
@@ -104,12 +105,6 @@ function useOfferDetail({
   return key ? detailCache.get(key) : undefined;
 }
 
-const stripMarkup = (text?: string) =>
-  (text ?? '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
 // The tip a card shows: the one on how the money comes back out, so every
 // card answers the same question, else the one the details page shows
 // first. Tips carry no type, so it goes by the English title the dashboard
@@ -117,7 +112,7 @@ const stripMarkup = (text?: string) =>
 // details page's pick stands
 const pickCardTip = (detail?: IStakeEarnDetail): IProtocolTip | undefined => {
   const tips = (detail?.protocolTips?.tips ?? []).filter((tip) =>
-    stripMarkup(tip.description?.text),
+    getEarnOfferTipText(tip.description?.text),
   );
   return (
     tips.find((tip) => /redemption/i.test(tip.title?.text ?? '')) ??
@@ -129,7 +124,7 @@ const pickCardTip = (detail?: IStakeEarnDetail): IProtocolTip | undefined => {
 // A tip's point, for one line: its first sentence up to the dash, colon or
 // semicolon after which these tips go into the detail
 const getTipClause = (tip: IProtocolTip) => {
-  const text = stripMarkup(tip.description?.text);
+  const text = getEarnOfferTipText(tip.description?.text);
   const end = text.search(/[.!?。](\s|$)/);
   const sentence = end >= 0 ? text.slice(0, end + 1) : text;
   const cut = sentence.search(/\s[—–]\s|[:;]\s/);

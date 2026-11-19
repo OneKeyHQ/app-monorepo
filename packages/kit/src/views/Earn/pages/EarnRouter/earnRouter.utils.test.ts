@@ -14,6 +14,7 @@ import {
   earnRouterSwapReducer,
   findOffer,
   findPayToken,
+  getEarnOfferTipText,
   getEarnSwapDepositAmount,
   getEarnSwapFee,
   getEarnSwapMinutes,
@@ -104,6 +105,27 @@ const ethereumWallet: IEarnDesktopWalletTokenGroup = {
     [USDE]: walletFiat('2.2739', '2.2728', { price: 0.9995 }),
   },
 };
+
+describe('getEarnOfferTipText', () => {
+  it('keeps the readable copy and spacing from nested rich text', () => {
+    expect(
+      getEarnOfferTipText(
+        ' Withdraw in <bold><underline>3 days</underline></bold>.\n Learn more. ',
+      ),
+    ).toBe('Withdraw in 3 days. Learn more.');
+    expect(getEarnOfferTipText('<bold></bold>')).toBe('');
+    expect(getEarnOfferTipText(null)).toBe('');
+  });
+
+  it('preserves comparisons, placeholders and plain fallback copy', () => {
+    expect(getEarnOfferTipText('<bold>{minimum}</bold> is < $0.01.')).toBe(
+      '{minimum} is < $0.01.',
+    );
+    expect(getEarnOfferTipText('See <bold>the details.')).toBe(
+      'See <bold>the details.',
+    );
+  });
+});
 
 describe('listPayTokens', () => {
   it('puts the deposit token first, then the most valuable', () => {

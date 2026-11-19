@@ -1,3 +1,4 @@
+import { isTagElement, parse } from '@formatjs/icu-messageformat-parser';
 import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -19,6 +20,7 @@ import type {
   IEarnDesktopHoldOffer,
   IEarnDesktopWalletTokenGroup,
 } from '../../components/desktopHome/earnDesktopHome.utils';
+import type { MessageFormatElement } from '@formatjs/icu-messageformat-parser';
 
 // ---------- The deposit modal's size ----------
 
@@ -32,6 +34,37 @@ export const EARN_OFFER_ROUTES_COLUMN_WIDTH = 420;
 // 90% of the window: what it holds scrolls inside, so a pick never changes
 // the window's size
 export const EARN_ROUTER_MODAL_HEIGHT = 640;
+
+function collectTipText(
+  elements: MessageFormatElement[],
+  source: string,
+): string {
+  return elements
+    .map((element) => {
+      if (isTagElement(element)) {
+        return collectTipText(element.children, source);
+      }
+      const location = element.location;
+      return location
+        ? source.slice(location.start.offset, location.end.offset)
+        : '';
+    })
+    .join('');
+}
+
+export function getEarnOfferTipText(value?: string | null) {
+  const source = value ?? '';
+  let text = source;
+  if (source.includes('<')) {
+    try {
+      const elements = parse(source, { captureLocation: true });
+      text = collectTipText(elements, source);
+    } catch {
+      // Malformed rich text falls back to the original React text.
+    }
+  }
+  return text.replace(/\s+/g, ' ').trim();
+}
 
 // ---------- Pay with ----------
 

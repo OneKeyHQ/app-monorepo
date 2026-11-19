@@ -10,6 +10,16 @@ type IEarnAmountTextProps = Omit<ISizableTextProps, 'children'> & {
 
 // Matches a leading number: integer or decimal, with optional thousands-separator commas
 const LEADING_NUMBER_PATTERN = /^(\d[\d,]*(?:\.\d+)?)([\s\S]*)/;
+const AMOUNT_PREFIX_PATTERN =
+  /^(?:[<≈~]\s*)?(?:[$€£¥]\s*)?[\d.,]+(?:<subscripts>\d+<\/subscripts>[\d.,]*)?/;
+
+export function readEarnAmountToken(text: string): string | undefined {
+  const value = text.trimStart();
+  const amount = AMOUNT_PREFIX_PATTERN.exec(value)?.[0];
+  if (!amount) return undefined;
+  const token = value.slice(amount.length).trim();
+  return token && !/[<>]/.test(token) ? token : undefined;
+}
 
 /**
  * Smart text renderer for server-returned amount strings.

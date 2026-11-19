@@ -45,7 +45,10 @@ import {
   getModalRoomToGrow,
 } from '../../hooks/useFitModalHeight';
 import { EarnFadingPlaceholder } from '../EarnFadingPlaceholder';
-import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
+import {
+  EarnAmountText,
+  readEarnAmountToken,
+} from '../ProtocolDetails/EarnAmountText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 
 import {
@@ -269,17 +272,6 @@ const AMOUNT_TEXT = /^[<≈~]?\s*[$€£¥]?\s*\d/;
 const isAmountReward = (reward: IEarnReward) =>
   AMOUNT_TEXT.test(reward.title?.text?.trim() ?? '');
 
-// The token an amount names ("0.038 USDC", "0.0<subscripts>5</subscripts>2
-// PT"); none for a money amount ("< $0.01")
-function readAmountToken(text: string): string | undefined {
-  return (
-    text
-      .replace(/<[^>]+>/g, '')
-      .replace(/^[<≈~]?\s*[$€£¥]?\s*[\d.,]+/, '')
-      .trim() || undefined
-  );
-}
-
 // The server's result lines that are not amounts, as rows: label, then its
 // text, or a dash while there is no amount
 export function buildRewardNoteRows({
@@ -330,7 +322,7 @@ export function buildRewardsOutcome({
     (reward) => Boolean(reward.title?.text?.trim()) && isAmountReward(reward),
   );
   const answerTokens = amountRewards
-    .map((reward) => readAmountToken(reward.title.text.trim()))
+    .map((reward) => readEarnAmountToken(reward.title.text.trim()))
     .filter((token): token is string => Boolean(token));
   // The interest an amount earns is "earnings" in Earn, as the home's
   // "Est. 24h earnings" says: the server's "annual rewards" reads as the
