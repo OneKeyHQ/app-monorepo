@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
-import { Button, Toast, useClipboard } from '@onekeyhq/components';
+import { Toast, useClipboard } from '@onekeyhq/components';
 import {
   downloadBlobAsFile,
   downloadImageFile,
@@ -94,16 +94,12 @@ export function useShareActions(referralUrl?: string) {
               id: ETranslations.perp_share_image_saved,
             }),
             actionsAlign: 'left',
-            actions: (
-              <Button
-                testID="rookie-guide-open-photo-library-btn"
-                variant="tertiary"
-                size="small"
-                onPress={openPhotoLibrary}
-              >
-                {intl.formatMessage({ id: ETranslations.global_view })}
-              </Button>
-            ),
+            actions: {
+              testID: 'rookie-guide-open-photo-library-btn',
+              variant: 'tertiary',
+              label: intl.formatMessage({ id: ETranslations.global_view }),
+              onPress: openPhotoLibrary,
+            },
           });
 
           return { success: true };
