@@ -28,6 +28,10 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
   settingsAtom,
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
@@ -47,9 +51,12 @@ import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFe
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
@@ -1046,7 +1053,12 @@ const SwapHistoryDetailModal = () => {
                 targetCurrency: displayCurrencyId,
                 token: item.token,
               }),
-              amount: item.amount,
+              amount: item.amount
+                ? (getSwapDisplayAmount(
+                    item.amount,
+                    item.token.balanceMultiplier,
+                  ) ?? '')
+                : item.amount,
             },
           ];
         }
@@ -1139,7 +1151,7 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
           isAllNetworks
-          amount={txHistory?.baseInfo.toAmount ?? '0'}
+          amount={txHistory ? getSwapHistoryDisplayToAmount(txHistory) : '0'}
           networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1148,7 +1160,11 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={fromTokenAmount ?? '0'}
+          amount={
+            txHistory
+              ? getSwapHistoryDisplayFromAmount(txHistory, fromTokenAmount)
+              : '0'
+          }
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1537,20 +1553,37 @@ const SwapHistoryDetailModal = () => {
     txHistory,
   ]);
 
-  const renderRate = useCallback(
-    () => (
+  const renderRate = useCallback(() => {
+    let rate = txHistory?.swapInfo.instantRate;
+    if (
+      txHistory &&
+      !isPrivateSendHistory &&
+      [
+        txHistory.baseInfo.fromToken.balanceMultiplier,
+        txHistory.baseInfo.toToken.balanceMultiplier,
+      ].some(tokenRebaseUtils.isScalingBalanceMultiplier)
+    ) {
+      const displayFromAmount = getSwapHistoryDisplayFromAmount(txHistory);
+      const displayRate = new BigNumber(
+        getSwapHistoryDisplayToAmount(txHistory) ?? '',
+      ).dividedBy(displayFromAmount);
+      rate =
+        displayRate.isFinite() && displayRate.gt(0)
+          ? displayRate.toFixed()
+          : getSwapDisplayRate(
+              rate ?? '',
+              txHistory.baseInfo.fromToken.balanceMultiplier,
+              txHistory.baseInfo.toToken.balanceMultiplier,
+            );
+    }
+    return (
       <SwapRateInfoItem
-        rate={txHistory?.swapInfo.instantRate}
+        rate={rate}
         fromToken={txHistory?.baseInfo.fromToken}
         toToken={txHistory?.baseInfo.toToken}
       />
-    ),
-    [
-      txHistory?.baseInfo.fromToken,
-      txHistory?.baseInfo.toToken,
-      txHistory?.swapInfo.instantRate,
-    ],
-  );
+    );
+  }, [isPrivateSendHistory, txHistory]);
 
   const renderProtocolFee = useCallback(() => {
     if (txHistory?.swapInfo.hideProtocolFee) {

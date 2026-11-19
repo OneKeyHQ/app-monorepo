@@ -8,7 +8,7 @@ import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
-  useSwapProInputAmountAtom,
+  useSwapProInputAmountStateAtom,
   useSwapProSelectTokenAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
@@ -91,9 +91,8 @@ const SwapProTradingPanel = ({
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const [swapProInputAmount, setSwapProInputAmount] =
-    useSwapProInputAmountAtom();
-  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [proInput, setProInput] = useSwapProInputAmountStateAtom();
+  const [fromInput, setFromInput] = useSwapFromTokenAmountAtom();
   // Per-direction amount stash: switching BUY/SELL restores what was typed on
   // that side instead of clearing it (the two sides denominate in different
   // tokens, so the values must never be shared directly). Each entry carries
@@ -102,7 +101,9 @@ const SwapProTradingPanel = ({
   // resurrect across trade-type or pay-token switches in a different
   // denomination.
   const stashedAmountsRef = useRef<
-    Partial<Record<ESwapDirection, { value: string; contextKey: string }>>
+    Partial<
+      Record<ESwapDirection, { input: typeof proInput; contextKey: string }>
+    >
   >({});
   useEffect(() => {
     // Stashed amounts belong to one traded token; drop them on token switch.
@@ -166,30 +167,27 @@ const SwapProTradingPanel = ({
       };
       const isMarket = swapProTradeType === ESwapProTradeType.MARKET;
       stashedAmountsRef.current[swapProDirection] = {
-        value: isMarket ? swapProInputAmount : fromInputAmount.value,
+        input: isMarket ? proInput : fromInput,
         contextKey: buildStashContextKey(swapProDirection),
       };
       const targetStash = stashedAmountsRef.current[value];
       const restored =
         targetStash && targetStash.contextKey === buildStashContextKey(value)
-          ? targetStash.value
-          : '';
-      setSwapProInputAmount(isMarket ? restored : '');
-      setFromInputAmount({
-        value: isMarket ? '' : restored,
-        isInput: true,
-      });
+          ? targetStash.input
+          : { value: '', isInput: true };
+      setProInput(isMarket ? restored : { value: '', isInput: true });
+      setFromInput(isMarket ? { value: '', isInput: true } : restored);
       setSwapProDirection(value);
     },
     [
       swapProDirection,
       swapProTradeType,
-      swapProInputAmount,
-      fromInputAmount.value,
+      proInput,
+      fromInput,
       swapProUseSelectBuyToken,
       swapProSelectToken,
-      setSwapProInputAmount,
-      setFromInputAmount,
+      setProInput,
+      setFromInput,
       setSwapProDirection,
     ],
   );
@@ -197,7 +195,7 @@ const SwapProTradingPanel = ({
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.isLoading;
 
-  useSwapProActionsQuote();
+  const { onRefreshQuote } = useSwapProActionsQuote();
 
   return (
     <YStack gap="$2.5" flex={1}>
@@ -318,6 +316,7 @@ const SwapProTradingPanel = ({
       <YStack flex={1} />
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
+        onRefreshQuote={onRefreshQuote}
         onDepositToTrade={onDepositToTrade}
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}

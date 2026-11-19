@@ -37,6 +37,13 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapMaxAmountSnapshot,
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+  getSwapDisplayRate,
+  getSwapRawInputAmount,
+} from '../utils/swapAmountUtils';
+import {
   resolveSwapBalanceDisplayCacheEntry,
   updateSwapBalanceDisplayCache,
 } from '../utils/swapBalanceDisplayCacheUtils';
@@ -280,14 +287,20 @@ function useStockInputTokenBalance({
               accountId: networkAccount.id,
               accountAddress: networkAccount.address,
               currency: 'usd',
+              ...(token.balanceMultiplier
+                ? { balanceMultiplier: token.balanceMultiplier }
+                : {}),
             }),
         });
-        const authoritativeBalance = details?.[0]?.balanceParsed;
+        const tokenDetail = details?.find((detail) =>
+          equalTokenNoCaseSensitive({ token1: detail, token2: token }),
+        );
+        const authoritativeBalance = tokenDetail?.balanceParsed;
         return completeRequestScope({
           scope: balanceScope,
           balance: authoritativeBalance,
           hasAuthoritativeBalance: authoritativeBalance !== undefined,
-          tokenDetail: markStockUsdPriceCurrency(details?.[0]),
+          tokenDetail: markStockUsdPriceCurrency(tokenDetail),
         });
       } catch {
         // Publish a settled failure for this scope instead of letting the
@@ -432,6 +445,8 @@ function useStockInputTokenBalance({
 
   return {
     authoritativeTokenDetail,
+    accountAddress: networkAccount?.address,
+    accountId: networkAccount?.id,
     balance: balanceViewState.balance,
     displayBalance: balanceViewState.displayBalance,
     ownerScope: balanceOwnerScope,
@@ -496,7 +511,13 @@ export function useSwapStockEstimatedReceiveState({
       sendToken,
     ],
   );
-  const quoteToAmount = quoteMatchesStockTrade ? quoteResult?.toAmount : '';
+  const quoteToAmount =
+    quoteMatchesStockTrade && quoteResult?.toAmount
+      ? (getSwapDisplayAmount(
+          quoteResult.toAmount,
+          receiveToken?.balanceMultiplier,
+        ) ?? '')
+      : '';
   const receiveAmount =
     quoteToAmount ||
     (!quoteResult && !forceHideQuote ? toTokenAmount.value : '');
@@ -549,7 +570,11 @@ export function useSwapStockEstimatedReceiveState({
       fromTokenCurrency: fromTokenPrice?.currency,
       toTokenCurrency: receiveTokenPrice?.currency,
       currencyMap,
-      instantRate: quoteResult?.instantRate,
+      instantRate: getSwapDisplayRate(
+        quoteResult?.instantRate ?? '',
+        sendToken?.balanceMultiplier,
+        receiveToken?.balanceMultiplier,
+      ),
       strictCurrencyConversion: true,
     });
   }, [
@@ -558,6 +583,7 @@ export function useSwapStockEstimatedReceiveState({
     quoteMatchesStockTrade,
     quoteResult?.fromTokenInfo,
     quoteResult?.instantRate,
+    receiveToken?.balanceMultiplier,
     receiveTokenPrice,
     sendToken,
     stockChannel.activeStockTokenDetail,
@@ -689,7 +715,12 @@ export function useSwapStockAmountInputState({
       (item) => item.networkId === inputToken.networkId,
     )?.reserveGas;
   }, [shouldReserveInputGas, inputToken?.networkId, swapNativeTokenReserveGas]);
-  const displayBalance = stockInputTokenBalance.displayBalance ?? '--';
+  const displayBalance = stockInputTokenBalance.displayBalance
+    ? (getSwapDisplayAmount(
+        stockInputTokenBalance.displayBalance,
+        amountInputToken?.balanceMultiplier,
+      ) ?? '--')
+    : '--';
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
   const inputTokenPrice =
@@ -720,7 +751,15 @@ export function useSwapStockAmountInputState({
     settingsPersistAtom.currencyInfo.symbol;
   const onAmountChange = useCallback(
     (value: string) => {
-      if (validateAmountInput(value, amountInputToken?.decimals)) {
+      if (
+        validateAmountInput(
+          value,
+          getSwapDisplayDecimals(
+            amountInputToken?.decimals,
+            amountInputToken?.balanceMultiplier,
+          ),
+        )
+      ) {
         setSwapAlerts({
           quoteId: '',
           states: [],
@@ -731,17 +770,34 @@ export function useSwapStockAmountInputState({
         });
       }
     },
-    [amountInputToken?.decimals, setFromTokenAmount, setSwapAlerts],
+    [
+      amountInputToken?.decimals,
+      amountInputToken?.balanceMultiplier,
+      setFromTokenAmount,
+      setSwapAlerts,
+    ],
   );
   const setInputAmount = useCallback(
-    (amount: BigNumber) => {
+    (amount: BigNumber, isMax = false) => {
       if (!amountInputToken || !amount.isFinite() || amount.isNaN()) {
         return;
       }
-      const amountValue = amount
+      const rawAmount = amount
         .decimalPlaces(amountInputToken.decimals, BigNumber.ROUND_DOWN)
         .toFixed();
-      if (!validateAmountInput(amountValue, amountInputToken.decimals)) {
+      const maxAmountSnapshot = isMax
+        ? buildSwapMaxAmountSnapshot({
+            rawAmount,
+            token: amountInputToken,
+            accountId: stockInputTokenBalance.accountId,
+            accountAddress: stockInputTokenBalance.accountAddress,
+          })
+        : undefined;
+      if (isMax && !maxAmountSnapshot) return;
+      const amountValue =
+        maxAmountSnapshot?.displayAmount ??
+        getSwapDisplayAmount(rawAmount, amountInputToken.balanceMultiplier);
+      if (!amountValue) {
         return;
       }
       setSwapAlerts({
@@ -751,9 +807,16 @@ export function useSwapStockAmountInputState({
       setFromTokenAmount({
         value: amountValue,
         isInput: true,
+        maxAmountSnapshot,
       });
     },
-    [amountInputToken, setFromTokenAmount, setSwapAlerts],
+    [
+      amountInputToken,
+      stockInputTokenBalance.accountAddress,
+      stockInputTokenBalance.accountId,
+      setFromTokenAmount,
+      setSwapAlerts,
+    ],
   );
   useEffect(() => {
     if (!authoritativeStockInputToken) {
@@ -792,7 +855,7 @@ export function useSwapStockAmountInputState({
         ),
       });
     }
-    setInputAmount(maxAmount);
+    setInputAmount(maxAmount, true);
   }, [
     authoritativeStockInputToken,
     balanceActionsReady,
@@ -818,7 +881,7 @@ export function useSwapStockAmountInputState({
         reserveGas,
         stage,
       });
-      setInputAmount(amount);
+      setInputAmount(amount, stage === 100);
     },
     [
       authoritativeStockInputToken,
@@ -838,7 +901,10 @@ export function useSwapStockAmountInputState({
       return false;
     }
     const balanceBN = new BigNumber(stockInputTokenBalance.settledBalance);
-    const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
+    const amountBN = new BigNumber(
+      getSwapRawInputAmount(fromTokenAmount.value ?? '0', inputToken, 'down') ??
+        'NaN',
+    );
     if (
       balanceBN.isNaN() ||
       amountBN.isNaN() ||

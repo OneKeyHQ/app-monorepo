@@ -12,6 +12,7 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapDirectionType,
@@ -72,7 +73,15 @@ const SwapQuoteInput = ({
         inputLoading={isQuotePresentationLoading}
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
-          if (validateAmountInput(value, fromToken?.decimals)) {
+          if (
+            validateAmountInput(
+              value,
+              getSwapDisplayDecimals(
+                fromToken?.decimals,
+                fromToken?.balanceMultiplier,
+              ),
+            )
+          ) {
             setFromInputAmount({
               value,
               isInput: true,
@@ -122,7 +131,15 @@ const SwapQuoteInput = ({
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
         onAmountChange={(value) => {
-          if (validateAmountInput(value, toToken?.decimals)) {
+          if (
+            validateAmountInput(
+              value,
+              getSwapDisplayDecimals(
+                toToken?.decimals,
+                toToken?.balanceMultiplier,
+              ),
+            )
+          ) {
             setToInputAmount({
               value,
               isInput: true,

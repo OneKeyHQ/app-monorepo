@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -473,7 +474,10 @@ const PreSwapInfoGroup = ({
                 tokenSymbol: preSwapData?.toToken?.symbol ?? '-',
               }}
             >
-              {preSwapData?.minToAmount}
+              {getSwapDisplayAmount(
+                preSwapData.minToAmount,
+                preSwapData.toToken?.balanceMultiplier,
+              ) ?? '--'}
             </NumberSizeableText>
           }
         />

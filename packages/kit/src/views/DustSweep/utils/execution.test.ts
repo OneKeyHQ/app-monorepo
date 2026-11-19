@@ -38,6 +38,9 @@ const mockAllowance: jest.MockedFunction<
   typeof backgroundApiProxy.serviceSwap.fetchApproveAllowanceForDisplay
 > = jest.fn();
 const mockBuild = jest.fn();
+const mockWalletTokenDetails: jest.MockedFunction<
+  typeof backgroundApiProxy.serviceToken.fetchTokensDetails
+> = jest.fn();
 const mockValidateAddress: jest.MockedFunction<
   typeof backgroundApiProxy.serviceValidator.validateAddress
 > = jest.fn();
@@ -66,6 +69,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNotification: { blockNotificationForTxId: mockBlockNotification },
     serviceValidator: { validateAddress: mockValidateAddress },
+    serviceToken: { fetchTokensDetails: mockWalletTokenDetails },
     serviceSwap: {
       fetchApproveAllowanceForDisplay: mockAllowance,
       fetchBuildTx: mockBuild,
@@ -177,6 +181,56 @@ function createOptions() {
     onSubmissionError: jest.fn(),
     generateSwapHistoryItem: jest.fn(),
   };
+}
+
+function createScaledOptions(
+  balanceParsed = '1.234567890000000001',
+  balanceMultiplier = '2',
+) {
+  const scaledToken: IDustSweepToken = {
+    ...token,
+    networkId: 'evm--56',
+    symbol: 'AAPLB',
+    amount: '1.234567890000000001',
+    balanceMultiplier: '2',
+    valueUsd: '2.469135780000000002',
+  };
+  const scaledSnapshot: IDustSweepSnapshot = {
+    ...snapshot,
+    networkId: scaledToken.networkId,
+    nativeToken: { ...snapshot.nativeToken, networkId: scaledToken.networkId },
+    tokens: [scaledToken],
+  };
+  const result: IFetchQuoteResult = {
+    ...createQuote(),
+    fromTokenInfo: scaledToken,
+    toTokenInfo: scaledSnapshot.nativeToken,
+    fromAmount: scaledToken.amount,
+    toAmount: '0.00246',
+  };
+  mockFetchQuote.mockResolvedValue(result);
+  mockBuild.mockResolvedValue({
+    result,
+    tx: { to: '0xrouter', value: '0x0', data: '0x' },
+  });
+  mockWalletTokenDetails.mockResolvedValue([
+    {
+      info: {
+        address: scaledToken.contractAddress,
+        networkId: scaledToken.networkId,
+        symbol: scaledToken.symbol,
+        name: scaledToken.symbol,
+        decimals: scaledToken.decimals,
+        isNative: false,
+      },
+      balance: '1234567890000000001',
+      balanceParsed,
+      balanceMultiplier,
+      fiatValue: scaledToken.valueUsd,
+      price: 1,
+    },
+  ]);
+  return { ...createOptions(), token: scaledToken, snapshot: scaledSnapshot };
 }
 
 function createWrappedOptions(
@@ -306,6 +360,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     mockAllowance.mockReset().mockResolvedValue(createAllowance());
     mockBuild.mockReset().mockResolvedValue({ result: createQuote(), ctx: {} });
     mockValidateAddress.mockReset().mockResolvedValue('valid');
+    mockWalletTokenDetails.mockReset();
     mockPayload.mockReset().mockResolvedValue({
       encodedTx: {},
       swapInfo: {},
@@ -844,6 +899,104 @@ describe('Dust Sweep serial execution boundaries', () => {
         receivingAddress: snapshot.address,
       }),
     );
+  });
+
+  it('sweeps a scaled balance using the exact Wallet quantity for approval, build, and send', async () => {
+    const options = createScaledOptions();
+    const { buildMarketExecutionPayload } = jest.requireActual<
+      typeof import('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils')
+    >(
+      '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils',
+    );
+    mockPayload.mockImplementation(buildMarketExecutionPayload);
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, approveAmounted: '0' }),
+    );
+
+    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+      status: 'success',
+    });
+    expect(mockWalletTokenDetails).toHaveBeenCalledWith({
+      accountId: options.snapshot.accountId,
+      networkId: options.snapshot.networkId,
+      contractList: [options.token.contractAddress],
+      expectedAccountAddress: options.snapshot.address,
+      withFrozenBalance: true,
+    });
+    const buildAmount = expect.objectContaining({
+      fromTokenAmount: options.token.amount,
+    });
+    expect(mockBuild).toHaveBeenCalledTimes(2);
+    expect(mockBuild).toHaveBeenNthCalledWith(1, buildAmount);
+    expect(mockBuild).toHaveBeenNthCalledWith(2, buildAmount);
+    expect(mockAllowance).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: options.token.amount }),
+    );
+    expect(
+      mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo,
+    ).toMatchObject({
+      amount: options.token.amount,
+      tokenInfo: { balanceMultiplier: '2' },
+    });
+    expect(
+      mockSend.mock.calls[1][0].buildUnsignedParams.swapInfo,
+    ).toMatchObject({
+      quoteSource: 'Sweep',
+      sender: {
+        amount: options.token.amount,
+        token: { balanceMultiplier: '2' },
+      },
+    });
+    expect(mockHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swapInfo: expect.objectContaining({
+          quoteSource: 'Sweep',
+          sender: expect.objectContaining({ amount: options.token.amount }),
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ['1.234567890000000000', '2', 'insufficientBalance'],
+    ['1.234567890000000001', '3', 'unknown'],
+    ['1.234567890000000001', '0', 'unknown'],
+    ['', '2', 'unknown'],
+  ])(
+    'stops a scaled swap before build when the refreshed Wallet data is unusable (%s, %s)',
+    async (balance, multiplier, reason) => {
+      const options = createScaledOptions(balance, multiplier);
+
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason,
+      });
+      expect(mockBalance).not.toHaveBeenCalled();
+      expect(mockBuild).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a scaled transfer-only build with a different deposit amount', async () => {
+    const options = createScaledOptions();
+    mockPayload.mockResolvedValue({
+      skipSendTransAction: false,
+      transferInfo: {
+        from: options.snapshot.address,
+        to: '0xdeposit',
+        amount: '1.2',
+        tokenInfo: {
+          networkId: options.token.networkId,
+          address: options.token.contractAddress,
+          decimals: options.token.decimals,
+          isNative: false,
+        },
+      },
+    });
+
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('builds a routed provider quote using the same provider', async () => {

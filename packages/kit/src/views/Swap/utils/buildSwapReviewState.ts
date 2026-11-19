@@ -16,6 +16,7 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayRate } from './swapAmountUtils';
 import { buildSwapRateDifference } from './swapRateDifferenceUtils';
 
 export type ISwapReviewStepTexts = {
@@ -314,7 +315,11 @@ export function buildSwapReviewState({
       toTokenCurrency: pricedToToken?.currency,
       defaultTokenCurrency,
       currencyMap,
-      instantRate: quoteResult?.instantRate,
+      instantRate: getSwapDisplayRate(
+        quoteResult?.instantRate ?? '',
+        pricedFromToken?.balanceMultiplier,
+        pricedToToken?.balanceMultiplier,
+      ),
       strictCurrencyConversion:
         strictCurrencyConversion || swapType === ESwapTabSwitchType.STOCK,
     });

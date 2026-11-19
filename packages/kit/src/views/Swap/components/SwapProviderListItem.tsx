@@ -24,6 +24,10 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '../utils/swapAmountUtils';
 import { getSwapQuoteLimitMessage } from '../utils/swapErrorUtils';
 
 import { SwapProviderIcon } from './SwapProviderIcon';
@@ -127,8 +131,12 @@ const SwapProviderListItem = ({
     const limitMessage = getSwapQuoteLimitMessage({
       intl,
       limit: providerResult.limit,
-      fromTokenAmount,
+      fromTokenAmount:
+        fromToken && fromTokenAmount
+          ? getSwapRawInputAmount(fromTokenAmount, fromToken, 'down')
+          : fromTokenAmount,
       fromTokenSymbol: fromToken?.symbol,
+      fromTokenBalanceMultiplier: fromToken?.balanceMultiplier,
     });
     if (limitMessage) return limitMessage;
     if (disabled) {
@@ -140,21 +148,27 @@ const SwapProviderListItem = ({
       );
     }
     if (providerResult.toAmount) {
-      const toAmountBN = new BigNumber(providerResult.toAmount);
-      return `${numberFormat(providerResult.toAmount, {
+      const displayToAmount =
+        getSwapDisplayAmount(
+          providerResult.toAmount,
+          toToken?.balanceMultiplier,
+        ) ?? '';
+      const toAmountBN = new BigNumber(displayToAmount);
+      return `${numberFormat(displayToAmount, {
         formatter: toAmountBN.gte(1_000_000) ? 'marketCap' : 'balance',
       })} ${toToken?.symbol ?? 'unknown'}`;
     }
     return '';
   }, [
     disabled,
-    fromToken?.symbol,
+    fromToken,
     fromTokenAmount,
     intl,
     providerResult?.errorMessage,
     providerResult.limit,
     providerResult.toAmount,
     toToken?.symbol,
+    toToken?.balanceMultiplier,
   ]);
 
   const providerKey = `${providerResult.info.provider}-${providerResult.info.providerName}`;

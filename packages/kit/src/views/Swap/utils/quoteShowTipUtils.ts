@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EQuoteShowTipType } from '@onekeyhq/shared/types/swap/types';
 import type { IQuoteTip, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -14,12 +15,23 @@ function toValidBigNumber(value?: string | number) {
 function getTokenFiatValue({
   token,
   amount,
+  fiatValue,
 }: {
   token?: ISwapToken;
   amount?: string;
+  fiatValue?: string;
 }) {
+  if (fiatValue !== undefined) {
+    const value = new BigNumber(fiatValue);
+    return value.isFinite() && value.gt(0) ? value : undefined;
+  }
   const priceBN = toValidBigNumber(token?.price);
-  const amountBN = toValidBigNumber(amount);
+  const amountBN = toValidBigNumber(
+    tokenRebaseUtils.applyBalanceMultiplier({
+      amount,
+      balanceMultiplier: token?.balanceMultiplier,
+    }),
+  );
 
   if (!priceBN || !priceBN.gt(0) || !amountBN || !amountBN.gt(0)) {
     return undefined;
@@ -33,15 +45,18 @@ function getActualPriceImpact({
   toToken,
   fromAmount,
   toAmount,
+  fromFiatValue,
 }: {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromAmount?: string;
   toAmount?: string;
+  fromFiatValue?: string;
 }) {
   const fromFiatValueBN = getTokenFiatValue({
     token: fromToken,
     amount: fromAmount,
+    fiatValue: fromFiatValue,
   });
   const toFiatValueBN = getTokenFiatValue({
     token: toToken,
@@ -66,12 +81,14 @@ export function resolveQuoteShowTip({
   toToken,
   fromAmount,
   toAmount,
+  fromFiatValue,
 }: {
   quoteShowTip?: IQuoteTip;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromAmount?: string;
   toAmount?: string;
+  fromFiatValue?: string;
 }) {
   if (!quoteShowTip?.type) {
     return quoteShowTip;
@@ -81,6 +98,7 @@ export function resolveQuoteShowTip({
     const fromFiatValueBN = getTokenFiatValue({
       token: fromToken,
       amount: fromAmount,
+      fiatValue: fromFiatValue,
     });
     const toFiatValueBN = getTokenFiatValue({
       token: toToken,
@@ -107,6 +125,7 @@ export function resolveQuoteShowTip({
     toToken,
     fromAmount,
     toAmount,
+    fromFiatValue,
   });
 
   if (!actualPriceImpactBN) {

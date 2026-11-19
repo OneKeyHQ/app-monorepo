@@ -15,6 +15,7 @@ import {
   type ISwapQuoteEventPayload,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { isSwapQuoteMultiplierCompatible } from './swapAmountUtils';
 import { isSwapQuoteAvailable } from './swapErrorUtils';
 
 const REVIEW_QUOTE_TIMEOUT_MS = 25_000;
@@ -120,9 +121,17 @@ function matchesReviewQuote(
     typeof candidate.fromTokenInfo.networkId !== 'string' ||
     typeof candidate.fromTokenInfo.contractAddress !== 'string' ||
     candidate.fromTokenInfo.decimals !== params.fromToken.decimals ||
+    !isSwapQuoteMultiplierCompatible(
+      candidate.fromTokenInfo.balanceMultiplier,
+      params.fromToken.balanceMultiplier,
+    ) ||
     typeof candidate.toTokenInfo.networkId !== 'string' ||
     typeof candidate.toTokenInfo.contractAddress !== 'string' ||
     candidate.toTokenInfo.decimals !== params.toToken.decimals ||
+    !isSwapQuoteMultiplierCompatible(
+      candidate.toTokenInfo.balanceMultiplier,
+      params.toToken.balanceMultiplier,
+    ) ||
     typeof candidate.fromAmount !== 'string' ||
     typeof candidate.toAmount !== 'string' ||
     (candidate.autoSuggestedSlippage !== undefined &&
@@ -325,7 +334,17 @@ export function fetchSwapReviewQuote({
               isSwapQuoteAvailable(candidate, candidate.fromAmount),
           );
           if (matchesReviewQuote(match, { expectedQuote, params })) {
-            matchingQuote = match;
+            matchingQuote = {
+              ...match,
+              fromTokenInfo: {
+                ...match.fromTokenInfo,
+                balanceMultiplier: params.fromToken.balanceMultiplier,
+              },
+              toTokenInfo: {
+                ...match.toTokenInfo,
+                balanceMultiplier: params.toToken.balanceMultiplier,
+              },
+            };
             streamEventId ??= match.eventId;
           }
         }

@@ -26,6 +26,11 @@ import SwapActionsState from '@onekeyhq/kit/src/views/Swap/pages/components/Swap
 import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer';
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
 import SwapQuoteRiskAlert from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteRiskAlert';
+import {
+  type ISwapMaxAmountSnapshot,
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { isQuoteResultForStockTrade } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -90,11 +95,16 @@ export type ISwapPanelContentProps = {
     warningMessage?: string;
     actionToken?: ISwapToken;
     actionOtherToken?: ISwapToken;
+    tokenMetadataReady?: boolean;
     onlySupportCrossChain?: boolean;
   };
   defaultTokens: IToken[];
   balance?: BigNumber;
   balanceToken?: IToken;
+  createMaxAmountSnapshot: (
+    rawAmount: string,
+  ) => ISwapMaxAmountSnapshot | undefined;
+  isMaxAmountStale: boolean;
   paymentTokenPrice?: BigNumber;
   paymentTokenDisplay?: IToken;
   paymentTokenDisplayLoading?: boolean;
@@ -151,6 +161,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     defaultTokens,
     balance,
     balanceToken,
+    createMaxAmountSnapshot,
+    isMaxAmountStale,
     paymentTokenPrice,
     paymentTokenDisplay,
     paymentTokenDisplayLoading,
@@ -181,8 +193,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   const {
     paymentAmount,
+    paymentMaxAmountSnapshot,
     paymentToken,
     sellAmount,
+    sellMaxAmountSnapshot,
     resetAmounts,
     setSellAmount,
     setPaymentAmount,
@@ -238,24 +252,34 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const currentInputAmount = useMemo(() => {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
   }, [tradeType, paymentAmount, sellAmount]);
+  const isMaxAmount = Boolean(
+    tradeType === ESwapDirection.BUY
+      ? paymentMaxAmountSnapshot
+      : sellMaxAmountSnapshot,
+  );
 
   const shouldReserveBalanceGas = shouldReserveSwapGas(balanceToken);
+  const displayBalance = useMemo(
+    () =>
+      balance
+        ? new BigNumber(
+            getSwapDisplayAmount(
+              balance.toFixed(),
+              balanceToken?.balanceMultiplier,
+            ) ?? 'NaN',
+          )
+        : undefined,
+    [balance, balanceToken?.balanceMultiplier],
+  );
   const handleBalanceClick = useCallback(() => {
-    if (!balance) {
-      return;
-    }
+    if (!balance || !balanceToken) return;
 
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
+    let rawMaxAmount = balance;
     if (shouldReserveBalanceGas && reserveGas) {
-      const maxAmount = BigNumber.max(
-        0,
-        balance.minus(new BigNumber(reserveGas)),
-      ).decimalPlaces(
-        Number(balanceToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      rawMaxAmount = BigNumber.max(0, balance.minus(new BigNumber(reserveGas)));
 
       const reserveGasFormatted = numberFormat(reserveGas.toString(), {
         formatter: 'balance',
@@ -276,33 +300,47 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       Toast.message({
         title: message,
       });
-
-      if (tradeType === ESwapDirection.BUY) {
-        setPaymentAmount(maxAmount);
-        tokenBuyInputRef.current?.setValue(maxAmount.toFixed());
-      } else {
-        setSellAmount(maxAmount);
-        tokenSellInputRef.current?.setValue(maxAmount.toFixed());
-      }
-    } else if (tradeType === ESwapDirection.BUY) {
-      setPaymentAmount(balance);
-      tokenBuyInputRef.current?.setValue(balance.toFixed());
+    }
+    const maxAmountSnapshot = createMaxAmountSnapshot(
+      rawMaxAmount
+        .decimalPlaces(balanceToken.decimals, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    );
+    if (!maxAmountSnapshot) return;
+    const displayMax = new BigNumber(maxAmountSnapshot.displayAmount);
+    if (tradeType === ESwapDirection.BUY) {
+      setPaymentAmount(displayMax, maxAmountSnapshot);
+      tokenBuyInputRef.current?.setValue(maxAmountSnapshot.displayAmount, {
+        notifyChange: false,
+      });
     } else {
-      setSellAmount(balance);
-      tokenSellInputRef.current?.setValue(balance.toFixed());
+      setSellAmount(displayMax, maxAmountSnapshot);
+      tokenSellInputRef.current?.setValue(maxAmountSnapshot.displayAmount, {
+        notifyChange: false,
+      });
     }
   }, [
     swapNativeTokenReserveGas,
     shouldReserveBalanceGas,
-    balanceToken?.networkId,
-    balanceToken?.decimals,
-    balanceToken?.symbol,
+    balanceToken,
     balance,
+    createMaxAmountSnapshot,
     setPaymentAmount,
     setSellAmount,
     tradeType,
     intl,
   ]);
+
+  useEffect(() => {
+    if (!isMaxAmountStale) return;
+    if (tradeType === ESwapDirection.BUY) {
+      setPaymentAmount(new BigNumber(0));
+      tokenBuyInputRef.current?.setValue('', { notifyChange: false });
+    } else {
+      setSellAmount(new BigNumber(0));
+      tokenSellInputRef.current?.setValue('', { notifyChange: false });
+    }
+  }, [isMaxAmountStale, setPaymentAmount, setSellAmount, tradeType]);
 
   const handlePercentageSelect = useCallback(
     (stage: number) => {
@@ -327,12 +365,29 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         );
       }
 
+      const maxAmountSnapshot =
+        stage === 100 ? createMaxAmountSnapshot(amount.toFixed()) : undefined;
+      if (stage === 100 && !maxAmountSnapshot) return;
+      amount = new BigNumber(
+        maxAmountSnapshot?.displayAmount ??
+          getSwapDisplayAmount(
+            amount.toFixed(),
+            balanceToken.balanceMultiplier,
+          ) ??
+          'NaN',
+      );
+      if (!amount.isFinite()) return;
+
       if (tradeType === ESwapDirection.BUY) {
-        setPaymentAmount(amount);
-        tokenBuyInputRef.current?.setValue(amount.toFixed());
+        setPaymentAmount(amount, maxAmountSnapshot);
+        tokenBuyInputRef.current?.setValue(amount.toFixed(), {
+          notifyChange: false,
+        });
       } else {
-        setSellAmount(amount);
-        tokenSellInputRef.current?.setValue(amount.toFixed());
+        setSellAmount(amount, maxAmountSnapshot);
+        tokenSellInputRef.current?.setValue(amount.toFixed(), {
+          notifyChange: false,
+        });
       }
 
       setAmountEnterType(amountEnterSource);
@@ -340,6 +395,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     [
       balance,
       balanceToken,
+      createMaxAmountSnapshot,
       setAmountEnterType,
       setPaymentAmount,
       setSellAmount,
@@ -354,13 +410,19 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType === ESwapDirection.BUY &&
         !validateAmountInput(
           paymentAmountRef.current?.toFixed(),
-          balanceToken?.decimals,
+          getSwapDisplayDecimals(
+            balanceToken?.decimals,
+            balanceToken?.balanceMultiplier,
+          ),
         )) ||
       (new BigNumber(sellAmountRef.current?.toFixed()).gt(0) &&
         tradeType === ESwapDirection.SELL &&
         !validateAmountInput(
           sellAmountRef.current?.toFixed(),
-          balanceToken?.decimals,
+          getSwapDisplayDecimals(
+            balanceToken?.decimals,
+            balanceToken?.balanceMultiplier,
+          ),
         ))
     ) {
       const changeAmount = new BigNumber(
@@ -368,7 +430,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           ? paymentAmountRef.current?.toFixed()
           : sellAmountRef.current?.toFixed(),
       ).decimalPlaces(
-        Number(balanceToken?.decimals ?? 0),
+        Number(
+          getSwapDisplayDecimals(
+            balanceToken?.decimals,
+            balanceToken?.balanceMultiplier,
+          ) ?? 0,
+        ),
         BigNumber.ROUND_DOWN,
       );
       if (tradeType === ESwapDirection.BUY) {
@@ -379,7 +446,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tokenSellInputRef.current?.setValue(changeAmount.toFixed());
       }
     }
-  }, [tradeType, balanceToken?.decimals, setPaymentAmount, setSellAmount]);
+  }, [
+    tradeType,
+    balanceToken?.decimals,
+    balanceToken?.balanceMultiplier,
+    setPaymentAmount,
+    setSellAmount,
+  ]);
 
   useEffect(() => {
     if (!hasInitializedMarketTokenRef.current) {
@@ -421,7 +494,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     tradeType,
   ]);
 
-  const estimatedReceiveAmount = quoteResult?.toAmount;
+  const estimatedReceiveAmount = quoteResult?.toAmount
+    ? getSwapDisplayAmount(
+        quoteResult.toAmount,
+        tradeType === ESwapDirection.BUY
+          ? currentMarketToken?.balanceMultiplier
+          : paymentToken?.balanceMultiplier,
+      )
+    : undefined;
   const estimatedReceiveTokenSymbol =
     quoteResult?.toTokenInfo?.symbol ??
     (tradeType === ESwapDirection.BUY
@@ -605,7 +685,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
+          balance={displayBalance}
           balanceLoading={balanceLoading}
           fiatValue={stockInputFiatValue}
           onMaxPress={handleBalanceClick}
@@ -623,7 +703,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectedToken={balanceToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
+          balance={displayBalance}
           balanceLoading={balanceLoading}
           fiatValue={stockInputFiatValue}
           onMaxPress={handleBalanceClick}
@@ -668,13 +748,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             loading={isLoading}
             actionToken={supportSpeedSwap.actionToken}
             actionOtherToken={supportSpeedSwap.actionOtherToken}
+            tokenMetadataReady={supportSpeedSwap.tokenMetadataReady}
             tradeType={tradeType}
             onPress={actionButtonOnPress}
             amount={currentInputAmount.toFixed()}
+            isMaxAmount={isMaxAmount}
             token={balanceToken}
             paymentToken={paymentToken}
             paymentTokenPrice={paymentTokenPrice}
-            balance={balance}
+            balance={displayBalance}
             isWrapped={isWrapped}
             networkId={networkId}
             disabled={
@@ -724,7 +806,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <SwapPanelTop
           enableAddressTypeSelector={enableAddressTypeSelector}
           activeAccount={activeAccount}
-          balance={balance}
+          balance={displayBalance}
           balanceToken={balanceToken}
           balanceLoading={balanceLoading}
           handleBalanceClick={handleBalanceClick}
@@ -739,7 +821,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
+          balance={displayBalance}
           onAmountEnterTypeChange={setAmountEnterType}
           disableNativeToken={disableNativeToken}
         />
@@ -752,7 +834,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectedToken={balanceToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
+          balance={displayBalance}
+          onMaxPress={handleBalanceClick}
           onAmountEnterTypeChange={setAmountEnterType}
         />
 
@@ -829,13 +912,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         loading={isLoading}
         actionToken={supportSpeedSwap?.actionToken}
         actionOtherToken={supportSpeedSwap?.actionOtherToken}
+        tokenMetadataReady={supportSpeedSwap?.tokenMetadataReady}
         tradeType={tradeType}
         onPress={actionButtonOnPress}
         amount={currentInputAmount.toFixed()}
+        isMaxAmount={isMaxAmount}
         token={balanceToken}
         paymentToken={paymentToken}
         paymentTokenPrice={paymentTokenPrice}
-        balance={balance}
+        balance={displayBalance}
         isWrapped={isWrapped}
         networkId={networkId}
         disabled={

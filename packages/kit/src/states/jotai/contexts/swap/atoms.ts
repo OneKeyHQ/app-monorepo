@@ -1,7 +1,13 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import {
+  type ISwapMaxAmountSnapshot,
+  getSwapDisplayDecimals,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
@@ -20,6 +26,7 @@ import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/mark
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -375,6 +382,7 @@ export const {
 export type ISwapTokenAmountState = {
   value: string;
   isInput: boolean;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
 };
 
 export type ISwapInputAmountDraft = {
@@ -450,15 +458,63 @@ export const {
   toToken?: ISwapToken;
   fromTokenAmount?: string;
   toTokenAmount?: string;
+  rawFromTokenAmount?: string;
+  rawToTokenAmount?: string;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   accountId?: string;
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  hasMultiplierMismatch?: boolean;
   slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
   incognito?: boolean;
 }>({ actionLock: false });
+
+export type ISwapQuoteActionArgs = [
+  slippageItem: { key: ESwapSlippageSegmentKey; value: number },
+  address?: string,
+  accountId?: string,
+  blockNumber?: number,
+  isAutomaticRefresh?: boolean,
+  kind?: ESwapQuoteKind,
+  reQuote?: boolean,
+  receivingAddress?: string,
+  incognito?: boolean,
+  quoteOverride?: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    toTokenAmount?: string;
+    maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+    type: ESwapTabSwitchType;
+    source?: ESwapQuoteSource;
+    manualRefresh?: boolean;
+    rawAmounts?: {
+      fromTokenAmount: string;
+      toTokenAmount?: string;
+    };
+  },
+];
+
+export const { atom: swapDeferredQuoteAtom, use: useSwapDeferredQuoteAtom } =
+  contextAtom<
+    | {
+        args: ISwapQuoteActionArgs;
+        type: ESwapTabSwitchType;
+        fromToken: ISwapToken;
+        toToken: ISwapToken;
+        kind: ESwapQuoteKind;
+        amount: string;
+        address?: string;
+        accountId?: string;
+        receivingAddress?: string;
+        maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+        usesQuoteSnapshot: boolean;
+      }
+    | undefined
+  >(undefined);
 
 export const {
   atom: swapQuoteIntervalCountAtom,
@@ -523,7 +579,10 @@ export const {
   const sortType = get(swapProviderSortAtom());
   return sortSwapQuotes(list, {
     sort: sortType,
-    fromTokenAmount: quoteActionLock.fromTokenAmount ?? fromTokenAmount.value,
+    fromTokenAmount:
+      quoteActionLock.rawFromTokenAmount ??
+      quoteActionLock.fromTokenAmount ??
+      fromTokenAmount.value,
   });
 });
 
@@ -537,9 +596,13 @@ export const {
   const swapTypeSwitch = get(swapTypeSwitchAtom());
   const quoteActionLock = get(swapQuoteActionLockAtom());
   const activeFromTokenAmount =
-    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+    quoteActionLock.rawFromTokenAmount ??
+    quoteActionLock.fromTokenAmount ??
+    fromTokenAmount.value;
   const activeToTokenAmount =
-    quoteActionLock.toTokenAmount ?? toTokenAmount.value;
+    quoteActionLock.rawToTokenAmount ??
+    quoteActionLock.toTokenAmount ??
+    toTokenAmount.value;
   const activeSwapType = quoteActionLock.type ?? swapTypeSwitch;
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
@@ -590,6 +653,48 @@ export const {
   to: false,
 });
 
+export const { atom: swapTokenMultiplierLookupFailureAtom } = contextAtom<
+  Partial<Record<ESwapDirectionType, ISwapToken>>
+>({});
+
+export const {
+  atom: swapSelectedTokenMultiplierStatusAtom,
+  use: useSwapSelectedTokenMultiplierStatusAtom,
+} = contextAtomComputed<'ready' | 'checking' | 'failed'>((get) => {
+  const swapType = get(swapTypeSwitchAtom());
+  if (
+    swapType !== ESwapTabSwitchType.SWAP &&
+    swapType !== ESwapTabSwitchType.BRIDGE
+  ) {
+    return 'ready';
+  }
+  const requested = get(swapSelectedTokenBalanceRefreshRequestedAtom());
+  const fetching = get(swapSelectTokenDetailFetchingAtom());
+  const failed = get(swapTokenMultiplierLookupFailureAtom());
+  const sides = [
+    ['from', get(swapSelectFromTokenAtom())],
+    ['to', get(swapSelectToTokenAtom())],
+  ] as const;
+  let hasFailure = false;
+  for (const [direction, token] of sides) {
+    if (
+      token &&
+      !token.isNative &&
+      tokenRebaseUtils.supportsBalanceMultiplierLookup(token)
+    ) {
+      if (requested[direction] || fetching[direction]) return 'checking';
+      if (
+        equalTokenNoCaseSensitive({ token1: token, token2: failed[direction] })
+      ) {
+        hasFailure = true;
+      } else if (tokenRebaseUtils.needsBalanceMultiplierLookup(token)) {
+        return 'checking';
+      }
+    }
+  }
+  return hasFailure ? 'failed' : 'ready';
+});
+
 // Bookkeeping for the stored From/To balance: which token + account it was
 // fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
 // the stored figure is only a fallback (the fetch failed, or the response
@@ -624,6 +729,10 @@ export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
 >({ from: 0, to: 0 });
 
 export const { atom: swapSelectTokenPriceRevisionAtom } = contextAtom<
+  Record<ESwapDirectionType, number>
+>({ from: 0, to: 0 });
+
+export const { atom: swapSelectTokenMultiplierRevisionAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
 
@@ -699,7 +808,12 @@ export const {
       const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
       const fromAmount = fromAmountBN
         .decimalPlaces(
-          Number(fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              fromToken?.decimals,
+              fromToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -727,7 +841,12 @@ export const {
       const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
       const toAmount = toAmountBN
         .decimalPlaces(
-          Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              toToken?.decimals,
+              toToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -871,8 +990,20 @@ export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
 export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
   contextAtom<ESwapProTradeType>(ESwapProTradeType.MARKET);
 
-export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
-  contextAtom<string>('');
+export const {
+  atom: swapProInputAmountStateAtom,
+  use: useSwapProInputAmountStateAtom,
+} = contextAtom<ISwapTokenAmountState>({ value: '', isInput: false });
+
+export function useSwapProInputAmountAtom() {
+  const [input, setInput] = useSwapProInputAmountStateAtom();
+  const setAmount = useCallback(
+    (value: string, maxAmountSnapshot?: ISwapMaxAmountSnapshot) =>
+      setInput({ value, isInput: true, maxAmountSnapshot }),
+    [setInput],
+  );
+  return [input.value, setAmount, input.maxAmountSnapshot] as const;
+}
 
 export const {
   atom: swapProUseSelectBuyTokenAtom,

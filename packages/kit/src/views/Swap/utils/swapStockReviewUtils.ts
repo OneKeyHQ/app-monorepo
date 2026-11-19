@@ -104,6 +104,7 @@ export function resolveSwapStockReviewToken({
   };
 }
 
+// Apply the asset ratio to the stock quantity from the provider quote.
 export function calculateSwapStockEstimatedShares({
   stockTokenAmount,
   tokenToAssetRatio,

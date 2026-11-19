@@ -98,6 +98,7 @@ import type {
   IStakeTx,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -1326,6 +1327,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       });
     }
 
+    if (swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND) {
+      const displayTokens = [swapSendToken, swapReceiveToken];
+      transfers.forEach((transfer, index) => {
+        const balanceMultiplier = displayTokens[index]?.balanceMultiplier;
+        if (tokenRebaseUtils.isScalingBalanceMultiplier(balanceMultiplier)) {
+          transfer.amount = tokenRebaseUtils.applyBalanceMultiplier({
+            amount: transfer.amount,
+            balanceMultiplier,
+          });
+          transfer.balanceMultiplier = balanceMultiplier;
+        }
+      });
+    }
     transfers = [...otherFeeInfoTransfers, ...transfers];
 
     const action = await this.buildTxTransferAssetAction({

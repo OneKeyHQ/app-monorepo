@@ -1242,20 +1242,32 @@ class ServiceToken extends ServiceBase {
   public async fetchTokenInfoOnly(params: {
     networkId: string;
     tokenAddress: string;
+    forceRefresh?: boolean;
   }) {
+    if (params.forceRefresh) {
+      return this.fetchTokenInfoOnlyUncached(params);
+    }
     return this.fetchTokenInfoOnlyMemo(params);
   }
 
+  private async fetchTokenInfoOnlyUncached({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const resp = await vault.fetchTokenDetails({
+      networkId,
+      contractList: [tokenAddress],
+    });
+    return resp.data.data[0];
+  }
+
   fetchTokenInfoOnlyMemo = memoizee(
-    async (params: { networkId: string; tokenAddress: string }) => {
-      const { networkId, tokenAddress } = params;
-      const vault = await vaultFactory.getChainOnlyVault({ networkId });
-      const resp = await vault.fetchTokenDetails({
-        networkId,
-        contractList: [tokenAddress],
-      });
-      return resp.data.data[0];
-    },
+    (params: { networkId: string; tokenAddress: string }) =>
+      this.fetchTokenInfoOnlyUncached(params),
     {
       promise: true,
       primitive: true,

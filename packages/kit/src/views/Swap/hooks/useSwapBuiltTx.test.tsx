@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import { OrderKind, normalizeOrder } from '@cowprotocol/contracts';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -1055,6 +1056,92 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
+
+  it.each([
+    [ESwapQuoteKind.SELL, 'buyAmount', '357'],
+    [ESwapQuoteKind.BUY, 'sellAmount', '1235'],
+  ] as const)(
+    'signs the frozen raw Limit amount for %s',
+    async (kind, amountField, expectedUnits) => {
+      const payToken = {
+        ...fromToken,
+        contractAddress: '0x0000000000000000000000000000000000000002',
+        isNative: false,
+        decimals: 3,
+        balanceMultiplier: '2',
+      };
+      const receiveToken = {
+        ...toToken,
+        networkId: payToken.networkId,
+        decimals: 2,
+        balanceMultiplier: '4',
+      };
+      const order = {
+        sellToken: payToken.contractAddress,
+        buyToken: receiveToken.contractAddress,
+        sellAmount: '1499',
+        buyAmount: '381',
+        validTo: 0,
+        appData: `0x${'0'.repeat(64)}`,
+        feeAmount: '0',
+        kind: kind === ESwapQuoteKind.SELL ? OrderKind.SELL : OrderKind.BUY,
+        partiallyFillable: false,
+      };
+      const signedQuote: IFetchQuoteResult = {
+        ...quote,
+        protocol: EProtocolOfExchange.LIMIT,
+        kind,
+        fromAmount: '1.499',
+        toAmount: '3.81',
+        fromTokenInfo: payToken,
+        toTokenInfo: receiveToken,
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'test',
+            scope: 'test',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+          unSignedData: {
+            domain: { name: 'Limit', chainId: 1 },
+            types: {
+              Order: [
+                { name: 'sellAmount', type: 'uint256' },
+                { name: 'buyAmount', type: 'uint256' },
+              ],
+            },
+            normalizeData: normalizeOrder(order),
+          },
+        },
+        quoteResultCtx: { cowSwapUnSignedOrder: order },
+      };
+      const { result } = renderExecutionReview({
+        reviewQuote: signedQuote,
+        preSwapData: {
+          fromToken: payToken,
+          toToken: receiveToken,
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        },
+        steps: [
+          { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+        ],
+      });
+      mockFetchSwapTokenDetails.mockResolvedValue([
+        { ...payToken, balanceParsed: '100' },
+      ]);
+      await act(async () => result.current.preSwapStepsStart());
+      expect(mockSignMessage).toHaveBeenCalledTimes(1);
+      expect(mockSignMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          unsignedMessage: expect.objectContaining({
+            message: expect.stringContaining(
+              `"${amountField}":"${expectedUnits}"`,
+            ),
+          }),
+        }),
+      );
+    },
+  );
 
   it('does not start a delayed confirm after close', async () => {
     const { result, store } = renderExecutionReview();

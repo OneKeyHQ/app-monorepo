@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { QuickAmountSelector } from './components/TokenInputSection/QuickAmountSelector';
 import { ESwapDirection } from './hooks/useTradeType';
 import {
   type ISwapPanelContentProps,
@@ -26,6 +27,19 @@ const swapQuoteResultMock = jest.fn();
 const swapStockHeaderRightActionContainerMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
+  Button: ({
+    onPress,
+    children,
+    disabled,
+  }: {
+    onPress?: () => void;
+    children?: ReactNode;
+    disabled?: boolean;
+  }) => (
+    <button onClick={onPress} disabled={disabled} type="button">
+      {children}
+    </button>
+  ),
   Icon: () => <span data-testid="icon" />,
   NumberSizeableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
@@ -34,6 +48,7 @@ jest.mock('@onekeyhq/components', () => ({
     <div>{children}</div>
   ),
   Skeleton: () => <span data-testid="skeleton" />,
+  Stack: () => null,
   XStack: ({
     children,
     height,
@@ -162,11 +177,13 @@ jest.mock('./components/TokenInputSection', () => ({
           stockDetailDesktopLayout,
           selectedToken,
           selectedTokenLoading,
+          onMaxPress,
         }: {
           tradeType: ESwapDirection;
           stockDetailDesktopLayout?: boolean;
           selectedToken?: ISwapPanelContentProps['paymentTokenDisplay'];
           selectedTokenLoading?: boolean;
+          onMaxPress?: () => void;
         },
         ref,
       ) => {
@@ -180,6 +197,7 @@ jest.mock('./components/TokenInputSection', () => ({
           stockDetailDesktopLayout,
           selectedToken,
           selectedTokenLoading,
+          onMaxPress,
           setValue,
         });
         return <div data-testid="token-input" />;
@@ -234,6 +252,7 @@ function createProps(): ISwapPanelContentProps {
     enableAddressTypeSelector: false,
     swapPanel: {
       paymentAmount: new BigNumber(1),
+      paymentMaxAmountSnapshot: undefined,
       paymentToken: {
         networkId: 'evm--1',
         contractAddress: '0xpay',
@@ -242,6 +261,7 @@ function createProps(): ISwapPanelContentProps {
         speedSwapDefaultAmount: [],
       },
       sellAmount: new BigNumber(1),
+      sellMaxAmountSnapshot: undefined,
       setSellAmount: jest.fn(),
       setPaymentAmount: jest.fn(),
       resetAmounts: jest.fn(),
@@ -254,6 +274,8 @@ function createProps(): ISwapPanelContentProps {
       networkId: 'evm--1',
     },
     isLoading: false,
+    isMaxAmountStale: false,
+    createMaxAmountSnapshot: jest.fn(),
     balanceLoading: false,
     slippageAutoValue: 1,
     supportSpeedSwap: {
@@ -338,6 +360,46 @@ describe('SwapPanelContent', () => {
     swapActionsStateMock.mockReset();
     swapQuoteResultMock.mockReset();
     swapStockHeaderRightActionContainerMock.mockReset();
+  });
+
+  it('routes the full sell preset to the raw Max handler', () => {
+    const onMaxPress = jest.fn();
+    const onSelect = jest.fn();
+    const onPresetSelect = jest.fn();
+    render(
+      <QuickAmountSelector
+        onMaxPress={onMaxPress}
+        onSelect={onSelect}
+        onPresetSelect={onPresetSelect}
+        tradeType={ESwapDirection.SELL}
+        buyAmounts={[]}
+        balance={new BigNumber(20)}
+        selectedTokenDecimals={6}
+        swapNativeTokenReserveGas={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('100%'));
+    expect(onMaxPress).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onPresetSelect).toHaveBeenCalledWith('preset4');
+
+    fireEvent.click(screen.getByText('50%'));
+    expect(onSelect).toHaveBeenCalledWith('10');
+    expect(onMaxPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('wires the non-stock sell input to the raw Max calculation', () => {
+    const props = createProps();
+    props.swapPanel.tradeType = ESwapDirection.SELL;
+    render(<SwapPanelContent {...props} />);
+
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tradeType: ESwapDirection.SELL,
+        onMaxPress: expect.any(Function),
+      }),
+    );
   });
 
   it('passes pending payment selection to Buy and displays the resolved default immediately', () => {

@@ -19,6 +19,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { Currency, useCurrency } from '../../../components/Currency';
 import { Token } from '../../../components/Token';
 import { useNetworkLogoUri } from '../../../hooks/useNetworkLogoUri';
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
 
 interface ISwapProPositionItemProps {
   token: ISwapToken;
@@ -121,7 +122,12 @@ const SwapProPositionItem = ({
             formatter="balance"
             numberOfLines={1}
           >
-            {token.balanceParsed}
+            {token.balanceParsed
+              ? getSwapDisplayAmount(
+                  token.balanceParsed,
+                  token.balanceMultiplier,
+                )
+              : token.balanceParsed}
           </NumberSizeableText>
         </YStack>
       </XStack>

@@ -66,6 +66,7 @@ import {
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapDisplayRate } from '../../utils/swapAmountUtils';
 import { getSwapQuoteTokenTaxPercentages } from '../../utils/swapTokenTaxUtils';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -402,7 +403,15 @@ const SwapQuoteResult = ({
         renderTrigger={(open) => (
           <SwapQuoteResultRate
             fixedReverse={fixedReverseRate}
-            rate={quoteResultForDisplay?.instantRate}
+            rate={
+              quoteResultForDisplay?.instantRate
+                ? getSwapDisplayRate(
+                    quoteResultForDisplay.instantRate,
+                    fromToken.balanceMultiplier,
+                    toToken.balanceMultiplier,
+                  )
+                : undefined
+            }
             quoting={quoting}
             fromToken={fromToken}
             toToken={toToken}
@@ -423,8 +432,8 @@ const SwapQuoteResult = ({
         <Divider mt="$4" />
         {quoteResultForDisplay?.allowanceResult ? (
           <SwapApproveAllowanceSelectContainer
-            allowanceResult={quoteResultForDisplay?.allowanceResult}
-            fromTokenSymbol={fromToken?.symbol ?? ''}
+            allowanceResult={quoteResultForDisplay.allowanceResult}
+            fromToken={quoteResultForDisplay.fromTokenInfo}
             isLoading={isQuotePresentationLoading}
           />
         ) : null}

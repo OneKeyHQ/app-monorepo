@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -41,6 +42,7 @@ import type {
 import { useDebounce } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
+  type ISwapTokenAmountState,
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
@@ -54,13 +56,23 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  buildSwapManualProviderSelectionIntent,
+  isSameSwapQuoteAmountValue,
+} from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+  getSwapRawInputAmount,
+  isSwapMaxAmountCurrent,
+} from '../utils/swapAmountUtils';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import {
   getStockTradeAnalyticsPayload,
@@ -152,6 +164,7 @@ export function useSwapQuote({
   const {
     quoteAction,
     resumeQuoteAction,
+    replayDeferredQuote,
     cleanQuoteInterval,
     quoteEventHandler,
     syncNetworksSort,
@@ -172,6 +185,7 @@ export function useSwapQuote({
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -179,10 +193,11 @@ export function useSwapQuote({
       platformEnv.isNative && swapTabSwitchType === ESwapTabSwitchType.LIMIT
     );
   }, [swapTabSwitchType]);
+  const isProMarket =
+    Boolean(focusSwapPro) && swapProTradeType === ESwapProTradeType.MARKET;
   const proMarketInputRef = useRef({ enabled: false, amount: '' });
   proMarketInputRef.current = {
-    enabled:
-      Boolean(focusSwapPro) && swapProTradeType === ESwapProTradeType.MARKET,
+    enabled: isProMarket,
     amount: swapProInputAmount,
   };
   const fromToken = useMemo(() => {
@@ -225,9 +240,7 @@ export function useSwapQuote({
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
-  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
-    fromTokenAmount,
-  );
+  const fromTokenAmountRef = useRef<ISwapTokenAmountState>(fromTokenAmount);
   const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     toTokenAmount,
   );
@@ -414,9 +427,14 @@ export function useSwapQuote({
     toAmountDebounceRef.current = toAmountDebounce;
   }
   const alignmentDecimal = useCallback(() => {
+    if (
+      fromAmountDebounce.maxAmountSnapshot?.displayAmount ===
+      fromAmountDebounce.value
+    )
+      return;
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,
-      fromToken?.decimals,
+      getSwapDisplayDecimals(fromToken?.decimals, fromToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
       setFromTokenAmount((v) => ({
@@ -424,12 +442,17 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
+  }, [
+    fromToken?.decimals,
+    fromToken?.balanceMultiplier,
+    fromAmountDebounce,
+    setFromTokenAmount,
+  ]);
 
   const alignmentToDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       toAmountDebounce.value,
-      toToken?.decimals,
+      getSwapDisplayDecimals(toToken?.decimals, toToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
       setToTokenAmount((v) => ({
@@ -437,7 +460,12 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
+  }, [
+    toToken?.decimals,
+    toToken?.balanceMultiplier,
+    toAmountDebounce,
+    setToTokenAmount,
+  ]);
 
   useEffect(() => {
     if (!isQuoteVisibleRef.current) return;
@@ -575,6 +603,7 @@ export function useSwapQuote({
     ) {
       return;
     }
+    if (isProMarket) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -596,6 +625,16 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
+      swapQuoteActionLockRef.current?.maxAmountSnapshot ===
+        fromAmountDebounce.maxAmountSnapshot &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier,
+        fromToken?.balanceMultiplier,
+      ) &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.toToken?.balanceMultiplier,
+        toToken?.balanceMultiplier,
+      ) &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -642,11 +681,14 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
+    isProMarket,
     shouldPauseQuote,
   ]);
 
@@ -688,7 +730,7 @@ export function useSwapQuote({
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
-    if (!toAmountDebounce.isInput) {
+    if (isProMarket || !toAmountDebounce.isInput) {
       return;
     }
     if (
@@ -712,6 +754,14 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier,
+        fromToken?.balanceMultiplier,
+      ) &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.toToken?.balanceMultiplier,
+        toToken?.balanceMultiplier,
+      ) &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -755,10 +805,13 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     alignmentToDecimal,
     toAmountDebounce,
+    isProMarket,
     shouldPauseQuote,
   ]);
 
@@ -788,16 +841,73 @@ export function useSwapQuote({
         swapType,
         blockNumber,
       } = approvedSwapInfo;
-      if (
+      const liveFromToken = fromTokenRef.current;
+      const liveToToken = toTokenRef.current;
+      const resolvedFromToken =
+        liveFromToken &&
         equalTokenNoCaseSensitive({
           token1: fromTokenInfo,
-          token2: fromTokenRef.current,
-        }) &&
+          token2: liveFromToken,
+        })
+          ? liveFromToken
+          : fromTokenInfo;
+      const resolvedToToken =
+        liveToToken &&
         equalTokenNoCaseSensitive({
           token1: toTokenInfo,
-          token2: toTokenRef.current,
-        }) &&
-        amount === fromTokenAmountRef.current?.value
+          token2: liveToToken,
+        })
+          ? liveToToken
+          : toTokenInfo;
+      const displayFromAmount = getSwapDisplayAmount(
+        amount,
+        resolvedFromToken.balanceMultiplier,
+      );
+      const displayToAmount = toAmount
+        ? getSwapDisplayAmount(toAmount, resolvedToToken.balanceMultiplier)
+        : undefined;
+      if (
+        displayFromAmount === undefined ||
+        (toAmount && displayToAmount === undefined)
+      )
+        return;
+      const fromInput = fromTokenAmountRef.current;
+      const maxAmountSnapshot = fromInput.maxAmountSnapshot;
+      let currentRawAmount: string | undefined;
+      if (maxAmountSnapshot) {
+        if (
+          isSwapMaxAmountCurrent({
+            snapshot: maxAmountSnapshot,
+            displayAmount: fromInput.value,
+            token: liveFromToken,
+            accountId: activeAccountRef.current?.accountInfo?.account?.id,
+            accountAddress: activeAccountRef.current?.address,
+          })
+        ) {
+          currentRawAmount = maxAmountSnapshot.rawAmount;
+        }
+      } else if (liveFromToken) {
+        currentRawAmount = getSwapRawInputAmount(
+          fromInput.value,
+          liveFromToken,
+          'down',
+        );
+      }
+      const currentRawToAmount = liveToToken
+        ? getSwapRawInputAmount(
+            toTokenAmountRef.current.value,
+            liveToToken,
+            'up',
+          )
+        : undefined;
+      if (
+        resolvedFromToken === liveFromToken &&
+        resolvedToToken === liveToToken &&
+        isSameSwapQuoteAmountValue({
+          currentAmount:
+            kind === ESwapQuoteKind.BUY ? currentRawToAmount : currentRawAmount,
+          requestAmount: kind === ESwapQuoteKind.BUY ? toAmount : amount,
+        })
       ) {
         void quoteAction(
           swapSlippageRef.current,
@@ -813,13 +923,13 @@ export function useSwapQuote({
         if (swapTabSwitchTypeRef.current !== swapType) {
           await swapTypeSwitchAction(swapType);
         }
-        setSwapSelectFromToken(fromTokenInfo);
-        setSwapSelectToToken(toTokenInfo);
+        setSwapSelectFromToken(resolvedFromToken);
+        setSwapSelectToToken(resolvedToToken);
         await syncNetworksSort(fromTokenInfo.networkId);
         if (kind === ESwapQuoteKind.BUY && toAmount) {
-          setToTokenAmount({ value: toAmount, isInput: true });
+          setToTokenAmount({ value: displayToAmount ?? '', isInput: true });
         } else {
-          setFromTokenAmount({ value: amount, isInput: true });
+          setFromTokenAmount({ value: displayFromAmount, isInput: true });
         }
       }
     },
@@ -972,7 +1082,22 @@ export function useSwapQuote({
     );
   }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
 
+  const replayVisibleDeferredQuote = useCallback(() => {
+    if (shouldPauseQuote || !isQuoteVisibleRef.current) {
+      return false;
+    }
+    return replayDeferredQuote({
+      address: activeAccountRef.current?.address,
+      accountId: activeAccountRef.current?.accountInfo?.account?.id,
+      receivingAddress: swapToAddressInfoRef.current.address,
+    });
+  }, [replayDeferredQuote, shouldPauseQuote]);
+
   const refreshPreservedInputQuoteOnFocus = useCallback(() => {
+    if (replayVisibleDeferredQuote()) {
+      pendingQuoteResumeRef.current = undefined;
+      return;
+    }
     const pendingResume = pendingQuoteResumeRef.current;
     if (
       shouldPauseQuote ||
@@ -1023,6 +1148,7 @@ export function useSwapQuote({
     fromAmountDebounce,
     isProviderSelectRouteActive,
     quoteAction,
+    replayVisibleDeferredQuote,
     resumeQuoteAction,
     shouldPauseQuote,
   ]);
@@ -1187,4 +1313,10 @@ export function useSwapQuote({
   useEffect(() => {
     updateQuoteLifecycle();
   }, [updateQuoteLifecycle]);
+
+  useEffect(() => {
+    if (multiplierStatus === 'ready') {
+      replayVisibleDeferredQuote();
+    }
+  }, [multiplierStatus, replayVisibleDeferredQuote]);
 }

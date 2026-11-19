@@ -62,6 +62,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => {
       },
       serviceAccount: { getNetworkAccount },
       serviceNetwork: { getGlobalDeriveTypeOfNetwork },
+      serviceSwap: { fetchSwapTokenDetails: jest.fn().mockResolvedValue([]) },
     },
   };
 });

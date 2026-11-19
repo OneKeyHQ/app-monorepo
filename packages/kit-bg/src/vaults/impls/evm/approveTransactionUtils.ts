@@ -37,7 +37,7 @@ const TRUSTED_PERMIT2_ADDRESSES: Readonly<Record<string, readonly string[]>> = {
   [networkIdsMap.base]: TRUSTED_PERMIT2_ADDRESS_LIST,
 };
 
-function isSameEvmAddress(left?: string, right?: string) {
+export function isSameEvmAddress(left?: string, right?: string) {
   const addressPattern = /^0x[0-9a-fA-F]{40}$/;
   return Boolean(
     left &&

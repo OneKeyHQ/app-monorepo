@@ -1,6 +1,7 @@
 import { privateSendProvider } from '../../types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   type ISwapToken,
@@ -10,6 +11,8 @@ import {
 import {
   SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS,
   buildSwapOrderLongPendingWarningPayload,
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   isSwapHistoryTerminalStatus,
   shouldShowSwapHistoryLongPendingWarning,
@@ -82,6 +85,65 @@ function makeHistory(overrides: Partial<ISwapTxHistory> = {}): ISwapTxHistory {
     ...overrides,
   };
 }
+
+describe('Swap history display amounts', () => {
+  it.each([
+    {
+      quoteSource: ESwapQuoteSource.SWEEP,
+      protocol: EProtocolOfExchange.SWAP,
+      multiplier: '1.5',
+      from: '1.8518505',
+      withFee: '2.0018505',
+      to: '3',
+    },
+    {
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.SWAP,
+      multiplier: '1.5',
+      from: '1.8518505',
+      withFee: '2.0018505',
+      to: '3',
+    },
+    {
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.SWAP,
+      multiplier: undefined,
+      from: '1.234567',
+      withFee: '1.334567',
+      to: '2',
+    },
+    {
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      multiplier: '1.5',
+      from: '1.234567',
+      withFee: '1.334567',
+      to: '2',
+    },
+  ])(
+    'formats saved amounts for $protocol ($quoteSource, $multiplier)',
+    ({ quoteSource, protocol, multiplier, from, withFee, to }) => {
+      const { baseInfo } = makeHistory();
+      const item = makeHistory({
+        quoteSource,
+        protocol,
+        baseInfo: {
+          ...baseInfo,
+          fromAmount: '1.234567',
+          fromToken: { ...baseInfo.fromToken, balanceMultiplier: multiplier },
+          toAmount: '2',
+          toToken: { ...baseInfo.toToken, balanceMultiplier: multiplier },
+        },
+      });
+
+      expect(getSwapHistoryDisplayFromAmount(item)).toBe(from);
+      expect(getSwapHistoryDisplayFromAmount(item, '1.334567')).toBe(withFee);
+      expect(getSwapHistoryDisplayToAmount(item)).toBe(to);
+      expect(item.baseInfo.fromAmount).toBe('1.234567');
+      expect(item.baseInfo.toAmount).toBe('2');
+    },
+  );
+});
 
 describe('swapHistoryUtils long pending warning', () => {
   it('shows the warning at the 90 minute boundary', () => {
