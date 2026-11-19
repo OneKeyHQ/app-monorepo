@@ -130,6 +130,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
   type ISwapInputAmountDraft,
+  type ISwapQuoteActionArgs,
   type ISwapQuoteEventErrorState,
   type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
@@ -145,6 +146,7 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
+  swapDeferredQuoteAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -420,21 +422,6 @@ function buildSwapAccountTokenListParams({
     currentAccountId: accountId,
   });
 }
-
-type ISwapQuoteActionOverride = {
-  fromToken: ISwapToken;
-  toToken: ISwapToken;
-  fromTokenAmount: string;
-  toTokenAmount?: string;
-  maxAmountSnapshot?: ISwapTokenAmountState['maxAmountSnapshot'];
-  type: ESwapTabSwitchType;
-  source?: ESwapQuoteSource;
-  manualRefresh?: boolean;
-  rawAmounts?: {
-    fromTokenAmount: string;
-    toTokenAmount?: string;
-  };
-};
 
 function isQuoteEventProtocolForCurrentSwapType({
   currentSwapType,
@@ -772,22 +759,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           return;
         }
 
-        const refreshTransition = resolveSwapQuoteRefreshAction({
-          automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
-          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
-        });
-        if (
-          refreshTransition.action ===
-          ESwapQuoteRefreshAction.RequireManualRefresh
-        ) {
-          this.requireManualQuoteRefresh.call(set);
-          return;
-        }
-
-        set(
-          swapQuoteIntervalCountAtom(),
-          refreshTransition.nextAutomaticRefreshCount,
-        );
         void this.quoteAction.call(
           set,
           {
@@ -2498,17 +2469,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const preserveRefreshBudget =
         isSameInput &&
         (isSwapOrBridgeQuoteType(type) || type === ESwapTabSwitchType.STOCK);
-      if (preserveRefreshBudget) {
-        const refresh = resolveSwapQuoteRefreshAction({
-          automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
-          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
-        });
-        if (refresh.action === ESwapQuoteRefreshAction.RequireManualRefresh) {
-          this.requireManualQuoteRefresh.call(set);
-          return;
-        }
-        set(swapQuoteIntervalCountAtom(), refresh.nextAutomaticRefreshCount);
-      }
       await this.quoteAction.call(
         set,
         slippageItem,
@@ -2537,21 +2497,81 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  quoteAction = contextAtomMethod(
-    async (
+  replayDeferredQuote = contextAtomMethod(
+    (
       get,
       set,
-      slippageItem: { key: ESwapSlippageSegmentKey; value: number },
-      address?: string,
-      accountId?: string,
-      blockNumber?: number,
-      unResetCount?: boolean,
-      kind?: ESwapQuoteKind,
-      reQuote?: boolean,
-      receivingAddress?: string,
-      incognito?: boolean,
-      quoteOverride?: ISwapQuoteActionOverride,
+      {
+        address,
+        accountId,
+        receivingAddress,
+      }: {
+        address?: string;
+        accountId?: string;
+        receivingAddress?: string;
+      },
     ) => {
+      const deferred = get(swapDeferredQuoteAtom());
+      if (
+        !deferred ||
+        get(swapSelectedTokenMultiplierStatusAtom()) !== 'ready'
+      ) {
+        return false;
+      }
+      set(swapDeferredQuoteAtom(), undefined);
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      const fromInput = get(swapFromTokenAmountAtom());
+      const currentAmount =
+        deferred.kind === ESwapQuoteKind.BUY
+          ? get(swapToTokenAmountAtom()).value
+          : fromInput.value;
+      if (
+        deferred.type !== get(swapTypeSwitchAtom()) ||
+        deferred.address !== address ||
+        deferred.accountId !== accountId ||
+        deferred.receivingAddress !== receivingAddress ||
+        !equalTokenNoCaseSensitive({
+          token1: deferred.fromToken,
+          token2: fromToken,
+        }) ||
+        !equalTokenNoCaseSensitive({
+          token1: deferred.toToken,
+          token2: toToken,
+        }) ||
+        !isSameSwapQuoteAmountValue({
+          currentAmount,
+          requestAmount: deferred.amount,
+        }) ||
+        deferred.maxAmountSnapshot !== fromInput.maxAmountSnapshot ||
+        // An automatic refresh carries a snapshot of the previous request.
+        (deferred.usesQuoteSnapshot &&
+          (deferred.fromToken.decimals !== fromToken?.decimals ||
+            deferred.toToken.decimals !== toToken?.decimals ||
+            !isSwapReviewMultiplierCurrent(deferred.fromToken, fromToken) ||
+            !isSwapReviewMultiplierCurrent(deferred.toToken, toToken)))
+      ) {
+        return false;
+      }
+      void this.quoteAction.call(set, ...deferred.args);
+      return true;
+    },
+  );
+
+  quoteAction = contextAtomMethod(
+    async (get, set, ...args: ISwapQuoteActionArgs) => {
+      const [
+        slippageItem,
+        address,
+        accountId,
+        blockNumber,
+        isAutomaticRefresh,
+        kind,
+        reQuote,
+        receivingAddress,
+        incognito,
+        quoteOverride,
+      ] = args;
       let fromToken =
         quoteOverride?.fromToken ?? get(swapSelectFromTokenAtom());
       let toToken = quoteOverride?.toToken ?? get(swapSelectToTokenAtom());
@@ -2578,14 +2598,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // The native Pro Market panel owns its quote lifecycle.
         return;
       }
-      if (
-        isSwapOrBridgeQuoteType(swapTabSwitchType) &&
-        quoteOverride?.source !== ESwapQuoteSource.MARKET &&
-        get(swapSelectedTokenMultiplierStatusAtom()) !== 'ready'
-      ) {
-        return;
-      }
-      set(swapQuoteEventErrorAtom(), undefined);
       if (
         !quoteOverride &&
         swapProTradeType === ESwapProTradeType.LIMIT &&
@@ -2632,11 +2644,59 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             !Number.isNaN(toTokenAmountNumber) &&
             toTokenAmountNumber > 0));
 
-      this.cleanQuoteInterval.call(set);
-      this.closeQuoteEvent(get(swapQuoteActionLockAtom()).quoteRequestId);
-      if (!unResetCount) {
+      if (
+        isSwapOrBridgeQuoteType(swapTabSwitchType) &&
+        quoteOverride?.source !== ESwapQuoteSource.MARKET
+      ) {
+        if (get(swapSelectedTokenMultiplierStatusAtom()) !== 'ready') {
+          // A timer for the previous quote cannot replace a newer input or
+          // an explicit Refresh tap while Wallet is verifying the pair.
+          if (!isAutomaticRefresh || !get(swapDeferredQuoteAtom())) {
+            set(
+              swapDeferredQuoteAtom(),
+              hasValidQuoteInput && fromToken && toToken && quoteKind
+                ? {
+                    args,
+                    type: swapTabSwitchType,
+                    fromToken,
+                    toToken,
+                    kind: quoteKind,
+                    address,
+                    accountId,
+                    receivingAddress,
+                    amount:
+                      quoteKind === ESwapQuoteKind.BUY
+                        ? toTokenAmount.value
+                        : fromTokenAmount.value,
+                    maxAmountSnapshot: fromTokenAmount.maxAmountSnapshot,
+                    usesQuoteSnapshot: Boolean(quoteOverride),
+                  }
+                : undefined,
+            );
+          }
+          return;
+        }
+        set(swapDeferredQuoteAtom(), undefined);
+      }
+      if (isAutomaticRefresh) {
+        if (get(swapShouldRefreshQuoteAtom())) {
+          return;
+        }
+        const refresh = resolveSwapQuoteRefreshAction({
+          automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
+          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+        });
+        if (refresh.action === ESwapQuoteRefreshAction.RequireManualRefresh) {
+          this.requireManualQuoteRefresh.call(set);
+          return;
+        }
+        set(swapQuoteIntervalCountAtom(), refresh.nextAutomaticRefreshCount);
+      } else {
         set(swapQuoteIntervalCountAtom(), 0);
       }
+      set(swapQuoteEventErrorAtom(), undefined);
+      this.cleanQuoteInterval.call(set);
+      this.closeQuoteEvent(get(swapQuoteActionLockAtom()).quoteRequestId);
       set(swapQuoteCurrentEventProviderKeysAtom(), []);
       set(swapQuoteCurrentEventReceivedCountAtom(), 0);
       set(swapQuoteEventCompletedAtom(), false);
@@ -4084,7 +4144,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 balanceMultiplier !== undefined &&
                 get(swapSelectTokenMultiplierRevisionAtom())[type] ===
                   multiplierRevision &&
-                isSwapReviewMultiplierCurrent(token, newToken)
+                isSwapReviewMultiplierCurrent(token, newToken) &&
+                (needsMultiplier ||
+                  !tokenRebaseUtils.equalBalanceMultipliers(
+                    newToken?.balanceMultiplier,
+                    balanceMultiplier,
+                  ))
               ) {
                 condition.balanceMultiplier = balanceMultiplier;
               }
@@ -4102,12 +4167,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ) {
                 if (
                   verifyingMultiplier &&
-                  condition.balanceMultiplier !== undefined &&
-                  (needsMultiplier ||
-                    !tokenRebaseUtils.equalBalanceMultipliers(
-                      newToken?.balanceMultiplier,
-                      condition.balanceMultiplier,
-                    ))
+                  condition.balanceMultiplier !== undefined
                 ) {
                   if (
                     type === ESwapDirectionType.FROM &&
@@ -4938,6 +4998,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (normalizedType !== oldVisibleType) {
         // A tab change restores or replaces the pair without a new chip tap.
         this.endRecentTokenPairAttribution.call(set);
+        set(swapDeferredQuoteAtom(), undefined);
         set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
           from: false,
           to: false,
@@ -5631,6 +5692,7 @@ export const useSwapActions = () => {
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const quoteAction = actions.quoteAction.use();
   const resumeQuoteAction = actions.resumeQuoteAction.use();
+  const replayDeferredQuote = actions.replayDeferredQuote.use();
   const requireManualQuoteRefresh = actions.requireManualQuoteRefresh.use();
   const checkSwapWarning = actions.checkSwapWarning.use();
   const invalidateSwapWarningCheck = actions.invalidateSwapWarningCheck.use();
@@ -5680,6 +5742,7 @@ export const useSwapActions = () => {
     selectFromToken,
     quoteAction,
     resumeQuoteAction,
+    replayDeferredQuote,
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,

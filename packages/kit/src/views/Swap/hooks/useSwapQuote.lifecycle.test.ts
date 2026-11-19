@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
 import { useSwapActions } from '../../../states/jotai/contexts/swap';
@@ -113,6 +114,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     current: {
       quoteAction: jest.fn(),
       resumeQuoteAction: jest.fn(),
+      replayDeferredQuote: jest.fn(),
       cleanQuoteInterval: jest.fn(),
       quoteEventHandler: jest.fn(),
       syncNetworksSort: jest.fn(),
@@ -141,10 +143,21 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
       (globalThis as unknown as { __swapQuoteProAmount?: string })
         .__swapQuoteProAmount ?? '',
     ],
-    useSwapSelectFromTokenAtom: () => [undefined, setter],
-    useSwapSelectToTokenAtom: () => [undefined, setter],
+    useSwapSelectFromTokenAtom: () => [
+      (globalThis as unknown as { __swapQuoteFromToken?: ISwapToken })
+        .__swapQuoteFromToken,
+      setter,
+    ],
+    useSwapSelectToTokenAtom: () => [
+      (globalThis as unknown as { __swapQuoteToToken?: ISwapToken })
+        .__swapQuoteToToken,
+      setter,
+    ],
     useSwapSelectTokenNetworkAtom: () => [undefined],
-    useSwapSelectedTokenMultiplierStatusAtom: () => ['ready'],
+    useSwapSelectedTokenMultiplierStatusAtom: () => [
+      (globalThis as unknown as { __swapQuoteMultiplierStatus?: string })
+        .__swapQuoteMultiplierStatus ?? 'ready',
+    ],
     useSwapSlippageDialogOpeningAtom: () => [{ status: false }],
     useSwapApproveAllowanceSelectOpenAtom: () => [false],
     useSwapFromTokenAmountAtom: () => [
@@ -174,6 +187,11 @@ const focusMock = jest.mocked(useRouteIsFocused);
 const lockFixture = globalThis as unknown as { __swapQuoteLocked: boolean };
 const amountFixture = globalThis as unknown as {
   __swapQuoteFromAmount: { value: string; isInput: boolean };
+};
+const tokenFixture = globalThis as unknown as {
+  __swapQuoteFromToken?: ISwapToken;
+  __swapQuoteToToken?: ISwapToken;
+  __swapQuoteMultiplierStatus?: 'checking' | 'ready';
 };
 const addressInfo: { address?: string; networkId?: string } = ((
   globalThis as unknown as {
@@ -212,6 +230,9 @@ describe.each([false, true])(
       focusMock.mockReturnValue(true);
       lockFixture.__swapQuoteLocked = false;
       amountFixture.__swapQuoteFromAmount = { value: '', isInput: true };
+      tokenFixture.__swapQuoteFromToken = undefined;
+      tokenFixture.__swapQuoteToToken = undefined;
+      tokenFixture.__swapQuoteMultiplierStatus = 'ready';
       (globalThis as unknown as { __swapQuoteType?: string }).__swapQuoteType =
         'swap';
       (
@@ -226,6 +247,38 @@ describe.each([false, true])(
     afterEach(() => {
       eventBus.removeAllListeners();
       jest.useRealTimers();
+    });
+
+    it('does not request a new quote when only multiplier verification finishes', () => {
+      const networkId = 'sol--101';
+      Object.assign(addressInfo, { address: 'account-address', networkId });
+      tokenFixture.__swapQuoteFromToken = {
+        networkId,
+        contractAddress: 'scaled-mint',
+        decimals: 8,
+        symbol: 'SCALED',
+        balanceMultiplier: '2',
+      };
+      tokenFixture.__swapQuoteToToken = {
+        networkId,
+        contractAddress: '',
+        decimals: 9,
+        symbol: 'SOL',
+        isNative: true,
+      };
+      amountFixture.__swapQuoteFromAmount = { value: '12', isInput: true };
+      tokenFixture.__swapQuoteMultiplierStatus = 'checking';
+      const { result, rerender, unmount } = renderHook(() => {
+        useSwapQuote();
+        return useSwapActions().current;
+      });
+      jest.mocked(result.current.quoteAction).mockClear();
+      jest.mocked(result.current.replayDeferredQuote).mockClear();
+      tokenFixture.__swapQuoteMultiplierStatus = 'ready';
+      rerender(undefined);
+      expect(result.current.quoteAction).not.toHaveBeenCalled();
+      expect(result.current.replayDeferredQuote).toHaveBeenCalledTimes(1);
+      unmount();
     });
 
     it('restores amount effects on same-page unlock without a router callback', () => {

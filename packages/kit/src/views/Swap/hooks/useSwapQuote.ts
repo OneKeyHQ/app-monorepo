@@ -164,6 +164,7 @@ export function useSwapQuote({
   const {
     quoteAction,
     resumeQuoteAction,
+    replayDeferredQuote,
     cleanQuoteInterval,
     quoteEventHandler,
     syncNetworksSort,
@@ -602,7 +603,7 @@ export function useSwapQuote({
     ) {
       return;
     }
-    if (isProMarket || multiplierStatus !== 'ready') return;
+    if (isProMarket) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -688,7 +689,6 @@ export function useSwapQuote({
     alignmentDecimal,
     fromAmountDebounce,
     isProMarket,
-    multiplierStatus,
     shouldPauseQuote,
   ]);
 
@@ -1082,7 +1082,22 @@ export function useSwapQuote({
     );
   }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
 
+  const replayVisibleDeferredQuote = useCallback(() => {
+    if (shouldPauseQuote || !isQuoteVisibleRef.current) {
+      return false;
+    }
+    return replayDeferredQuote({
+      address: activeAccountRef.current?.address,
+      accountId: activeAccountRef.current?.accountInfo?.account?.id,
+      receivingAddress: swapToAddressInfoRef.current.address,
+    });
+  }, [replayDeferredQuote, shouldPauseQuote]);
+
   const refreshPreservedInputQuoteOnFocus = useCallback(() => {
+    if (replayVisibleDeferredQuote()) {
+      pendingQuoteResumeRef.current = undefined;
+      return;
+    }
     const pendingResume = pendingQuoteResumeRef.current;
     if (
       shouldPauseQuote ||
@@ -1133,6 +1148,7 @@ export function useSwapQuote({
     fromAmountDebounce,
     isProviderSelectRouteActive,
     quoteAction,
+    replayVisibleDeferredQuote,
     resumeQuoteAction,
     shouldPauseQuote,
   ]);
@@ -1297,4 +1313,10 @@ export function useSwapQuote({
   useEffect(() => {
     updateQuoteLifecycle();
   }, [updateQuoteLifecycle]);
+
+  useEffect(() => {
+    if (multiplierStatus === 'ready') {
+      replayVisibleDeferredQuote();
+    }
+  }, [multiplierStatus, replayVisibleDeferredQuote]);
 }

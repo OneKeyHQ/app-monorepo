@@ -1377,6 +1377,189 @@ describe('useSwapActions', () => {
     });
   });
 
+  describe('quotes deferred by balance multiplier verification', () => {
+    const scaledToken: ISwapToken = {
+      ...ethToken,
+      networkId: 'sol--101',
+      contractAddress: 'scaled-mint',
+      isNative: false,
+      decimals: 8,
+      balanceMultiplier: '2',
+    };
+    const owner = {
+      address: 'sender',
+      accountId: evmAccount.id,
+      receivingAddress: 'receiver',
+    };
+    const slippage = { key: ESwapSlippageSegmentKey.CUSTOM, value: 0.8 };
+
+    const prepare = (type = ESwapTabSwitchType.SWAP) => {
+      const toToken = {
+        ...bnbToken,
+        networkId:
+          type === ESwapTabSwitchType.SWAP
+            ? scaledToken.networkId
+            : bnbToken.networkId,
+      };
+      const { store, Wrapper } = createWrapperWithStore((s) => {
+        s.set(swapTypeSwitchAtom(), type);
+        s.set(swapSelectFromTokenAtom(), scaledToken);
+        s.set(swapSelectToTokenAtom(), toToken);
+        s.set(swapFromTokenAmountAtom(), { value: '12', isInput: true });
+        s.set(swapQuoteActionLockAtom(), {
+          ...owner,
+          type,
+          fromToken: scaledToken,
+          toToken,
+          fromTokenAmount: '12',
+          kind: ESwapQuoteKind.SELL,
+          actionLock: false,
+          quoteRequestId: 'settled-quote',
+          slippageItem: slippage,
+          incognito: true,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const setChecking = (checking: boolean) =>
+        store.set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
+          from: checking,
+          to: false,
+        });
+      return { store, actions: result.current, setChecking };
+    };
+
+    it.each([ESwapTabSwitchType.SWAP, ESwapTabSwitchType.BRIDGE])(
+      'preserves the capped %s until a queued manual quote can be sent once',
+      async (type) => {
+        const { store, actions, setChecking } = prepare(type);
+        store.set(swapShouldRefreshQuoteAtom(), true);
+        store.set(swapQuoteIntervalCountAtom(), swapQuoteIntervalMaxCount);
+        mockFetchSwapTokenDetails.mockResolvedValueOnce([
+          { ...scaledToken, balanceMultiplier: '2.00', balanceParsed: '10' },
+        ]);
+        await act(async () => {
+          await actions.loadSwapSelectTokenDetail(
+            ESwapDirectionType.FROM,
+            {
+              ...fromAddressInfo,
+              address: owner.address,
+              networkId: scaledToken.networkId,
+            },
+            true,
+          );
+          expect(actions.replayDeferredQuote(owner)).toBe(false);
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe(
+          '2',
+        );
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(
+          swapQuoteIntervalMaxCount,
+        );
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+        expect(store.get(swapQuoteActionLockAtom()).quoteRequestId).toBe(
+          'settled-quote',
+        );
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+
+        await act(async () => {
+          setChecking(true);
+          await actions.quoteAction(
+            slippage,
+            owner.address,
+            owner.accountId,
+            undefined,
+            undefined,
+            ESwapQuoteKind.BUY,
+            true,
+            owner.receivingAddress,
+            true,
+          );
+          expect(actions.replayDeferredQuote(owner)).toBe(false);
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(
+          swapQuoteIntervalMaxCount,
+        );
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+
+        await act(async () => {
+          setChecking(false);
+          expect(actions.replayDeferredQuote(owner)).toBe(true);
+          expect(actions.replayDeferredQuote(owner)).toBe(false);
+        });
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: ESwapQuoteKind.SELL,
+            fromTokenAmount: '6',
+            receivingAddress: owner.receivingAddress,
+            slippagePercentage: slippage.value,
+            incognito: true,
+          }),
+        );
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(0);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      },
+    );
+
+    it.each([
+      'current',
+      'amount changed',
+      'recipient changed',
+      'multiplier changed',
+    ] as const)(
+      'revalidates a deferred automatic quote and counts only a dispatched refresh (%s)',
+      async (change) => {
+        const { store, actions, setChecking } = prepare();
+        store.set(swapQuoteIntervalCountAtom(), 2);
+        await act(async () => {
+          setChecking(true);
+          await actions.resumeQuoteAction({
+            ...owner,
+            slippageItem: slippage,
+            kind: ESwapQuoteKind.SELL,
+            pausedQuoteRequestId: 'settled-quote',
+            incognito: true,
+          });
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(2);
+
+        const currentOwner = { ...owner };
+        await act(async () => {
+          if (change === 'amount changed') {
+            store.set(swapFromTokenAmountAtom(), { value: '8', isInput: true });
+          } else if (change === 'recipient changed') {
+            currentOwner.receivingAddress = 'new-receiver';
+          } else if (change === 'multiplier changed') {
+            store.set(swapSelectFromTokenAtom(), {
+              ...scaledToken,
+              balanceMultiplier: '4',
+            });
+          }
+          setChecking(false);
+          expect(actions.replayDeferredQuote(currentOwner)).toBe(
+            change === 'current',
+          );
+          expect(actions.replayDeferredQuote(owner)).toBe(false);
+        });
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(
+          change === 'current' ? 1 : 0,
+        );
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(
+          change === 'current' ? 3 : 2,
+        );
+        if (change === 'current') {
+          expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+            expect.objectContaining({ fromTokenAmount: '6' }),
+          );
+        }
+      },
+    );
+  });
+
   it('quotes the raw amount while keeping the user-entered amount in the request scope', async () => {
     const scaledToken = { ...ethToken, balanceMultiplier: '2' };
     const { store, Wrapper } = createWrapperWithStore((currentStore) => {

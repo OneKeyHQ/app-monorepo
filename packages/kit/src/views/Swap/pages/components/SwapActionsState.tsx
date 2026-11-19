@@ -30,6 +30,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapDeferredQuoteAtom,
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
@@ -186,6 +187,7 @@ const SwapActionsState = ({
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
+  const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   // Publishing a recipient must not change its own validation account or readiness.
@@ -519,9 +521,12 @@ const SwapActionsState = ({
   });
 
   const shouldRetryTokenDetails = multiplierStatus === 'failed';
+  const isWaitingForMultiplier =
+    multiplierStatus === 'checking' ||
+    (multiplierStatus === 'ready' && Boolean(deferredQuote));
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
-    (multiplierStatus === 'checking' ||
+    (isWaitingForMultiplier ||
       (multiplierStatus === 'ready' &&
         !swapActionState.isRefreshQuote &&
         !swapActionState.shouldDepositToTrade &&
@@ -553,6 +558,9 @@ const SwapActionsState = ({
     }
     if (shouldRetryTokenDetails) {
       requestSelectedTokenBalanceRefresh();
+      return;
+    }
+    if (isWaitingForMultiplier) {
       return;
     }
     if (swapActionState.shouldDepositToTrade) {
@@ -588,6 +596,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    isWaitingForMultiplier,
     onDepositToTrade,
     navigation,
     onOpenRecipientAddress,

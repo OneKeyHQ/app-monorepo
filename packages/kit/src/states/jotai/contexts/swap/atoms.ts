@@ -472,6 +472,50 @@ export const {
   incognito?: boolean;
 }>({ actionLock: false });
 
+export type ISwapQuoteActionArgs = [
+  slippageItem: { key: ESwapSlippageSegmentKey; value: number },
+  address?: string,
+  accountId?: string,
+  blockNumber?: number,
+  isAutomaticRefresh?: boolean,
+  kind?: ESwapQuoteKind,
+  reQuote?: boolean,
+  receivingAddress?: string,
+  incognito?: boolean,
+  quoteOverride?: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    toTokenAmount?: string;
+    maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+    type: ESwapTabSwitchType;
+    source?: ESwapQuoteSource;
+    manualRefresh?: boolean;
+    rawAmounts?: {
+      fromTokenAmount: string;
+      toTokenAmount?: string;
+    };
+  },
+];
+
+export const { atom: swapDeferredQuoteAtom, use: useSwapDeferredQuoteAtom } =
+  contextAtom<
+    | {
+        args: ISwapQuoteActionArgs;
+        type: ESwapTabSwitchType;
+        fromToken: ISwapToken;
+        toToken: ISwapToken;
+        kind: ESwapQuoteKind;
+        amount: string;
+        address?: string;
+        accountId?: string;
+        receivingAddress?: string;
+        maxAmountSnapshot?: ISwapMaxAmountSnapshot;
+        usesQuoteSnapshot: boolean;
+      }
+    | undefined
+  >(undefined);
+
 export const {
   atom: swapQuoteIntervalCountAtom,
   use: useSwapQuoteIntervalCountAtom,
