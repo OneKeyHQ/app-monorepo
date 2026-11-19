@@ -177,11 +177,13 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       }),
     );
 
+    const onConfirm = jest.fn();
     render(
       <PrimeLoginEmailCodeDialogV2
         email="test@example.com"
         sendCode={sendCode}
         loginWithCode={jest.fn()}
+        onConfirm={onConfirm}
       />,
     );
 
@@ -200,6 +202,18 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       reason:
         'Prime email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
     });
+    expect(
+      screen
+        .getByRole('button', {
+          name: `${ETranslations.resend_code_countdown__action} (33s)`,
+        })
+        .getAttribute('aria-disabled'),
+    ).toBe('true');
+    fireEvent.change(screen.getByTestId('verification-code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+    expect(onConfirm).toHaveBeenCalledWith('123456');
   });
 
   test('uses the server retry-after value when Supabase rejects with its raw cooldown error', async () => {

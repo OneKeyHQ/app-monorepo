@@ -1,0 +1,94 @@
+import { useEffect } from 'react';
+
+import {
+  type IToastProps,
+  Toast,
+} from '@onekeyhq/components/src/actions/Toast';
+import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import {
+  getEffectiveHttpStatusCode,
+  getNetworkErrorToastSuppressReason,
+} from './offlineNetworkToastGuard';
+
+// Get deduplication ID for HTTP status codes to prevent toast spam
+// @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
+const getDeduplicationId = (
+  httpStatusCode?: number,
+): { id: string | undefined; forceDeduplicate: boolean } => {
+  if (!httpStatusCode) return { id: undefined, forceDeduplicate: false };
+
+  // Forbidden - force deduplicate
+  if (httpStatusCode === 403)
+    return { id: 'error_403', forceDeduplicate: true };
+
+  // Rate limiting - force deduplicate to avoid spam
+  if (httpStatusCode === 429)
+    return { id: 'error_429', forceDeduplicate: true };
+
+  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
+  if (httpStatusCode >= 500 && httpStatusCode < 600) {
+    return { id: 'error_5xx', forceDeduplicate: true };
+  }
+
+  return { id: undefined, forceDeduplicate: false };
+};
+
+type IErrorToastPayload = IAppEventBusPayload[EAppEventBusNames.ShowToast];
+
+export function ErrorToastListener({
+  getActions,
+}: {
+  getActions?: (payload: IErrorToastPayload) => IToastProps['actions'];
+}) {
+  useEffect(() => {
+    const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
+      if (!p.title) {
+        return;
+      }
+      const isInternetReachable =
+        globalNetInfo.currentState().isInternetReachable;
+      const suppressReason = getNetworkErrorToastSuppressReason({
+        isInternetReachable,
+        payload: p,
+      });
+      const shouldSuppress = suppressReason !== null;
+      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
+      if (shouldSuppress) {
+        return;
+      }
+
+      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
+      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
+      // Otherwise, respect custom toastId from caller
+      const toastId = deduplication.forceDeduplicate
+        ? deduplication.id
+        : p.toastId ||
+          deduplication.id ||
+          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
+          p.title ||
+          p.requestId;
+
+      Toast[p.method]({
+        title: p.title,
+        message: p.message,
+        // icon is string in event bus (shared can't import IKeyOfIcons from components)
+        icon: p.icon as IToastProps['icon'],
+        toastId,
+        actions: getActions?.(p),
+        duration: p.duration,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.ShowToast, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowToast, fn);
+    };
+  }, [getActions]);
+
+  return null;
+}

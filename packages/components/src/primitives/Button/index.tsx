@@ -195,7 +195,9 @@ function ButtonIcon({
   size,
   ...props
 }: Pick<IButtonProps, 'size'> & Omit<IIconProps, 'size'>) {
-  return <Icon size={size === 'small' ? '$4.5' : '$5'} {...props} />;
+  return (
+    <Icon aria-hidden size={size === 'small' ? '$4.5' : '$5'} {...props} />
+  );
 }
 
 type ISharedFrameStylesProps = {

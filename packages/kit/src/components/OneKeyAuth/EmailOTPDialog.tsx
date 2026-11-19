@@ -12,6 +12,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  getOtpButtonState,
+  otpCooldownDeadline,
+  useOtpResend,
+} from '@onekeyhq/components/src/hooks/otpInputState';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import {
   getSanitizedAuthErrorText,
@@ -35,7 +40,9 @@ export function EmailOTPDialog(props: {
   const { sendCode, onConfirm, title, description, hideResendButton } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
-  const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);
+  const [resendAt, setResendAt] = useState(() =>
+    otpCooldownDeadline(EMAIL_OTP_COUNTDOWN_SECONDS),
+  );
   const [isResending, setIsResending] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -49,6 +56,15 @@ export function EmailOTPDialog(props: {
     status: 'initial',
   });
   const intl = useIntl();
+  const resend = useOtpResend({
+    deadline: resendAt,
+    visible: !hideResendButton,
+    busy: isResending,
+  });
+  const confirmButton = getOtpButtonState({
+    ready: verificationCode.length === 6,
+    busy: isResending || isSubmittingVerificationCode || isConfirming,
+  });
 
   useEffect(() => {
     if (didRequestInitialCodeRef.current) {
@@ -63,11 +79,8 @@ export function EmailOTPDialog(props: {
         error,
       );
       if (isMountedRef.current) {
-        setCountdown(0);
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
-        if (retryAfterSeconds !== undefined) {
-          setCountdown(retryAfterSeconds);
-        }
+        setResendAt(otpCooldownDeadline(retryAfterSeconds ?? 0));
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });
@@ -89,7 +102,7 @@ export function EmailOTPDialog(props: {
       if (!isMountedRef.current) {
         return;
       }
-      setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
+      setResendAt(otpCooldownDeadline(EMAIL_OTP_COUNTDOWN_SECONDS));
     } catch (error) {
       logOneKeyIdLoginFailureReason(
         `Email verification code resend failed: ${getSanitizedAuthErrorText(
@@ -99,7 +112,7 @@ export function EmailOTPDialog(props: {
       );
       if (isMountedRef.current) {
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
-        setCountdown(retryAfterSeconds ?? 0);
+        setResendAt(otpCooldownDeadline(retryAfterSeconds ?? 0));
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });
@@ -113,29 +126,15 @@ export function EmailOTPDialog(props: {
     }
   }, [intl, isMountedRef, sendCode]);
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (countdown > 0) {
-      timer = setTimeout(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [countdown]);
-
   const buttonText = useMemo(() => {
-    if (countdown > 0)
+    if (resend.seconds > 0)
       return intl.formatMessage(
         { id: ETranslations.resend_code_countdown__action },
-        { seconds: countdown },
+        { seconds: resend.seconds },
       );
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
-  }, [intl, countdown]);
+  }, [intl, resend.seconds]);
 
   const handleConfirm = useCallback(async () => {
     try {
@@ -190,14 +189,14 @@ export function EmailOTPDialog(props: {
       </Dialog.Header>
 
       <YStack gap="$2">
-        {!hideResendButton ? (
+        {resend.visible ? (
           <XStack>
             <Button
               testID="one-key-auth-handle-confirm-btn"
               width="auto"
               size="small"
               variant="tertiary"
-              disabled={countdown > 0 || isResending}
+              disabled={resend.disabled}
               onPress={sendEmailVerificationCode}
             >
               {buttonText}
@@ -228,7 +227,7 @@ export function EmailOTPDialog(props: {
         showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode || isConfirming,
-          disabled: verificationCode.length !== 6,
+          disabled: confirmButton.disabled,
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,

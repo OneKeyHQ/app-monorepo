@@ -22,6 +22,11 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  getOtpButtonState,
+  otpCooldownDeadline,
+  useOtpResend,
+} from '@onekeyhq/components/src/hooks/otpInputState';
 import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -60,7 +65,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const [devSettings] = useDevSettingsPersistAtom();
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
-  const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);
+  const [resendAt, setResendAt] = useState(0);
   const [isResending, setIsResending] = useState(false);
   const isAuthActionInProgressRef = useRef(false);
   const didRequestInitialCodeRef = useRef(false);
@@ -77,6 +82,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const { copyText } = useClipboard();
   const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
+  const resend = useOtpResend({
+    deadline: resendAt,
+    ready: isApiReady && state.status !== 'done',
+    busy: isResending,
+  });
+  const confirmButton = getOtpButtonState({
+    ready:
+      verificationCode.length === 6 &&
+      isReady &&
+      isApiReady &&
+      state.status !== 'done',
+    busy: isResending || isSubmittingVerificationCode,
+  });
 
   const handleCopyEmailSender = useCallback(() => {
     copyText('OneKey');
@@ -101,7 +119,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         return;
       }
       setIsApiReady(true);
-      setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
+      setResendAt(otpCooldownDeadline(EMAIL_OTP_COUNTDOWN_SECONDS));
     } catch (error) {
       logOneKeyIdLoginFailureReason(
         `Prime email verification code request failed: ${getSanitizedAuthErrorText(
@@ -119,7 +137,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       }
       setIsApiReady(true);
       setState({ status: 'initial' });
-      setCountdown(retryAfterSeconds ?? 0);
+      setResendAt(otpCooldownDeadline(retryAfterSeconds ?? 0));
       return;
     } finally {
       if (isMountedRef.current) {
@@ -153,24 +171,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // "Sent to {email}" on re-entry, so re-entering it must actually send one.
     // Reset only while inactive so a failed send while the step is visible
     // still requires an explicit Resend press.
-    if (!active && countdown <= 0 && !didSendCodeSucceedRef.current) {
+    if (
+      !active &&
+      isApiReady &&
+      resend.seconds === 0 &&
+      !didSendCodeSucceedRef.current
+    ) {
       didRequestInitialCodeRef.current = false;
     }
-  }, [active, countdown]);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (countdown > 0 && isApiReady) {
-      timer = setTimeout(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [countdown, isApiReady]);
+  }, [active, isApiReady, resend.seconds]);
 
   const buttonText = useMemo(() => {
     if (!isApiReady) {
@@ -179,15 +188,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       });
     }
 
-    if (countdown > 0) {
+    if (resend.seconds > 0) {
       return intl.formatMessage(
         { id: ETranslations.resend_code_countdown__action },
-        { seconds: countdown },
+        { seconds: resend.seconds },
       );
     }
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
-  }, [intl, countdown, isApiReady]);
+  }, [intl, resend.seconds, isApiReady]);
 
   const handleConfirm = useCallback(async () => {
     if (
@@ -385,12 +394,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             width="auto"
             size="small"
             variant="tertiary"
-            disabled={
-              countdown > 0 ||
-              isResending ||
-              !isApiReady ||
-              state.status === 'done'
-            }
+            disabled={resend.disabled}
             onPress={sendEmailVerificationCode}
           >
             {buttonText}
@@ -423,11 +427,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode,
-          disabled:
-            verificationCode.length !== 6 ||
-            !isReady ||
-            !isApiReady ||
-            state.status === 'done',
+          disabled: confirmButton.disabled,
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,

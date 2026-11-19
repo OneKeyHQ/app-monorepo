@@ -2,7 +2,8 @@
 
 import { act, render } from '@testing-library/react';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components/src/actions/Toast';
+import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,

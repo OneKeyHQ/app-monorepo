@@ -4,7 +4,6 @@ import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type {
-  IKeyOfIcons,
   IPageProps,
   ISizableTextProps,
   IXStackProps,
@@ -13,7 +12,6 @@ import type {
 import {
   Button,
   Divider,
-  Icon,
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -34,6 +32,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 import { OnboardingTestIDs } from '../testIDs';
+
+import { ONBOARDING_NARROW_CONTENT_WIDTH } from './layoutConstants';
 
 // Electron drag-region helpers. On desktop, the header container is a window
 // drag handle; interactive children opt out so they remain clickable.
@@ -289,7 +289,10 @@ export function OnboardingPage({
         $md={{ flex: 1 }}
         $gtMd={{
           minHeight: 600,
-          ...(narrow && { py: '$10', maxWidth: 400 }),
+          ...(narrow && {
+            py: '$10',
+            maxWidth: ONBOARDING_NARROW_CONTENT_WIDTH,
+          }),
         }}
         {...(shouldAnimate && {
           animation: 'quick',
@@ -397,32 +400,8 @@ export function OnboardingSidebar({
   );
 }
 
-export interface IOnboardingIconBadgeProps extends Omit<
-  IYStackProps,
-  'children'
-> {
-  icon: IKeyOfIcons;
-  iconColor?: React.ComponentProps<typeof Icon>['color'];
-}
-
-export function OnboardingIconBadge({
-  icon,
-  iconColor = '$bgApp',
-  ...rest
-}: IOnboardingIconBadgeProps) {
-  return (
-    <YStack
-      bg="$brand10"
-      p="$2"
-      borderRadius="$full"
-      alignSelf="flex-start"
-      mb="$8"
-      {...rest}
-    >
-      <Icon name={icon} color={iconColor} />
-    </YStack>
-  );
-}
+export { OnboardingIconBadge } from './OnboardingIconBadge';
+export type { IOnboardingIconBadgeProps } from './OnboardingIconBadge';
 
 export function OnboardingHeading({
   children,

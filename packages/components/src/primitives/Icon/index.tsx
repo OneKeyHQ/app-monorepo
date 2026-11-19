@@ -94,6 +94,7 @@ function IconLoader({
   ...props
 }: {
   name: IKeyOfIcons;
+  'aria-hidden'?: IIconContainerProps['aria-hidden'];
   width: number;
   height: number;
   color: string;
@@ -127,7 +128,10 @@ function IconLoader({
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
+function BasicIconContainer(
+  { name, style, 'aria-hidden': ariaHidden }: IIconContainerProps,
+  _: any,
+) {
   const theme = useTheme();
   const defaultColor = theme.icon.val;
   if (!name) {
@@ -142,6 +146,7 @@ function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
   const componentColor = primaryColor || defaultColor;
   return Svg ? (
     <Svg
+      aria-hidden={ariaHidden}
       width={componentWidth}
       height={componentHeight}
       style={style}
@@ -149,6 +154,7 @@ function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
     />
   ) : (
     <IconLoader
+      aria-hidden={ariaHidden}
       width={componentWidth}
       height={componentHeight}
       style={style}

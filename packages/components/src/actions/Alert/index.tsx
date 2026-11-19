@@ -206,7 +206,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       {icon ? (
         <Stack>
           <AlertIcon>
-            <Icon name={icon} size="$5" />
+            <Icon aria-hidden name={icon} size="$5" />
           </AlertIcon>
         </Stack>
       ) : null}
