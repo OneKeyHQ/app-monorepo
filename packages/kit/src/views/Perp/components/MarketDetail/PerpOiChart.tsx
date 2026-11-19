@@ -262,6 +262,7 @@ export function PerpOiChart({
             data={data}
             height={PERP_DATA_CHART_HEIGHT}
             lineWidth={2}
+            fontSize={isMobile ? 9 : 11}
             priceFormatter={formatOpenInterestUsd}
             priceScalePosition="left"
             priceScaleMinimumWidth={priceScaleMinimumWidth}
