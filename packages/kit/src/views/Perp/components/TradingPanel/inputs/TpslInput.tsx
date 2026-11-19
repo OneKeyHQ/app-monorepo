@@ -332,6 +332,7 @@ export const TpslInput = memo(
                 : ETranslations.perps_tp_short_loss__desc,
           })
         : undefined;
+    const tpFeedbackColor = tpLossHint ? '$textCaution' : '$textSubdued';
     if (isMobile) {
       return (
         <YStack gap="$3">
@@ -391,10 +392,10 @@ export const TpslInput = memo(
                     color={
                       !expectedProfit.startsWith('-')
                         ? '$green11'
-                        : '$textSubdued'
+                        : tpFeedbackColor
                     }
                   >
-                    <SizableText size="$bodySm" color="$textSubdued">
+                    <SizableText size="$bodySm" color={tpFeedbackColor}>
                       {intl.formatMessage({
                         id: ETranslations.perp_tp_sl_profit,
                       })}
@@ -607,10 +608,10 @@ export const TpslInput = memo(
                 color={
                   expectedProfit && !expectedProfit.startsWith('-')
                     ? '$green11'
-                    : '$textSubdued'
+                    : tpFeedbackColor
                 }
               >
-                <SizableText size={feedbackTextSize} color="$textSubdued">
+                <SizableText size={feedbackTextSize} color={tpFeedbackColor}>
                   {intl.formatMessage({
                     id: ETranslations.perp_tp_sl_profit,
                   })}
