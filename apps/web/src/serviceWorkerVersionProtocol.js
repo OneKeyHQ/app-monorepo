@@ -24,7 +24,7 @@ export function createServiceWorkerVersionProtocol({
 }) {
   let pendingActivation;
   let nextActivationRequestId = 0;
-  let isReloading = false;
+  let isAutoReloading = false;
   let latestReadyVersion = '';
   let latestActiveVersion = '';
 
@@ -74,11 +74,16 @@ export function createServiceWorkerVersionProtocol({
     document.getElementById('sw-update-banner')?.remove();
   }
 
-  function reloadPage(autoReloadedVersion) {
-    if (isReloading) {
+  function reloadPageManually() {
+    // A beforeunload prompt can leave the current document and banner in place.
+    globalThis.location.reload();
+  }
+
+  function reloadPageAutomatically(autoReloadedVersion) {
+    if (isAutoReloading) {
       return;
     }
-    isReloading = true;
+    isAutoReloading = true;
     removeUpdateBanner();
     if (autoReloadedVersion) {
       try {
@@ -95,7 +100,7 @@ export function createServiceWorkerVersionProtocol({
 
   function showManualUpdateBanner() {
     if (latestActiveVersion && latestActiveVersion !== getCurrentWebVersion()) {
-      showUpdateBanner(() => reloadPage());
+      showUpdateBanner(reloadPageManually);
     } else if (latestReadyVersion) {
       const version = latestReadyVersion;
       showUpdateBanner(() => activateReadyVersion(version, 'manual'));
@@ -110,17 +115,18 @@ export function createServiceWorkerVersionProtocol({
     }
     pendingActivation = undefined;
     if (activation.intent === 'manual') {
-      reloadPage();
+      showManualUpdateBanner();
+      reloadPageManually();
     } else if (canAutoReload(activation.version)) {
       // The fallback may still load the old version if promotion has not finished.
-      reloadPage(confirmed ? activation.version : undefined);
+      reloadPageAutomatically(confirmed ? activation.version : undefined);
     } else {
       showManualUpdateBanner();
     }
   }
 
   function activateReadyVersion(version, intent) {
-    if (isReloading || pendingActivation?.intent === 'manual') {
+    if (isAutoReloading || pendingActivation?.intent === 'manual') {
       return;
     }
     nextActivationRequestId += 1;
@@ -144,11 +150,11 @@ export function createServiceWorkerVersionProtocol({
   }
 
   function tryAutoReloadOnPageError() {
-    if (!isPageInErrorState() || isReloading || pendingActivation) {
+    if (!isPageInErrorState() || isAutoReloading || pendingActivation) {
       return;
     }
     if (canAutoReload(latestActiveVersion)) {
-      reloadPage(latestActiveVersion);
+      reloadPageAutomatically(latestActiveVersion);
     } else if (canAutoReload(latestReadyVersion)) {
       activateReadyVersion(latestReadyVersion, 'automatic');
     } else if (
@@ -160,17 +166,17 @@ export function createServiceWorkerVersionProtocol({
   }
 
   function offerVersionUpdate(version, isActive) {
-    if (isReloading || pendingActivation) {
+    if (isAutoReloading || pendingActivation) {
       return;
     }
     if (canAutoReload(version)) {
       if (isActive) {
-        reloadPage(version);
+        reloadPageAutomatically(version);
       } else {
         activateReadyVersion(version, 'automatic');
       }
     } else if (isActive) {
-      showUpdateBanner(() => reloadPage());
+      showUpdateBanner(reloadPageManually);
     } else {
       showUpdateBanner(() => activateReadyVersion(version, 'manual'));
     }
@@ -204,7 +210,7 @@ export function createServiceWorkerVersionProtocol({
         offerVersionUpdate(latestActiveVersion, true);
       } else if (latestReadyVersion) {
         offerVersionUpdate(latestReadyVersion, false);
-      } else if (!pendingActivation && !isReloading) {
+      } else if (!pendingActivation && !isAutoReloading) {
         removeUpdateBanner();
       }
     }
@@ -268,7 +274,7 @@ export function createServiceWorkerVersionProtocol({
 
   return {
     isReloadPending: () =>
-      isReloading || pendingActivation?.intent === 'automatic',
+      isAutoReloading || pendingActivation?.intent === 'automatic',
     requestVersionCheck,
     setup,
     tryAutoReloadOnPageError,

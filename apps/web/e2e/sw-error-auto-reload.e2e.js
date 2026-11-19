@@ -182,6 +182,7 @@ function buildLegacyV664ClientScript() {
       requestServiceWorkerVersionCheck();
     });
     requestServiceWorkerVersionCheck();
+    setInterval(requestServiceWorkerVersionCheck, 250);
   }
 
   function renderTestView(testId, text) {
@@ -209,7 +210,11 @@ function buildLegacyV664ClientScript() {
       })
       .then(() => {
         setupServiceWorkerVersionProtocol();
-        navigator.serviceWorker.ready.then(() => requestServiceWorkerVersionCheck());
+        return navigator.serviceWorker.ready;
+      })
+      .then(() => {
+        requestServiceWorkerVersionCheck();
+        document.documentElement.dataset.versionProtocolReady = 'true';
       });
   });
 })();
@@ -365,13 +370,30 @@ async function run() {
       return state.activeVersion === expectedVersion;
     }, V_664);
 
-    // Step 2: Server publishes release/v6.7.0 (with Unitas)
-    publishReleaseToDir(webRootDir, releaseV670);
+    const topLevelNavigations = [];
+    page.on('request', (request) => {
+      if (
+        request.isNavigationRequest() &&
+        request.frame() === page.mainFrame()
+      ) {
+        topLevelNavigations.push(request.url());
+      }
+    });
 
-    // Step 3: Old user clicks the Unitas email link -> initially hits cached v6.6.4,
-    // then SW automatically activates v6.7.0 and reloads into the Unitas detail page!
-    await page.goto(`${baseUrl}${UNITAS_PATH_AND_QUERY}`);
+    // Keep v6.6.4 live until the old client hits its error on the Unitas link.
+    const unitasUrl = `${baseUrl}${UNITAS_PATH_AND_QUERY}`;
+    await page.goto(unitasUrl);
+    await page.getByTestId('error-boundary').waitFor({ state: 'visible' });
+    await page
+      .locator('html[data-version-protocol-ready]')
+      .waitFor({ state: 'attached' });
+    assert.equal(page.url(), unitasUrl);
+    assert.deepEqual(topLevelNavigations, [unitasUrl]);
+
+    publishReleaseToDir(webRootDir, releaseV670);
     await page.getByTestId('unitas-xaut-detail').waitFor({ state: 'visible' });
+    assert.equal(page.url(), unitasUrl);
+    assert.deepEqual(topLevelNavigations, [unitasUrl, unitasUrl]);
 
     const unitasText = await page
       .getByTestId('unitas-xaut-detail')
@@ -389,17 +411,17 @@ async function run() {
       '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
     );
 
+    await page.waitForFunction((version) => {
+      const controller = navigator.serviceWorker.controller;
+      return (
+        controller &&
+        new URL(controller.scriptURL).searchParams.get('appBuild') === version
+      );
+    }, V_670);
+
     // Keep v6.7.0 on the server until the original URL renders NotFound.
     const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
-    const topLevelNavigations = [];
-    page.on('request', (request) => {
-      if (
-        request.isNavigationRequest() &&
-        request.frame() === page.mainFrame()
-      ) {
-        topLevelNavigations.push(request.url());
-      }
-    });
+    topLevelNavigations.length = 0;
     await page.goto(campaignUrl);
     await page.getByTestId('not-found').waitFor({ state: 'visible' });
     await page

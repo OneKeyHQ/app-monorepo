@@ -75,6 +75,7 @@ const LEGACY_V670_AUTO_RELOAD_EARN_SYMBOLS = new Set([
 ]);
 
 let versionCheckPromise = null;
+let versionStateMutations = Promise.resolve();
 const clientRuntimeStates = new Map();
 const autoReloadedClientVersions = new Map();
 const tradingViewBootstrapPromises = new Map();
@@ -154,6 +155,12 @@ async function writeVersionState(state) {
       headers: { 'Content-Type': 'application/json' },
     }),
   );
+}
+
+function mutateVersionState(mutate) {
+  const result = versionStateMutations.then(mutate);
+  versionStateMutations = result.catch(() => undefined);
+  return result;
 }
 
 function sendMessageToClient(client, type, payload = {}) {
@@ -1479,19 +1486,47 @@ async function clearReadyVersionState(
   return nextState;
 }
 
+function clearUnchangedReadyVersionState(state, lastError) {
+  return mutateVersionState(async () => {
+    const latestState = await readVersionState();
+    if (latestState.readyVersion !== state.readyVersion) {
+      return latestState;
+    }
+    return clearReadyVersionState(latestState, lastError);
+  });
+}
+
+function reconcileReadyVersionWithManifest(manifest) {
+  return mutateVersionState(async () => {
+    const state = await readVersionState();
+    if (
+      state.readyVersion &&
+      (manifest.version === state.activeVersion ||
+        (manifest.version !== state.readyVersion &&
+          isManifestOlderThan(manifest, state.activeManifest)))
+    ) {
+      return clearReadyVersionState(state, 'version_rollback');
+    }
+    return state;
+  });
+}
+
 async function cacheVersionHtml(manifest) {
   const html = await fetchCandidateHtml(manifest);
   await writeVersionHtml(manifest.version, html);
 }
 
-async function prefetchVersion(manifest) {
+async function prefetchVersion(manifest, { reuseCachedHtml = false } = {}) {
   const tempCacheName = getCriticalTempCacheName(manifest.version);
   const finalCriticalCacheName = getCriticalCacheName(manifest.version);
   await caches.delete(tempCacheName);
   await caches.delete(finalCriticalCacheName);
 
   try {
-    const html = await fetchCandidateHtml(manifest);
+    const cachedHtml = reuseCachedHtml
+      ? await getCachedHtmlResponse(manifest.version)
+      : undefined;
+    const html = cachedHtml ? undefined : await fetchCandidateHtml(manifest);
     const tempCache = await caches.open(tempCacheName);
 
     for (const asset of manifest.critical) {
@@ -1503,7 +1538,9 @@ async function prefetchVersion(manifest) {
     await warmStaticResourceCache(finalCriticalCacheName);
     await caches.delete(tempCacheName);
 
-    await writeVersionHtml(manifest.version, html);
+    if (html !== undefined) {
+      await writeVersionHtml(manifest.version, html);
+    }
   } catch (error) {
     await caches.delete(tempCacheName);
     await caches.delete(finalCriticalCacheName);
@@ -1511,70 +1548,89 @@ async function prefetchVersion(manifest) {
   }
 }
 
-async function switchActiveVersionState(state, manifest) {
-  const previousVersions = [
-    state.activeVersion,
-    ...(state.previousVersions || []),
-  ]
-    .filter((version) => version && version !== manifest.version)
-    .slice(0, PREVIOUS_VERSION_LIMIT);
+function switchActiveVersionState(manifest) {
+  return mutateVersionState(async () => {
+    const state = await readVersionState();
+    if (state.activeVersion === manifest.version) {
+      return state;
+    }
+    const previousVersions = [
+      state.activeVersion,
+      ...(state.previousVersions || []),
+    ]
+      .filter((version) => version && version !== manifest.version)
+      .slice(0, PREVIOUS_VERSION_LIMIT);
 
-  const nextState = {
-    ...state,
-    activeVersion: manifest.version,
-    activeManifest: manifest,
-    readyVersion: '',
-    readyManifest: undefined,
-    previousVersions,
-    failedVersion: '',
-    retryAt: 0,
-    lastError: '',
-  };
-  await writeVersionState(nextState);
-  await cleanupVersionCaches(nextState);
-  await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
-    version: nextState.activeVersion,
+    const nextState = {
+      ...state,
+      activeVersion: manifest.version,
+      activeManifest: manifest,
+      readyVersion: '',
+      readyManifest: undefined,
+      previousVersions,
+      failedVersion: '',
+      retryAt: 0,
+      lastError: '',
+    };
+    await writeVersionState(nextState);
+    await cleanupVersionCaches(nextState);
+    await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
+      version: nextState.activeVersion,
+    });
+    return nextState;
   });
-  return nextState;
 }
 
-async function resetActiveVersionState(state, lastError) {
-  const nextState = {
-    ...state,
-    activeVersion: '',
-    activeManifest: undefined,
-    readyVersion: '',
-    readyManifest: undefined,
-    failedVersion: '',
-    retryAt: 0,
-    lastError,
-  };
-  await writeVersionState(nextState);
-  return nextState;
+function resetActiveVersionState(expectedVersion, lastError) {
+  return mutateVersionState(async () => {
+    const state = await readVersionState();
+    if (state.activeVersion !== expectedVersion) {
+      return state;
+    }
+    const nextState = {
+      ...state,
+      activeVersion: '',
+      activeManifest: undefined,
+      readyVersion: '',
+      readyManifest: undefined,
+      failedVersion: '',
+      retryAt: 0,
+      lastError,
+    };
+    await writeVersionState(nextState);
+    return nextState;
+  });
 }
 
 async function rollbackToManifestVersionState(state, manifest) {
-  let nextState = state;
-  if (nextState.readyVersion && nextState.readyVersion !== manifest.version) {
-    nextState = await clearReadyVersionState(nextState, 'version_rollback');
-  }
-
   if (
     await isVersionCacheValid(manifest.version, manifest).catch(() => false)
   ) {
-    return switchActiveVersionState(nextState, manifest);
+    return switchActiveVersionState(manifest);
   }
 
   try {
     await prefetchVersion(manifest);
-    return switchActiveVersionState(nextState, manifest);
   } catch {
-    return resetActiveVersionState(nextState, 'version_rollback_reset');
+    return resetActiveVersionState(
+      state.activeVersion,
+      'version_rollback_reset',
+    );
   }
+  return switchActiveVersionState(manifest);
 }
 
 function getNextRetryAt() {
   return Date.now() + 5 * 60 * 1000;
+}
+
+function isVersionRetryDeferred(state, version) {
+  return (
+    state.failedVersion === version &&
+    state.retryAt &&
+    Date.now() < state.retryAt &&
+    state.lastError !== 'version_downgrade'
+  );
 }
 
 function updateClientRuntimeState(client, payload = {}) {
@@ -1655,6 +1711,13 @@ function shouldClientAutoReload(client, targetVersion) {
   return false;
 }
 
+function shouldLegacyClientRecover(client, targetVersion) {
+  return (
+    shouldClientAutoReload(client, targetVersion) &&
+    !clientRuntimeStates.get(client.id)?.clientAutoReloadCapable
+  );
+}
+
 async function getControlledClientsWithRequestingClient(requestingClient) {
   const matchedClients = await self.clients
     .matchAll({
@@ -1684,6 +1747,44 @@ async function getControlledClientsWithRequestingClient(requestingClient) {
     result.push(requestingClient);
   }
   return result;
+}
+
+async function prepareActiveVersionForLegacyRecovery(state, requestingClient) {
+  const { activeVersion, activeManifest } = state;
+  if (!activeManifest || isVersionRetryDeferred(state, activeVersion)) {
+    return state;
+  }
+  const clients =
+    await getControlledClientsWithRequestingClient(requestingClient);
+  if (
+    !clients.some((client) =>
+      shouldLegacyClientRecover(client, activeVersion),
+    ) ||
+    (await isVersionCacheValid(activeVersion, activeManifest).catch(
+      () => false,
+    ))
+  ) {
+    return state;
+  }
+
+  await prefetchVersion(activeManifest, { reuseCachedHtml: true });
+  return mutateVersionState(async () => {
+    const latestState = await readVersionState();
+    if (
+      latestState.activeVersion !== activeVersion ||
+      latestState.failedVersion !== activeVersion
+    ) {
+      return latestState;
+    }
+    const nextState = {
+      ...latestState,
+      failedVersion: '',
+      retryAt: 0,
+      lastError: '',
+    };
+    await writeVersionState(nextState);
+    return nextState;
+  });
 }
 
 function sendAutoReloadToClient(client, targetVersion) {
@@ -1745,10 +1846,17 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
 
   if (
     state.activeVersion &&
+    allClients.some((item) =>
+      shouldClientAutoReload(item, state.activeVersion),
+    ) &&
     (await isVersionCacheValid(state.activeVersion, state.activeManifest).catch(
       () => false,
     ))
   ) {
+    const latestState = await readVersionState();
+    if (latestState.activeVersion !== state.activeVersion) {
+      return { autoActivated: false, state: latestState };
+    }
     const clientsToReload = allClients.filter((item) =>
       shouldClientAutoReload(item, state.activeVersion),
     );
@@ -1756,7 +1864,7 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
       clientsToReload.forEach((item) => {
         sendAutoReloadToClient(item, state.activeVersion);
       });
-      return { autoActivated: true, state };
+      return { autoActivated: true, state: latestState };
     }
   }
 
@@ -1770,25 +1878,27 @@ async function runVersionUpdateCheck({ client } = {}) {
   try {
     const manifest = await fetchVersionManifest();
     attemptedVersion = manifest.version;
-    let state = await readVersionState();
+    let state = await reconcileReadyVersionWithManifest(manifest);
 
-    if (!state.activeVersion) {
-      await cacheVersionHtml(manifest);
-      const nextState = {
-        ...state,
-        activeVersion: manifest.version,
-        activeManifest: manifest,
-        lastError: '',
-      };
-      await writeVersionState(nextState);
-      sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
-      return nextState;
-    }
-
-    if (manifest.version === state.activeVersion) {
-      if (state.readyVersion) {
-        state = await clearReadyVersionState(state, 'version_rollback');
+    if (!state.activeVersion || manifest.version === state.activeVersion) {
+      if (!state.activeVersion) {
+        await cacheVersionHtml(manifest);
+        state = await mutateVersionState(async () => {
+          const latestState = await readVersionState();
+          if (latestState.activeVersion) {
+            return latestState;
+          }
+          const nextState = {
+            ...latestState,
+            activeVersion: manifest.version,
+            activeManifest: manifest,
+            lastError: '',
+          };
+          await writeVersionState(nextState);
+          return nextState;
+        });
       }
+      state = await prepareActiveVersionForLegacyRecovery(state, client);
       const { autoActivated, state: resolvedState } =
         await maybeAutoActivateAndReloadClients(state, client);
       if (!autoActivated) {
@@ -1816,14 +1926,21 @@ async function runVersionUpdateCheck({ client } = {}) {
       state.failedVersion === manifest.version &&
       state.lastError === 'version_downgrade';
     if (isOlderThanReadyManifest) {
-      state = await clearReadyVersionState(state, 'ready_replaced');
+      state = await clearUnchangedReadyVersionState(state, 'ready_replaced');
       if (shouldClearVersionDowngradeBackoff) {
-        state = {
-          ...state,
-          failedVersion: '',
-          retryAt: 0,
-        };
-        await writeVersionState(state);
+        state = await mutateVersionState(async () => {
+          const latestState = await readVersionState();
+          if (latestState.failedVersion !== manifest.version) {
+            return latestState;
+          }
+          const nextState = {
+            ...latestState,
+            failedVersion: '',
+            retryAt: 0,
+          };
+          await writeVersionState(nextState);
+          return nextState;
+        });
       }
     }
 
@@ -1844,34 +1961,42 @@ async function runVersionUpdateCheck({ client } = {}) {
         }
         return resolvedState;
       }
-      state = await clearReadyVersionState(state);
+      state = await clearUnchangedReadyVersionState(state);
     }
 
-    if (
-      state.failedVersion === manifest.version &&
-      state.retryAt &&
-      Date.now() < state.retryAt &&
-      state.lastError !== 'version_downgrade'
-    ) {
+    if (isVersionRetryDeferred(state, manifest.version)) {
       sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
       return state;
     }
 
     if (state.readyVersion && state.readyVersion !== manifest.version) {
-      state = await clearReadyVersionState(state, 'ready_replaced');
+      state = await clearUnchangedReadyVersionState(state, 'ready_replaced');
+    }
+    if (state.activeVersion === manifest.version) {
+      sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
+      return state;
+    }
+    if (isManifestOlderThan(manifest, state.activeManifest)) {
+      const nextState = await rollbackToManifestVersionState(state, manifest);
+      sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
+      return nextState;
     }
 
     await prefetchVersion(manifest);
 
-    const nextState = {
-      ...state,
-      readyVersion: manifest.version,
-      readyManifest: manifest,
-      failedVersion: '',
-      retryAt: 0,
-      lastError: '',
-    };
-    await writeVersionState(nextState);
+    const nextState = await mutateVersionState(async () => {
+      const latestState = await readVersionState();
+      const readyState = {
+        ...latestState,
+        readyVersion: manifest.version,
+        readyManifest: manifest,
+        failedVersion: '',
+        retryAt: 0,
+        lastError: '',
+      };
+      await writeVersionState(readyState);
+      return readyState;
+    });
     const { autoActivated, state: resolvedState } =
       await maybeAutoActivateAndReloadClients(nextState, client);
     if (!autoActivated) {
@@ -1882,15 +2007,18 @@ async function runVersionUpdateCheck({ client } = {}) {
     }
     return resolvedState;
   } catch (error) {
-    const state = await readVersionState();
     const errorCode = getVersionErrorCode(error);
-    const nextState = {
-      ...state,
-      failedVersion: attemptedVersion || state.failedVersion,
-      retryAt: getNextRetryAt(),
-      lastError: errorCode,
-    };
-    await writeVersionState(nextState);
+    const nextState = await mutateVersionState(async () => {
+      const state = await readVersionState();
+      const failedState = {
+        ...state,
+        failedVersion: attemptedVersion || state.failedVersion,
+        retryAt: getNextRetryAt(),
+        lastError: errorCode,
+      };
+      await writeVersionState(failedState);
+      return failedState;
+    });
     sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
       errorCode: nextState.lastError,
       operation: MESSAGE_TYPES.CHECK_VERSION,
@@ -1900,77 +2028,71 @@ async function runVersionUpdateCheck({ client } = {}) {
   }
 }
 
-async function checkForVersionUpdate({ client } = {}) {
+async function checkForVersionUpdate({ client, retryJoinedCheck = true } = {}) {
+  const joinedCheck = Boolean(versionCheckPromise);
   if (!versionCheckPromise) {
     versionCheckPromise = runVersionUpdateCheck({ client }).finally(() => {
       versionCheckPromise = null;
     });
   }
   const state = await versionCheckPromise;
-  const { state: resolvedState } = await maybeAutoActivateAndReloadClients(
-    state,
-    client,
-  );
+  const { autoActivated, state: resolvedState } =
+    await maybeAutoActivateAndReloadClients(state, client);
+  if (
+    joinedCheck &&
+    retryJoinedCheck &&
+    !autoActivated &&
+    !resolvedState.readyVersion &&
+    shouldLegacyClientRecover(client, resolvedState.activeVersion) &&
+    !isVersionRetryDeferred(resolvedState, resolvedState.activeVersion)
+  ) {
+    // The shared check may have captured the client list before this request.
+    return checkForVersionUpdate({ client, retryJoinedCheck: false });
+  }
   return resolvedState;
 }
 
-async function promoteReadyVersionState(
-  state,
-  { shouldBroadcast = true } = {},
-) {
+function promoteReadyVersionState(state, { shouldBroadcast = true } = {}) {
   const targetReadyVersion = state?.readyVersion;
   if (!targetReadyVersion) {
-    return state;
+    return Promise.resolve(state);
   }
 
-  const latestState = await readVersionState();
-  if (
-    !latestState.readyVersion ||
-    latestState.readyVersion !== targetReadyVersion
-  ) {
-    return latestState;
-  }
-
-  if (!(await isReadyVersionCacheValid(latestState))) {
-    const stateBeforeClear = await readVersionState();
-    if (stateBeforeClear.readyVersion !== targetReadyVersion) {
-      return stateBeforeClear;
+  return mutateVersionState(async () => {
+    const latestState = await readVersionState();
+    if (latestState.readyVersion !== targetReadyVersion) {
+      return latestState;
     }
-    return clearReadyVersionState(stateBeforeClear);
-  }
 
-  const confirmedState = await readVersionState();
-  if (
-    !confirmedState.readyVersion ||
-    confirmedState.readyVersion !== targetReadyVersion
-  ) {
-    return confirmedState;
-  }
+    if (!(await isReadyVersionCacheValid(latestState))) {
+      return clearReadyVersionState(latestState);
+    }
 
-  const previousVersions = [
-    confirmedState.activeVersion,
-    ...(confirmedState.previousVersions || []),
-  ]
-    .filter((version) => version && version !== targetReadyVersion)
-    .slice(0, PREVIOUS_VERSION_LIMIT);
+    const previousVersions = [
+      latestState.activeVersion,
+      ...(latestState.previousVersions || []),
+    ]
+      .filter((version) => version && version !== targetReadyVersion)
+      .slice(0, PREVIOUS_VERSION_LIMIT);
 
-  const nextState = {
-    ...confirmedState,
-    activeVersion: confirmedState.readyVersion,
-    activeManifest: confirmedState.readyManifest,
-    readyVersion: '',
-    readyManifest: undefined,
-    previousVersions,
-    lastError: '',
-  };
-  await writeVersionState(nextState);
-  await cleanupVersionCaches(nextState);
-  if (shouldBroadcast) {
-    await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
-      version: nextState.activeVersion,
-    });
-  }
-  return nextState;
+    const nextState = {
+      ...latestState,
+      activeVersion: latestState.readyVersion,
+      activeManifest: latestState.readyManifest,
+      readyVersion: '',
+      readyManifest: undefined,
+      previousVersions,
+      lastError: '',
+    };
+    await writeVersionState(nextState);
+    await cleanupVersionCaches(nextState);
+    if (shouldBroadcast) {
+      await broadcastMessage(MESSAGE_TYPES.VERSION_ACTIVATED, {
+        version: nextState.activeVersion,
+      });
+    }
+    return nextState;
+  });
 }
 
 async function activateReadyVersion(version, { client, requestId } = {}) {
@@ -1984,7 +2106,11 @@ async function activateReadyVersion(version, { client, requestId } = {}) {
   }
 
   if (!(await isReadyVersionCacheValid(state))) {
-    const nextState = await clearReadyVersionState(state);
+    const nextState = await clearUnchangedReadyVersionState(state);
+    if (nextState.activeVersion === version) {
+      sendMessageToClient(client, MESSAGE_TYPES.VERSION_ACTIVATED, { version });
+      return nextState;
+    }
     sendMessageToClient(client, MESSAGE_TYPES.UPDATE_FAILED, {
       errorCode: nextState.lastError,
       operation: MESSAGE_TYPES.ACTIVATE_VERSION,
@@ -2025,16 +2151,11 @@ async function cleanupVersionCaches(state) {
 }
 
 async function handleNavigation() {
-  const state = await readVersionState();
-
-  if (await isReadyVersionCacheValid(state).catch(() => false)) {
-    const readyResponse = await getCachedHtmlResponse(state.readyVersion);
-    if (readyResponse) {
-      await promoteReadyVersionState(state, { shouldBroadcast: false }).catch(
-        () => undefined,
-      );
-      return readyResponse;
-    }
+  let state = await readVersionState();
+  if (state.readyVersion) {
+    state = await promoteReadyVersionState(state, {
+      shouldBroadcast: false,
+    }).catch(() => readVersionState());
   }
 
   const activeResponse = await getCachedHtmlResponse(state.activeVersion);

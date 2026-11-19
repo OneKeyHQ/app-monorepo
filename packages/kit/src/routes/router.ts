@@ -129,7 +129,8 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...buildOAuthCallbackWebRouter(),
 ];
 
-if (platformEnv.isDev) {
+// Web linking needs the wildcard route to survive root stack rehydration.
+if (platformEnv.isDev || platformEnv.isWeb) {
   const NotFound = LazyLoad(() => import('../components/NotFound'));
   rootRouter.push({
     name: ERootRoutes.NotFound,

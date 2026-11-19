@@ -161,6 +161,16 @@ async function createVersionBundle({
   };
 }
 
+function createV670Bundle() {
+  return createVersionBundle({
+    version: V_NEW,
+    buildTime: 1_700_000_100_000,
+    html: '<!doctype html><html><body>v6.7.0-unitas-ready</body></html>',
+    scriptUrl: `${ORIGIN}/main.v670.js`,
+    scriptContent: 'console.log("v6.7.0");',
+  });
+}
+
 function createServiceWorkerTestBed({
   cacheStorage = createMemoryCacheStorage(),
   serverBundle,
@@ -638,6 +648,121 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(reloadedHtml).toContain('v6.7.0-unitas-ready');
   });
 
+  test.each(['empty', 'HTML-only'])(
+    'recovers an already-loaded v6.6.4 Unitas page with %s CacheStorage',
+    async (cacheState) => {
+      const bundle = await createV670Bundle();
+      const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+      expect(await testBed.cacheStorage.keys()).toEqual([]);
+      if (cacheState === 'HTML-only') {
+        await testBed.navigate(`${ORIGIN}/swap`);
+        expect(globalThis.fetch).not.toHaveBeenCalledWith(
+          bundle.scriptUrl,
+          expect.anything(),
+        );
+      }
+      const client = createLegacyV664Client({ url: UNITAS_EMAIL_URL });
+      testBed.controlledClients.set(client.id, client);
+      await Promise.all(
+        ['GET_VERSION_STATE', 'CHECK_VERSION'].map((type) =>
+          testBed.sendFromClient(client, {
+            type,
+            payload: { clientVersion: V_OLD },
+          }),
+        ),
+      );
+      expect(client.reloadMock).toHaveBeenCalledTimes(1);
+      const criticalCache = await testBed.cacheStorage.open(
+        `onekey-web-critical:${V_NEW}`,
+      );
+      const response = await criticalCache.match(bundle.scriptUrl);
+      expect(await response.text()).toBe(bundle.scriptContent);
+      expect(await testBed.navigate(UNITAS_EMAIL_URL)).toBe(bundle.html);
+      expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('recovers a legacy page checking during an HTML-only bootstrap that already took its client snapshot', async () => {
+    const bundle = await createV670Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+    const clientSnapshotTaken = Promise.withResolvers();
+    const releaseClientSnapshot = Promise.withResolvers();
+    globalThis.self.clients.matchAll.mockImplementationOnce(async () => {
+      clientSnapshotTaken.resolve();
+      await releaseClientSnapshot.promise;
+      return [];
+    });
+
+    const bootstrap = testBed.navigate(`${ORIGIN}/swap`);
+    await clientSnapshotTaken.promise;
+    const client = createLegacyV664Client({ url: UNITAS_EMAIL_URL });
+    testBed.controlledClients.set(client.id, client);
+    const lateCheck = testBed.sendFromClient(client, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_OLD },
+    });
+    releaseClientSnapshot.resolve();
+    await Promise.all([bootstrap, lateCheck]);
+
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(
+      globalThis.fetch.mock.calls.filter(([url]) => url === bundle.scriptUrl),
+    ).toHaveLength(1);
+  });
+
+  test('does not recover from unverified critical assets and retries only after backoff', async () => {
+    const bundle = await createV670Bundle();
+    const testBed = createServiceWorkerTestBed({
+      serverBundle: { ...bundle, scriptContent: 'Unverified script content' },
+    });
+    const client = createLegacyV664Client({ url: UNITAS_EMAIL_URL });
+    testBed.controlledClients.set(client.id, client);
+    const checkVersion = () =>
+      testBed.sendFromClient(client, {
+        type: 'CHECK_VERSION',
+        payload: { clientVersion: V_OLD },
+      });
+
+    await checkVersion();
+    const stateCache = await testBed.cacheStorage.open(
+      'onekey-web-version-state',
+    );
+    const failedResponse = await stateCache.match(
+      `${ORIGIN}/__onekey_web_version_state__`,
+    );
+    expect(await failedResponse.json()).toMatchObject({
+      activeVersion: V_NEW,
+      failedVersion: V_NEW,
+      lastError: 'integrity_mismatch',
+      retryAt: Date.now() + 5 * 60 * 1000,
+    });
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    const criticalCache = await testBed.cacheStorage.open(
+      `onekey-web-critical:${V_NEW}`,
+    );
+    expect(await criticalCache.match(bundle.scriptUrl)).toBeUndefined();
+
+    testBed.setServerBundle(bundle);
+    await checkVersion();
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    expect(
+      globalThis.fetch.mock.calls.filter(([url]) => url === bundle.scriptUrl),
+    ).toHaveLength(1);
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await checkVersion();
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    const recoveredResponse = await stateCache.match(
+      `${ORIGIN}/__onekey_web_version_state__`,
+    );
+    expect(await recoveredResponse.json()).toMatchObject({
+      activeVersion: V_NEW,
+      failedVersion: '',
+      retryAt: 0,
+      lastError: '',
+    });
+  });
+
   test('does NOT force-reload a legacy v6.6.4 client on a normal working route (e.g. /swap)', async () => {
     const bundleV664 = await createVersionBundle({
       version: V_OLD,
@@ -713,6 +838,110 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     const refreshedHtml = await testBed.navigate(UNITAS_EMAIL_URL);
     expect(refreshedHtml).toContain('v6.7.0');
   });
+
+  test.each(['before promotion', 'during promotion'])(
+    'uses the rollback version while offline after a CHECK_VERSION starts %s',
+    async (timing) => {
+      const bundleV664 = await createVersionBundle({
+        version: V_OLD,
+        buildTime: 1_700_000_000_000,
+        html: '<!doctype html><html><body>v6.6.4</body></html>',
+        scriptUrl: `${ORIGIN}/main.v664.js`,
+        scriptContent: 'console.log("v6.6.4");',
+      });
+      const bundleV670 = await createV670Bundle();
+      const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
+      await testBed.navigate(`${ORIGIN}/`);
+      testBed.setServerBundle(bundleV670);
+      const client = createLegacyV664Client({ url: `${ORIGIN}/swap` });
+      const checkVersion = () =>
+        testBed.sendFromClient(client, {
+          type: 'CHECK_VERSION',
+          payload: { clientVersion: V_OLD },
+        });
+      await checkVersion();
+
+      const stateCache = await testBed.cacheStorage.open(
+        'onekey-web-version-state',
+      );
+      const internalStateUrl = `${ORIGIN}/__onekey_web_version_state__`;
+      const readyResponse = await stateCache.match(internalStateUrl);
+      expect(await readyResponse.json()).toMatchObject({
+        activeVersion: V_OLD,
+        readyVersion: V_NEW,
+      });
+      const navigationPaused = Promise.withResolvers();
+      const releaseNavigation = Promise.withResolvers();
+      if (timing === 'before promotion') {
+        const matchState = stateCache.match.bind(stateCache);
+        jest
+          .spyOn(stateCache, 'match')
+          .mockImplementationOnce(async (request) => {
+            const response = await matchState(request);
+            navigationPaused.resolve();
+            await releaseNavigation.promise;
+            return response;
+          });
+      } else {
+        const putState = stateCache.put.bind(stateCache);
+        jest
+          .spyOn(stateCache, 'put')
+          .mockImplementationOnce(async (request, response) => {
+            navigationPaused.resolve();
+            await releaseNavigation.promise;
+            return putState(request, response);
+          });
+      }
+
+      const navigation = testBed.navigate(UNITAS_EMAIL_URL);
+      await navigationPaused.promise;
+      testBed.setServerBundle(bundleV664);
+      const fetchManifest = globalThis.fetch.getMockImplementation();
+      const rollbackManifestRequested = Promise.withResolvers();
+      globalThis.fetch.mockImplementationOnce((...args) => {
+        rollbackManifestRequested.resolve(args[0]);
+        return fetchManifest(...args);
+      });
+      const rollback = checkVersion();
+      let stateWhilePromotionPaused;
+      try {
+        expect(await rollbackManifestRequested.promise).toBe(
+          '/sw-version-manifest.json',
+        );
+        if (timing === 'before promotion') {
+          await rollback;
+          expect(await testBed.cacheStorage.keys()).not.toContain(
+            `onekey-web-critical:${V_NEW}`,
+          );
+          globalThis.fetch.mockRejectedValue(
+            new Error('offline after rollback'),
+          );
+        } else {
+          await jest.advanceTimersByTimeAsync(0);
+          const pausedResponse = await stateCache.match(internalStateUrl);
+          stateWhilePromotionPaused = await pausedResponse.json();
+        }
+      } finally {
+        releaseNavigation.resolve();
+      }
+      const [initialHtml] = await Promise.all([navigation, rollback]);
+      if (timing === 'before promotion') {
+        expect(initialHtml).toBe(bundleV664.html);
+      } else {
+        expect(stateWhilePromotionPaused).toMatchObject({
+          activeVersion: V_OLD,
+          readyVersion: V_NEW,
+        });
+      }
+      const rolledBackResponse = await stateCache.match(internalStateUrl);
+      expect(await rolledBackResponse.json()).toMatchObject({
+        activeVersion: V_OLD,
+        readyVersion: '',
+      });
+      globalThis.fetch.mockRejectedValue(new Error('offline after rollback'));
+      expect(await testBed.navigate(UNITAS_EMAIL_URL)).toBe(bundleV664.html);
+    },
+  );
 
   test('v6.7.0+ client auto-reloads when WebRootErrorBoundary catches an error and a new version is available', async () => {
     const bundleV670 = await createVersionBundle({
@@ -1234,6 +1463,36 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
       },
     ]);
     expect(client.reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('an already-active update can be refreshed again if the first manual reload did not leave the page', async () => {
+    const bundle = await createV670Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+    const client = createModernWebClientWithRealIndexJs({
+      testBed,
+      url: `${ORIGIN}/swap`,
+    });
+    await client.bootServiceWorkerProtocol();
+    const activeVersionState = {
+      type: 'VERSION_STATE',
+      payload: { activeVersion: V_NEXT, readyVersion: '' },
+    };
+    client.clientHandle.postMessage(activeVersionState);
+    client.clickRefresh();
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(client.clientHandle.getBannerElement()).not.toBeNull();
+
+    client.clientHandle.postMessage({
+      type: 'UPDATE_READY',
+      payload: { version: V_NEXT },
+    });
+    client.clientHandle.postMessage(activeVersionState);
+    client.clickRefresh();
+    expect(client.reloadMock).toHaveBeenCalledTimes(2);
+    expect(client.storageMap.size).toBe(0);
+    expect(client.sentMessages).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ACTIVATE_VERSION' }),
+    );
   });
 
   test('a matching activation failure cancels the fallback and removes the invalid ready version from the banner', async () => {
