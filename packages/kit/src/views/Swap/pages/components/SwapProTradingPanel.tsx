@@ -195,7 +195,7 @@ const SwapProTradingPanel = ({
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.isLoading;
 
-  useSwapProActionsQuote();
+  const { onRefreshQuote } = useSwapProActionsQuote();
 
   return (
     <YStack gap="$2.5" flex={1}>
@@ -316,6 +316,7 @@ const SwapProTradingPanel = ({
       <YStack flex={1} />
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
+        onRefreshQuote={onRefreshQuote}
         onDepositToTrade={onDepositToTrade}
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}

@@ -1838,6 +1838,131 @@ describe('useSwapActions', () => {
     },
   );
 
+  it('retries native Pro using both refreshed multipliers and rejects retained quotes', async () => {
+    platformEnv.isNative = true;
+    const address = '0xabc';
+    const accountId = 'account-1';
+    const slippageItem = { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 };
+    const fromToken = { ...usdcToken, balanceMultiplier: '2' };
+    const toToken = { ...bnbProToken, balanceMultiplier: '1' };
+    const oldQuote: IFetchQuoteResult = {
+      quoteId: 'old-pro-quote',
+      eventId: 'old-pro-event',
+      fromAmount: '4',
+      toAmount: '3',
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      info: { provider: 'first', providerName: 'First' },
+    };
+    const { store, Wrapper } = createWrapperWithStore((s) => {
+      s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      s.set(swapProTradeTypeAtom(), ESwapProTradeType.MARKET);
+      s.set(swapProDirectionAtom(), ESwapDirection.SELL);
+      s.set(swapProSelectTokenAtom(), fromToken);
+      s.set(swapProSellToTokenAtom(), toToken);
+      s.set(swapProInputAmountStateAtom(), { value: '8', isInput: true });
+      s.set(swapQuoteActionLockAtom(), {
+        address,
+        accountId,
+        receivingAddress: address,
+        type: ESwapTabSwitchType.SWAP,
+        source: ESwapQuoteSource.MARKET,
+        actionLock: false,
+        fromToken,
+        toToken,
+        fromTokenAmount: '8',
+        kind: ESwapQuoteKind.SELL,
+        slippageItem,
+        quoteRequestId: 'expired-pro-request',
+        hasMultiplierMismatch: true,
+      });
+      s.set(swapQuoteEventTotalCountAtom(), {
+        eventId: oldQuote.eventId,
+        count: 1,
+      });
+      s.set(swapQuoteCurrentEventProviderKeysAtom(), ['first-First']);
+      s.set(swapQuoteListAtom(), [oldQuote]);
+      s.set(swapShouldRefreshQuoteAtom(), true);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const receivingDetail = createDeferred<ISwapToken[]>();
+    mockFetchSwapTokenDetails.mockImplementation(({ accountAddress }) =>
+      accountAddress
+        ? Promise.resolve([
+            { ...fromToken, balanceParsed: '10', balanceMultiplier: '4' },
+          ])
+        : receivingDetail.promise,
+    );
+    const canPreview = () => {
+      const quote = store.get(swapQuoteCurrentSelectAtom());
+      return quote
+        ? result.current.canPreviewSwapProMarketQuote(quote, address, accountId)
+        : false;
+    };
+    expect(canPreview()).toBe(false);
+    const retry = () =>
+      result.current.retrySwapProMarketQuote({
+        address,
+        accountId,
+        slippageItem,
+        isActive: () => true,
+      });
+    let request: Promise<void> | undefined;
+    await act(async () => {
+      request = retry();
+      await retry();
+    });
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    expect(store.get(swapQuoteFetchingAtom())).toBe(true);
+    expect(canPreview()).toBe(false);
+    await act(async () => {
+      receivingDetail.resolve([{ ...toToken, balanceMultiplier: '5' }]);
+      await request;
+      await result.current.quoteSpeedAction(
+        slippageItem,
+        address,
+        accountId,
+        address,
+      );
+    });
+    expect(store.get(swapProInputAmountStateAtom()).value).toBe('8');
+    expect(store.get(swapQuoteActionLockAtom()).quoteRequestId).not.toBe(
+      'expired-pro-request',
+    );
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromTokenAmount: '2',
+        fromToken: expect.objectContaining({
+          balanceMultiplier: '4',
+          balanceParsed: '10',
+        }),
+        toToken: expect.objectContaining({ balanceMultiplier: '5' }),
+      }),
+    );
+
+    const retainedQuote = { ...oldQuote, eventId: 'new-pro-event' };
+    store.set(swapQuoteEventTotalCountAtom(), {
+      eventId: retainedQuote.eventId,
+      count: 1,
+    });
+    store.set(swapQuoteListAtom(), [retainedQuote]);
+    expect(canPreview()).toBe(false);
+    const freshQuote = {
+      ...retainedQuote,
+      quoteId: 'new-pro-quote',
+      fromAmount: '2',
+      fromTokenInfo: { ...fromToken, balanceMultiplier: '4' },
+      toTokenInfo: { ...toToken, balanceMultiplier: '5' },
+    };
+    store.set(swapQuoteListAtom(), [freshQuote]);
+    store.set(swapQuoteCurrentEventProviderKeysAtom(), ['first-First']);
+    expect(canPreview()).toBe(true);
+  });
+
   it('uses the complete Stock list limit for child-network balance requests', async () => {
     mockGetSupportSwapAllAccounts.mockResolvedValue({
       supportAccountsFetchFailed: false,

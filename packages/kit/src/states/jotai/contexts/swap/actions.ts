@@ -216,6 +216,7 @@ import {
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
+  hasSwapCurrentEventProvider,
   hasSwapZeroProviderQuoteEvent,
   isSameSwapQuoteAmountValue,
   isSwapOrBridgeQuoteType,
@@ -226,6 +227,12 @@ import {
   shouldShowSwapQuoteLimitWarning,
 } from './quoteProgress';
 import { getSwapTokenSelectorStore } from './tokenSelectorData';
+
+function getSwapProMarketTokenAtoms(direction: ESwapDirection) {
+  return direction === ESwapDirection.BUY
+    ? ([swapProUseSelectBuyTokenAtom(), swapProSelectTokenAtom()] as const)
+    : ([swapProSelectTokenAtom(), swapProSellToTokenAtom()] as const);
+}
 
 type IIndependentSwapInputAmountType =
   | ESwapTabSwitchType.SWAP
@@ -2762,22 +2769,40 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       address?: string,
       accountId?: string,
       receivingAddress?: string,
+      manualRefresh: boolean = false,
     ) => {
-      const selectedToken = get(swapProSelectTokenAtom());
-      const buySelectToken = get(swapProUseSelectBuyTokenAtom());
-      const sellSelectToken = get(swapProSellToTokenAtom());
-      const swapProDirection = get(swapProDirectionAtom());
+      const [fromAtom, toAtom] = getSwapProMarketTokenAtoms(
+        get(swapProDirectionAtom()),
+      );
       const fromInput = get(swapProInputAmountStateAtom());
-      const fromToken =
-        swapProDirection === ESwapDirection.BUY
-          ? buySelectToken
-          : selectedToken;
-      const toToken =
-        swapProDirection === ESwapDirection.BUY
-          ? selectedToken
-          : sellSelectToken;
+      const fromToken = get(fromAtom);
+      const toToken = get(toAtom);
       if (!fromToken || !toToken || fromToken.networkId !== toToken.networkId) {
         void this.resetQuoteAction.call(set);
+        return;
+      }
+      const request = get(swapQuoteActionLockAtom());
+      if (
+        !manualRefresh &&
+        request.manualRefresh &&
+        (request.actionLock || !get(swapShouldRefreshQuoteAtom())) &&
+        request.maxAmountSnapshot === fromInput.maxAmountSnapshot &&
+        request.slippageItem?.key === slippageItem.key &&
+        request.slippageItem?.value === slippageItem.value &&
+        isSwapQuoteRequestForCurrentInput({
+          currentAccountId: accountId,
+          currentAddress: address,
+          currentReceivingAddress: receivingAddress,
+          currentSwapType: ESwapTabSwitchType.SWAP,
+          fromAmount: fromInput.value,
+          fromToken,
+          quoteKind: ESwapQuoteKind.SELL,
+          quoteRequest: request,
+          toAmount: '',
+          toToken,
+        })
+      ) {
+        // The metadata updates from a manual retry also wake the input effect.
         return;
       }
       void this.quoteAction.call(
@@ -2798,7 +2823,217 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           maxAmountSnapshot: fromInput.maxAmountSnapshot,
           source: ESwapQuoteSource.MARKET,
           type: ESwapTabSwitchType.SWAP,
+          manualRefresh,
         },
+      );
+    },
+  );
+
+  retrySwapProMarketQuote = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        slippageItem,
+        address,
+        accountId,
+        isActive,
+      }: {
+        slippageItem: { key: ESwapSlippageSegmentKey; value: number };
+        address: string;
+        accountId: string;
+        isActive: () => boolean;
+      },
+    ) => {
+      const direction = get(swapProDirectionAtom());
+      const [fromAtom, toAtom] = getSwapProMarketTokenAtoms(direction);
+      const fromToken = get(fromAtom);
+      const toToken = get(toAtom);
+      const input = get(swapProInputAmountStateAtom());
+      const failedRequest = get(swapQuoteActionLockAtom());
+      const requestMatchesInput = () =>
+        isSwapQuoteRequestForCurrentInput({
+          currentAccountId: accountId,
+          currentAddress: address,
+          currentReceivingAddress: address,
+          currentSwapType: ESwapTabSwitchType.SWAP,
+          fromAmount: get(swapProInputAmountStateAtom()).value,
+          fromToken: get(fromAtom),
+          quoteKind: ESwapQuoteKind.SELL,
+          quoteRequest: failedRequest,
+          toAmount: '',
+          toToken: get(toAtom),
+        });
+      const isProMarket = () =>
+        platformEnv.isNative &&
+        get(swapTypeSwitchAtom()) === ESwapTabSwitchType.LIMIT &&
+        get(swapProTradeTypeAtom()) === ESwapProTradeType.MARKET;
+      if (
+        !isProMarket() ||
+        !isActive() ||
+        !get(swapShouldRefreshQuoteAtom()) ||
+        failedRequest.source !== ESwapQuoteSource.MARKET ||
+        failedRequest.actionLock ||
+        !fromToken ||
+        !toToken ||
+        fromToken.networkId !== toToken.networkId ||
+        !requestMatchesInput()
+      ) {
+        return;
+      }
+
+      const preparationId = generateUUID();
+      void this.resetQuoteAction.call(set);
+      set(swapQuoteActionLockAtom(), {
+        ...failedRequest,
+        quoteRequestId: preparationId,
+        actionLock: true,
+        manualRefresh: true,
+      });
+      set(swapQuoteFetchingAtom(), true);
+      const balanceRequestId = this.beginSwapProTokenBalanceRequest.call(set);
+
+      const fetchDetail = async (token: ISwapToken, isPayToken: boolean) => {
+        const contractAddress = await getSwapTokenBalanceContractAddress(token);
+        const details =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: token.networkId,
+            contractAddress,
+            currency: USD_CURRENCY_ID,
+            ...(isPayToken ? { accountAddress: address, accountId } : {}),
+          });
+        const detail = details?.find(
+          (item) =>
+            item.decimals === token.decimals &&
+            equalTokenNoCaseSensitive({
+              token1: item,
+              token2: { networkId: token.networkId, contractAddress },
+            }),
+        );
+        if (
+          detail &&
+          (tokenRebaseUtils.isValidBalanceMultiplier(
+            detail.balanceMultiplier,
+          ) ||
+            (detail.balanceMultiplier === undefined &&
+              !tokenRebaseUtils.isScalingBalanceMultiplier(
+                token.balanceMultiplier,
+              ) &&
+              (token.isNative ||
+                !tokenRebaseUtils.supportsBalanceMultiplierLookup(token))))
+        ) {
+          return detail;
+        }
+      };
+      try {
+        const [fromDetail, toDetail] = await Promise.all([
+          fetchDetail(fromToken, true),
+          fetchDetail(toToken, false),
+        ]);
+        const currentFrom = get(fromAtom);
+        const currentTo = get(toAtom);
+        if (
+          !fromDetail ||
+          !toDetail ||
+          !this.isSwapProTokenBalanceRequestLatest.call(
+            set,
+            balanceRequestId,
+          ) ||
+          get(swapQuoteActionLockAtom()).quoteRequestId !== preparationId ||
+          !isActive() ||
+          !isProMarket() ||
+          get(swapProDirectionAtom()) !== direction ||
+          get(swapProInputAmountStateAtom()) !== input ||
+          !requestMatchesInput() ||
+          !currentFrom ||
+          !currentTo ||
+          currentFrom.decimals !== fromToken.decimals ||
+          currentTo.decimals !== toToken.decimals
+        ) {
+          return;
+        }
+        const fromUpdate = {
+          balanceMultiplier: fromDetail.balanceMultiplier,
+          ...(fromDetail.balanceParsed === undefined
+            ? {}
+            : {
+                balanceParsed: fromDetail.balanceParsed,
+                accountAddress: address,
+              }),
+        };
+        const toUpdate = { balanceMultiplier: toDetail.balanceMultiplier };
+        if (direction === ESwapDirection.BUY) {
+          set(swapProUseSelectBuyTokenAtom(), (token) =>
+            token ? { ...token, ...fromUpdate } : token,
+          );
+          set(swapProSelectTokenAtom(), { ...currentTo, ...toUpdate });
+        } else {
+          set(swapProSelectTokenAtom(), { ...currentFrom, ...fromUpdate });
+          set(swapProSellToTokenAtom(), (token) =>
+            token ? { ...token, ...toUpdate } : token,
+          );
+        }
+        await this.quoteSpeedAction.call(
+          set,
+          slippageItem,
+          address,
+          accountId,
+          address,
+          true,
+        );
+      } catch {
+        // Leave the same input available for another retry if metadata is unavailable.
+      } finally {
+        this.finishSwapProTokenBalanceRequest.call(set, balanceRequestId);
+        if (get(swapQuoteActionLockAtom()).quoteRequestId === preparationId) {
+          set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteEventCompletedAtom(), true);
+          set(swapQuoteActionLockAtom(), (request) => ({
+            ...request,
+            actionLock: false,
+          }));
+        }
+      }
+    },
+  );
+
+  canPreviewSwapProMarketQuote = contextAtomMethod(
+    (
+      get,
+      _set,
+      quote: IFetchQuoteResult,
+      address?: string,
+      accountId?: string,
+    ) => {
+      const request = get(swapQuoteActionLockAtom());
+      const [fromAtom, toAtom] = getSwapProMarketTokenAtoms(
+        get(swapProDirectionAtom()),
+      );
+      return Boolean(
+        address &&
+        accountId &&
+        !get(swapShouldRefreshQuoteAtom()) &&
+        request.source === ESwapQuoteSource.MARKET &&
+        quote === get(swapQuoteCurrentSelectAtom()) &&
+        isSwapQuoteActionable(quote) &&
+        quote.eventId &&
+        quote.eventId === get(swapQuoteEventTotalCountAtom()).eventId &&
+        hasSwapCurrentEventProvider(
+          quote,
+          get(swapQuoteCurrentEventProviderKeysAtom()),
+        ) &&
+        isSwapQuoteRequestForCurrentInput({
+          currentAccountId: accountId,
+          currentAddress: address,
+          currentReceivingAddress: address,
+          currentSwapType: ESwapTabSwitchType.SWAP,
+          fromAmount: get(swapProInputAmountStateAtom()).value,
+          fromToken: get(fromAtom),
+          quoteKind: ESwapQuoteKind.SELL,
+          quoteRequest: request,
+          toAmount: '',
+          toToken: get(toAtom),
+        }),
       );
     },
   );
@@ -5423,6 +5658,9 @@ export const useSwapActions = () => {
   const finishSwapProTokenBalanceRequest =
     actions.finishSwapProTokenBalanceRequest.use();
   const quoteSpeedAction = actions.quoteSpeedAction.use();
+  const retrySwapProMarketQuote = actions.retrySwapProMarketQuote.use();
+  const canPreviewSwapProMarketQuote =
+    actions.canPreviewSwapProMarketQuote.use();
   const cleanQuoteInterval = actions.cleanQuoteInterval.use();
   const selectSwapProToken = actions.selectSwapProToken.use();
   const initializeSwapProSelectToken =
@@ -5473,6 +5711,8 @@ export const useSwapActions = () => {
     invalidateSwapProTokenBalanceRequest,
     finishSwapProTokenBalanceRequest,
     quoteSpeedAction,
+    retrySwapProMarketQuote,
+    canPreviewSwapProMarketQuote,
     selectSwapProToken,
     initializeSwapProSelectToken,
     updateSwapProSelectTokenMetadata,

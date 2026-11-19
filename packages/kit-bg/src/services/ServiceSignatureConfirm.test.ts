@@ -62,6 +62,7 @@ import {
   EParseTxComponentType,
   EParseTxComponentRole,
   EParseTxType,
+  ETransferDirection,
   type IDisplayComponent,
   type IDisplayComponentAddress,
   type IDisplayComponentApprove,
@@ -1108,6 +1109,98 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
             ],
       });
       expect(decoded.encodedTx).toEqual(local.encodedTx);
+    },
+  );
+
+  it.each([
+    { balanceMultiplier: '1', approvalAmount: '2', simulationAmount: '' },
+    { balanceMultiplier: '2', approvalAmount: '4', simulationAmount: '3' },
+  ])(
+    'retains simulation for a read-only approval with Review multiplier $balanceMultiplier',
+    async ({ balanceMultiplier, approvalAmount, simulationAmount }) => {
+      const tokenInfo = {
+        address: evmLowerAddress,
+        decimals: 6,
+        name: 'Scaled',
+        symbol: 'SCALED',
+        isNative: false,
+      };
+      const asset = {
+        type: EParseTxComponentType.Token,
+        label: 'Simulated outflow',
+        networkId,
+        token: {
+          info: tokenInfo,
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 0,
+        },
+        amount: '1500000',
+        amountParsed: '3',
+        showNetwork: false,
+        transferDirection: ETransferDirection.Out,
+      } as const;
+      const simulation: IDisplayComponentSimulation = {
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: [asset],
+      };
+      const parsedTx = buildParsedTx({ components: [simulation] });
+      parsedTx.type = EParseTxType.Approve;
+      const service = buildService(parsedTx);
+      const encodedTx = {
+        from: accountAddress,
+        to: evmLowerAddress,
+        value: '0',
+      };
+      const localTx: IDecodedTx = {
+        ...buildLocalDecodedTx(),
+        encodedTx,
+        actions: [
+          {
+            type: EDecodedTxActionType.TOKEN_APPROVE,
+            tokenApprove: {
+              from: accountAddress,
+              to: evmLowerAddress,
+              spender: evmLowerSpender,
+              amount: approvalAmount,
+              icon: '',
+              name: tokenInfo.name,
+              symbol: tokenInfo.symbol,
+              decimals: tokenInfo.decimals,
+              tokenIdOnNetwork: evmLowerAddress,
+              isInfiniteAmount: false,
+              approveType: EApproveType.Approve,
+              balanceMultiplier,
+              disableAllowanceEditing: true,
+            },
+          },
+        ],
+      };
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(localTx),
+      });
+
+      const decodedTx = await service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx: { encodedTx },
+      });
+
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Approve,
+          amountParsed: approvalAmount,
+          isEditable: false,
+        }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual({
+        ...simulation,
+        assets: [{ ...asset, amountParsed: simulationAmount }],
+      });
+      expect(decodedTx.encodedTx).toBe(encodedTx);
     },
   );
 

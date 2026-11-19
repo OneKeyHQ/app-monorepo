@@ -124,7 +124,19 @@ function formatScaledSimulation({
     return `${networkId}:${normalized ?? address}`;
   };
   const multipliers = new Map<string, string>();
+  const unknownAllowanceAmounts = new Set<string>();
   for (const { assetTransfer, tokenApprove } of decodedTx.actions) {
+    if (
+      tokenApprove?.disableAllowanceEditing &&
+      !tokenRebaseUtils.isScalingBalanceMultiplier(
+        tokenApprove.balanceMultiplier,
+      )
+    ) {
+      // The approval can keep a unit Review snapshot after Wallet reports scaling.
+      unknownAllowanceAmounts.add(
+        getKey(decodedTx.networkId, tokenApprove.tokenIdOnNetwork),
+      );
+    }
     const tokens = [
       ...(assetTransfer?.sends ?? []),
       ...(assetTransfer?.receives ?? []),
@@ -165,13 +177,15 @@ function formatScaledSimulation({
         ) {
           return [{ ...asset, amountParsed: '' }];
         }
-        const multiplier = multipliers.get(getKey(networkId, info.address));
+        const key = getKey(networkId, info.address);
+        const multiplier = multipliers.get(key);
         if (!tokenRebaseUtils.isScalingBalanceMultiplier(multiplier)) {
           return [
-            multiplier === undefined &&
-            tokenRebaseUtils.isScalingBalanceMultiplier(
-              tokenRebaseUtils.pickBalanceMultiplier(asset.token),
-            )
+            unknownAllowanceAmounts.has(key) ||
+            (multiplier === undefined &&
+              tokenRebaseUtils.isScalingBalanceMultiplier(
+                tokenRebaseUtils.pickBalanceMultiplier(asset.token),
+              ))
               ? { ...asset, amountParsed: '' }
               : asset,
           ];
@@ -533,7 +547,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       shouldUseLocalDisplay ? parsedTx?.display : undefined,
     );
     // Earn fallback and locally validated Permit2 both retain server risk
-    // alerts. Simulation is retained for staking fallback and Permit2 only.
+    // alerts. Staking fallback and Permit2 also retain the simulation below.
     const serverSimulationComponents =
       useLocalPermit2Display ||
       (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
@@ -570,10 +584,8 @@ class ServiceSignatureConfirm extends ServiceBase {
     // amounts (and editable approve components) for scaling tokens; the
     // local decode is display-correct and fail-closes approve editing, so
     // force the local path. Server risk alerts are retained below.
-    const hasScalingRebaseAction =
-      checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
     const requiresLocalRebaseDisplay =
-      hasScalingRebaseAction ||
+      checkDecodedTxHasScalingBalanceMultiplier(decodedTx) ||
       decodedTx.actions.some(
         (action) => action.tokenApprove?.disableAllowanceEditing,
       );
@@ -667,7 +679,7 @@ class ServiceSignatureConfirm extends ServiceBase {
             })
           : txDisplayComponents;
 
-      const previewComponents = hasScalingRebaseAction
+      const previewComponents = requiresLocalRebaseDisplay
         ? (rebaseDisplayExtras?.simulationComponents ?? [])
         : serverSimulationComponents;
       const components = [
@@ -676,7 +688,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       ];
       decodedTx.txDisplay = {
         title: '',
-        components: hasScalingRebaseAction
+        components: requiresLocalRebaseDisplay
           ? components.map((component) =>
               component.type === EParseTxComponentType.Simulation
                 ? formatScaledSimulation({

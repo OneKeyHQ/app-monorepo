@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -2366,10 +2367,15 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, resumeQuoteAction, resetQuoteAction } =
-    useSwapActions().current;
+  const {
+    quoteSpeedAction,
+    resumeQuoteAction,
+    resetQuoteAction,
+    retrySwapProMarketQuote,
+  } = useSwapActions().current;
   const [appIsLocked] = useAppIsLockedAtom();
   const isFocused = useIsFocused();
+  const isMountedRef = useIsMounted();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount, maxAmountSnapshot] =
@@ -2408,6 +2414,31 @@ export function useSwapProActionsQuote() {
   }, [proTokenDetail, swapProSelectToken]);
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProAccount = useSwapProAccount();
+  const manualRefreshScope = {
+    active: isFocused && !appIsLocked,
+    accountId: swapProAccount.result?.id,
+    address: swapProAccount.result?.addressDetail.address,
+  };
+  const manualRefreshScopeRef = useRef(manualRefreshScope);
+  manualRefreshScopeRef.current = manualRefreshScope;
+  const onRefreshQuote = useCallback(() => {
+    const { active, accountId, address } = manualRefreshScopeRef.current;
+    if (!active || !accountId || !address) return;
+    void retrySwapProMarketQuote({
+      slippageItem,
+      address,
+      accountId,
+      isActive: () => {
+        const current = manualRefreshScopeRef.current;
+        return (
+          isMountedRef.current &&
+          current.active &&
+          current.accountId === accountId &&
+          current.address === address
+        );
+      },
+    });
+  }, [isMountedRef, retrySwapProMarketQuote, slippageItem]);
   const slippageItemRef = useRef(slippageItem);
   if (slippageItemRef.current !== slippageItem) {
     slippageItemRef.current = slippageItem;
@@ -2523,7 +2554,7 @@ export function useSwapProActionsQuote() {
   ]);
 
   return {
-    quoteSpeedAction,
+    onRefreshQuote,
   };
 }
 

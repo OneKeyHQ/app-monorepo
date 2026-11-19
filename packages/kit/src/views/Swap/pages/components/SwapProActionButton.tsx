@@ -23,6 +23,7 @@ import {
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -87,6 +88,7 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
+  onRefreshQuote: () => void;
   onDepositToTrade?: () => void;
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
@@ -96,6 +98,7 @@ interface ISwapProActionButtonProps {
 
 const SwapProActionButton = ({
   onSwapProActionClick,
+  onRefreshQuote,
   onDepositToTrade,
   hasEnoughBalance,
   balanceLoading,
@@ -113,6 +116,7 @@ const SwapProActionButton = ({
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [proInput] = useSwapProInputAmountStateAtom();
   const swapProInputAmount = proInput.value;
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
@@ -314,10 +318,22 @@ const SwapProActionButton = ({
       }),
     [inputToken, shouldShowNoProviderSupport, swapProAccountAddress, toToken],
   );
+  const shouldRetryQuote =
+    isProMarket &&
+    canExecuteInPro &&
+    shouldRefreshQuote &&
+    !shouldDepositToTrade &&
+    Boolean(swapProAccountAddress) &&
+    rawFromAmountBN.isFinite() &&
+    rawFromAmountBN.gt(0);
 
   const onPressActionButton = useCallback(() => {
     if (shouldDepositToTrade) {
       onDepositToTrade?.();
+      return;
+    }
+    if (shouldRetryQuote) {
+      onRefreshQuote();
       return;
     }
     if (!canExecuteInPro) {
@@ -328,6 +344,8 @@ const SwapProActionButton = ({
   }, [
     shouldDepositToTrade,
     onDepositToTrade,
+    shouldRetryQuote,
+    onRefreshQuote,
     canExecuteInPro,
     handleJumpToSwapAction,
     onSwapProActionClick,
@@ -348,6 +366,9 @@ const SwapProActionButton = ({
     if (shouldDepositToTrade) {
       return !onDepositToTrade;
     }
+    if (shouldRetryQuote) {
+      return Boolean(isActionDisabled) || quoteFetching;
+    }
     let originalDisabled =
       !!isActionDisabled ||
       Boolean(minimumDisplayAmount) ||
@@ -363,6 +384,8 @@ const SwapProActionButton = ({
   }, [
     shouldDepositToTrade,
     onDepositToTrade,
+    shouldRetryQuote,
+    quoteFetching,
     isActionDisabled,
     minimumDisplayAmount,
     hasEnoughBalance,
@@ -391,6 +414,14 @@ const SwapProActionButton = ({
       return {
         plainText: intl.formatMessage({
           id: ETranslations.perp_trade_deposit_to_trade__action,
+        }),
+        subValue: '',
+      };
+    }
+    if (shouldRetryQuote) {
+      return {
+        plainText: intl.formatMessage({
+          id: ETranslations.swap_page_button_refresh_quotes,
         }),
         subValue: '',
       };
@@ -476,6 +507,7 @@ const SwapProActionButton = ({
     inputToken?.symbol,
     currencyInfo?.symbol,
     shouldDepositToTrade,
+    shouldRetryQuote,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     swapProAccount?.accountStatus,
@@ -519,6 +551,7 @@ const SwapProActionButton = ({
   const quoteInputBN = isProMarket ? rawFromAmountBN : displayAmountBN;
   const isQuoting =
     !shouldDepositToTrade &&
+    !shouldRetryQuote &&
     canExecuteInPro &&
     quoteInputBN.isFinite() &&
     quoteInputBN.gt(0) &&
@@ -532,7 +565,8 @@ const SwapProActionButton = ({
   // mounts don't flash "Select wallet" before the account lands.
   const isAccountPending =
     swapProAccount?.accountStatus === ESwapProAccountStatus.PENDING;
-  const showButtonLoading = isQuoting || isAccountPending;
+  const showButtonLoading =
+    isQuoting || isAccountPending || (shouldRetryQuote && quoteFetching);
 
   return (
     <Button

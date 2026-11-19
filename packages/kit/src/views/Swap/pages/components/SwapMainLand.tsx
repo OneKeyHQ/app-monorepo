@@ -384,6 +384,7 @@ const SwapMainLoad = ({
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const {
+    canPreviewSwapProMarketQuote,
     cleanQuoteInterval,
     quoteAction,
     selectFromToken,
@@ -1431,6 +1432,13 @@ const SwapMainLoad = ({
       if (
         multiplierStatus !== 'ready' ||
         !currentQuoteRes ||
+        (focusSwapPro &&
+          swapProTradeType === ESwapProTradeType.MARKET &&
+          !canPreviewSwapProMarketQuote(
+            currentQuoteRes,
+            swapProAccount?.result?.addressDetail.address,
+            swapProAccount?.result?.id,
+          )) ||
         !isSwapReviewMultiplierCurrent(
           currentQuoteRes.fromTokenInfo,
           fromSelectToken,
@@ -1702,6 +1710,9 @@ const SwapMainLoad = ({
     [
       focusSwapPro,
       swapProAccount?.result?.addressDetail.address,
+      swapProAccount?.result?.id,
+      swapProTradeType,
+      canPreviewSwapProMarketQuote,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
       multiplierStatus,
