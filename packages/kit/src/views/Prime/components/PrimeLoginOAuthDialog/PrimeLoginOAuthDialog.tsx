@@ -19,6 +19,7 @@ import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
+import { OneKeyOAuthButton } from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyOAuthButton';
 import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import {
   EExtOneKeyIdAuthFlow,
@@ -599,24 +600,18 @@ function PrimeLoginOAuthDialog(props: {
       void handleSocialLogin(method.provider);
     };
     return (
-      <Button
+      <OneKeyOAuthButton
         key={method.provider}
-        size="large"
-        icon={
-          method.provider === EOAuthSocialLoginProvider.Google
-            ? 'GoogleIllus'
-            : 'AppleBrand'
-        }
+        provider={method.provider}
         testID={`prime-login-oauth-${method.provider}-btn`}
         disabled={isLoginBusy}
         loading={loggingInProvider === method.provider}
         onPress={handleOAuthPress}
-      >
-        {intl.formatMessage(
+        label={intl.formatMessage(
           { id: ETranslations.continue_with_social_platform },
           { platform: providerName },
         )}
-      </Button>
+      />
     );
   };
 
