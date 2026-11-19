@@ -204,6 +204,42 @@ class ProviderApiTron extends ProviderApiBase {
     });
   }
 
+  private async syncConnectedNodes(request: IJsBridgeMessagePayload) {
+    if (!request.origin || request.isWalletConnectRequest) {
+      return;
+    }
+
+    const { origin } = request;
+    const [nodes, chainId] = await Promise.all([
+      this.tron_nodes({ origin, scope: this.providerName }),
+      this.tron_chainId({ origin, scope: this.providerName }),
+    ]);
+
+    const payload = {
+      method: 'wallet_events_nodesChanged',
+      params: {
+        nodes,
+        chainId,
+      },
+    };
+
+    const bridgeExtBg = this.backgroundApi.bridgeExtBg;
+    if (bridgeExtBg) {
+      // Send a resolved payload for this origin only; passing an async callback
+      // yields inside JsBridgeExtBackground.requestToAllCS and lets the
+      // tron_requestAccounts response overtake wallet_events_nodesChanged.
+      bridgeExtBg.requestToAllCS(this.providerName, payload, origin);
+      return;
+    }
+
+    const send = this.backgroundApi.sendForProvider?.(this.providerName) as
+      | ((data: unknown, targetOrigin: string) => Promise<void> | void)
+      | undefined;
+    if (typeof send === 'function') {
+      await send(payload, origin);
+    }
+  }
+
   @providerApiMethod()
   async tron_requestAccounts(request: IJsBridgeMessagePayload) {
     defaultLogger.discovery.dapp.dappRequest({ request });
@@ -213,7 +249,11 @@ class ProviderApiTron extends ProviderApiBase {
       return accounts;
     }
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.tron_accounts(request);
+    const connectedAccounts = await this.tron_accounts(request);
+    if (connectedAccounts.length) {
+      await this.syncConnectedNodes(request);
+    }
+    return connectedAccounts;
   }
 
   @permissionRequired()
