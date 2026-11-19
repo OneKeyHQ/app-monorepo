@@ -17,6 +17,7 @@ import {
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountStateAtom,
+  useSwapProReceiveMultiplierLookupFailedAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -30,6 +31,7 @@ import {
 import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   getSwapDisplayAmount,
+  getSwapMinimumDisplayAmount,
   getSwapRawInputAmount,
   isSwapMaxAmountCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
@@ -117,6 +119,8 @@ const SwapProActionButton = ({
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
+  const [receiveMultiplierLookupFailed] =
+    useSwapProReceiveMultiplierLookupFailedAtom();
   const [proInput] = useSwapProInputAmountStateAtom();
   const swapProInputAmount = proInput.value;
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
@@ -152,10 +156,7 @@ const SwapProActionButton = ({
     inputToken &&
     displayAmountBN.gt(0) &&
     rawFromAmountBN.isZero()
-      ? getSwapDisplayAmount(
-          new BigNumber(1).shiftedBy(-inputToken.decimals).toFixed(),
-          inputToken.balanceMultiplier,
-        )
+      ? getSwapMinimumDisplayAmount(inputToken)
       : undefined;
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
@@ -321,7 +322,7 @@ const SwapProActionButton = ({
   const shouldRetryQuote =
     isProMarket &&
     canExecuteInPro &&
-    shouldRefreshQuote &&
+    (shouldRefreshQuote || receiveMultiplierLookupFailed) &&
     !shouldDepositToTrade &&
     Boolean(swapProAccountAddress) &&
     rawFromAmountBN.isFinite() &&

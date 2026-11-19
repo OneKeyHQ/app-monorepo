@@ -81,6 +81,10 @@ import {
 } from '../../components/SwapReviewSlippageEditor';
 import { useSwapReviewQuoteExpiry } from '../../hooks/useSwapReviewQuoteExpiry';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import {
+  getSwapDisplayAmount,
+  hasScaledSwapLimitPair,
+} from '../../utils/swapAmountUtils';
 import { getSwapReviewOrderId } from '../../utils/swapReviewAnalytics';
 import {
   ESwapReviewRebuildPhase,
@@ -357,13 +361,32 @@ const PreSwapDialogContent = ({
     if (!pairMatched) {
       return false;
     }
+    if (hasScaledSwapLimitPair(preSwapData?.fromToken, preSwapData?.toToken)) {
+      const reviewPayDisplayAmount = getSwapDisplayAmount(
+        preSwapData?.fromTokenAmount ?? '',
+        preSwapData?.fromToken?.balanceMultiplier,
+      );
+      const reviewReceiveDisplayAmount = getSwapDisplayAmount(
+        preSwapData?.toTokenAmount ?? '',
+        preSwapData?.toToken?.balanceMultiplier,
+      );
+      return Boolean(
+        reviewPayDisplayAmount &&
+        reviewReceiveDisplayAmount &&
+        new BigNumber(reviewReceiveDisplayAmount).lt(
+          new BigNumber(reviewPayDisplayAmount).times(marketRate),
+        ),
+      );
+    }
     return userRate.lt(marketRate);
   }, [
     quoteResult,
     limitPriceUseRate,
     limitPriceMarketPrice,
     preSwapData?.fromToken,
+    preSwapData?.fromTokenAmount,
     preSwapData?.toToken,
+    preSwapData?.toTokenAmount,
   ]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(

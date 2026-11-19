@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import type { IMarketGasInfoEntry } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
-import { isSwapQuoteMultiplierCompatible } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   checkSwapBalanceSufficientFromAmount,
   checkSwapLatestBalanceSufficient,
@@ -175,16 +174,15 @@ async function checkScaledTokenBalance(
       }),
   );
   const rawBalance = new BigNumber(detail?.balanceParsed ?? '');
-  const multiplier =
-    tokenRebaseUtils.pickBalanceMultiplier(detail) ??
-    (detail?.balanceMultiplier === undefined
-      ? detail?.info.balanceMultiplier
-      : detail.balanceMultiplier);
+  const multiplier = tokenRebaseUtils.pickBalanceMultiplier(detail);
   if (
     detail?.info.decimals !== token.decimals ||
     !rawBalance.isFinite() ||
     rawBalance.isNegative() ||
-    !isSwapQuoteMultiplierCompatible(multiplier, token.balanceMultiplier)
+    !tokenRebaseUtils.equalBalanceMultipliers(
+      multiplier,
+      token.balanceMultiplier,
+    )
   )
     throw new DustSweepSkip('unknown');
   return checkSwapBalanceSufficientFromAmount({

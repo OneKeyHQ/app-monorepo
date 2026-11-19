@@ -159,6 +159,7 @@ import type {
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
+import { shouldJumpToMarketTradeFallback } from '../components/ActionButton.utils';
 import { buildMarketStockQuoteDisplay } from '../utils/marketStockQuoteDisplayUtils';
 
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
@@ -455,6 +456,8 @@ export function useSpeedSwapActions(props: {
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
   executionReady?: boolean;
+  supportSpeedSwap?: boolean;
+  isAccountNetworkSupported?: boolean;
   onCloseReviewDialog?: () => void | Promise<void>;
   /**
    * Live per-stock open state from the token detail. Flips refresh the current
@@ -475,6 +478,8 @@ export function useSpeedSwapActions(props: {
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     executionReady: pairExecutionReady = true,
+    supportSpeedSwap = true,
+    isAccountNetworkSupported = true,
     onCloseReviewDialog,
     stockIsOpen,
   } = props;
@@ -545,7 +550,10 @@ export function useSpeedSwapActions(props: {
   const effectiveSpenderAddress =
     selectedQuoteResult?.allowanceResult?.allowanceTarget ?? '';
 
-  const [multiplierRequestVersion, setMultiplierRequestVersion] = useState(0);
+  const [multiplierRefresh, setMultiplierRefresh] = useState<{
+    scope: string;
+    tokens: Pick<ISwapToken, 'networkId' | 'contractAddress'>[];
+  }>();
   const marketNetworkId = marketToken.networkId;
   const marketAddress = marketToken.contractAddress;
   const marketIsNative = marketToken.isNative;
@@ -554,6 +562,7 @@ export function useSpeedSwapActions(props: {
   const tradeAddress = tradeToken.contractAddress;
   const tradeIsNative = tradeToken.isNative;
   const tradeMultiplier = tradeToken.balanceMultiplier;
+  const multiplierScope = `${tradeType}:${marketNetworkId}:${marketAddress}:${tradeNetworkId}:${tradeAddress}`;
   const [multiplierDetails, setMultiplierDetails] = useState<{
     isLoading: boolean;
     result?: Array<
@@ -563,6 +572,7 @@ export function useSpeedSwapActions(props: {
             'networkId' | 'contractAddress' | 'isNative' | 'balanceMultiplier'
           >;
           detail?: ISwapToken;
+          requireFreshBalanceMultiplier: boolean;
         }
       | undefined
     >;
@@ -589,14 +599,23 @@ export function useSpeedSwapActions(props: {
         if (!token.networkId || (!token.contractAddress && !token.isNative))
           return undefined;
         try {
+          const requireFreshBalanceMultiplier = Boolean(
+            multiplierRefresh?.scope === multiplierScope &&
+            multiplierRefresh.tokens.some((item) =>
+              equalTokenNoCaseSensitive({ token1: item, token2: token }),
+            ),
+          );
           const details =
             await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
               networkId: token.networkId,
               contractAddress: token.contractAddress,
               currency: 'usd',
               throwOnError: true,
+              ...(requireFreshBalanceMultiplier
+                ? { requireFreshBalanceMultiplier }
+                : {}),
             });
-          return { token, detail: details?.[0] };
+          return { token, detail: details?.[0], requireFreshBalanceMultiplier };
         } catch {
           return undefined;
         }
@@ -616,7 +635,8 @@ export function useSpeedSwapActions(props: {
     tradeAddress,
     tradeIsNative,
     tradeMultiplier,
-    multiplierRequestVersion,
+    multiplierRefresh,
+    multiplierScope,
   ]);
   const multiplierMetadataReady = [marketToken, tradeToken].every((token) =>
     multiplierDetails.result?.some(
@@ -624,6 +644,10 @@ export function useSpeedSwapActions(props: {
         item?.detail &&
         equalTokenNoCaseSensitive({ token1: item.token, token2: token }) &&
         item.token.balanceMultiplier === token.balanceMultiplier &&
+        (!item.requireFreshBalanceMultiplier ||
+          tokenRebaseUtils.isValidBalanceMultiplier(
+            item.detail.balanceMultiplier,
+          )) &&
         ((item.detail.balanceMultiplier ?? token.balanceMultiplier) ===
           undefined ||
           tokenRebaseUtils.isValidBalanceMultiplier(
@@ -665,6 +689,15 @@ export function useSpeedSwapActions(props: {
   const toTokenRef = useRef(toToken);
   fromTokenRef.current = fromToken;
   toTokenRef.current = toToken;
+  const isWrapped = useMemo(
+    () => checkWrappedTokenPair({ fromToken, toToken }),
+    [fromToken, toToken],
+  );
+  const canRetryMultiplierInMarket = !shouldJumpToMarketTradeFallback({
+    supportSpeedSwap,
+    isAccountNetworkSupported,
+    isWrapped,
+  });
   const currentCurrencyId = settingsAtom.currencyInfo.id;
   const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${
     tradeToken.contractAddress ?? ''
@@ -780,6 +813,11 @@ export function useSpeedSwapActions(props: {
       accountAddress: fromAccountAddress,
     });
   const executionReady = pairExecutionReady && maxAmountCurrent;
+  const multiplierNeedsRefresh =
+    executionReady &&
+    canRetryMultiplierInMarket &&
+    !multiplierMetadataReady &&
+    !multiplierDetails.isLoading;
   const isMaxAmountStale =
     multiplierMetadataReady && !!fromNetworkAccount && !maxAmountCurrent;
   const createMaxAmountSnapshot = useCallback(
@@ -1039,7 +1077,24 @@ export function useSpeedSwapActions(props: {
   const forceRefreshMarketQuote = useCallback(() => {
     if (!executionReady) return;
     if (!multiplierMetadataReady || quoteActionLock.hasMultiplierMismatch) {
-      setMultiplierRequestVersion((version) => version + 1);
+      if (!canRetryMultiplierInMarket) return;
+      const mismatch = quoteActionLock.multiplierMismatch;
+      const tokensToVerify = [fromToken, toToken].filter(
+        (token, index) =>
+          quoteActionLock.hasMultiplierMismatch &&
+          ((index === 0 ? mismatch?.from : mismatch?.to) ??
+            tokenRebaseUtils.isScalingBalanceMultiplier(
+              token.balanceMultiplier,
+            )),
+      );
+      setMultiplierRefresh((previous) => {
+        const previousTokens =
+          previous?.scope === multiplierScope ? previous.tokens : [];
+        return {
+          scope: multiplierScope,
+          tokens: tokensToVerify.length ? tokensToVerify : previousTokens,
+        };
+      });
       return;
     }
     const userAddress = fromNetworkAccount?.addressDetail.address;
@@ -1074,8 +1129,11 @@ export function useSpeedSwapActions(props: {
     );
   }, [
     executionReady,
+    canRetryMultiplierInMarket,
     multiplierMetadataReady,
+    multiplierScope,
     quoteActionLock.hasMultiplierMismatch,
+    quoteActionLock.multiplierMismatch,
     fromToken,
     fromTokenAmountDebounced,
     maxAmountSnapshot,
@@ -1154,11 +1212,6 @@ export function useSpeedSwapActions(props: {
   const cancelSpeedSwapBuildTx = useCallback(() => {
     setSpeedSwapBuildTxLoading(false);
   }, []);
-
-  const isWrapped = useMemo(
-    () => checkWrappedTokenPair({ fromToken, toToken }),
-    [fromToken, toToken],
-  );
 
   const persistMarketSwapHistoryItem = useCallback(
     async ({
@@ -4338,16 +4391,9 @@ export function useSpeedSwapActions(props: {
           })
         : undefined),
     quoteReadyForReview: multiplierMetadataReady && quoteActionState.canReview,
-    quoteNeedsRefresh:
-      quoteActionState.canRefresh ||
-      (executionReady &&
-        !multiplierMetadataReady &&
-        !multiplierDetails.isLoading),
+    quoteNeedsRefresh: quoteActionState.canRefresh || multiplierNeedsRefresh,
     quoteRefreshActionActive:
-      quoteActionState.isRefreshAction ||
-      (executionReady &&
-        !multiplierMetadataReady &&
-        !multiplierDetails.isLoading),
+      quoteActionState.isRefreshAction || multiplierNeedsRefresh,
     refreshMarketQuote,
     forceRefreshMarketQuote,
     estimateMarketPresetNetworkFees,

@@ -2,7 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapLimitPriceInfo,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
+import { ESwapQuoteKind } from '@onekeyhq/shared/types/swap/types';
 
 const RateBigNumber = BigNumber.clone({ DECIMAL_PLACES: 60 });
 
@@ -161,6 +165,16 @@ export function getSwapRawAmount(
   return units.shiftedBy(-decimals).toFixed();
 }
 
+export function getSwapMinimumDisplayAmount(token: {
+  decimals: number;
+  balanceMultiplier?: string;
+}): string | undefined {
+  return getSwapDisplayAmount(
+    new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
+    token.balanceMultiplier,
+  );
+}
+
 export function getSwapRawInputAmount(
   amount: string,
   token: { balanceMultiplier?: string; decimals: number },
@@ -200,6 +214,137 @@ export function getSwapLimitOrderBaseUnits({
   const units = new BigNumber(rawAmount).shiftedBy(token.decimals);
   return units.isFinite() && units.isInteger() && units.gt(0)
     ? units.toFixed()
+    : undefined;
+}
+
+export function hasScaledSwapLimitPair(
+  fromToken: ISwapAmountToken | undefined,
+  toToken: ISwapAmountToken | undefined,
+) {
+  return (
+    tokenRebaseUtils.isScalingBalanceMultiplier(fromToken?.balanceMultiplier) ||
+    tokenRebaseUtils.isScalingBalanceMultiplier(toToken?.balanceMultiplier)
+  );
+}
+
+export function getScaledSwapLimitRate(
+  price: ISwapLimitPriceInfo,
+  fromToken: ISwapAmountToken | undefined,
+  toToken: ISwapAmountToken | undefined,
+) {
+  if (
+    !hasScaledSwapLimitPair(fromToken, toToken) ||
+    !equalTokenNoCaseSensitive({
+      token1: fromToken,
+      token2: price.fromToken,
+    }) ||
+    !equalTokenNoCaseSensitive({ token1: toToken, token2: price.toToken })
+  ) {
+    return undefined;
+  }
+  const rate = new BigNumber(price.rate ?? '');
+  return rate.isFinite() && rate.gt(0) ? rate.toFixed() : undefined;
+}
+
+export type ISwapLimitRawAmounts = {
+  fromTokenAmount: string;
+  toTokenAmount: string;
+};
+
+export function getScaledSwapLimitAmounts({
+  fromToken,
+  toToken,
+  kind,
+  input,
+  rate,
+  maxRawAmount,
+}: {
+  fromToken: ISwapAmountToken;
+  toToken: ISwapAmountToken;
+  kind: ESwapQuoteKind;
+  input: string;
+  rate: string;
+  maxRawAmount?: string;
+}): ISwapLimitRawAmounts | undefined {
+  const fromMultiplier = getMultiplier(fromToken.balanceMultiplier);
+  const toMultiplier = getMultiplier(toToken.balanceMultiplier);
+  if (!fromMultiplier || !toMultiplier) return undefined;
+
+  if (kind === ESwapQuoteKind.BUY) {
+    const toTokenAmount = getSwapRawAmount(
+      input,
+      toMultiplier.toFixed(),
+      toToken.decimals,
+      'up',
+    );
+    if (toTokenAmount === undefined) return undefined;
+    const fromTokenAmount = getSwapRawAmount(
+      new BigNumber(toTokenAmount).times(toMultiplier).toFixed(),
+      fromMultiplier.times(rate).toFixed(),
+      fromToken.decimals,
+      'down',
+    );
+    if (fromTokenAmount === undefined) return undefined;
+    return { fromTokenAmount, toTokenAmount };
+  }
+
+  const fromTokenAmount =
+    maxRawAmount ??
+    getSwapRawAmount(
+      input,
+      fromMultiplier.toFixed(),
+      fromToken.decimals,
+      'down',
+    );
+  if (fromTokenAmount === undefined) return undefined;
+  const toTokenAmount = getSwapRawAmount(
+    new BigNumber(fromTokenAmount).times(fromMultiplier).times(rate).toFixed(),
+    toMultiplier.toFixed(),
+    toToken.decimals,
+    'up',
+  );
+  if (toTokenAmount === undefined) return undefined;
+  return { fromTokenAmount, toTokenAmount };
+}
+
+export function getSwapLimitRateFromRawAmounts(amounts: ISwapLimitRawAmounts) {
+  return new RateBigNumber(amounts.toTokenAmount)
+    .dividedBy(amounts.fromTokenAmount)
+    .toFixed();
+}
+
+export function getScaledSwapLimitOrderBaseUnits({
+  amounts,
+  fromToken,
+  toToken,
+  kind,
+  quotedSellAmount,
+  quotedBuyAmount,
+}: {
+  amounts: ISwapLimitRawAmounts;
+  fromToken: ISwapAmountToken;
+  toToken: ISwapAmountToken;
+  kind?: ESwapQuoteKind;
+  quotedSellAmount: string;
+  quotedBuyAmount: string;
+}) {
+  const sellAmount = getSwapLimitOrderBaseUnits({
+    rawFallback: amounts.fromTokenAmount,
+    token: fromToken,
+    rounding: 'down',
+  });
+  const buyAmount = getSwapLimitOrderBaseUnits({
+    rawFallback: amounts.toTokenAmount,
+    token: toToken,
+    rounding: 'up',
+  });
+  const matchesFixedSide =
+    kind === ESwapQuoteKind.SELL
+      ? new BigNumber(quotedSellAmount).eq(sellAmount ?? '')
+      : kind === ESwapQuoteKind.BUY &&
+        new BigNumber(quotedBuyAmount).eq(buyAmount ?? '');
+  return matchesFixedSide && sellAmount && buyAmount
+    ? { sellAmount, buyAmount }
     : undefined;
 }
 

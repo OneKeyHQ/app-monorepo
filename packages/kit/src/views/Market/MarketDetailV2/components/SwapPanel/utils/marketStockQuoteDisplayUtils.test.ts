@@ -121,6 +121,50 @@ describe('marketStockQuoteDisplayUtils', () => {
     ).toBe('0.32141715');
   });
 
+  it.each([undefined, '1', '3'])(
+    'prices the display quantity from a raw balance with multiplier %s when no price is available',
+    (balanceMultiplier) => {
+      const fromToken = {
+        networkId: 'evm--1',
+        contractAddress: '0xusdc',
+        symbol: 'USDC',
+        decimals: 6,
+        price: '1',
+        currency: 'usd',
+      };
+      const toToken = {
+        networkId: 'evm--1',
+        contractAddress: '0xstock',
+        symbol: 'STOCK',
+        decimals: 18,
+        isStock: true,
+        balanceParsed: '2',
+        fiatValue: '12',
+        balanceMultiplier,
+      };
+      const result = buildMarketStockQuoteDisplay({
+        currencyMap,
+        fallbackCurrencySymbol: '$',
+        fromToken,
+        toToken,
+        quoteResult: {
+          info: { provider: 'test', providerName: 'Test' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+          toAmount: '1',
+          instantRate: '0.15',
+        },
+        targetCurrency: 'usd',
+      });
+
+      expect(result.receiveFiatValue).toBe('6');
+      expect(result.rateDifference).toEqual({
+        value: '-10.00%',
+        unit: ESwapRateDifferenceUnit.NEGATIVE,
+      });
+    },
+  );
+
   it('does not assume a one-to-one share ratio when metadata is unavailable', () => {
     expect(
       calculateMarketStockEstimatedShares({

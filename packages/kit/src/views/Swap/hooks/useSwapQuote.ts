@@ -46,6 +46,7 @@ import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProInputAmountAtom,
   useSwapProTradeTypeAtom,
@@ -68,6 +69,7 @@ import {
   isSameSwapQuoteAmountValue,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import {
+  getScaledSwapLimitRate,
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
   getSwapRawInputAmount,
@@ -217,6 +219,11 @@ export function useSwapQuote({
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
+  const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const scaledLimitRate =
+    swapTabSwitchType === ESwapTabSwitchType.LIMIT && !isProMarket
+      ? getScaledSwapLimitRate(limitPriceUseRate, fromToken, toToken)
+      : undefined;
   const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
@@ -623,6 +630,7 @@ export function useSwapQuote({
     if (
       swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
+      swapQuoteActionLockRef.current?.scaledLimitRate === scaledLimitRate &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
       swapQuoteActionLockRef.current?.maxAmountSnapshot ===
@@ -688,6 +696,7 @@ export function useSwapQuote({
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
+    scaledLimitRate,
     isProMarket,
     shouldPauseQuote,
   ]);
@@ -752,6 +761,7 @@ export function useSwapQuote({
     if (
       swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
+      swapQuoteActionLockRef.current?.scaledLimitRate === scaledLimitRate &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
       tokenRebaseUtils.equalBalanceMultipliers(
@@ -811,6 +821,7 @@ export function useSwapQuote({
     toToken?.balanceMultiplier,
     alignmentToDecimal,
     toAmountDebounce,
+    scaledLimitRate,
     isProMarket,
     shouldPauseQuote,
   ]);

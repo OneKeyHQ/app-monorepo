@@ -22,8 +22,10 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  getScaledSwapLimitOrderBaseUnits,
   getSwapDisplayRate,
   getSwapLimitOrderBaseUnits,
+  hasScaledSwapLimitPair,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   useCurrencyPersistAtom,
@@ -3476,9 +3478,25 @@ export function useSwapBuildTx({
       ) {
         const selectQuoteRes = cloneDeep(data);
         if (selectQuoteRes.swapShouldSignedData && fromAccountId) {
+          const isScaledLimit =
+            selectQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+            hasScaledSwapLimitPair(
+              selectQuoteRes.fromTokenInfo,
+              selectQuoteRes.toTokenInfo,
+            );
+          if (isScaledLimit) {
+            const { fromTokenAmount, toTokenAmount } = (
+              reviewGuard?.execution?.state ?? swapStepsRef.current
+            ).preSwapData;
+            if (!fromTokenAmount || !toTokenAmount) {
+              throw new OneKeyAppError('Invalid raw limit order amounts');
+            }
+            selectQuoteRes.fromAmount = fromTokenAmount;
+            selectQuoteRes.toAmount = toTokenAmount;
+          }
           const checkLatestBalanceRes = await checkLatestFromTokenBalance(
             selectQuoteRes.fromTokenInfo,
-            data.fromAmount,
+            selectQuoteRes.fromAmount ?? data.fromAmount,
           );
           if (!checkLatestBalanceRes) {
             throw new OneKeyAppError('checkLatestFromTokenBalance failed');
@@ -3508,6 +3526,11 @@ export function useSwapBuildTx({
               selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
             unSignedOrder.receiver = toUserAddress ?? '';
             let dataMessage = unSignedMessage;
+            if (isScaledLimit && (dataMessage || !unSignedData)) {
+              throw new OneKeyAppError(
+                'Scaled limit order requires typed quote data',
+              );
+            }
             if (!dataMessage && unSignedData) {
               let validTo = unSignedOrder.validTo;
               const swapLimitExpirationTimeValueBN = new BigNumber(
@@ -3520,7 +3543,28 @@ export function useSwapBuildTx({
                 .toNumber();
               let finalBuyAmount = unSignedOrder.buyAmount;
               let finalSellAmount = unSignedOrder.sellAmount;
-              if (selectQuoteRes.protocol === EProtocolOfExchange.LIMIT) {
+              if (isScaledLimit) {
+                const orderAmounts = getScaledSwapLimitOrderBaseUnits({
+                  amounts: {
+                    fromTokenAmount: selectQuoteRes.fromAmount ?? '',
+                    toTokenAmount: selectQuoteRes.toAmount ?? '',
+                  },
+                  fromToken: selectQuoteRes.fromTokenInfo,
+                  toToken: selectQuoteRes.toTokenInfo,
+                  kind: selectQuoteRes.kind,
+                  quotedSellAmount: unSignedOrder.sellAmount,
+                  quotedBuyAmount: unSignedOrder.buyAmount,
+                });
+                if (!orderAmounts) {
+                  throw new OneKeyAppError(
+                    'Limit order does not match the reviewed raw amounts',
+                  );
+                }
+                finalSellAmount = orderAmounts.sellAmount;
+                finalBuyAmount = orderAmounts.buyAmount;
+              } else if (
+                selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
+              ) {
                 const isSell = selectQuoteRes.kind === ESwapQuoteKind.SELL;
                 const token = isSell
                   ? (currentToToken ?? selectQuoteRes.toTokenInfo)

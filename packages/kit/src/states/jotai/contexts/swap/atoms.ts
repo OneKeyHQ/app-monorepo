@@ -6,6 +6,9 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import {
   type ISwapMaxAmountSnapshot,
+  getScaledSwapLimitAmounts,
+  getScaledSwapLimitRate,
+  getSwapDisplayAmount,
   getSwapDisplayDecimals,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
@@ -45,7 +48,7 @@ import {
   type ESwapDirectionType,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
-  type ESwapQuoteKind,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   type ESwapRateDifferenceUnit,
   type ESwapSlippageSegmentKey,
@@ -460,6 +463,7 @@ export const {
   toTokenAmount?: string;
   rawFromTokenAmount?: string;
   rawToTokenAmount?: string;
+  scaledLimitRate?: string;
   maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   accountId?: string;
   kind?: ESwapQuoteKind;
@@ -468,6 +472,7 @@ export const {
   quoteRequestId?: string;
   manualRefresh?: boolean;
   hasMultiplierMismatch?: boolean;
+  multiplierMismatch?: { from: boolean; to: boolean };
   slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
   incognito?: boolean;
 }>({ actionLock: false });
@@ -803,6 +808,27 @@ export const {
     swapType === ESwapTabSwitchType.LIMIT
   ) {
     if (toTokenAmount.value && toTokenAmount.isInput) {
+      const pair = readSwapLimitSelectedPair(get);
+      const rate = getScaledSwapLimitRate(
+        limitPriceUseRate,
+        pair.fromToken,
+        pair.toToken,
+      );
+      if (rate && pair.fromToken && pair.toToken) {
+        const amounts = getScaledSwapLimitAmounts({
+          fromToken: pair.fromToken,
+          toToken: pair.toToken,
+          kind: ESwapQuoteKind.BUY,
+          input: toTokenAmount.value,
+          rate,
+        });
+        return amounts
+          ? (getSwapDisplayAmount(
+              amounts.fromTokenAmount,
+              pair.fromToken.balanceMultiplier,
+            ) ?? '')
+          : '';
+      }
       const { fromToken, reverseRate } = limitPriceUseRate;
       const toAmount = new BigNumber(toTokenAmount.value);
       const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
@@ -836,6 +862,27 @@ export const {
     swapType === ESwapTabSwitchType.LIMIT
   ) {
     if (fromTokenAmount.value && fromTokenAmount.isInput) {
+      const pair = readSwapLimitSelectedPair(get);
+      const scaledRate = getScaledSwapLimitRate(
+        limitPriceUseRate,
+        pair.fromToken,
+        pair.toToken,
+      );
+      if (scaledRate && pair.fromToken && pair.toToken) {
+        const amounts = getScaledSwapLimitAmounts({
+          fromToken: pair.fromToken,
+          toToken: pair.toToken,
+          kind: ESwapQuoteKind.SELL,
+          input: fromTokenAmount.value,
+          rate: scaledRate,
+        });
+        return amounts
+          ? (getSwapDisplayAmount(
+              amounts.toTokenAmount,
+              pair.toToken.balanceMultiplier,
+            ) ?? '')
+          : '';
+      }
       const { toToken, rate } = limitPriceUseRate;
       const fromAmount = new BigNumber(fromTokenAmount.value);
       const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
@@ -1084,6 +1131,32 @@ export const {
 export const { atom: swapProTokenBalanceRequestIdAtom } =
   contextAtom<number>(0);
 
+export const { atom: swapProReceiveDetailRequestsAtom } = contextAtom<
+  Record<ESwapDirection, { revision: number; failedToken?: ISwapToken }>
+>({
+  [ESwapDirection.BUY]: { revision: 0 },
+  [ESwapDirection.SELL]: { revision: 0 },
+});
+
+export const {
+  atom: swapProReceiveMultiplierLookupFailedAtom,
+  use: useSwapProReceiveMultiplierLookupFailedAtom,
+} = contextAtomComputed((get) => {
+  const direction = get(swapProDirectionAtom());
+  const token = get(
+    direction === ESwapDirection.BUY
+      ? swapProSelectTokenAtom()
+      : swapProSellToTokenAtom(),
+  );
+  const { failedToken } = get(swapProReceiveDetailRequestsAtom())[direction];
+  return Boolean(
+    token &&
+    token.decimals === failedToken?.decimals &&
+    equalTokenNoCaseSensitive({ token1: token, token2: failedToken }) &&
+    tokenRebaseUtils.needsBalanceMultiplierLookup(token),
+  );
+});
+
 export const {
   atom: swapProTokenBalanceLoadingAtom,
   use: useSwapProTokenBalanceLoadingAtom,
@@ -1119,25 +1192,26 @@ export const {
 export const { atom: swapProErrorAlertAtom, use: useSwapProErrorAlertAtom } =
   contextAtom<{ title: string; message?: string } | undefined>(undefined);
 
+function readSwapLimitSelectedPair(get: import('jotai').Getter) {
+  if (get(swapProTradeTypeAtom()) === ESwapProTradeType.LIMIT) {
+    const selected = get(swapProSelectTokenAtom());
+    return get(swapProDirectionAtom()) === ESwapDirection.BUY
+      ? { fromToken: get(swapProUseSelectBuyTokenAtom()), toToken: selected }
+      : { fromToken: selected, toToken: get(swapProSellToTokenAtom()) };
+  }
+  return {
+    fromToken: get(swapSelectFromTokenAtom()),
+    toToken: get(swapSelectToTokenAtom()),
+  };
+}
+
 export const {
   atom: swapLimitPriceMarketPriceAtom,
   use: useSwapLimitPriceMarketPriceAtom,
 } = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
   const limitOrderMarketPrice = get(limitOrderMarketPriceAtom());
   const { fromTokenPriceInfo, toTokenPriceInfo } = limitOrderMarketPrice;
-  let fromToken = get(swapSelectFromTokenAtom());
-  let toToken = get(swapSelectToTokenAtom());
-  const swapProTradeType = get(swapProTradeTypeAtom());
-  const swapProDirection = get(swapProDirectionAtom());
-  if (swapProTradeType === ESwapProTradeType.LIMIT) {
-    if (swapProDirection === ESwapDirection.BUY) {
-      fromToken = get(swapProUseSelectBuyTokenAtom());
-      toToken = get(swapProSelectTokenAtom());
-    } else {
-      fromToken = get(swapProSelectTokenAtom());
-      toToken = get(swapProSellToTokenAtom());
-    }
-  }
+  const { fromToken, toToken } = readSwapLimitSelectedPair(get);
   if (
     fromTokenPriceInfo &&
     toTokenPriceInfo &&

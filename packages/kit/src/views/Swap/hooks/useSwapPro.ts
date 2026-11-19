@@ -28,7 +28,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -519,14 +518,13 @@ export function useSwapProTokenInfoSync() {
     finishSwapProTokenBalanceRequest,
     invalidateSwapProTokenBalanceRequest,
     isSwapProTokenBalanceRequestLatest,
+    syncSwapProReceiveTokenDetail,
   } = useSwapActions().current;
   const [swapProSelectToken, setSwapProSelectToken] =
     useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const [swapProSellToToken, setSwapProSellToToken] =
-    useSwapProSellToTokenAtom();
   const netAccountRes = useSwapProAccount();
   const inputToken = useSwapProInputToken();
   const tokenInfoSyncIdentityRef = useRef({
@@ -830,65 +828,10 @@ export function useSwapProTokenInfoSync() {
     ],
   );
 
-  const syncToTokenPrice = useCallback(async () => {
-    const balanceTokenInfo =
-      await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: swapProSellToToken?.networkId ?? '',
-        contractAddress: swapProSellToToken?.contractAddress ?? '',
-        currency: 'usd',
-      });
-    if (balanceTokenInfo?.length) {
-      setSwapProSellToToken((prev) =>
-        prev &&
-        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
-          ? {
-              ...prev,
-              isNative: balanceTokenInfo[0].isNative ?? false,
-              price: balanceTokenInfo[0].price ?? prev.price,
-              balanceMultiplier:
-                tokenRebaseUtils.pickBalanceMultiplier(balanceTokenInfo[0]) ??
-                prev.balanceMultiplier,
-            }
-          : prev,
-      );
-    }
-  }, [
-    setSwapProSellToToken,
-    swapProSellToToken?.contractAddress,
-    swapProSellToToken?.networkId,
-  ]);
-
-  const syncSelectTokenNative = useCallback(async () => {
-    const balanceTokenInfo =
-      await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: swapProSelectToken?.networkId ?? '',
-        contractAddress: swapProSelectToken?.contractAddress ?? '',
-        currency: 'usd',
-      });
-    if (balanceTokenInfo?.length) {
-      setSwapProSelectToken((prev) =>
-        prev &&
-        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
-          ? {
-              ...prev,
-              isNative: balanceTokenInfo[0].isNative ?? false,
-              balanceMultiplier:
-                tokenRebaseUtils.pickBalanceMultiplier(balanceTokenInfo[0]) ??
-                prev.balanceMultiplier,
-            }
-          : prev,
-      );
-    }
-  }, [
-    swapProSelectToken?.contractAddress,
-    swapProSelectToken?.networkId,
-    setSwapProSelectToken,
-  ]);
   return {
     syncOrderTokenBalance,
     syncInputTokenBalance,
-    syncToTokenPrice,
-    syncSelectTokenNative,
+    syncSwapProReceiveTokenDetail,
     balanceLoading,
     netAccountRes,
     indexedAccountId: netAccountRes.indexedAccountId,
@@ -1544,8 +1487,7 @@ export function useSwapProTokenInit(historyIntent?: {
 
   const {
     syncInputTokenBalance,
-    syncToTokenPrice,
-    syncSelectTokenNative,
+    syncSwapProReceiveTokenDetail,
     balanceLoading,
     netAccountRes,
   } = useSwapProTokenInfoSync();
@@ -1580,18 +1522,26 @@ export function useSwapProTokenInit(historyIntent?: {
   );
   useEffect(() => {
     if (shouldSyncSwapProTokenInfo && shouldSyncSellToToken) {
-      void syncToTokenPrice();
+      void syncSwapProReceiveTokenDetail(ESwapDirection.SELL);
     }
-  }, [shouldSyncSellToToken, shouldSyncSwapProTokenInfo, syncToTokenPrice]);
+  }, [
+    shouldSyncSellToToken,
+    shouldSyncSwapProTokenInfo,
+    swapProSellToToken?.contractAddress,
+    swapProSellToToken?.networkId,
+    syncSwapProReceiveTokenDetail,
+  ]);
 
   useEffect(() => {
     if (shouldSyncSwapProTokenInfo && shouldSyncSelectedToken) {
-      void syncSelectTokenNative();
+      void syncSwapProReceiveTokenDetail(ESwapDirection.BUY);
     }
   }, [
     shouldSyncSelectedToken,
     shouldSyncSwapProTokenInfo,
-    syncSelectTokenNative,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    syncSwapProReceiveTokenDetail,
   ]);
 
   const isMEV = useMemo(() => {

@@ -92,12 +92,14 @@ import {
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
   swapLastNonLimitSelectedTokensAtom,
+  swapLimitPriceUseRateAtom,
   swapNetworkConfigStatusAtom,
   swapNetworks,
   swapProDirectionAtom,
   swapProInputAmountStateAtom,
   swapProPositionsCacheAtom,
   swapProPositionsRuntimeDataAtom,
+  swapProReceiveMultiplierLookupFailedAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
   swapProTokenBalanceLoadingAtom,
@@ -1670,6 +1672,135 @@ describe('useSwapActions', () => {
     });
   });
 
+  it.each([
+    {
+      kind: ESwapQuoteKind.SELL,
+      rate: '100',
+      reverseRate: '0.01',
+      shownFrom: '1.03',
+      shownTo: '103',
+      toMultiplier: undefined,
+      fromRaw: '0.51',
+      toRaw: '102',
+    },
+    {
+      kind: ESwapQuoteKind.BUY,
+      rate: '1',
+      reverseRate: '1',
+      shownFrom: '1.01',
+      shownTo: '1.01',
+      toMultiplier: '3',
+      fromRaw: '0.51',
+      toRaw: '0.34',
+    },
+  ])(
+    'freezes the scaled Limit pair after quantizing the $kind input',
+    async ({
+      kind,
+      rate,
+      reverseRate,
+      shownFrom,
+      shownTo,
+      toMultiplier,
+      fromRaw,
+      toRaw,
+    }) => {
+      const from = { ...ethToken, decimals: 2, balanceMultiplier: '2' };
+      const to = { ...bnbToken, decimals: 2, balanceMultiplier: toMultiplier };
+      const { store, Wrapper } = createWrapperWithStore((s) => {
+        s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+        s.set(swapSelectFromTokenAtom(), from);
+        s.set(swapSelectToTokenAtom(), to);
+        s.set(swapFromTokenAmountAtom(), {
+          value: shownFrom,
+          isInput: kind === ESwapQuoteKind.SELL,
+        });
+        s.set(swapToTokenAmountAtom(), {
+          value: shownTo,
+          isInput: kind === ESwapQuoteKind.BUY,
+        });
+        s.set(swapLimitPriceUseRateAtom(), {
+          fromToken: from,
+          toToken: to,
+          rate,
+          reverseRate,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          '0xabc',
+          evmAccount.id,
+          undefined,
+          undefined,
+          kind,
+          undefined,
+          undefined,
+          undefined,
+          {
+            fromToken: from,
+            toToken: to,
+            fromTokenAmount: shownFrom,
+            toTokenAmount: shownTo,
+            type: ESwapTabSwitchType.LIMIT,
+          },
+        );
+      });
+
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind,
+          fromTokenAmount: fromRaw,
+          toTokenAmount: toRaw,
+        }),
+      );
+      expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+        rawFromTokenAmount: fromRaw,
+        rawToTokenAmount: toRaw,
+      });
+
+      const currentLimitQuote: IFetchQuoteResult = {
+        quoteId: 'current-limit',
+        eventId: 'limit-event',
+        kind,
+        protocol: EProtocolOfExchange.LIMIT,
+        fromAmount: fromRaw,
+        toAmount: toRaw,
+        fromTokenInfo: from,
+        toTokenInfo: to,
+        info: { provider: 'first', providerName: 'First' },
+      };
+      store.set(swapQuoteListAtom(), [currentLimitQuote]);
+      store.set(swapQuoteEventTotalCountAtom(), {
+        count: 1,
+        eventId: currentLimitQuote.eventId,
+      });
+      store.set(swapQuoteCurrentEventProviderKeysAtom(), ['first-First']);
+      const selectedLimitQuote = store.get(swapQuoteCurrentSelectAtom());
+      expect(selectedLimitQuote?.quoteId).toBe(currentLimitQuote.quoteId);
+      if (!selectedLimitQuote) return;
+      const readPreviewAmounts = () =>
+        result.current.readScaledSwapLimitReviewAmounts(
+          selectedLimitQuote,
+          '0xabc',
+          evmAccount.id,
+        );
+      expect(readPreviewAmounts()).toEqual({
+        fromTokenAmount: fromRaw,
+        toTokenAmount: toRaw,
+      });
+      store.set(swapLimitPriceUseRateAtom(), (previous) => ({
+        ...previous,
+        rate: '101',
+      }));
+      expect(readPreviewAmounts()).toBeUndefined();
+    },
+  );
+
   it('quotes the exact raw balance when Max was selected for the same account and token', async () => {
     const scaledToken = {
       ...ethToken,
@@ -2022,6 +2153,73 @@ describe('useSwapActions', () => {
     },
   );
 
+  it('retries native Pro after its first receiving multiplier lookup failed before a quote existed', async () => {
+    platformEnv.isNative = true;
+    const fromToken = {
+      ...bnbProToken,
+      networkId: 'sol--101',
+      contractAddress: '',
+      symbol: 'SOL',
+      isNative: true,
+      decimals: 9,
+    };
+    const toToken: ISwapToken = {
+      ...usdcToken,
+      networkId: fromToken.networkId,
+      contractAddress: 'scaled-SPL',
+    };
+    const { store, Wrapper } = createWrapperWithStore((s) => {
+      s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      s.set(swapProTradeTypeAtom(), ESwapProTradeType.MARKET);
+      s.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      s.set(swapProUseSelectBuyTokenAtom(), fromToken);
+      s.set(swapProSelectTokenAtom(), toToken);
+      s.set(swapProInputAmountStateAtom(), { value: '0.5', isInput: true });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const slippageItem = { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 };
+    mockFetchSwapTokenDetails.mockRejectedValueOnce(
+      new Error('background unavailable'),
+    );
+    await act(async () => {
+      await result.current.syncSwapProReceiveTokenDetail(ESwapDirection.BUY);
+      await result.current.quoteSpeedAction(
+        slippageItem,
+        'address',
+        'account-1',
+        'address',
+      );
+    });
+    expect(store.get(swapProReceiveMultiplierLookupFailedAtom())).toBe(true);
+    expect(store.get(swapQuoteActionLockAtom()).quoteRequestId).toBeUndefined();
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+
+    mockFetchSwapTokenDetails.mockImplementation(({ accountAddress }) =>
+      Promise.resolve(
+        accountAddress ? [fromToken] : [{ ...toToken, balanceMultiplier: '2' }],
+      ),
+    );
+    await act(async () => {
+      await result.current.retrySwapProMarketQuote({
+        slippageItem,
+        address: 'address',
+        accountId: 'account-1',
+        isActive: () => true,
+      });
+    });
+
+    expect(store.get(swapProReceiveMultiplierLookupFailedAtom())).toBe(false);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromTokenAmount: '0.5',
+        toToken: expect.objectContaining({ balanceMultiplier: '2' }),
+      }),
+    );
+  });
+
   it.each(['market reopens', 'amount reentered'] as const)(
     'retries native Pro with current multipliers and resumes after %s',
     async (nextInput) => {
@@ -2074,6 +2272,10 @@ describe('useSwapActions', () => {
         wrapper: Wrapper,
       });
       const receivingDetail = createDeferred<ISwapToken[]>();
+      const earlierDetail = createDeferred<ISwapToken[]>();
+      mockFetchSwapTokenDetails.mockImplementationOnce(
+        () => earlierDetail.promise,
+      );
       mockFetchSwapTokenDetails.mockImplementation(({ accountAddress }) =>
         accountAddress
           ? Promise.resolve([
@@ -2092,6 +2294,12 @@ describe('useSwapActions', () => {
           : false;
       };
       expect(canPreview()).toBe(false);
+      let earlierRequest: Promise<void> | undefined;
+      await act(async () => {
+        earlierRequest = result.current.syncSwapProReceiveTokenDetail(
+          ESwapDirection.SELL,
+        );
+      });
       const retry = () =>
         result.current.retrySwapProMarketQuote({
           address,
@@ -2104,7 +2312,7 @@ describe('useSwapActions', () => {
         request = retry();
         await retry();
       });
-      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(3);
       expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
         expect.objectContaining({
           accountId,
@@ -2125,6 +2333,8 @@ describe('useSwapActions', () => {
       await act(async () => {
         receivingDetail.resolve([{ ...toToken, balanceMultiplier: '5' }]);
         await request;
+        earlierDetail.resolve([toToken]);
+        await earlierRequest;
         await result.current.quoteSpeedAction(
           slippageItem,
           address,
@@ -2134,6 +2344,7 @@ describe('useSwapActions', () => {
         );
       });
       expect(store.get(swapProInputAmountStateAtom()).value).toBe('8');
+      expect(store.get(swapProSellToTokenAtom())?.balanceMultiplier).toBe('5');
       expect(store.get(swapQuoteActionLockAtom()).quoteRequestId).not.toBe(
         'expired-pro-request',
       );
@@ -5500,6 +5711,44 @@ describe('useSwapActions', () => {
     expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('15');
     expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe('1.7');
   });
+
+  it.each([
+    ['sol--101', ESwapTabSwitchType.SWAP],
+    ['ton--mainnet', ESwapTabSwitchType.BRIDGE],
+  ] as const)(
+    'replaces an unchanged invalid multiplier after verifying the %s token',
+    async (networkId, type) => {
+      const token: ISwapToken = {
+        networkId,
+        contractAddress: 'scaled-token',
+        symbol: 'SCALED',
+        decimals: 6,
+        isNative: false,
+        balanceMultiplier: '0',
+      };
+      mockFetchSwapTokenDetails.mockResolvedValueOnce([
+        { ...token, balanceParsed: '15', balanceMultiplier: '2' },
+      ]);
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), type);
+        currentStore.set(swapSelectFromTokenAtom(), token);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          { ...fromAddressInfo, networkId },
+          true,
+        );
+      });
+
+      expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe('2');
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('15');
+    },
+  );
 
   it('keeps loading and balance owned by the latest account when responses arrive out of order', async () => {
     const oldDetail = createDeferred<{ balanceParsed: string }[]>();

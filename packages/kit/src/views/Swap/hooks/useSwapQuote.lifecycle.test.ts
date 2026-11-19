@@ -129,6 +129,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
   ).__swapQuoteLifecycleActions = actions;
   return {
     useSwapActions: () => actions,
+    useSwapLimitPriceUseRateAtom: () => [{}],
     useSwapQuoteActionLockAtom: () => [{ quoteRequestId: 'quote-1' }, setter],
     useSwapTypeSwitchAtom: () => [
       (globalThis as unknown as { __swapQuoteType?: string }).__swapQuoteType ??

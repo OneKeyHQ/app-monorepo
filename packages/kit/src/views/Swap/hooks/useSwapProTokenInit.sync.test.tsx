@@ -46,6 +46,7 @@ const mockActions = {
   finishSwapProTokenBalanceRequest: jest.fn(),
   invalidateSwapProTokenBalanceRequest: jest.fn(),
   isSwapProTokenBalanceRequestLatest: jest.fn(() => true),
+  syncSwapProReceiveTokenDetail: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {

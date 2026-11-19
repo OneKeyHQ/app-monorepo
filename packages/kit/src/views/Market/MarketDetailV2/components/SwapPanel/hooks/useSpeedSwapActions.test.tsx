@@ -79,6 +79,7 @@ type IFetchSwapTokenDetailsParams = {
   accountAddress?: string;
   currency?: string;
   throwOnError?: boolean;
+  requireFreshBalanceMultiplier?: boolean;
 };
 
 type IFetchSwapNativeTokenConfigParams = {
@@ -1043,6 +1044,84 @@ describe('useSpeedSwapActions', () => {
     await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
     expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
       expect.objectContaining({ fromTokenAmount: '2' }),
+    );
+  });
+
+  it.each([false, true])(
+    'does not show an in-panel metadata retry when the trade must open Swap (account supported: %s)',
+    async (isAccountNetworkSupported) => {
+      mockFetchMultiplierDetails.mockRejectedValue(new Error('network error'));
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '4',
+          supportSpeedSwap: !isAccountNetworkSupported,
+          isAccountNetworkSupported,
+        }),
+      );
+      await waitFor(() =>
+        expect(result.current.quoteActionLoading).toBe(false),
+      );
+      expect(result.current.quoteNeedsRefresh).toBe(false);
+      expect(result.current.quoteRefreshActionActive).toBe(false);
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    },
+  );
+
+  it('forces Wallet verification after an EVM multiplier mismatch before requoting', async () => {
+    const scaledToken = { ...usdcToken, balanceMultiplier: '2' };
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    mockFetchMultiplierDetails.mockImplementation(
+      async ({ networkId, contractAddress, requireFreshBalanceMultiplier }) => [
+        contractAddress === scaledToken.contractAddress
+          ? {
+              ...scaledToken,
+              balanceMultiplier: requireFreshBalanceMultiplier
+                ? '3'
+                : undefined,
+            }
+          : {
+              ...btcToken,
+              networkId: networkId ?? '',
+              contractAddress: contractAddress ?? '',
+            },
+      ],
+    );
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ tradeToken: scaledToken }),
+        fromTokenAmount: '6',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromTokenAmount: '3' }),
+      ),
+    );
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), (request) => ({
+        ...request,
+        actionLock: false,
+        hasMultiplierMismatch: true,
+      }));
+    });
+    expect(result.current.quoteReadyForReview).toBe(false);
+    act(() => result.current.forceRefreshMarketQuote());
+
+    await waitFor(() =>
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromTokenAmount: '2' }),
+      ),
+    );
+    expect(mockFetchMultiplierDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractAddress: scaledToken.contractAddress,
+        requireFreshBalanceMultiplier: true,
+      }),
     );
   });
 

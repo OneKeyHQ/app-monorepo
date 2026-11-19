@@ -13,6 +13,8 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
+
 export const STOCK_PRICE_SOURCE_CURRENCY = USD_CURRENCY_ID;
 
 const STOCK_USD_VALUE_SYMBOLS = new Set(['USD', 'USDC', 'USDT']);
@@ -25,7 +27,12 @@ export type IStockResolvedTokenPrice = {
 type IStockTokenPriceSource = Partial<
   Pick<
     ISwapTokenBase,
-    'balanceParsed' | 'currency' | 'fiatValue' | 'price' | 'symbol'
+    | 'balanceMultiplier'
+    | 'balanceParsed'
+    | 'currency'
+    | 'fiatValue'
+    | 'price'
+    | 'symbol'
   >
 >;
 
@@ -68,7 +75,12 @@ export function resolveStockTokenPrice({
       : undefined;
   }
 
-  const balanceBN = new BigNumber(token?.balanceParsed ?? 0);
+  const balanceBN = new BigNumber(
+    getSwapDisplayAmount(
+      token?.balanceParsed ?? '0',
+      token?.balanceMultiplier,
+    ) ?? '0',
+  );
   const fiatValueBN = new BigNumber(token?.fiatValue ?? 0);
   if (
     balanceBN.isFinite() &&

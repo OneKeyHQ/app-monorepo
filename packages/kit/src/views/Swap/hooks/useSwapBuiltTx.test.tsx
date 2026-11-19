@@ -1058,11 +1058,13 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
   });
 
   it.each([
-    [ESwapQuoteKind.SELL, 'buyAmount', '357'],
-    [ESwapQuoteKind.BUY, 'sellAmount', '1235'],
+    [ESwapQuoteKind.SELL, true],
+    [ESwapQuoteKind.BUY, true],
+    [ESwapQuoteKind.SELL, false],
+    [ESwapQuoteKind.BUY, false],
   ] as const)(
-    'signs the frozen raw Limit amount for %s',
-    async (kind, amountField, expectedUnits) => {
+    'signs the frozen raw Limit pair for %s only if the quoted fixed side matches (%s)',
+    async (kind, fixedSideMatches) => {
       const payToken = {
         ...fromToken,
         contractAddress: '0x0000000000000000000000000000000000000002',
@@ -1076,23 +1078,24 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
         decimals: 2,
         balanceMultiplier: '4',
       };
+      const isSell = kind === ESwapQuoteKind.SELL;
       const order = {
         sellToken: payToken.contractAddress,
         buyToken: receiveToken.contractAddress,
-        sellAmount: '1499',
-        buyAmount: '381',
+        sellAmount: isSell && fixedSideMatches ? '1235' : '1499',
+        buyAmount: !isSell && fixedSideMatches ? '357' : '381',
         validTo: 0,
         appData: `0x${'0'.repeat(64)}`,
         feeAmount: '0',
-        kind: kind === ESwapQuoteKind.SELL ? OrderKind.SELL : OrderKind.BUY,
+        kind: isSell ? OrderKind.SELL : OrderKind.BUY,
         partiallyFillable: false,
       };
       const signedQuote: IFetchQuoteResult = {
         ...quote,
         protocol: EProtocolOfExchange.LIMIT,
         kind,
-        fromAmount: '1.499',
-        toAmount: '3.81',
+        fromAmount: isSell && fixedSideMatches ? '1.235' : '1.499',
+        toAmount: !isSell && fixedSideMatches ? '3.57' : '3.81',
         fromTokenInfo: payToken,
         toTokenInfo: receiveToken,
         swapShouldSignedData: {
@@ -1130,14 +1133,28 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
         { ...payToken, balanceParsed: '100' },
       ]);
       await act(async () => result.current.preSwapStepsStart());
+      if (!fixedSideMatches) {
+        expect(mockSignMessage).not.toHaveBeenCalled();
+        expect(mockFetchBuildTx).not.toHaveBeenCalled();
+        return;
+      }
       expect(mockSignMessage).toHaveBeenCalledTimes(1);
-      expect(mockSignMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          unsignedMessage: expect.objectContaining({
-            message: expect.stringContaining(
-              `"${amountField}":"${expectedUnits}"`,
-            ),
+      for (const [field, value] of [
+        ['sellAmount', '1235'],
+        ['buyAmount', '357'],
+      ]) {
+        expect(mockSignMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            unsignedMessage: expect.objectContaining({
+              message: expect.stringContaining(`"${field}":"${value}"`),
+            }),
           }),
+        );
+      }
+      expect(mockFetchBuildTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
         }),
       );
     },

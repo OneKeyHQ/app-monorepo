@@ -195,6 +195,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
         resetQuoteAction: state.resetQuoteAction,
         resumeQuoteAction: state.resumeQuoteAction,
         quoteSpeedAction: state.quoteSpeedAction,
+        syncSwapProReceiveTokenDetail: jest.fn().mockResolvedValue(undefined),
       },
     }),
     useSwapFromTokenAmountAtom: () => [{ value: '', isInput: true }, setter],

@@ -516,6 +516,8 @@ function SwapPanelWrapContent({
       : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     executionReady,
+    supportSpeedSwap: supportSpeedSwap.enabled,
+    isAccountNetworkSupported: supportSpeedSwap.isAccountNetworkSupported,
     slippageItem: {
       key: effectiveSlippageMode,
       value: effectiveSlippage,

@@ -85,7 +85,10 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
-import { getSwapRawInputAmount } from '../utils/swapAmountUtils';
+import {
+  getSwapMinimumDisplayAmount,
+  getSwapRawInputAmount,
+} from '../utils/swapAmountUtils';
 import {
   buildSwapBalanceAccountIdentity,
   resolveVerifiedSwapBalance,
@@ -594,6 +597,14 @@ export function useSwapActionState() {
     toTokenAmount.value
       ? ESwapQuoteKind.BUY
       : ESwapQuoteKind.SELL;
+  const isSwapOrBridgeQuote = isSwapOrBridgeQuoteType(swapTypeSwitchValue);
+  const minimumDisplayAmount =
+    isSwapOrBridgeQuote &&
+    fromToken &&
+    rawFromAmount === '0' &&
+    new BigNumber(fromTokenAmount.value).gt(0)
+      ? getSwapMinimumDisplayAmount(fromToken)
+      : undefined;
   const hasValidQuoteInput = useMemo(
     () =>
       isSwapQuoteInputAmountValid({
@@ -601,8 +612,17 @@ export function useSwapActionState() {
         fromTokenAmount,
         toTokenAmount,
         hasTokenPair: Boolean(fromToken && toToken),
+        rawInputAmount: isSwapOrBridgeQuote ? (rawFromAmount ?? '') : undefined,
       }),
-    [fromToken, fromTokenAmount, quoteKind, toToken, toTokenAmount],
+    [
+      fromToken,
+      fromTokenAmount,
+      isSwapOrBridgeQuote,
+      quoteKind,
+      rawFromAmount,
+      toToken,
+      toTokenAmount,
+    ],
   );
   const quoteResultNoMatch = useMemo(
     () =>
@@ -622,7 +642,6 @@ export function useSwapActionState() {
     ],
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
-  const isSwapOrBridgeQuote = isSwapOrBridgeQuoteType(swapTypeSwitchValue);
   const isQuoteEventSettlingForAction =
     isSwapOrBridgeQuote &&
     !quoteEventCompleted &&
@@ -737,6 +756,7 @@ export function useSwapActionState() {
     !noConnectWallet &&
     !hasError &&
     !noProviderSupportsTrade &&
+    !minimumDisplayAmount &&
     (isQuoteReadinessLoading || isQuoteRequestLoading),
   );
   const shouldOfferQuoteRefreshAction =
@@ -862,6 +882,13 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
+      if (minimumDisplayAmount) {
+        infoRes.label = intl.formatMessage(
+          { id: ETranslations.swap_page_alert_minimum_amount },
+          { number: minimumDisplayAmount, symbol: fromToken?.symbol ?? '' },
+        );
+        infoRes.disable = true;
+      }
 
       // Keep the disabled "no provider supports trade" state instead of
       // flipping to an actionable "Refresh quotes" button when no provider
@@ -949,6 +976,7 @@ export function useSwapActionState() {
     return infoRes;
   }, [
     hasError,
+    minimumDisplayAmount,
     hasCurrentAccountNetworkUnsupportedError,
     quoteCurrentSelect,
     alerts.states,

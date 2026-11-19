@@ -71,10 +71,13 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
+  type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
   getSwapDisplayAmount,
   getSwapDisplayRate,
+  getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
+  hasScaledSwapLimitPair,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
@@ -385,6 +388,7 @@ const SwapMainLoad = ({
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const {
     canPreviewSwapProMarketQuote,
+    readScaledSwapLimitReviewAmounts,
     cleanQuoteInterval,
     quoteAction,
     selectFromToken,
@@ -1132,7 +1136,11 @@ const SwapMainLoad = ({
   );
 
   const parseQuoteResultToSteps = useCallback(
-    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
+    (
+      stockReviewToken?: ISwapToken,
+      reviewTokens?: ISwapReviewTokens,
+      scaledLimitAmounts?: ISwapLimitRawAmounts,
+    ) => {
       if (!currentQuoteRes) {
         return;
       }
@@ -1195,12 +1203,14 @@ const SwapMainLoad = ({
         stockReviewToken,
         reviewTokens,
         fromTokenAmount:
+          scaledLimitAmounts?.fromTokenAmount ??
           (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT
             ? limitFromAmount
             : undefined) ??
           currentQuoteRes.fromAmount ??
           limitFromAmount,
         toTokenAmount:
+          scaledLimitAmounts?.toTokenAmount ??
           (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
           !isSwapProMarket
             ? limitToAmount
@@ -1450,6 +1460,19 @@ const SwapMainLoad = ({
       ) {
         return;
       }
+      const initialReviewIdentity = reviewInputIdentityRef.current;
+      const isScaledLimit =
+        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+        hasScaledSwapLimitPair(fromSelectToken, toSelectToken);
+      const scaledLimitAmounts = isScaledLimit
+        ? readScaledSwapLimitReviewAmounts(
+            currentQuoteRes,
+            initialReviewIdentity.fromAddress,
+            initialReviewIdentity.accountId,
+            initialReviewIdentity.toAddress,
+          )
+        : undefined;
+      if (isScaledLimit && !scaledLimitAmounts) return;
       if (!focusSwapPro) {
         cleanQuoteInterval();
         setSwapShouldRefreshQuote(true);
@@ -1459,7 +1482,6 @@ const SwapMainLoad = ({
       reviewSlippageEditedRef.current = false;
       beginSwapReview();
       const reviewGeneration = reviewGenerationRef.current;
-      const initialReviewIdentity = reviewInputIdentityRef.current;
       const refreshReviewQuote = async () => {
         const oldQuote = quoteResultRef.current;
         const oldData = preSwapDataRef.current;
@@ -1532,6 +1554,12 @@ const SwapMainLoad = ({
               incognito: quoteActionLock.incognito,
               kind: quoteActionLock.kind,
               protocol: quoteActionLock.type ?? ESwapTabSwitchType.SWAP,
+              ...(scaledLimitAmounts
+                ? {
+                    userMarketPriceRate:
+                      getSwapLimitRateFromRawAmounts(scaledLimitAmounts),
+                  }
+                : {}),
               slippagePercentage: currentSlippage,
               autoSlippage: !customSlippage,
             },
@@ -1570,8 +1598,10 @@ const SwapMainLoad = ({
                 (!shouldFallback || quote.expiredTime === undefined),
               fromToken,
               toToken: reviewToToken,
-              fromTokenAmount: quote.fromAmount,
-              toTokenAmount: quote.toAmount,
+              fromTokenAmount:
+                scaledLimitAmounts?.fromTokenAmount ?? quote.fromAmount,
+              toTokenAmount:
+                scaledLimitAmounts?.toTokenAmount ?? quote.toAmount,
               quoteResult: quote,
               swapType: getSwapExecutionTypeFromQuoteResult(quote),
               shouldFallback,
@@ -1642,7 +1672,11 @@ const SwapMainLoad = ({
         onPreSwapClose(reviewGeneration);
       };
       beginGasAccountReviewSession();
-      parseQuoteResultToSteps(stockReviewToken, reviewTokens);
+      parseQuoteResultToSteps(
+        stockReviewToken,
+        reviewTokens,
+        scaledLimitAmounts,
+      );
       setSwapBuildTxFetching(true);
       reviewDialogTimerRef.current = setTimeout(() => {
         if (reviewGeneration !== reviewGenerationRef.current) {
@@ -1713,6 +1747,7 @@ const SwapMainLoad = ({
       swapProAccount?.result?.id,
       swapProTradeType,
       canPreviewSwapProMarketQuote,
+      readScaledSwapLimitReviewAmounts,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
       multiplierStatus,

@@ -185,7 +185,7 @@ function createOptions() {
 
 function createScaledOptions(
   balanceParsed = '1.234567890000000001',
-  balanceMultiplier = '2',
+  balanceMultiplier: string | null = '2',
 ) {
   const scaledToken: IDustSweepToken = {
     ...token,
@@ -225,7 +225,7 @@ function createScaledOptions(
       },
       balance: '1234567890000000001',
       balanceParsed,
-      balanceMultiplier,
+      balanceMultiplier: balanceMultiplier ?? undefined,
       fiatValue: scaledToken.valueUsd,
       price: 1,
     },
@@ -961,6 +961,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     ['1.234567890000000000', '2', 'insufficientBalance'],
     ['1.234567890000000001', '3', 'unknown'],
     ['1.234567890000000001', '0', 'unknown'],
+    ['1.234567890000000001', null, 'unknown'],
     ['', '2', 'unknown'],
   ])(
     'stops a scaled swap before build when the refreshed Wallet data is unusable (%s, %s)',
