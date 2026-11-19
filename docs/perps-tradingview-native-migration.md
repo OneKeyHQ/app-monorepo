@@ -173,9 +173,12 @@ mobile settings routes retain the originating namespace.
 
 The compact chart has no indicator controls of its own. It opts in with
 `showCompactMainIndicators` and draws the main indicators (MA, EMA, BOLL, SAR
-and the other price-pane overlays) turned on in the full Perps chart, with their
-legend rows at the top and no candle price row. Sub-indicators such as VOL and
-MACD stay off for space. Other compact charts, such as Swap's, draw no indicators.
+and the other price-pane overlays) turned on in the full Perps chart. Its legend
+has the full chart's indicator rows, such as `MA5 / MA10 / MA20` or the EMA
+values, but no candle price row; overlays without a row in the full chart, such
+as BOLL and SAR, have none here either. Rows that do not fit above the time axis
+are left out. Sub-indicators such as VOL and MACD stay off for space. Other
+compact charts, such as Swap's, draw no indicators.
 
 Intervals use a dedicated Perps storage key.
 Drawing keys include a `perps:` prefix before the existing source.

@@ -1862,6 +1862,71 @@ describe('crosshair in empty chart space', () => {
     );
   });
 
+  it('leaves out legend rows that would run onto the time axis', () => {
+    const indicatorPoints = buildLinearPoints(30);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set([
+        'MA',
+        'EMA',
+        'WMA',
+        'VWMA',
+        'SUPERTREND',
+        'ENV',
+        'VWAP',
+        'DC',
+      ]),
+      indicatorSettings: {},
+      points: indicatorPoints,
+    });
+    // Compact chart settings: no price row, a short canvas, and text as wide
+    // as on a device so the indicator rows wrap.
+    const buildScene = (height: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height,
+        indicatorSeries,
+        measureTextWidth: (text) => text.length * 9,
+        candleLabels: CANDLE_LABELS,
+        points: indicatorPoints,
+        showPriceLegend: false,
+        timeAxisHeight: 20,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getLegendLabels = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) =>
+      scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        command.customPaintId?.startsWith('chart.mainIndicator.') &&
+        /^[A-Z]/.test(command.text)
+          ? [command]
+          : [],
+      );
+    const shortScene = buildScene(158);
+    const shortLabels = getLegendLabels(shortScene);
+    const tallLabels = getLegendLabels(buildScene(480));
+    const mainChartBottom = shortScene.layout?.mainChartBottom ?? 0;
+
+    expect(mainChartBottom).toBeGreaterThan(0);
+    expect(shortLabels.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['MA5', 'EMA5']),
+    );
+    expect(shortLabels.length).toBeLessThan(tallLabels.length);
+    expect(tallLabels.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['VWAP', 'DC']),
+    );
+    expect(shortLabels.map(({ text }) => text)).not.toContain('DC');
+    for (const label of shortLabels) {
+      expect(label.y).toBeLessThanOrEqual(mainChartBottom);
+    }
+  });
+
   it('draws a SuperTrend that flips on the latest candle as a dot', () => {
     // A steady fall, then one candle that closes far above the upper band.
     const closes = [

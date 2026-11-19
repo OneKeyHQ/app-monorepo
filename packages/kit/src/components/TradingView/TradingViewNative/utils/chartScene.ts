@@ -1410,8 +1410,15 @@ export function buildTradingViewNativeChartScene({
     measureTextWidth(text, 'legend');
   const appendLegendRows = (
     layouts: ITradingViewNativeChartLegendRowLayout[],
+    maxBottom = Number.POSITIVE_INFINITY,
   ) => {
     for (const rowLayout of layouts) {
+      if (
+        rowLayout.backgroundRect.y + rowLayout.backgroundRect.height >
+        maxBottom
+      ) {
+        return;
+      }
       appendLegendCommands({
         commands,
         layout: rowLayout,
@@ -1421,6 +1428,9 @@ export function buildTradingViewNativeChartScene({
     }
   };
   if (showLegend) {
+    // The price and indicator rows stack down from the top. Rows that would
+    // run past the main chart, onto the time axis or the sub-indicator panes,
+    // are left out; a short chart with many indicators shows the first ones.
     const priceLegendLayouts = showPriceLegend
       ? getTradingViewNativeChartLegendRowLayouts({
           items:
@@ -1434,7 +1444,7 @@ export function buildTradingViewNativeChartScene({
           top: PRICE_LEGEND_TOP,
         })
       : [];
-    appendLegendRows(priceLegendLayouts);
+    appendLegendRows(priceLegendLayouts, mainChartBottom);
     let mainIndicatorLegendTop =
       PRICE_LEGEND_TOP +
       priceLegendLayouts.reduce(
@@ -1480,7 +1490,7 @@ export function buildTradingViewNativeChartScene({
         measureTextWidth: measureLegendTextWidth,
         top: mainIndicatorLegendTop,
       });
-      appendLegendRows(layouts);
+      appendLegendRows(layouts, mainChartBottom);
       mainIndicatorLegendTop += layouts.reduce(
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,

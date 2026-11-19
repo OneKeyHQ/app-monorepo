@@ -1295,7 +1295,7 @@ const TradingViewNativeContent = memo(
               : undefined
           }
           // A compact chart has no room for the candle's price row; it keeps
-          // the rows naming the main indicators it draws.
+          // the full chart's indicator rows.
           showLegend={showMainIndicators}
           showPriceLegend={!isCompactDisplayMode}
           timeAxisFontSize={
