@@ -1270,8 +1270,6 @@ export default class ServiceSwap extends ServiceBase {
       const tokens = data?.data;
       if (
         protocol === EProtocolOfExchange.PRIVATE_SEND ||
-        !requestAccountId ||
-        !requestAccountAddress ||
         !contractAddress ||
         !tokens?.length
       ) {
@@ -1281,13 +1279,66 @@ export default class ServiceSwap extends ServiceBase {
       const token = tokens.find((item) =>
         equalTokenNoCaseSensitive({ token1: item, token2: identity }),
       );
+      if (!token) return tokens;
+      let resolvedMultiplier = [
+        token.balanceMultiplier,
+        balanceMultiplier,
+      ].find(tokenRebaseUtils.isValidBalanceMultiplier);
       if (
-        !token ||
-        ![token.balanceMultiplier, balanceMultiplier].some(
-          tokenRebaseUtils.isScalingBalanceMultiplier,
-        )
+        tokenRebaseUtils.needsBalanceMultiplierLookup({
+          ...identity,
+          balanceMultiplier: resolvedMultiplier,
+        })
       ) {
-        return tokens;
+        const walletDetail =
+          await this.backgroundApi.serviceToken.fetchTokenInfoOnly({
+            networkId,
+            tokenAddress: contractAddress,
+          });
+        if (
+          walletDetail?.info?.decimals !== token.decimals ||
+          !equalTokenNoCaseSensitive({
+            token1: {
+              networkId: walletDetail?.info?.networkId ?? networkId,
+              contractAddress: walletDetail?.info?.address,
+            },
+            token2: identity,
+          })
+        ) {
+          throw new OneKeyLocalError(
+            'Swap token amount metadata is unavailable',
+          );
+        }
+        resolvedMultiplier =
+          tokenRebaseUtils.pickBalanceMultiplier(walletDetail);
+        if (!resolvedMultiplier) {
+          if (
+            walletDetail.balanceMultiplier !== undefined ||
+            walletDetail.info.balanceMultiplier !== undefined
+          ) {
+            throw new OneKeyLocalError(
+              'Swap token balance multiplier is invalid',
+            );
+          }
+          // A matching Wallet response without scaling metadata is a unit token.
+          resolvedMultiplier = '1';
+        }
+      }
+      const isScaled =
+        tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier);
+      if (!requestAccountId || !requestAccountAddress || !isScaled) {
+        const balanceParsed = isScaled ? undefined : token.balanceParsed;
+        if (
+          resolvedMultiplier === token.balanceMultiplier &&
+          balanceParsed === token.balanceParsed
+        ) {
+          return tokens;
+        }
+        return tokens.map((item) =>
+          item === token
+            ? { ...item, balanceParsed, balanceMultiplier: resolvedMultiplier }
+            : item,
+        );
       }
       // Older Swap deployments may already scale balanceParsed. Wallet is the
       // authoritative source of raw units for this identified token/account.
@@ -1325,9 +1376,7 @@ export default class ServiceSwap extends ServiceBase {
               balanceParsed: balance.toFixed(),
               balanceMultiplier:
                 tokenRebaseUtils.pickBalanceMultiplier(walletToken) ??
-                [item.balanceMultiplier, balanceMultiplier].find(
-                  tokenRebaseUtils.isValidBalanceMultiplier,
-                ),
+                resolvedMultiplier,
             }
           : item,
       );

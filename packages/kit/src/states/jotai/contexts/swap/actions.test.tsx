@@ -1305,6 +1305,47 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('waits for Solana token metadata and quotes the raw amount from the resolved multiplier', async () => {
+    const scaledToken = {
+      ...ethToken,
+      networkId: 'sol--101',
+      contractAddress: 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh',
+      isNative: false,
+      decimals: 8,
+    };
+    const { store, Wrapper } = createWrapperWithStore((s) => {
+      s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      s.set(swapSelectFromTokenAtom(), scaledToken);
+      s.set(swapSelectToTokenAtom(), usdcToken);
+      s.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const quote = () =>
+      result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        'account-address',
+        'account-id',
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    await act(quote);
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    act(() => {
+      store.set(swapSelectFromTokenAtom(), {
+        ...scaledToken,
+        balanceMultiplier: '1.001701196801074',
+      });
+    });
+    await act(quote);
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '0.99830169' }),
+    );
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('1');
+  });
+
   it('converts exact-output input using the receiving token multiplier', async () => {
     const receive = { ...bnbToken, balanceMultiplier: '3', decimals: 2 };
     const { store, Wrapper } = createWrapperWithStore();

@@ -2582,6 +2582,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       if (
+        swapTabSwitchType !== ESwapTabSwitchType.PRIVATE_SEND &&
+        [fromToken, toToken].some(tokenRebaseUtils.needsBalanceMultiplierLookup)
+      ) {
+        void this.resetQuoteAction.call(set);
+        return;
+      }
+      if (
         swapTabSwitchType === ESwapTabSwitchType.STOCK &&
         !isStockExecutionTokensReady({
           currentSyncId: get(swapStockExecutionTokenSyncIdAtom()),
@@ -3542,6 +3549,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
+      const needsMultiplier = Boolean(
+        token &&
+        currentSwapType !== ESwapTabSwitchType.PRIVATE_SEND &&
+        tokenRebaseUtils.needsBalanceMultiplierLookup(token),
+      );
       const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
       const priceRevision = get(swapSelectTokenPriceRevisionAtom())[type];
       // Replacing a refresh must not fall back to its previously cached balance.
@@ -3640,12 +3652,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountAddress &&
           accountNetworkId &&
           accountNetworkId === token?.networkId) ||
-        (!token?.price && token)
+        (token && (needsMultiplier || !token.price))
       ) {
         if (
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
+          !needsMultiplier &&
           !tokenRebaseUtils.isScalingBalanceMultiplier(
             token.balanceMultiplier,
           ) &&

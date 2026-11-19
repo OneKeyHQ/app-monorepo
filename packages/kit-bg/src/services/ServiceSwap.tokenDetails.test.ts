@@ -43,6 +43,81 @@ describe('ServiceSwap token detail errors', () => {
       }
     },
   );
+  it.each([false, true])(
+    'resolves missing Solana scaling metadata from Wallet (with account: %s)',
+    async (withAccount) => {
+      const networkId = 'sol--101';
+      const contractAddress = 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh';
+      const accountAddress = 'account-address';
+      const accountId = 'account-id';
+      const info = {
+        address: contractAddress,
+        networkId,
+        decimals: 8,
+        balanceMultiplier: '1.001701196801074',
+      };
+      const fetchTokenInfoOnly = jest.fn().mockResolvedValue({ info });
+      const fetchTokensDetails = jest.fn().mockResolvedValue([
+        {
+          info,
+          balanceParsed: '10',
+          balanceMultiplier: info.balanceMultiplier,
+        },
+      ]);
+      const service = new ServiceSwap({
+        backgroundApi: {
+          serviceToken: { fetchTokenInfoOnly, fetchTokensDetails },
+          serviceAccount: {
+            getAccountAddressForApi: jest
+              .fn()
+              .mockResolvedValue(accountAddress),
+            getAccountXpub: jest.fn().mockResolvedValue(undefined),
+          },
+          serviceAccountProfile: {
+            _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+          },
+          serviceSetting: {
+            getEffectiveInscriptionProtection: jest
+              .fn()
+              .mockResolvedValue(false),
+          },
+        },
+      });
+      const client = axios.create();
+      const swapToken = {
+        networkId,
+        contractAddress,
+        decimals: 8,
+        balanceParsed: '10.01701196801074',
+      };
+      const get = jest
+        .spyOn(client, 'get')
+        .mockResolvedValue({ data: { data: [swapToken] } });
+      jest.spyOn(service, 'getClient').mockResolvedValue(client);
+      await expect(
+        service.fetchSwapTokenDetails({
+          networkId,
+          contractAddress,
+          ...(withAccount ? { accountAddress, accountId } : {}),
+          throwOnError: true,
+        }),
+      ).resolves.toEqual([
+        {
+          ...swapToken,
+          balanceMultiplier: info.balanceMultiplier,
+          balanceParsed: withAccount ? '10' : undefined,
+        },
+      ]);
+      expect(fetchTokenInfoOnly).toHaveBeenCalledWith({
+        networkId,
+        tokenAddress: contractAddress,
+      });
+      expect(fetchTokensDetails).toHaveBeenCalledTimes(withAccount ? 1 : 0);
+      expect(get.mock.calls[0][1]?.params).not.toHaveProperty(
+        'balanceMultiplier',
+      );
+    },
+  );
   it.each(['10', undefined])(
     'uses only an account-bound Wallet raw balance for a known scaled token (%s)',
     async (walletRawBalance) => {

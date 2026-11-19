@@ -1,5 +1,10 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  IMPL_SOL,
+  IMPL_TON,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
@@ -60,6 +65,19 @@ function isValidBalanceMultiplier(
   balanceMultiplier: string | undefined,
 ): balanceMultiplier is string {
   return parseBalanceMultiplier(balanceMultiplier) !== undefined;
+}
+
+function needsBalanceMultiplierLookup(token: {
+  networkId: string;
+  contractAddress: string | undefined;
+  balanceMultiplier?: string;
+}): boolean {
+  const [impl] = token.networkId.split(SEPERATOR, 1);
+  return Boolean(
+    token.contractAddress &&
+    (impl === IMPL_SOL || impl === IMPL_TON) &&
+    !isValidBalanceMultiplier(token.balanceMultiplier),
+  );
 }
 
 // True only when the multiplier would actually rescale amounts: parses to a
@@ -350,6 +368,7 @@ function normalizeAccountTokensRespBalanceMultiplier(
 export default {
   equalBalanceMultipliers,
   isValidBalanceMultiplier,
+  needsBalanceMultiplierLookup,
   isScalingBalanceMultiplier,
   applyBalanceMultiplier,
   removeBalanceMultiplier,
