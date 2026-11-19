@@ -254,6 +254,11 @@ interface IPanelSelection {
   source: ITradingViewNativeSource;
   /** The host's source when the panel was selected. */
   activeSourceKey: string;
+  /**
+   * The panel the host's source belonged to when this one was selected, and
+   * goes on belonging to until the host follows.
+   */
+  hostPanelId: string;
   waitsForHost: boolean;
   /**
    * Written to the saved layout. A selection that waits for the host is only
@@ -291,7 +296,7 @@ export function TradingViewNativeMultiChart({
   defaultIndicatorSettings,
   getDefaultPanelSource,
   layout: storedLayout,
-  onLayoutChange,
+  onLayoutChange: onSavedLayoutChange,
   onSelectPanel,
   renderPanel,
   testID = 'trading-view-multi-chart',
@@ -311,6 +316,28 @@ export function TradingViewNativeMultiChart({
     selectionRef.current = next;
     setSelectionState(next);
   }, []);
+  // Every write of the grid. On a split runtime `current` is the snapshot bg
+  // sent last and can miss a selection still on its way there; a write worked
+  // out from it, e.g. a token for another panel, would then undo the
+  // selection. So each write starts from the selection saved last.
+  const onLayoutChange = useCallback<IOnLayoutChange>(
+    (update) =>
+      onSavedLayoutChange((current) => {
+        const saved = selectionRef.current?.isSaved
+          ? selectionRef.current
+          : selectionRef.current?.fallback;
+        return update(
+          saved
+            ? selectTradingViewNativeMultiChartPanel(
+                normalizeTradingViewNativeMultiChartLayout(current),
+                saved.panelId,
+                saved.keptSources,
+              )
+            : current,
+        );
+      }),
+    [onSavedLayoutChange],
+  );
   const layout = useMemo(
     () =>
       selection
@@ -335,11 +362,18 @@ export function TradingViewNativeMultiChart({
   const isSymbolSynced = isSplit && sync.symbol;
   const activePanelId = getTradingViewNativeMultiChartActivePanelId(layout);
   const activeSourceKey = getTradingViewNativeSourceKey(activeSource);
-  const isWaitingForHost =
+  // The host has not followed the selection yet.
+  const awaitsHost =
     selection?.waitsForHost === true &&
-    selection.panelId === activePanelId &&
     selection.activeSourceKey === activeSourceKey;
+  const isWaitingForHost = awaitsHost && selection.panelId === activePanelId;
   const shownActiveSource = isWaitingForHost ? selection.source : activeSource;
+  // The panel the host's own source belongs to: the selected one, also while
+  // the preset hides it and the first panel stands in for it, but not one the
+  // host has yet to follow.
+  const hostPanelId = awaitsHost
+    ? selection.hostPanelId
+    : getTradingViewNativeMultiChartSourceOwnerPanelId(layout);
   const saveSelection = useCallback(
     (target: IPanelSelection) => {
       // Always written: on a split runtime `current` can still miss an earlier
@@ -386,7 +420,9 @@ export function TradingViewNativeMultiChart({
   ]);
 
   const latestSelectionState = useRef({
+    activeSource,
     activeSourceKey,
+    hostPanelId,
     isSymbolSynced,
     layout,
     onSelectPanel,
@@ -394,7 +430,9 @@ export function TradingViewNativeMultiChart({
     shownActiveSource,
   });
   latestSelectionState.current = {
+    activeSource,
     activeSourceKey,
+    hostPanelId,
     isSymbolSynced,
     layout,
     onSelectPanel,
@@ -418,18 +456,17 @@ export function TradingViewNativeMultiChart({
         ? state.shownActiveSource
         : state.layout.panels[panelId]?.source;
       if (!source) return;
-      // The token on screen belongs to the selected panel, also while the
-      // preset hides it: the first panel standing in for it keeps its own.
-      const ownerPanelId = getTradingViewNativeMultiChartSourceOwnerPanelId(
-        state.layout,
-      );
+      // The host's token stays with the panel it belongs to, which showed it
+      // without storing it. A panel standing in for that one, or selected
+      // without the host having followed, has its own token saved already.
+      const { hostPanelId: keptPanelId } = state;
       const keepsOwnToken =
         state.isSymbolSynced &&
-        Boolean(state.layout.panels[ownerPanelId]?.source);
+        Boolean(state.layout.panels[keptPanelId]?.source);
       const keptSources: IKeptSources = { ...state.selection?.keptSources };
+      if (!keepsOwnToken) keptSources[keptPanelId] = state.activeSource;
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
-      if (!keepsOwnToken) keptSources[ownerPanelId] = state.shownActiveSource;
       const waitsForHost =
         getTradingViewNativeSourceKey(source) !== state.activeSourceKey;
       selectionSeq.current += 1;
@@ -440,6 +477,7 @@ export function TradingViewNativeMultiChart({
         keptSources,
         source,
         activeSourceKey: state.activeSourceKey,
+        hostPanelId: keptPanelId,
         waitsForHost,
         isSaved: !waitsForHost,
         // A saved selection is never turned down, so it needs none itself.
@@ -524,9 +562,6 @@ export function TradingViewNativeMultiChart({
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
       const state = latestSelectionState.current;
-      const selectedPanelId = getTradingViewNativeMultiChartSourceOwnerPanelId(
-        state.layout,
-      );
       onLayoutChange((current) => {
         const saved = normalizeTradingViewNativeMultiChartLayout(current);
         const next = setTradingViewNativeMultiChartSync(
@@ -536,11 +571,11 @@ export function TradingViewNativeMultiChart({
         );
         if (next === saved) return current;
         // From here every panel shows the host's token and keeps its own for
-        // when that ends. The selected panel shows the host's without storing
-        // it, so what it stores can date from before it was selected.
+        // when that ends. The host's panel shows it without storing it, so
+        // what it stores can date from before it was selected.
         return option === 'symbol' && isSynced
-          ? updateTradingViewNativeMultiChartPanel(next, selectedPanelId, {
-              source: state.shownActiveSource,
+          ? updateTradingViewNativeMultiChartPanel(next, state.hostPanelId, {
+              source: state.activeSource,
             })
           : next;
       });
@@ -752,8 +787,9 @@ export function TradingViewNativeMultiChart({
                         }
                       }
                 }
-                // The same from the keyboard: Enter or Space on anything
-                // focused in the panel, e.g. its chart.
+                // From the keyboard: Enter or Space on the focused chart.
+                // The panel's controls, e.g. a drawing tool's style list, use
+                // these keys themselves and leave the selection alone.
                 onKeyDownCapture={
                   isActive
                     ? undefined
@@ -764,15 +800,13 @@ export function TradingViewNativeMultiChart({
                           event.altKey ||
                           event.ctrlKey ||
                           event.metaKey ||
-                          !isOnPanel(event.currentTarget, target) ||
-                          target.closest('input, textarea, [contenteditable]')
+                          !(target instanceof HTMLCanvasElement) ||
+                          !isOnPanel(event.currentTarget, target)
                         ) {
                           return;
                         }
-                        // On the chart, Space would scroll the page.
-                        if (target instanceof HTMLCanvasElement) {
-                          event.preventDefault();
-                        }
+                        // Space would scroll the page.
+                        event.preventDefault();
                         handleSelectPanel(id);
                       }
                 }

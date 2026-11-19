@@ -455,13 +455,37 @@ describe('panel selection', () => {
     });
   });
 
-  it('ignores the selected panel and panels the preset hides', () => {
+  it('ignores the selected panel and panels it does not know', () => {
     expect(selectTradingViewNativeMultiChartPanel(layout, 'main')).toBe(layout);
-    const twoPanels = { ...layout, preset: '2h' as const };
     expect(
-      selectTradingViewNativeMultiChartPanel(twoPanels, 'panel-3', {
+      selectTradingViewNativeMultiChartPanel(layout, 'panel-9', {
         main: coin('BTC'),
       }),
-    ).toBe(twoPanels);
+    ).toBe(layout);
+  });
+
+  it('selects a panel the preset hid while the host was switching to it', () => {
+    const twoPanels = { ...layout, preset: '2h' as const };
+    const selected = selectTradingViewNativeMultiChartPanel(
+      twoPanels,
+      'panel-3',
+      { main: coin('BTC') },
+    );
+    // The first panel keeps its token and shows the host's for now.
+    expect(selected).toEqual({
+      ...twoPanels,
+      activePanelId: 'panel-3',
+      panels: { ...layout.panels, main: { source: coin('BTC') } },
+    });
+    expect(getTradingViewNativeMultiChartActivePanelId(selected)).toBe('main');
+    expect(
+      selectTradingViewNativeMultiChartPanel(selected, 'panel-3', {
+        main: coin('BTC'),
+      }),
+    ).toBe(selected);
+    // Selecting the stand-in itself moves the selection for real.
+    expect(
+      selectTradingViewNativeMultiChartPanel(selected, 'main').activePanelId,
+    ).toBe('main');
   });
 });

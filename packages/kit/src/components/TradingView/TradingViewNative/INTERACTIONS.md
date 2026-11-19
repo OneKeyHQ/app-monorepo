@@ -21,16 +21,21 @@ under separate owners:
   the saved layout has it, the grid keeps the tokens of the panels selected
   before and writes them all with every selection: a split runtime evaluates a
   write against the snapshot bg sent last, which can miss the selection before.
+  For the same reason every other write of the grid (a panel's token or
+  indicators, the preset, sync options, sizes) starts from the selection saved
+  last, so it cannot undo a selection that has not come back yet.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
   Presses inside `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`, e.g. a
   token picker, and in overlays rendered outside the panel do not select, so a
   picker in a panel that is not selected changes that panel's token only.
-  Enter or Space on anything focused in a panel, e.g. its chart canvas, selects
-  it the same way. While a preset hides the selected panel the first panel
+  Enter or Space on a panel's focused chart canvas selects it the same way;
+  on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
   shows the host's source in its place; the source still belongs to the hidden
   panel (`getTradingViewNativeMultiChartSourceOwnerPanelId`), so a selection
-  made then saves it there and never over the first panel's own token. The
+  made then saves it there and never over the first panel's own token. A
+  selection whose panel the preset hides before the host has followed is
+  saved all the same and returns with the preset. The
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
