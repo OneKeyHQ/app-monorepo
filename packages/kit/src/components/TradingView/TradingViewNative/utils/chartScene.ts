@@ -287,6 +287,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   priceAxisWidth?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  showPriceLegend?: boolean;
   timeAxisFontSize?: number;
   timeAxisHeight?: number;
   priceRangeScale?: number;
@@ -755,6 +756,7 @@ export function buildTradingViewNativeChartScene({
   priceAxisWidth,
   priceAxisTickCount,
   showLegend = true,
+  showPriceLegend = true,
   timeAxisFontSize = AXIS_FONT_SIZE,
   timeAxisHeight = TIME_AXIS_HEIGHT,
   priceRangeScale,
@@ -1406,12 +1408,22 @@ export function buildTradingViewNativeChartScene({
       : primarySeries.colorRole;
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
+  // Emitted after the plot's lines, the latest price line among them, so a
+  // line crossing a legend row passes under its background and text.
+  const legendCommands: ITradingViewNativeChartSceneCommand[] = [];
   const appendLegendRows = (
     layouts: ITradingViewNativeChartLegendRowLayout[],
+    maxBottom = Number.POSITIVE_INFINITY,
   ) => {
     for (const rowLayout of layouts) {
+      if (
+        rowLayout.backgroundRect.y + rowLayout.backgroundRect.height >
+        maxBottom
+      ) {
+        return;
+      }
       appendLegendCommands({
-        commands,
+        commands: legendCommands,
         layout: rowLayout,
         trendValuePaint,
         valuePaint: legendValuePaint,
@@ -1419,16 +1431,23 @@ export function buildTradingViewNativeChartScene({
     }
   };
   if (showLegend) {
-    const priceLegendLayouts = getTradingViewNativeChartLegendRowLayouts({
-      items:
-        chartSettings?.options.priceChange === false
-          ? legend.priceItems.filter((item) => item.valueColorRole !== 'trend')
-          : legend.priceItems,
-      maxX: priceAxisX,
-      measureTextWidth: measureLegendTextWidth,
-      top: PRICE_LEGEND_TOP,
-    });
-    appendLegendRows(priceLegendLayouts);
+    // The price and indicator rows stack down from the top. Rows that would
+    // run past the main chart, onto the time axis or the sub-indicator panes,
+    // are left out; a short chart with many indicators shows the first ones.
+    const priceLegendLayouts = showPriceLegend
+      ? getTradingViewNativeChartLegendRowLayouts({
+          items:
+            chartSettings?.options.priceChange === false
+              ? legend.priceItems.filter(
+                  (item) => item.valueColorRole !== 'trend',
+                )
+              : legend.priceItems,
+          maxX: priceAxisX,
+          measureTextWidth: measureLegendTextWidth,
+          top: PRICE_LEGEND_TOP,
+        })
+      : [];
+    appendLegendRows(priceLegendLayouts, mainChartBottom);
     let mainIndicatorLegendTop =
       PRICE_LEGEND_TOP +
       priceLegendLayouts.reduce(
@@ -1474,7 +1493,7 @@ export function buildTradingViewNativeChartScene({
         measureTextWidth: measureLegendTextWidth,
         top: mainIndicatorLegendTop,
       });
-      appendLegendRows(layouts);
+      appendLegendRows(layouts, mainChartBottom);
       mainIndicatorLegendTop += layouts.reduce(
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,
@@ -1584,6 +1603,7 @@ export function buildTradingViewNativeChartScene({
       );
     }
   }
+  commands.push(...legendCommands);
 
   const tradeMarkTooltipCommands: ITradingViewNativeChartSceneCommand[] = [];
   appendTradingViewNativeTradeMarkCommands({
