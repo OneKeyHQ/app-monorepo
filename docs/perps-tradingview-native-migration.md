@@ -193,15 +193,25 @@ keep the single chart.
 - Pressing another panel selects it and switches the trade instrument to its
   token; no chart moves, changes its token or remounts. Until the switch lands
   the panel stays read-only, and a switch that fails returns the selection.
+  The selection is saved only once the switch has landed, so a failed one
+  leaves the layout as it was, also when the chart mode changed meanwhile.
+  Selecting the traded token's panel again drops a switch still on its way.
 - Instead of its own controls, each chart in a split has a header with its
   token picker, live price and 24h change, from the same asset contexts as the
-  favorites bar. Perp quotes mark the shared asset contexts as required; a spot
-  token outside the selected panel turns on the spot asset context
-  subscription (`chartPanelsSpotActive`).
+  favorites bar. Each header holds one quote, subscribed to its own token
+  only. Perp quotes mark the shared asset contexts as required; a spot token
+  outside the selected panel turns on the spot asset context subscription
+  (`chartPanelsSpotActive`). Both are let go while the workspace shows another
+  view (Info, Funding, Order book) over the mounted chart.
 - The other panels show any perp or spot token picked from the regular token
   selector, with the account's lines and fill marks for it read-only and no
-  order menu. The first panel keeps the page's interval and indicators
-  wherever the selection is; every extra panel has its own.
+  order menu. Their token picker does not select the panel: it changes that
+  panel's token and leaves the trade instrument alone. The first panel keeps
+  the page's interval and indicators wherever the selection is; every extra
+  panel has its own.
+- An order line that is being cancelled or moved is locked in every chart
+  showing its token (`usePerpsChartLineActions`), so moving the selection
+  between two panels of one token cannot send a second request for it.
 - Every panel has the drawing tools. Drawings are saved per token, not per
   panel: panels showing the same token share them live, including undo, and a
   token keeps its drawings when it moves between panels.
@@ -211,7 +221,8 @@ keep the single chart.
   off by default.
   - Symbol: every panel shows the trade instrument, and a token picked in any
     panel switches it; selecting a panel then only moves the controls row to
-    it. Panels return to their own tokens when it is turned off.
+    it. Panels return to their own tokens when it is turned off: the ones
+    they showed when it was turned on, the selected panel's included.
   - Interval: every panel takes the trading chart's interval, and an interval
     picked in any panel applies to all.
   - Crosshair: hovering one chart shows its crosshair in the others at the

@@ -32,7 +32,8 @@ export interface ITradingViewNativeMultiChartPanel {
   layoutControl: ReactNode;
   /**
    * Changes the token of a panel that is not selected. The selected panel
-   * follows the host.
+   * follows the host. A picker that calls this must not select the panel with
+   * its presses: see `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`.
    */
   setSource: (source: ITradingViewNativeSource) => void;
 }
@@ -50,7 +51,10 @@ export interface ITradingViewNativeMultiChartProps {
   /**
    * The user selected a panel showing `source`; the host switches to it.
    * Resolves whether it did. A selection the host turns down returns to the
-   * panel selected before.
+   * panel selected before, and is saved only once the host has followed.
+   *
+   * Also called with the source the host already shows while an earlier
+   * switch is still on its way; the host then has to drop that switch.
    */
   onSelectPanel: (source: ITradingViewNativeSource) => Promise<boolean>;
   /** Indicators a newly opened panel starts from. */

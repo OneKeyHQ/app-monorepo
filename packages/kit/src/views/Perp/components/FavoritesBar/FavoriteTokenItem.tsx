@@ -26,7 +26,6 @@ import {
   perpsActiveAssetCtxAtom,
   spotActiveAssetCtxAtom,
   usePerpsActiveAssetAtom,
-  useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perpsUtils, {
@@ -39,6 +38,8 @@ import {
   MAX_DECIMALS_PERP,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+import { useSpotAssetCtxByPair } from '../../hooks/useSpotAssetCtxByPair';
 
 export const TABULAR_NUMS_STYLE = {
   fontVariantNumeric: 'tabular-nums',
@@ -91,101 +92,181 @@ interface IFavoriteTokenItemProps {
   displayMode?: IPerpFavoritesDisplayMode;
 }
 
-export const CtxPriceDisplay = memo(
-  ({
-    coinName,
-    dexIndex,
-    assetId,
-    displayMode = 'price',
-    mode,
-  }: {
-    coinName: string;
-    dexIndex: number;
-    assetId: number;
-    displayMode?: IPerpFavoritesDisplayMode;
-    mode: 'perp' | 'spot';
-  }) => {
-    const [activeInstrument] = useActiveTradeInstrumentAtom();
-    const [activeAsset] = usePerpsActiveAssetAtom();
-    const ctx = usePerpsCtxByCoin(dexIndex, assetId);
-    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
-    const formattedCtx = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
-    const formattedSpotCtx = useMemo(
-      () => formatSpotPriceEntry(spotPriceMap[coinName]),
-      [coinName, spotPriceMap],
-    );
-    const isActive =
-      mode === 'spot'
-        ? activeInstrument.mode === 'spot' && activeInstrument.coin === coinName
-        : activeAsset?.coin === coinName;
-    const activeCtxAtom = useMemo(() => {
-      const selectCtx = (
-        value: IPerpsActiveAssetCtxAtom | ISpotActiveAssetCtxAtom,
-      ) => (isActive && value?.coin === coinName ? value.ctx : undefined);
-      return mode === 'spot'
-        ? selectAtom(spotActiveAssetCtxAtom.atom(), selectCtx)
-        : selectAtom(perpsActiveAssetCtxAtom.atom(), selectCtx);
-    }, [coinName, isActive, mode]);
-    const activeCtx = useAtomValue(activeCtxAtom);
-    const useActive = !!activeCtx?.markPrice;
-    const marketCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
-    const candidate = useActive ? activeCtx : marketCtx;
-    const [settledActive, setSettledActive] = useState(useActive);
-    const lastDisplayed = useRef(candidate);
-    const displayCtx =
-      settledActive === useActive ? candidate : lastDisplayed.current;
+interface ICtxQuote {
+  markPrice: string;
+  change24hPercent: number;
+}
 
-    useLayoutEffect(() => {
-      lastDisplayed.current = displayCtx;
-    }, [displayCtx]);
+// The trade instrument's own quote is ahead of the shared contexts, so its
+// token shows that one. Moving between the two can step the price back.
+function useSettledCtxQuote(
+  activeQuote: ICtxQuote | undefined,
+  marketQuote: ICtxQuote,
+): ICtxQuote {
+  const useActive = !!activeQuote?.markPrice;
+  const candidate = useActive && activeQuote ? activeQuote : marketQuote;
+  const [settledActive, setSettledActive] = useState(useActive);
+  const lastDisplayed = useRef(candidate);
+  const quote = settledActive === useActive ? candidate : lastDisplayed.current;
 
-    useEffect(() => {
-      if (settledActive === useActive) return;
-      // Hold the previous quote only while changing sources. Live ticks do not
-      // restart this window and resume immediately once the source settles.
-      const timer = setTimeout(() => setSettledActive(useActive), 250);
-      return () => clearTimeout(timer);
-    }, [settledActive, useActive]);
+  useLayoutEffect(() => {
+    lastDisplayed.current = quote;
+  }, [quote]);
 
-    const priceDisplay = displayCtx?.markPrice
-      ? formatPriceToSignificantDigits(displayCtx.markPrice)
-      : '-';
+  useEffect(() => {
+    if (settledActive === useActive) return;
+    // Hold the previous quote only while changing sources. Live ticks do not
+    // restart this window and resume immediately once the source settles.
+    const timer = setTimeout(() => setSettledActive(useActive), 250);
+    return () => clearTimeout(timer);
+  }, [settledActive, useActive]);
 
-    const change24hPercent = displayCtx?.change24hPercent ?? 0;
-    const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+  return quote;
+}
 
-    const skeletonWidth = displayMode === 'price' ? 46 : 60;
-    if (displayCtx?.markPrice === '0') {
-      return <Skeleton width={skeletonWidth} height={16} />;
-    }
+interface ICtxQuoteSourceProps {
+  coinName: string;
+  dexIndex: number;
+  assetId: number;
+}
 
-    if (displayMode === 'percent') {
-      return (
-        <NumberSizeableText
-          size="$bodySmMedium"
-          color={color}
-          style={TABULAR_NUMS_STYLE}
-          formatter="priceChange"
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {change24hPercent.toString()}
-        </NumberSizeableText>
-      );
-    }
+// Each mode subscribes to its own quote only: the spot map changes with every
+// quote of any pair, which a perp token has no use for.
+function usePerpCtxQuote({
+  coinName,
+  dexIndex,
+  assetId,
+}: ICtxQuoteSourceProps) {
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const ctx = usePerpsCtxByCoin(dexIndex, assetId);
+  const marketQuote = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
+  const isActive = activeAsset?.coin === coinName;
+  const activeCtxAtom = useMemo(
+    () =>
+      selectAtom(
+        perpsActiveAssetCtxAtom.atom(),
+        (value: IPerpsActiveAssetCtxAtom) =>
+          isActive && value?.coin === coinName ? value.ctx : undefined,
+      ),
+    [coinName, isActive],
+  );
+  return useSettledCtxQuote(useAtomValue(activeCtxAtom), marketQuote);
+}
 
-    const priceMinWidth = getStablePriceMinWidth(priceDisplay);
+function useSpotCtxQuote({ coinName }: ICtxQuoteSourceProps) {
+  const [activeInstrument] = useActiveTradeInstrumentAtom();
+  const ctx = useSpotAssetCtxByPair(coinName);
+  const marketQuote = useMemo(
+    () => formatSpotPriceEntry(ctx ?? undefined),
+    [ctx],
+  );
+  const isActive =
+    activeInstrument.mode === 'spot' && activeInstrument.coin === coinName;
+  const activeCtxAtom = useMemo(
+    () =>
+      selectAtom(
+        spotActiveAssetCtxAtom.atom(),
+        (value: ISpotActiveAssetCtxAtom) =>
+          isActive && value?.coin === coinName ? value.ctx : undefined,
+      ),
+    [coinName, isActive],
+  );
+  return useSettledCtxQuote(useAtomValue(activeCtxAtom), marketQuote);
+}
+
+function CtxQuoteText({
+  displayMode,
+  quote,
+}: {
+  displayMode: IPerpFavoritesDisplayMode;
+  quote: ICtxQuote;
+}) {
+  const { change24hPercent, markPrice } = quote;
+  const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
+
+  if (markPrice === '0') {
+    return <Skeleton width={displayMode === 'price' ? 46 : 60} height={16} />;
+  }
+
+  if (displayMode === 'percent') {
     return (
-      <SizableText
+      <NumberSizeableText
         size="$bodySmMedium"
         color={color}
         style={TABULAR_NUMS_STYLE}
-        minWidth={priceMinWidth}
-        textAlign="right"
+        formatter="priceChange"
+        formatterOptions={{ showPlusMinusSigns: true }}
       >
-        {priceDisplay}
-      </SizableText>
+        {change24hPercent.toString()}
+      </NumberSizeableText>
     );
-  },
+  }
+
+  const priceDisplay = markPrice
+    ? formatPriceToSignificantDigits(markPrice)
+    : '-';
+  return (
+    <SizableText
+      size="$bodySmMedium"
+      color={color}
+      style={TABULAR_NUMS_STYLE}
+      minWidth={getStablePriceMinWidth(priceDisplay)}
+      textAlign="right"
+    >
+      {priceDisplay}
+    </SizableText>
+  );
+}
+
+/** `priceAndPercent` shows both from one quote subscription. */
+export type ICtxPriceDisplayMode =
+  | IPerpFavoritesDisplayMode
+  | 'priceAndPercent';
+
+function CtxQuote({
+  displayMode,
+  quote,
+}: {
+  displayMode: ICtxPriceDisplayMode;
+  quote: ICtxQuote;
+}) {
+  if (displayMode !== 'priceAndPercent') {
+    return <CtxQuoteText quote={quote} displayMode={displayMode} />;
+  }
+  return (
+    <>
+      <CtxQuoteText quote={quote} displayMode="price" />
+      <CtxQuoteText quote={quote} displayMode="percent" />
+    </>
+  );
+}
+
+type ICtxModeQuoteProps = ICtxQuoteSourceProps & {
+  displayMode: ICtxPriceDisplayMode;
+};
+
+function PerpCtxPriceDisplay({ displayMode, ...source }: ICtxModeQuoteProps) {
+  return <CtxQuote quote={usePerpCtxQuote(source)} displayMode={displayMode} />;
+}
+
+function SpotCtxPriceDisplay({ displayMode, ...source }: ICtxModeQuoteProps) {
+  return <CtxQuote quote={useSpotCtxQuote(source)} displayMode={displayMode} />;
+}
+
+export const CtxPriceDisplay = memo(
+  ({
+    displayMode = 'price',
+    mode,
+    ...source
+  }: ICtxQuoteSourceProps & {
+    displayMode?: ICtxPriceDisplayMode;
+    mode: 'perp' | 'spot';
+  }) =>
+    mode === 'spot' ? (
+      <SpotCtxPriceDisplay {...source} displayMode={displayMode} />
+    ) : (
+      <PerpCtxPriceDisplay {...source} displayMode={displayMode} />
+    ),
 );
 CtxPriceDisplay.displayName = 'CtxPriceDisplay';
 

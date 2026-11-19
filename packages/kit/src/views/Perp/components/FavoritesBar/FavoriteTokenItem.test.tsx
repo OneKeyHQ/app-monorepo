@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { act, render } from '@testing-library/react';
 import { atom, getDefaultStore } from 'jotai';
 
-import { FavoriteTokenItem } from './FavoriteTokenItem';
+import { CtxPriceDisplay, FavoriteTokenItem } from './FavoriteTokenItem';
 
 const mockQuoteRender = jest.fn();
 type ITestActiveCtx =
@@ -14,6 +14,10 @@ type ITestActiveCtx =
   | undefined;
 const mockPerpActiveCtxAtom = atom<ITestActiveCtx>(undefined);
 const mockSpotActiveCtxAtom = atom<ITestActiveCtx>(undefined);
+// Every spot pair's quote, replaced as a whole with each update.
+const mockSpotCtxsMapAtom = atom<
+  Record<string, { markPx: string; prevDayPx: string }>
+>({});
 
 const mockQuoteContext = createContext({
   selected: false,
@@ -66,11 +70,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     const { selected, coin } = useContext(mockQuoteContext);
     return [{ coin: selected ? coin : 'OTHER' }];
   },
-  useSpotAssetCtxsMapAtom: () => {
-    const { useContext } = jest.requireActual<typeof import('react')>('react');
-    const { coin, marketPrice } = useContext(mockQuoteContext);
-    return [{ [coin]: { markPx: marketPrice, prevDayPx: '100' } }];
-  },
+  spotAssetCtxsMapAtom: { atom: () => mockSpotCtxsMapAtom },
 }));
 
 type IQuoteState = {
@@ -95,6 +95,9 @@ function renderFavorite(mode: 'perp' | 'spot', initial: IQuoteState) {
       : undefined;
     getDefaultStore().set(mockPerpActiveCtxAtom, activeCtx);
     getDefaultStore().set(mockSpotActiveCtxAtom, activeCtx);
+    getDefaultStore().set(mockSpotCtxsMapAtom, {
+      [state.coin]: { markPx: state.marketPrice, prevDayPx: '100' },
+    });
     return (
       <mockQuoteContext.Provider value={state}>
         <FavoriteTokenItem
@@ -260,6 +263,49 @@ describe.each(['perp', 'spot'] as const)(
       }
       expect(getByText('0.00346')).toBeTruthy();
       expect(mockQuoteRender).not.toHaveBeenCalled();
+    });
+
+    it("does not rerender on another spot pair's quote", () => {
+      const { getByText } = renderFavorite(mode, marketState);
+      mockQuoteRender.mockClear();
+      act(() =>
+        getDefaultStore().set(mockSpotCtxsMapAtom, (current) => ({
+          ...current,
+          '@9': { markPx: '65000', prevDayPx: '64000' },
+        })),
+      );
+      expect(getByText('0.00346')).toBeTruthy();
+      expect(mockQuoteRender).not.toHaveBeenCalled();
+    });
+
+    it('shows the price and the 24h change from one quote', () => {
+      const renderQuote = (state: {
+        selected: boolean;
+        coin: string;
+        marketPrice: string;
+      }) => {
+        getDefaultStore().set(mockSpotCtxsMapAtom, {
+          [state.coin]: { markPx: state.marketPrice, prevDayPx: '100' },
+        });
+        return render(
+          <mockQuoteContext.Provider value={state}>
+            <CtxPriceDisplay
+              coinName={state.coin}
+              assetId={1}
+              dexIndex={0}
+              mode={mode}
+              displayMode="priceAndPercent"
+            />
+          </mockQuoteContext.Provider>,
+        );
+      };
+      const { getByText, getByTestId } = renderQuote({
+        selected: false,
+        coin: mode === 'perp' ? 'kBONK' : '@2',
+        marketPrice: '0.00346',
+      });
+      expect(getByText('0.00346')).toBeTruthy();
+      expect(Number(getByTestId('change').textContent)).toBeLessThan(0);
     });
 
     it('cleans up a pending handoff on unmount', () => {

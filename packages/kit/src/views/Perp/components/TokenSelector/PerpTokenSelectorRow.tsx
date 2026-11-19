@@ -8,8 +8,6 @@ import {
   useMemo,
 } from 'react';
 
-import { useAtomValue } from 'jotai';
-import { selectAtom } from 'jotai/utils';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,8 +28,6 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
-  type ISpotAssetCtxEntry,
-  spotAssetCtxsMapAtom,
   usePerpTokenFavoritesPersistAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
@@ -64,6 +60,7 @@ import {
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
+import { useSpotAssetCtxByPair } from '../../hooks/useSpotAssetCtxByPair';
 import { PerpTestIDs } from '../../testIDs';
 
 interface IPerpTokenSelectorRowProps {
@@ -117,63 +114,6 @@ const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
 const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
-
-function isSpotAssetCtxEntryEqual(
-  a: ISpotAssetCtxEntry | null,
-  b: ISpotAssetCtxEntry | null,
-) {
-  if (a === b) {
-    return true;
-  }
-  if (!a || !b) {
-    return false;
-  }
-  return (
-    a.markPx === b.markPx &&
-    a.prevDayPx === b.prevDayPx &&
-    a.dayNtlVlm === b.dayNtlVlm &&
-    a.circulatingSupply === b.circulatingSupply &&
-    a.totalSupply === b.totalSupply
-  );
-}
-
-function createSpotAssetCtxByPairAtom(pairName: string) {
-  return selectAtom(
-    spotAssetCtxsMapAtom.atom(),
-    (
-      spotPriceMap,
-      prevCtx?: ISpotAssetCtxEntry | null,
-    ): ISpotAssetCtxEntry | null => {
-      const nextCtx = spotPriceMap[pairName] ?? null;
-      if (prevCtx !== undefined && isSpotAssetCtxEntryEqual(prevCtx, nextCtx)) {
-        return prevCtx;
-      }
-      return nextCtx;
-    },
-  );
-}
-
-const spotAssetCtxByPairAtomCache = new Map<
-  string,
-  ReturnType<typeof createSpotAssetCtxByPairAtom>
->();
-
-function getOrCreateSpotAssetCtxByPairAtom(pairName: string) {
-  let entry = spotAssetCtxByPairAtomCache.get(pairName);
-  if (!entry) {
-    entry = createSpotAssetCtxByPairAtom(pairName);
-    spotAssetCtxByPairAtomCache.set(pairName, entry);
-  }
-  return entry;
-}
-
-function useSpotAssetCtxByPair(pairName: string) {
-  const selectedAtom = useMemo(
-    () => getOrCreateSpotAssetCtxByPairAtom(pairName),
-    [pairName],
-  );
-  return useAtomValue(selectedAtom);
-}
 
 export const SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT = {
   asset: { flex: 2.2, minWidth: 220 },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { XStack, YStack } from '@onekeyhq/components';
 import {
+  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
   TradingViewNative,
   TradingViewNativeMultiChart,
   getTradingViewNativeSourceKey,
@@ -49,11 +50,18 @@ import type { IPerpsChartInstrumentDisplay } from '../hooks/usePerpsChartInstrum
 
 export type IPerpNativeCandlesProps = ITradingViewNativeProps & {
   enableTradingUi: boolean;
+  /**
+   * False while the page keeps the chart mounted behind another view. The
+   * split view then lets go of the quotes only its panel headers need.
+   */
+  isVisible?: boolean;
 };
 
 // The chart of the active trade instrument, with its trading integrations.
 export function PerpNativeCandles({
   enableTradingUi,
+  // Only the split view has quotes of its own to let go of.
+  isVisible,
   ...props
 }: IPerpNativeCandlesProps) {
   const { chartComponents: lines, onReferenceLineAction } =
@@ -116,44 +124,35 @@ const getDefaultPanelSource: ITradingViewNativeMultiChartProps['getDefaultPanelS
 function PerpChartPanelQuote({
   assetId,
   coin,
+  isLive,
   mode,
 }: {
   assetId?: number;
   coin: string;
+  /** The quote is on screen, so it has to stream. */
+  isLive: boolean;
   mode: 'perp' | 'spot';
 }) {
   const actions = useHyperliquidActions();
   // Perp quotes come from the shared asset contexts, which only update while
   // something on screen needs them.
   useEffect(() => {
-    if (mode !== 'perp') return;
+    if (mode !== 'perp' || !isLive) return;
     const { markAllAssetCtxsNotRequired, markAllAssetCtxsRequired } =
       actions.current;
     markAllAssetCtxsRequired();
     return () => markAllAssetCtxsNotRequired();
-  }, [actions, mode]);
+  }, [actions, isLive, mode]);
   if (assetId === undefined) return null;
-  const dexIndex = getDexIndexByAssetId(assetId);
-  const key = `${mode}:${coin}:${assetId}`;
   return (
-    <>
-      <CtxPriceDisplay
-        key={`${key}:price`}
-        coinName={coin}
-        dexIndex={dexIndex}
-        assetId={assetId}
-        mode={mode}
-        displayMode="price"
-      />
-      <CtxPriceDisplay
-        key={`${key}:percent`}
-        coinName={coin}
-        dexIndex={dexIndex}
-        assetId={assetId}
-        mode={mode}
-        displayMode="percent"
-      />
-    </>
+    <CtxPriceDisplay
+      key={`${mode}:${coin}:${assetId}`}
+      coinName={coin}
+      dexIndex={getDexIndexByAssetId(assetId)}
+      assetId={assetId}
+      mode={mode}
+      displayMode="priceAndPercent"
+    />
   );
 }
 
@@ -170,11 +169,13 @@ function PerpNativeSplitPanel({
   activeDisplay,
   enableTradingUi,
   hostProps,
+  isVisible,
   panel,
 }: {
   activeDisplay: IPerpsChartInstrumentDisplay;
   enableTradingUi: boolean;
   hostProps: Omit<ITradingViewNativeProps, 'source'>;
+  isVisible: boolean;
   panel: ITradingViewNativeMultiChartPanel;
 }) {
   const {
@@ -223,19 +224,27 @@ function PerpNativeSplitPanel({
           overflow="hidden"
           testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
         >
-          <PerpChartTokenSelector
-            testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
-            display={coin === activeInstrument.coin ? activeDisplay : display}
-            // The selected panel's picker switches the trade instrument, and
-            // so does every picker while the panels share the token.
-            onSelectToken={
-              isActive || isSymbolSynced ? undefined : handleSelectToken
-            }
-          />
+          {/* Opening the picker is not a press on the chart: in a panel that
+              is not selected it changes that panel's token only. */}
+          <XStack
+            flexShrink={0}
+            {...TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS}
+          >
+            <PerpChartTokenSelector
+              testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
+              display={coin === activeInstrument.coin ? activeDisplay : display}
+              // The selected panel's picker switches the trade instrument,
+              // and so does every picker while the panels share the token.
+              onSelectToken={
+                isActive || isSymbolSynced ? undefined : handleSelectToken
+              }
+            />
+          </XStack>
           <PerpChartPanelQuote
             coin={coin}
             mode={instrument.mode}
             assetId={instrument.assetId}
+            isLive={isVisible}
           />
         </XStack>
       ) : null}
@@ -262,6 +271,7 @@ function PerpNativeSplitPanel({
  */
 export function PerpNativeSplitCandles({
   enableTradingUi,
+  isVisible = true,
   source,
   ...hostProps
 }: IPerpNativeCandlesProps) {
@@ -313,12 +323,14 @@ export function PerpNativeSplitCandles({
       })
     );
   }, [layout]);
+  // Hidden charts stay mounted with their layout, without the quotes.
+  const streamsSpotQuote = hasSpotQuote && isVisible;
   useEffect(() => {
-    if (!hasSpotQuote) return;
+    if (!streamsSpotQuote) return;
     const { setTradeRouteViewState } = actions.current;
     setTradeRouteViewState({ chartPanelsSpotActive: true });
     return () => setTradeRouteViewState({ chartPanelsSpotActive: false });
-  }, [actions, hasSpotQuote]);
+  }, [actions, streamsSpotQuote]);
   const renderPanel = (panel: ITradingViewNativeMultiChartPanel) => (
     <PerpNativeSplitPanel
       key={getTradingViewNativeSourceKey(panel.source)}
@@ -326,6 +338,7 @@ export function PerpNativeSplitCandles({
       activeDisplay={activeDisplay}
       enableTradingUi={enableTradingUi}
       hostProps={hostProps}
+      isVisible={isVisible}
     />
   );
   return (

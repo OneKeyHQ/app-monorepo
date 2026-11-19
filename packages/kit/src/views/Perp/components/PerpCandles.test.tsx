@@ -12,6 +12,8 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -61,6 +63,8 @@ type IMockTokenSelectorProps = {
   onSelectToken?: (selection: IPerpTokenSelection) => void;
 };
 const mockTokenSelector = jest.fn<null, [IMockTokenSelectorProps]>(() => null);
+// Rows that keep a press from selecting their split-view panel.
+const mockKeepSelectionRow = jest.fn<void, [ReactNode]>();
 const mockQuote = jest.fn<
   null,
   [{ coinName: string; mode: string; assetId: number; displayMode: string }]
@@ -92,7 +96,16 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
-  XStack: ({ children }: { children?: ReactNode }) => children,
+  XStack: ({
+    children,
+    'data-multi-chart-keep-selection': keepsSelection,
+  }: {
+    children?: ReactNode;
+    'data-multi-chart-keep-selection'?: string;
+  }) => {
+    if (keepsSelection) mockKeepSelectionRow(children);
+    return children;
+  },
   YStack: ({ children }: { children?: ReactNode }) => children,
   SizableText: () => null,
   IconButton: () => null,
@@ -179,6 +192,11 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
     '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource',
   ).getTradingViewNativeSourceKey,
   TradingViewNative: (props: ITradingViewNativeProps) => mockNativeChart(props),
+  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS: jest.requireActual<
+    typeof import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/TradingViewNativeMultiChartPanelContext')
+  >(
+    '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/TradingViewNativeMultiChartPanelContext',
+  ).TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
   // The grid itself is covered beside the component; here it only has to hand
   // every visible panel to the host.
   TradingViewNativeMultiChart: (props: ITradingViewNativeMultiChartProps) => {
@@ -409,6 +427,21 @@ describe('split view', () => {
     });
   });
 
+  it('keeps a press on a token picker from selecting its panel', () => {
+    renderTradingViewCandles();
+
+    // The grid leaves presses inside these rows alone, so a picker of a panel
+    // that is not selected changes that panel's token instead of the trade.
+    const guarded = mockKeepSelectionRow.mock.calls.map(
+      ([children]) =>
+        (children as { props?: IMockTokenSelectorProps } | undefined)?.props
+          ?.testID,
+    );
+    for (const id of ['main', 'panel-2']) {
+      expect(guarded).toContain(`perp-native-chart-panel-token-selector-${id}`);
+    }
+  });
+
   it('names every token with its live quote while split', async () => {
     const { unmount } = renderTradingViewCandles();
 
@@ -417,13 +450,19 @@ describe('split view', () => {
         expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
       ),
     );
+    // One quote per panel shows both the price and the 24h change.
     for (const coinName of ['BTC', 'ETH']) {
-      for (const displayMode of ['price', 'percent']) {
-        expect(mockQuote).toHaveBeenCalledWith(
-          expect.objectContaining({ coinName, mode: 'perp', displayMode }),
-        );
-      }
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          coinName,
+          mode: 'perp',
+          displayMode: 'priceAndPercent',
+        }),
+      );
     }
+    expect(
+      new Set(mockQuote.mock.calls.map(([props]) => props.displayMode)),
+    ).toEqual(new Set(['priceAndPercent']));
     // The perp quotes stream only while a panel shows them: each mark is
     // released again.
     expect(mockMarkAllAssetCtxsRequired.mock.calls.length).toBeGreaterThan(
@@ -457,6 +496,49 @@ describe('split view', () => {
     expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
       chartPanelsSpotActive: false,
     });
+  });
+
+  it('lets go of the panel quotes while the workspace shows another view', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      panels: { 'panel-2': { source: { ...ethSource, coin: '@107' } } },
+    };
+    render(<PerpMarketWorkspacePanel />);
+    expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
+      chartPanelsSpotActive: true,
+    });
+    expect(mockMarkAllAssetCtxsRequired.mock.calls.length).toBeGreaterThan(
+      mockMarkAllAssetCtxsNotRequired.mock.calls.length,
+    );
+
+    // The chart stays mounted behind the funding view.
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.PerpShowFundingHistory, undefined);
+    });
+    expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
+      chartPanelsSpotActive: false,
+    });
+    expect(mockMarkAllAssetCtxsNotRequired.mock.calls.length).toBe(
+      mockMarkAllAssetCtxsRequired.mock.calls.length,
+    );
+    expect(mockChartUnmount).not.toHaveBeenCalled();
+    expect(getChartProps('@107')).toBeDefined();
+  });
+
+  it('streams the panel quotes again once the chart is back on screen', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      panels: { 'panel-2': { source: { ...ethSource, coin: '@107' } } },
+    };
+    const view = render(<PerpCandles isVisible={false} />);
+    expect(mockSetTradeRouteViewState).not.toHaveBeenCalled();
+    expect(mockMarkAllAssetCtxsRequired).not.toHaveBeenCalled();
+
+    view.rerender(<PerpCandles isVisible />);
+    expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
+      chartPanelsSpotActive: true,
+    });
+    expect(mockMarkAllAssetCtxsRequired).toHaveBeenCalled();
   });
 
   it('leaves spot quotes to the trade instrument in the selected panel', () => {

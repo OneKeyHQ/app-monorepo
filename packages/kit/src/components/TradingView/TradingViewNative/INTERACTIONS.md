@@ -16,7 +16,17 @@ under separate owners:
   token; every chart keeps its place, token and mount, the previously selected
   panel goes on showing the token it showed, and a switch the host turns down
   returns the selection. The selection shows at once, before the saved layout
-  or the host's source catch up. The grid shows one controls row above all
+  or the host's source catch up, and is saved only once the host has followed,
+  from the host's answer, so it also lands after the grid is unmounted. Until
+  the saved layout has it, the grid keeps the tokens of the panels selected
+  before and writes them all with every selection: a split runtime evaluates a
+  write against the snapshot bg sent last, which can miss the selection before.
+  Selecting the panel of the token the host already shows asks the host for it
+  again while an earlier switch is on its way, which drops that switch.
+  Presses inside `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`, e.g. a
+  token picker, and in overlays rendered outside the panel do not select, so a
+  picker in a panel that is not selected changes that panel's token only. The
+  grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
   and the layout picker sits in that row. The first panel keeps the host's own
@@ -38,7 +48,8 @@ under separate owners:
     every panel and sets `isSymbolSynced` on the panels. The host then lets a
     pick in any panel change its own source, and selecting another panel
     changes neither the host's source nor any saved token. A panel keeps its
-    saved token for when the option is turned off.
+    saved token for when the option is turned off; turning the option on
+    saves the selected panel's, which it showed without storing.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first
     panel sets it when syncing starts, a pick in any panel changes it, and
     every other chart takes it through `useMultiChartIntervalSync`; a chart

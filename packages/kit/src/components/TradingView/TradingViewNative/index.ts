@@ -1,5 +1,6 @@
 export { TradingViewNative } from './TradingViewNative';
 export { TradingViewNativeMultiChart } from './multiChart/TradingViewNativeMultiChart';
+export { TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS } from './multiChart/TradingViewNativeMultiChartPanelContext';
 export type {
   ITradingViewNativeMultiChartPanel,
   ITradingViewNativeMultiChartProps,

@@ -6,6 +6,7 @@ import { useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { createPortal } from 'react-dom';
 
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 import type {
@@ -16,7 +17,10 @@ import type {
 import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
 
 import { TradingViewNativeMultiChart } from './TradingViewNativeMultiChart';
-import { TradingViewNativeMultiChartControlsContext } from './TradingViewNativeMultiChartPanelContext';
+import {
+  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
+  TradingViewNativeMultiChartControlsContext,
+} from './TradingViewNativeMultiChartPanelContext';
 
 import type {
   ITradingViewNativeMultiChartPanel,
@@ -48,8 +52,19 @@ jest.mock('./TradingViewNativeMultiChartDivider', () => ({
 }));
 
 jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
-  TradingViewNativeMultiChartLayoutSelect: () => (
-    <span data-testid="layout-select" />
+  TradingViewNativeMultiChartLayoutSelect: ({
+    onSyncChange,
+    sync,
+  }: {
+    onSyncChange: (option: 'symbol', isSynced: boolean) => void;
+    sync: { symbol: boolean };
+  }) => (
+    <button
+      type="button"
+      aria-label="symbol sync"
+      data-testid="layout-select"
+      onClick={() => onSyncChange('symbol', !sync.symbol)}
+    />
   ),
 }));
 
@@ -76,6 +91,21 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   return (
     <>
       {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+      {/* The token picker: its trigger sits in the panel, its list elsewhere
+          on the page. */}
+      <span
+        data-testid={`picker-${panel.id}`}
+        {...TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS}
+      />
+      {createPortal(
+        <button
+          type="button"
+          aria-label="pick DOGE"
+          data-testid={`pick-${panel.id}`}
+          onClick={() => panel.setSource(coin('DOGE'))}
+        />,
+        document.body,
+      )}
       <span
         data-testid={`chart-${panel.id}`}
         data-coin={panel.source.kind === 'hyperliquid' ? panel.source.coin : ''}
@@ -91,8 +121,9 @@ const renderPanel = (panel: ITradingViewNativeMultiChartPanel) => (
 interface IHarness {
   layout: ITradingViewNativeMultiChartLayout;
   setActiveSource: (source: ITradingViewNativeSource) => void;
-  // Applies the layout writes a split runtime is still sending to bg.
-  flushLayout: () => void;
+  // Lets the next layout write, or all of them, come back from bg.
+  flushLayout: (count?: number) => void;
+  unmount: () => void;
 }
 
 function renderGrid({
@@ -114,31 +145,37 @@ function renderGrid({
     layout: initialLayout,
     setActiveSource: () => {},
     flushLayout: () => {},
+    unmount: () => {},
+  };
+  // As on a split runtime: a write is evaluated at once against the snapshot
+  // bg sent last, forwarded as a complete layout and applied when it returns.
+  const sentLayouts: ITradingViewNativeMultiChartLayout[] = [];
+  const onLayoutChange: ITradingViewNativeMultiChartProps['onLayoutChange'] = (
+    update,
+  ) => {
+    const next = update(harness.layout);
+    if (next === harness.layout) return;
+    if (deferLayoutWrites) {
+      sentLayouts.push(next);
+    } else {
+      harness.layout = next;
+      harness.flushLayout();
+    }
   };
   function Host() {
     const [layout, setLayout] = useState(initialLayout);
     const [activeSource, setActiveSource] = useState(coin('BTC'));
     harness.layout = layout;
     harness.setActiveSource = setActiveSource;
-    const [pending, setPending] = useState<
-      Parameters<ITradingViewNativeMultiChartProps['onLayoutChange']>[0][]
-    >([]);
-    harness.flushLayout = () => {
-      setLayout((current) =>
-        pending.reduce((value, update) => update(value), current),
-      );
-      setPending([]);
+    harness.flushLayout = (count = sentLayouts.length) => {
+      const next = sentLayouts.splice(0, count).at(-1) ?? harness.layout;
+      harness.layout = next;
+      setLayout(next);
     };
     return (
       <TradingViewNativeMultiChart
         layout={layout}
-        onLayoutChange={(update) => {
-          if (deferLayoutWrites) {
-            setPending((current) => [...current, update]);
-          } else {
-            setLayout(update);
-          }
-        }}
+        onLayoutChange={onLayoutChange}
         activeSource={activeSource}
         onSelectPanel={(source) => onSelectPanel(source, harness)}
         defaultIndicatorSettings={indicatorSettings}
@@ -147,7 +184,7 @@ function renderGrid({
       />
     );
   }
-  render(<Host />);
+  harness.unmount = render(<Host />).unmount;
   return harness;
 }
 
@@ -232,12 +269,55 @@ it('keeps the selected token on screen while the host is switching', async () =>
 
 it('goes back to the previous panel when the host keeps its token', async () => {
   const harness = renderGrid({ onSelectPanel: async () => false });
+  const saved = harness.layout;
 
   await act(async () => press('panel-2'));
 
   expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
-  expect(harness.layout.activePanelId).toBe('main');
+  // A selection the host has not followed is never saved.
+  expect(harness.layout).toBe(saved);
   expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('saves a selection only once the host has followed', async () => {
+  let finish: (switched: boolean) => void = () => {};
+  const harness = renderGrid({
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  const saved = harness.layout;
+
+  act(() => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+  expect(harness.layout).toBe(saved);
+
+  // The page drops the grid, e.g. for another chart mode, and the switch
+  // fails afterwards: the layout still has the first panel selected.
+  harness.unmount();
+  await act(async () => finish(false));
+  expect(harness.layout).toBe(saved);
+});
+
+it('saves a selection the host follows after the grid is gone', async () => {
+  let finish: (switched: boolean) => void = () => {};
+  const harness = renderGrid({
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+
+  act(() => press('panel-2'));
+  harness.unmount();
+  await act(async () => finish(true));
+
+  // Otherwise the first panel would come back showing ETH as well.
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-2',
+    panels: { main: { source: coin('BTC') } },
+  });
 });
 
 it('ignores a rejection that lands after a newer selection', async () => {
@@ -266,7 +346,50 @@ it('ignores a rejection that lands after a newer selection', async () => {
     { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
     'panel-3',
   );
-  expect(harness.layout.activePanelId).toBe('panel-3');
+
+  await act(async () => {
+    harness.setActiveSource(coin('SOL'));
+    finishes[1](true);
+  });
+  expectScreen(
+    { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
+    'panel-3',
+  );
+  // The first panel was selected until now, across both presses.
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-3',
+    panels: { main: { source: coin('BTC') } },
+  });
+});
+
+it('drops a switch still on its way when the host token is selected again', async () => {
+  const finishes: ((switched: boolean) => void)[] = [];
+  const onSelectPanel = jest.fn(
+    (_source: ITradingViewNativeSource, _harness: IHarness) =>
+      new Promise<boolean>((resolve) => {
+        finishes.push(resolve);
+      }),
+  );
+  const harness = renderGrid({ onSelectPanel });
+
+  // The host is still loading what it needs to switch to ETH.
+  act(() => press('panel-2'));
+  act(() => press('main'));
+
+  // It shows BTC already, and is asked for it so that it drops the ETH switch.
+  expect(onSelectPanel).toHaveBeenCalledTimes(2);
+  expect(onSelectPanel).toHaveBeenLastCalledWith(coin('BTC'), harness);
+  await act(async () => {
+    finishes[0](false);
+    finishes[1](true);
+  });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+  expect(harness.layout.activePanelId ?? 'main').toBe('main');
+
+  // With nothing on its way, the host is left alone.
+  await act(async () => press('panel-2'));
+  await act(async () => finishes[2](false));
+  expect(onSelectPanel).toHaveBeenCalledTimes(3);
 });
 
 it('keeps a selection whose switch was superseded by another token', async () => {
@@ -302,6 +425,44 @@ it('shows a selection before a split runtime has saved it', async () => {
   expect(mockChartUnmount).not.toHaveBeenCalled();
 });
 
+it('keeps every token when a split runtime selects twice before saving', async () => {
+  const charts = { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL' };
+  const harness = renderGrid({
+    deferLayoutWrites: true,
+    layout: {
+      preset: '3',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+      },
+    },
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+
+  // Both writes are evaluated against the layout from before the first one.
+  await act(async () => press('panel-2'));
+  await act(async () => press('panel-3'));
+  expectScreen(charts, 'panel-3');
+
+  // The first write returns alone, then the second.
+  act(() => harness.flushLayout(1));
+  expectScreen(charts, 'panel-3');
+  act(() => harness.flushLayout());
+  expectScreen(charts, 'panel-3');
+  // The first panel keeps BTC, not the ETH that panel-2 was showing.
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-3',
+    panels: {
+      main: { source: coin('BTC') },
+      'panel-2': { source: coin('ETH') },
+    },
+  });
+  expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
 it('leaves the selection alone for the selected panel and other buttons', () => {
   const onSelectPanel = jest.fn(async () => true);
   renderGrid({ onSelectPanel });
@@ -311,6 +472,51 @@ it('leaves the selection alone for the selected panel and other buttons', () => 
 
   expect(onSelectPanel).not.toHaveBeenCalled();
   expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+});
+
+it('changes only the token of a panel whose picker is used', () => {
+  const onSelectPanel = jest.fn(async () => true);
+  const harness = renderGrid({ onSelectPanel });
+
+  // Opening the picker and pressing a token in its list are not presses on
+  // the chart, so the trade stays on BTC.
+  fireEvent.pointerDown(screen.getByTestId('picker-panel-2'), { button: 0 });
+  fireEvent.pointerDown(screen.getByTestId('pick-panel-2'), { button: 0 });
+  act(() => {
+    fireEvent.click(screen.getByTestId('pick-panel-2'));
+  });
+
+  expect(onSelectPanel).not.toHaveBeenCalled();
+  expectScreen({ main: 'BTC', 'panel-2': 'DOGE' }, 'main');
+  expect(harness.layout.panels['panel-2']?.source).toEqual(coin('DOGE'));
+  expect(harness.layout.activePanelId).toBeUndefined();
+});
+
+it('keeps a token picked for the previous panel while the host is switching', async () => {
+  let finish: (switched: boolean) => void = () => {};
+  const harness = renderGrid({
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+
+  act(() => press('panel-2'));
+  // The first panel is not selected any more, so its picker changes its token.
+  act(() => {
+    fireEvent.click(screen.getByTestId('pick-main'));
+  });
+  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
+
+  await act(async () => {
+    harness.setActiveSource(coin('ETH'));
+    finish(true);
+  });
+  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-2',
+    panels: { main: { source: coin('DOGE') } },
+  });
 });
 
 it('follows the host in the selected panel only', () => {
@@ -396,4 +602,32 @@ it('only moves the selection while every panel shows the host token', async () =
   expect(onSelectPanel).not.toHaveBeenCalled();
   expect(harness.layout.panels['panel-2']).toEqual(layout.panels['panel-2']);
   expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('returns a panel to the token it showed before the tokens were synced', async () => {
+  const harness = renderGrid({
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  const toggleSymbolSync = () => {
+    act(() => {
+      fireEvent.click(screen.getByTestId('layout-select'));
+    });
+  };
+
+  // panel-2 is selected and its token changed through the host: what the
+  // layout stores for it is still the ETH from before it was selected.
+  await act(async () => press('panel-2'));
+  act(() => harness.setActiveSource(coin('DOGE')));
+  expectScreen({ main: 'BTC', 'panel-2': 'DOGE' }, 'panel-2');
+
+  toggleSymbolSync();
+  await act(async () => press('main'));
+  expectScreen({ main: 'DOGE', 'panel-2': 'DOGE' }, 'main');
+
+  toggleSymbolSync();
+  expectScreen({ main: 'DOGE', 'panel-2': 'DOGE' }, 'main');
+  expect(harness.layout.panels['panel-2']?.source).toEqual(coin('DOGE'));
 });

@@ -1,3 +1,5 @@
+import { isEqual } from 'lodash';
+
 import {
   TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS,
   TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS,
@@ -277,32 +279,39 @@ export function getTradingViewNativeMultiChartActivePanelId(
 }
 
 /**
- * Selects a visible panel. The previously selected panel keeps showing
- * `activeSource`, the host's source it showed until now, so no chart changes
- * its token. Without `activeSource`, e.g. while every panel shows the host's
- * token, each panel keeps the token it stores.
+ * Selects a visible panel. `keptSources` are the tokens of the panels selected
+ * until now: each showed the host's source without storing it and goes on
+ * showing it, so no chart changes its token. Panels left out, e.g. while every
+ * panel shows the host's token, keep the token they store.
+ *
+ * The write names those panels itself instead of reading the selection from
+ * `layout`, so it also lands on a snapshot that has not seen an earlier
+ * selection yet. A layout that already has it all is returned as it is.
  */
 export function selectTradingViewNativeMultiChartPanel(
   layout: ITradingViewNativeMultiChartLayout,
   panelId: string,
-  activeSource?: ITradingViewNativeSource,
+  keptSources: Partial<Record<string, ITradingViewNativeSource>> = {},
 ): ITradingViewNativeMultiChartLayout {
-  const previousId = getTradingViewNativeMultiChartActivePanelId(layout);
   if (
-    previousId === panelId ||
     !getTradingViewNativeMultiChartPanelIds(layout.preset).includes(panelId)
   ) {
     return layout;
   }
+  let panels = layout.panels;
+  for (const id of PANEL_IDS) {
+    const source = keptSources[id];
+    if (source && !isEqual(panels[id]?.source, source)) {
+      panels = { ...panels, [id]: { ...panels[id], source } };
+    }
+  }
+  const isSelected =
+    getTradingViewNativeMultiChartActivePanelId(layout) === panelId;
+  if (isSelected && panels === layout.panels) return layout;
   return {
     ...layout,
-    activePanelId: panelId,
-    panels: activeSource
-      ? {
-          ...layout.panels,
-          [previousId]: { ...layout.panels[previousId], source: activeSource },
-        }
-      : layout.panels,
+    ...(isSelected ? {} : { activePanelId: panelId }),
+    panels,
   };
 }
 

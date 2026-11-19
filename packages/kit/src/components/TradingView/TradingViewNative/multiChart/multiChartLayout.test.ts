@@ -339,8 +339,9 @@ describe('sync options', () => {
       }).sync,
     ).toEqual({ dateRange: true });
     expect(
-      selectTradingViewNativeMultiChartPanel(saved, 'panel-2', coin('BTC'))
-        .sync,
+      selectTradingViewNativeMultiChartPanel(saved, 'panel-2', {
+        main: coin('BTC'),
+      }).sync,
     ).toEqual({ dateRange: true });
   });
 
@@ -387,22 +388,49 @@ describe('panel selection', () => {
   });
 
   it('leaves every chart on its token', () => {
-    const selected = selectTradingViewNativeMultiChartPanel(
-      layout,
-      'panel-2',
-      coin('BTC'),
-    );
+    const selected = selectTradingViewNativeMultiChartPanel(layout, 'panel-2', {
+      main: coin('BTC'),
+    });
     // The first panel goes on showing the token it showed as the trading chart.
     expect(selected).toEqual({
       ...layout,
       activePanelId: 'panel-2',
       panels: { ...layout.panels, main: { source: coin('BTC') } },
     });
-    // Selecting the first panel again hands panel-2 the traded token, ETH.
+    // Selecting the first panel again hands panel-2 the traded token, DOGE.
     expect(
-      selectTradingViewNativeMultiChartPanel(selected, 'main', coin('ETH'))
-        .panels['panel-2'],
-    ).toEqual({ source: coin('ETH'), indicatorSettings });
+      selectTradingViewNativeMultiChartPanel(selected, 'main', {
+        'panel-2': coin('DOGE'),
+      }),
+    ).toEqual({
+      ...selected,
+      activePanelId: 'main',
+      panels: {
+        ...selected.panels,
+        'panel-2': { source: coin('DOGE'), indicatorSettings },
+      },
+    });
+  });
+
+  it('lands complete on a snapshot that missed an earlier selection', () => {
+    // A split runtime evaluates a write against the last snapshot it received:
+    // panel-2 was selected first, and that write has not come back yet.
+    const second = selectTradingViewNativeMultiChartPanel(layout, 'panel-3', {
+      main: coin('BTC'),
+      'panel-2': coin('ETH'),
+    });
+    expect(second).toEqual({
+      ...layout,
+      activePanelId: 'panel-3',
+      panels: { ...layout.panels, main: { source: coin('BTC') } },
+    });
+    // The same write changes nothing once the layout has it all.
+    expect(
+      selectTradingViewNativeMultiChartPanel(second, 'panel-3', {
+        main: coin('BTC'),
+        'panel-2': coin('ETH'),
+      }),
+    ).toBe(second);
   });
 
   it('keeps every stored token while all panels show the host token', () => {
@@ -413,12 +441,12 @@ describe('panel selection', () => {
   });
 
   it('ignores the selected panel and panels the preset hides', () => {
-    expect(
-      selectTradingViewNativeMultiChartPanel(layout, 'main', coin('BTC')),
-    ).toBe(layout);
+    expect(selectTradingViewNativeMultiChartPanel(layout, 'main')).toBe(layout);
     const twoPanels = { ...layout, preset: '2h' as const };
     expect(
-      selectTradingViewNativeMultiChartPanel(twoPanels, 'panel-3', coin('BTC')),
+      selectTradingViewNativeMultiChartPanel(twoPanels, 'panel-3', {
+        main: coin('BTC'),
+      }),
     ).toBe(twoPanels);
   });
 });
