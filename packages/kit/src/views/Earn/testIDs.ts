@@ -74,6 +74,9 @@ export const EarnTestIDs = {
   riskNoticeConfirmButton: 'earn-risk-notice-confirm',
 
   // Vault detail — Portfolio tab (phone layout)
+  campaignBonusCard: 'earn-portfolio-campaign-bonus',
+  campaignBonusPreviousPage: 'earn-portfolio-campaign-bonus-previous-page',
+  campaignBonusNextPage: 'earn-portfolio-campaign-bonus-next-page',
   portfolioRedeemButton: 'earn-portfolio-redeem-button',
   portfolioRewardManageButton: 'earn-portfolio-reward-manage-button',
 

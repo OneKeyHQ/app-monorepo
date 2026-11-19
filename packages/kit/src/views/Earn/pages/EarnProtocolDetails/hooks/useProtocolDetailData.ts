@@ -33,8 +33,8 @@ export function useProtocolDetailData({
   vault: string | undefined;
   // Sends the account address with the detail request, which makes the server
   // return this account's portfolio/rewards/balance and enqueue a position
-  // refresh. Only the phone layout needs it; desktop/web read positions from
-  // /earn/v1/manage-page and must keep their current request shape.
+  // refresh. The phone Portfolio and the wide EtherFi campaign card consume
+  // these details. The wide deposit form gets its data from /earn/v1/manage-page.
   includeAccountContext?: boolean;
 }) {
   const { locale } = useIntl();
