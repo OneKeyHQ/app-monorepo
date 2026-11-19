@@ -118,6 +118,11 @@ async function findCreatedConversation(
   }
 }
 
+// A tablet browser that requests the desktop site sends a desktop user agent,
+// so only its primary pointer tells that typing happens on screen.
+const isTouchFirst = () =>
+  globalThis.matchMedia?.('(pointer: coarse)')?.matches ?? false;
+
 type ISupportComposerHandle = { setText: (text: string) => void };
 
 type IComposerKeyEvent = IImeKeyboardEventLike & {
@@ -159,11 +164,14 @@ function SupportComposer({
   };
   const onKeyPress = (event: IComposerKeyEvent) => {
     // Enter sends and Shift+Enter breaks the line. An Enter that only confirms
-    // an IME candidate belongs to the input method.
+    // an IME candidate belongs to the input method, and one from an on-screen
+    // keyboard is a line break. The pointer is read per key press because a
+    // keyboard can be attached or detached while the composer is open.
     if (
       getKeyboardEventKey(event) !== 'Enter' ||
       event.shiftKey ||
-      composition.shouldIgnoreKeyboardEvent(event)
+      composition.shouldIgnoreKeyboardEvent(event) ||
+      isTouchFirst()
     )
       return;
     event.preventDefault?.();

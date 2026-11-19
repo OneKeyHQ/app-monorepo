@@ -113,6 +113,7 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
     global_close: 'Close',
     global_search: 'Search',
     global_no_data: 'No data',
+    global_refresh: 'Refresh',
   },
 }));
 jest.mock('../utils/pickSupportImage', () => ({
@@ -197,14 +198,21 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     disabled,
     testID,
+    accessibilityLabel,
+    title,
   }: PropsWithChildren<{
     onPress?: () => void;
     disabled?: boolean;
     testID?: string;
+    accessibilityLabel?: string;
+    // On an icon button this is the tooltip.
+    title?: string;
   }>) => (
     <button
       type="button"
       data-testid={testID}
+      aria-label={accessibilityLabel}
+      title={title}
       disabled={disabled}
       onClick={onPress}
     >
@@ -219,13 +227,17 @@ jest.mock('@onekeyhq/components', () => {
     }),
     Page: Object.assign(View, {
       Header: ({
+        title,
         headerTitle,
         headerRight,
       }: {
+        title?: string;
         headerTitle?: () => ReactNode;
         headerRight?: () => ReactNode;
       }) => (
-        <div>
+        // Like the real navigation bar, keyed by its title: a new title
+        // remounts the bar together with its buttons.
+        <div key={title}>
           {headerTitle?.()}
           {headerRight?.()}
         </div>
@@ -1494,33 +1506,53 @@ it('shows article placeholders until the help suggestions answer', async () => {
   expect(screen.queryByTestId('support-help-skeleton')).toBeNull();
 });
 
-it('sends on Enter while Shift+Enter and IME confirmation stay with the draft', async () => {
-  mockRoute.params = { userId: null, conversationId: '42' };
-  render(<SupportScreen />);
-  const input = (await screen.findByTestId(
-    'support-message-input',
-  )) as HTMLTextAreaElement;
-  await waitFor(() => expect(input.disabled).toBe(false));
-  const replied = () =>
-    mockRequest.mock.calls.some(([path]) => path === 'conversations/42/reply');
-  fireEvent.change(input, { target: { value: 'Hello' } });
-  fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-  // Engines report an Enter that confirms a candidate in different ways.
-  fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-  fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
-  fireEvent.compositionStart(input);
-  fireEvent.keyDown(input, { key: 'Enter' });
-  fireEvent.compositionEnd(input);
-  fireEvent.keyDown(input, { key: 'Enter' });
-  expect(replied()).toBe(false);
-  expect(input.value).toBe('Hello');
-  // The composition lock releases on the next task.
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+// jsdom has no matchMedia, so a test declares the primary pointer itself.
+function setPrimaryPointer(pointer: 'fine' | 'coarse') {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia');
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({ matches: query === `(pointer: ${pointer})` }),
   });
-  fireEvent.keyDown(input, { key: 'Enter' });
-  await waitFor(() => expect(replied()).toBe(true));
-  expect(input.value).toBe('');
+  return () => {
+    if (original) Object.defineProperty(globalThis, 'matchMedia', original);
+    else Reflect.deleteProperty(globalThis, 'matchMedia');
+  };
+}
+
+it('sends on Enter while Shift+Enter and IME confirmation stay with the draft', async () => {
+  const restorePointer = setPrimaryPointer('fine');
+  try {
+    mockRoute.params = { userId: null, conversationId: '42' };
+    render(<SupportScreen />);
+    const input = (await screen.findByTestId(
+      'support-message-input',
+    )) as HTMLTextAreaElement;
+    await waitFor(() => expect(input.disabled).toBe(false));
+    const replied = () =>
+      mockRequest.mock.calls.some(
+        ([path]) => path === 'conversations/42/reply',
+      );
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    // Engines report an Enter that confirms a candidate in different ways.
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(replied()).toBe(false);
+    expect(input.value).toBe('Hello');
+    // The composition lock releases on the next task.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(replied()).toBe(true));
+    expect(input.value).toBe('');
+  } finally {
+    restorePointer();
+  }
 });
 
 it('offers a new conversation on the message list before the home content answers', async () => {
@@ -1539,10 +1571,46 @@ it('offers a new conversation on the message list before the home content answer
   await act(async () => home.resolve());
 });
 
-it.each(['isNative', 'isWebMobile'] as const)(
+it('keeps keyboard focus on the refresh action while the message list title loads', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  await screen.findByTestId('support-conversation-42');
+  const refresh = screen.getByLabelText('Refresh');
+  expect(refresh).toBe(screen.getByTestId('support-refresh'));
+  // A tooltip mounts lazily on first focus and would swap the focused node.
+  expect(refresh.hasAttribute('title')).toBe(false);
+  expect(screen.getByTestId('support-messages-title-skeleton')).toBeTruthy();
+  refresh.focus();
+  await act(async () => home.resolve());
+  await waitFor(() =>
+    expect(screen.getByTestId('support-messages-title').textContent).toBe(
+      'Messages',
+    ),
+  );
+  expect(screen.queryByTestId('support-messages-title-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-refresh')).toBe(refresh);
+  expect(document.activeElement).toBe(refresh);
+});
+
+function setPlatform(flag: 'isNative' | 'isWebMobile') {
+  platformEnv[flag] = true;
+  return () => {
+    platformEnv[flag] = false;
+  };
+}
+
+const onScreenKeyboards = {
+  'native app': () => setPlatform('isNative'),
+  'mobile browser': () => setPlatform('isWebMobile'),
+  // A tablet browser that requests the desktop site sends a desktop user agent.
+  'touch-first desktop site': () => setPrimaryPointer('coarse'),
+};
+
+it.each(Object.keys(onScreenKeyboards) as (keyof typeof onScreenKeyboards)[])(
   'keeps Enter as a line break on an on-screen keyboard (%s)',
-  async (flag) => {
-    platformEnv[flag] = true;
+  async (keyboard) => {
+    const restore = onScreenKeyboards[keyboard]();
     try {
       mockRoute.params = { userId: null, conversationId: '42' };
       render(<SupportScreen />);
@@ -1551,7 +1619,8 @@ it.each(['isNative', 'isWebMobile'] as const)(
       )) as HTMLTextAreaElement;
       await waitFor(() => expect(input.disabled).toBe(false));
       fireEvent.change(input, { target: { value: 'Hello' } });
-      fireEvent.keyDown(input, { key: 'Enter' });
+      // The key keeps its default action, which is the line break.
+      expect(fireEvent.keyDown(input, { key: 'Enter' })).toBe(true);
       expect(
         mockRequest.mock.calls.some(
           ([path]) => path === 'conversations/42/reply',
@@ -1567,7 +1636,7 @@ it.each(['isNative', 'isWebMobile'] as const)(
         ),
       );
     } finally {
-      platformEnv[flag] = false;
+      restore();
     }
   },
 );

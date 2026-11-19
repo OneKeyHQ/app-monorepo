@@ -50,8 +50,6 @@ import { SupportError } from './SupportError';
 
 const ARTICLE_PLACEHOLDER_WIDTHS = ['80%', '60%', '70%', '50%'] as const;
 const CONVERSATION_PLACEHOLDER_ROWS = 5;
-// Module-level so the navigation header sees a stable render function.
-const renderTitleSkeleton = () => <Skeleton.HeadingLg />;
 
 export function SupportInbox({
   session,
@@ -202,22 +200,47 @@ export function SupportInbox({
     if (home) navigation.push(EIntercomRoutes.Messages, route);
   };
   const showHelp = () => navigation.push(EIntercomRoutes.Help, route);
-  const renderRefresh = useCallback(
-    () => (
+  const renderRefresh = useCallback(() => {
+    const label = intl.formatMessage({ id: ETranslations.global_refresh });
+    return (
       <HeaderIconButton
         testID="support-refresh"
         icon="RefreshCcwOutline"
-        title={intl.formatMessage({ id: ETranslations.global_refresh })}
-        // `title` only feeds the tooltip; screen readers need the label.
-        accessibilityLabel={intl.formatMessage({
-          id: ETranslations.global_refresh,
-        })}
+        // No tooltip `title`: the tooltip mounts on the first focus and swaps
+        // the button for a new node, which drops keyboard focus.
+        // The apps read `accessibilityLabel`; on web only `aria-label` reaches
+        // the element.
+        accessibilityLabel={label}
+        aria-label={label}
         onPress={() => {
           void refresh();
         }}
       />
-    ),
-    [intl, refresh],
+    );
+  }, [intl, refresh]);
+  const messagesLabel = homeContent.data?.messagesLabel;
+  // The navigation bar is keyed by its `title`, so a title that arrives late
+  // would remount the bar and take focus away from its buttons. The label is
+  // rendered into a bar whose `title` never changes.
+  const renderTitle = useCallback(
+    () =>
+      labelsLoading ? (
+        <YStack testID="support-messages-title-skeleton">
+          <Skeleton.HeadingLg />
+        </YStack>
+      ) : (
+        <SizableText
+          testID="support-messages-title"
+          role="heading"
+          aria-level={1}
+          // Matches the default navigation title of each platform.
+          size={platformEnv.isNativeAndroid ? '$headingXl' : '$headingLg'}
+          numberOfLines={1}
+        >
+          {messagesLabel}
+        </SizableText>
+      ),
+    [labelsLoading, messagesLabel],
   );
   // Cards that already answered stay behind the placeholders until then.
   const homeCards = homeLoading ? undefined : homeContent.data;
@@ -291,8 +314,10 @@ export function SupportInbox({
           <XStack
             testID="support-new-conversation"
             role="button"
-            // Names the card while its text is still a placeholder.
+            // Names the card while its text is still a placeholder. The apps
+            // read `accessibilityLabel`; web needs `aria-label`.
             accessibilityLabel={newConversationLabel}
+            aria-label={newConversationLabel}
             accessibilityState={{ disabled: !open.data?.canCreateConversation }}
             onPress={
               open.data?.canCreateConversation ? startConversation : undefined
@@ -464,10 +489,8 @@ export function SupportInbox({
         >
           {/* The message list titles itself in the navigation bar. */}
           <Page.Header
-            title={homeContent.data?.messagesLabel ?? ''}
-            headerTitle={
-              !home && labelsLoading ? renderTitleSkeleton : undefined
-            }
+            title=""
+            headerTitle={home ? undefined : renderTitle}
             headerRight={home ? undefined : renderRefresh}
             headerShown={!home}
           />
