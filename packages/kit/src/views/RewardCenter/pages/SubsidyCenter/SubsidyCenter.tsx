@@ -62,6 +62,7 @@ import {
 } from './subsidyRecordUtils';
 import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
 import {
+  refreshSubsidyRecords,
   useSubsidyIdentity,
   useSubsidyRecentHistory,
   useSubsidySummary,
@@ -557,13 +558,6 @@ function SubsidyCenter() {
     recordTotal === undefined
       ? Boolean(historyQuery.data?.hasMore)
       : recordTotal > SUBSIDY_RECENT_RECORD_LIMIT;
-  // A claim or redemption adds a record and can change the totals.
-  const { reload: reloadSummary } = summaryQuery;
-  const { reload: reloadHistory } = historyQuery;
-  const refreshRecords = useCallback(() => {
-    reloadSummary();
-    reloadHistory();
-  }, [reloadSummary, reloadHistory]);
   const { gtMd } = useMedia();
   const wide = Boolean(
     gtMd &&
@@ -929,7 +923,9 @@ function SubsidyCenter() {
         }}
         renderLoading={renderSubsidyBenefits}
         renderInline={renderSubsidyBenefits}
-        onIssued={refreshRecords}
+        // A claim or redemption adds a record and can change the totals:
+        // the summary, the recent records and an open record list reload.
+        onIssued={refreshSubsidyRecords}
       />
     );
   } else {

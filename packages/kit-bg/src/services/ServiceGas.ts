@@ -22,6 +22,7 @@ import type {
 import type {
   ISubsidyHistory,
   ISubsidyHistoryParams,
+  ISubsidyQueryOwner,
   ISubsidySummary,
 } from '@onekeyhq/shared/types/subsidy';
 
@@ -71,14 +72,20 @@ class ServiceGas extends ServiceBase {
   // member from the login token and the registered instance id; the App never
   // sends a member identifier. Prime rejects unknown, empty or repeated query
   // keys, so only parameters that carry a value are sent.
+  //
+  // `onekeyUserId` is the member the caller is about to show the result for.
+  // The request is then pinned to that member's session: it is not sent as
+  // anyone else, and a session that changed while it was in flight fails the
+  // query, so one member's records are never returned under another's name.
   private async requestSubsidyQuery<T>({
     url,
     params,
+    onekeyUserId,
   }: {
     url: string;
     params?: Record<string, string | number | undefined>;
+    onekeyUserId?: string;
   }): Promise<T> {
-    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
     const query: Record<string, string | number> = {};
     Object.entries(params ?? {}).forEach(([key, value]) => {
       if (value !== undefined && value !== '') {
@@ -86,9 +93,30 @@ class ServiceGas extends ServiceBase {
       }
     });
     try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+      if (!onekeyUserId) {
+        const resp = await client.get<IApiClientResponse<T>>(url, {
+          params: query,
+        });
+        return resp.data.data;
+      }
+      const createStateChangedError = () =>
+        new OneKeyLocalError({
+          message: 'OneKey ID changed while loading subsidy records',
+          autoToast: false,
+        });
+      const { snapshot, requestConfig } =
+        await this.backgroundApi.servicePrime.captureOneKeyIdAuthRequestConfig({
+          expectedOneKeyUserId: onekeyUserId,
+          createStateChangedError,
+        });
       const resp = await client.get<IApiClientResponse<T>>(url, {
+        ...requestConfig,
         params: query,
       });
+      await this.backgroundApi.servicePrime.assertOneKeyIdAuthSnapshotUnchanged(
+        { snapshot, createStateChangedError },
+      );
       return resp.data.data;
     } catch (error) {
       // The subsidy center shows its own retry state for a failed query, so
@@ -104,9 +132,11 @@ class ServiceGas extends ServiceBase {
   // Last 90 days, newest first. `complete: false` means a source failed and
   // the list is partial, not empty.
   @backgroundMethod()
-  async fetchSubsidyHistory(
-    params: ISubsidyHistoryParams = {},
-  ): Promise<ISubsidyHistory> {
+  async fetchSubsidyHistory({
+    onekeyUserId,
+    ...params
+  }: ISubsidyHistoryParams &
+    ISubsidyQueryOwner = {}): Promise<ISubsidyHistory> {
     if (params.page !== undefined && params.cursor) {
       // The server rejects the pair with a generic 90001; fail here with a
       // message that names the mistake.
@@ -118,14 +148,18 @@ class ServiceGas extends ServiceBase {
     return this.requestSubsidyQuery<ISubsidyHistory>({
       url: '/prime/v1/subsidy/history',
       params,
+      onekeyUserId,
     });
   }
 
   // All-time totals; fails as a whole when any source is unavailable.
   @backgroundMethod()
-  async fetchSubsidySummary(): Promise<ISubsidySummary> {
+  async fetchSubsidySummary({
+    onekeyUserId,
+  }: ISubsidyQueryOwner = {}): Promise<ISubsidySummary> {
     return this.requestSubsidyQuery<ISubsidySummary>({
       url: '/prime/v1/subsidy/summary',
+      onekeyUserId,
     });
   }
 

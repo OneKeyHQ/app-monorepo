@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
   clearSubsidyRecordsCache,
+  refreshSubsidyRecords,
   useSubsidyHistoryPage,
   useSubsidyIdentity,
   useSubsidyRecentHistory,
@@ -123,7 +124,10 @@ describe('useSubsidyRecentHistory', () => {
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(1);
+    // The member the result is for travels with the request, so the service
+    // can refuse to answer it as anyone else.
     expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
       limit: 6,
       page: undefined,
     });
@@ -289,12 +293,51 @@ describe('useSubsidyRecentHistory', () => {
 
     const first = renderHook(() => useSubsidyRecentHistory(identity));
     await waitFor(() => expect(first.result.current.data).toBeDefined());
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ onekeyUserId: undefined }),
+    );
     first.unmount();
 
     const second = renderHook(() => useSubsidyRecentHistory(identity));
     expect(second.result.current.data).toBeUndefined();
     expect(second.result.current.isLoading).toBe(true);
     second.unmount();
+  });
+
+  it('shows nothing of the previous user in any render after an account switch', async () => {
+    const forUserB = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockReturnValueOnce(forUserB.promise);
+    // Every render, including the one between the identity change and the
+    // effect that reacts to it.
+    const renders: { identity: string; hasData: boolean; loading: boolean }[] =
+      [];
+
+    const { result, rerender } = renderHook(
+      ({ identity }: { identity: string }) => {
+        const query = useSubsidyRecentHistory(identity);
+        renders.push({
+          identity,
+          hasData: query.data !== undefined,
+          loading: query.isLoading,
+        });
+        return query;
+      },
+      { initialProps: { identity: 'user-a' } },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    rerender({ identity: 'user-b' });
+
+    const rendersForUserB = renders.filter((r) => r.identity === 'user-b');
+    expect(rendersForUserB.length).toBeGreaterThan(0);
+    expect(rendersForUserB.every((r) => !r.hasData && r.loading)).toBe(true);
+
+    await act(async () => {
+      forUserB.resolve(historyResponse({ items: [] }));
+      await forUserB.promise;
+    });
+    await waitFor(() => expect(result.current.data?.items).toEqual([]));
   });
 
   it('drops the records of the previous user after an account switch', async () => {
@@ -333,8 +376,52 @@ describe('useSubsidyRecentHistory', () => {
 
     rerender({ identity: undefined });
 
-    await waitFor(() => expect(result.current.data).toBeUndefined());
+    // Gone in the same render, not one effect later.
+    expect(result.current.data).toBeUndefined();
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('loads again when an issuance is reported', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(
+      historyResponse({ items: [], total: 0 }),
+    );
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
+    await waitFor(() => expect(result.current.data?.total).toBe(0));
+
+    act(() => refreshSubsidyRecords());
+
+    // The current list stays up while the new one loads.
+    expect(result.current.data?.total).toBe(0);
+    expect(result.current.isFetching).toBe(true);
+    await waitFor(() => expect(result.current.data?.total).toBe(1));
+    expect(result.current.isFetching).toBe(false);
+  });
+
+  it('starts nothing for a page that was closed before the issuance finished', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    const { result, unmount } = renderHook(() =>
+      useSubsidyRecentHistory('user-a'),
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    const { reload } = result.current;
+    unmount();
+    // Whoever is signed in by now would answer a request sent this late.
+    mockFetchSubsidyHistory.mockResolvedValue(
+      historyResponse({ items: [], total: 0 }),
+    );
+
+    act(() => {
+      refreshSubsidyRecords();
+      reload();
+    });
+
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(1);
+    // The first user's cache still holds the first user's records.
+    mockFetchSubsidyHistory.mockReturnValue(new Promise(() => {}));
+    const reopened = renderHook(() => useSubsidyRecentHistory('user-a'));
+    expect(reopened.result.current.data?.total).toBe(1);
+    reopened.unmount();
   });
 });
 
@@ -370,6 +457,7 @@ describe('useSubsidyHistoryPage', () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
       limit: 7,
       page: undefined,
     });
@@ -386,7 +474,11 @@ describe('useSubsidyHistoryPage', () => {
     );
 
     await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({ limit: 7, page: 3 });
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      limit: 7,
+      page: 3,
+    });
     // Later pages omit the total; the first page's value stands.
     expect(result.current.data?.total).toBeUndefined();
   });
@@ -463,10 +555,52 @@ describe('useSubsidyHistoryPage', () => {
 
     expect(result.current.isPreviousData).toBe(false);
     expect(result.current.data?.items[0].id).toBe('tron_energy:1');
+    // Painted from the cache, but not settled: the list must not act on it
+    // (an empty cached page is not proof that the page is past the end).
+    expect(result.current.isFetching).toBe(true);
     expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(3);
     await act(async () => {
       refreshed.resolve(pageOf('tron_energy:0'));
       await refreshed.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:0'),
+    );
+    expect(result.current.isFetching).toBe(false);
+  });
+
+  it('forgets cached pages after an issuance and leaves the reload to the list', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(pageOf('tron_energy:1'));
+    mockFetchSubsidyHistory.mockResolvedValueOnce(
+      pageOf('tron_energy:8', { total: undefined }),
+    );
+    const { result, rerender } = renderHook(
+      ({ page }: { page: number }) =>
+        useSubsidyHistoryPage('user-a', { page, pageSize: 7 }),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:1'),
+    );
+    rerender({ page: 2 });
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:8'),
+    );
+
+    act(() => refreshSubsidyRecords());
+
+    // The list decides which page to load (it returns to page 1), so the
+    // hook sends nothing by itself.
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2);
+    const fresh = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockReturnValueOnce(fresh.promise);
+    rerender({ page: 1 });
+    // Page 1 was cached before the issuance; that copy is gone, so page 2
+    // stays up (dimmed) instead of a first page that misses the new record.
+    expect(result.current.isPreviousData).toBe(true);
+    await act(async () => {
+      fresh.resolve(pageOf('tron_energy:0'));
+      await fresh.promise;
     });
     await waitFor(() =>
       expect(result.current.data?.items[0].id).toBe('tron_energy:0'),
@@ -487,6 +621,7 @@ describe('useSubsidyHistoryPage', () => {
 
     await waitFor(() =>
       expect(mockFetchSubsidyHistory).toHaveBeenLastCalledWith({
+        onekeyUserId: 'user-a',
         limit: 6,
         page: undefined,
       }),

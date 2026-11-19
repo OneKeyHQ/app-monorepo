@@ -24,8 +24,12 @@ import {
   SUBSIDY_RECENT_RECORD_LIMIT,
   getSubsidyPageCount,
   getSubsidyPageSize,
+  isSubsidyPagePastEnd,
 } from './subsidyRecordUtils';
-import { useSubsidyHistoryPage } from './useSubsidyRecords';
+import {
+  useSubsidyHistoryPage,
+  useSubsidyRecordsRefresh,
+} from './useSubsidyRecords';
 
 import type {
   ISubsidyHistoryView,
@@ -318,7 +322,18 @@ export function SubsidyRecordsPaged({
   const [pageSize, setPageSize] = useState<number>();
   const [page, setPage] = useState(1);
   const query = useSubsidyHistoryPage(identity, { page, pageSize });
-  const { data, isLoading, isError, isPreviousData, reload } = query;
+  const { data, isLoading, isError, isPreviousData, isFetching, reload } =
+    query;
+
+  // A claim or a redemption added a record: the newest page is the one that
+  // changed, and it is also the page that carries the new total.
+  useSubsidyRecordsRefresh(() => {
+    if (page === 1) {
+      reload();
+    } else {
+      setPage(1);
+    }
+  });
 
   // Only a first page carries the total; it stands for the later pages.
   const [total, setTotal] = useState<number | null>();
@@ -348,10 +363,13 @@ export function SubsidyRecordsPaged({
     [rowHeight],
   );
 
-  // A page past the end comes back empty (records can leave the 90-day
-  // window between two requests): return to the first page.
-  const isPastEnd =
-    !isPreviousData && !isLoading && page > 1 && data?.items.length === 0;
+  const isPastEnd = isSubsidyPagePastEnd({
+    page,
+    isSettled: !isPreviousData && !isLoading && !isFetching,
+    itemCount: data?.items.length,
+    isPartial: data?.isPartial,
+    hasMore: data?.hasMore,
+  });
   useEffect(() => {
     if (isPastEnd) {
       setPage(1);

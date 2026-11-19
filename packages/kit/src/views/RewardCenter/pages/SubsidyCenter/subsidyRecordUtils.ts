@@ -36,6 +36,29 @@ export function getSubsidyPageCount(
   return Math.max(1, Math.ceil(total / pageSize));
 }
 
+// Whether the requested page lies beyond the last one, in which case the
+// list returns to page 1 (records can leave the 90-day window between two
+// requests). Only a settled answer for that very page counts: a cached copy
+// is still being refreshed, and an empty page that is partial (a source
+// failed) or has a successor is not the end, so it keeps its place and its
+// retry.
+export function isSubsidyPagePastEnd({
+  page,
+  isSettled,
+  itemCount,
+  isPartial,
+  hasMore,
+}: {
+  page: number;
+  // The response for this page has arrived and nothing is in flight.
+  isSettled: boolean;
+  itemCount: number | undefined;
+  isPartial: boolean | undefined;
+  hasMore: boolean | undefined;
+}): boolean {
+  return page > 1 && isSettled && itemCount === 0 && !isPartial && !hasMore;
+}
+
 // TODO(OK-67058): move to i18n keys once the copy is final.
 export const subsidyRecordCopy = {
   gaTitleDefault: 'Gas 赞助交易',

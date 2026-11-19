@@ -316,6 +316,8 @@ function RewardCenterDetails({
     resetField('code');
     setRedeemedSelection(undefined);
   }, [selectionKey, resetField]);
+  const selectionKeyRef = useRef(selectionKey);
+  selectionKeyRef.current = selectionKey;
 
   const claimSource = network?.isTestnet
     ? TRON_SOURCE_FLAG_TESTNET
@@ -711,7 +713,16 @@ function RewardCenterDetails({
         resourceType: 'energy',
       });
 
-      form.reset({ code: '' });
+      // The account selector and the input stay usable while the request is
+      // in flight. Clear only what this request submitted: a code typed for
+      // another account, or a new one for this account, is the user's next
+      // redemption and must survive this response.
+      if (
+        selectionKeyRef.current === selectionKey &&
+        form.getValues('code') === code
+      ) {
+        form.reset({ code: '' });
+      }
       if (isInline) setRedeemedSelection(selectionKey);
       closeResult.current.isResourceRedeemed = true;
       notifyRewardSuccess();
@@ -1005,9 +1016,15 @@ function RewardCenterDetails({
           <Form.Field name="code" rules={{ required: true }}>
             <Input
               testID={RewardCenterTestIDs.redeemCodeInput}
+              // Form.Field stores what this handler returns, so it must hand
+              // the text through: returning nothing would drop the first
+              // edit after a redemption (a whole pasted code).
               onChangeText={
                 redeemedSelection
-                  ? () => setRedeemedSelection(undefined)
+                  ? (text: string) => {
+                      setRedeemedSelection(undefined);
+                      return text;
+                    }
                   : undefined
               }
               w={renderInline ? undefined : '100%'}

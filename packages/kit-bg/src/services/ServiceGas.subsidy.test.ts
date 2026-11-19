@@ -54,9 +54,52 @@ import { ESubsidyRecordKind } from '@onekeyhq/shared/types/subsidy';
 // eslint-disable-next-line import/first
 import ServiceGas from './ServiceGas';
 
-function createService(get: jest.Mock) {
+function createService(
+  get: jest.Mock,
+  {
+    signedInAs = 'user-a',
+    changesWhileLoading = false,
+  }: { signedInAs?: string; changesWhileLoading?: boolean } = {},
+) {
   mockGetOneKeyIdClient.mockResolvedValue({ get });
-  return new ServiceGas({ backgroundApi: {} });
+  // What ServicePrime does: a snapshot can only be taken for the member that
+  // is signed in, and it stops matching once the session changes.
+  const servicePrime = {
+    captureOneKeyIdAuthRequestConfig: jest.fn(
+      async ({
+        expectedOneKeyUserId,
+        createStateChangedError,
+      }: {
+        expectedOneKeyUserId: string;
+        createStateChangedError: () => Error;
+      }) => {
+        if (expectedOneKeyUserId !== signedInAs) {
+          throw createStateChangedError();
+        }
+        return {
+          snapshot: { expectedOneKeyUserId },
+          requestConfig: {
+            headers: { 'X-Onekey-Request-Token': `token-${signedInAs}` },
+          },
+        };
+      },
+    ),
+    assertOneKeyIdAuthSnapshotUnchanged: jest.fn(
+      async ({
+        createStateChangedError,
+      }: {
+        createStateChangedError: () => Error;
+      }) => {
+        if (changesWhileLoading) {
+          throw createStateChangedError();
+        }
+      },
+    ),
+  };
+  const service = new ServiceGas({
+    backgroundApi: { servicePrime },
+  } as unknown as ConstructorParameters<typeof ServiceGas>[0]);
+  return Object.assign(service, { servicePrime });
 }
 
 describe('ServiceGas subsidy record queries', () => {
@@ -135,6 +178,50 @@ describe('ServiceGas subsidy record queries', () => {
       params: {},
     });
     expect(result).toBe(summary);
+  });
+
+  it("sends a query for a named member with that member's session only", async () => {
+    const history = { items: [] };
+    const get = jest.fn(async () => ({ data: { code: 0, data: history } }));
+    const service = createService(get, { signedInAs: 'user-a' });
+
+    const result = await service.fetchSubsidyHistory({
+      onekeyUserId: 'user-a',
+      page: 2,
+      limit: 6,
+    });
+
+    // The member id pins the session; it is never a query parameter.
+    expect(get).toHaveBeenCalledWith('/prime/v1/subsidy/history', {
+      headers: { 'X-Onekey-Request-Token': 'token-user-a' },
+      params: { page: 2, limit: 6 },
+    });
+    expect(result).toBe(history);
+  });
+
+  it('sends nothing when another member is signed in', async () => {
+    const get = jest.fn(async () => ({ data: { code: 0, data: {} } }));
+    const service = createService(get, { signedInAs: 'user-b' });
+
+    await expect(
+      service.fetchSubsidySummary({ onekeyUserId: 'user-a' }),
+    ).rejects.toMatchObject({ autoToast: false });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('drops a response when the session changed while it was loading', async () => {
+    const get = jest.fn(async () => ({
+      data: { code: 0, data: { items: ['records of whoever is signed in'] } },
+    }));
+    const service = createService(get, {
+      signedInAs: 'user-a',
+      changesWhileLoading: true,
+    });
+
+    await expect(
+      service.fetchSubsidyHistory({ onekeyUserId: 'user-a' }),
+    ).rejects.toMatchObject({ autoToast: false });
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it('silences the global toast of a failed query and keeps the error', async () => {

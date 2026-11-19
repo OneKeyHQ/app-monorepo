@@ -110,6 +110,13 @@ export type ISubsidyHistoryParams = {
   cursor?: string;
 };
 
+// The OneKey ID the caller is about to show a query's result for. When given,
+// the request is sent only as that member and fails if the session changes
+// before the response arrives. It is never sent to the server.
+export type ISubsidyQueryOwner = {
+  onekeyUserId?: string;
+};
+
 export type ISubsidySummary = {
   contractVersion: number;
   subjectScope: string;

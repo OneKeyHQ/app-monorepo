@@ -50,6 +50,9 @@ type IMockIssuanceResponse =
   | undefined;
 const mockClaim = jest.fn<Promise<IMockIssuanceResponse>, []>();
 let mockRedeemCode = '';
+// The redeem input's change handler as Form.Field receives it: the field
+// stores whatever this returns.
+let mockRedeemInputOnChangeText: ((text: string) => unknown) | undefined;
 let mockActivated = true;
 let mockInventoryFails = false;
 const mockPushModal = jest.fn();
@@ -115,7 +118,10 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Divider: Null,
     Form: Object.assign(Passthrough, { Field: Passthrough }),
-    Input: Null,
+    Input: ({ onChangeText }: { onChangeText?: (text: string) => unknown }) => {
+      mockRedeemInputOnChangeText = onChangeText;
+      return null;
+    },
     NavCloseButton: Null,
     Page: Object.assign(Passthrough, { Header: Null, Body: Passthrough }),
     SizableText: Null,
@@ -367,6 +373,7 @@ describe('inline TRON energy claim', () => {
             <span>monthly:{claimDetails.monthlyRemaining ?? 'none'}</span>
             {validUntil ? <span>valid</span> : null}
             {claimDetails.claimButton}
+            {claimDetails.redeemField}
             {claimDetails.redeemButton}
           </>
         )}
@@ -706,6 +713,80 @@ describe('inline TRON energy claim', () => {
     expect(mockRedeem).toHaveBeenCalledTimes(1);
     expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
     expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands the next code through to the form after a redemption', async () => {
+    mockRedeem.mockResolvedValue({ success: true });
+    mockRedeemCode = 'test-coupon';
+    render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
+
+    // Pasting the next code is a single change event. A handler that
+    // returned nothing would store "no value" and leave the button disabled.
+    let stored: unknown;
+    act(() => {
+      stored = mockRedeemInputOnChangeText?.('next-coupon');
+    });
+    expect(stored).toBe('next-coupon');
+  });
+
+  it('keeps a code entered while the previous redemption was still in flight', async () => {
+    let finishRedeem!: (value: IMockIssuanceResponse) => void;
+    mockRedeem.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        finishRedeem = resolve;
+      }),
+    );
+    mockRedeemCode = 'first-coupon';
+    render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    fireEvent.click(redeem);
+    await waitFor(() => expect(mockRedeem).toHaveBeenCalledTimes(1));
+
+    // The input stays editable during the request.
+    mockRedeemCode = 'second-coupon';
+    await act(async () => {
+      finishRedeem({ success: true });
+    });
+
+    expect(mockRedeemCode).toBe('second-coupon');
+  });
+
+  it('keeps a code entered for another account when the earlier redemption completes', async () => {
+    let finishRedeem!: (value: IMockIssuanceResponse) => void;
+    mockRedeem.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        finishRedeem = resolve;
+      }),
+    );
+    mockRedeemCode = 'shared-coupon';
+    const view = render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    fireEvent.click(redeem);
+    await waitFor(() => expect(mockRedeem).toHaveBeenCalledTimes(1));
+
+    // Same text, another account: it is the second account's input now.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await act(async () => {
+      finishRedeem({ success: true });
+    });
+
+    expect(mockRedeemCode).toBe('shared-coupon');
   });
 
   it('keeps the code for retry when the redemption request is rejected', async () => {

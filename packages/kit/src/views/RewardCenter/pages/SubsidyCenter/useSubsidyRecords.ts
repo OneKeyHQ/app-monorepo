@@ -21,6 +21,9 @@ export type ISubsidyQuery<T> = {
   // `data` still belongs to the previous scope (the page shown before a page
   // change) while the requested one is on its way.
   isPreviousData: boolean;
+  // A request for the current scope is in flight. `data` can already be on
+  // screen (a cached or kept result) and is not final until this clears.
+  isFetching: boolean;
   reload: () => void;
 };
 
@@ -43,6 +46,8 @@ export type ISubsidyHistoryView = {
 // is cached under it: it cannot tell two users apart.
 const UNKNOWN_IDENTITY = 'signed-in';
 
+const HISTORY_PAGE_SCOPE = 'history-page';
+
 // Last result per signed-in identity and scope, kept for the app session.
 // Reopening the page paints it at once and refreshes behind it, so the page
 // does not rebuild from placeholders (and reflow) on every open. Keyed by
@@ -53,27 +58,90 @@ export function clearSubsidyRecordsCache() {
   subsidyQueryCache.clear();
 }
 
+function getCacheKey(identity: string | undefined, scope: string) {
+  return identity && identity !== UNKNOWN_IDENTITY
+    ? `${scope}:${identity}`
+    : undefined;
+}
+
+// Mounted queries and lists that follow `refreshSubsidyRecords`. A listener
+// leaves the set on unmount, so a signal that arrives late (an issuance that
+// completes after the page was closed) starts no request for a page that is
+// gone and cannot store a response under an identity it no longer shows.
+const subsidyRefreshListeners = new Set<() => void>();
+
+// A claim or a redemption adds a record and can change the totals: whatever
+// is on screen loads again. Cached pages of the full list are dropped as
+// well, because a new record moves every page boundary.
+export function refreshSubsidyRecords() {
+  Array.from(subsidyQueryCache.keys()).forEach((key) => {
+    if (key.startsWith(`${HISTORY_PAGE_SCOPE}:`)) {
+      subsidyQueryCache.delete(key);
+    }
+  });
+  Array.from(subsidyRefreshListeners).forEach((listener) => listener());
+}
+
+export function useSubsidyRecordsRefresh(listener: () => void) {
+  const listenerRef = useRef(listener);
+  listenerRef.current = listener;
+  useEffect(() => {
+    const handleRefresh = () => listenerRef.current();
+    subsidyRefreshListeners.add(handleRefresh);
+    return () => {
+      subsidyRefreshListeners.delete(handleRefresh);
+    };
+  }, []);
+}
+
 type ISubsidyQueryState<T> = {
+  // The identity this state was produced for. A state of another identity is
+  // never rendered, not even for the one render before the effect below
+  // replaces it.
+  identity: string | undefined;
   data: T | undefined;
   // The scope `data` was loaded for.
   dataScope: string | undefined;
   isLoading: boolean;
   isError: boolean;
+  isFetching: boolean;
 };
 
-const emptyQueryState = {
-  data: undefined,
-  dataScope: undefined,
-  isLoading: false,
-  isError: false,
-};
-const loadingQueryState = { ...emptyQueryState, isLoading: true };
-const errorQueryState = { ...emptyQueryState, isError: true };
+// What a query shows before its first response: nothing while signed out,
+// the cached result when there is one, a placeholder otherwise.
+function getInitialQueryState<T>({
+  identity,
+  scope,
+  enabled,
+}: {
+  identity: string | undefined;
+  scope: string;
+  enabled: boolean;
+}): ISubsidyQueryState<T> {
+  const base = {
+    identity,
+    data: undefined,
+    dataScope: undefined,
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+  };
+  if (!identity) {
+    return base;
+  }
+  const cacheKey = getCacheKey(identity, scope);
+  const cached = cacheKey
+    ? (subsidyQueryCache.get(cacheKey) as T | undefined)
+    : undefined;
+  return cached === undefined
+    ? { ...base, isLoading: true, isFetching: enabled }
+    : { ...base, data: cached, dataScope: scope, isFetching: enabled };
+}
 
 // Loads once per signed-in identity and scope. History and summary share a
 // per-member rate limit on the server, so there is no polling and no refetch
-// on focus; the other triggers are a scope change (another page) and an
-// explicit reload (a retry, or a refresh after a claim).
+// on focus; the other triggers are a scope change (another page), an explicit
+// reload (a retry) and `refreshSubsidyRecords` (after a claim).
 //
 // What stays on screen while a request is in flight:
 // - reload: the current data, replaced when the response arrives and kept if
@@ -86,6 +154,7 @@ function useSubsidyQuery<T>({
   scope,
   enabled = true,
   keepPreviousData = false,
+  followRefresh = true,
   fetcher,
 }: {
   identity: string | undefined;
@@ -93,44 +162,52 @@ function useSubsidyQuery<T>({
   // False while an input of the request is still unknown; sends nothing.
   enabled?: boolean;
   keepPreviousData?: boolean;
-  fetcher: () => Promise<T>;
+  // False when the owner answers `refreshSubsidyRecords` itself.
+  followRefresh?: boolean;
+  // `onekeyUserId` is the member the result will be shown and cached for;
+  // the request must be answered for that member or fail.
+  fetcher: (onekeyUserId: string | undefined) => Promise<T>;
 }): ISubsidyQuery<T> {
-  const cacheKey =
-    identity && identity !== UNKNOWN_IDENTITY
-      ? `${scope}:${identity}`
-      : undefined;
-  const [state, setState] = useState<ISubsidyQueryState<T>>(() => {
-    if (!identity) {
-      return emptyQueryState;
-    }
-    const cached = cacheKey
-      ? (subsidyQueryCache.get(cacheKey) as T | undefined)
-      : undefined;
-    return cached === undefined
-      ? loadingQueryState
-      : { ...emptyQueryState, data: cached, dataScope: scope };
-  });
+  const cacheKey = getCacheKey(identity, scope);
+  const [state, setState] = useState<ISubsidyQueryState<T>>(() =>
+    getInitialQueryState<T>({ identity, scope, enabled }),
+  );
   const requestRef = useRef(0);
-  const dataIdentityRef = useRef(identity);
+  const mountedRef = useRef(true);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const load = useCallback(
     async ({ isReload }: { isReload: boolean }) => {
-      requestRef.current += 1;
-      const request = requestRef.current;
-      if (!identity) {
-        dataIdentityRef.current = identity;
-        setState(emptyQueryState);
+      if (!mountedRef.current) {
         return;
       }
-      const identityChanged = dataIdentityRef.current !== identity;
-      dataIdentityRef.current = identity;
+      requestRef.current += 1;
+      const request = requestRef.current;
+      const idle = {
+        identity,
+        data: undefined,
+        dataScope: undefined,
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+      };
+      if (!identity) {
+        setState(idle);
+        return;
+      }
       if (!enabled) {
         setState((prev) =>
-          !identityChanged && prev.data !== undefined
-            ? prev
-            : loadingQueryState,
+          prev.identity === identity && prev.data !== undefined
+            ? { ...prev, isFetching: false }
+            : { ...idle, isLoading: true },
         );
         return;
       }
@@ -138,25 +215,32 @@ function useSubsidyQuery<T>({
         ? (subsidyQueryCache.get(cacheKey) as T | undefined)
         : undefined;
       setState((prev) => {
-        const hasOwnData = prev.data !== undefined && prev.dataScope === scope;
-        if (isReload && hasOwnData && !identityChanged) {
-          return prev;
+        const ownsData = prev.identity === identity && prev.data !== undefined;
+        if (isReload && ownsData && prev.dataScope === scope) {
+          return { ...prev, isFetching: true };
         }
         if (cached !== undefined) {
-          return { ...emptyQueryState, data: cached, dataScope: scope };
+          return { ...idle, data: cached, dataScope: scope, isFetching: true };
         }
-        if (keepPreviousData && !identityChanged && prev.data !== undefined) {
-          return { ...prev, isError: false };
+        if (keepPreviousData && ownsData) {
+          return {
+            ...prev,
+            isLoading: false,
+            isError: false,
+            isFetching: true,
+          };
         }
-        return loadingQueryState;
+        return { ...idle, isLoading: true, isFetching: true };
       });
       try {
-        const data = await fetcherRef.current();
+        const data = await fetcherRef.current(
+          identity === UNKNOWN_IDENTITY ? undefined : identity,
+        );
         if (requestRef.current === request) {
           if (cacheKey) {
             subsidyQueryCache.set(cacheKey, data);
           }
-          setState({ ...emptyQueryState, data, dataScope: scope });
+          setState({ ...idle, data, dataScope: scope });
         }
       } catch {
         // The service already silenced the toast. Data of this scope is
@@ -164,9 +248,11 @@ function useSubsidyQuery<T>({
         // so it gives way to the retry state.
         if (requestRef.current === request) {
           setState((prev) =>
-            prev.data !== undefined && prev.dataScope === scope
-              ? prev
-              : errorQueryState,
+            prev.identity === identity &&
+            prev.data !== undefined &&
+            prev.dataScope === scope
+              ? { ...prev, isFetching: false }
+              : { ...idle, isError: true },
           );
         }
       }
@@ -186,29 +272,48 @@ function useSubsidyQuery<T>({
     void load({ isReload: true });
   }, [load]);
 
+  useSubsidyRecordsRefresh(() => {
+    if (followRefresh) {
+      reload();
+    }
+  });
+
+  // The effect above replaces a state of another identity only after this
+  // render is committed; until then it must read as "nothing loaded yet".
+  const visible =
+    state.identity === identity
+      ? state
+      : getInitialQueryState<T>({ identity, scope, enabled });
+
   return {
-    data: state.data,
-    isLoading: state.isLoading,
-    isError: state.isError,
-    isPreviousData: state.data !== undefined && state.dataScope !== scope,
+    data: visible.data,
+    isLoading: visible.isLoading,
+    isError: visible.isError,
+    isPreviousData: visible.data !== undefined && visible.dataScope !== scope,
+    isFetching: visible.isFetching,
     reload,
   };
 }
 
-async function fetchSubsidySummaryView(): Promise<ISubsidySummaryView> {
+async function fetchSubsidySummaryView(
+  onekeyUserId: string | undefined,
+): Promise<ISubsidySummaryView> {
   return buildSubsidySummaryView(
-    await backgroundApiProxy.serviceGas.fetchSubsidySummary(),
+    await backgroundApiProxy.serviceGas.fetchSubsidySummary({ onekeyUserId }),
   );
 }
 
 async function fetchSubsidyHistoryView({
   page,
   limit,
+  onekeyUserId,
 }: {
   page: number;
   limit: number;
+  onekeyUserId: string | undefined;
 }): Promise<ISubsidyHistoryView> {
   const history = await backgroundApiProxy.serviceGas.fetchSubsidyHistory({
+    onekeyUserId,
     limit,
     // The plain first page is the one that carries `total`.
     page: page > 1 ? page : undefined,
@@ -269,23 +374,30 @@ export function useSubsidyRecentHistory(identity: string | undefined) {
   return useSubsidyQuery({
     identity,
     scope: 'history-recent',
-    fetcher: () =>
-      fetchSubsidyHistoryView({ page: 1, limit: SUBSIDY_RECENT_RECORD_LIMIT }),
+    fetcher: (onekeyUserId) =>
+      fetchSubsidyHistoryView({
+        page: 1,
+        limit: SUBSIDY_RECENT_RECORD_LIMIT,
+        onekeyUserId,
+      }),
   });
 }
 
 // One page of the full list. `pageSize` is undefined until the list has been
 // laid out; nothing is requested before that. Changing the page keeps the
-// previous page on screen until the new one arrives.
+// previous page on screen until the new one arrives. The list answers
+// `refreshSubsidyRecords` itself, because it may have to change page.
 export function useSubsidyHistoryPage(
   identity: string | undefined,
   { page, pageSize }: { page: number; pageSize: number | undefined },
 ) {
   return useSubsidyQuery({
     identity,
-    scope: `history-page:${pageSize ?? 0}:${page}`,
+    scope: `${HISTORY_PAGE_SCOPE}:${pageSize ?? 0}:${page}`,
     enabled: pageSize !== undefined,
     keepPreviousData: true,
-    fetcher: () => fetchSubsidyHistoryView({ page, limit: pageSize ?? 1 }),
+    followRefresh: false,
+    fetcher: (onekeyUserId) =>
+      fetchSubsidyHistoryView({ page, limit: pageSize ?? 1, onekeyUserId }),
   });
 }

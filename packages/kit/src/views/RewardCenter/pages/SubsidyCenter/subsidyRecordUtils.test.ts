@@ -18,6 +18,7 @@ import {
   formatSubsidyCount,
   getSubsidyPageCount,
   getSubsidyPageSize,
+  isSubsidyPagePastEnd,
 } from './subsidyRecordUtils';
 
 function gaRecord(ga: Partial<ISubsidyGaRecord['ga']> = {}): ISubsidyGaRecord {
@@ -231,5 +232,44 @@ describe('getSubsidyPageCount', () => {
     expect(getSubsidyPageCount(null, 7)).toBeUndefined();
     expect(getSubsidyPageCount(undefined, 7)).toBeUndefined();
     expect(getSubsidyPageCount(15, undefined)).toBeUndefined();
+  });
+});
+
+describe('isSubsidyPagePastEnd', () => {
+  const emptyPage = {
+    page: 3,
+    isSettled: true,
+    itemCount: 0,
+    isPartial: false,
+    hasMore: false,
+  };
+
+  it('is past the end for a settled, complete, empty later page', () => {
+    expect(isSubsidyPagePastEnd(emptyPage)).toBe(true);
+  });
+
+  it('never applies to the first page, which is simply empty', () => {
+    expect(isSubsidyPagePastEnd({ ...emptyPage, page: 1 })).toBe(false);
+  });
+
+  it('waits for the page to settle before judging a cached or kept copy', () => {
+    expect(isSubsidyPagePastEnd({ ...emptyPage, isSettled: false })).toBe(
+      false,
+    );
+    expect(isSubsidyPagePastEnd({ ...emptyPage, itemCount: undefined })).toBe(
+      false,
+    );
+  });
+
+  it('keeps an empty page whose source failed, so it can be retried in place', () => {
+    expect(isSubsidyPagePastEnd({ ...emptyPage, isPartial: true })).toBe(false);
+  });
+
+  it('keeps an empty page that still has a successor', () => {
+    expect(isSubsidyPagePastEnd({ ...emptyPage, hasMore: true })).toBe(false);
+  });
+
+  it('is not past the end while the page has records', () => {
+    expect(isSubsidyPagePastEnd({ ...emptyPage, itemCount: 4 })).toBe(false);
   });
 });

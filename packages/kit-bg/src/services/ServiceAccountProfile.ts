@@ -9,6 +9,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ONEKEY_REQUEST_TOKEN_HEADER } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
@@ -1034,10 +1035,18 @@ class ServiceAccountProfile extends ServiceBase {
     // OneKey ID: the Wallet BFF resolves the member from the login token. The
     // header is read per request, so a signed-out user sends none and stays
     // anonymous. Only this request is authenticated, never the shared client.
+    //
+    // A transport failure (a timeout, for one) rejects with an AxiosError that
+    // carries this request's config. `redact` keeps the token out of every
+    // serialized copy of that error, so a caller that logs it cannot leak the
+    // session.
     const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/trxres',
       request,
-      { headers: await this.getOneKeyIdAuthHeaders() },
+      {
+        headers: await this.getOneKeyIdAuthHeaders(),
+        redact: [ONEKEY_REQUEST_TOKEN_HEADER],
+      },
     );
 
     if (returnRawData) {

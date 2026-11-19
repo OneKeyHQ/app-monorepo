@@ -6,10 +6,14 @@ yarn jest packages/kit-bg/src/services/ServiceAccountProfile.trxresAuth.test.ts
 OK-67058: TRON energy issuance is bound to the signed-in OneKey ID. Every
 /wallet/v1/proxy/trxres request carries the login token when a session
 exists and none when signed out, and the token is attached to that single
-request rather than to the shared Wallet client.
+request rather than to the shared Wallet client. The token must also stay out
+of a serialized request error: callers log those (the automatic claim before
+a TRON transfer does), and a timeout rejects with the request config attached.
 */
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
+
+const { AxiosError, AxiosHeaders } = require('axios') as typeof import('axios');
 
 const ServiceAccountProfile = require('./ServiceAccountProfile')
   .default as typeof import('./ServiceAccountProfile').default;
@@ -52,7 +56,10 @@ describe('ServiceAccountProfile.sendProxyRequestWithTrxRes auth header', () => {
     expect(post).toHaveBeenCalledWith(
       '/wallet/v1/proxy/trxres',
       { networkId, ...body },
-      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+      {
+        headers: { 'X-Onekey-Request-Token': 'token-a' },
+        redact: ['X-Onekey-Request-Token'],
+      },
     );
   });
 
@@ -68,7 +75,27 @@ describe('ServiceAccountProfile.sendProxyRequestWithTrxRes auth header', () => {
     expect(post).toHaveBeenCalledWith(
       '/wallet/v1/proxy/trxres',
       { networkId, ...body },
-      { headers: {} },
+      { headers: {}, redact: ['X-Onekey-Request-Token'] },
     );
+  });
+
+  it('keeps the token out of a serialized request error', async () => {
+    const { service, post } = createService({ authToken: 'token-a' });
+    await service.sendProxyRequestWithTrxRes({ networkId, body });
+    const [, , requestConfig] = post.mock.calls[0] as unknown as [
+      string,
+      unknown,
+      { headers: Record<string, string>; redact: string[] },
+    ];
+
+    // What a timeout rejects with: the error carries the request's config.
+    const timeout = new AxiosError('timeout exceeded', 'ECONNABORTED', {
+      ...requestConfig,
+      headers: new AxiosHeaders(requestConfig.headers),
+    });
+    const serialized = JSON.stringify(timeout);
+
+    expect(serialized).toContain('timeout exceeded');
+    expect(serialized).not.toContain('token-a');
   });
 });
