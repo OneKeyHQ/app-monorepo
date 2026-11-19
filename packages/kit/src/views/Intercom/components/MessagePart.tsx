@@ -7,6 +7,7 @@ import {
   Image,
   Input,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -16,6 +17,30 @@ import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { SupportAvatar } from './SupportAvatar';
+
+// A one-line bubble on the side its author would take once loaded.
+export function MessagePartSkeleton({
+  isAdmin,
+  width,
+}: {
+  isAdmin: boolean;
+  width: number;
+}) {
+  return (
+    <XStack
+      alignSelf={isAdmin ? 'flex-start' : 'flex-end'}
+      maxWidth={isAdmin ? '96%' : '85%'}
+      alignItems="flex-end"
+      gap="$2"
+      mb="$4"
+    >
+      {isAdmin ? (
+        <Skeleton w={28} h={28} radius="round" flexShrink={0} />
+      ) : null}
+      <Skeleton w={width} h={48} radius={20} flexShrink={1} />
+    </XStack>
+  );
+}
 
 export function MessagePart({
   part,
