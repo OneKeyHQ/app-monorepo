@@ -752,6 +752,55 @@ async function main() {
       },
     );
     await scenario(
+      'a deletion Retry-After blocks only resubmission and preserves the original key',
+      {
+        reply: (endpoint, calls) => {
+          const attempts = calls.filter(
+            (call) => call.endpoint === '/delete',
+          ).length;
+          if (endpoint === '/delete' && attempts === 1) {
+            return {
+              status: 503,
+              headers: { 'Retry-After': '3' },
+              json: { code: 90_914, message: '稍后重试删除。' },
+            };
+          }
+          if (endpoint === '/result') {
+            return { json: success({ status: 'not_submitted' }) };
+          }
+          return undefined;
+        },
+      },
+      async ({ page, id, verify, calls, deleteKeys }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await id('flow-error').getByText('稍后重试删除。').waitFor();
+        const retry = id('retry-original');
+        const check = id('check-status');
+        assert.ok(await retry.isDisabled());
+        assert.match(await retry.innerText(), /秒后可重试/);
+        assert.ok(await check.isEnabled());
+        await Promise.all([
+          page.waitForResponse(
+            (response) => response.url() === `${prime}${base}/result`,
+          ),
+          check.click(),
+        ]);
+        assert.equal(deleteKeys().length, 1);
+        assert.ok(await retry.isDisabled());
+        await retry.click({ timeout: 6000 });
+        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        assert.deepEqual(
+          calls()
+            .filter((call) => call.startsWith('/'))
+            .slice(-4),
+          ['/delete', '/result', '/result', '/delete'],
+        );
+        assert.equal(deleteKeys().length, 2);
+        assert.equal(...deleteKeys());
+      },
+    );
+    await scenario(
       'result sign-in waits for HTTP 429 Retry-After and recovers the original request',
       {
         reply: (endpoint, calls) => {
@@ -804,6 +853,55 @@ async function main() {
         );
       },
     );
+    for (const expired of [false, true]) {
+      await scenario(
+        `first result refusal keeps original application guidance (${expired ? 'expired' : 'used'} invitation)`,
+        {
+          status: 'used',
+          linkOnly: expired,
+          reply: (endpoint) => {
+            if (expired && endpoint === '/link-info') {
+              return { json: { code: 90_900, message: '邀请已过期。' } };
+            }
+            if (endpoint === '/result') {
+              return {
+                json: {
+                  code: 90_900,
+                  message: '<b>UNSAFE_RECOVERY_MESSAGE</b>',
+                  translatedMessage: expired
+                    ? undefined
+                    : '客服可按原记录核对。',
+                },
+              };
+            }
+            return undefined;
+          },
+        },
+        async ({ page, id, calls }) => {
+          if (expired) {
+            await id('open-recovery').click();
+            await id('recover-google').click();
+          }
+          await page.getByRole('heading', { name: '结果待确认' }).waitFor();
+          await page.getByText('请联系原客服核实申请的处理状态。').waitFor();
+          if (expired) assert.equal(await id('flow-error').count(), 0);
+          else
+            await id('flow-error').getByText('客服可按原记录核对。').waitFor();
+          assert.equal(
+            await page
+              .getByText(/UNSAFE_RECOVERY_MESSAGE|获取新的专属邀请/)
+              .count(),
+            0,
+          );
+          assert.equal(await id('open-recovery').count(), 0);
+          assert.equal(await id('reauthenticate').count(), 0);
+          assert.deepEqual(
+            calls().filter((call) => call.startsWith('/')),
+            ['/link-info', '/result'],
+          );
+        },
+      );
+    }
     await scenario(
       'lost delete response reads the original result and preserves processing after 90900',
       {

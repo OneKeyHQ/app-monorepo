@@ -385,8 +385,18 @@ function ResultStep({ flow }: { flow: IFlow }) {
   const { locale } = useIntl();
   const { screen, busy, error, resultCheckAfter } = flow;
   const cooldown = useCountdown(resultCheckAfter);
+  const deleteCooldown = useCountdown(
+    screen.step === 'result' ? (screen.deleteRetryAt ?? 0) : 0,
+  );
   if (screen.step !== 'result') {
     return null;
+  }
+  if (screen.recoveryUnavailable) {
+    return (
+      <SizableText color="$textSubdued">
+        {messages.recoveryUnavailable}
+      </SizableText>
+    );
   }
   const { result, accepted, proof, canRetry } = screen;
   const needsSignIn = !proof;
@@ -481,10 +491,12 @@ function ResultStep({ flow }: { flow: IFlow }) {
         <Action
           data-testid="retry-original"
           variant="secondary"
-          disabled={busy}
+          disabled={busy || deleteCooldown > 0}
           onClick={flow.retrySubmit}
         >
-          {messages.retryOriginal}
+          {deleteCooldown > 0
+            ? messages.retryCountdown(deleteCooldown)
+            : messages.retryOriginal}
         </Action>
       ) : null}
     </>
@@ -512,18 +524,20 @@ function Flow({
       : 0,
   );
   const verifying = screen.step === 'email' || screen.step === 'confirm';
-  const errorKey = error && errorMessages[error.code];
-  const errorMessage =
-    error &&
-    (error.userMessage ??
-      (errorKey
-        ? messages[errorKey]
-        : intl.formatMessage({
-            id:
-              error.code === 'OTP_INVALID'
-                ? ETranslations.prime_invalid_verification_code
-                : ETranslations.global_unknown_error_retry_message,
-          })));
+  const recoveryUnavailable =
+    screen.step === 'result' && screen.recoveryUnavailable;
+  let errorMessage = error?.userMessage;
+  if (error && !errorMessage && !recoveryUnavailable) {
+    const errorKey = errorMessages[error.code];
+    errorMessage = errorKey
+      ? messages[errorKey]
+      : intl.formatMessage({
+          id:
+            error.code === 'OTP_INVALID'
+              ? ETranslations.prime_invalid_verification_code
+              : ETranslations.global_unknown_error_retry_message,
+        });
+  }
   const providerLabel = (provider: IProvider) =>
     intl.formatMessage(
       { id: ETranslations.continue_with_social_platform },
@@ -542,16 +556,21 @@ function Flow({
     verifying &&
     (error?.code === 'OTP_INVALID' || error?.code === 'OTP_EXPIRED');
   const flowError =
-    error && !dialogTitle && !error.usesSharedToast ? (
+    error &&
+    !dialogTitle &&
+    !error.usesSharedToast &&
+    (errorMessage || errorReference) ? (
       <div
         id={inlineOtpError ? 'deletion-code-server-error' : undefined}
         role="alert"
         data-testid="flow-error"
         data-error-code={error.code}
       >
-        <SizableText color="$textCritical" size="$bodyMd">
-          {errorMessage}
-        </SizableText>
+        {errorMessage ? (
+          <SizableText color="$textCritical" size="$bodyMd">
+            {errorMessage}
+          </SizableText>
+        ) : null}
         {error.code === 'OTP_SEND_UNCERTAIN' && error.userMessage ? (
           <SizableText color="$textSubdued">{error.userMessage}</SizableText>
         ) : null}

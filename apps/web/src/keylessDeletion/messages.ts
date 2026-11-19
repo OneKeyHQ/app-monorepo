@@ -39,6 +39,7 @@ export const messages = {
   checkStatus: '查询处理状态',
   statusCountdown: (seconds: number) => `${seconds} 秒后可查询`,
   retryOriginal: '重试原申请',
+  retryCountdown: (seconds: number) => `${seconds} 秒后可重试`,
   expired: '此邀请已失效',
   requestNew: '请联系 OneKey 客服获取新的专属邀请。',
   changed: '邀请绑定的钱包已变更',

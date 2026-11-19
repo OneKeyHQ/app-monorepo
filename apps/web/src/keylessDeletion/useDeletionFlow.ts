@@ -67,6 +67,8 @@ type IResultScreen = {
   accepted?: IAcceptedNotice;
   attempt?: IAttempt;
   checkAfter?: number;
+  deleteRetryAt?: number;
+  recoveryUnavailable?: boolean;
   canRetry?: boolean;
   needsNewConfirmation?: boolean;
   cannotRetry?: boolean;
@@ -146,9 +148,7 @@ export function useDeletionFlow(
   const [error, setError] = useState<IFlowError>();
   const [busy, setBusy] = useState(false);
   const resultCheckAfter =
-    screen.step === 'result'
-      ? Math.max(screen.checkAfter ?? 0, error?.retryAt ?? 0)
-      : 0;
+    screen.step === 'result' ? (screen.checkAfter ?? 0) : 0;
   const request = useRef<symbol | undefined>(undefined);
   const channel = useRef<
     { close(): void; client: IDeletionClient; signal: AbortSignal } | undefined
@@ -359,15 +359,28 @@ export function useDeletionFlow(
       if (!isCurrent()) {
         return;
       }
-      const result = await client.getResult(proof);
-      if (isCurrent()) {
-        remember({
-          step: 'result',
-          provider: proof.provider,
-          proof,
-          result,
-          checkAfter: checkAfter(result),
-        });
+      try {
+        const result = await client.getResult(proof);
+        if (isCurrent()) {
+          remember({
+            step: 'result',
+            provider,
+            proof,
+            result,
+            checkAfter: checkAfter(result),
+          });
+        }
+      } catch (cause) {
+        if (
+          !(cause instanceof DeletionError) ||
+          cause.response.code !== 'INVITATION_UNAVAILABLE'
+        ) {
+          throw cause;
+        }
+        if (isCurrent()) {
+          remember({ step: 'result', provider, recoveryUnavailable: true });
+          showError(cause);
+        }
       }
     });
   }
@@ -521,6 +534,7 @@ export function useDeletionFlow(
           info,
           proof,
           key: undefined,
+          deleteRetryAt: previous.deleteRetryAt,
           confirmationUpdated: true,
         });
         return;
@@ -596,14 +610,21 @@ export function useDeletionFlow(
         if (!isCurrent()) {
           return;
         }
-        if (isAuthError(cause)) {
-          remember({ ...pending, proof: undefined });
-          showError(cause);
-          return;
-        }
         const response =
           cause instanceof DeletionError ? cause.response : undefined;
         const code = response?.code;
+        const retryAfterSeconds =
+          response?.retryAfterSeconds ??
+          (code === 'RATE_LIMITED' ? OTP_RESEND_SECONDS : undefined);
+        const deleteRetryAt =
+          retryAfterSeconds === undefined
+            ? attempt.review.deleteRetryAt
+            : otpCooldownDeadline(retryAfterSeconds);
+        if (isAuthError(cause)) {
+          remember({ ...pending, proof: undefined, deleteRetryAt });
+          showError(cause);
+          return;
+        }
         if (
           code === 'OTP_INVALID' ||
           code === 'OTP_EXPIRED' ||
@@ -617,12 +638,7 @@ export function useDeletionFlow(
             key: attempt.key,
             challengeExpiresAt:
               code === 'OTP_EXPIRED' ? 0 : attempt.review.challengeExpiresAt,
-            deleteRetryAt:
-              code === 'RATE_LIMITED'
-                ? otpCooldownDeadline(
-                    response?.retryAfterSeconds ?? OTP_RESEND_SECONDS,
-                  )
-                : attempt.review.deleteRetryAt,
+            deleteRetryAt,
           });
           showError(cause);
           return;
@@ -640,6 +656,7 @@ export function useDeletionFlow(
             step: 'confirm',
             proof,
             key: attempt.key,
+            deleteRetryAt,
             confirmationReset: (attempt.review.confirmationReset ?? 0) + 1,
           });
           showError(cause);
@@ -663,10 +680,7 @@ export function useDeletionFlow(
         const recovery = {
           ...pending,
           accepted,
-          checkAfter:
-            response?.retryAfterSeconds === undefined
-              ? undefined
-              : otpCooldownDeadline(response.retryAfterSeconds),
+          deleteRetryAt,
           needsNewConfirmation: code === 'CONFIRMATION_CHANGED',
           submissionError:
             cause instanceof DeletionBusinessError ||
@@ -731,6 +745,7 @@ export function useDeletionFlow(
       screen.step === 'result' &&
       channel.current &&
       !screen.proof &&
+      !screen.recoveryUnavailable &&
       globalThis.performance.now() >= resultCheckAfter
     ) {
       const { client, signal } = channel.current;
@@ -749,7 +764,8 @@ export function useDeletionFlow(
       screen.step === 'result' &&
       screen.attempt &&
       screen.canRetry &&
-      screen.proof
+      screen.proof &&
+      globalThis.performance.now() >= (screen.deleteRetryAt ?? 0)
     ) {
       submitAttempt(screen.attempt, screen.proof);
     }

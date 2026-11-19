@@ -29,10 +29,12 @@ const receipt = {
   supportReference: 'CASE-FIXTURE',
 };
 
-function createClientFixture(): jest.Mocked<IDeletionClient> {
+function createClientFixture(
+  status: 'ready' | 'used' = 'ready',
+): jest.Mocked<IDeletionClient> {
   return {
     getLinkInfo: jest.fn().mockResolvedValue({
-      status: 'ready',
+      status,
       allowedProvider: 'google',
       expiresAt,
       serverTime,
@@ -275,4 +277,86 @@ it('blocks the old challenge after the server reports expiry and the resend is l
   await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
   expect(client.deleteShare).toHaveBeenCalledTimes(1);
   expect(result.current.screen.step).toBe('email');
+});
+
+it('allows status checks during the deletion cooldown and retries with the original key after it ends', async () => {
+  const client = createClientFixture();
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate: jest.fn().mockResolvedValue('fixture-proof'),
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  client.deleteShare.mockRejectedValueOnce(
+    new DeletionError({ code: 'SERVICE_UNAVAILABLE', retryAfterSeconds: 60 }),
+  );
+  client.getResult.mockResolvedValue({ status: 'not_submitted' });
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  act(() => result.current.signIn('google'));
+  await waitFor(() => expect(result.current.screen.step).toBe('confirm'));
+  act(() => result.current.submit('01234567', [...WARNING_CODES]));
+  await waitFor(() => expect(history.get(token)?.canRetry).toBe(true));
+
+  const original = client.deleteShare.mock.calls[0];
+  await act(async () => result.current.retrySubmit());
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+  expect(client.getResult).toHaveBeenCalledTimes(1);
+  await act(async () => result.current.checkStatus());
+  expect(client.getResult).toHaveBeenCalledTimes(2);
+  const deadline = history.get(token)?.deleteRetryAt;
+  expect(deadline).toBeGreaterThan(globalThis.performance.now());
+  const now = jest
+    .spyOn(globalThis.performance, 'now')
+    .mockReturnValue(deadline ?? 0);
+  try {
+    await act(async () => result.current.retrySubmit());
+    expect(client.deleteShare).toHaveBeenCalledTimes(2);
+    expect(client.deleteShare.mock.calls[1]).toEqual(original);
+  } finally {
+    now.mockRestore();
+  }
+});
+
+it('preserves the original result context on invitation rejection during first recovery', async () => {
+  const client = createClientFixture('used');
+  const authenticate = jest.fn().mockResolvedValue('fixture-proof');
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate,
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  const userMessage =
+    'Contact the support agent handling the original request.';
+  client.getResult.mockRejectedValueOnce(
+    new DeletionError(
+      { code: 'INVITATION_UNAVAILABLE' },
+      { userMessage, disableAutoToast: false },
+    ),
+  );
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(result.current.screen.step).toBe('result');
+  expect(result.current.error?.userMessage).toBe(userMessage);
+  expect(history.get(token)).toMatchObject({
+    step: 'result',
+    provider: 'google',
+    recoveryUnavailable: true,
+  });
+  expect(history.get(token)?.proof).toBeUndefined();
+  await act(async () => result.current.reauthenticate());
+  expect(authenticate).toHaveBeenCalledTimes(1);
+  expect(client.getResult).toHaveBeenCalledTimes(1);
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
+  expect(client.deleteShare).not.toHaveBeenCalled();
 });
