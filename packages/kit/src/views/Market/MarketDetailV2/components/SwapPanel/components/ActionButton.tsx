@@ -38,6 +38,7 @@ import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
+  tokenMetadataReady?: boolean;
   supportSpeedSwap?: boolean;
   isAccountNetworkSupported: boolean;
   onlySupportCrossChain?: boolean;
@@ -70,6 +71,7 @@ export function ActionButton({
   networkId,
   onlySupportCrossChain,
   actionToken,
+  tokenMetadataReady = true,
   onSwapAction,
   isRefreshQuote,
   loading,
@@ -253,7 +255,7 @@ export function ActionButton({
     isRefreshQuote,
   });
   const quoteRefreshAvailable = Boolean(
-    isRefreshQuote && hasAmount && !shouldDisable,
+    isRefreshQuote && (hasAmount || !tokenMetadataReady) && !shouldDisable,
   );
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
@@ -309,14 +311,14 @@ export function ActionButton({
   let isButtonDisabled = Boolean(
     ((quoteRefreshAvailable ? false : shouldDisable) ||
       disabled ||
-      !hasAmount) &&
+      (!hasAmount && !quoteRefreshAvailable)) &&
     !shouldCreateAddress?.result &&
     !noAccount,
   );
 
   if (shouldJumpToSwap) {
-    shouldUseColoredStyle = true;
-    isButtonDisabled = false;
+    shouldUseColoredStyle = tokenMetadataReady;
+    isButtonDisabled = !tokenMetadataReady;
     if (!hasAmount) {
       buttonText = `${actionText} ${truncatedMarketSymbol}`.trim();
     }
@@ -347,13 +349,19 @@ export function ActionButton({
         return;
       }
       if (shouldJumpToSwap) {
+        if (!tokenMetadataReady) return;
         handleJumpToSwapAction();
         return;
       }
       if (isButtonLoading) {
         return;
       }
-      if (!hasAmount && !shouldCreateAddress?.result && !createAddressLoading) {
+      if (
+        !hasAmount &&
+        !quoteRefreshAvailable &&
+        !shouldCreateAddress?.result &&
+        !createAddressLoading
+      ) {
         return;
       }
       if (noAccount) {
@@ -400,6 +408,8 @@ export function ActionButton({
     },
     [
       shouldJumpToSwap,
+      tokenMetadataReady,
+      quoteRefreshAvailable,
       hasAmount,
       noAccount,
       createAddressLoading,

@@ -27,6 +27,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   settingsAtom,
   useCurrencyPersistAtom,
@@ -48,6 +49,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
   getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
@@ -66,7 +68,6 @@ import {
   ESwapCleanHistorySource,
   ESwapCrossChainStatus,
   ESwapExtraStatus,
-  ESwapQuoteSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
@@ -1049,7 +1050,12 @@ const SwapHistoryDetailModal = () => {
                 targetCurrency: displayCurrencyId,
                 token: item.token,
               }),
-              amount: item.amount,
+              amount: item.amount
+                ? (getSwapDisplayAmount(
+                    item.amount,
+                    item.token.balanceMultiplier,
+                  ) ?? '')
+                : item.amount,
             },
           ];
         }
@@ -1142,7 +1148,7 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
           isAllNetworks
-          amount={txHistory?.baseInfo.toAmount ?? '0'}
+          amount={txHistory ? getSwapHistoryDisplayToAmount(txHistory) : '0'}
           networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1547,15 +1553,21 @@ const SwapHistoryDetailModal = () => {
   const renderRate = useCallback(() => {
     let rate = txHistory?.swapInfo.instantRate;
     if (
-      txHistory?.quoteSource === ESwapQuoteSource.SWEEP &&
-      tokenRebaseUtils.isScalingBalanceMultiplier(
+      txHistory &&
+      !isPrivateSendHistory &&
+      [
         txHistory.baseInfo.fromToken.balanceMultiplier,
-      )
+        txHistory.baseInfo.toToken.balanceMultiplier,
+      ].some(tokenRebaseUtils.isScalingBalanceMultiplier)
     ) {
       const displayFromAmount = getSwapHistoryDisplayFromAmount(txHistory);
-      rate = new BigNumber(txHistory.baseInfo.toAmount)
-        .dividedBy(displayFromAmount)
-        .toFixed();
+      const displayRate = new BigNumber(
+        getSwapHistoryDisplayToAmount(txHistory) ?? '',
+      ).dividedBy(displayFromAmount);
+      rate =
+        displayRate.isFinite() && displayRate.gt(0)
+          ? displayRate.toFixed()
+          : undefined;
     }
     return (
       <SwapRateInfoItem
@@ -1564,7 +1576,7 @@ const SwapHistoryDetailModal = () => {
         toToken={txHistory?.baseInfo.toToken}
       />
     );
-  }, [txHistory]);
+  }, [isPrivateSendHistory, txHistory]);
 
   const renderProtocolFee = useCallback(() => {
     if (txHistory?.swapInfo.hideProtocolFee) {

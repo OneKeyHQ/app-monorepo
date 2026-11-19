@@ -77,6 +77,7 @@ type IFetchSwapTokenDetailsParams = {
   contractAddress?: string;
   accountAddress?: string;
   currency?: string;
+  throwOnError?: boolean;
 };
 
 type IFetchSwapNativeTokenConfigParams = {
@@ -101,6 +102,9 @@ type IMarketDirectSendValidationParams = Parameters<
 >[0];
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
+  (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
+> = jest.fn();
+const mockFetchMultiplierDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
 > = jest.fn();
 const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
@@ -202,7 +206,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceSwap: {
       addSwapHistoryItem: (params: unknown) => mockAddSwapHistoryItem(params),
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
-        mockFetchSwapTokenDetails(params),
+        params.throwOnError
+          ? mockFetchMultiplierDetails(params)
+          : mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
@@ -547,6 +553,13 @@ describe('isMarketQuoteResultForPair', () => {
         toToken: usdcToken,
       }),
     ).toBe(false);
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: usdcToken,
+        quoteResult,
+        toToken: { ...stockToken, balanceMultiplier: '2' },
+      }),
+    ).toBe(false);
   });
 });
 
@@ -557,6 +570,17 @@ describe('useSpeedSwapActions', () => {
     mockSignMessage.mockReset().mockResolvedValue('0xsigned');
     mockAddSwapHistoryItem.mockReset().mockResolvedValue(undefined);
     mockFetchSwapTokenDetails.mockReset();
+    mockFetchMultiplierDetails
+      .mockReset()
+      .mockImplementation(async ({ networkId, contractAddress }) => [
+        {
+          networkId: networkId ?? '',
+          contractAddress: contractAddress ?? '',
+          symbol: 'TEST',
+          decimals: 18,
+          isNative: !contractAddress,
+        },
+      ]);
     mockFetchSwapNativeTokenConfig.mockReset();
     mockFetchQuotesEvents.mockReset();
     mockFetchQuotesEvents.mockResolvedValue();
@@ -905,6 +929,46 @@ describe('useSpeedSwapActions', () => {
       result.current.forceRefreshMarketQuote();
     });
     expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for multiplier metadata and retries after a detail failure', async () => {
+    const pending = createDeferred<ISwapToken[]>();
+    mockFetchMultiplierDetails.mockImplementation(() => pending.promise);
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({ ...createHookProps(), fromTokenAmount: '4' }),
+    );
+    await act(async () => {
+      await expect(result.current.prepareMarketSwapReview()).rejects.toThrow(
+        'Market trade pair is not ready.',
+      );
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    await act(async () => {
+      pending.reject(new Error('network error'));
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    mockFetchMultiplierDetails.mockImplementation(
+      async ({ networkId, contractAddress }) => [
+        {
+          networkId: networkId ?? '',
+          contractAddress: contractAddress ?? '',
+          symbol: 'TEST',
+          decimals: 18,
+          isNative: !contractAddress,
+          ...(contractAddress === usdcToken.contractAddress
+            ? { balanceMultiplier: '2' }
+            : {}),
+        },
+      ],
+    );
+    await act(async () => {
+      result.current.forceRefreshMarketQuote();
+    });
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '2' }),
+    );
   });
 
   it('re-requests the provider quote when a stock live-open state changes', async () => {

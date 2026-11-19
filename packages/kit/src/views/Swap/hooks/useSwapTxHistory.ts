@@ -44,10 +44,17 @@ function buildSwapHistoryToken({
     return selectedToken;
   }
 
+  const isScaled = tokenRebaseUtils.isScalingBalanceMultiplier(
+    selectedToken.balanceMultiplier,
+  );
   return {
     ...selectedToken,
-    price: buildToken.price ?? selectedToken.price,
-    currency: buildToken.currency ?? selectedToken.currency,
+    price: isScaled
+      ? selectedToken.price
+      : (buildToken.price ?? selectedToken.price),
+    currency: isScaled
+      ? selectedToken.currency
+      : (buildToken.currency ?? selectedToken.currency),
     fiatValue: buildToken.fiatValue ?? selectedToken.fiatValue,
     name: selectedToken.name ?? buildToken.name,
     logoURI: selectedToken.logoURI ?? buildToken.logoURI,
@@ -84,17 +91,15 @@ export async function generateSwapHistoryItemForContext(
       protocol: swapTxInfo.protocol,
       txId,
     });
-    const usesWalletDisplayPrice =
+    const senderToken = swapTxInfo.sender.token;
+    const fromToken =
       swapTxInfo.quoteSource === ESwapQuoteSource.SWEEP &&
-      tokenRebaseUtils.isScalingBalanceMultiplier(
-        swapTxInfo.sender.token.balanceMultiplier,
-      );
-    const fromToken = usesWalletDisplayPrice
-      ? { ...swapTxInfo.sender.token, currency: USD_CURRENCY_ID }
-      : buildSwapHistoryToken({
-          buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
-          selectedToken: swapTxInfo.sender.token,
-        });
+      tokenRebaseUtils.isScalingBalanceMultiplier(senderToken.balanceMultiplier)
+        ? { ...senderToken, currency: USD_CURRENCY_ID }
+        : buildSwapHistoryToken({
+            buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
+            selectedToken: senderToken,
+          });
     const toToken = buildSwapHistoryToken({
       buildToken: swapTxInfo.swapBuildResData.result?.toTokenInfo,
       selectedToken: swapTxInfo.receiver.token,

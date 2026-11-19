@@ -502,7 +502,10 @@ export function isSwapQuoteRequestForCurrentInput({
     !equalTokenNoCaseSensitive({
       token1: quoteRequest.toToken,
       token2: toToken,
-    })
+    }) ||
+    quoteRequest.fromToken?.balanceMultiplier !==
+      fromToken?.balanceMultiplier ||
+    quoteRequest.toToken?.balanceMultiplier !== toToken?.balanceMultiplier
   ) {
     return false;
   }

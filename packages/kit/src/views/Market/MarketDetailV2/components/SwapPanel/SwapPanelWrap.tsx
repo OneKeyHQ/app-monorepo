@@ -233,6 +233,7 @@ function SwapPanelWrapContent({
       decimals: paymentToken?.decimals || 0,
       logoURI: paymentToken?.logoURI || '',
       isNative: paymentToken?.isNative || false,
+      balanceMultiplier: paymentToken?.balanceMultiplier,
     };
     return {
       enabled: isEnabled,
@@ -249,6 +250,7 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     originalSupportSpeedSwap,
     paymentToken?.contractAddress,
+    paymentToken?.balanceMultiplier,
     paymentToken?.decimals,
     paymentToken?.isNative,
     paymentToken?.logoURI,
@@ -529,6 +531,7 @@ function SwapPanelWrapContent({
       price: paymentToken?.price || '',
       currency: paymentToken?.currency,
       isNative: paymentToken?.isNative || false,
+      balanceMultiplier: paymentToken?.balanceMultiplier,
     },
     tradeType: tradeType || ESwapDirection.BUY,
     swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
@@ -549,6 +552,9 @@ function SwapPanelWrapContent({
     checkTokenAllowanceLoading,
     balance,
     balanceToken,
+    fromToken: executionFromToken,
+    toToken: executionToToken,
+    multiplierMetadataReady,
     fetchBalanceLoading,
     priceRate,
     stockQuoteDisplay,
@@ -932,16 +938,33 @@ function SwapPanelWrapContent({
   const swapPanelWithPreference = useMemo(
     () => ({
       ...swapPanel,
+      paymentToken: swapPanel.paymentToken
+        ? {
+            ...swapPanel.paymentToken,
+            balanceMultiplier: (tradeType === ESwapDirection.BUY
+              ? executionFromToken
+              : executionToToken
+            ).balanceMultiplier,
+          }
+        : swapPanel.paymentToken,
       setPaymentToken: handleUserPaymentTokenChange,
     }),
-    [swapPanel, handleUserPaymentTokenChange],
+    [
+      swapPanel,
+      handleUserPaymentTokenChange,
+      tradeType,
+      executionFromToken,
+      executionToToken,
+    ],
   );
 
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
       enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
-      currentMarketToken={currentMarketToken}
+      currentMarketToken={
+        tradeType === ESwapDirection.BUY ? executionToToken : executionFromToken
+      }
       onCloseDialog={onCloseDialog}
       priceRate={executionReady ? priceRate : undefined}
       stockQuoteDisplay={executionReady ? stockQuoteDisplay : undefined}
@@ -994,7 +1017,15 @@ function SwapPanelWrapContent({
       slippageAutoValue={speedConfig?.slippage}
       supportSpeedSwap={{
         ...supportSpeedSwap,
-        actionToken: currentMarketToken,
+        actionToken:
+          tradeType === ESwapDirection.BUY
+            ? executionToToken
+            : executionFromToken,
+        actionOtherToken:
+          tradeType === ESwapDirection.BUY
+            ? executionFromToken
+            : executionToToken,
+        tokenMetadataReady: multiplierMetadataReady,
       }}
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}

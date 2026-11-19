@@ -14,6 +14,10 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 
 import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '../utils/swapAmountUtils';
+import {
   SWAP_PRO_SLIDER_MAX_PERCENT,
   calcSwapProSliderAmount,
   calcSwapProSliderAvailableBalance,
@@ -77,7 +81,7 @@ export function useSwapProAmountSlider({
   // amount atom per trade type.
   const inputTokenKey = `${swapProTradeType}_${getTokenIdentityKey(
     inputToken,
-  )}`;
+  )}_${inputToken?.balanceMultiplier ?? ''}`;
   const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
   useEffect(() => {
     lastDragPercentRef.current = 0;
@@ -95,10 +99,12 @@ export function useSwapProAmountSlider({
       availableBalance.lte(0)
         ? zeroBalanceSliderValue
         : calcSwapProSliderPercent({
-            amount: inputAmount,
+            amount: inputToken
+              ? (getSwapRawInputAmount(inputAmount, inputToken, 'down') ?? '')
+              : '',
             availableBalance,
           }),
-    [availableBalance, inputAmount, zeroBalanceSliderValue],
+    [availableBalance, inputAmount, inputToken, zeroBalanceSliderValue],
   );
   // Latest inputs for the throttled committer, so the throttle instance can
   // stay stable across renders without capturing stale values. The ref is
@@ -109,6 +115,7 @@ export function useSwapProAmountSlider({
   const commitContext = {
     availableBalance,
     decimals: inputToken?.decimals,
+    balanceMultiplier: inputToken?.balanceMultiplier,
     onAmountChange,
     inputTokenKey,
   };
@@ -136,7 +143,11 @@ export function useSwapProAmountSlider({
             decimals: ctx.decimals,
           });
           if (amount !== undefined) {
-            ctx.onAmountChange(amount);
+            const displayAmount = getSwapDisplayAmount(
+              amount,
+              ctx.balanceMultiplier,
+            );
+            if (displayAmount !== undefined) ctx.onAmountChange(displayAmount);
           }
         },
         SLIDER_COMMIT_THROTTLE_MS,

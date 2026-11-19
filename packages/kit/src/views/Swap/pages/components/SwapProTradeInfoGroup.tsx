@@ -24,6 +24,7 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -96,7 +97,12 @@ const SwapProTradeInfoGroup = ({
     if (balanceBN.isZero() || balanceBN.isNaN()) {
       return '0';
     }
-    return balanceBN.toFixed();
+    return (
+      getSwapDisplayAmount(
+        balanceBN.toFixed(),
+        inputToken?.balanceMultiplier,
+      ) ?? '--'
+    );
   }, [inputToken]);
 
   const swapProQuoteResult = swapCurrentQuoteResult;
@@ -109,11 +115,21 @@ const SwapProTradeInfoGroup = ({
       return toAmountBN.toFixed();
     }
     if (swapProQuoteResult?.toAmount) {
-      const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
+      const toAmountBN = new BigNumber(
+        getSwapDisplayAmount(
+          swapProQuoteResult.toAmount,
+          toToken?.balanceMultiplier,
+        ) ?? 'NaN',
+      );
       return toAmountBN.toFixed();
     }
     return '';
-  }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
+  }, [
+    toTokenAmount?.value,
+    swapProQuoteResult?.toAmount,
+    swapProTradeType,
+    toToken?.balanceMultiplier,
+  ]);
 
   const selectorTrigger = useMemo(
     () => (

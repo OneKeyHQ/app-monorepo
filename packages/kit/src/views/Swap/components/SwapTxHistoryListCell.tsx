@@ -12,7 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getSwapHistoryPreviewBadgeKind } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
-import { getSwapHistoryDisplayFromAmount } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapExtraStatus,
@@ -305,7 +308,7 @@ const SwapTxHistoryListCell = ({
               formatter="balance"
               pointerEvents="none"
             >
-              {item.baseInfo.toAmount}
+              {getSwapHistoryDisplayToAmount(item) ?? '--'}
             </NumberSizeableText>{' '}
             <SizableText
               size="$bodyMdMedium"

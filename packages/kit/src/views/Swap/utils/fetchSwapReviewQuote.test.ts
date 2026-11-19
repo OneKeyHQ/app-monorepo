@@ -125,6 +125,39 @@ describe('fetchSwapReviewQuote', () => {
     );
   });
 
+  it('refreshes the locked raw amount and keeps the reviewed token multipliers', async () => {
+    const fromWithMultiplier = { ...fromToken, balanceMultiplier: '1.5' };
+    const toWithMultiplier = { ...toToken, balanceMultiplier: '0.5' };
+    const operation = fetchSwapReviewQuote({
+      params: {
+        ...params,
+        fromToken: fromWithMultiplier,
+        toToken: toWithMultiplier,
+      },
+      expectedQuote: {
+        ...quote,
+        fromTokenInfo: fromWithMultiplier,
+        toTokenInfo: toWithMultiplier,
+      },
+      signal: new AbortController().signal,
+      getErrorMessage: () => 'localized retry message',
+    });
+    expect(mockFetchQuotesEvents.mock.calls[0][0].fromTokenAmount).toBe('10');
+
+    emitMessage(0, {
+      data: [
+        { ...quote, toTokenInfo: { ...toToken, balanceMultiplier: '0.6' } },
+      ],
+    });
+    emitMessage(0, { data: [quote] });
+    await expect(operation).resolves.toMatchObject({
+      fromTokenInfo: fromWithMultiplier,
+      toTokenInfo: toWithMultiplier,
+      fromAmount: '10',
+      toAmount: '9',
+    });
+  });
+
   it('waits for matching automatic slippage and ignores another event id', async () => {
     const operation = fetchSwapReviewQuote({
       params: { ...params, autoSlippage: true },

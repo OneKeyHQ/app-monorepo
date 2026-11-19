@@ -7,6 +7,13 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import { buildSwapTokenFetchParams } from '@onekeyhq/kit/src/views/Swap/hooks/swapTokenFetchParamsUtils';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { getSwapAccountNetworkWarningAccountId } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount.utils';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+  getSwapRawInputAmount,
+  isSwapQuoteMultiplierCompatible,
+  isSwapReviewMultiplierCurrent,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
 import {
   buildSwapBalanceAccountIdentity,
@@ -330,7 +337,13 @@ function getSelectedPairLimitPriceRate({
       token2: toToken,
     });
 
-  return isSelectedPair ? limitPriceUseRate.rate : undefined;
+  return isSelectedPair
+    ? getSwapDisplayRate(
+        limitPriceUseRate.rate,
+        toToken?.balanceMultiplier,
+        fromToken?.balanceMultiplier,
+      )
+    : undefined;
 }
 
 function isQuoteResultSelectedTokenPair({
@@ -405,6 +418,10 @@ type ISwapQuoteActionOverride = {
   type: ESwapTabSwitchType;
   source?: ESwapQuoteSource;
   manualRefresh?: boolean;
+  rawAmounts?: {
+    fromTokenAmount: string;
+    toTokenAmount?: string;
+  };
 };
 
 function isQuoteEventProtocolForCurrentSwapType({
@@ -505,7 +522,9 @@ function isCurrentQuoteEventParams({
     equalTokenNoCaseSensitive({
       token1: tokenPairs.toToken,
       token2: toToken,
-    });
+    }) &&
+    isSwapReviewMultiplierCurrent(tokenPairs.fromToken, fromToken) &&
+    isSwapReviewMultiplierCurrent(tokenPairs.toToken, toToken);
   const quoteKind = params.kind ?? ESwapQuoteKind.SELL;
   const requestAmount =
     quoteKind === ESwapQuoteKind.BUY
@@ -652,9 +671,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const quoteKind = event.params.kind ?? ESwapQuoteKind.SELL;
         const currentInputAmount =
           quoteKind === ESwapQuoteKind.BUY
-            ? (currentQuoteRequest.toTokenAmount ??
+            ? (currentQuoteRequest.rawToTokenAmount ??
+              currentQuoteRequest.toTokenAmount ??
               get(swapToTokenAmountAtom()).value)
-            : (currentQuoteRequest.fromTokenAmount ??
+            : (currentQuoteRequest.rawFromTokenAmount ??
+              currentQuoteRequest.fromTokenAmount ??
               get(swapFromTokenAmountAtom()).value);
         const requestInputAmount =
           quoteKind === ESwapQuoteKind.BUY
@@ -720,8 +741,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           {
             fromToken: event.tokenPairs.fromToken,
             toToken: event.tokenPairs.toToken,
-            fromTokenAmount: event.params.fromTokenAmount ?? '',
-            toTokenAmount: event.params.toTokenAmount,
+            fromTokenAmount: currentQuoteRequest.fromTokenAmount ?? '',
+            toTokenAmount: currentQuoteRequest.toTokenAmount,
+            rawAmounts: {
+              fromTokenAmount: event.params.fromTokenAmount ?? '',
+              toTokenAmount: event.params.toTokenAmount,
+            },
             type: activeSwapType,
             source: event.params.source,
           },
@@ -1058,12 +1083,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
-      // Swap does not support scaled display amounts end-to-end.
-      if (
-        tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
-      ) {
-        return;
-      }
       // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
       // records a new one after its own picks.
       this.endRecentTokenPairAttribution.call(set);
@@ -1120,11 +1139,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
-      if (
-        tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
-      ) {
-        return;
-      }
       this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
@@ -1602,25 +1616,43 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           );
           const price = detail?.price;
           const priceBN = new BigNumber(price ?? '');
+          const hasValidPrice = price && priceBN.isFinite() && priceBN.gt(0);
+          const balanceMultiplier =
+            tokenRebaseUtils.pickBalanceMultiplier(detail);
           if (
-            !price ||
-            !priceBN.isFinite() ||
-            !priceBN.gt(0) ||
+            (!hasValidPrice && balanceMultiplier === undefined) ||
             !isCurrentPriceRequest()
           ) {
             return;
           }
-          // A same-value response still supersedes older balance prices.
-          set(swapSelectTokenPriceRevisionAtom(), (previous) => ({
-            ...previous,
-            [direction]: previous[direction] + 1,
-          }));
-          set(selectedTokenAtom, (previous) =>
-            !previous ||
-            (previous.price === price && previous.currency === USD_CURRENCY_ID)
-              ? previous
-              : { ...previous, price, currency: USD_CURRENCY_ID },
-          );
+          if (hasValidPrice) {
+            // A same-value response still supersedes older balance prices.
+            set(swapSelectTokenPriceRevisionAtom(), (previous) => ({
+              ...previous,
+              [direction]: previous[direction] + 1,
+            }));
+          }
+          set(selectedTokenAtom, (previous) => {
+            if (!previous || !isSwapReviewMultiplierCurrent(token, previous))
+              return previous;
+            const priceChanged =
+              hasValidPrice &&
+              (previous.price !== price ||
+                previous.currency !== USD_CURRENCY_ID);
+            const multiplierChanged =
+              balanceMultiplier !== undefined &&
+              !tokenRebaseUtils.equalBalanceMultipliers(
+                balanceMultiplier,
+                previous.balanceMultiplier,
+              );
+            return priceChanged || multiplierChanged
+              ? {
+                  ...previous,
+                  ...(priceChanged ? { price, currency: USD_CURRENCY_ID } : {}),
+                  ...(multiplierChanged ? { balanceMultiplier } : {}),
+                }
+              : previous;
+          });
         }),
       );
     },
@@ -1636,6 +1668,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromToken:
             quoteActionLock.fromToken ?? get(swapSelectFromTokenAtom()),
           fromTokenAmount:
+            quoteActionLock.rawFromTokenAmount ??
             quoteActionLock.fromTokenAmount ??
             get(swapFromTokenAmountAtom()).value,
           params: event.params,
@@ -1643,7 +1676,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteRequestId: event.quoteRequestId,
           toToken: quoteActionLock.toToken ?? get(swapSelectToTokenAtom()),
           toTokenAmount:
-            quoteActionLock.toTokenAmount ?? get(swapToTokenAmountAtom()).value,
+            quoteActionLock.rawToTokenAmount ??
+            quoteActionLock.toTokenAmount ??
+            get(swapToTokenAmountAtom()).value,
           tokenPairs: event.tokenPairs,
         })
       ) {
@@ -1842,21 +1877,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 const shouldNormalizeQuoteInputAmount = isStockProtocol(
                   event.params.protocol,
                 );
-                const quoteResults = quoteResultData.data.map((quote) => {
-                  if (!shouldNormalizeQuoteInputAmount) return quote;
-                  const withRequestCurrency = (token: ISwapTokenBase) =>
-                    token.price && !token.currency && event.quoteCurrency
-                      ? { ...token, currency: event.quoteCurrency }
-                      : token;
-                  return {
+                const { fromToken, toToken } = event.tokenPairs;
+                const withRequestMetadata = (
+                  token: ISwapTokenBase,
+                  requestedToken: ISwapToken,
+                ) => ({
+                  ...token,
+                  balanceMultiplier: requestedToken.balanceMultiplier,
+                  ...(shouldNormalizeQuoteInputAmount &&
+                  token.price &&
+                  !token.currency &&
+                  event.quoteCurrency
+                    ? { currency: event.quoteCurrency }
+                    : {}),
+                });
+                const quoteResults = quoteResultData.data
+                  .filter(
+                    (quote) =>
+                      isSwapQuoteMultiplierCompatible(
+                        quote.fromTokenInfo.balanceMultiplier,
+                        fromToken.balanceMultiplier,
+                      ) &&
+                      isSwapQuoteMultiplierCompatible(
+                        quote.toTokenInfo.balanceMultiplier,
+                        toToken.balanceMultiplier,
+                      ),
+                  )
+                  .map((quote) => ({
                     ...quote,
-                    ...(!quote.fromAmount && event.params.fromTokenAmount
+                    ...(shouldNormalizeQuoteInputAmount &&
+                    !quote.fromAmount &&
+                    event.params.fromTokenAmount
                       ? { fromAmount: event.params.fromTokenAmount }
                       : {}),
-                    fromTokenInfo: withRequestCurrency(quote.fromTokenInfo),
-                    toTokenInfo: withRequestCurrency(quote.toTokenInfo),
-                  };
-                });
+                    fromTokenInfo: withRequestMetadata(
+                      quote.fromTokenInfo,
+                      fromToken,
+                    ),
+                    toTokenInfo: withRequestMetadata(
+                      quote.toTokenInfo,
+                      toToken,
+                    ),
+                  }));
                 const quoteResultsUpdateSlippage = quoteResults.map((quote) => {
                   if (
                     `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
@@ -1885,17 +1947,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   if (newUpdateQuoteRes) {
                     return newUpdateQuoteRes;
                   }
-                  // OK-49700: 如果旧报价的 fromAmount 与当前询价的 fromTokenAmount 相同，
-                  // 则更新旧报价的 eventId 为当前的 eventId，这样它就不会被 eventId 过滤掉，
-                  // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
+                  // OK-49700: Preserve unrefreshed providers for the same quote input.
+                  const kind = event.params.kind ?? ESwapQuoteKind.SELL;
+                  const isBuy = kind === ESwapQuoteKind.BUY;
+                  const currentAmount = isBuy
+                    ? oldQuoteRes.toAmount
+                    : oldQuoteRes.fromAmount;
+                  const requestAmount = isBuy
+                    ? event.params.toTokenAmount
+                    : event.params.fromTokenAmount;
                   if (
+                    (oldQuoteRes.kind ?? ESwapQuoteKind.SELL) === kind &&
                     (isStockProtocol(event.params.protocol)
                       ? isSameSwapQuoteAmountValue({
-                          currentAmount: oldQuoteRes.fromAmount,
-                          requestAmount: event.params.fromTokenAmount,
+                          currentAmount,
+                          requestAmount,
                         })
-                      : oldQuoteRes.fromAmount ===
-                        event.params.fromTokenAmount) &&
+                      : currentAmount === requestAmount) &&
+                    isSwapReviewMultiplierCurrent(
+                      oldQuoteRes.fromTokenInfo,
+                      fromToken,
+                    ) &&
+                    isSwapReviewMultiplierCurrent(
+                      oldQuoteRes.toTokenInfo,
+                      toToken,
+                    ) &&
                     activeQuoteEventTotalCount.eventId
                   ) {
                     return {
@@ -2346,7 +2422,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let fromToken =
         quoteOverride?.fromToken ?? get(swapSelectFromTokenAtom());
       let toToken = quoteOverride?.toToken ?? get(swapSelectToTokenAtom());
-      const fromTokenAmount = quoteOverride
+      const fromTokenAmount: ISwapTokenAmountState = quoteOverride
         ? { value: quoteOverride.fromTokenAmount, isInput: true }
         : get(swapFromTokenAmountAtom());
       const swapTabSwitchType =
@@ -2441,6 +2517,49 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
 
+      const maxSnapshot = !quoteOverride
+        ? fromTokenAmount.maxAmountSnapshot
+        : undefined;
+      const rawMaxAmount =
+        maxSnapshot &&
+        maxSnapshot.displayAmount === fromTokenAmount.value &&
+        maxSnapshot.accountAddress === address &&
+        tokenRebaseUtils.equalBalanceMultipliers(
+          maxSnapshot.balanceMultiplier,
+          fromToken.balanceMultiplier,
+        ) &&
+        equalTokenNoCaseSensitive({
+          token1: maxSnapshot,
+          token2: fromToken,
+        })
+          ? maxSnapshot.rawAmount
+          : undefined;
+      const rawFromTokenAmount =
+        quoteOverride?.rawAmounts?.fromTokenAmount ??
+        rawMaxAmount ??
+        (swapTabSwitchType === ESwapTabSwitchType.PRIVATE_SEND
+          ? fromTokenAmount.value
+          : getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down'));
+      const rawToTokenAmount =
+        quoteOverride?.rawAmounts?.toTokenAmount ??
+        (swapTabSwitchType === ESwapTabSwitchType.PRIVATE_SEND
+          ? toTokenAmount.value
+          : getSwapRawInputAmount(toTokenAmount.value, toToken, 'up'));
+      const rawInputAmount =
+        quoteKind === ESwapQuoteKind.BUY
+          ? rawToTokenAmount
+          : rawFromTokenAmount;
+      const rawInputAmountBN = new BigNumber(rawInputAmount ?? '');
+      if (
+        rawFromTokenAmount === undefined ||
+        rawToTokenAmount === undefined ||
+        !rawInputAmountBN.isFinite() ||
+        !rawInputAmountBN.gt(0)
+      ) {
+        void this.resetQuoteAction.call(set);
+        return;
+      }
+
       // check limit zero
       const quoteRequestId = generateUUID();
       set(swapQuoteActionLockAtom(), (v) => ({
@@ -2452,6 +2571,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken,
         fromTokenAmount: fromTokenAmount.value,
         toTokenAmount: toTokenAmount.value,
+        rawFromTokenAmount,
+        rawToTokenAmount,
         kind: quoteKind,
         accountId,
         address,
@@ -2471,8 +2592,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId,
         blockNumber,
         quoteKind,
-        fromTokenAmount.value,
-        toTokenAmount.value,
+        rawFromTokenAmount,
+        rawToTokenAmount,
         receivingAddress,
         incognito,
         quoteRequestId,
@@ -2735,6 +2856,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         quoteEventError,
       });
       const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const rawFromTokenInput = fromToken
+        ? getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down')
+        : undefined;
       let alertsRes: ISwapAlertState[] = [];
       const isCurrentQuoteResult = isQuoteResultSelectedTokenPair({
         quoteResult,
@@ -2743,7 +2867,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       });
       const isCurrentQuoteEventError = isQuoteEventErrorSelectedTokenPair({
         quoteEventError,
-        fromTokenAmount: fromTokenAmount.value,
+        fromTokenAmount: rawFromTokenInput,
         fromToken,
         toToken,
       });
@@ -2781,14 +2905,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toToken: latestToToken,
           }) &&
             isSameSwapQuoteAmountValue({
-              currentAmount: latestFromTokenAmount.value,
+              currentAmount: latestFromToken
+                ? getSwapRawInputAmount(
+                    latestFromTokenAmount.value,
+                    latestFromToken,
+                    'down',
+                  )
+                : undefined,
               requestAmount: quoteResult.fromAmount,
             }));
         const isLatestStockQuoteEventError =
           !quoteEventError ||
           isQuoteEventErrorSelectedTokenPair({
             quoteEventError,
-            fromTokenAmount: latestFromTokenAmount.value,
+            fromTokenAmount: latestFromToken
+              ? getSwapRawInputAmount(
+                  latestFromTokenAmount.value,
+                  latestFromToken,
+                  'down',
+                )
+              : undefined,
             fromToken: latestFromToken,
             toToken: latestToToken,
           });
@@ -3049,7 +3185,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (limitPriceUseRate?.rate &&
             quoteResult?.protocol === EProtocolOfExchange.LIMIT))
       ) {
-        let instantRate = quoteResult?.instantRate;
+        let instantRate = quoteResult?.instantRate
+          ? getSwapDisplayRate(
+              quoteResult.instantRate,
+              fromToken.balanceMultiplier,
+              toToken.balanceMultiplier,
+            )
+          : undefined;
         if (
           quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
           limitPriceUseRate.rate
@@ -3074,7 +3216,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       }
 
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
+      const fromTokenAmountBN = new BigNumber(rawFromTokenInput ?? 'NaN');
       const shouldUseStockLimitAlert =
         swapTypeSwitch === ESwapTabSwitchType.STOCK ||
         quoteResult?.protocol === EProtocolOfExchange.STOCK;
@@ -3102,7 +3244,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   id: ETranslations.swap_page_alert_minimum_amount,
                 },
                 {
-                  number: minAmountBN.toFixed(),
+                  number:
+                    getSwapDisplayAmount(
+                      minAmountBN.toFixed(),
+                      fromToken?.balanceMultiplier,
+                    ) ?? '--',
                   symbol: fromToken?.symbol ?? 'unknown',
                 },
               ),
@@ -3129,7 +3275,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   id: ETranslations.swap_page_alert_maximum_amount,
                 },
                 {
-                  number: maxAmountBN.toFixed(),
+                  number:
+                    getSwapDisplayAmount(
+                      maxAmountBN.toFixed(),
+                      fromToken?.balanceMultiplier,
+                    ) ?? '--',
                   symbol: fromToken?.symbol ?? 'unknown',
                 },
               ),
@@ -3412,6 +3562,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            token.balanceMultiplier,
+          ) &&
           !shouldFetchBalance
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
@@ -3459,6 +3612,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 contractAddress,
                 direction: type,
                 currency: USD_CURRENCY_ID,
+                ...(token.balanceMultiplier
+                  ? { balanceMultiplier: token.balanceMultiplier }
+                  : {}),
               });
             if (!isCurrentRequest()) {
               return;
@@ -3476,6 +3632,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 price?: string;
                 fiatValue?: string;
                 balanceParsed?: string;
+                balanceMultiplier?: string;
                 reservationValue?: string;
                 logoURI?: string;
                 currency?: string;
@@ -3503,6 +3660,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
               if (detailInfo[0].balanceParsed) {
                 condition.balanceParsed = detailInfo[0].balanceParsed;
+              }
+              const balanceMultiplier = tokenRebaseUtils.pickBalanceMultiplier(
+                detailInfo[0],
+              );
+              if (balanceMultiplier !== undefined) {
+                condition.balanceMultiplier = balanceMultiplier;
               }
               if (detailInfo[0].reservationValue) {
                 condition.reservationValue = detailInfo[0].reservationValue;

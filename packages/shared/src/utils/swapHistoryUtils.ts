@@ -11,7 +11,6 @@ import {
   EProtocolOfExchange,
   ESwapCrossChainStatus,
   ESwapExtraStatus,
-  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -61,10 +60,21 @@ export function getSwapHistoryDisplayFromAmount(
 ) {
   return tokenRebaseUtils.applyBalanceMultiplier({
     amount,
-    balanceMultiplier:
-      item.quoteSource === ESwapQuoteSource.SWEEP
-        ? item.baseInfo.fromToken.balanceMultiplier
-        : undefined,
+    balanceMultiplier: isPrivateSendSwapHistoryItem(item)
+      ? undefined
+      : item.baseInfo.fromToken.balanceMultiplier,
+  });
+}
+
+export function getSwapHistoryDisplayToAmount(
+  item: ISwapTxHistory,
+  amount = item.baseInfo.toAmount,
+) {
+  return tokenRebaseUtils.applyBalanceMultiplier({
+    amount,
+    balanceMultiplier: isPrivateSendSwapHistoryItem(item)
+      ? undefined
+      : item.baseInfo.toToken.balanceMultiplier,
   });
 }
 

@@ -18,7 +18,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -53,6 +53,7 @@ import {
 import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryTerminalStatus,
@@ -67,6 +68,7 @@ import {
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -1182,6 +1184,7 @@ export default class ServiceSwap extends ServiceBase {
     currency,
     protocol = EProtocolOfExchange.SWAP,
     throwOnError = false,
+    balanceMultiplier,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -1191,6 +1194,7 @@ export default class ServiceSwap extends ServiceBase {
     currency?: string;
     protocol?: EProtocolOfExchange;
     throwOnError?: boolean;
+    balanceMultiplier?: string;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -1263,7 +1267,70 @@ export default class ServiceSwap extends ServiceBase {
           },
         },
       );
-      return data?.data;
+      const tokens = data?.data;
+      if (
+        protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        !requestAccountId ||
+        !requestAccountAddress ||
+        !contractAddress ||
+        !tokens?.length
+      ) {
+        return tokens;
+      }
+      const identity = { networkId, contractAddress };
+      const token = tokens.find((item) =>
+        equalTokenNoCaseSensitive({ token1: item, token2: identity }),
+      );
+      if (
+        !token ||
+        ![token.balanceMultiplier, balanceMultiplier].some(
+          tokenRebaseUtils.isScalingBalanceMultiplier,
+        )
+      ) {
+        return tokens;
+      }
+      // Older Swap deployments may already scale balanceParsed. Wallet is the
+      // authoritative source of raw units for this identified token/account.
+      const walletTokens =
+        await this.backgroundApi.serviceToken.fetchTokensDetails({
+          accountId: requestAccountId,
+          networkId,
+          contractList: [contractAddress],
+          expectedAccountAddress: requestAccountAddress,
+          withFrozenBalance: true,
+          withCheckInscription: params.withCheckInscription,
+        });
+      const walletToken = walletTokens.find(({ info }) =>
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: info?.networkId ?? networkId,
+            contractAddress: info?.address,
+          },
+          token2: identity,
+        }),
+      );
+      const balance = new BigNumber(walletToken?.balanceParsed ?? '');
+      if (
+        !walletToken ||
+        walletToken.info.decimals !== token.decimals ||
+        !balance.isFinite() ||
+        balance.isNegative()
+      ) {
+        throw new OneKeyLocalError('Scaled token balance is unavailable');
+      }
+      return tokens.map((item) =>
+        item === token
+          ? {
+              ...item,
+              balanceParsed: balance.toFixed(),
+              balanceMultiplier:
+                tokenRebaseUtils.pickBalanceMultiplier(walletToken) ??
+                [item.balanceMultiplier, balanceMultiplier].find(
+                  tokenRebaseUtils.isValidBalanceMultiplier,
+                ),
+            }
+          : item,
+      );
     } catch (e) {
       if (throwOnError) throw e;
       console.error(e);
@@ -2937,9 +3004,9 @@ export default class ServiceSwap extends ServiceBase {
           title: appLocale.intl.formatMessage({
             id: toastTitleId,
           }),
-          message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem), formatter)} ${
+          message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem, fromAmountFinal), formatter)} ${
             enrichedItem.baseInfo.fromToken.symbol
-          } → ${numberFormat(enrichedItem.baseInfo.toAmount, formatter)} ${
+          } → ${numberFormat(getSwapHistoryDisplayToAmount(enrichedItem), formatter)} ${
             enrichedItem.baseInfo.toToken.symbol
           }`,
         });

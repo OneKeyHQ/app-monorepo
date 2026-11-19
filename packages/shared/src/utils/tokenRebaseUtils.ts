@@ -50,6 +50,12 @@ function parseBalanceMultiplier(
   return bn;
 }
 
+function equalBalanceMultipliers(left?: string, right?: string): boolean {
+  const a = parseBalanceMultiplier(left ?? '1');
+  const b = parseBalanceMultiplier(right ?? '1');
+  return a !== undefined && b !== undefined && a.eq(b);
+}
+
 function isValidBalanceMultiplier(
   balanceMultiplier: string | undefined,
 ): balanceMultiplier is string {
@@ -342,6 +348,7 @@ function normalizeAccountTokensRespBalanceMultiplier(
 }
 
 export default {
+  equalBalanceMultipliers,
   isValidBalanceMultiplier,
   isScalingBalanceMultiplier,
   applyBalanceMultiplier,

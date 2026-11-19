@@ -51,7 +51,6 @@ import {
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
   useSwapProDirectionAtom,
@@ -70,6 +69,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+  getSwapRawInputAmount,
+  isSwapReviewMultiplierCurrent,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -126,7 +131,6 @@ import {
   ESwapSlippageSegmentKey,
   ESwapSource,
   ESwapTabSwitchType,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapBuildShouldFallBackNetworkIds,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
@@ -406,8 +410,6 @@ const SwapMainLoad = ({
     swapToAmount,
     toSelectTokenAtom,
   ]);
-  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
   const { selectSwapProToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -750,6 +752,15 @@ const SwapMainLoad = ({
     quoteResultRef.current = swapStepData.quoteResult;
   }
 
+  const selectedReviewTokensRef = useRef({
+    from: fromSelectToken,
+    to: toSelectToken,
+  });
+  selectedReviewTokensRef.current = {
+    from: fromSelectToken,
+    to: toSelectToken,
+  };
+
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
   if (preSwapDataRef.current !== swapStepData.preSwapData) {
     preSwapDataRef.current = swapStepData.preSwapData;
@@ -758,8 +769,16 @@ const SwapMainLoad = ({
     accountId: swapFromAddressInfo.accountInfo?.account?.id,
     fromAddress: swapFromAddressInfo.address,
     toAddress: toAddressInfo.address,
-    fromToken: [fromSelectToken?.networkId, fromSelectToken?.contractAddress],
-    toToken: [toSelectToken?.networkId, toSelectToken?.contractAddress],
+    fromToken: [
+      fromSelectToken?.networkId,
+      fromSelectToken?.contractAddress,
+      fromSelectToken?.balanceMultiplier,
+    ],
+    toToken: [
+      toSelectToken?.networkId,
+      toSelectToken?.contractAddress,
+      toSelectToken?.balanceMultiplier,
+    ],
     fromAmount: fromTokenAmount.value,
     toAmount: swapToAmount.value,
   };
@@ -952,8 +971,12 @@ const SwapMainLoad = ({
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;
     }
-    const maxAmountValue = maxAmount.toFixed();
-    if (!validateAmountInput(maxAmountValue, fromSelectToken?.decimals)) {
+    const maxRawAmount = maxAmount.toFixed();
+    const maxAmountValue = getSwapDisplayAmount(
+      maxRawAmount,
+      fromSelectToken?.balanceMultiplier,
+    );
+    if (!maxAmountValue || !fromSelectToken) {
       return;
     }
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
@@ -962,12 +985,25 @@ const SwapMainLoad = ({
       setFromInputAmount({
         value: maxAmountValue,
         isInput: true,
+        ...(swapFromAddressInfo.address
+          ? {
+              maxAmountSnapshot: {
+                rawAmount: maxRawAmount,
+                displayAmount: maxAmountValue,
+                networkId: fromSelectToken.networkId,
+                contractAddress: fromSelectToken.contractAddress,
+                accountAddress: swapFromAddressInfo.address,
+                balanceMultiplier: fromSelectToken.balanceMultiplier,
+              },
+            }
+          : {}),
       });
     }
   }, [
     checkNativeTokenGasToast,
     focusSwapPro,
-    fromSelectToken?.decimals,
+    fromSelectToken,
+    swapFromAddressInfo.address,
     setFromInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
@@ -994,11 +1030,16 @@ const SwapMainLoad = ({
           fromSelectToken?.decimals,
         )
       ) {
+        const displayAmount = getSwapDisplayAmount(
+          amountAfterDecimal.toFixed(),
+          fromSelectToken?.balanceMultiplier,
+        );
+        if (!displayAmount) return;
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-          setSwapProInputAmount(amountAfterDecimal.toFixed());
+          setSwapProInputAmount(displayAmount);
         } else {
           setFromInputAmount({
-            value: amountAfterDecimal.toFixed(),
+            value: displayAmount,
             isInput: true,
           });
         }
@@ -1007,6 +1048,7 @@ const SwapMainLoad = ({
     [
       safeFromTokenBalanceAmount,
       fromSelectToken?.decimals,
+      fromSelectToken?.balanceMultiplier,
       focusSwapPro,
       swapProTradeType,
       onBalanceMaxPress,
@@ -1098,6 +1140,22 @@ const SwapMainLoad = ({
         swapToAmount: swapToAmount.value,
         quoteToAmount: currentQuoteRes.toAmount,
       });
+      const limitFromAmount =
+        fromSelectToken && reviewTokenAmounts.fromTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.fromTokenAmount,
+              fromSelectToken,
+              'down',
+            )
+          : undefined;
+      const limitToAmount =
+        toSelectToken && reviewTokenAmounts.toTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.toTokenAmount,
+              toSelectToken,
+              'up',
+            )
+          : undefined;
 
       const reviewRateDifference = isSwapProMarket
         ? buildSwapRateDifference({
@@ -1107,7 +1165,11 @@ const SwapMainLoad = ({
             toTokenCurrency: toSelectToken?.currency,
             defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
             currencyMap,
-            instantRate: currentQuoteRes.instantRate,
+            instantRate: getSwapDisplayRate(
+              currentQuoteRes.instantRate ?? '',
+              fromSelectToken?.balanceMultiplier,
+              toSelectToken?.balanceMultiplier,
+            ),
           })
         : rateDifference;
       const shouldFallback =
@@ -1125,8 +1187,19 @@ const SwapMainLoad = ({
         toToken: toSelectToken,
         stockReviewToken,
         reviewTokens,
-        fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
-        toTokenAmount: reviewTokenAmounts.toTokenAmount,
+        fromTokenAmount:
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT
+            ? limitFromAmount
+            : undefined) ??
+          currentQuoteRes.fromAmount ??
+          limitFromAmount,
+        toTokenAmount:
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+          !isSwapProMarket
+            ? limitToAmount
+            : undefined) ??
+          currentQuoteRes.toAmount ??
+          limitToAmount,
         quoteResult: currentQuoteRes,
         swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
         shouldFallback,
@@ -1170,6 +1243,21 @@ const SwapMainLoad = ({
   );
   const onActionHandler = useCallback(
     (isQuoteValid?: ISwapReviewQuoteValidity) => {
+      const data = preSwapDataRef.current;
+      const selected = selectedReviewTokensRef.current;
+      if (
+        data &&
+        (!isSwapReviewMultiplierCurrent(data.fromToken, selected.from) ||
+          !isSwapReviewMultiplierCurrent(data.toToken, selected.to))
+      ) {
+        dialogClose('reviewChanged');
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          }),
+        });
+        return;
+      }
       if (
         (!isQuoteValid || isQuoteValid()) &&
         swapStepsRef.current.length > 0 &&
@@ -1185,7 +1273,12 @@ const SwapMainLoad = ({
         });
       }
     },
-    [markCurrentGasAccountReviewSubmitted, preSwapStepsStart],
+    [
+      dialogClose,
+      intl,
+      markCurrentGasAccountReviewSubmitted,
+      preSwapStepsStart,
+    ],
   );
 
   const onActionHandlerBefore = useCallback(
@@ -1206,33 +1299,19 @@ const SwapMainLoad = ({
           reviewQuote.protocol === EProtocolOfExchange.LIMIT &&
           netCost.gt(0)
         ) {
-          let toRealAmount = new BigNumber(0);
-          const fromAmountBN = new BigNumber(fromTokenAmount.value);
-          const toAmountBN = new BigNumber(swapToAmount.value);
-          if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
-            toRealAmount = new BigNumber(swapToAmount.value);
-          } else if (
-            !fromAmountBN.isNaN() &&
-            !fromAmountBN.isZero() &&
-            swapLimitUseRate.rate
-          ) {
-            const cToAmountBN = new BigNumber(fromAmountBN).multipliedBy(
-              new BigNumber(swapLimitUseRate.rate),
-            );
-            toRealAmount = cToAmountBN.decimalPlaces(
-              Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-              BigNumber.ROUND_HALF_UP,
-            );
-          }
-          const calculateNetworkCostExceedPercent =
-            netCost.dividedBy(toRealAmount);
-          if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
+          const rawToAmount = new BigNumber(
+            preSwapDataRef.current?.toTokenAmount ?? '',
+          );
+          const calculateNetworkCostExceedPercent = rawToAmount.gt(0)
+            ? netCost.dividedBy(rawToAmount)
+            : undefined;
+          if (calculateNetworkCostExceedPercent?.lte(0.1)) {
             onActionHandler(isQuoteValid);
             return;
           }
-          percentage = calculateNetworkCostExceedPercent
-            .multipliedBy(100)
-            .toFixed(2);
+          percentage =
+            calculateNetworkCostExceedPercent?.multipliedBy(100).toFixed(2) ??
+            percentage;
         }
         const reviewGeneration = reviewGenerationRef.current;
         let confirmed = false;
@@ -1277,14 +1356,7 @@ const SwapMainLoad = ({
         onActionHandler(isQuoteValid);
       }
     },
-    [
-      intl,
-      onActionHandler,
-      swapLimitUseRate.rate,
-      fromTokenAmount.value,
-      swapToAmount.value,
-      toToken?.decimals,
-    ],
+    [intl, onActionHandler],
   );
 
   const handleConfirm = useCallback(
@@ -1349,7 +1421,17 @@ const SwapMainLoad = ({
       if (isSwapProMarketPresetLoading) {
         return;
       }
-      if (!currentQuoteRes) {
+      if (
+        !currentQuoteRes ||
+        !isSwapReviewMultiplierCurrent(
+          currentQuoteRes.fromTokenInfo,
+          fromSelectToken,
+        ) ||
+        !isSwapReviewMultiplierCurrent(
+          currentQuoteRes.toTokenInfo,
+          toSelectToken,
+        )
+      ) {
         return;
       }
       if (!focusSwapPro) {
@@ -1389,6 +1471,14 @@ const SwapMainLoad = ({
             token1: quoteActionLock.toToken,
             token2: reviewToToken,
           }) ||
+          !isSwapReviewMultiplierCurrent(
+            quoteActionLock.fromToken,
+            fromToken,
+          ) ||
+          !isSwapReviewMultiplierCurrent(
+            quoteActionLock.toToken,
+            reviewToToken,
+          ) ||
           quoteActionLock.accountId !== initialReviewIdentity.accountId ||
           quoteActionLock.address !== initialReviewIdentity.fromAddress ||
           quoteActionLock.receivingAddress !== initialReviewIdentity.toAddress
@@ -1418,8 +1508,8 @@ const SwapMainLoad = ({
               source: quoteActionLock.source,
               fromToken,
               toToken: reviewToToken,
-              fromTokenAmount: quoteActionLock.fromTokenAmount,
-              toTokenAmount: quoteActionLock.toTokenAmount,
+              fromTokenAmount: quoteActionLock.rawFromTokenAmount,
+              toTokenAmount: quoteActionLock.rawToTokenAmount,
               userAddress: quoteActionLock.address,
               receivingAddress: quoteActionLock.receivingAddress,
               accountId: quoteActionLock.accountId,
@@ -1606,6 +1696,8 @@ const SwapMainLoad = ({
       swapProAccount?.result?.addressDetail.address,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
+      fromSelectToken,
+      toSelectToken,
       beginGasAccountReviewSession,
       parseQuoteResultToSteps,
       setSwapBuildTxFetching,

@@ -27,6 +27,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   checkWrappedTokenPair,
@@ -122,7 +126,12 @@ const SwapProActionButton = ({
   }, [swapProTradeType, swapProInputAmount, swapFromInputAmount.value]);
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapQuoteResult?.toAmount || '0';
+      return swapQuoteResult?.toAmount
+        ? (getSwapDisplayAmount(
+            swapQuoteResult.toAmount,
+            toToken?.balanceMultiplier,
+          ) ?? '0')
+        : '0';
     }
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       // Single source with the Est. Receive row (synced from the computed
@@ -138,10 +147,16 @@ const SwapProActionButton = ({
         }
       }
     }
-    return swapQuoteResult?.toAmount || '0';
+    return swapQuoteResult?.toAmount
+      ? (getSwapDisplayAmount(
+          swapQuoteResult.toAmount,
+          toToken?.balanceMultiplier,
+        ) ?? '0')
+      : '0';
   }, [
     swapProTradeType,
     swapQuoteResult?.toAmount,
+    toToken?.balanceMultiplier,
     toTokenAmount.value,
     limitPriceUseRate?.rate,
     swapFromInputAmount.value,
@@ -451,8 +466,12 @@ const SwapProActionButton = ({
   // locked button.
   const isQuoteAmountMatched = isSwapQuoteInputAmountMatched({
     quote: currentQuoteRes,
-    fromAmount: inputAmount,
-    toAmount: toTokenAmount.value,
+    fromAmount: inputToken
+      ? (getSwapRawInputAmount(inputAmount, inputToken, 'down') ?? '')
+      : inputAmount,
+    toAmount: toToken
+      ? (getSwapRawInputAmount(toTokenAmount.value, toToken, 'up') ?? '')
+      : toTokenAmount.value,
   });
   // Zero/invalid amounts never produce a quote, and an ordinary pair without
   // speed-swap support is a jump-to-Swap CTA — neither may spin forever.

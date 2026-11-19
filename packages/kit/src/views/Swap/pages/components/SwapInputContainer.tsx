@@ -51,6 +51,10 @@ import {
 } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
+import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '../../utils/swapAmountUtils';
 import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
   resolveSwapBalanceDisplayAccountKey,
@@ -208,7 +212,7 @@ const SwapInputContainer = ({
         cache: balanceDisplayCache,
         token: balanceDisplayToken,
       })?.balance ?? coldStartBalanceDisplayEntry?.balance;
-    return resolveSwapInputDisplayBalance({
+    const rawBalance = resolveSwapInputDisplayBalance({
       accountAddress: address,
       cachedBalance,
       selectedBalance: balance,
@@ -216,6 +220,12 @@ const SwapInputContainer = ({
       tokenBalance: token?.balanceParsed,
       tokenNetworkId: token?.networkId,
     });
+    return rawBalance
+      ? (getSwapDisplayAmount(
+          rawBalance,
+          balanceDisplayToken?.balanceMultiplier,
+        ) ?? '')
+      : rawBalance;
   }, [
     address,
     balance,
@@ -245,7 +255,12 @@ const SwapInputContainer = ({
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
     const balanceBN = new BigNumber(fromTokenBalance ?? 0);
-    const amountValueBN = new BigNumber(fromTokenAmount.value ?? 0);
+    const amountValueBN = new BigNumber(
+      fromToken
+        ? (getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down') ??
+            'NaN')
+        : '0',
+    );
     const hasBalanceError =
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&

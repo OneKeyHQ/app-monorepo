@@ -1272,6 +1272,179 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('quotes the raw amount while keeping the user-entered amount in the request scope', async () => {
+    const scaledToken = { ...ethToken, balanceMultiplier: '2' };
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      currentStore.set(swapSelectFromTokenAtom(), scaledToken);
+      currentStore.set(swapSelectToTokenAtom(), bnbToken);
+      currentStore.set(swapFromTokenAmountAtom(), {
+        value: '3',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '1.5' }),
+    );
+    expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+      fromTokenAmount: '3',
+      rawFromTokenAmount: '1.5',
+    });
+  });
+
+  it('converts exact-output input using the receiving token multiplier', async () => {
+    const receive = { ...bnbToken, balanceMultiplier: '3', decimals: 2 };
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.BUY,
+        undefined,
+        undefined,
+        undefined,
+        {
+          fromToken: ethToken,
+          toToken: receive,
+          fromTokenAmount: '',
+          toTokenAmount: '1',
+          type: ESwapTabSwitchType.LIMIT,
+        },
+      );
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ toTokenAmount: '0.34' }),
+    );
+    expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+      toTokenAmount: '1',
+      rawToTokenAmount: '0.34',
+    });
+  });
+
+  it('quotes the exact raw balance when Max was selected for the same account and token', async () => {
+    const scaledToken = {
+      ...ethToken,
+      balanceMultiplier: '1.0005117992960542',
+      decimals: 8,
+    };
+    const displayAmount = '0.027537976707526673234838';
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      currentStore.set(swapSelectFromTokenAtom(), scaledToken);
+      currentStore.set(swapSelectToTokenAtom(), bnbToken);
+      currentStore.set(swapFromTokenAmountAtom(), {
+        value: displayAmount,
+        isInput: true,
+        maxAmountSnapshot: {
+          rawAmount: '0.02752389',
+          displayAmount,
+          networkId: scaledToken.networkId,
+          contractAddress: scaledToken.contractAddress,
+          accountAddress: '0xabc',
+          balanceMultiplier: scaledToken.balanceMultiplier,
+        },
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    expect(store.get(swapQuoteActionLockAtom()).rawFromTokenAmount).toBe(
+      '0.02752389',
+    );
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '0.02752389' }),
+    );
+  });
+
+  it('reuses the raw amount without dividing it again on automatic refresh', async () => {
+    jest.useFakeTimers();
+    try {
+      const scaledToken = { ...ethToken, balanceMultiplier: '2' };
+      const { store, Wrapper } = createWrapperWithStore((s) => {
+        s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        s.set(swapSelectFromTokenAtom(), scaledToken);
+        s.set(swapSelectToTokenAtom(), bnbToken);
+        s.set(swapFromTokenAmountAtom(), { value: '4', isInput: true });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          '0xabc',
+          evmAccount.id,
+          undefined,
+          undefined,
+          ESwapQuoteKind.SELL,
+        );
+      });
+      const requestId =
+        store.get(swapQuoteActionLockAtom()).quoteRequestId ?? '';
+      act(() =>
+        result.current.quoteEventHandler({
+          type: 'done',
+          event: {} as ISwapQuoteEvent,
+          accountId: evmAccount.id,
+          quoteRequestId: requestId,
+          tokenPairs: { fromToken: scaledToken, toToken: bnbToken },
+          params: {
+            fromNetworkId: scaledToken.networkId,
+            fromTokenAddress: scaledToken.contractAddress,
+            toNetworkId: bnbToken.networkId,
+            toTokenAddress: bnbToken.contractAddress,
+            fromTokenAmount: '2',
+            userAddress: '0xabc',
+            protocol: EProtocolOfExchange.SWAP,
+            slippagePercentage: 0.5,
+          },
+        }),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+      });
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromTokenAmount: '2' }),
+      );
+      expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+        fromTokenAmount: '4',
+        rawFromTokenAmount: '2',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {
     jest.mocked(settingsAtom.get).mockResolvedValueOnce({
       swapEnableRecipientAddress: false,
@@ -4559,6 +4732,33 @@ describe('useSwapActions', () => {
       expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
     },
   );
+
+  it('preserves the raw detail balance and updates the token multiplier', async () => {
+    const scaledToken: ISwapToken = {
+      ...ethToken,
+      balanceMultiplier: '1.5',
+    };
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([
+      { balanceParsed: '15', balanceMultiplier: '1.7' },
+    ]);
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapSelectFromTokenAtom(), scaledToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('15');
+    expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe('1.7');
+  });
 
   it('keeps loading and balance owned by the latest account when responses arrive out of order', async () => {
     const oldDetail = createDeferred<{ balanceParsed: string }[]>();
@@ -10779,6 +10979,26 @@ describe('Recent trades attribution', () => {
     });
     return { store, actions: result.current };
   }
+
+  it.each(['from', 'to'] as const)(
+    'allows selecting a token with a balance multiplier as %s',
+    async (side) => {
+      const { store, actions } = renderActions();
+      const token = { ...usdcToken, balanceMultiplier: '1.5' };
+
+      await act(async () => {
+        await (side === 'from'
+          ? actions.selectFromToken(token)
+          : actions.selectToToken(token));
+      });
+
+      expect(
+        store.get(
+          side === 'from' ? swapSelectFromTokenAtom() : swapSelectToTokenAtom(),
+        ),
+      ).toEqual(token);
+    },
+  );
 
   it('records the picked pair after applying it', async () => {
     const { store, actions } = renderActions();

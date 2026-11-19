@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
@@ -375,6 +376,14 @@ export const {
 export type ISwapTokenAmountState = {
   value: string;
   isInput: boolean;
+  maxAmountSnapshot?: {
+    rawAmount: string;
+    displayAmount: string;
+    networkId: string;
+    contractAddress: string;
+    accountAddress: string;
+    balanceMultiplier?: string;
+  };
 };
 
 export type ISwapInputAmountDraft = {
@@ -450,6 +459,8 @@ export const {
   toToken?: ISwapToken;
   fromTokenAmount?: string;
   toTokenAmount?: string;
+  rawFromTokenAmount?: string;
+  rawToTokenAmount?: string;
   accountId?: string;
   kind?: ESwapQuoteKind;
   address?: string;
@@ -523,7 +534,10 @@ export const {
   const sortType = get(swapProviderSortAtom());
   return sortSwapQuotes(list, {
     sort: sortType,
-    fromTokenAmount: quoteActionLock.fromTokenAmount ?? fromTokenAmount.value,
+    fromTokenAmount:
+      quoteActionLock.rawFromTokenAmount ??
+      quoteActionLock.fromTokenAmount ??
+      fromTokenAmount.value,
   });
 });
 
@@ -537,9 +551,13 @@ export const {
   const swapTypeSwitch = get(swapTypeSwitchAtom());
   const quoteActionLock = get(swapQuoteActionLockAtom());
   const activeFromTokenAmount =
-    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+    quoteActionLock.rawFromTokenAmount ??
+    quoteActionLock.fromTokenAmount ??
+    fromTokenAmount.value;
   const activeToTokenAmount =
-    quoteActionLock.toTokenAmount ?? toTokenAmount.value;
+    quoteActionLock.rawToTokenAmount ??
+    quoteActionLock.toTokenAmount ??
+    toTokenAmount.value;
   const activeSwapType = quoteActionLock.type ?? swapTypeSwitch;
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
@@ -699,7 +717,12 @@ export const {
       const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
       const fromAmount = fromAmountBN
         .decimalPlaces(
-          Number(fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              fromToken?.decimals,
+              fromToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -727,7 +750,12 @@ export const {
       const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
       const toAmount = toAmountBN
         .decimalPlaces(
-          Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+          Number(
+            getSwapDisplayDecimals(
+              toToken?.decimals,
+              toToken?.balanceMultiplier,
+            ) ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          ),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();

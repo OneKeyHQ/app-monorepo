@@ -510,6 +510,8 @@ export function resolveStockExecutionTokenMetadata({
     return undefined;
   }
   const isNative = tokenDetail.isNative ?? token.isNative;
+  const balanceMultiplier =
+    tokenDetail.balanceMultiplier ?? token.balanceMultiplier;
   const stock = mergeStockExecutionMetadata({
     currentStock: token.stock,
     tokenDetailStock: tokenDetail.stock,
@@ -517,6 +519,7 @@ export function resolveStockExecutionTokenMetadata({
   if (
     token.decimals === tokenDetail.decimals &&
     token.isNative === isNative &&
+    token.balanceMultiplier === balanceMultiplier &&
     token.isStock === true &&
     token.stock === stock
   ) {
@@ -526,6 +529,7 @@ export function resolveStockExecutionTokenMetadata({
     ...token,
     decimals: tokenDetail.decimals,
     isNative,
+    balanceMultiplier,
     isStock: true,
     stock,
   };

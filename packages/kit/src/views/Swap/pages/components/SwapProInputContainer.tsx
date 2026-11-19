@@ -17,6 +17,7 @@ import {
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -56,7 +57,15 @@ const SwapProInputContainer = ({
   const toToken = useSwapProToToken();
   const handleInputChange = useCallback(
     (text: string) => {
-      if (validateAmountInput(text, inputToken?.decimals)) {
+      if (
+        validateAmountInput(
+          text,
+          getSwapDisplayDecimals(
+            inputToken?.decimals,
+            inputToken?.balanceMultiplier,
+          ),
+        )
+      ) {
         if (swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(text);
         } else {
@@ -68,6 +77,7 @@ const SwapProInputContainer = ({
       }
     },
     [
+      inputToken?.balanceMultiplier,
       inputToken?.decimals,
       setFromInputAmount,
       setSwapProInputAmount,

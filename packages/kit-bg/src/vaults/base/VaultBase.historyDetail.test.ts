@@ -25,11 +25,11 @@ function createVault() {
 }
 
 it.each([
-  [ESwapQuoteSource.SWEEP, '15.15', '1.5'],
-  [undefined, '10.1', undefined],
+  [ESwapQuoteSource.SWEEP, '15.15', '0.01', undefined],
+  [undefined, '15.15', '0.02', '2'],
 ])(
   'decodes the same signed amounts for the saved display basis (%s)',
-  async (quoteSource, amount, balanceMultiplier) => {
+  async (quoteSource, amount, receiveAmount, receiveMultiplier) => {
     const { vault } = createVault();
     const display = jest
       .spyOn(vault, 'buildTxTransferAssetAction')
@@ -47,10 +47,11 @@ it.each([
     };
     const toToken = {
       networkId,
-      symbol: 'BNB',
-      contractAddress: '',
+      symbol: receiveMultiplier ? 'TSLAB' : 'BNB',
+      contractAddress: receiveMultiplier ? '0xreceive' : '',
       decimals: 18,
-      isNative: true,
+      isNative: !receiveMultiplier,
+      balanceMultiplier: receiveMultiplier,
     };
     const swapInfo: ISwapTxInfo = {
       quoteSource,
@@ -74,9 +75,11 @@ it.each([
 
     await vault.buildInternalSwapAction({ swapInfo });
     const { transfers } = display.mock.calls[0][0];
-    expect(transfers).toMatchObject([{ amount }, { amount: '0.01' }]);
-    expect(transfers[0].balanceMultiplier).toBe(balanceMultiplier);
+    expect(transfers).toMatchObject([{ amount }, { amount: receiveAmount }]);
+    expect(transfers[0].balanceMultiplier).toBe('1.5');
+    expect(transfers[1].balanceMultiplier).toBe(receiveMultiplier);
     expect(swapInfo.sender.amount).toBe('10');
+    expect(swapInfo.receiver.amount).toBe('0.01');
   },
 );
 

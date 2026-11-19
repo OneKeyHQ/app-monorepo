@@ -85,6 +85,7 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { getSwapRawInputAmount } from '../utils/swapAmountUtils';
 import {
   buildSwapBalanceAccountIdentity,
   resolveVerifiedSwapBalance,
@@ -319,13 +320,25 @@ export function useSwapQuoteProgressState() {
         swapTypeSwitch === ESwapTabSwitchType.STOCK
           ? isStockQuoteInputAmountMatched({
               quote,
-              fromAmount: fromTokenAmount.value,
-              toAmount: toTokenAmount.value,
+              fromAmount:
+                getSwapRawInputAmount(
+                  fromTokenAmount.value,
+                  fromToken,
+                  'down',
+                ) ?? '',
+              toAmount:
+                getSwapRawInputAmount(toTokenAmount.value, toToken, 'up') ?? '',
             })
           : isSwapQuoteInputAmountMatched({
               quote,
-              fromAmount: fromTokenAmount.value,
-              toAmount: toTokenAmount.value,
+              fromAmount:
+                getSwapRawInputAmount(
+                  fromTokenAmount.value,
+                  fromToken,
+                  'down',
+                ) ?? '',
+              toAmount:
+                getSwapRawInputAmount(toTokenAmount.value, toToken, 'up') ?? '',
             });
       const inputAmount =
         quote.kind === ESwapQuoteKind.BUY
@@ -335,7 +348,10 @@ export function useSwapQuoteProgressState() {
     });
     return sortSwapQuotes(list, {
       sort: ESwapProviderSort.RECOMMENDED,
-      fromTokenAmount: fromTokenAmount.value,
+      fromTokenAmount: fromToken
+        ? (getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down') ??
+          '')
+        : '',
     });
   }, [
     fromToken,
@@ -456,13 +472,18 @@ export function useSwapActionState() {
   const [{ swapApprovingLoading, swapApprovingTransaction }] =
     useInAppNotificationAtom();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
+  const rawFromAmount = fromToken
+    ? getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down')
+    : undefined;
+  const rawToAmount = toToken
+    ? getSwapRawInputAmount(toTokenAmount.value, toToken, 'up')
+    : undefined;
 
   const swapApprovingMatchLoading = useMemo(() => {
     return (
       swapApprovingLoading &&
-      (fromTokenAmount.value === swapApprovingTransaction?.amount ||
-        fromTokenAmount.value ===
-          swapApprovingTransaction?.resetApproveValue) &&
+      (rawFromAmount === swapApprovingTransaction?.amount ||
+        rawFromAmount === swapApprovingTransaction?.resetApproveValue) &&
       equalTokenNoCaseSensitive({
         token1: swapApprovingTransaction?.fromToken,
         token2: fromToken,
@@ -474,7 +495,7 @@ export function useSwapActionState() {
     );
   }, [
     swapApprovingLoading,
-    fromTokenAmount.value,
+    rawFromAmount,
     swapApprovingTransaction?.amount,
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.fromToken,
@@ -530,18 +551,20 @@ export function useSwapActionState() {
       swapTypeSwitchValue === ESwapTabSwitchType.STOCK
         ? isStockQuoteInputAmountMatched({
             quote: quoteCurrentSelect,
-            fromAmount: fromTokenAmount.value,
-            toAmount: toTokenAmount.value,
+            fromAmount: rawFromAmount ?? '',
+            toAmount: rawToAmount ?? '',
           })
         : isSwapQuoteInputAmountMatched({
             quote: quoteCurrentSelect,
-            fromAmount: fromTokenAmount.value,
-            toAmount: toTokenAmount.value,
+            fromAmount: rawFromAmount ?? '',
+            toAmount: rawToAmount ?? '',
           });
     return Boolean(quoteCurrentSelect && inputAmount && !inputAmountMatched);
   }, [
     fromTokenAmount.value,
     quoteCurrentSelect,
+    rawFromAmount,
+    rawToAmount,
     swapTypeSwitchValue,
     toTokenAmount.value,
   ]);
@@ -589,10 +612,10 @@ export function useSwapActionState() {
         (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
           quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
           quoteCurrentSelect?.allowanceResult &&
-          quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
+          quoteCurrentSelect.allowanceResult.amount !== rawFromAmount),
       ),
     [
-      fromTokenAmount,
+      rawFromAmount,
       quoteCurrentSelect,
       quoteInputAmountNoMatch,
       quoteResultPairNoMatch,
@@ -776,8 +799,9 @@ export function useSwapActionState() {
         quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK
           ? getStockQuoteTradeControl({
               quoteResult: quoteCurrentSelect,
-              fromTokenAmount: fromTokenAmount.value,
+              fromTokenAmount: rawFromAmount ?? '',
               fromTokenSymbol: fromToken?.symbol,
+              balanceMultiplier: fromToken?.balanceMultiplier,
               intl,
             })
           : undefined;
@@ -802,7 +826,7 @@ export function useSwapActionState() {
         }
       }
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
+      const fromTokenAmountBN = new BigNumber(rawFromAmount ?? 'NaN');
       const stockBalanceUnavailable =
         swapTypeSwitchValue === ESwapTabSwitchType.STOCK &&
         !hasValidStockBalanceForTrade(selectedFromTokenBalance);
@@ -935,7 +959,7 @@ export function useSwapActionState() {
     swapToAddressInfo.address,
     swapToAddressInfo.isAddressInfoReady,
     swapProviderSupportReceiveAddress,
-    fromTokenAmount.value,
+    rawFromAmount,
     quoteInputAmountNoMatch,
     swapTypeSwitchValue,
     isRefreshQuote,

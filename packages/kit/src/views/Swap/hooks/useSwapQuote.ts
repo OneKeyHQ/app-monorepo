@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -61,6 +62,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+} from '../utils/swapAmountUtils';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import {
   getStockTradeAnalyticsPayload,
@@ -414,9 +419,14 @@ export function useSwapQuote({
     toAmountDebounceRef.current = toAmountDebounce;
   }
   const alignmentDecimal = useCallback(() => {
+    if (
+      fromAmountDebounce.maxAmountSnapshot?.displayAmount ===
+      fromAmountDebounce.value
+    )
+      return;
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,
-      fromToken?.decimals,
+      getSwapDisplayDecimals(fromToken?.decimals, fromToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
       setFromTokenAmount((v) => ({
@@ -424,12 +434,17 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
+  }, [
+    fromToken?.decimals,
+    fromToken?.balanceMultiplier,
+    fromAmountDebounce,
+    setFromTokenAmount,
+  ]);
 
   const alignmentToDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       toAmountDebounce.value,
-      toToken?.decimals,
+      getSwapDisplayDecimals(toToken?.decimals, toToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
       setToTokenAmount((v) => ({
@@ -437,7 +452,12 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
+  }, [
+    toToken?.decimals,
+    toToken?.balanceMultiplier,
+    toAmountDebounce,
+    setToTokenAmount,
+  ]);
 
   useEffect(() => {
     if (!isQuoteVisibleRef.current) return;
@@ -596,6 +616,14 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier,
+        fromToken?.balanceMultiplier,
+      ) &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.toToken?.balanceMultiplier,
+        toToken?.balanceMultiplier,
+      ) &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -642,8 +670,10 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
@@ -712,6 +742,14 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier,
+        fromToken?.balanceMultiplier,
+      ) &&
+      tokenRebaseUtils.equalBalanceMultipliers(
+        swapQuoteActionLockRef.current?.toToken?.balanceMultiplier,
+        toToken?.balanceMultiplier,
+      ) &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -755,8 +793,10 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     alignmentToDecimal,
     toAmountDebounce,
     shouldPauseQuote,
@@ -788,16 +828,42 @@ export function useSwapQuote({
         swapType,
         blockNumber,
       } = approvedSwapInfo;
-      if (
+      const liveFromToken = fromTokenRef.current;
+      const liveToToken = toTokenRef.current;
+      const resolvedFromToken =
+        liveFromToken &&
         equalTokenNoCaseSensitive({
           token1: fromTokenInfo,
-          token2: fromTokenRef.current,
-        }) &&
+          token2: liveFromToken,
+        })
+          ? liveFromToken
+          : fromTokenInfo;
+      const resolvedToToken =
+        liveToToken &&
         equalTokenNoCaseSensitive({
           token1: toTokenInfo,
-          token2: toTokenRef.current,
-        }) &&
-        amount === fromTokenAmountRef.current?.value
+          token2: liveToToken,
+        })
+          ? liveToToken
+          : toTokenInfo;
+      const displayFromAmount = getSwapDisplayAmount(
+        amount,
+        resolvedFromToken.balanceMultiplier,
+      );
+      const displayToAmount = toAmount
+        ? getSwapDisplayAmount(toAmount, resolvedToToken.balanceMultiplier)
+        : undefined;
+      if (
+        displayFromAmount === undefined ||
+        (toAmount && displayToAmount === undefined)
+      )
+        return;
+      if (
+        resolvedFromToken === liveFromToken &&
+        resolvedToToken === liveToToken &&
+        (kind === ESwapQuoteKind.BUY
+          ? displayToAmount === toTokenAmountRef.current?.value
+          : displayFromAmount === fromTokenAmountRef.current?.value)
       ) {
         void quoteAction(
           swapSlippageRef.current,
@@ -813,13 +879,13 @@ export function useSwapQuote({
         if (swapTabSwitchTypeRef.current !== swapType) {
           await swapTypeSwitchAction(swapType);
         }
-        setSwapSelectFromToken(fromTokenInfo);
-        setSwapSelectToToken(toTokenInfo);
+        setSwapSelectFromToken(resolvedFromToken);
+        setSwapSelectToToken(resolvedToToken);
         await syncNetworksSort(fromTokenInfo.networkId);
         if (kind === ESwapQuoteKind.BUY && toAmount) {
-          setToTokenAmount({ value: toAmount, isInput: true });
+          setToTokenAmount({ value: displayToAmount ?? '', isInput: true });
         } else {
-          setFromTokenAmount({ value: amount, isInput: true });
+          setFromTokenAmount({ value: displayFromAmount, isInput: true });
         }
       }
     },

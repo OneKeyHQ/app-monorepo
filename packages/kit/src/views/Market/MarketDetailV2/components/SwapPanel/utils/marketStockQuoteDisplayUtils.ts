@@ -3,6 +3,10 @@ import {
   getStockTokenFiatValue,
   resolveStockTokenPrice,
 } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockFiatValueUtils';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { calculateSwapStockEstimatedShares } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
@@ -70,7 +74,11 @@ export function buildMarketStockQuoteDisplay({
       currencyMap[STOCK_PRICE_SOURCE_CURRENCY]?.unit ??
       fallbackCurrencySymbol,
     receiveFiatValue: getStockTokenFiatValue({
-      amount: quoteResult?.toAmount ?? '',
+      amount:
+        getSwapDisplayAmount(
+          quoteResult?.toAmount ?? '',
+          toToken.balanceMultiplier,
+        ) ?? '',
       tokenPrice: toTokenPrice,
       targetCurrency,
       currencyMap,
@@ -81,7 +89,11 @@ export function buildMarketStockQuoteDisplay({
       fromTokenCurrency: fromTokenPrice?.currency,
       toTokenCurrency: toTokenPrice?.currency,
       currencyMap,
-      instantRate: quoteResult?.instantRate,
+      instantRate: getSwapDisplayRate(
+        quoteResult?.instantRate ?? '',
+        fromToken.balanceMultiplier,
+        toToken.balanceMultiplier,
+      ),
       strictCurrencyConversion: true,
     }),
   };
