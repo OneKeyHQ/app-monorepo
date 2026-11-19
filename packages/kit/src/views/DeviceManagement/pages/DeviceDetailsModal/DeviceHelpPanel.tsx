@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { PixelRatio } from 'react-native';
 
 import {
   Icon,
@@ -11,11 +12,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { HELP_CENTER_HARDWARE_FAQ_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   ILinkConfigItem,
   ILinkConfigSlot,
@@ -26,9 +30,27 @@ import { DeviceManagementTestIDs } from '../../testIDs';
 // Rows bleed past the text edge so hover fills reach beyond the text.
 const BLEED = 12;
 const MAX_GUIDES = 3;
+// One device pixel, like the separators in the settings cards.
+const HAIRLINE = 1 / PixelRatio.get();
 
 function openLink(item: ILinkConfigItem) {
   parseNotificationPayload(item.mode, item.payload, () => {});
+}
+
+// Articles open in the app's browser, as in the current release, whatever
+// open mode the server sets (the test server opens them as a full page).
+function openArticle(item: ILinkConfigItem) {
+  const url = item.payload?.trim();
+  if (url && /^https?:\/\//i.test(url)) {
+    openUrlInDiscovery({ url, title: item.title });
+    return;
+  }
+  openLink(item);
+}
+
+// The full hardware FAQ collection, in the app's browser as before.
+function openAllFaqs() {
+  openUrlInDiscovery({ url: HELP_CENTER_HARDWARE_FAQ_URL });
 }
 
 function useLinks(slot: ILinkConfigSlot) {
@@ -64,7 +86,6 @@ function PressableRow({
 } & Omit<ComponentProps<typeof XStack>, 'onPress' | 'children'>) {
   return (
     <XStack
-      {...shell}
       role="button"
       tabIndex={0}
       testID={testID}
@@ -88,6 +109,7 @@ function PressableRow({
         outlineColor: '$focusRing',
         outlineOffset: -2,
       }}
+      {...shell}
     >
       {children}
     </XStack>
@@ -97,7 +119,7 @@ function PressableRow({
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <XStack minHeight={32} px={BLEED} ai="center">
-      <SizableText size="$bodyMdMedium" color="$textSubdued" flex={1}>
+      <SizableText size="$headingSm" color="$text" flex={1}>
         {children}
       </SizableText>
     </XStack>
@@ -106,22 +128,23 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 function LinkRow({
   title,
+  icon,
   testID,
   onPress,
 }: {
   title: string;
+  icon?: IKeyOfIcons;
   testID?: string;
   onPress: () => void;
 }) {
   return (
-    <PressableRow
-      onPress={onPress}
-      testID={testID}
-      minHeight={40}
-      ai="flex-start"
-    >
+    <PressableRow onPress={onPress} testID={testID} minHeight={40} ai="center">
+      {icon ? (
+        <Icon name={icon} size="$4" color="$iconSubdued" flexShrink={0} />
+      ) : null}
       <SizableText
         size="$bodyMd"
+        color="$textSubdued"
         flex={1}
         minWidth={0}
         numberOfLines={2}
@@ -130,14 +153,6 @@ function LinkRow({
       >
         {title}
       </SizableText>
-      <Icon
-        name="ChevronRightSmallOutline"
-        size="$4"
-        color="$iconDisabled"
-        flexShrink={0}
-        // Sits on the first text line when the title wraps.
-        mt={2}
-      />
     </PressableRow>
   );
 }
@@ -171,14 +186,34 @@ function FaqsSection() {
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SectionLabel>
       {faqs ? (
-        faqs.map((item) => (
-          <LinkRow
-            key={item.linkId}
-            title={item.title}
-            testID={DeviceManagementTestIDs.helpFaqItem}
-            onPress={() => openLink(item)}
-          />
-        ))
+        <>
+          {faqs.map((item) => (
+            <LinkRow
+              key={item.linkId}
+              title={item.title}
+              testID={DeviceManagementTestIDs.helpFaqItem}
+              onPress={() => openArticle(item)}
+            />
+          ))}
+          {/* After the list, where someone who didn't find their question
+              looks next. The chevron sets it apart from the articles. */}
+          <PressableRow
+            onPress={openAllFaqs}
+            testID={DeviceManagementTestIDs.helpFaqViewMoreBtn}
+            minHeight={40}
+            ai="center"
+            gap="$1"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_view_more })}
+            </SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          </PressableRow>
+        </>
       ) : (
         <RowsSkeleton widths={[220, 180, 200, 236, 196]} height={40} />
       )}
@@ -223,17 +258,23 @@ function GuideRow({ item }: { item: ILinkConfigItem }) {
             w={20}
             h={20}
             borderRadius={10}
-            bg="rgba(0, 0, 0, 0.55)"
+            bg="rgba(255, 255, 255, 0.92)"
             ai="center"
             jc="center"
             // Optical centering: a play triangle reads left-heavy.
             pl={1}
+            style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}
           >
-            <Icon name="PlaySolid" size="$3" color="$whiteA12" />
+            <Icon name="PlaySolid" size="$3" color="$blackA12" />
           </Stack>
         </Stack>
       </Stack>
-      <SizableText size="$bodyMd" flex={1} numberOfLines={2}>
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        flex={1}
+        numberOfLines={2}
+      >
         {item.title}
       </SizableText>
     </PressableRow>
@@ -269,9 +310,11 @@ export function DeviceHelpPanel() {
       <GuidesSection />
       <YStack gap="$2">
         <Stack px={BLEED}>
-          <Stack h={1} bg="$neutral4" />
+          <Stack h={HAIRLINE} bg="$neutral4" />
         </Stack>
         <LinkRow
+          // The one action here: it opens a chat, not an article.
+          icon="HelpSupportOutline"
           title={intl.formatMessage({
             id: ETranslations.global_hardware_troubleshooting_contact,
           })}

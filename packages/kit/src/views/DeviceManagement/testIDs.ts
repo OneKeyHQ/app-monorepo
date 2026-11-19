@@ -52,5 +52,6 @@ export const DeviceManagementTestIDs = {
 
   // --- Device Details help sidebar ---
   helpFaqItem: 'device-mgmt-help-faq-item',
+  helpFaqViewMoreBtn: 'device-mgmt-help-faq-view-more-btn',
   helpContactSupportBtn: 'device-mgmt-help-contact-support-btn',
 } as const;
