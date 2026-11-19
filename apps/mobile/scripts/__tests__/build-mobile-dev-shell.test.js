@@ -331,6 +331,19 @@ SPEC CHECKSUMS:
 
     beforeEach(() => {
       directory = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-pods-test-'));
+      fs.writeFileSync(
+        path.join(directory, 'Podfile.lock'),
+        `SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - AppAuth
+EXTERNAL SOURCES:
+  AesCrypto:
+    :path: "../../../node_modules/react-native-aes-crypto"
+SPEC CHECKSUMS:
+  AesCrypto: current-local
+  AppAuth: current-remote
+`,
+      );
       jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
       jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
       jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -369,6 +382,18 @@ SPEC CHECKSUMS:
         '[buildMobileDevShell] Command failed: pod install',
       );
       expect(spawnSync).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not update the spec repos when only local podspec checksums differ', () => {
+      spawnSync.mockReturnValue({
+        status: 1,
+        stdout: checksumChange.replace('AppAuth', 'AesCrypto'),
+        stderr: '',
+      });
+      expect(() => installIosPods(directory)).toThrow(
+        '[buildMobileDevShell] Command failed: pod install',
+      );
+      expect(spawnSync).toHaveBeenCalledTimes(1);
     });
 
     it('does not retry other install failures', () => {

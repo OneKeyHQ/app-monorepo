@@ -247,8 +247,27 @@ function refreshStaleIosPodspecs(iosDirectory) {
   }
 }
 
-const SPEC_CHECKSUM_CHANGE =
-  /There were changes to the lockfile in deployment mode[\s\S]*SPEC CHECKSUMS:/u;
+const LOCKFILE_CHANGE_IN_DEPLOYMENT =
+  'There were changes to the lockfile in deployment mode:';
+
+function hasSpecRepoChecksumChange(iosDirectory, output) {
+  const diff = output.split(LOCKFILE_CHANGE_IN_DEPLOYMENT)[1];
+  if (!diff) return false;
+  const lines = diff.split('\n');
+  const start = lines.indexOf('SPEC CHECKSUMS:');
+  if (start === -1) return false;
+  const changedPods = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.startsWith(' ')) break;
+    const name = line.match(/^ {2}([^\s:]+):$/u)?.[1];
+    if (name) changedPods.push(name);
+  }
+  const lock = yaml.parse(
+    fs.readFileSync(path.join(iosDirectory, 'Podfile.lock'), 'utf8'),
+  );
+  const specRepoPods = new Set(Object.values(lock['SPEC REPOS'] || {}).flat());
+  return changedPods.some((name) => specRepoPods.has(name));
+}
 
 function installIosPods(iosDirectory = path.join(MOBILE_ROOT, 'ios')) {
   refreshStaleIosPodspecs(iosDirectory);
@@ -266,10 +285,14 @@ function installIosPods(iosDirectory = path.join(MOBILE_ROOT, 'ios')) {
   if (
     result.status !== 0 &&
     !result.error &&
-    SPEC_CHECKSUM_CHANGE.test(`${result.stdout}\n${result.stderr}`)
+    hasSpecRepoChecksumChange(
+      iosDirectory,
+      `${result.stdout}\n${result.stderr}`,
+    )
   ) {
     // A Specs checkout older or newer than the lockfile hashes changed podspecs (such as trunk deprecations)
     // differently. Refresh the spec repos once; the retry still verifies the lockfile.
+    // Local podspec checksum changes are not retried because a repo update cannot fix them.
     console.log(
       '[buildMobileDevShell] Spec checksums differ from the local spec repos; updating them and retrying once.',
     );
@@ -422,7 +445,8 @@ async function main() {
 if (require.main === module) {
   main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    // Let queued stdout/stderr writes (such as captured pod output) flush to pipes before exiting.
+    process.exitCode = 1;
   });
 }
 
