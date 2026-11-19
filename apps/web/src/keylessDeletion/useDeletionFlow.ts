@@ -15,6 +15,7 @@ import {
 
 import type {
   IActiveChallenge,
+  ICompleted,
   IDeleteRequest,
   IDeletionClient,
   IErrorCode,
@@ -68,7 +69,7 @@ type IResultScreen = {
   attempt?: IAttempt;
   checkAfter?: number;
   deleteRetryAt?: number;
-  recoveryUnavailable?: boolean;
+  resultCheckFailed?: boolean;
   canRetry?: boolean;
   needsNewConfirmation?: boolean;
   cannotRetry?: boolean;
@@ -82,7 +83,6 @@ type IScreen =
       step:
         | 'loading'
         | 'unavailable'
-        | 'recovery-identity'
         | 'policy-pending'
         | 'target-changed'
         | 'rejected';
@@ -124,6 +124,14 @@ function getKnownResult(result: IResult | undefined): IKnownResult | undefined {
   return result?.status === 'not_submitted' ? undefined : result;
 }
 
+function withoutCurrentShareStatus(
+  result: IResult | undefined,
+): IResult | undefined {
+  return result?.status === 'completed'
+    ? { ...result, currentShareStatus: 'unknown' }
+    : result;
+}
+
 function matchesOriginal(previous: IResultScreen, next: IResult) {
   const known = getKnownResult(previous.result);
   const reference =
@@ -135,7 +143,9 @@ function matchesOriginal(previous: IResultScreen, next: IResult) {
     next.status !== 'not_submitted' &&
     (!reference || next.supportReference === reference) &&
     (!known || known.resultId === next.resultId) &&
-    (known?.status !== 'completed' || next.status === 'completed')
+    (known?.status !== 'completed' ||
+      (next.status === 'completed' &&
+        Date.parse(known.completedAt) === Date.parse(next.completedAt)))
   );
 }
 
@@ -150,15 +160,69 @@ export function useDeletionFlow(
   const resultCheckAfter =
     screen.step === 'result' ? (screen.checkAfter ?? 0) : 0;
   const request = useRef<symbol | undefined>(undefined);
+  const invitationTimer = useRef<
+    ReturnType<typeof globalThis.setTimeout> | undefined
+  >(undefined);
   const channel = useRef<
-    { close(): void; client: IDeletionClient; signal: AbortSignal } | undefined
+    | {
+        close(): void;
+        client: IDeletionClient;
+        signal: AbortSignal;
+        expiresAt?: number;
+      }
+    | undefined
   >(undefined);
 
   const invalidate = useCallback(() => {
     request.current = undefined;
+    globalThis.clearTimeout(invitationTimer.current);
     channel.current?.close();
     channel.current = undefined;
   }, []);
+
+  const endInvitation = useCallback(() => {
+    invalidate();
+    history.delete(token);
+    setScreen({ step: 'unavailable' });
+    setError(undefined);
+    setBusy(false);
+  }, [history, invalidate, token]);
+
+  const setInvitationDeadline = useCallback(
+    (info: ILinkInfo) => {
+      const active = channel.current;
+      if (!active) return false;
+      const remaining =
+        Date.parse(info.expiresAt) - Date.parse(info.serverTime);
+      if (remaining <= 0) {
+        endInvitation();
+        return false;
+      }
+      const deadline = globalThis.performance.now() + remaining;
+      active.expiresAt = deadline;
+      globalThis.clearTimeout(invitationTimer.current);
+      const waitForExpiry = () => {
+        const wait = deadline - globalThis.performance.now();
+        if (wait <= 0) endInvitation();
+        else
+          invitationTimer.current = globalThis.setTimeout(
+            waitForExpiry,
+            Math.min(wait, 2_147_483_647),
+          );
+      };
+      waitForExpiry();
+      return true;
+    },
+    [endInvitation],
+  );
+
+  function hasActiveInvitation() {
+    const deadline = channel.current?.expiresAt;
+    if (deadline === undefined) return false;
+    if (globalThis.performance.now() < deadline) return true;
+    endInvitation();
+    return false;
+  }
 
   const showError = useCallback(
     (
@@ -212,7 +276,7 @@ export function useDeletionFlow(
       if (cause instanceof DeletionError) {
         switch (cause.response.code) {
           case 'INVITATION_UNAVAILABLE':
-            setScreen({ step: 'unavailable' });
+            endInvitation();
             return;
           case 'TARGET_CHANGED':
             setScreen({ step: 'target-changed' });
@@ -228,7 +292,7 @@ export function useDeletionFlow(
       }
       showError(cause);
     },
-    [showError],
+    [endInvitation, showError],
   );
 
   const run = useCallback(
@@ -280,24 +344,31 @@ export function useDeletionFlow(
         client,
         signal: controller.signal,
       };
-      const previous = history.get(token);
-      if (previous) {
-        setScreen(previous);
-        return;
-      }
       const info = await client.getLinkInfo(token);
-      if (isCurrent()) {
-        if (
-          info.status === 'ready' &&
-          info.recreationPolicy === 'pending_decision'
-        ) {
-          setScreen({ step: 'policy-pending' });
-        } else {
-          setScreen({ step: 'identity', info });
-        }
+      if (!isCurrent() || !setInvitationDeadline(info)) return;
+
+      const previous = history.get(token);
+      if (previous?.provider === info.allowedProvider) {
+        const restored = {
+          ...previous,
+          result: withoutCurrentShareStatus(previous.result),
+          canRetry: false,
+          ...(info.status === 'used'
+            ? { attempt: undefined, cannotRetry: true }
+            : {}),
+        };
+        history.set(token, restored);
+        setScreen(restored);
+      } else if (
+        info.status === 'ready' &&
+        info.recreationPolicy === 'pending_decision'
+      ) {
+        setScreen({ step: 'policy-pending' });
+      } else {
+        setScreen({ step: 'identity', info });
       }
     });
-  }, [business, history, invalidate, run, token]);
+  }, [business, history, invalidate, run, setInvitationDeadline, token]);
 
   useEffect(() => {
     open();
@@ -319,68 +390,31 @@ export function useDeletionFlow(
   }
 
   function signIn(provider: IProvider) {
-    if (screen.step !== 'identity' || !channel.current || request.current) {
-      return;
-    }
-    const { info } = screen;
-    if (provider !== info.allowedProvider) {
-      return;
-    }
-    if (info.status === 'used') {
-      recoverResult(provider);
-      return;
-    }
-    const { client, signal } = channel.current;
-    run(async (isCurrent) => {
-      const proof = await authenticate(provider, signal);
-      if (!isCurrent()) {
-        return;
-      }
-      const email = { step: 'email', info, proof } as const;
-      await requestOtp(client, email, isCurrent);
-    });
-  }
-
-  function openRecovery() {
-    setError(undefined);
-    setScreen({ step: 'recovery-identity' });
-  }
-
-  function recoverResult(provider: IProvider) {
     if (
+      screen.step !== 'identity' ||
       !channel.current ||
-      (screen.step !== 'recovery-identity' && screen.step !== 'identity')
+      request.current ||
+      provider !== screen.info.allowedProvider ||
+      !hasActiveInvitation()
     ) {
       return;
     }
+    const { info } = screen;
     const { client, signal } = channel.current;
     run(async (isCurrent) => {
       const proof = await authenticate(provider, signal);
-      if (!isCurrent()) {
-        return;
-      }
-      try {
-        const result = await client.getResult(proof);
-        if (isCurrent()) {
-          remember({
-            step: 'result',
-            provider,
-            proof,
-            result,
-            checkAfter: checkAfter(result),
-          });
-        }
-      } catch (cause) {
-        if (
-          !(cause instanceof DeletionError) ||
-          cause.response.code !== 'INVITATION_UNAVAILABLE'
-        ) {
-          throw cause;
-        }
-        if (isCurrent()) {
-          remember({ step: 'result', provider, recoveryUnavailable: true });
-          showError(cause);
-        }
+      if (!isCurrent() || !hasActiveInvitation()) return;
+      if (info.status === 'used') {
+        const previous = {
+          step: 'result',
+          provider,
+          proof,
+          cannotRetry: true,
+        } as const;
+        remember(previous);
+        await loadResult(client, previous, proof, isCurrent);
+      } else {
+        await requestOtp(client, { step: 'email', info, proof }, isCurrent);
       }
     });
   }
@@ -463,7 +497,7 @@ export function useDeletionFlow(
       handleError(cause);
       return;
     }
-    if (isCurrent()) {
+    if (isCurrent() && hasActiveInvitation()) {
       setScreen({
         ...email,
         step: 'confirm',
@@ -484,7 +518,10 @@ export function useDeletionFlow(
     ) {
       return;
     }
-    if (globalThis.performance.now() < (screen.resendAt ?? 0)) {
+    if (
+      globalThis.performance.now() < (screen.resendAt ?? 0) ||
+      !hasActiveInvitation()
+    ) {
       return;
     }
     const { client } = channel.current;
@@ -497,9 +534,10 @@ export function useDeletionFlow(
     proof: IProof,
     isCurrent: () => boolean,
   ) {
+    if (!hasActiveInvitation()) return;
     try {
       const result = await client.getResult(proof);
-      if (!isCurrent()) {
+      if (!isCurrent() || !hasActiveInvitation()) {
         return;
       }
       if (!matchesOriginal(previous, result)) {
@@ -511,7 +549,7 @@ export function useDeletionFlow(
         previous.attempt
       ) {
         const info = await client.getLinkInfo(token);
-        if (!isCurrent()) {
+        if (!isCurrent() || !setInvitationDeadline(info)) {
           return;
         }
         if (
@@ -544,6 +582,7 @@ export function useDeletionFlow(
         ...resolved,
         proof,
         result,
+        resultCheckFailed: false,
         canRetry:
           result.status === 'not_submitted' &&
           !!previous.attempt &&
@@ -556,12 +595,24 @@ export function useDeletionFlow(
       }
     } catch (cause) {
       if (isCurrent()) {
+        if (
+          cause instanceof DeletionError &&
+          cause.response.code === 'INVITATION_UNAVAILABLE'
+        ) {
+          endInvitation();
+          return;
+        }
         const retryAfterSeconds =
           cause instanceof DeletionError
-            ? cause.response.retryAfterSeconds
+            ? (cause.response.retryAfterSeconds ??
+              (cause.response.code === 'RATE_LIMITED'
+                ? OTP_RESEND_SECONDS
+                : undefined))
             : undefined;
         remember({
           ...previous,
+          result: withoutCurrentShareStatus(previous.result),
+          resultCheckFailed: true,
           proof:
             isAuthError(cause) ||
             (cause instanceof DeletionError &&
@@ -586,7 +637,7 @@ export function useDeletionFlow(
   }
 
   function submitAttempt(attempt: IAttempt, proof: IProof) {
-    if (!channel.current) {
+    if (!channel.current || !hasActiveInvitation()) {
       return;
     }
     const { client } = channel.current;
@@ -598,14 +649,12 @@ export function useDeletionFlow(
         attempt,
       };
       history.set(token, pending);
+      let result: ICompleted;
       try {
-        const result = await client.deleteShare(
+        result = await client.deleteShare(
           { ...attempt.body, ...proof },
           attempt.key,
         );
-        if (isCurrent()) {
-          remember({ step: 'result', provider: proof.provider, proof, result });
-        }
       } catch (cause) {
         if (!isCurrent()) {
           return;
@@ -662,7 +711,11 @@ export function useDeletionFlow(
           showError(cause);
           return;
         }
-        if (code === 'TARGET_CHANGED' || code === 'DELETION_DISABLED') {
+        if (
+          code === 'INVITATION_UNAVAILABLE' ||
+          code === 'TARGET_CHANGED' ||
+          code === 'DELETION_DISABLED'
+        ) {
           history.delete(token);
           handleError(cause);
           return;
@@ -694,6 +747,18 @@ export function useDeletionFlow(
         if (code !== 'MANUAL_REVIEW_REQUIRED') {
           await loadResult(client, recovery, proof, isCurrent);
         }
+        return;
+      }
+      if (isCurrent()) {
+        const completed: IResultScreen = {
+          step: 'result',
+          provider: proof.provider,
+          proof,
+          result,
+          cannotRetry: true,
+        };
+        remember(completed);
+        await loadResult(client, completed, proof, isCurrent);
       }
     });
   }
@@ -730,7 +795,8 @@ export function useDeletionFlow(
       screen.step !== 'result' ||
       !channel.current ||
       !screen.proof ||
-      globalThis.performance.now() < resultCheckAfter
+      globalThis.performance.now() < resultCheckAfter ||
+      !hasActiveInvitation()
     ) {
       return;
     }
@@ -745,8 +811,8 @@ export function useDeletionFlow(
       screen.step === 'result' &&
       channel.current &&
       !screen.proof &&
-      !screen.recoveryUnavailable &&
-      globalThis.performance.now() >= resultCheckAfter
+      globalThis.performance.now() >= resultCheckAfter &&
+      hasActiveInvitation()
     ) {
       const { client, signal } = channel.current;
       const previous = screen;
@@ -784,8 +850,6 @@ export function useDeletionFlow(
     resultCheckAfter,
     open,
     signIn,
-    openRecovery,
-    recoverResult,
     sendDeletionOtp,
     editCode,
     submit,
