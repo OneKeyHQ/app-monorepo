@@ -310,6 +310,45 @@ describe('firmwareUpdateErrorUtils', () => {
     expect(report.errorDetail).toBe('Force clean Bluetooth run promise');
   });
 
+  it('keeps the BLE interrupt template after the SDK error is wrapped', () => {
+    const converted = convertDeviceError({
+      code: HardwareErrorCode.BleForceCleanRunPromise,
+      error: 'Force clean Bluetooth run promise',
+    });
+    const localized = buildFirmwareUpdateFailureReport({
+      code: ECustomOneKeyHardwareError.UnknownHardwareError,
+      className: EOneKeyErrorClassNames.UnknownHardwareError,
+      message: 'wallet_action_failed',
+      payload: {
+        code: HardwareErrorCode.BleForceCleanRunPromise,
+        error: 'Force clean Bluetooth run promise',
+      },
+    });
+    const leaked = buildFirmwareUpdateFailureReport({
+      code: HardwareErrorCode.BleForceCleanRunPromise,
+      message: 'wallet_action_failed',
+      payload: {
+        error: 'Force clean Bluetooth run promise connectId SERIAL-1',
+        message: 'abandon abandon https://firmware.onekey.so/fw?token=sekret',
+      },
+    });
+
+    expect(buildFirmwareUpdateFailureReport(converted)).toMatchObject({
+      failureType: 'ble_interrupted',
+      errorCode: String(HardwareErrorCode.BleForceCleanRunPromise),
+      errorDetail: 'Force clean Bluetooth run promise',
+    });
+    expect(localized).toMatchObject({
+      failureType: 'ble_interrupted',
+      failurePhase: 'execution',
+      errorCode: String(HardwareErrorCode.BleForceCleanRunPromise),
+      errorDetail: 'Force clean Bluetooth run promise',
+    });
+    expect(leaked.errorDetail).toBeUndefined();
+    expect(JSON.stringify(leaked)).not.toContain('sekret');
+    expect(JSON.stringify(leaked)).not.toContain('SERIAL-1');
+  });
+
   it('drops raw messages and only keeps an allowlisted detail', () => {
     const secret =
       'abandon abandon connectId SERIAL-1 https://firmware.onekey.so/fw?token=sekret';

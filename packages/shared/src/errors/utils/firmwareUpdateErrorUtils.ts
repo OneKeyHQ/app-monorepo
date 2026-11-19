@@ -368,14 +368,27 @@ export function resolveFirmwareUpdateErrorName(
   );
 }
 
-export function resolveFirmwareUpdateErrorDetail(
-  error: IOneKeyError | undefined,
+function readAllowlistedFirmwareUpdateErrorDetail(
+  value: unknown,
 ): string | undefined {
-  const message = error?.message?.trim();
-  if (!message || !SAFE_FIRMWARE_UPDATE_ERROR_DETAILS.has(message)) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const message = value.trim();
+  if (!SAFE_FIRMWARE_UPDATE_ERROR_DETAILS.has(message)) {
     return undefined;
   }
   return limitFirmwareUpdateErrorDetail(message);
+}
+
+export function resolveFirmwareUpdateErrorDetail(
+  error: IOneKeyError | undefined,
+): string | undefined {
+  return (
+    readAllowlistedFirmwareUpdateErrorDetail(error?.message) ??
+    readAllowlistedFirmwareUpdateErrorDetail(error?.payload?.error) ??
+    readAllowlistedFirmwareUpdateErrorDetail(error?.payload?.message)
+  );
 }
 
 function resolveClassifiedFirmwareUpdateErrorCode(
