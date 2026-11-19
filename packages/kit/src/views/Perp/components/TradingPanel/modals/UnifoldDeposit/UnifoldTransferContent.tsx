@@ -37,6 +37,7 @@ import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { pickUnifoldChainForAsset } from '@onekeyhq/kit/src/views/Perp/utils/unifoldDestination';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
@@ -427,16 +428,13 @@ export const UnifoldTransferContent = forwardRef<
 
     const handleSelectToken = useCallback(
       (asset: IUnifoldSupportedAsset) => {
-        const chain =
-          asset.chains.find(
-            (item) => item.chain_id === selection?.chain.chain_id,
-          ) ?? asset.chains[0];
+        const chain = pickUnifoldChainForAsset(asset, selection?.chain);
         selectToken(asset);
         if (chain) {
           trackSourceSelection(asset, chain, 'user');
         }
       },
-      [selectToken, selection?.chain.chain_id, trackSourceSelection],
+      [selectToken, selection?.chain, trackSourceSelection],
     );
 
     const handleSelectChain = useCallback(
@@ -554,11 +552,9 @@ export const UnifoldTransferContent = forwardRef<
                 item.chain_type === sourceSelectorResult.chainType &&
                 item.chain_id === sourceSelectorResult.chainId,
             )
-          : (asset.chains.find(
-              (item) => item.chain_id === selection?.chain.chain_id,
-            ) ?? asset.chains[0]);
+          : pickUnifoldChainForAsset(asset, selection?.chain);
       return chain ? { asset, chain } : null;
-    }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
+    }, [selection?.chain, sourceSelectorResult, supportedAssets]);
     const displaySelection = pendingSelection ?? selection;
     const chain = displaySelection?.chain;
     const minimumDepositAmount = `$${chain?.minimum_deposit_amount_usd ?? 3}`;

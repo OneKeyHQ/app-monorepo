@@ -71,9 +71,17 @@ export function useAccountSelectorNativeListThemeV2(
 export function accountSelectorAssetUriV2(
   source: ImageSourcePropType | string,
 ): string {
-  if (typeof source === 'string') return source;
-  const uri = Image.resolveAssetSource(source)?.uri ?? '';
-  if (Platform.OS === 'android' && uri && !uri.includes(':')) {
+  if (typeof source === 'string') return source.trim() ? source : '';
+  const resolved =
+    typeof source === 'number' && platformEnv.isNative
+      ? Image.resolveAssetSource(source)
+      : source;
+  const uri =
+    resolved && typeof resolved === 'object' && 'uri' in resolved
+      ? resolved.uri
+      : undefined;
+  if (typeof uri !== 'string' || !uri.trim()) return '';
+  if (Platform.OS === 'android' && !uri.includes(':')) {
     return `android.resource://${ANDROID_PACKAGE_NAME}/drawable/${uri}`;
   }
   return uri;
@@ -205,7 +213,7 @@ export function accountSelectorWalletVisualV2({
     image: imageName
       ? {
           uri:
-            imageUri ?? accountSelectorAssetUriV2(AllWalletAvatarImages.bear),
+            imageUri || accountSelectorAssetUriV2(AllWalletAvatarImages.bear),
           width: 40,
           height: 40,
           contentFit: 'cover',

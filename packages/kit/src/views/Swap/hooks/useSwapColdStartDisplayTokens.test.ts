@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
@@ -779,6 +779,66 @@ describe('useSwapColdStartDisplayTokens configuration readiness', () => {
   });
 
   afterEach(clearGlobalSnapshot);
+
+  it('keeps an imported pair loading while its configuration is pending', () => {
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(() =>
+        useSwapColdStartDisplayTokens({
+          allowInitialSelectionTimeout: false,
+          initialSelectedTokensSynced: false,
+          swapType: ESwapTabSwitchType.SWAP,
+        }),
+      );
+      act(() => jest.advanceTimersByTime(5000));
+      expect(result.current.fromTokenState.status).toBe('loading');
+      expect(result.current.toTokenState.status).toBe('loading');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('bounds the initial loading display without blocking a later pair', () => {
+    jest.useFakeTimers();
+    try {
+      mockDefaultConfigStatus = 'success';
+      const { result, rerender, unmount } = renderHook(
+        useSwapColdStartDisplayTokens,
+        {
+          initialProps: {
+            fromToken: undefined as ISwapToken | undefined,
+            toToken: undefined as ISwapToken | undefined,
+            initialSelectedTokensSynced: false,
+            swapType: ESwapTabSwitchType.SWAP,
+          },
+        },
+      );
+      expect(result.current.fromTokenState.status).toBe('loading');
+      expect(result.current.toTokenState.status).toBe('loading');
+      act(() => jest.advanceTimersByTime(2000));
+      expect(result.current.fromTokenState.status).toBe('empty');
+      expect(result.current.toTokenState.status).toBe('empty');
+      rerender({
+        fromToken,
+        toToken: undefined,
+        initialSelectedTokensSynced: false,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+      expect(readyToken(result.current.fromTokenState)).toBe(fromToken);
+      expect(result.current.toTokenState.status).toBe('empty');
+      rerender({
+        fromToken,
+        toToken,
+        initialSelectedTokensSynced: true,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+      expect(readyToken(result.current.toTokenState)).toBe(toToken);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   it('keeps an uninitialized entry loading instead of promoting a display-only cached pair', () => {
     setCachedSwapPairSnapshot();

@@ -22,6 +22,8 @@ import {
 
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 
+import { useSwapHistoryTradeAgainHandler } from './SwapHistoryTradeAgainContext';
+
 const LimitOrderOpenItem = ({
   storeName,
 }: {
@@ -34,6 +36,7 @@ const LimitOrderOpenItem = ({
     swapLimitOrdersAccountIdKey,
   );
   const intl = useIntl();
+  const onTradeAgain = useSwapHistoryTradeAgainHandler();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const openLimitOrder = useMemo(() => {
@@ -66,6 +69,7 @@ const LimitOrderOpenItem = ({
           params: {
             type: EProtocolOfExchange.LIMIT,
             storeName,
+            onTradeAgain,
           },
         });
       }}

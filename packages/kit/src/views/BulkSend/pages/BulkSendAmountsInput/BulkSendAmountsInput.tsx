@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeEntitlementSource } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
@@ -87,7 +88,13 @@ import MobileLayout from './components/MobileLayout';
 import TableLayout from './components/TableLayout';
 import { useAmountPreview } from './components/useAmountPreview';
 
-function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
+function BaseBulkSendAmountsInput({
+  isInModal,
+  entitlementSource,
+}: {
+  isInModal?: boolean;
+  entitlementSource?: IPrimeEntitlementSource;
+}) {
   const {
     accountId,
     networkId,
@@ -261,12 +268,17 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         ? { mode: EIntervalMode.None, minSeconds: '', maxSeconds: '' }
         : intervalSettings;
       const reviewParams = media.gtMd
-        ? { ...params, intervalSettings: effectiveIntervalSettings }
-        : params;
+        ? {
+            ...params,
+            intervalSettings: effectiveIntervalSettings,
+            entitlementSource,
+          }
+        : { ...params, entitlementSource };
       const intervalInputParams = {
         ...params,
         intervalSettings,
         onConfirmIntervalSettings: setIntervalSettings,
+        entitlementSource,
       };
 
       if (shouldShowInterval) {
@@ -297,6 +309,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       isInModal,
       navigation,
       setIntervalSettings,
+      entitlementSource,
     ],
   );
 
@@ -934,6 +947,7 @@ function BulkSendAmountsInputContent({
   bulkSendMode,
   isInModal,
   hasDuplicateSenders: _hasDuplicateSendersProp,
+  entitlementSource,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -2024,7 +2038,10 @@ function BulkSendAmountsInputContent({
 
   return (
     <BulkSendAmountsInputContext.Provider value={context}>
-      <BaseBulkSendAmountsInput isInModal={isInModal} />
+      <BaseBulkSendAmountsInput
+        isInModal={isInModal}
+        entitlementSource={entitlementSource}
+      />
     </BulkSendAmountsInputContext.Provider>
   );
 }

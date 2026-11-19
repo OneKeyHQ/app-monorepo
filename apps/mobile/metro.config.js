@@ -242,17 +242,6 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // The 6.8.0-11 package puts its DOM wrapper in the browser main field.
-  // Remove this override once the package declares its React Native entry.
-  if (
-    (platform === 'ios' || platform === 'android') &&
-    moduleName === '@onekeyfe/react-native-segment-slider'
-  ) {
-    return {
-      type: 'sourceFile',
-      filePath: require.resolve('@onekeyfe/react-native-segment-slider'),
-    };
-  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === 'react-native-pager-view'

@@ -676,7 +676,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     | {
         preSendTx?: {
           txid: string;
+          orderId?: string;
         };
+        reviewQuoteExpiredBeforeSubmit?: boolean;
       }
     | undefined
   > {

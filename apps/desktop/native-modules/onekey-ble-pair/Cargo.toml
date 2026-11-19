@@ -20,13 +20,11 @@ windows = { version = "0.61", features = [
     # all, and under what address/UUIDs" — independent of noble's service-UUID
     # filter, which is a prime suspect for the "scan finds nothing" symptom.
     "Devices_Bluetooth_Advertisement",
-    # GetGattServicesAsync result type — used as a failure probe to tell
-    # "link never formed" (Unreachable) from "SMP failed on a live link".
-    "Devices_Bluetooth_GenericAttributeProfile",
     "Devices_Enumeration",
     "Foundation",
     "Foundation_Collections",
     "Win32_System_Com",
+    "Win32_System_WinRT",
 ] }
 # Minimal block_on so we can `.await` the WinRT async ops (like suite) instead
 # of blocking the thread with `.get()`, which starved the PairingRequested

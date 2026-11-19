@@ -90,6 +90,26 @@ jest.mock(
   () => ({ PerpsCampaignIllustration: () => null }),
 );
 
+// Keep reward UI dependencies outside this referral-owner lifecycle test.
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/hooks/usePerpsRecallBannerVisibility',
+  () => ({}),
+);
+jest.mock('@onekeyhq/kit/src/views/Perp/hooks/usePerpsRecallEntry', () => ({}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/hooks/usePerpsRecallProgress',
+  () => ({}),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/components/PerpsRecallDialog',
+  () => ({}),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/components/PerpsRecallIllustration',
+  () => ({}),
+);
+
 jest.mock('./WebAccountPanelPopoverContent', () => ({
   __esModule: true,
   default: function MockWebAccountPanelPopoverContent({
