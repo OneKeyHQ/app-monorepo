@@ -36,6 +36,7 @@ import { TokenLaunchpad } from './TokenLaunchpad';
 interface ITokenDetailHeaderLeftProps {
   assetId?: string;
   stockId?: string;
+  watchlistContractAddress?: string;
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
@@ -49,6 +50,7 @@ interface ITokenDetailHeaderLeftProps {
 export function TokenDetailHeaderLeft({
   assetId,
   stockId,
+  watchlistContractAddress,
   tokenDetail,
   networkId,
   networkLogoUri,
@@ -154,7 +156,7 @@ export function TokenDetailHeaderLeft({
         assetId={assetId}
         stockId={stockId}
         chainId={networkId ?? ''}
-        contractAddress={address}
+        contractAddress={watchlistContractAddress ?? address}
         size="small"
         customIconSize={desktopRedesign ? '$5' : '$4'}
         from={EWatchlistFrom.Detail}
