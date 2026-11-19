@@ -66,11 +66,23 @@ function restoreWebOiSnapshots() {
   return webOiSnapshotRestore;
 }
 
-function formatOpenInterestUsd(value: number) {
+function formatOpenInterestUsd(value: number, fractionDigits = 2) {
   const formatted = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(value.toString(), { currency: '$' }),
+    NUMBER_FORMATTER.marketCap(value.toString(), {
+      currency: '$',
+      fractionDigits,
+    }),
   );
   return typeof formatted === 'string' ? formatted : '--';
+}
+
+function formatOpenInterestTicks(values: number[]) {
+  const distinctValues = new Set(values).size;
+  for (let digits = 2; digits <= 20; digits += 1) {
+    const labels = values.map((value) => formatOpenInterestUsd(value, digits));
+    if (new Set(labels).size === distinctValues) return labels;
+  }
+  return values.map((value) => `$${value}`);
 }
 
 export function PerpOiChart({
@@ -264,6 +276,7 @@ export function PerpOiChart({
             lineWidth={2}
             fontSize={isMobile ? 9 : 11}
             priceFormatter={formatOpenInterestUsd}
+            priceTickFormatter={formatOpenInterestTicks}
             priceScalePosition="left"
             priceScaleMinimumWidth={priceScaleMinimumWidth}
             showHorzGridLines
