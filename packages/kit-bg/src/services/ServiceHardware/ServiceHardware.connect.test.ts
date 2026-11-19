@@ -1181,7 +1181,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
   });
 
   it.each([EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge])(
-    'recreates the extension client under the lifecycle lock for %s',
+    'commits the extension transport only after initializing %s',
     async (transportType) => {
       mutablePlatformEnv.isExtensionBackgroundServiceWorker = true;
       const coreSdk = await jest
@@ -1195,22 +1195,65 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         async (operation: () => Promise<unknown>) => operation(),
       );
       const setHardwareTransportType = jest.fn(async () => undefined);
+      const previousType =
+        transportType === EHardwareTransportType.WEBUSB
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
       const service = new ServiceHardware({
         backgroundApi: {
+          serviceApp: { showToast: jest.fn() },
+          serviceDevSetting: {
+            getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+          },
           serviceHardwareUI: { runExclusiveOneKeyOperation },
-          serviceSetting: { setHardwareTransportType },
+          serviceSetting: {
+            getHardwareTransportType: jest.fn().mockResolvedValue(previousType),
+            setHardwareTransportType,
+          },
         } as unknown as IBackgroundApi,
       });
-      const getSDKInstance = jest
-        .spyOn(service, 'getSDKInstance')
-        .mockResolvedValue(sdk);
+      service.checkSdkVersionValid = jest.fn();
+      service.registerSdkEvents = jest.fn();
+      const getHardwareSDKInstance = jest.mocked(
+        hardwareInstance.getHardwareSDKInstance,
+      );
+      getHardwareSDKInstance.mockResolvedValueOnce(sdk);
+      await service.getSDKInstance({ connectId: undefined });
+      setHardwareTransportType.mockClear();
+
+      const initError = new Error('SDK initialization failed');
+      getHardwareSDKInstance
+        .mockRejectedValueOnce(initError)
+        .mockResolvedValueOnce(sdk)
+        .mockImplementationOnce(async () => {
+          expect(setHardwareTransportType).not.toHaveBeenCalled();
+          return sdk;
+        });
+
+      await expect(service.switchTransport({ transportType })).rejects.toBe(
+        initError,
+      );
+      expect(setHardwareTransportType).not.toHaveBeenCalled();
+      await expect(
+        service.connectionManager.getCurrentTransportType(),
+      ).resolves.toBe(previousType);
+      await expect(
+        service.getSDKInstance({ connectId: undefined }),
+      ).resolves.toBe(sdk);
+      expect(getHardwareSDKInstance).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hardwareTransportType: previousType }),
+      );
+
       await service.switchTransport({ transportType });
-      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(2);
+      expect(setHardwareTransportType).toHaveBeenCalledTimes(1);
       expect(setHardwareTransportType).toHaveBeenCalledWith(transportType);
-      expect(getSDKInstance).toHaveBeenCalledWith({
-        connectId: undefined,
-        hardwareTransportType: transportType,
-      });
+      expect(getHardwareSDKInstance).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hardwareTransportType: transportType }),
+      );
+      await expect(
+        service.connectionManager.getCurrentTransportType(),
+      ).resolves.toBe(transportType);
       expect(switchInPlace).not.toHaveBeenCalled();
     },
   );

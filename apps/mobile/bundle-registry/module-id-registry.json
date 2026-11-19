@@ -27514,6 +27514,7 @@
     "packages/shared/src/hardware/connector-loader/keystone.native.ts": 23988,
     "packages/shared/src/hardware/connector-loader/ledger.native.ts": 13015,
     "packages/shared/src/hardware/connector-loader/trezor.native.ts": 12960,
+    "packages/shared/src/hardware/coreSdkLoader.ts": 3044,
     "packages/shared/src/hardware/deviceStageErrorCodes.ts": 6202,
     "packages/shared/src/hardware/deviceStageOwnership.ts": 8031,
     "packages/shared/src/hardware/deviceStateUtils.ts": 13237,
