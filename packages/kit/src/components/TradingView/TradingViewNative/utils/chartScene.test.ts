@@ -1927,6 +1927,66 @@ describe('crosshair in empty chart space', () => {
     }
   });
 
+  it('draws the legend rows over the latest price line', () => {
+    // Prices between 90 and 100 closing at 98.6 put the latest price line
+    // across the third legend row of a compact chart.
+    const closes = Array.from({ length: 30 }, (_, index) =>
+      index === 29 ? 98.6 : 91 + (index % 9),
+    );
+    const indicatorPoints = closes.map((close, index) => ({
+      c: close,
+      h: index === 0 ? 100 : Math.min(close + 0.5, 100),
+      l: index === 0 ? 90 : Math.max(close - 0.5, 90),
+      o: close,
+      t: 1_700_000_000 + index * 3600,
+      v: 10,
+    }));
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 158,
+      indicatorSeries: buildTradingViewNativeIndicatorSeries({
+        activeIndicatorValues: new Set(['MA', 'EMA', 'WMA']),
+        indicatorSettings: {},
+        points: indicatorPoints,
+      }),
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: indicatorPoints,
+      showPriceLegend: false,
+      timeAxisHeight: 20,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const lineIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'line' &&
+        (command.paint === 'upCurrentPriceLine' ||
+          command.paint === 'downCurrentPriceLine'),
+    );
+    const line = scene.commands[lineIndex];
+    const backgrounds = scene.commands.flatMap((command, index) =>
+      command.kind === 'rect' && command.paint === 'legendBackground'
+        ? [{ command, index }]
+        : [],
+    );
+    const crossedRow = backgrounds.find(
+      ({ command }) =>
+        line?.kind === 'line' &&
+        line.y1 >= command.y &&
+        line.y1 <= command.y + command.height,
+    );
+
+    expect(backgrounds).toHaveLength(3);
+    expect(crossedRow).toBeDefined();
+    for (const { index } of backgrounds) {
+      expect(index).toBeGreaterThan(lineIndex);
+    }
+  });
+
   it('draws a SuperTrend that flips on the latest candle as a dot', () => {
     // A steady fall, then one candle that closes far above the upper band.
     const closes = [

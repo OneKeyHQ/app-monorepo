@@ -1408,6 +1408,9 @@ export function buildTradingViewNativeChartScene({
       : primarySeries.colorRole;
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
+  // Emitted after the plot's lines, the latest price line among them, so a
+  // line crossing a legend row passes under its background and text.
+  const legendCommands: ITradingViewNativeChartSceneCommand[] = [];
   const appendLegendRows = (
     layouts: ITradingViewNativeChartLegendRowLayout[],
     maxBottom = Number.POSITIVE_INFINITY,
@@ -1420,7 +1423,7 @@ export function buildTradingViewNativeChartScene({
         return;
       }
       appendLegendCommands({
-        commands,
+        commands: legendCommands,
         layout: rowLayout,
         trendValuePaint,
         valuePaint: legendValuePaint,
@@ -1600,6 +1603,7 @@ export function buildTradingViewNativeChartScene({
       );
     }
   }
+  commands.push(...legendCommands);
 
   const tradeMarkTooltipCommands: ITradingViewNativeChartSceneCommand[] = [];
   appendTradingViewNativeTradeMarkCommands({
