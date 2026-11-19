@@ -14,6 +14,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import TxConfirmActions from './TxConfirmActions';
@@ -1537,5 +1538,65 @@ describe('TxConfirmActions sent-txs tracking', () => {
     expect(trackingIds[1]).toBe(trackingIds[0]);
     expect(trackingIds[2]).toEqual(expect.any(String));
     expect(trackingIds[2]).not.toBe(trackingIds[0]);
+  });
+});
+
+// OK-67168: the pre-send step (TRON energy rental) pays for the tx signed
+// next. Whether the send signs a new tx or settles an earlier attempt depends
+// on the kind of send, so the step is told what the send will be told.
+describe('TxConfirmActions pre-send action', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it('describes the send that follows to the pre-send action', async () => {
+    mockBatchSend.mockRejectedValue(new Error('broadcast failed'));
+    const preActions = jest.spyOn(
+      backgroundApiProxy.serviceSignatureConfirm,
+      'preActionsBeforeSending',
+    );
+    const wcPayPreBroadcastRecord = {
+      paymentId: 'pay-1',
+      optionId: 'option-1',
+      accountKey: 'hd-1--0',
+      action: {},
+      index: 0,
+    } as unknown as IWcPayPreBroadcastRecord;
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        signOnly
+        beforeBroadcastAction={beforeBroadcastAction}
+        wcPayPreBroadcastRecord={wcPayPreBroadcastRecord}
+      />,
+    );
+
+    await act(async () => {
+      await getFooterActions()
+        .onConfirm?.()
+        .catch(() => undefined);
+    });
+
+    const sendContext = {
+      unsignedTxs: mockUnsignedTxs,
+      signOnly: true,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+    };
+    expect(preActions).toHaveBeenCalledWith(
+      expect.objectContaining(sendContext),
+    );
+    expect(mockBatchSend).toHaveBeenCalledWith(
+      expect.objectContaining(sendContext),
+    );
   });
 });
