@@ -15,6 +15,8 @@ struct MarketLockScreenTests {
     try await checkIndependentSelections()
     try await checkChartRequests()
     try await checkPrivacyDuringRequest()
+    try checkCacheWrittenDuringRefresh()
+    try await checkSelectionWriteFailure()
     try await checkEmptySelection()
     try await checkCachedQuotes()
     print("MarketLockScreenTests: \(checks) checks passed")
@@ -155,6 +157,44 @@ struct MarketLockScreenTests {
            "Privacy interrupts the price-to-chart sequence before a chart request starts")
     let snapshot = MarketLockScreenTimeline.snapshot(assets: [bitcoin], isWatchlist: false, store: fixture.store)
     expect(snapshot.rows.isEmpty, "Masked snapshot never exposes the intent's selected asset")
+  }
+
+  private static func checkCacheWrittenDuringRefresh() throws {
+    let fixture = try LockScreenFixture()
+    defer { fixture.close() }
+    let bitcoin = MarketWidgetAsset.defaults[0], ethereum = MarketWidgetAsset.defaults[1]
+    try fixture.configure([bitcoin, ethereum])
+    let initial = MarketLockScreenTimeline.snapshot(assets: [ethereum, bitcoin, ethereum],
+      isWatchlist: true, store: fixture.store)
+    expect(initial.rows.allSatisfy { $0.quote == nil }, "The refresh begins with an empty cache")
+    // ETH failed, then the App wrote its first quote before BTC finished.
+    let update = MarketWidgetQuote(asset: ethereum, price: "2222", change24h: nil, fetchedAt: Date())
+    try MarketWidgetStore(directory: fixture.directory).saveQuote(update)
+    let btc = MarketWidgetQuote(asset: bitcoin, price: "77000", change24h: nil, fetchedAt: Date())
+    let entry = MarketLockScreenTimeline.finishRefresh(initial: initial, fetched: [bitcoin.id: btc], store: fixture.store)
+    expect(entry.rows.map { $0.quote?.price } == ["2222", "77000", "2222"],
+      "Both failed slots pick up the late ETH quote and retain their configured order")
+    expect(entry.rows.map { $0.lockScreenCacheDate(at: entry.date) } == [update.fetchedAt, nil, update.fetchedAt],
+      "Only failed slots show the cache marker")
+  }
+
+  private static func checkSelectionWriteFailure() async throws {
+    let fixture = try LockScreenFixture()
+    defer { fixture.close() }
+    let asset = MarketWidgetAsset.defaults[0]
+    try fixture.configure([asset])
+    let timestamp = Date().addingTimeInterval(-360)
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "123.45", change24h: nil, fetchedAt: timestamp))
+    // Force the atomic file replacement to fail while the quote and configuration remain readable.
+    try FileManager.default.createDirectory(at: fixture.directory.appendingPathComponent("lock-screen-assets-v1.json"),
+      withIntermediateDirectories: false)
+    LockScreenURLProtocol.configure { try response($0) }
+    let timeline = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+      includingChart: false, store: fixture.store, service: fixture.service)
+    let entry = timeline.entries[0]
+    expect(entry.rows[0].quote?.price == "123.45" && entry.rows[0].lockScreenCacheDate(at: entry.date) == timestamp,
+      "Skipping the refresh after a write failure marks even a six-minute-old price as cached")
+    expect(LockScreenURLProtocol.requests.isEmpty, "A failed selection write never starts a market request")
   }
 
   private static func checkEmptySelection() async throws {

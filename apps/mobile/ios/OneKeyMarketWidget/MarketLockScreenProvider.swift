@@ -21,31 +21,44 @@ enum MarketLockScreenTimeline {
       defer { MarketWidgetDiagnostics.event("timeline.completed", ["durationMs": Int(Date().timeIntervalSince(started) * 1000), "nextRequestedAfterSeconds": 900]) }
       let initial = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
       guard !initial.rows.isEmpty else { return result(initial, includingChart: includingChart) }
-      do { try store.rememberLockScreenAssets(initial.rows.map(\.asset)) }
-      catch { return result(snapshot(assets: assets, isWatchlist: isWatchlist, store: store), includingChart: includingChart) }
-      let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
-        for (index, row) in initial.rows.enumerated() {
-          group.addTask {
-            do {
-              let quote = try await service.quote(for: row.asset,
-                locale: initial.configuration?.locale ?? "en-US", includingChart: includingChart)
-              return (index, MarketWidgetRow(asset: row.asset, quote: quote, failed: false))
-            } catch {
-              MarketWidgetDiagnostics.event("timeline.quote_fallback", error: error)
-              return (index, MarketWidgetRow(asset: row.asset, quote: store.quote(for: row.asset) ?? row.quote, failed: true))
+      var fetched: [String: MarketWidgetQuote] = [:]
+      do {
+        try store.rememberLockScreenAssets(initial.rows.map(\.asset))
+        await withTaskGroup(of: MarketWidgetQuote?.self) { group in
+          for row in initial.rows {
+            group.addTask {
+              do {
+                return try await service.quote(for: row.asset,
+                  locale: initial.configuration?.locale ?? "en-US", includingChart: includingChart)
+              } catch {
+                MarketWidgetDiagnostics.event("timeline.quote_fallback", error: error)
+                return nil
+              }
             }
           }
+          for await quote in group {
+            if let quote { fetched[quote.asset.id] = quote.merging(fetched[quote.asset.id]) }
+          }
         }
-        var values: [(Int, MarketWidgetRow)] = []
-        for await value in group { values.append(value) }
-        return values.sorted { $0.0 < $1.0 }.map(\.1)
+      } catch {
+        MarketWidgetDiagnostics.event("timeline.selection_write_failed", error: error)
       }
-      // The App can mask shared data while requests are suspended.
-      let current = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
-      guard current.configuration == initial.configuration else { return result(current, includingChart: includingChart) }
-      return result(MarketWidgetEntry(date: Date(), configuration: current.configuration, rows: rows,
-        isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot), includingChart: includingChart)
+      return result(finishRefresh(initial: initial, fetched: fetched, store: store), includingChart: includingChart)
     }
+  }
+
+  static func finishRefresh(initial: MarketWidgetEntry, fetched: [String: MarketWidgetQuote],
+                            store: MarketWidgetStore) -> MarketWidgetEntry {
+    // The App can mask the selection or write a newer quote while other slots are loading.
+    let current = snapshot(assets: initial.rows.map(\.asset), isWatchlist: initial.isWatchlist, store: store)
+    let accepted = current.configuration == initial.configuration ? fetched : [:]
+    let rows = current.rows.map { row in
+      let fresh = accepted[row.id]
+      return MarketWidgetRow(asset: row.asset, quote: fresh?.merging(row.quote, at: current.date) ?? row.quote,
+        failed: fresh == nil)
+    }
+    return MarketWidgetEntry(date: current.date, configuration: current.configuration, rows: rows,
+      isWatchlist: current.isWatchlist, selectionUnavailable: current.selectionUnavailable, source: current.source)
   }
 
   private static func result(_ entry: MarketWidgetEntry, includingChart: Bool) -> Timeline<MarketWidgetEntry> {
