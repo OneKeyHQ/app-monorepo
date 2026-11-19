@@ -7,6 +7,7 @@ import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 const requestPortfolioSync = jest.fn();
 let portfolioSyncUiState: {
   disabled: boolean;
+  loading?: boolean;
   request: () => void;
   visible: boolean;
 } = {
@@ -127,6 +128,17 @@ describe('WalletActionPortfolioSync', () => {
       (view.getByTestId('home-update-portfolio-action') as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it('disables the action and shows its loading label during automatic refresh', () => {
+    portfolioSyncUiState.loading = true;
+    const view = renderAction();
+    const action = view.getByTestId('home-update-portfolio-action');
+
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+    expect(action.textContent).toContain('Updating');
+    fireEvent.click(action);
+    expect(requestPortfolioSync).not.toHaveBeenCalled();
   });
 
   it('stays hidden when the existing eligibility rule is false', () => {
