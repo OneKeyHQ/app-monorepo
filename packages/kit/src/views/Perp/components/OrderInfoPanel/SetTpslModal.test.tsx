@@ -5,6 +5,7 @@ import type { PropsWithChildren } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 
 import SetTpslModal from './SetTpslModal';
@@ -28,6 +29,7 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: mockContainer,
   SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
   Divider: () => null,
+  Toast: { error: jest.fn() },
   Checkbox: () => null,
   getFontSize: () => 16,
   useMedia: () => ({ gtMd: true }),
@@ -121,6 +123,20 @@ function modalAtMid(mid: string) {
 describe('position TP/SL confirmation', () => {
   beforeEach(() => {
     mockSetPositionTpsl.mockClear();
+  });
+
+  it('rechecks the mid when a confirmation is already pending', async () => {
+    const { rerender } = render(modalAtMid('1830'));
+    fireEvent.click(screen.getByRole('button', { name: '+10%' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Order' }));
+    rerender(modalAtMid('1850'));
+
+    await waitFor(() =>
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: 'TP trigger price must be above the mid price',
+      }),
+    );
+    expect(mockSetPositionTpsl).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -233,6 +233,8 @@ const SetTpslForm = memo(
       szDecimals,
       allowActiveAssetFallback: true,
     });
+    const latestMidPriceRef = useRef(midPrice);
+    latestMidPriceRef.current = midPrice;
 
     const activePositions = usePerpsAccountScopedActivePositions();
     const [activeAccount] = usePerpsActiveAccountAtom();
@@ -539,7 +541,7 @@ const SetTpslForm = memo(
 
         const errors = getTriggerPriceErrors(
           submission,
-          midPrice,
+          latestMidPriceRef.current,
           isLongPosition,
           intl,
         );
@@ -575,7 +577,6 @@ const SetTpslForm = memo(
       ensureTradingEnabled,
       hyperliquidActions,
       onClose,
-      midPrice,
       intl,
       canSubmitForScopedAccount,
       activeAccount?.accountAddress,
