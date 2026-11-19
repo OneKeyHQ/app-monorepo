@@ -1,17 +1,19 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IAccountDeriveTypes } from '../../vaults/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type IBuildDefaultAddAccountNetworksParams = {
   backgroundApi: IBackgroundApi;
   walletId: string;
+  deviceType?: IDeviceType;
   includingNetworkWithGlobalDeriveType?: boolean;
   firmwareType: EFirmwareType | undefined;
   /** true when called from wallet-creation flow; undefined/false means add-account flow */
@@ -56,7 +58,7 @@ async function buildWithNetworks({
   return finalNetworks;
 }
 
-async function buildAddAccountsNetworks({
+export async function buildAddAccountsNetworks({
   backgroundApi,
   includingNetworkWithGlobalDeriveType,
   btc,
@@ -64,7 +66,10 @@ async function buildAddAccountsNetworks({
   tron,
   sol,
   ltc,
-}: IBuildDefaultAddAccountNetworksParams & {
+}: Pick<
+  IBuildDefaultAddAccountNetworksParams,
+  'backgroundApi' | 'includingNetworkWithGlobalDeriveType'
+> & {
   btc?: boolean;
   evm?: boolean;
   tron?: boolean;
@@ -254,7 +259,7 @@ export async function buildDefaultAddAccountNetworks(
 export async function buildDefaultAddAccountNetworksForQrWallet(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
-  const { firmwareType } = params;
+  const { deviceType, firmwareType } = params;
   if (firmwareType === EFirmwareType.BitcoinOnly) {
     return buildAddAccountsNetworks({
       ...params,
@@ -267,7 +272,7 @@ export async function buildDefaultAddAccountNetworksForQrWallet(
     ...params,
     btc: true,
     evm: true,
-    sol: true,
+    sol: deviceType !== EDeviceType.Pro2,
   });
   return networks;
 }

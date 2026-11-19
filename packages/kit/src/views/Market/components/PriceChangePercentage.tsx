@@ -27,7 +27,7 @@ export function PriceChangePercentage({
       numberOfLines={platformEnv.isNative ? 1 : 2}
       userSelect="none"
       size="$bodyMd"
-      formatter="priceChange"
+      formatter="priceChangeCapped"
       color={color}
       formatterOptions={{ showPlusMinusSigns: true }}
       {...props}

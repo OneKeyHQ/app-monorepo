@@ -7,6 +7,7 @@ import type { IScrollViewProps } from '../ScrollView';
 export interface IPageFooterRef {
   props?: IPageFooterProps;
   notifyUpdate?: () => void;
+  directFooterActive?: boolean;
 }
 
 export interface IPageContentOptions {

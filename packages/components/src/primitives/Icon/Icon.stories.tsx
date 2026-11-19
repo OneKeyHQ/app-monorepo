@@ -3,8 +3,7 @@ import { XStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
-// Icon modules load lazily (dynamic import per name); an empty box holds the
-// frame until the SVG arrives.
+// Icons share the image SDK resource service; native first paint is asynchronous.
 const meta = {
   title: 'Primitives/Icon',
   component: Icon,

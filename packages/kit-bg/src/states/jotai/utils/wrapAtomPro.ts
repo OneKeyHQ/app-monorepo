@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { JOTAI_RESET } from '../types';
 
 import jotaiVerify from './jotaiVerify';
+import { shouldIgnoreBgEchoForOptimisticWrite } from './optimisticAtomWrites';
 
 import type { EAtomNames } from '../atomNames';
 import type {
@@ -15,6 +16,15 @@ import type {
   IJotaiSetter,
   IJotaiWritableAtomPro,
 } from '../types';
+
+// UI runtimes that do not own the atom state (extension UI, native main with
+// the background thread) forward every write to bg and repaint on its echo.
+export function shouldProxyAtomUpdateFromUiToBg() {
+  return (
+    platformEnv.isExtensionUi ||
+    (platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread)
+  );
+}
 
 export function wrapAtomPro(
   name: EAtomNames,
@@ -24,10 +34,7 @@ export function wrapAtomPro(
     Promise<void> | undefined
   >,
 ) {
-  const shouldProxyStateUpdateFromUiToBg =
-    platformEnv.isExtensionUi ||
-    (platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread);
+  const shouldProxyStateUpdateFromUiToBg = shouldProxyAtomUpdateFromUiToBg();
   const shouldBroadcastStateUpdateFromBgToUi =
     platformEnv.isExtensionBackground ||
     (platformEnv.isNativeBackgroundThread &&
@@ -92,6 +99,11 @@ export function wrapAtomPro(
           nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
           nextValueFromBg?.name === name
         ) {
+          if (
+            shouldIgnoreBgEchoForOptimisticWrite(name, nextValueFromBg.payload)
+          ) {
+            return;
+          }
           nextValue = nextValueFromBg.payload;
           proxyToBg = false;
         }

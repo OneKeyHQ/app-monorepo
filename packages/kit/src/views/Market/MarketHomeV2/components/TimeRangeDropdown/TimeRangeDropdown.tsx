@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 
+import { MarketTestIDs } from '../../../testIDs';
 import {
   type ITimeRangeSelectorValue,
   TIME_RANGE_OPTIONS,
@@ -28,6 +29,7 @@ function TimeRangeDropdownContent({
       {TIME_RANGE_OPTIONS.map((option) => (
         <XStack
           key={option.value}
+          testID={MarketTestIDs.timeRangeOption(option.value)}
           px="$3"
           py="$2"
           borderRadius="$2"
@@ -64,6 +66,7 @@ function TimeRangeDropdownImpl({
   const renderTrigger = useMemo(
     () => (
       <XStack
+        testID={MarketTestIDs.timeRangeDropdown}
         {...(compact
           ? {}
           : { bg: '$bgStrong', borderRadius: '$full', px: '$2.5', py: '$1' })}

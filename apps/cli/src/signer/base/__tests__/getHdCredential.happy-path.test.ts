@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
 import {
   ABSOLUTE_MAX_TTL_MS,
   REFRESH_THRESHOLD_MS,
@@ -135,17 +132,22 @@ function createSigner({
 
 describe('SignerSoftwareBase.getHdCredential happy path', () => {
   it('uses Layer 1 session memo on the second call without reading vault', async () => {
-    const { decryptCredential, fetchKey, signer, vaultClient } = createSigner();
+    const { cache, decryptCredential, fetchKey, signer, vaultClient } =
+      createSigner();
 
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
     vaultClient.calls = 0;
     fetchKey.mockClear();
     decryptCredential.mockClear();
+    cache.get.mockClear();
+    cache.set.mockClear();
 
-    const startedAt = performance.now();
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
 
-    expect(performance.now() - startedAt).toBeLessThan(10);
+    // Assert the fast path's work, not runner scheduling or coverage overhead.
+    expect(cache.get).toHaveBeenCalledTimes(1);
+    expect(cache.get).toHaveBeenCalledWith(CACHE_KEY);
+    expect(cache.set).not.toHaveBeenCalled();
     expect(vaultClient.calls).toBe(0);
     expect(fetchKey).not.toHaveBeenCalled();
     expect(decryptCredential).not.toHaveBeenCalled();
@@ -202,14 +204,15 @@ describe('SignerSoftwareBase.getHdCredential happy path', () => {
     const { cache, decryptCredential, fetchKey, signer, vaultClient } =
       createSigner();
 
-    const startedAt = performance.now();
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
 
-    expect(performance.now() - startedAt).toBeLessThan(50);
+    expect(vaultClient.calls).toBe(1);
+    expect(fetchKey).toHaveBeenCalledTimes(1);
     expect(fetchKey).toHaveBeenCalledWith({
       accessToken: 'token-1',
       keyId: 'key-1',
     });
+    expect(decryptCredential).toHaveBeenCalledTimes(1);
     expect(decryptCredential).toHaveBeenCalledWith(
       'ciphertext-1',
       'key-base64',
@@ -268,18 +271,19 @@ describe('SignerSoftwareBase.getHdCredential happy path', () => {
     expect(fetchKey).not.toHaveBeenCalled();
   });
 
-  it('does not introduce timer-based async paths inside getHdCredential', () => {
-    const source = readFileSync(
-      path.resolve(__dirname, '../SignerSoftwareBase.ts'),
-      'utf-8',
-    );
-    const methodSource = source.match(
-      /async getHdCredential\(\): Promise<string> \{[\s\S]*?\n {2}\}/,
-    )?.[0];
+  // A timer-based hop would leave the decrypted credential alive across a tick.
+  // Asserted by running the call under fake timers rather than by reading the
+  // method body, which would miss a timer scheduled in anything it calls.
+  it('does not introduce timer-based async paths inside getHdCredential', async () => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      const { signer } = createSigner();
 
-    expect(methodSource).toBeDefined();
-    expect(methodSource).not.toMatch(
-      /setImmediate|setTimeout|process\.nextTick/,
-    );
+      await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
+
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

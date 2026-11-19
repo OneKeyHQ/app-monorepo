@@ -11,15 +11,16 @@ import { TextArea as TMTextArea } from './TamaguiTextArea';
 
 import type { ITextAreaProps as TextAreaProps } from './TamaguiTextArea';
 import type { IInputProps } from '../Input';
-import type {
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputFocusEventData,
-} from 'react-native';
+import type { TextInputFocusEvent, TextInputInstance } from 'react-native';
 
 export type ITextAreaProps = Pick<
   IInputProps,
-  'disabled' | 'editable' | 'error' | 'size'
+  | 'disabled'
+  | 'editable'
+  | 'error'
+  | 'size'
+  | 'onCompositionStart'
+  | 'onCompositionEnd'
 > &
   Omit<TextAreaProps, 'size'>;
 
@@ -37,7 +38,7 @@ function BaseTextArea(
     children: _children,
     ...props
   }: ITextAreaProps,
-  forwardedRef: Ref<TextInput>,
+  forwardedRef: Ref<TextInputInstance>,
 ) {
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -45,12 +46,12 @@ function BaseTextArea(
     error,
     size,
   });
-  const ref = useRef<TextInput>(null);
-  useImperativeHandle(forwardedRef, () => ref.current as TextInput);
+  const ref = useRef<TextInputInstance>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as TextInputInstance);
 
   const selectionColor = useSelectionColor();
   const handleFocus = useCallback(
-    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    async (e: TextInputFocusEvent) => {
       onFocus?.(e);
     },
     [onFocus],

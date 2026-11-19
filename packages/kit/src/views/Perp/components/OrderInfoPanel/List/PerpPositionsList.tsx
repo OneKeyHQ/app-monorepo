@@ -11,7 +11,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   usePerpsActivePositionAtom,
   usePositionFilterByCurrentTokenAtom,
@@ -21,7 +22,9 @@ import {
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
@@ -34,11 +37,13 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
 import { type IPositionRowItem, PositionRow } from '../Components/PositionsRow';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import { PERP_DESKTOP_EMPTY_STATE_TOP_INSET } from '../utils/tableLayout';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -47,17 +52,31 @@ import type { LayoutChangeEvent } from 'react-native';
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
 }
+
+type IPositionSymbolMetaMap = Awaited<
+  ReturnType<typeof backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap>
+>;
 
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
-  useTabsList,
   disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
+  const [actionMeasurement, setActionMeasurement] = useState({
+    locale: '',
+    width: 160,
+  });
+  const actionColumnWidth =
+    actionMeasurement.locale === intl.locale ? actionMeasurement.width : 160;
+  const actionLabels = [
+    ETranslations.add_position__action,
+    ETranslations.perp_reverse_position__action,
+    ETranslations.perp_position_market,
+    ETranslations.perp_position_limit,
+  ].map((id) => intl.formatMessage({ id }));
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
@@ -66,6 +85,11 @@ function PerpPositionsList({
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
+  const {
+    records: fundingHistory,
+    isError: isFundingHistoryError,
+    isLoading: isFundingHistoryLoading,
+  } = usePerpUserFundingHistory({ isActive: !isMobile });
   const [currentListPage, setCurrentListPage] = useState(1);
   const canMutateScopedPositions = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
@@ -85,6 +109,30 @@ function PerpPositionsList({
     dataAccountAddress: positions.accountAddress,
   });
   const positionsLength = scopedActivePositions.length;
+  const positionCoinsKey = useMemo(
+    () =>
+      [...new Set(scopedActivePositions.map((item) => item.position.coin))]
+        .toSorted()
+        .join('\u0000'),
+    [scopedActivePositions],
+  );
+  const { result: positionSymbolMetaMap } =
+    usePromiseResult<IPositionSymbolMetaMap>(
+      async () => {
+        const coins = positionCoinsKey ? positionCoinsKey.split('\u0000') : [];
+        if (coins.length === 0) {
+          return {};
+        }
+        return backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+          coins,
+        });
+      },
+      [positionCoinsKey],
+      {
+        initResult: {},
+        undefinedResultIfError: true,
+      },
+    );
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -175,7 +223,7 @@ function PerpPositionsList({
           id: ETranslations.perp_position_tp_sl,
         }),
         minWidth: 140,
-        align: 'center',
+        align: 'left',
         flex: 1,
       },
       {
@@ -183,18 +231,25 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_close,
         }),
-        minWidth: 160,
+        width: actionColumnWidth,
         align: 'right',
         flex: 1,
         fixed: positionsLength > 0,
         ...(positionsLength > 0 &&
           canMutateScopedPositions && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCloseAllPositionsDialog(undefined, accountScopedAddress),
           }),
       },
     ];
-  }, [accountScopedAddress, canMutateScopedPositions, intl, positionsLength]);
+  }, [
+    accountScopedAddress,
+    canMutateScopedPositions,
+    intl,
+    positionsLength,
+    actionColumnWidth,
+  ]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -210,12 +265,14 @@ function PerpPositionsList({
       return scopedActivePositions.map((activePosition, index) => ({
         index,
         activePosition,
+        assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }));
     }
     return scopedActivePositions
       .map((activePosition, originalIndex) => ({
         index: originalIndex,
         activePosition,
+        assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }))
       .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
@@ -223,6 +280,7 @@ function PerpPositionsList({
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,
+    positionSymbolMetaMap,
   ]);
 
   const handleTraceLayout = useCallback(
@@ -241,7 +299,6 @@ function PerpPositionsList({
           filterByCurrentToken,
           activeCoin: activeAsset?.coin,
           hasAccountAddress: Boolean(accountScopedAddress),
-          useTabsList,
           disableListScroll,
           positionsReady,
         });
@@ -257,7 +314,6 @@ function PerpPositionsList({
       mockedPositions.length,
       positionsReady,
       scopedActivePositions.length,
-      useTabsList,
     ],
   );
 
@@ -272,7 +328,6 @@ function PerpPositionsList({
       filterByCurrentToken,
       activeCoin: activeAsset?.coin,
       hasAccountAddress: Boolean(accountScopedAddress),
-      useTabsList,
       disableListScroll,
       positionsReady,
     });
@@ -286,7 +341,6 @@ function PerpPositionsList({
     positionsReady,
     positionsLength,
     scopedActivePositions.length,
-    useTabsList,
   ]);
 
   const renderPositionRow = (
@@ -305,12 +359,14 @@ function PerpPositionsList({
       renderMode={renderMode}
       isHovered={isHovered}
       onHoverChange={onHoverChange}
+      fundingHistory={fundingHistory}
+      isFundingHistoryLoading={isFundingHistoryLoading}
+      isFundingHistoryError={isFundingHistoryError}
     />
   );
   const keyExtractor = useCallback((item: IPositionRowItem) => {
     return item.activePosition.position.coin;
   }, []);
-  const actions = useHyperliquidActions();
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: 'PerpPositionsList',
@@ -364,31 +420,43 @@ function PerpPositionsList({
   if (!isMobile && positionsReady && mockedPositions.length === 0) {
     return (
       <YStack flex={1} width="100%">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          nestedScrollEnabled
-          contentContainerStyle={{
-            minWidth: totalMinWidth,
-            flexGrow: 1,
-          }}
+        {/* Row wrapper keeps the ScrollView's flexGrow horizontal; in a column
+            parent it would split the pane height with the empty state. */}
+        <XStack
+          width="100%"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          bg="$bgApp"
         >
-          <XStack
-            flex={1}
-            py="$2"
-            pl="$5"
-            pr="$3"
-            display="flex"
-            minWidth={totalMinWidth}
-            width="100%"
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-            bg="$bgSubtle"
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              minWidth: totalMinWidth,
+              flexGrow: 1,
+            }}
           >
-            {columnsConfig.map(renderDesktopHeaderCell)}
-          </XStack>
-        </ScrollView>
-        <YStack flex={1} width="100%">
+            <XStack
+              flex={1}
+              py="$2"
+              pl="$5"
+              pr="$3"
+              display="flex"
+              minWidth={totalMinWidth}
+              width="100%"
+            >
+              {columnsConfig.map(renderDesktopHeaderCell)}
+            </XStack>
+          </ScrollView>
+        </XStack>
+        <YStack
+          flex={1}
+          width="100%"
+          minHeight={0}
+          pt={PERP_DESKTOP_EMPTY_STATE_TOP_INSET}
+        >
           <PerpPositionsEmptyState />
         </YStack>
       </YStack>
@@ -397,12 +465,41 @@ function PerpPositionsList({
 
   return (
     <YStack flex={1} onLayout={(event) => handleTraceLayout('root', event)}>
+      {!isMobile && platformEnv.isRuntimeBrowser ? (
+        <YStack
+          key={intl.locale}
+          position="absolute"
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+          alignItems="flex-start"
+          $platform-web={{ width: 'max-content' }}
+          onLayout={(event) => {
+            const width = Math.ceil(event.nativeEvent.layout.width);
+            if (width > 0) {
+              setActionMeasurement((previous) =>
+                previous.locale === intl.locale && previous.width === width
+                  ? previous
+                  : { locale: intl.locale, width },
+              );
+            }
+          }}
+        >
+          {/* Hover scaling does not change the action labels' layout widths. */}
+          <XStack gap="$2">
+            {actionLabels.map((label, index) => (
+              <SizableText key={index} size="$bodySmMedium" flexShrink={0}>
+                {label}
+              </SizableText>
+            ))}
+          </XStack>
+          <SizableText size="$bodySmMedium" fontWeight={600}>
+            {intl.formatMessage({ id: ETranslations.perp_position_close })}
+          </SizableText>
+        </YStack>
+      ) : null}
       <CommonTableListView
-        onPullToRefresh={async () => {
-          await actions.current.refreshAllPerpsData();
-        }}
         listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-        useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}

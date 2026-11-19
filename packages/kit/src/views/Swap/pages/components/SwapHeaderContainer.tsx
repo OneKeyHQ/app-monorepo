@@ -26,6 +26,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -39,6 +40,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarryOptions } from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -121,11 +123,14 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  onSwapTypeSwitch?: (nextType: ESwapTabSwitchType) => void;
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -134,10 +139,13 @@ const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
 const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
 
 const SwapHeaderContainer = ({
+  storeName,
   pageType,
   defaultSwapType,
+  onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
+  singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -151,6 +159,9 @@ const SwapHeaderContainer = ({
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapProTokenCarryOptions = useSwapProTokenCarryOptions({
+    enabled: Boolean(platformEnv.isNative && showSwapPro),
+  });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -215,7 +226,10 @@ const SwapHeaderContainer = ({
     if (
       hadPendingSwapProEntryOnMountRef.current ||
       !defaultSwapType ||
-      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+      (pageType === 'modal' &&
+        (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+          enterFrom === ESwapSource.TOKEN_DETAIL ||
+          enterFrom === ESwapSource.MARKET))
     ) {
       return;
     }
@@ -236,6 +250,7 @@ const SwapHeaderContainer = ({
       await updateSelectedAccountNetwork({
         num: 0,
         networkId: targetNetworkId,
+        reason: 'swapTypeNetworkSync',
       });
     },
     [updateSelectedAccountNetwork],
@@ -260,6 +275,8 @@ const SwapHeaderContainer = ({
           : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
+      onSwapTypeSwitch?.(newType);
+
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
         fromCategory: getSwapAnalyticsCategoryFromSwapType(
           swapTypeSwitch,
@@ -274,7 +291,11 @@ const SwapHeaderContainer = ({
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
         syncRouteTabParam(newType);
-        await swapTypeSwitchAction(newType, networkId);
+        await swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          initializeSwapDefaultsFromHome: pageType !== 'modal',
+          ...swapProTokenCarryOptions,
+        });
         return;
       }
 
@@ -284,23 +305,41 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
-        void swapTypeSwitchAction(newType, networkId);
+        void swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
       } else {
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        const settledFromToken = await swapTypeSwitchAction(
+          newType,
+          fromToken?.networkId || networkId,
+          {
+            carryTargetToken: true,
+            ...swapProTokenCarryOptions,
+          },
+        );
+        // Leave the Pro owner before awaiting account synchronization so its
+        // network effect cannot switch the account back while this is in flight.
+        // Cross-network carry can replace From with the target network's
+        // native token, so synchronize from the settled pair.
+        const settledFromNetworkId = settledFromToken?.networkId;
+        if (settledFromNetworkId && settledFromNetworkId !== networkId) {
+          await updateSelectedAccountNetworkAction(settledFromNetworkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
       }
     },
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      onSwapTypeSwitch,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      pageType,
       isSwapProCategory,
+      swapProTokenCarryOptions,
     ],
   );
 
@@ -390,6 +429,12 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
+  const hideStockModalKLine = Boolean(
+    (platformEnv.isDesktop ||
+      (platformEnv.isNative && enterFrom === ESwapSource.MARKET)) &&
+    pageType === 'modal' &&
+    swapTypeSwitch === ESwapTabSwitchType.STOCK,
+  );
   const tabs = (
     <>
       <CustomTabItem
@@ -429,6 +474,41 @@ const SwapHeaderContainer = ({
     </>
   );
 
+  if (singleSwapBridgeTab) {
+    // This branch is only reached from the Market detail pages' embedded swap.
+    // The panel carries no "Swap & Bridge" title (OK-62956): only the right
+    // actions remain, pinned to the trailing edge. All 8px of padding sits on
+    // top: the buttons' -7px margin would otherwise lift their 34px hover
+    // background past the panel's `overflow: hidden` top edge.
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$2"
+        px="$5"
+        pt="$2"
+        pb="$0"
+      >
+        {!hideRightActions ? (
+          // The actions match the stock trade panel sitting in the same slot:
+          // the roomier icon size and spacing rather than `compact`.
+          // `iconSize` has to be a size token — `Icon` resolves its `size`
+          // variant through the token table, and a raw number silently falls
+          // back to the 24px default.
+          <SwapHeaderRightActionContainer
+            storeName={storeName}
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            routeSwapType={defaultSwapType}
+            iconSize="$5"
+            iconColor="$iconStrong"
+            hideKLine
+          />
+        ) : null}
+      </XStack>
+    );
+  }
+
   return (
     <XStack
       alignItems="center"
@@ -454,9 +534,12 @@ const SwapHeaderContainer = ({
       </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
+          storeName={storeName}
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
+          hideKLine={hideStockModalKLine}
         />
       ) : null}
     </XStack>

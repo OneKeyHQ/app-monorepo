@@ -51,6 +51,8 @@ export interface IBorrowDelegationApproveTarget {
 export interface IManagePositionApproval {
   approveType?: EApproveType;
   approving: boolean;
+  isFormInteractionLocked: boolean;
+  approvalProgressStarted: boolean;
   loadingAllowance: boolean;
   shouldApprove: boolean;
   ensureReadyToSubmit: () => Promise<boolean>;
@@ -98,7 +100,9 @@ export interface IManagePositionProps {
   onTokenSelect?: (item: IBorrowAsset) => void;
 
   // Callbacks
-  onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
+  // Resolves false when the flow never started (the user rejected the risk
+  // disclaimer, say), so the form can keep what the user typed.
+  onConfirm?: (params: IManagePositionConfirmParams) => Promise<boolean | void>;
 }
 
 // ============================================================================
@@ -217,6 +221,7 @@ export interface IActionTabBarProps {
 
 export interface IAmountInputSectionProps {
   title?: string;
+  onAmountFocusChange: (inputId: string, focused: boolean) => void;
 }
 
 export interface IInfoDisplaySectionProps {
@@ -227,6 +232,7 @@ export interface IInfoDisplaySectionProps {
 export interface IActionFooterProps {
   isInModalContext?: boolean;
   beforeFooter?: ReactElement | null;
+  isAmountFocused: boolean;
 }
 
 // ============================================================================

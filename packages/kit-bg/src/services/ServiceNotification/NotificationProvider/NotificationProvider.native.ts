@@ -56,7 +56,7 @@ export default class NotificationProvider extends NotificationProviderBase {
   jpushProvider: PushProviderJPush | undefined;
 
   initJPushProvider() {
-    if (this.options.disabledJPush) {
+    if (this.options.disabledJPush || platformEnv.isNativeIOSMacCatalyst) {
       return;
     }
     this.jpushProvider = new PushProviderJPush({
@@ -149,7 +149,10 @@ export default class NotificationProvider extends NotificationProviderBase {
       status.ios?.status === IosAuthorizationStatus.PROVISIONAL
     ) {
       permission = ENotificationPermission.granted;
-    } else if (status.status === PermissionStatus.DENIED) {
+    } else if (
+      status.status === PermissionStatus.DENIED &&
+      !status.canAskAgain
+    ) {
       permission = ENotificationPermission.denied;
     }
 

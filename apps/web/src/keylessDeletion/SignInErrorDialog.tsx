@@ -32,7 +32,6 @@ export function SignInErrorDialog({
         onDismiss();
         return Promise.resolve();
       }}
-      modal
       title={title}
       showHeader={false}
       showFooter={false}
@@ -49,7 +48,7 @@ export function SignInErrorDialog({
         >
           <YStack pt="$5" gap="$3">
             <YStack>
-              <Dialog.Title tag="h2" nativeID={titleId}>
+              <Dialog.Title render="h2" nativeID={titleId}>
                 {title}
               </Dialog.Title>
               <Dialog.Description nativeID={descriptionId}>

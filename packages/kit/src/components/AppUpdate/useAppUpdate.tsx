@@ -8,6 +8,7 @@ import {
   getUpdateFileType,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -19,7 +20,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { useAppUpdateForegroundEffects } from './AppUpdateForeground';
-import { isForceUpdateStrategy } from './updateStrategy';
+import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
 export const useAppChangeLog = () => {
@@ -102,19 +103,22 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     ],
   );
 
-  const toDownloadAndVerifyPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AppUpdateModal, {
-      screen: EAppUpdateRoutes.DownloadVerify,
-      params: {
-        isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-      },
-    });
-  }, [appUpdateInfo.updateStrategy, navigation]);
+  const toDownloadAndVerifyPage = useCallback(
+    (isForceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy)) => {
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.DownloadVerify,
+        params: {
+          isForceUpdate,
+        },
+      });
+    },
+    [appUpdateInfo.updateStrategy, navigation],
+  );
 
   const checkForUpdates = useCallback(async () => {
     defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
     const response =
-      await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+      await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
     const { shouldUpdate, fileType, isRollback } = isNeedUpdate({
       latestVersion: response?.latestVersion,
       jsBundleVersion: response?.jsBundleVersion,
@@ -136,35 +140,54 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     return result;
   }, []);
 
-  const { downloadPackage, installPackage, showUpdateInCompleteDialog } =
-    useDownloadPackage();
-
-  const onUpdateAction = useCallback(() => {
-    switch (appUpdateInfo.status) {
-      case EAppUpdateStatus.done:
-      case EAppUpdateStatus.notify:
-        toUpdatePreviewPage(isFullModal);
-        break;
-      case EAppUpdateStatus.updateIncomplete:
-        showUpdateInCompleteDialog({});
-        break;
-      case EAppUpdateStatus.manualInstall:
-        navigation.pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.ManualInstall,
-        });
-        break;
-      default:
-        toDownloadAndVerifyPage();
-        break;
-    }
-  }, [
-    appUpdateInfo.status,
-    isFullModal,
-    navigation,
+  const {
+    downloadPackage,
+    downloadASC,
+    installPackage,
     showUpdateInCompleteDialog,
-    toDownloadAndVerifyPage,
-    toUpdatePreviewPage,
-  ]);
+  } = useDownloadPackage();
+
+  const onUpdateActionWithInfo = useCallback(
+    (snapshot?: IAppUpdateInfo) => {
+      const current = snapshot ?? appUpdateInfo;
+      const force = isForceUpdateStrategy(current.updateStrategy);
+      switch (current.status) {
+        case EAppUpdateStatus.done:
+        case EAppUpdateStatus.notify:
+          toUpdatePreviewPage(
+            isFullModal || (snapshot !== undefined && force),
+            snapshot
+              ? { latestVersion: current.latestVersion, isForceUpdate: force }
+              : undefined,
+          );
+          break;
+        case EAppUpdateStatus.updateIncomplete:
+          showUpdateInCompleteDialog({});
+          break;
+        case EAppUpdateStatus.manualInstall:
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.ManualInstall,
+          });
+          break;
+        default:
+          toDownloadAndVerifyPage(force);
+          break;
+      }
+    },
+    [
+      appUpdateInfo,
+      isFullModal,
+      navigation,
+      showUpdateInCompleteDialog,
+      toDownloadAndVerifyPage,
+      toUpdatePreviewPage,
+    ],
+  );
+
+  const onUpdateAction = useCallback(
+    () => onUpdateActionWithInfo(),
+    [onUpdateActionWithInfo],
+  );
 
   // Unified "direct" update action shared by the toolbox update reminder and
   // the new top-right Update button. Unlike onUpdateAction it never opens the
@@ -194,19 +217,36 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       if (appUpdateInfo.status === EAppUpdateStatus.ready) {
         void installPackage(
           () => {},
-          () => showUpdateInCompleteDialog({}),
+          () => {
+            if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) {
+              showUpdateInCompleteDialog({});
+            }
+          },
+          { userInitiated: true, installSource: 'legacy' },
         );
         return;
       }
       if (appUpdateInfo.status === EAppUpdateStatus.notify) {
         void downloadPackage();
+      } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASCFailed) {
+        void downloadASC();
+      } else if (
+        [
+          EAppUpdateStatus.done,
+          EAppUpdateStatus.failed,
+          EAppUpdateStatus.downloadPackageFailed,
+          EAppUpdateStatus.verifyASCFailed,
+          EAppUpdateStatus.verifyPackageFailed,
+        ].includes(appUpdateInfo.status)
+      ) {
+        void downloadPackage({ userInitiated: true });
       }
       toDownloadAndVerifyPage();
       return;
     }
     // Major version (appShell). App Store builds open the store; direct-channel
     // builds start the download (when still at notify) and open the modal.
-    if (appUpdateInfo.storeUrl) {
+    if (appUpdateInfo.storeUrl?.startsWith('https://')) {
       // Server-driven store URL must reach the store app via the system
       // browser; in-app browsers never trigger universal links.
       openUrlExternal(appUpdateInfo.storeUrl, { useSystemBrowser: true });
@@ -215,16 +255,30 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     if (appUpdateInfo.downloadUrl || appUpdateInfo.jsBundle?.downloadUrl) {
       if (appUpdateInfo.status === EAppUpdateStatus.notify) {
         void downloadPackage();
+      } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASCFailed) {
+        void downloadASC();
+      } else if (
+        [
+          EAppUpdateStatus.done,
+          EAppUpdateStatus.failed,
+          EAppUpdateStatus.downloadPackageFailed,
+          EAppUpdateStatus.verifyASCFailed,
+          EAppUpdateStatus.verifyPackageFailed,
+        ].includes(appUpdateInfo.status)
+      ) {
+        void downloadPackage({ userInitiated: true });
       }
       toDownloadAndVerifyPage();
     }
   }, [
     appUpdateInfo.status,
+    appUpdateInfo.updateStrategy,
     appUpdateInfo.latestVersion,
     appUpdateInfo.jsBundleVersion,
     appUpdateInfo.storeUrl,
     appUpdateInfo.downloadUrl,
     appUpdateInfo.jsBundle?.downloadUrl,
+    downloadASC,
     downloadPackage,
     installPackage,
     navigation,
@@ -243,6 +297,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       updateFileType: fileType,
       data: appUpdateInfo,
       onUpdateAction,
+      onUpdateActionWithInfo,
       onUpdateActionDirect,
       toUpdatePreviewPage,
       onViewReleaseInfo,
@@ -254,6 +309,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     checkForUpdates,
     downloadPackage,
     onUpdateAction,
+    onUpdateActionWithInfo,
     onUpdateActionDirect,
     onViewReleaseInfo,
     toUpdatePreviewPage,
@@ -272,11 +328,6 @@ export {
   isToolboxUpdateIndicatorRedundant,
 } from './updateStrategy';
 export { useDownloadPackage } from './useDownloadPackage';
-export {
-  sanitizeUpdateErrorMessage,
-  extractUpdateErrorCode,
-  isUnrecoverableDownloadError,
-} from './updateErrorTaxonomy';
 export {
   computeDownloadRetryDelayMs,
   runDownloadWithRetry,

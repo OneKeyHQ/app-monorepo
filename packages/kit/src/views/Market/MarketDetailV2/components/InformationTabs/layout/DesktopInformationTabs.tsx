@@ -6,10 +6,12 @@ import {
   Badge,
   Icon,
   SizableText,
+  Tab,
   Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { useMarketTransactionsRealtimePauseAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -45,12 +48,8 @@ function DesktopInformationTabsHeader({
   holdersTabLabel: string;
   holdersTabName: string;
 }) {
-  const { tabNames } = props;
   const [realtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const intl = useIntl();
-  const firstTabName = useMemo(() => {
-    return tabNames[0];
-  }, [tabNames]);
   const hasBufferedUpdates =
     realtimePauseState.isPaused && realtimePauseState.bufferedCount > 0;
   const updatesAmount = realtimePauseState.hasBufferOverflow
@@ -66,8 +65,8 @@ function DesktopInformationTabsHeader({
     scrollTransactionsToTop?.();
   }, [resumeRealtimeUpdates, scrollTransactionsToTop]);
   const renderTabBarItem = useCallback(
-    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         label={
@@ -88,11 +87,10 @@ function DesktopInformationTabsHeader({
       zIndex={10}
       overflow="visible"
     >
-      <Tabs.TabBar
-        {...props}
-        textSize="$bodyMdMedium"
-        renderItem={renderTabBarItem}
-      />
+      {/* Figma 25593:18628: the TabBar's defaults already match the redesigned
+          tabs ($bodyLgMedium text, 2px active indicator on the item) — only the
+          full-width divider under the row is off spec. */}
+      <TabBar {...props} divider={false} renderItem={renderTabBarItem} />
       {realtimePauseState.isPaused ? (
         <Badge
           position="absolute"
@@ -111,7 +109,7 @@ function DesktopInformationTabsHeader({
           </Badge.Text>
         </Badge>
       ) : null}
-      <StickyHeader firstTabName={firstTabName} />
+      <StickyHeader />
       {hasBufferedUpdates ? (
         <XStack
           position="absolute"
@@ -156,6 +154,9 @@ function DesktopInformationTabsHeader({
 interface IDesktopInformationTabsProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork?: boolean;
   tokenLogoUrl?: string;
 }
@@ -163,6 +164,8 @@ interface IDesktopInformationTabsProps {
 export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
+  isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   tokenLogoUrl,
 }: IDesktopInformationTabsProps) {
@@ -195,7 +198,7 @@ export function DesktopInformationTabs({
 
     const items = [
       shouldShowTransactionsTab && (
-        <Tabs.Tab
+        <Tab
           key="transactions"
           name={intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions,
@@ -205,23 +208,27 @@ export function DesktopInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
           />
-        </Tabs.Tab>
+        </Tab>
       ),
-      <Tabs.Tab
+      <Tab
         key="portfolio"
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
         })}
       >
         <Portfolio
+          isStock={isStockToken}
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
+          isPending={isPortfolioPending}
+          isFailed={isPortfolioFailed}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          isMarketDetail
         />
-      </Tabs.Tab>,
+      </Tab>,
       shouldShowLiquidityPoolsTab && (
-        <Tabs.Tab
+        <Tab
           key="liquidityPools"
           name={intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -236,12 +243,12 @@ export function DesktopInformationTabs({
               pb="$4"
             />
           </Tabs.ScrollView>
-        </Tabs.Tab>
+        </Tab>
       ),
       shouldShowHoldersTab && (
-        <Tabs.Tab key="holders" name={holdersTabName}>
+        <Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>
+        </Tab>
       ),
     ].filter(Boolean);
     return items;
@@ -252,6 +259,8 @@ export function DesktopInformationTabs({
     tokenAddress,
     portfolioData,
     isRefreshing,
+    isPortfolioPending,
+    isPortfolioFailed,
     holdersTabName,
     isNative,
     tokenLogoUrl,
@@ -260,7 +269,18 @@ export function DesktopInformationTabs({
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
+  const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     ({ ...props }: any) => (
@@ -285,6 +305,9 @@ export function DesktopInformationTabs({
     <Tabs.Container
       key={tabsKey}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
       disableScroll={!platformEnv.isNative}
     >

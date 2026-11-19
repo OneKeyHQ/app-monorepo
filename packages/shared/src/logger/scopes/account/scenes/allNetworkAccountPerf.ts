@@ -1,5 +1,8 @@
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 type IHomeTokenListRefreshTraceParams = {
   runtime: 'main' | 'bg';
@@ -25,6 +28,11 @@ type IHomeTokenListRefreshTraceParams = {
   indexedAccountPresent?: boolean;
   source?: string;
   reason?: string;
+  skipReason?: string;
+  disabled?: boolean;
+  isRouteFocused?: boolean;
+  isLocked?: boolean;
+  shouldAlwaysFetch?: boolean;
 };
 
 export class AllNetworkAccountPerf extends BaseScene {
@@ -43,6 +51,7 @@ export class AllNetworkAccountPerf extends BaseScene {
 
   @LogToLocal()
   public homeTokenListRefreshTrace(params: IHomeTokenListRefreshTraceParams) {
+    if (!isAccountSwitchDiagnosticsEnabled()) return NO_LOG_OUTPUT;
     return params;
   }
 }

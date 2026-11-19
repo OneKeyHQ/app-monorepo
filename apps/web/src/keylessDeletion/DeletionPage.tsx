@@ -5,12 +5,6 @@ import { useIntl } from 'react-intl';
 import { Alert } from '@onekeyhq/components/src/actions/Alert';
 import { Checkbox } from '@onekeyhq/components/src/forms/Checkbox';
 import { type IInputRef, Input } from '@onekeyhq/components/src/forms/Input';
-import {
-  getOtpButtonState,
-  useCountdown,
-  useOtpInputFocus,
-  useOtpResend,
-} from '@onekeyhq/components/src/hooks/otpInputState';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
@@ -20,6 +14,12 @@ import { OnboardingIconBadge } from '@onekeyhq/kit/src/views/Onboardingv2/compon
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { messages } from './messages';
+import {
+  getOtpButtonState,
+  useCountdown,
+  useOtpInputFocus,
+  useOtpResend,
+} from './otpInputState';
 import {
   PROVIDERS,
   UPDATED_CONFIRMATION_VERSION,
@@ -349,7 +349,7 @@ function ConfirmStep({
               });
             }}
             containerProps={{
-              tag: 'button',
+              render: 'button',
               role: 'checkbox',
               'aria-checked': checked,
               ...consentDescription,
@@ -388,7 +388,8 @@ function ResultStep({ flow }: { flow: IFlow }) {
   if (screen.step !== 'result') {
     return null;
   }
-  const { result, accepted, needsSignIn, canRetry } = screen;
+  const { result, accepted, proof, canRetry } = screen;
+  const needsSignIn = !proof;
   const known = result && result.status !== 'not_submitted' ? result : accepted;
   const resultUnavailable = error?.code === 'INVITATION_UNAVAILABLE';
   let resultDetail = resultUnavailable
@@ -712,7 +713,7 @@ function Flow({
         ) : null}
         {heading ? (
           <SizableText
-            tag="h1"
+            render="h1"
             id="flow-heading"
             className={verifying ? 'keyless-visually-hidden' : undefined}
             aria-live="polite"
@@ -748,8 +749,8 @@ export function DeletionPage({
 }) {
   const [history] = useState<IResultHistory>(() => new Map());
   return (
-    <main className="keyless-app-main">
+    <YStack render="main" minWidth={0}>
       <Flow token={invitationToken} history={history} business={business} />
-    </main>
+    </YStack>
   );
 }

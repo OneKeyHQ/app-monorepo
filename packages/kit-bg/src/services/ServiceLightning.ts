@@ -141,6 +141,13 @@ class ServiceLightning extends ServiceBase {
       },
       { deviceParams, debugMethodName: 'lightning.exchangeToken' },
     );
+    const { isTestnet } = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    const client = await this.getLnClient(isTestnet);
+    // The UI checks this service-owned client, not the vault's client. A
+    // successful exchange must invalidate a previously cached false result.
+    await client.checkAuth.delete({ accountId, networkId });
   }
 
   @backgroundMethod()

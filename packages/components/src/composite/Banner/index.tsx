@@ -10,12 +10,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AdCornerBadge } from '../../content/AdCornerBadge';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
-import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
+import { BannerSwiper } from './BannerSwiper';
 import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
+import type { IRenderPaginationParams } from '../../layouts/Swiper/type';
 import type {
   IImageProps,
   ISizableTextProps,
@@ -68,7 +69,7 @@ function BannerItem<T extends IBannerData>({
       borderTopRightRadius={isLast ? '$3' : 0}
       borderBottomRightRadius={isLast ? '$3' : 0}
       overflow="hidden"
-      tag="section"
+      render="section"
       flex={1}
       position="relative"
       userSelect="none"
@@ -162,6 +163,7 @@ export function Banner<T extends IBannerData>({
   indicatorContainerStyle,
   showPaginationButton = !platformEnv.isNative,
   showCloseButton = false,
+  autoplayEnabled = true,
   onBannerClose,
   ...props
 }: IStackStyle & {
@@ -175,6 +177,7 @@ export function Banner<T extends IBannerData>({
   emptyComponent?: ReactElement;
   showCloseButton?: boolean;
   showPaginationButton?: boolean;
+  autoplayEnabled?: boolean;
   onBannerClose?: (bannerId: string) => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
@@ -235,7 +238,10 @@ export function Banner<T extends IBannerData>({
         {showPaginationButton ? (
           <>
             <PaginationButton
-              isVisible={currentIndex !== 0 ? isHovering : false}
+              isVisible={
+                isHovering &&
+                (platformEnv.isNative ? currentIndex !== 0 : data.length > 1)
+              }
               direction="previous"
               onPress={gotToPrevIndex}
               theme="light"
@@ -243,7 +249,12 @@ export function Banner<T extends IBannerData>({
             />
 
             <PaginationButton
-              isVisible={currentIndex !== data.length - 1 ? isHovering : false}
+              isVisible={
+                isHovering &&
+                (platformEnv.isNative
+                  ? currentIndex !== data.length - 1
+                  : data.length > 1)
+              }
               direction="next"
               onPress={goToNextIndex}
               theme="light"
@@ -297,6 +308,7 @@ export function Banner<T extends IBannerData>({
   );
 
   const isFocused = useIsFocused();
+  const shouldAutoplay = isFocused && autoplayEnabled;
 
   if (isNil(isLoading) || isLoading || data.length === 0) {
     return emptyComponent;
@@ -309,11 +321,11 @@ export function Banner<T extends IBannerData>({
       onMouseLeave={handleMouseLeaveFalse}
       w="100%"
     >
-      <Swiper
+      <BannerSwiper
         position="relative"
-        autoplay={isFocused}
-        autoplayLoop={isFocused}
-        autoplayLoopKeepAnimation={isFocused}
+        autoplay={shouldAutoplay}
+        autoplayLoop={shouldAutoplay}
+        autoplayLoopKeepAnimation={shouldAutoplay}
         autoplayDelayMs={3000}
         keyExtractor={keyExtractor}
         data={data}

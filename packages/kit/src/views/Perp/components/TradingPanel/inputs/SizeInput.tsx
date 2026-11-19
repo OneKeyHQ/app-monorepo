@@ -12,14 +12,8 @@ import type { MutableRefObject, Ref } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Divider,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import type { IInputRef } from '@onekeyhq/components';
+import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IInputRef, IToastProps } from '@onekeyhq/components';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,6 +29,7 @@ import { SizeInputModeSelector } from '../selectors/SizeInputModeSelector';
 import {
   canSkipPerpsSizePriceConversion,
   convertPerpsSizeDisplayValueToToken,
+  getPerpsMinimumOrderSuggestion,
 } from './sizeInputConversion';
 import { TradingFormInput } from './TradingFormInput';
 
@@ -58,20 +53,17 @@ export type ISizeInputMinimumOrderAction = {
 export function getMinimumOrderToastActionProps(
   action?: ISizeInputMinimumOrderAction,
   actionLabel?: string,
-) {
+): Pick<IToastProps, 'duration' | 'actionsAlign' | 'actions'> {
   if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
   return {
+    duration: 3000,
     actionsAlign: 'left' as const,
-    actions: (
-      <Button
-        testID="perp-minimum-order-toast-action"
-        size="small"
-        variant="primary"
-        onPress={action.onPress}
-      >
-        {actionLabel}
-      </Button>
-    ),
+    actions: {
+      testID: 'perp-minimum-order-toast-action',
+      variant: 'primary',
+      label: actionLabel,
+      onPress: action.onPress,
+    },
   };
 }
 
@@ -93,6 +85,7 @@ interface ISizeInputProps {
   label?: string;
   isMobile?: boolean;
   leverage: number;
+  minimumOrderNotional?: number;
   allowMarginInput?: boolean;
   ifOnDialog?: boolean;
   inputRef?: Ref<IInputRef>;
@@ -120,6 +113,7 @@ export const SizeInput = memo(
     label,
     isMobile = false,
     leverage,
+    minimumOrderNotional = MINIMUM_ORDER_NOTIONAL,
     allowMarginInput = true,
     ifOnDialog = false,
     inputRef,
@@ -481,29 +475,20 @@ export const SizeInput = memo(
     const minimumOrderSuggestion = useMemo(() => {
       if (!hasValidPrice || isDisabled) return undefined;
 
-      const tokenValue = new BigNumber(MINIMUM_ORDER_NOTIONAL)
-        .dividedBy(priceBN)
-        .decimalPlaces(szDecimals, BigNumber.ROUND_CEIL)
-        .toFixed(szDecimals);
-      if (inputMode === 'token') {
-        return {
-          displayValue: tokenValue,
-          label: `${tokenValue} ${symbol}`.trim(),
-        };
-      }
-
-      const orderValue = new BigNumber(tokenValue).multipliedBy(priceBN);
-      const displayValue = (
-        inputMode === 'margin' ? orderValue.dividedBy(leverageBN) : orderValue
-      )
-        .decimalPlaces(2, BigNumber.ROUND_CEIL)
-        .toFixed(2);
-      return { displayValue, label: `$${displayValue}` };
+      return getPerpsMinimumOrderSuggestion({
+        price: priceBN,
+        szDecimals,
+        minimumNotional: minimumOrderNotional,
+        inputMode,
+        leverage,
+        symbol,
+      });
     }, [
       hasValidPrice,
       inputMode,
       isDisabled,
-      leverageBN,
+      leverage,
+      minimumOrderNotional,
       priceBN,
       symbol,
       szDecimals,
@@ -624,7 +609,7 @@ export const SizeInput = memo(
                 {inputMode === 'token' ? symbol || tokenFallbackLabel : 'USD'}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
+                name="ChevronTriangleDownSmallSolid"
                 size="$4"
                 color="$iconSubdued"
               />
@@ -635,6 +620,7 @@ export const SizeInput = memo(
               onChange={handleModeChange}
               tokenSymbol={symbol || ''}
               allowMarginInput={allowMarginInput}
+              ifOnDialog={ifOnDialog}
             />
           )}
         </XStack>
@@ -642,6 +628,7 @@ export const SizeInput = memo(
       [
         allowMarginInput,
         handleModeChange,
+        ifOnDialog,
         inputMode,
         isDisabled,
         isMobile,

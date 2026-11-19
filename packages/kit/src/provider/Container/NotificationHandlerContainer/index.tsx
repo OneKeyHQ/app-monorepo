@@ -5,6 +5,7 @@ import {
   appIsLocked,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -14,6 +15,7 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabRoutes,
   type IWebViewPageParams,
@@ -28,6 +30,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
+  ENotificationCommand,
   ENotificationViewDialogActionType,
   type INotificationViewDialogPayload,
 } from '@onekeyhq/shared/types/notification';
@@ -133,6 +136,7 @@ function BaseNotificationHandlerContainer() {
     const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
       extras,
+      navigationAction,
     }: INotificationPageNavigationEvent) => {
       const localParams = getLocalParams();
 
@@ -150,6 +154,18 @@ function BaseNotificationHandlerContainer() {
         : null;
 
       if (perpToken) {
+        try {
+          // Recorded before the atom write so no cold start can observe the
+          // coin without it: on that path the Perp page restores its persisted
+          // instrument, which predates this tap and would win. Isolated because
+          // losing it only costs that restore — it must not skip the writes and
+          // the event below.
+          await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+            { coin: perpToken, mode: 'perp' },
+          );
+        } catch {
+          // ignore
+        }
         try {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
@@ -190,6 +206,7 @@ function BaseNotificationHandlerContainer() {
       try {
         await navigateToNotificationDetailByLocalParams({
           payload: payloadObj,
+          navigationAction,
           localParams,
           getEarnAccount: (props) =>
             backgroundApiProxy.serviceStaking.getEarnAccount(props),
@@ -217,12 +234,16 @@ function BaseNotificationHandlerContainer() {
     ) => {
       openWebView(params);
     };
-    // Durable registration: drains any intent buffered before this UI mounted
-    // (cold-start safe), instead of a transient appEventBus.on that drops
-    // events emitted before the handler was registered.
+    // Pull the BG-owned legacy intent after the UI processor registers. The
+    // event wake may have arrived before main installed its SharedRPC observer.
     const unregisterPageNavigationProcessor =
       registerNotificationPageNavigationProcessor(
         handleShowNotificationPageNavigation,
+        platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+          ? () =>
+              backgroundApiProxy.serviceNotification.consumePendingLegacyNavigation()
+          : undefined,
       );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
@@ -233,23 +254,36 @@ function BaseNotificationHandlerContainer() {
       handleShowNotificationInWebViewOverlay,
     );
 
-    const handleExecuteCommand = ({
+    const handleExecuteCommand = async ({
       action,
       data,
     }: {
       action: string;
       data?: Record<string, unknown>;
     }) => {
-      const context = { toInviteRewardPage, openHardwareSalesOrderDetail };
-      const success = executeNotificationCommand(action, context, data);
-      if (!success) {
-        showFallbackUpdateDialog(null);
+      try {
+        const success = await executeNotificationCommand(
+          action,
+          {
+            toInviteRewardPage,
+            openHardwareSalesOrderDetail,
+          },
+          data,
+        );
+        if (!success) {
+          showFallbackUpdateDialog(null);
+        }
+      } catch (error) {
+        errorToastUtils.showToastOfError(error);
       }
     };
     appEventBus.on(
       EAppEventBusNames.ExecuteNotificationCommand,
       handleExecuteCommand,
     );
+    void handleExecuteCommand({
+      action: ENotificationCommand.openSupportConversation,
+    });
 
     return () => {
       appEventBus.off(

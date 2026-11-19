@@ -1,0 +1,468 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { test } = require('node:test');
+
+const { applyPlan, verifyLocal } = require('./workflow-apply');
+const {
+  LOCALES_PATH,
+  digest,
+  readJson,
+  writeJson,
+} = require('./workflow-data');
+const {
+  preparePlan,
+  renderPreview,
+  savePlan,
+  readPlan,
+} = require('./workflow-plan');
+const { fixture, fakeClient, fakePull } = require('./workflow-test-fixture');
+
+async function prepared(t, entries) {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  const plan = await preparePlan({
+    draft: ctx.draft(entries?.(ctx)),
+    client: api.client,
+    root: ctx.root,
+  });
+  const file = path.join(ctx.root, 'plan.json');
+  savePlan(plan, file);
+  return {
+    ...ctx,
+    ...api,
+    plan,
+    file,
+    apply: (overrides) =>
+      applyPlan({
+        file,
+        approval: plan.approval,
+        client: api.client,
+        root: ctx.root,
+        pullImpl: fakePull,
+        ...overrides,
+      }),
+  };
+}
+
+test('service error keys retain their identifiers through preview, upload and pull', async (t) => {
+  const key = 'error__service_prime_user_banned_error';
+  const ctx = await prepared(t, (item) => [
+    {
+      key,
+      action: 'upsert',
+      translations: item.translations(
+        'This account has been banned.',
+        '账号已被封禁',
+      ),
+      sources: [],
+    },
+  ]);
+  assert.equal(ctx.writes.length, 0);
+  assert.equal(ctx.plan.entries[0].enumMember, key);
+  assert.match(renderPreview(ctx.plan), new RegExp(key));
+
+  const receipt = await ctx.apply();
+  assert.equal(receipt.status, 'complete');
+  assert.deepEqual(ctx.writes, [{ method: 'POST', key, locales: ctx.locales }]);
+  for (const locale of ctx.locales) {
+    assert.equal(
+      readJson(path.join(ctx.root, LOCALES_PATH, `${locale}.json`))[key],
+      ctx.plan.entries[0].translations[locale],
+    );
+  }
+});
+
+test('service error support still rejects unrelated and malformed new key names', async (t) => {
+  for (const key of [
+    'legacy_account_banned',
+    'error__service_prime_user_banned',
+    'error__service_Prime_error',
+    'error__service_prime__banned_error',
+    'error__service__error',
+  ]) {
+    await t.test(key, async (sub) => {
+      const ctx = fixture(sub);
+      const api = fakeClient(ctx);
+      await assert.rejects(
+        () =>
+          preparePlan({
+            draft: ctx.draft([
+              {
+                key,
+                action: 'upsert',
+                translations: ctx.translations(),
+                sources: [],
+              },
+            ]),
+            client: api.client,
+            root: ctx.root,
+          }),
+        /a new key must use/,
+      );
+      assert.equal(api.writes.length, 0);
+    });
+  }
+});
+
+test('preview keeps the table header next to its separator when the plan records a sync', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const rows = renderPreview({ ...ctx.plan, sync: { changes: [] } }).split(
+    '\n',
+  );
+  const header = rows.indexOf('| Key | 文案 |');
+  assert.equal(rows[header + 1], '| --- | --- |');
+  assert(
+    rows
+      .slice(0, header)
+      .some((row) => row.startsWith('已在任务开始时拉取远端译文')),
+  );
+});
+
+test('preview reads only, contains bilingual before/after, and keeps all locale values in the plan', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  assert.equal(ctx.writes.length, 0);
+  const markdown = renderPreview(ctx.plan);
+  assert(markdown.includes('Existing message.'));
+  assert(markdown.includes('Updated message'));
+  assert(markdown.includes('更新后的消息'));
+  assert(!markdown.includes('TRANSLATION_CANARY'));
+  const rows = markdown.split('\n');
+  const englishRow = rows.findIndex((row) =>
+    row.startsWith('| global.existing |'),
+  );
+  assert(rows[englishRow].includes('Updated message'));
+  assert(
+    rows[englishRow + 1].startsWith('| | 原：已有消息。<br>新：更新后的消息 |'),
+  );
+  assert.throws(() => savePlan(ctx.plan, ctx.file), /already exists/);
+  assert.equal(Object.keys(ctx.plan.entries[0].translations).length, 19);
+  assert.throws(() => readPlan(ctx.file, 'not-confirmed'), /Approval/);
+  const changed = readJson(ctx.file);
+  changed.entries[0].translations.zh_CN = '偷偷修改';
+  writeJson(ctx.file, changed);
+  assert.throws(() => readPlan(ctx.file), /changed or are invalid/);
+});
+
+test('missing approval and changed source block every write', async (t) => {
+  const ctx = await prepared(t);
+  await assert.rejects(
+    () => ctx.apply({ approval: undefined }),
+    /confirmation/,
+  );
+  fs.appendFileSync(path.join(ctx.root, 'module/copy.ts'), '// changed\n');
+  await assert.rejects(() => ctx.apply(), /Source changed/);
+  assert.equal(ctx.writes.length, 0);
+});
+
+test('reused generic keys preserve live remote translations instead of reverting to stale local copy', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  api.keys.get('global.existing').translations[0].translation =
+    'Latest remote copy';
+  const entry = {
+    key: 'global.existing',
+    action: 'upsert',
+    translations: ctx.old,
+    preserveRemoteLocales: ctx.locales,
+    sources: [],
+  };
+  const plan = await preparePlan({
+    draft: ctx.draft([entry]),
+    client: api.client,
+    root: ctx.root,
+  });
+  assert.equal(plan.entries[0].translations.bn, 'Latest remote copy');
+  assert.deepEqual(plan.entries[0].changedLocales, []);
+});
+
+test('generated local edits, remote edits and new-key collisions block upload', async (t) => {
+  await t.test('local edits', async (sub) => {
+    const ctx = await prepared(sub);
+    fs.appendFileSync(path.join(ctx.root, LOCALES_PATH, 'en_US.json'), '\n');
+    await assert.rejects(() => ctx.apply(), /local changes/);
+    assert.equal(ctx.writes.length, 0);
+  });
+  await t.test('remote edits preflight the whole batch', async (sub) => {
+    const ctx = await prepared(sub, (item) => [
+      item.draft().entries[0],
+      {
+        key: 'global.existing',
+        action: 'upsert',
+        translations: item.translations(),
+        sources: [],
+      },
+    ]);
+    ctx.keys.get('global.existing').translations[0].translation =
+      'Concurrent editor';
+    await assert.rejects(() => ctx.apply(), /remote translation changed/);
+    assert.equal(ctx.writes.length, 0);
+  });
+  await t.test('new key collision', async (sub) => {
+    const ctx = await prepared(sub);
+    ctx.makeKey('travel_mode__title', ctx.old);
+    await assert.rejects(() => ctx.apply(), /different key now occupies/);
+    assert.equal(ctx.writes.length, 0);
+  });
+});
+
+test('mixed create/update uploads all locales, pulls, verifies, and reruns without writes', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    item.draft().entries[0],
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: { ...item.old, zh_CN: '更新' },
+      sources: [],
+    },
+  ]);
+  const receipt = await ctx.apply();
+  assert.equal(receipt.status, 'complete');
+  assert.equal(ctx.writes.length, 2);
+  assert.equal(
+    ctx.writes.find((write) => write.method === 'POST').locales.length,
+    19,
+  );
+  assert.equal(ctx.writes.filter((write) => write.method === 'PUT').length, 1);
+  assert.equal(verifyLocal(ctx.plan, ctx.root).verifiedKeys, 2);
+  await ctx.apply();
+  assert.equal(ctx.writes.length, 2);
+});
+
+test('partial failures reconcile completed records and retain the operation receipt', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: { ...item.old, bn: 'নতুন', de: 'Neu' },
+      sources: [],
+    },
+  ]);
+  const update = ctx.client.updateTranslation;
+  let calls = 0;
+  ctx.client.updateTranslation = async (...args) => {
+    calls += 1;
+    if (calls === 2) throw new Error('Connection interrupted');
+    return update(...args);
+  };
+  await assert.rejects(() => ctx.apply(), /Connection interrupted/);
+  assert.equal(readJson(`${ctx.file}.receipt.json`).operations.length, 1);
+  ctx.client.updateTranslation = update;
+  const receipt = await ctx.apply();
+  assert.equal(ctx.writes.length, 2);
+  assert.equal(receipt.operations.length, 2);
+  assert.equal(receipt.previousAttempts[0].status, 'failed');
+});
+
+test('apply refuses a plan approved for another onekey-i18n branch or channel, before any write', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  assert.deepEqual(ctx.plan.central, { base: 'main', channel: 'latest' });
+  assert(!renderPreview(ctx.plan).includes('目标：'));
+  assert.match(
+    renderPreview({
+      ...ctx.plan,
+      central: { base: 'try-tooling', channel: 'test' },
+    }),
+    /目标：onekey-i18n try-tooling 分支，读取 test 渠道/,
+  );
+  ctx.client.base = 'try-tooling';
+  ctx.client.channel = 'test';
+  await assert.rejects(
+    () => ctx.apply(),
+    /approved for onekey-i18n main \(latest release\), but this shell targets try-tooling \(test release\)/,
+  );
+  assert.equal(ctx.writes.length, 0);
+  assert(!fs.existsSync(`${ctx.file}.receipt.json`));
+
+  // A finished apply is not reported as done for another target either.
+  const finished = {
+    approval: ctx.plan.approval,
+    status: 'complete',
+    proposal: { number: 9, commit: 'c2' },
+  };
+  writeJson(`${ctx.file}.receipt.json`, finished);
+  await assert.rejects(() => ctx.apply(), /but this shell targets try-tooling/);
+  assert.deepEqual(readJson(`${ctx.file}.receipt.json`), finished);
+});
+
+test('apply resumes a plan that predates recorded targets only from its PR commit', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const { approval: _approval, central: _central, ...content } = ctx.plan;
+  const legacy = { ...content, approval: digest(content) };
+  const file = path.join(ctx.root, 'legacy-plan.json');
+  savePlan(legacy, file);
+  const pinned = [];
+  const apply = () =>
+    applyPlan({
+      file,
+      approval: legacy.approval,
+      client: ctx.client,
+      root: ctx.root,
+      pullImpl: fakePull,
+      clientAt: (commit) => {
+        pinned.push(commit);
+        return ctx.client;
+      },
+    });
+  const receiptFile = `${file}.receipt.json`;
+  await assert.rejects(apply, /predates recording its onekey-i18n branch/);
+  assert.equal(ctx.writes.length, 0);
+  assert(!fs.existsSync(receiptFile));
+
+  // With the PR an earlier apply opened, apply checks that PR's commit, runs
+  // its usual local checks, pulls the PR and completes the same receipt.
+  writeJson(receiptFile, {
+    schemaVersion: 1,
+    kind: 'i18n-receipt',
+    approval: legacy.approval,
+    status: 'failed',
+    failedStage: 'pulling',
+    operations: [],
+    proposal: { number: 9, commit: 'c2' },
+  });
+  const resumed = await apply();
+  assert.equal(resumed.status, 'complete');
+  assert.deepEqual(resumed.proposal, { number: 9, commit: 'c2' });
+  assert.deepEqual(pinned, ['c2']);
+  assert.equal(ctx.writes.length, 0);
+
+  // A finished one, even without a PR, is re-verified as before.
+  const finished = { approval: legacy.approval, status: 'complete' };
+  writeJson(receiptFile, finished);
+  assert.deepEqual(await apply(), finished);
+});
+
+test('a plan is not reported as done once the catalog has another language', async (t) => {
+  const entries = (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ];
+  const addLanguage = (root) =>
+    fs.copyFileSync(
+      path.join(root, LOCALES_PATH, 'en_US.json'),
+      path.join(root, LOCALES_PATH, 'eo.json'),
+    );
+
+  // The first apply: its pull brings a language the plan doesn't cover.
+  const first = await prepared(t, entries);
+  await assert.rejects(
+    () =>
+      first.apply({
+        pullImpl: (plan, root) => {
+          fakePull(plan, root);
+          addLanguage(root);
+        },
+      }),
+    /Language coverage changed/,
+  );
+  assert.equal(readJson(`${first.file}.receipt.json`).status, 'failed');
+
+  // A rerun of a finished plan after a language was added locally.
+  const rerun = await prepared(t, entries);
+  assert.equal((await rerun.apply()).status, 'complete');
+  const receipt = readJson(`${rerun.file}.receipt.json`);
+  addLanguage(rerun.root);
+  await assert.rejects(() => rerun.apply(), /Language coverage changed/);
+  assert.deepEqual(readJson(`${rerun.file}.receipt.json`), receipt);
+});
+
+test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const receiptFile = `${ctx.file}.receipt.json`;
+  writeJson(receiptFile, {
+    schemaVersion: 1,
+    kind: 'i18n-receipt',
+    approval: ctx.plan.approval,
+    status: 'failed',
+    failedStage: 'pulling',
+    operations: [],
+    proposal: { number: 9, commit: 'c2' },
+  });
+  ctx.client.project = async () => {
+    throw new Error('GitHub unavailable');
+  };
+  await assert.rejects(() => ctx.apply(), /GitHub unavailable/);
+  assert.deepEqual(readJson(receiptFile).proposal, { number: 9, commit: 'c2' });
+
+  writeJson(receiptFile, { approval: 'another plan', status: 'complete' });
+  await assert.rejects(() => ctx.apply(), /Receipt belongs to another plan/);
+  assert.deepEqual(readJson(receiptFile), {
+    approval: 'another plan',
+    status: 'complete',
+  });
+});
+
+test('an ambiguous create result is reconciled without a second POST', async (t) => {
+  const ctx = await prepared(t);
+  const create = ctx.client.create;
+  ctx.client.create = async (...args) => {
+    await create(...args);
+    throw new Error('Response lost');
+  };
+  await assert.rejects(() => ctx.apply(), /Response lost/);
+  await ctx.apply();
+  assert.equal(ctx.writes.length, 1);
+});
+
+test('pull verification detects missing translations and reports unrelated imported updates', async (t) => {
+  const ctx = await prepared(t);
+  const receipt = await ctx.apply({
+    pullImpl: (plan, root) => {
+      fakePull(plan, root);
+      const file = path.join(root, LOCALES_PATH, 'de.json');
+      const values = readJson(file);
+      values['global.existing'] = 'An unrelated translator edit';
+      writeJson(file, values);
+    },
+  });
+  assert.deepEqual(receipt.verification.unrelatedChanges, [
+    { key: 'global.existing', locale: 'de' },
+  ]);
+  const file = path.join(ctx.root, LOCALES_PATH, 'bn.json');
+  const values = readJson(file);
+  delete values.travel_mode__title;
+  writeJson(file, values);
+  assert.throws(
+    () => verifyLocal(ctx.plan, ctx.root),
+    /Pulled output mismatch/,
+  );
+});

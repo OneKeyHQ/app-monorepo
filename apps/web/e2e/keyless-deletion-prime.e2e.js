@@ -50,6 +50,7 @@ async function main() {
         refreshTest = false,
         linkOnly = false,
         viewport,
+        recoveryProofs = [],
       },
       run,
     ) => {
@@ -68,6 +69,7 @@ async function main() {
       const page = await context.newPage();
       page.on('pageerror', (error) => errors.push(error.message));
       let currentVersion = version;
+      let currentProof = oauthProof;
       const cors = {
         'access-control-allow-origin': appOrigin,
         'access-control-allow-headers':
@@ -132,11 +134,15 @@ async function main() {
           );
           assert.equal(request.postDataJSON().auth_code, 'fixture-pkce-code');
           assert.ok(request.postDataJSON().code_verifier);
+          const previousExchanges = calls.filter(
+            ({ endpoint }) => endpoint === 'oauth-exchange',
+          ).length;
+          currentProof = recoveryProofs[previousExchanges - 1] ?? oauthProof;
           calls.push({ endpoint: 'oauth-exchange' });
           return route.fulfill({
             headers: cors,
             json: {
-              access_token: oauthProof,
+              access_token: currentProof,
               refresh_token: 'fixture-refresh-proof',
               token_type: 'bearer',
               expires_in: 3600,
@@ -166,7 +172,7 @@ async function main() {
             assert.deepEqual(body, {
               invitationToken: token,
               provider,
-              supabaseAccessToken: oauthProof,
+              supabaseAccessToken: currentProof,
               challengeId: 'fixture-challenge',
               code: '01234567',
               confirmationVersion: currentVersion,
@@ -176,7 +182,7 @@ async function main() {
             assert.deepEqual(body, {
               invitationToken: token,
               provider,
-              supabaseAccessToken: oauthProof,
+              supabaseAccessToken: currentProof,
             });
           }
           if (endpoint !== '/delete') assert.equal(key, undefined);
@@ -296,6 +302,7 @@ async function main() {
         for (const secret of [
           token,
           oauthProof,
+          ...recoveryProofs,
           'fixture-refresh-proof',
           '01234567',
         ]) {
@@ -473,6 +480,92 @@ async function main() {
       },
     );
     await scenario(
+      'unknown confirmation versions are blocked after a server version change',
+      {
+        reply: (endpoint, _calls, updateVersion) => {
+          if (endpoint === '/delete') {
+            return { json: { code: 90_908, message: '确认版本已更新。' } };
+          }
+          if (endpoint === '/result') {
+            updateVersion('keyless-server-share-deletion/v3');
+            return { json: success({ status: 'not_submitted' }) };
+          }
+          return undefined;
+        },
+      },
+      async ({ id, verify, calls, deleteKeys }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await id('flow-error').waitFor();
+        assert.deepEqual(calls().slice(-3), [
+          '/delete',
+          '/result',
+          '/link-info',
+        ]);
+        assert.equal(await id('submit-deletion').count(), 0);
+        assert.equal(await id('retry-original').count(), 0);
+        assert.equal(deleteKeys().length, 1);
+      },
+    );
+    await scenario(
+      'a wrong recovery account allows another sign-in and retains the original idempotency key',
+      {
+        recoveryProofs: [
+          'fixture-wrong-account-proof',
+          'fixture-right-account-proof',
+        ],
+        reply: (endpoint, calls) => {
+          if (
+            endpoint === '/delete' &&
+            calls.filter((call) => call.endpoint === endpoint).length === 1
+          ) {
+            return { json: { code: 90_902, message: '登录已过期。' } };
+          }
+          if (endpoint === '/result') {
+            return calls.filter((call) => call.endpoint === endpoint).length ===
+              1
+              ? {
+                  json: {
+                    code: 90_903,
+                    message: '请使用邀请绑定的 Google 账号。',
+                  },
+                }
+              : { json: success({ status: 'not_submitted' }) };
+          }
+          return undefined;
+        },
+      },
+      async ({ page, id, verify, calls, deleteKeys }) => {
+        await verify();
+        await id('submit-deletion').click();
+        const signIn = id('reauthenticate');
+        const dialog = page.getByRole('dialog');
+        await dialog.getByText('登录已过期。').waitFor();
+        await dialog.getByRole('button', { name: '我明白了' }).click();
+        await signIn.click();
+        await dialog.getByText('请使用邀请绑定的 Google 账号。').waitFor();
+        await dialog.getByRole('button', { name: '我明白了' }).click();
+        assert.equal(await id('check-status').count(), 0);
+        assert.equal(await id('retry-original').count(), 0);
+        await signIn.click();
+        await id('retry-original').click();
+        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        assert.equal(deleteKeys().length, 2);
+        assert.equal(...deleteKeys());
+        assert.deepEqual(
+          calls().filter((call) => call.startsWith('/')),
+          [
+            '/link-info',
+            '/otp/send',
+            '/delete',
+            '/result',
+            '/result',
+            '/delete',
+          ],
+        );
+      },
+    );
+    await scenario(
       'lost delete response reads the original result and preserves processing after 90900',
       {
         reply: (endpoint, calls) => {
@@ -554,22 +647,20 @@ async function main() {
           );
         assert.equal(await assertFits(), true);
         await id('keyless-language-button').click();
-        const expectedLanguages = [
-          'system',
-          ...LOCALES_OPTION.map(({ value }) => value).filter(
-            (value) => value !== 'en-US',
-          ),
-        ];
+        const search = id('nav-header-search-select-search');
+        const expectedLanguages = LOCALES_OPTION.map(
+          ({ value }) => value,
+        ).filter((value) => value !== 'en-US');
+        await id('select-item-system').waitFor();
         for (const locale of expectedLanguages) {
-          await id(`select-item-${locale}`).waitFor({ state: 'attached' });
+          await search.fill(locale);
+          await id(`select-item-${locale}`).waitFor();
         }
-        assert.equal(
-          await page.getByTestId(/^select-item-/).count(),
-          expectedLanguages.length,
-        );
+        assert.equal(await id('select-item-en-US').count(), 0);
         console.log(
-          `PASS App language menu contains all ${expectedLanguages.length - 1} languages and Auto`,
+          `PASS App language menu contains all ${expectedLanguages.length} languages and Auto`,
         );
+        await search.fill('ja-JP');
         await id('select-item-ja-JP').click();
         await page.getByPlaceholder('認証コードを入力してください').waitFor();
         assert.match(
@@ -717,10 +808,11 @@ async function main() {
         }),
       },
       async ({ page, calls }) => {
-        await page
-          .locator('[data-sonner-toast]')
-          .getByText('服务暂时不可用，请稍后重试。')
-          .waitFor();
+        const toast = page
+          .getByTestId('onekey-toast-messages')
+          .getByText('服务暂时不可用，请稍后重试。', { exact: true });
+        await toast.waitFor();
+        assert.equal(await toast.count(), 1);
         await page.getByRole('heading', { name: '暂时无法打开邀请' }).waitFor();
         assert.deepEqual(calls(), ['/link-info']);
       },

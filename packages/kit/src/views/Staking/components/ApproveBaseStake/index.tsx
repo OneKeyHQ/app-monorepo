@@ -32,6 +32,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -136,6 +137,7 @@ export function ApproveBaseStake({
   rewardAssets,
   poolFee,
 }: PropsWithChildren<IApproveBaseStakeProps>) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -157,6 +159,7 @@ export function ApproveBaseStake({
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName,
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token.address,
@@ -223,9 +226,18 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
+        providerName,
+        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: approveTarget.networkId,
+          approveType,
+          approveSpenderAddress: approveTarget.spenderAddress,
+        }),
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
         tokenAddress: token.address,
@@ -246,6 +258,9 @@ export function ApproveBaseStake({
     allowance,
     usePermit2Approve,
     getPermitCache,
+    providerName,
+    approveType,
+    approveTarget.spenderAddress,
     approveTarget.accountId,
     approveTarget.networkId,
   ]);
@@ -556,12 +571,14 @@ export function ApproveBaseStake({
 
   const onSubmit = useCallback(async () => {
     const handleConfirm = async () => {
+      const needsPermit =
+        usePermit2Approve && new BigNumber(amountValue).gt(allowance);
       try {
         await onConfirm?.({
           amount: amountValue,
           approveType,
-          permitSignature: permitSignatureRef.current,
-          unsignedMessage: permit2DataRef.current,
+          permitSignature: needsPermit ? permitSignatureRef.current : undefined,
+          unsignedMessage: needsPermit ? permit2DataRef.current : undefined,
         });
       } catch (error) {
         console.error('Transaction error:', error);
@@ -579,6 +596,7 @@ export function ApproveBaseStake({
     void handleConfirm();
   }, [
     showFalconEventEndedDialog,
+    allowance,
     usePermit2Approve,
     shouldApprove,
     onConfirm,
@@ -715,6 +733,15 @@ export function ApproveBaseStake({
         try {
           // Check permit cache first
           const permitCache = getPermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -742,6 +769,15 @@ export function ApproveBaseStake({
 
           // Update permit cache
           updatePermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -813,6 +849,7 @@ export function ApproveBaseStake({
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
+    approveType,
     providerName,
     updatePermitCache,
     onSubmit,
@@ -910,6 +947,8 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
+        usePercentageKeyboardAccessory
+        onAmountFocusChange={onAmountFocusChange}
         onSelectPercentageStage={onSelectPercentageStage}
       />
       {platformEnv.isDev ? (
@@ -1026,7 +1065,7 @@ export function ApproveBaseStake({
                       </SizableText>
                     )}
                     <YStack
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={
                         open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
@@ -1047,9 +1086,9 @@ export function ApproveBaseStake({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
+            <Accordion.HeightAnimator transition="quick">
               <Accordion.Content
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 px={0}
@@ -1100,9 +1139,12 @@ export function ApproveBaseStake({
             }}
           />
         </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {platformEnv.isNativeIOSPhone ? null : (
+          <PercentageStageOnKeyboard
+            isAmountFocused={isAmountFocused}
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        )}
       </Page.Footer>
     </StakingFormWrapper>
   );

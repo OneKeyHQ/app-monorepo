@@ -1,3 +1,5 @@
+import type { GenericAbortSignal } from 'axios';
+
 // ==================== Existing IP Table Config (Backward Compatible) ====================
 
 /**
@@ -142,6 +144,75 @@ export interface ISniRequestConfig {
   body: string | null;
   timeout: number;
   port?: number;
+}
+
+/**
+ * SNI file upload configuration. The native transport reads the raw bytes of
+ * `filePath` (an app-sandbox file) as the request body.
+ */
+export interface ISniUploadFileConfig {
+  requestId?: string;
+  ip: string;
+  hostname: string;
+  path: string;
+  headers: Record<string, string>;
+  method: 'POST' | 'PUT';
+  filePath: string;
+  timeout: number;
+}
+
+/**
+ * Local-only SNI request options. These values must not cross a native or IPC
+ * bridge; platform adapters translate them into transport cancellation calls.
+ */
+export interface ISniRequestOptions {
+  signal?: GenericAbortSignal;
+  /**
+   * Diagnostics-only observation of the transport cancellation call. The
+   * request promise still rejects immediately when the signal is aborted.
+   */
+  onCancelSettled?: (
+    result: ISniRequestCancelSettledResult,
+  ) => void | PromiseLike<void>;
+  /**
+   * Diagnostics-only observation of the unwrapped transport promise. This is
+   * distinct from the request promise, which rejects immediately on abort.
+   */
+  onTransportSettled?: (
+    result: ISniRequestTransportSettledResult,
+  ) => void | PromiseLike<void>;
+}
+
+export type ISniRequestCancelSettledResult =
+  | {
+      requestId: string;
+      status: 'fulfilled';
+      success: boolean;
+    }
+  | {
+      requestId: string;
+      status: 'rejected';
+      error: unknown;
+    };
+
+export type ISniRequestTransportSettledResult =
+  | {
+      requestId: string;
+      status: 'fulfilled';
+    }
+  | {
+      requestId: string;
+      status: 'rejected';
+      error: unknown;
+    };
+
+export interface ISniRequestDebugSnapshot {
+  activeRequests: number;
+  activeRequestsForPair: number;
+  activeRequestIdsForPair?: string[];
+  pendingRequests: number;
+  pendingRequestsForPair: number;
+  pendingRequestIdsForPair?: string[];
 }
 
 /**

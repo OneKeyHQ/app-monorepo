@@ -30,6 +30,7 @@ const successStatuses = new Set<ESwapTxHistoryStatus>([
 
 const failedStatuses = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.EXPIRED,
   ESwapTxHistoryStatus.CANCELED,
 ]);
 
@@ -49,6 +50,14 @@ function getThreeStepProgress(
       { label: 'submitted', status: 'done' },
       { label: 'pending', status: 'done' },
       { label: 'done', status: 'done' },
+    ];
+  }
+
+  if (status === ESwapTxHistoryStatus.REFUNDED) {
+    return [
+      { label: 'submitted', status: 'done' },
+      { label: 'failed', status: 'error' },
+      { label: 'refund', status: 'done' },
     ];
   }
 
@@ -83,7 +92,14 @@ export function getSwapOrderProgressSteps({
   status?: ESwapTxHistoryStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): ISwapOrderProgressStep[] {
-  if (!crossChainStatus) {
+  if (!crossChainStatus || status === ESwapTxHistoryStatus.EXPIRED) {
+    return getThreeStepProgress(status);
+  }
+
+  if (
+    status === ESwapTxHistoryStatus.REFUNDED &&
+    crossChainStatus !== ESwapCrossChainStatus.REFUNDED
+  ) {
     return getThreeStepProgress(status);
   }
 

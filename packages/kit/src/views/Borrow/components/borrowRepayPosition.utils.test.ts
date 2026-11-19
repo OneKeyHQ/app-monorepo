@@ -6,6 +6,7 @@ import {
   buildAaveNativeGatewayReceiveToken,
   buildBorrowRepayPositionKey,
   buildBorrowRepayWithCollateralConfirmationParams,
+  filterUnsupportedAaveNativeReserveAssets,
   getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
@@ -28,7 +29,7 @@ describe('borrowRepayPosition utils', () => {
     expect(hasPositiveBorrowBalance(balance)).toBe(true);
   });
 
-  it.each(['evm--1', 'evm--8453'])(
+  it.each(['evm--1', 'evm--8453', 'evm--42161'])(
     'routes the Aave native reserve through the gateway on %s',
     (networkId) => {
       expect(
@@ -47,6 +48,18 @@ describe('borrowRepayPosition utils', () => {
       ).toBe(false);
     },
   );
+
+  it('keeps the Arbitrum native ETH asset in the available supply list', () => {
+    const ethAsset = { reserveAddress: '', token: { symbol: 'ETH' } };
+
+    expect(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: [ethAsset],
+        networkId: 'evm--42161',
+        providerName: 'aave',
+      }),
+    ).toEqual([ethAsset]);
+  });
 
   it('uses native token metadata for an Aave gateway withdrawal', () => {
     const wrappedToken = {
@@ -87,14 +100,14 @@ describe('borrowRepayPosition utils', () => {
     // A network without backend gateway coverage stays filtered out.
     expect(
       shouldUseAaveNativeGateway({
-        networkId: 'evm--42161',
+        networkId: 'evm--10',
         providerName: 'aave',
         reserveAddress: '',
       }),
     ).toBe(false);
     expect(
       isUnsupportedAaveNativeReserve({
-        networkId: 'evm--42161',
+        networkId: 'evm--10',
         providerName: 'aave',
         reserveAddress: '',
       }),

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -23,6 +30,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -32,6 +40,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateAccountTokensValue,
@@ -41,6 +50,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -49,20 +59,33 @@ import {
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
   useAllNetworksStateStateAtom,
+  useHomePortfolioDisplayAtom,
   useLastConfirmedOverviewBalanceAtom,
   useOverviewDeFiDataStateAtom,
   useOverviewTokenCacheStateAtom,
+  usePortfolioCategoryRefreshAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
+import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { roundPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
+
+import {
+  resolveHomeOverviewBalanceHold,
+  resolveHomePortfolioSnapshot,
+  shouldIncludeKnownDeFiWorth,
+} from './homeOverviewBalanceHold';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
 const BALANCE_REUSE_GRACE_MS = 180;
+// After the token side commits a complete All Networks snapshot, wait this
+// long for DeFi readiness before showing the live total without it.
+const ALL_NETWORKS_DEFI_GRACE_MS = 5000;
 
 const HOME_OVERVIEW_REFRESH_TABS = [
   EHomeTab.TOKENS,
@@ -113,6 +136,16 @@ function HomeOverviewContainer() {
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
     useLastConfirmedOverviewBalanceAtom();
+  const [, setHomePortfolioDisplay] = useHomePortfolioDisplayAtom();
+  const [portfolioCategoryRefresh] = usePortfolioCategoryRefreshAtom();
+  const portfolioCategories =
+    portfolioCategoryRefresh.ownerKey ===
+    buildOverviewOwnerKey(account?.id, network?.id)
+      ? portfolioCategoryRefresh
+      : undefined;
+  const committedPortfolioCategoryRevisionRef = useRef<string | undefined>(
+    undefined,
+  );
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -131,12 +164,38 @@ function HomeOverviewContainer() {
     updateAccountDeFiOverview,
   } = useAccountOverviewActions().current;
 
+  useLayoutEffect(() => {
+    if (
+      !portfolioCategories?.data?.deFiOverview ||
+      `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}` ===
+        committedPortfolioCategoryRevisionRef.current
+    )
+      return;
+    committedPortfolioCategoryRevisionRef.current = `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}`;
+    updateAccountDeFiOverview({
+      accountId: account?.id,
+      networkId: network?.id,
+      currency: USD_CURRENCY_ID,
+      overview: portfolioCategories.data.deFiOverview,
+      isReady: true,
+    });
+  }, [
+    account?.id,
+    network?.id,
+    portfolioCategories?.data,
+    portfolioCategories?.dataRequestId,
+    portfolioCategories?.ownerKey,
+    updateAccountDeFiOverview,
+  ]);
+
   const [settings] = useSettingsPersistAtom();
   const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
     network,
   });
 
-  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+  const { result: perpsSnapshot } = usePromiseResult<
+    { ownerKey: string; netWorthUsd: string; fetchedAt: number } | undefined
+  >(
     async () => {
       if (!isPerpsEnabled) return undefined;
       const accountId = account?.id;
@@ -169,16 +228,46 @@ function HomeOverviewContainer() {
           { address },
         );
 
-      return snapshot?.netWorthUsd;
+      return snapshot?.netWorthUsd === undefined || snapshot.isDegraded
+        ? undefined
+        : {
+            ownerKey: buildOverviewOwnerKey(accountId, network?.id),
+            netWorthUsd: snapshot.netWorthUsd,
+            fetchedAt: snapshot.fetchedAt,
+          };
     },
-    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    [account?.id, account?.indexedAccountId, network?.id, isPerpsEnabled],
     {
       swrKey:
         account?.id || account?.indexedAccountId
-          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
+          ? `home-overview-perps-worth:${network?.id}:${account?.indexedAccountId ?? account?.id}`
           : undefined,
       pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
     },
+  );
+
+  let perpsNetWorthUsd =
+    perpsSnapshot?.ownerKey === buildOverviewOwnerKey(account?.id, network?.id)
+      ? perpsSnapshot.netWorthUsd
+      : undefined;
+  if (
+    portfolioCategories?.data &&
+    (perpsSnapshot?.ownerKey !==
+      buildOverviewOwnerKey(account?.id, network?.id) ||
+      portfolioCategories.data.fetchedAt >= (perpsSnapshot?.fetchedAt ?? 0))
+  ) {
+    perpsNetWorthUsd = portfolioCategories.data.perpsFiat;
+  }
+  const isPortfolioCategoryCommitPending = Boolean(
+    portfolioCategories?.data?.deFiOverview &&
+    `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}` !==
+      committedPortfolioCategoryRevisionRef.current,
+  );
+  const holdPortfolioBalance = Boolean(
+    portfolioCategories &&
+    (portfolioCategories.isRefreshing ||
+      portfolioCategories.failedSources.length ||
+      isPortfolioCategoryCommitPending),
   );
 
   const isWalletNotBackedUp = useMemo(() => {
@@ -198,7 +287,7 @@ function HomeOverviewContainer() {
   //
   // Gated on the session-level `__onekeyBalanceDisplayed` flag (set on the
   // first balance render) so the fast path only fires on the actual cold-start
-  // mount, not on every fresh mount triggered by Tabs.Container remount during
+  // mount, not on fresh native pager mounts during
   // network/account switches — otherwise the previous owner's `.latest` value
   // briefly leaks into the new owner's overview.
   const isFirstColdStartMountRef = useRef(
@@ -261,7 +350,13 @@ function HomeOverviewContainer() {
   }, []);
 
   const prevWalletIdRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  // Layout effect, not a passive one (OK-63873): TokenListBlock restores the
+  // incoming owner's remembered worth in a layout effect of the pane subtree,
+  // which runs AFTER this header subtree's layout effects. As a passive effect
+  // this reset ran after that restore (and after the paint), wiping the
+  // restored worth back to `initialized: false` one frame later on every
+  // wallet switch and on every All Networks account switch.
+  useLayoutEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       const walletChanged =
         prevWalletIdRef.current !== undefined &&
@@ -459,19 +554,31 @@ function HomeOverviewContainer() {
         // accountValue SimpleDB.
         const accountWorthCurrency =
           accountWorth.currency ?? settings.currencyInfo.id;
+        const createAtNetworkValueKey = accountUtils.buildAccountValueKey({
+          accountId: account.id,
+          networkId: account.createAtNetwork ?? '',
+        });
         if (isOthers) {
           if (
             account.createAtNetwork &&
             (network.isAllNetworks || account.createAtNetwork === network.id)
           ) {
-            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-              accountId: accountValueId,
-              networkAccountId: account.id,
-              networkId: account.createAtNetwork,
-              value: accountWorth.createAtNetworkWorth,
-              currency: accountWorthCurrency,
-              shouldUpdateActiveAccountValue: true,
-            });
+            const createAtNetworkValue =
+              accountWorth.worth[createAtNetworkValueKey];
+            if (createAtNetworkValue !== undefined) {
+              void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+                accountId: accountValueId,
+                networkAccountId: account.id,
+                networkId: account.createAtNetwork,
+                // The compound-key map stores the absolute value for this
+                // network. Prefer it over the legacy scalar, which can be
+                // transiently stale while independent network responses
+                // merge.
+                value: createAtNetworkValue,
+                currency: accountWorthCurrency,
+                shouldUpdateActiveAccountValue: true,
+              });
+            }
           }
         } else if (!network.isAllNetworks) {
           const singleNetworkValue =
@@ -550,7 +657,11 @@ function HomeOverviewContainer() {
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
-    await settingsValuePersistAtom.set({ hideValue: !settingsValue.hideValue });
+    // Apply on the UI runtime first: a plain `set` waits for the bg round
+    // trip, which queues behind other bg work on Android (OK-66089).
+    await settingsValuePersistAtom.setOptimistic({
+      hideValue: !settingsValue.hideValue,
+    });
   }, []);
 
   const handleBalanceDetailsOnPress = useCallback(() => {
@@ -645,6 +756,15 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
+  // Set by the bounded All Networks hold below (resolveHomeOverviewBalanceHold).
+  const [deFiGraceExpired, setDeFiGraceExpired] = useState(false);
+  const isDeFiOverviewOwnerMatched =
+    !!currentOverviewOwnerKey &&
+    buildOverviewOwnerKey(
+      accountDeFiOverview.accountId,
+      accountDeFiOverview.networkId,
+    ) === currentOverviewOwnerKey;
+
   // Returns a USD-basis string. DeFi data arrives in display currency from
   // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
@@ -676,10 +796,14 @@ function HomeOverviewContainer() {
       currencyMap,
     });
 
-    const deFiWorthRaw =
-      !isAllNetworks || isCurrentAccountDeFiReady
-        ? (accountDeFiOverview.netWorth ?? 0)
-        : 0;
+    const deFiWorthRaw = shouldIncludeKnownDeFiWorth({
+      isAllNetworks,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      deFiGraceExpired,
+      isDeFiOverviewOwnerMatched,
+    })
+      ? (accountDeFiOverview.netWorth ?? 0)
+      : 0;
     const deFiWorthUsd = convertFiat({
       value: deFiWorthRaw,
       sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
@@ -699,8 +823,10 @@ function HomeOverviewContainer() {
     accountDeFiOverview.netWorth,
     accountDeFiOverview.currency,
     currencyMap,
+    deFiGraceExpired,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isDeFiOverviewOwnerMatched,
     isPerpsEnabled,
     network?.isAllNetworks,
     perpsNetWorthUsd,
@@ -711,6 +837,16 @@ function HomeOverviewContainer() {
   const isCurrentAllNetworksBalanceFullyReady =
     !network?.isAllNetworks ||
     (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
+  const isCurrentAccountWorthOwner =
+    !!accountWorth.accountId &&
+    (accountWorth.accountId === (account?.id ?? '') ||
+      accountWorth.accountId === (account?.indexedAccountId ?? ''));
+  // `updateAll` marks a complete snapshot for this owner (cache hydrate or an
+  // authoritative fan-out commit) as opposed to per-network progressive merges.
+  const isCurrentTokenSnapshotCommitted =
+    isCurrentAccountWorthOwner &&
+    accountWorth.initialized &&
+    accountWorth.updateAll === true;
 
   const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
     useState(false);
@@ -801,11 +937,38 @@ function HomeOverviewContainer() {
   ]);
 
   // During All Networks progressive loading, hold the previous confirmed
-  // balance until both token and DeFi data finish loading.
-  const shouldHoldCurrentConfirmedBalance =
-    !!network?.isAllNetworks &&
-    !!currentConfirmedBalance &&
-    !isCurrentAllNetworksBalanceFullyReady;
+  // balance until token and DeFi data finish loading. The hold is bounded:
+  // DeFi readiness only arrives through the cache-only DeFi hook, and when
+  // that hook does not run the header must not stay pinned to a stale
+  // persisted total for the whole session (see resolveHomeOverviewBalanceHold).
+  const { shouldHold: shouldHoldCurrentConfirmedBalance, shouldArmDeFiGrace } =
+    resolveHomeOverviewBalanceHold({
+      isAllNetworks: !!network?.isAllNetworks,
+      hasConfirmedBalance: !!currentConfirmedBalance,
+      isTokenWorthReady: isCurrentAccountWorthReady,
+      isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      isDeFiRefreshing: isRefreshingDeFiList,
+      deFiGraceExpired,
+    });
+  // An expired grace stays expired until DeFi reports for this owner (or the
+  // owner changes). Clearing it whenever the grace disarms would flip the
+  // header from the live total back to the stale confirmed one for the length
+  // of every later refresh.
+  useEffect(() => {
+    setDeFiGraceExpired(false);
+  }, [currentOverviewOwnerKey, isCurrentAccountDeFiReady]);
+  useEffect(() => {
+    if (!shouldArmDeFiGrace) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setDeFiGraceExpired(true);
+    }, ALL_NETWORKS_DEFI_GRACE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [currentOverviewOwnerKey, shouldArmDeFiGrace]);
 
   const lastConfirmedLatestUsd =
     canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
@@ -816,11 +979,60 @@ function HomeOverviewContainer() {
           currencyMap,
         })
       : undefined;
-  const displayBalanceString = shouldHoldCurrentConfirmedBalance
+  // Single network, owner never confirmed this session (a cleared cache or a
+  // fresh account): the token worth is on screen from the switch frame (the
+  // owner replay / prewarm restored it) while the DeFi hook has not reported
+  // for the owner yet. Show the token worth as a provisional total instead of
+  // the zero placeholder; a DeFi position, when there is one, joins as an
+  // update. Never confirmed as the owner's balance (that still needs DeFi).
+  const provisionalTokenOnlyBalanceUsd = useMemo(() => {
+    if (
+      network?.isAllNetworks ||
+      !isCurrentAccountWorthReady ||
+      isCurrentAccountDeFiReady
+    ) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    const tokenWorthUsd = convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
+    return calculateAccountTotalValue({
+      tokensValue: tokenWorthUsd,
+      deFiNetWorth: perpsWorthUsd,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountDeFiReady,
+    isCurrentAccountWorthReady,
+    isPerpsEnabled,
+    network?.id,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+  const resolvedDisplayBalance = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
+      provisionalTokenOnlyBalanceUsd ??
       lastConfirmedLatestUsd);
+  const displayBalanceString =
+    holdPortfolioBalance && portfolioCategories?.heldTotalFiatUsd !== undefined
+      ? portfolioCategories.heldTotalFiatUsd
+      : resolvedDisplayBalance;
 
   const balancePayload = useMemo(
     () => ({
@@ -847,6 +1059,7 @@ function HomeOverviewContainer() {
     shouldHoldCurrentConfirmedBalance ||
     resolvedBalanceString !== undefined ||
     !!currentConfirmedBalance ||
+    provisionalTokenOnlyBalanceUsd !== undefined ||
     canReuseLatestDisplayedBalance;
 
   const shouldDisplayZeroBalancePlaceholder = useMemo(() => {
@@ -887,7 +1100,10 @@ function HomeOverviewContainer() {
   ]);
 
   const showSkeleton =
-    !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
+    (!hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder) ||
+    (holdPortfolioBalance &&
+      portfolioCategories?.heldTotalFiatUsd === undefined &&
+      !portfolioCategories?.data);
 
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
@@ -910,11 +1126,120 @@ function HomeOverviewContainer() {
     });
   }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
 
+  const currentTokenWorthUsd = useMemo(() => {
+    if (!isCurrentAccountWorthReady) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    return convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountWorthReady,
+    network?.id,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
   // Track when balance is first displayed
   const balanceReady =
     !showSkeleton &&
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
+  useLayoutEffect(() => {
+    const isCurrentOwnerBalance =
+      !!currentOverviewOwnerKey &&
+      !(canReuseLatestDisplayedBalance && !currentConfirmedBalance);
+    const isLive =
+      isCurrentOwnerBalance &&
+      !shouldHoldCurrentConfirmedBalance &&
+      !holdPortfolioBalance &&
+      resolvedBalanceString !== undefined &&
+      renderedBalanceString === resolvedBalanceString;
+    const hasKnownDeFi =
+      isLive &&
+      isDeFiOverviewOwnerMatched &&
+      shouldIncludeKnownDeFiWorth({
+        isAllNetworks: !!network?.isAllNetworks,
+        isDeFiReady: isCurrentAccountDeFiReady,
+        deFiGraceExpired,
+        isDeFiOverviewOwnerMatched,
+      });
+    const deFiFiatUsd = hasKnownDeFi
+      ? convertFiat({
+          value: roundPortfolioTotal(
+            accountDeFiOverview.netWorth ?? 0,
+          ).toFixed(),
+          sourceCurrency:
+            accountDeFiOverview.currency || settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        })
+      : undefined;
+    let perpsFiatUsd: string | undefined;
+    if (isLive) {
+      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+    }
+    const next = {
+      ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
+      totalFiatUsd:
+        isCurrentOwnerBalance && !showSkeleton
+          ? renderedBalanceString
+          : undefined,
+      tokenFiatUsd: isLive ? currentTokenWorthUsd : undefined,
+      defiFiatUsd: deFiFiatUsd,
+      perpsFiatUsd,
+      isLive,
+      categoryRevision: portfolioCategories?.dataRequestId,
+    };
+    setHomePortfolioDisplay((prev) => {
+      const snapshot = resolveHomePortfolioSnapshot({
+        previous: prev,
+        candidate: next,
+        isReady: isLive,
+      });
+      return Object.keys(snapshot).every(
+        (key) =>
+          prev[key as keyof typeof snapshot] ===
+          snapshot[key as keyof typeof snapshot],
+      ) && Object.keys(prev).length === Object.keys(snapshot).length
+        ? prev
+        : snapshot;
+    });
+  }, [
+    accountDeFiOverview.currency,
+    accountDeFiOverview.netWorth,
+    canReuseLatestDisplayedBalance,
+    currencyMap,
+    currentConfirmedBalance,
+    currentOverviewOwnerKey,
+    currentTokenWorthUsd,
+    deFiGraceExpired,
+    isCurrentAccountDeFiReady,
+    isDeFiOverviewOwnerMatched,
+    isPerpsEnabled,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    renderedBalanceString,
+    resolvedBalanceString,
+    settings.currencyInfo.id,
+    setHomePortfolioDisplay,
+    shouldHoldCurrentConfirmedBalance,
+    holdPortfolioBalance,
+    portfolioCategories?.dataRequestId,
+    showSkeleton,
+  ]);
   useEffect(() => {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;
@@ -1013,6 +1338,7 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
+                {...HERO_BALANCE_FIT_PROPS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}
@@ -1035,6 +1361,18 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
+      {vaultSettings?.localWallet &&
+      account?.id &&
+      network?.id &&
+      !network.isAllNetworks &&
+      networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR ? (
+        <YStack w="100%">
+          <LocalWalletPasswordAlert
+            networkId={network.id}
+            accountId={account.id}
+          />
+        </YStack>
+      ) : null}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"

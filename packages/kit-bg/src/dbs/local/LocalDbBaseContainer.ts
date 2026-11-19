@@ -1,6 +1,7 @@
 import { cloneDeep, isString } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
@@ -8,6 +9,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedUtils from './indexed/indexedDBUtils';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { maskedLocalDbAgent } from './MaskedLocalDbAgent';
 import { EIndexedDBBucketNames } from './types';
 
 import type {
@@ -45,7 +47,31 @@ import type {
 } from './types';
 
 export abstract class LocalDbBaseContainer implements ILocalDBAgent {
-  abstract readyDb: Promise<ILocalDBAgent>;
+  abstract get readyDb(): Promise<ILocalDBAgent>;
+
+  private transactionAgents = new WeakMap<object, ILocalDBAgent>();
+
+  private deviceWriteTransactions = new Set<object>();
+
+  protected getReadyDbForAdmittedOperation(): Promise<ILocalDBAgent> {
+    return this.readyDb;
+  }
+
+  private async runWithProtectedAgent<T>(
+    task: (db: ILocalDBAgent) => Promise<T>,
+    tx?: object,
+  ): Promise<T> {
+    const transactionAgent = tx ? this.transactionAgents.get(tx) : undefined;
+    if (transactionAgent) {
+      return task(transactionAgent);
+    }
+
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => task(await this.getReadyDbForAdmittedOperation()),
+      onBlocked: () => task(maskedLocalDbAgent),
+    });
+  }
 
   private normalizeCloudSyncRecordDataTime<TRecord>(record: TRecord): TRecord {
     if (!record || typeof record !== 'object') {
@@ -103,58 +129,118 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
       // throw new Error('bucketName is required');
     }
 
-    if (bucketName === EIndexedDBBucketNames.account) {
-      // best-effort cache warm-up, must never block or fail the transaction.
-      // Cap the wait so a hung hydration can't stall account-bucket writes,
-      // and clear the timer when hydration wins so we don't leak a pending
-      // timeout per transaction.
-      let warmupTimer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        const hydrationPromise =
-          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
-        // If the timeout wins the race, hydration keeps running with no awaiter;
-        // guard it so a later rejection can't surface as an unhandled rejection.
-        void hydrationPromise.catch(() => undefined);
-        const warmupTimeout = new Promise<void>((resolve) => {
-          warmupTimer = setTimeout(resolve, 5000);
-        });
-        await Promise.race([hydrationPromise, warmupTimeout]);
-      } catch (error) {
-        console.error(
-          'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
-          error,
-        );
-      } finally {
-        if (warmupTimer) {
-          clearTimeout(warmupTimer);
+    const runTransaction = async (db: ILocalDBAgent) => {
+      if (
+        db !== maskedLocalDbAgent &&
+        bucketName === EIndexedDBBucketNames.account
+      ) {
+        // best-effort cache warm-up, must never block or fail the transaction.
+        // Cap the wait so a hung hydration can't stall account-bucket writes,
+        // and clear the timer when hydration wins so we don't leak a pending
+        // timeout per transaction.
+        let warmupTimer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const hydrationPromise =
+            appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded(
+              {
+                forDbTransaction: true,
+              },
+            );
+          // If the timeout wins the race, hydration keeps running with no awaiter;
+          // guard it so a later rejection can't surface as an unhandled rejection.
+          void hydrationPromise.catch(() => undefined);
+          const warmupTimeout = new Promise<void>((resolve) => {
+            warmupTimer = setTimeout(resolve, 5000);
+          });
+          await Promise.race([hydrationPromise, warmupTimeout]);
+        } catch (error) {
+          console.error(
+            'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
+            error,
+          );
+        } finally {
+          if (warmupTimer) {
+            clearTimeout(warmupTimer);
+          }
         }
       }
-    }
 
-    const db = await this.readyDb;
-    // TODO default to readOnly: true
-    return db.withTransaction(bucketName, task, options);
+      let deviceWriteTransaction: object | undefined;
+      try {
+        // TODO default to readOnly: true
+        return await db.withTransaction(
+          bucketName,
+          async (tx) => {
+            this.transactionAgents.set(tx, db);
+            try {
+              return await task(tx);
+            } finally {
+              if (this.deviceWriteTransactions.has(tx)) {
+                deviceWriteTransaction = tx;
+              }
+              this.transactionAgents.delete(tx);
+            }
+          },
+          options,
+        );
+      } finally {
+        if (deviceWriteTransaction) {
+          this.deviceWriteTransactions.delete(deviceWriteTransaction);
+          // Reads during a pending write must not survive its commit or rollback.
+          this.clearDeviceRecordsCache();
+        }
+      }
+    };
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () =>
+        runTransaction(await this.getReadyDbForAdmittedOperation()),
+      onBlocked: () => runTransaction(maskedLocalDbAgent),
+    });
+  }
+
+  /**
+   * For transactions whose net effect is freeing space — removing wallets,
+   * accounts, credentials, archived history.
+   *
+   * These must stay available while the disk-full guard is raised: deleting
+   * local data is the main way a user recovers, so blocking them turns a
+   * recoverable state into a dead end. Some of these transactions also update
+   * a record along the way (e.g. `removeWallet` rewriting a wallet it converts
+   * to mocked); that is a rounding error next to what the same transaction
+   * deletes, and refusing to start guarantees the failure that allowing it
+   * merely risks.
+   */
+  async withSpaceFreeingTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
+    task: ILocalDBWithTransactionTask<T>,
+  ): Promise<T> {
+    return this.withTransaction(bucketName, task, {
+      allowWhenStorageFull: true,
+    });
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
-    const db = await this.readyDb;
-    return db.getRecordsCount(params);
+    return this.runWithProtectedAgent((db) => db.getRecordsCount(params));
   }
 
   async txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
-    const db = await this.readyDb;
-    return db.txGetRecordsCount(params);
+    return this.runWithProtectedAgent(
+      (db) => db.txGetRecordsCount(params),
+      params.tx,
+    );
   }
 
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
-    const db = await this.readyDb;
-    const result = await db.getAllRecords(params);
+    const result = await this.runWithProtectedAgent((db) =>
+      db.getAllRecords(params),
+    );
     return this.normalizeCloudSyncGetResult({
       name: params.name,
       result,
@@ -164,8 +250,9 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async getRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
-    const db = await this.readyDb;
-    const result = await db.getRecordsByIds(params);
+    const result = await this.runWithProtectedAgent((db) =>
+      db.getRecordsByIds(params),
+    );
     return this.normalizeCloudSyncGetResult({
       name: params.name,
       result,
@@ -175,39 +262,44 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    // eslint-disable-next-line prefer-const
-    let shouldUseCache = this.isCachedStoreName(params.name);
-    if (
-      params.name === ELocalDBStoreNames.Account &&
-      params.id === accountUtils.URL_ACCOUNT_ID
-    ) {
-      // shouldUseCache = false;
-    }
-    if (shouldUseCache) {
-      const cache = await this.getRecordByIdWithCache(params);
-      return cloneDeep(cache);
-    }
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        // eslint-disable-next-line prefer-const
+        let shouldUseCache = this.isCachedStoreName(params.name);
+        if (
+          params.name === ELocalDBStoreNames.Account &&
+          params.id === accountUtils.URL_ACCOUNT_ID
+        ) {
+          // shouldUseCache = false;
+        }
+        if (shouldUseCache) {
+          const cache = await this.getRecordByIdWithCache(params);
+          return cloneDeep(cache);
+        }
 
-    const db = await this.readyDb;
-    const record = await db.getRecordById(params);
-    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
-      return this.normalizeCloudSyncRecordDataTime(record);
-    }
-    return record;
+        const db = await this.getReadyDbForAdmittedOperation();
+        const record = await db.getRecordById(params);
+        if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+          return this.normalizeCloudSyncRecordDataTime(record);
+        }
+        return record;
+      },
+      onBlocked: () => maskedLocalDbAgent.getRecordById(params),
+    });
   }
 
   async getRecordIds<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordIdsParams<T>,
   ): Promise<ILocalDBGetRecordIdsResult> {
-    const db = await this.readyDb;
-    return db.getRecordIds(params);
+    return this.runWithProtectedAgent((db) => db.getRecordIds(params));
   }
 
   private getRecordByIdWithCache = memoizee(
     async <T extends ELocalDBStoreNames>(
       params: ILocalDBGetRecordByIdParams<T>,
     ) => {
-      const db = await this.readyDb;
+      const db = await this.getReadyDbForAdmittedOperation();
       return db.getRecordById(params);
     },
     {
@@ -250,12 +342,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
       | 'allDbIndexedAccounts'
       | 'allDbWallets'
       | 'allDbDevices',
+    { includeEmpty = false }: { includeEmpty?: boolean } = {},
   ) {
-    const allItemsInCache = this.dbAllRecordsCache.get(cacheKey) as T[];
-    if (allItemsInCache && allItemsInCache.length) {
-      return cloneDeep(allItemsInCache);
-    }
-    return undefined;
+    return travelModeManager.getRuntimeEnvironmentSync().persistence.runSync({
+      operation: () => {
+        const allItemsInCache = this.dbAllRecordsCache.get(cacheKey) as T[];
+        if (allItemsInCache && (includeEmpty || allItemsInCache.length)) {
+          return cloneDeep(allItemsInCache);
+        }
+        return undefined;
+      },
+      onBlocked: () => undefined,
+    });
   }
 
   clearStoreCachedDataIfMatch(storeName: ELocalDBStoreNames) {
@@ -264,9 +362,27 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
   }
 
+  // Store reads that are still in flight for dbAllRecordsCache keys, so
+  // concurrent cold callers (e.g. twenty recipient lookups on the Send page)
+  // share one table read instead of each materializing every record.
+  dbAllRecordsInflight = new Map<
+    'allDbAccounts' | 'allDbIndexedAccounts' | 'allDbWallets' | 'allDbDevices',
+    Promise<unknown>
+  >();
+
+  protected hasPendingDeviceWrites() {
+    return this.deviceWriteTransactions.size > 0;
+  }
+
+  private clearDeviceRecordsCache() {
+    this.dbAllRecordsCache.delete('allDbDevices');
+    this.dbAllRecordsInflight.delete('allDbDevices');
+  }
+
   clearStoreCachedData() {
     this.getRecordByIdWithCache.clear();
     this.dbAllRecordsCache.clear();
+    this.dbAllRecordsInflight.clear();
     this.scanAccountMissCache.clear();
   }
 
@@ -274,19 +390,27 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     params: ILocalDBRemoveRecordsParams<T>,
   ) {
     const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
-    return this.withTransaction(bucketName, (tx) => {
-      return this.txRemoveRecords({
-        ...params,
-        tx,
-      });
-    });
+    return this.withTransaction(
+      bucketName,
+      (tx) => {
+        return this.txRemoveRecords({
+          ...params,
+          tx,
+        });
+      },
+      // Removing records frees space, so it must stay available while the
+      // disk-full guard is raised.
+      { allowWhenStorageFull: true },
+    );
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const db = await this.readyDb;
-    const result = await db.txGetAllRecords(params);
+    const result = await this.runWithProtectedAgent(
+      (db) => db.txGetAllRecords(params),
+      params.tx,
+    );
     return this.normalizeCloudSyncGetResult({
       name: params.name,
       result,
@@ -296,8 +420,10 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txGetRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
-    const db = await this.readyDb;
-    const result = await db.txGetRecordsByIds(params);
+    const result = await this.runWithProtectedAgent(
+      (db) => db.txGetRecordsByIds(params),
+      params.tx,
+    );
     return this.normalizeCloudSyncGetResult({
       name: params.name,
       result,
@@ -307,8 +433,10 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txGetRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
-    const db = await this.readyDb;
-    const pair = await db.txGetRecordById(params);
+    const pair = await this.runWithProtectedAgent(
+      (db) => db.txGetRecordById(params),
+      params.tx,
+    );
     if (params.name === ELocalDBStoreNames.CloudSyncItem) {
       return this.normalizeCloudSyncRecordPairDataTime(pair);
     }
@@ -318,58 +446,92 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txGetRecordIds<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordIdsParams<T>,
   ): Promise<ILocalDBTxGetRecordIdsResult> {
-    const db = await this.readyDb;
-    return db.txGetRecordIds(params);
+    return this.runWithProtectedAgent(
+      (db) => db.txGetRecordIds(params),
+      params.tx,
+    );
   }
 
   async txUpdateRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
-    this.clearStoreCachedDataIfMatch(params.name);
-    const db = await this.readyDb;
-    // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
-    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
-      const { updater } = params;
-      return db.txUpdateRecords({
-        ...params,
-        updater: async (record) => {
-          const updatedRecord = await updater(record);
-          return this.normalizeCloudSyncRecordDataTime(updatedRecord);
-        },
-      });
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
     }
-    return db.txUpdateRecords(params);
+    this.clearStoreCachedDataIfMatch(params.name);
+    const dbTask = async (db: ILocalDBAgent) => {
+      // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
+      if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+        const { updater } = params;
+        return db.txUpdateRecords({
+          ...params,
+          updater: async (record) => {
+            const updatedRecord = await updater(record);
+            return this.normalizeCloudSyncRecordDataTime(updatedRecord);
+          },
+        });
+      }
+      return db.txUpdateRecords(params);
+    };
+    return this.runWithProtectedAgent(dbTask, params.tx);
   }
 
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
-    this.clearStoreCachedDataIfMatch(params.name);
-    const db = await this.readyDb;
-    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
-      return db.txAddRecords({
-        ...params,
-        records: params.records.map((record) =>
-          this.normalizeCloudSyncRecordDataTime({ ...record }),
-        ),
-      });
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
     }
-    return db.txAddRecords(params);
+    this.clearStoreCachedDataIfMatch(params.name);
+    return this.runWithProtectedAgent(async (db) => {
+      if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+        return db.txAddRecords({
+          ...params,
+          records: params.records.map((record) =>
+            this.normalizeCloudSyncRecordDataTime({ ...record }),
+          ),
+        });
+      }
+      return db.txAddRecords(params);
+    }, params.tx);
   }
 
   async txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
+    }
     this.clearStoreCachedDataIfMatch(params.name);
-    const db = await this.readyDb;
-    return db.txRemoveRecords(params);
+    return this.runWithProtectedAgent(
+      (db) => db.txRemoveRecords(params),
+      params.tx,
+    );
   }
 
   abstract reset(): Promise<void>;
 
   async clearRecords(params: { name: ELocalDBStoreNames }) {
+    const deviceWrite =
+      params.name === ELocalDBStoreNames.Device ? {} : undefined;
+    if (deviceWrite) this.deviceWriteTransactions.add(deviceWrite);
     this.clearStoreCachedDataIfMatch(params.name);
-    const db = await this.readyDb;
-    return db.clearRecords(params);
+    try {
+      return await this.runWithProtectedAgent((db) => db.clearRecords(params));
+    } finally {
+      if (deviceWrite) {
+        this.deviceWriteTransactions.delete(deviceWrite);
+        this.clearDeviceRecordsCache();
+      }
+    }
   }
 }

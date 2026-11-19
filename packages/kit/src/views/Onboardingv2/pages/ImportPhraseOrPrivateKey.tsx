@@ -31,9 +31,11 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2ImportPhraseOrPrivateKeyTab,
 } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import useRecoveryPhraseProtected from '../../../hooks/useRecoveryPhraseProtected';
 import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCodeLazy from '../../ScanQrCode/hooks/useScanQrCodeLazy';
 import {
@@ -48,13 +50,13 @@ import { OnboardingTestIDs } from '../testIDs';
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 import type { RouteProp } from '@react-navigation/core';
 import type {
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputSelectionChangeEventData,
+  TextInputInstance,
+  TextInputSelectionChangeEvent,
 } from 'react-native';
 
 function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const intl = useIntl();
+  useRecoveryPhraseProtected({ dialogType: 'sensitiveInformation' });
   const [privateKey, setPrivateKey] = useState(value);
   const { start: startScanQrCode } = useScanQrCodeLazy();
   const [encrypted, setEncrypted] = useState(true);
@@ -86,7 +88,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   );
 
   const handleSelectionChange = useCallback(
-    (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+    (e: TextInputSelectionChangeEvent) => {
       selectionRef.current = e.nativeEvent.selection;
     },
     [],
@@ -183,7 +185,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   return (
     <TextAreaInput
-      ref={inputRef as RefObject<TextInput>}
+      ref={inputRef as RefObject<TextInputInstance>}
       allowPaste
       allowScan
       addOns={eyeToggleAddOn}
@@ -266,6 +268,16 @@ export default function ImportPhraseOrPrivateKey() {
         try {
           const { mnemonic, mnemonicType } =
             await phaseInputAreaRef.current.submit();
+          if (mnemonicType === EMnemonicType.TON) {
+            navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+              mnemonic,
+              mnemonicType,
+              isWalletBackedUp: true,
+            });
+            return;
+          }
+          // The privacy-chain scan-start question is asked later on the token
+          // details page (LocalWalletPoolStatus), not during import.
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
             mnemonicType,
@@ -397,7 +409,7 @@ export default function ImportPhraseOrPrivateKey() {
               ) : (
                 <YStack
                   key="privateKey"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
@@ -443,7 +455,7 @@ export default function ImportPhraseOrPrivateKey() {
         ) : null}
       </YStack>
       {!gtMd ? (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <Page.FooterActions
             pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
             onConfirmText={intl.formatMessage({

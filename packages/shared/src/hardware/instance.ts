@@ -6,8 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
+import { OneKeyLocalError } from '../errors';
 
-import { createConfigFetcher } from './configFetcher';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type { EOnekeyDomain } from '../../types';
@@ -15,6 +15,7 @@ import type {
   ConnectSettings,
   CoreApi,
   LowLevelCoreApi,
+  RemoteConfigResponse,
 } from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
@@ -25,6 +26,16 @@ export const generateConnectSrc = () => {
   const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
   return connectSrc;
 };
+
+export const isDirectFirmwareHostBindingTransport = (
+  hardwareTransportType?: EHardwareTransportType,
+): boolean =>
+  Boolean(
+    platformEnv.isNative ||
+    (platformEnv.isDesktop &&
+      (hardwareTransportType === EHardwareTransportType.WEBUSB ||
+        hardwareTransportType === EHardwareTransportType.DesktopWebBle)),
+  );
 
 // Clean up current SDK instance and its event listeners
 export const cleanupHardwareSDKInstance = async (): Promise<void> => {
@@ -38,7 +49,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
 
       // Dispose SDK instance
       if (typeof HardwareSDK.dispose === 'function') {
-        HardwareSDK.dispose();
+        await HardwareSDK.dispose();
       }
 
       if (HardwareLowLevelSDK) {
@@ -47,7 +58,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
           HardwareLowLevelSDK.removeAllListeners();
         }
         if (typeof HardwareLowLevelSDK.dispose === 'function') {
-          HardwareLowLevelSDK.dispose();
+          await HardwareLowLevelSDK.dispose();
         }
       }
 
@@ -67,33 +78,50 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
-}) =>
-  // eslint-disable-next-line no-async-promise-executor
-  new Promise<CoreApi>(async (resolve, reject) => {
-    // Clean up previous instance if exists
-    if (HardwareSDK) {
-      await cleanupHardwareSDKInstance();
+  loadFirmwareConfig?: () => Promise<RemoteConfigResponse | undefined>;
+}): Promise<CoreApi> => {
+  if (HardwareSDK) {
+    await cleanupHardwareSDKInstance();
+  }
+
+  let env: undefined | ConnectSettings['env'];
+  if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    // Desktop WebUSB doesn't need browser permission prompt
+    env = platformEnv.isDesktop ? 'desktop-webusb' : 'webusb';
+  } else if (
+    params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
+  ) {
+    env = 'desktop-web-ble' as const;
+  }
+
+  const isAppManagedManifest = Boolean(
+    platformEnv.isNative || platformEnv.isDesktop,
+  );
+  const settings: Partial<ConnectSettings> & {
+    protocolV2DeviceInfoMockEnabled?: boolean;
+  } = {
+    debug: params.debugMode,
+    env,
+    protocolV2DeviceInfoMockEnabled: false,
+  };
+  if (isAppManagedManifest) {
+    if (!params.loadFirmwareConfig) {
+      throw new OneKeyLocalError(
+        'App-managed firmware config loader is required',
+      );
     }
-
-    let env: undefined | ConnectSettings['env'];
-    if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
-      // Desktop WebUSB doesn't need browser permission prompt
-      env = platformEnv.isDesktop ? 'desktop-webusb' : 'webusb';
-    } else if (
-      params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
-    ) {
-      env = 'desktop-web-ble' as const;
+    settings.fetchConfig = false;
+    settings.firmwareManifestMode = 'external-only';
+    const firmwareConfig = await params.loadFirmwareConfig();
+    if (firmwareConfig) {
+      settings.preloadedConfig = firmwareConfig;
     }
+  } else {
+    settings.fetchConfig = true;
+    settings.firmwareManifestMode = 'sdk-managed';
+  }
 
-    const configFetcher = await createConfigFetcher();
-
-    const settings: Partial<ConnectSettings> = {
-      debug: params.debugMode,
-      fetchConfig: true,
-      env,
-      configFetcher,
-    };
-
+  try {
     HardwareSDK = await importHardwareSDK({
       hardwareTransportType: params.hardwareTransportType,
     });
@@ -122,15 +150,17 @@ const createHardwareSDKInstance = async (params: {
 
     settings.preRelease = params.isPreRelease;
 
-    try {
-      await HardwareSDK.init(settings, HardwareLowLevelSDK);
-      // debugLogger.hardwareSDK.info('HardwareSDK initialized success');
-      console.log('HardwareSDK initialized success');
-      resolve(HardwareSDK);
-    } catch (e) {
-      reject(e);
+    const initialized = await HardwareSDK.init(settings, HardwareLowLevelSDK);
+    if (initialized === false) {
+      throw new OneKeyLocalError('HardwareSDK initialization failed');
     }
-  });
+    console.log('HardwareSDK initialized success');
+    return HardwareSDK;
+  } catch (error) {
+    await cleanupHardwareSDKInstance();
+    throw error;
+  }
+};
 
 export const getHardwareSDKInstance = memoizee(createHardwareSDKInstance, {
   promise: true,

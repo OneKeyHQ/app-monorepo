@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -38,6 +39,7 @@ function EarnRiskWarningContent({
   onCancel: () => void;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // react-intl ships a different React type version here; match the rich-text
@@ -48,14 +50,15 @@ function EarnRiskWarningContent({
         size="$bodyMd"
         color="$textInfo"
         textDecorationLine="underline"
-        onPress={() => {
+        onPress={async () => {
+          await dialogInstance.close();
           openUrlExternal(ONEKEY_TERMS_OF_USE_URL);
         }}
       >
         {chunks}
       </SizableText>
     ),
-    [],
+    [dialogInstance],
   );
 
   return (
@@ -207,4 +210,31 @@ export async function showEarnRiskWarningDialog({
       },
     });
   });
+}
+
+/**
+ * Hook form of {@link showEarnRiskWarningDialog} for the trade hooks: it owns
+ * the localized title so every gate stays worded the same, and resolves true
+ * when the user may proceed (immediately so, once accepted on this device).
+ */
+export function useEarnRiskWarningGate() {
+  const intl = useIntl();
+  return useCallback(
+    ({
+      provider,
+      symbol,
+      networkId,
+    }: {
+      provider: string;
+      symbol?: string;
+      networkId?: string;
+    }) =>
+      showEarnRiskWarningDialog({
+        provider,
+        symbol: symbol ?? '',
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      }),
+    [intl],
+  );
 }

@@ -538,6 +538,7 @@ function BtcAddresses() {
           btcUsedAddress: row.address,
           btcUsedAddressPath: row.path,
           disableSelector: true,
+          source: 'copyAddress',
         });
         return;
       }
@@ -710,6 +711,7 @@ function BtcAddresses() {
               {showDeriveTypeSelector && addressTypeLabel ? (
                 <AddressTypeSelector
                   placement="bottom-end"
+                  whenCollapsed="hide"
                   walletId={effectiveWalletId ?? ''}
                   networkId={networkId}
                   indexedAccountId={headerRightIndexedAccountId}

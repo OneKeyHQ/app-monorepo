@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Skeleton shapes are tuned to ProtocolDesktopLayout (the tableLayout
 // branch in `Protocol.tsx`) and ProtocolRow (the mobile branch). When
@@ -125,7 +126,7 @@ function DeFiListSkeletonBase({ tableLayout }: IDeFiListSkeletonProps) {
   }
 
   return (
-    <YStack>
+    <YStack minHeight={platformEnv.isNativeAndroid ? 300 : undefined}>
       {Array.from({ length: MOBILE_ROW_COUNT }).map((_, i) => (
         <MobileProtocolSkeleton
           // eslint-disable-next-line react/no-array-index-key

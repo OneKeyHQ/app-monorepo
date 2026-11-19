@@ -22,6 +22,11 @@ import nativeNetworkThrottle, {
   getNetworkThrottleRuntimeConfig,
 } from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
+import {
+  PRIME_USER_BANNED_CODE,
+  isPrimeUserBannedError,
+  primeUserBannedMessage,
+} from '../prime/primeUserBanned';
 import appStorage from '../storage/appStorage';
 import { devSettingSyncStorage } from '../storage/instance/devSettingSyncStorageInstance';
 import {
@@ -31,23 +36,48 @@ import {
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from './availabilityMetrics';
+import { withCustomUAHeaders } from './customUA';
+import {
   HEADER_REQUEST_ID_KEY,
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
-import { stashRequestAuthTokenOfError } from './requestAuthTokenErrorStash';
+import {
+  readRequestAuthTokenHeader,
+  stashRequestAuthTokenOfError,
+} from './requestAuthTokenErrorStash';
 import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { INativeNetworkThrottleConfig } from '../modules/NetworkThrottle';
-import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
 
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
 
-// Keep in sync with ONEKEY_REQUEST_TOKEN_HEADER in kit-bg ServiceBase
-// (shared must not import from kit-bg).
-const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
+function stashRequestAuthContextOfError(
+  error: OneKeyServerApiError,
+  config: InternalAxiosRequestConfig,
+) {
+  // Keep the token private. The full config contains the request body and
+  // headers, and must never be attached to surfaced errors.
+  const requestAuthToken = readRequestAuthTokenHeader(config.headers);
+  if (requestAuthToken) {
+    stashRequestAuthTokenOfError({
+      error,
+      requestAuthToken,
+      requestUrl: config.url,
+    });
+  }
+}
 
 type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   $oneKeyNetworkThrottleTiming?: {
@@ -295,10 +325,13 @@ axios.interceptors.request.use(async (config) => {
         defaultLogger.app.network.start('axios', config.method, config.url);
       }
       await markNetworkThrottleRequestTiming(config);
+      // Set last, so client-side header building is not in the duration.
+      config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
       return config;
     }
   } catch (_e) {
     await markNetworkThrottleRequestTiming(config);
+    config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
     return config;
   }
 
@@ -315,6 +348,18 @@ axios.interceptors.request.use(async (config) => {
     config.headers[key] = val;
   });
 
+  const callerUA = config.headers.get('User-Agent');
+  // Axios permits false to disable a header; preserve that opt-out as well.
+  if (!config.headers.has('User-Agent') || typeof callerUA === 'string') {
+    config.headers.set(
+      await withCustomUAHeaders(
+        axios.getUri(config),
+        typeof callerUA === 'string' ? { 'User-Agent': callerUA } : {},
+        { browserTransport: true },
+      ),
+    );
+  }
+
   if (isEnableLogNetwork(config.url)) {
     defaultLogger.app.network.start(
       'axios',
@@ -324,6 +369,7 @@ axios.interceptors.request.use(async (config) => {
     );
   }
   await markNetworkThrottleRequestTiming(config);
+  config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
   return config;
 });
 
@@ -336,14 +382,23 @@ axios.interceptors.response.use(
     const { config } = response;
     const url =
       response?.request?.responseURL || config?.baseURL || config?.url || '';
+    const timeCheckRequestId: unknown = config.headers[HEADER_REQUEST_ID_KEY];
     void systemTimeUtils.handleServerResponseDate({
       source: 'axios',
       headerDate: response?.headers?.date || '',
       url,
+      requestId:
+        typeof timeCheckRequestId === 'string' ? timeCheckRequestId : undefined,
     });
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
+      reportApiAvailabilityResponse({
+        timing: config.$oneKeyAvailabilityTiming,
+        httpStatus: response.status,
+        isOneKeyApi: isOneKeyDomain,
+        apiCode: response.data?.code,
+      });
       if (!isOneKeyDomain) {
         if (isEnableLogNetwork(config.url)) {
           defaultLogger.app.network.end({
@@ -401,26 +456,7 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
-      // Stash ONLY the request's auth token so later response interceptors
-      // (e.g. the prime invalid-token handler in ServiceBase) can compare it
-      // against the currently active one before clearing the session.
-      // Deliberately NOT the whole axios config: the full config carries the
-      // request body and every header. And deliberately NOT written onto the
-      // error object itself: the error escapes to arbitrary catch blocks and
-      // `console.error(e)` / error-collection contexts, which must never
-      // capture a still-usable bearer token — the module-private WeakMap
-      // stash stays invisible to any serialization of the error.
-      const requestHeaders = config.headers;
-      const requestAuthToken =
-        requestHeaders?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
-        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
-        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
-      if (requestAuthToken) {
-        stashRequestAuthTokenOfError({
-          error: serverApiError,
-          requestAuthToken: String(requestAuthToken),
-        });
-      }
+      stashRequestAuthContextOfError(serverApiError, config);
       throw serverApiError;
     }
     if (isEnableLogNetwork(config.url)) {
@@ -440,6 +476,12 @@ axios.interceptors.response.use(
   },
   async (error) => {
     // Guard: if request was aborted, convert to CanceledError regardless of error type
+    // Before the abort guard: an abort by a timeout signal is a timeout.
+    reportApiAvailabilityError(
+      error?.config?.$oneKeyAvailabilityTiming,
+      error,
+      error?.config?.signal,
+    );
     if (error?.config?.signal?.aborted) {
       throw new axios.CanceledError('canceled');
     }
@@ -460,6 +502,23 @@ axios.interceptors.response.use(
         errorMessage: response?.data?.message,
       });
       if (isOneKeyDomain && Number(response.status) === 403) {
+        // A business ban is independent of regional HTTP 403 restrictions.
+        // Preserve it for the authenticated client's identity-safe handling.
+        if (isPrimeUserBannedError(response.data)) {
+          const bannedError = new OneKeyServerApiError({
+            autoToast: true,
+            message: appLocale.intl.formatMessage(primeUserBannedMessage),
+            code: PRIME_USER_BANNED_CODE,
+            httpStatusCode: 403,
+            data: {
+              code: PRIME_USER_BANNED_CODE,
+              requestUrl: config.url,
+            },
+            requestId: config.headers[HEADER_REQUEST_ID_KEY],
+          });
+          stashRequestAuthContextOfError(bannedError, config);
+          throw bannedError;
+        }
         const title = appLocale.intl.formatMessage({
           id: ETranslations.title_403,
         });

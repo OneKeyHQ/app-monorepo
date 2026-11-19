@@ -42,9 +42,11 @@ export abstract class BackgroundServiceProxyBase {
             if (!this._proxyServiceCache[key]) {
               this._proxyServiceCache[key] = (...args: any) => {
                 if (
-                  !['serviceApp.addLogger', 'serviceLogger.addMsg'].includes(
-                    key,
-                  )
+                  ![
+                    'serviceApp.addLogger',
+                    'serviceLogger.addMsg',
+                    'serviceLogger.readLogExportPage',
+                  ].includes(key)
                 ) {
                   defaultLogger.app.background.call(key);
                 }

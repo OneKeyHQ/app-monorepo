@@ -18,6 +18,10 @@ import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -185,6 +189,9 @@ function useWebHeaderNavigation({
       ) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
+      if (tabKey === ETabRoutes.Market) {
+        markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+      }
       if (tabKey) {
         navigation.switchTab(tabKey as ETabRoutes);
       }
@@ -204,6 +211,10 @@ function useWebHeaderNavigation({
         key: 'market',
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
+      {
+        key: 'swap',
+        label: intl.formatMessage({ id: ETranslations.global_trade }),
+      },
       ...(!perpDisabled
         ? [
             {
@@ -215,10 +226,6 @@ function useWebHeaderNavigation({
       {
         key: 'defi',
         label: intl.formatMessage({ id: ETranslations.global_earn }),
-      },
-      {
-        key: 'swap',
-        label: intl.formatMessage({ id: ETranslations.global_trade }),
       },
       {
         key: 'commission',

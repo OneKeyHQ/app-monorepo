@@ -1,5 +1,7 @@
-import '@onekeyhq/shared/src/performance/init';
+/* oxlint-disable import-js/order */
+// Runtime polyfills must execute before performance and application modules.
 import '@onekeyhq/shared/src/polyfills';
+import '@onekeyhq/shared/src/performance/init';
 import { maybeLockdownOneKeyRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 
 function initPasskeyBridgeEarly() {

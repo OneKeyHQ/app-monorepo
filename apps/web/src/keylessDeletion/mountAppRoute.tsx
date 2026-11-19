@@ -4,8 +4,11 @@ import { createRoot } from 'react-dom/client';
 import { useIntl } from 'react-intl';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import Toaster from '@onekeyhq/components/src/actions/Toast/Toaster';
-import { Select } from '@onekeyhq/components/src/forms/Select';
+import { ToastHost } from '@onekeyhq/components/src/actions/Toast';
+import {
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
+  Select,
+} from '@onekeyhq/components/src/forms/Select';
 import { SettingConfigContext } from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderValue';
 import { TamaguiProvider } from '@onekeyhq/components/src/hocs/Provider/TamaguiProvider';
 import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
@@ -133,7 +136,8 @@ function LanguageSelector({
           onChange(getPreferredLocale(key));
       }}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 280 }}
+      searchable
+      floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <Button
@@ -198,7 +202,7 @@ function InviteRoute({
             invitationToken={invitationToken}
           />
         ) : (
-          <YStack tag="main" gap="$4">
+          <YStack render="main" gap="$4">
             <SizableText color="$textSubdued" testID="app-open-invitation">
               {messages.openInvitation}
             </SizableText>
@@ -253,7 +257,7 @@ function ThemedInvite({
       <SettingConfigContext.Provider value={settings}>
         <SafeAreaProvider>
           <ErrorToastListener />
-          <Toaster />
+          <ToastHost />
           <InviteRoute
             business={business}
             invitationToken={invitationToken}

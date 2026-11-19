@@ -15,7 +15,14 @@ const PERSISTENT_IDS = new Set([
 
 const stores = new Map<string, Store>();
 
+function isValidStoreId(id: unknown): id is string {
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
+}
+
 function getOrCreateStore(id: string): Store {
+  if (!isValidStoreId(id)) {
+    throw new OneKeyLocalError('Invalid MMKV store id');
+  }
   let s = stores.get(id);
   if (!s) {
     s = new Store({ name: `mmkv-${id}` });
@@ -34,7 +41,11 @@ if (ipcMain) {
       event,
       args: { method: string; id: string; key?: string; value?: unknown },
     ) => {
-      const { method, id, key } = args;
+      const { method, id, key } = args || {};
+      if (!isValidStoreId(id)) {
+        event.returnValue = undefined;
+        return;
+      }
       const store = getOrCreateStore(id);
       let result: unknown;
       switch (method) {
@@ -89,6 +100,9 @@ class MMKV {
   private listeners: Set<(changedKey: string) => void>;
 
   constructor(options: { id: string }) {
+    if (!isValidStoreId(options?.id)) {
+      throw new OneKeyLocalError('Invalid MMKV store id');
+    }
     this.listeners = new Set();
     this.memoryStore = new Map();
     this.store = PERSISTENT_IDS.has(options.id)

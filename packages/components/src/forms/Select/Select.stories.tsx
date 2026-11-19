@@ -49,7 +49,7 @@ function ControlledSelect({
   const handleChange = useCallback(
     (v: string) => {
       setValue(v);
-      onChange?.(v);
+      void onChange?.(v);
     },
     [onChange],
   );

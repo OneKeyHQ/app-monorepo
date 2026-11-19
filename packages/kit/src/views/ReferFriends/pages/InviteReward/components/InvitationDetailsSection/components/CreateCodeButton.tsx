@@ -1,13 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Toast,
-  useClipboard,
-  useScrollView,
-} from '@onekeyhq/components';
+import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { generateInviteUrlFromTemplate } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,18 +23,6 @@ export function CreateCodeButton({
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const { copyText } = useClipboard();
-  const { scrollViewRef } = useScrollView();
-
-  const scrollToLatestCode = useCallback(() => {
-    setTimeout(() => {
-      const scrollView = scrollViewRef?.current;
-
-      if (typeof scrollView?.scrollTo === 'function') {
-        scrollView.scrollToEnd({ animated: true });
-      }
-    }, 500);
-  }, [scrollViewRef]);
-
   const handleCreateCode = async () => {
     setLoading(true);
     try {
@@ -60,23 +43,18 @@ export function CreateCodeButton({
         message: intl.formatMessage({
           id: ETranslations.referral_code_created_desc,
         }),
-        actions: (
-          <Button
-            testID="refer-friends-invite-url-btn"
-            variant="primary"
-            size="small"
-            onPress={() => {
-              void copyText(inviteUrl);
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_copy })}
-          </Button>
-        ),
+        actions: {
+          testID: 'refer-friends-invite-url-btn',
+          variant: 'primary',
+          label: intl.formatMessage({ id: ETranslations.global_copy }),
+          onPress: () => {
+            void copyText(inviteUrl);
+          },
+        },
       });
 
       // Trigger callback to refresh list if provided
       onCodeCreated?.();
-      scrollToLatestCode();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -98,8 +76,7 @@ export function CreateCodeButton({
       disabled={loading || remainingCodes <= 0}
       loading={loading}
     >
-      {intl.formatMessage({ id: ETranslations.referral_create_code })} (
-      {remainingCodes ?? 0})
+      {intl.formatMessage({ id: ETranslations.referral_create_code })}
     </Button>
   );
 }

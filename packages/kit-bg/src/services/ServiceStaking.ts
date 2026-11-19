@@ -11,6 +11,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -20,16 +25,19 @@ import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   IEarnAvailableAssetV2,
+  IEarnBannerTheme,
   IEarnPageBannerListItem,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -70,6 +78,11 @@ import type {
   IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnRewardsPortfolioResponse,
+  IEarnRewardsPortfolioStage,
+  IEarnServerClaimRequestResult,
+  IEarnServerOrderDetail,
+  IEarnServerOrderWaitResult,
   IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
@@ -98,7 +111,7 @@ import {
   EApproveType,
   EStakeProtocolGroupEnum,
 } from '@onekeyhq/shared/types/staking';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -113,6 +126,7 @@ import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
 } from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 interface ICheckAmountResponse {
   code: number;
@@ -161,6 +175,10 @@ interface IEarnBatchInvestmentDetailResponse {
 
 const loadBorrowActionServiceUtils = () =>
   import('./utils/borrowActionServiceUtils');
+
+// Earn server error code for "this account has nothing to claim for the
+// requested identity" (EEarnError.NoClaimableAmount).
+const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -232,14 +250,22 @@ class ServiceStaking extends ServiceBase {
     tokenAddress: string;
     spenderAddress: string;
     blockNumber?: number;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, expectedAccountAddress, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
         accountId,
       });
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Allowance account changed');
+    }
 
     const resp = await client.get<{
       data: IAllowanceOverview;
@@ -323,6 +349,7 @@ class ServiceStaking extends ServiceBase {
         o,
       ): o is IAccountHistoryTx &
         Required<Pick<IAccountHistoryTx, 'stakingInfo'>> =>
+        o.replacedType !== EReplaceTxType.Cancel &&
         Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
 
@@ -381,6 +408,7 @@ class ServiceStaking extends ServiceBase {
     const {
       networkId,
       accountId,
+      amount,
       provider,
       symbol,
       protocolVault,
@@ -438,6 +466,7 @@ class ServiceStaking extends ServiceBase {
       message,
       effectiveApy,
       ...rest,
+      amount: /^\.\d+$/.test(amount) ? `0${amount}` : amount,
     };
 
     if (shouldSendProtocolVault) {
@@ -462,12 +491,27 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
-      params;
+  async buildUnstakeTransaction(
+    params: IWithdrawBaseParams & { expectedAccountAddress?: string },
+  ) {
+    const {
+      networkId,
+      accountId,
+      protocolVault,
+      effectiveApy,
+      expectedAccountAddress,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? account.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : account.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account address changed');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol: params.symbol,
@@ -900,11 +944,13 @@ class ServiceStaking extends ServiceBase {
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
-    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
-      params,
+      params: {
+        ...params,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+      },
     });
     return resp.data.data;
   }
@@ -1165,10 +1211,19 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, symbol, ...rest } = params;
+    const { networkId, accountId, symbol, expectedAccountAddress, ...rest } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? acc.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : acc.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account address changed');
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
@@ -1297,6 +1352,60 @@ class ServiceStaking extends ServiceBase {
       ).values(),
     );
     return uniqueAccountParams;
+  }
+
+  /**
+   * Phone positions page, Rewards tab: one stage of the wallet's ledger
+   * rewards across every earn account and protocol (OK-61377). Ledger only —
+   * the protocol rewards a position accrues on chain come from the
+   * investment detail the page already holds, and on this page the response
+   * replaces the ledger rows /v1/investment/airdrop-detail used to carry.
+   */
+  @backgroundMethod()
+  async getRewardsPortfolio(params: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    stage: IEarnRewardsPortfolioStage;
+    cursor?: string;
+    limit?: number;
+    /** the page's network filter; the server pages the filtered groups */
+    networkIds?: string[];
+  }): Promise<IEarnRewardsPortfolioResponse> {
+    const {
+      accountId,
+      networkId,
+      indexedAccountId,
+      stage,
+      cursor,
+      limit,
+      networkIds,
+    } = params;
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    if (accounts.length === 0) {
+      return {
+        asOf: Date.now(),
+        stage,
+        totals: { claimable: '0', pending: '0', rewards: '0' },
+        groups: [],
+      };
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{ data: IEarnRewardsPortfolioResponse }>(
+      '/earn/v1/rewards/portfolio',
+      {
+        accounts,
+        stage,
+        ...(cursor ? { cursor } : {}),
+        ...(limit ? { limit } : {}),
+        ...(networkIds?.length ? { networkIds } : {}),
+      },
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()
@@ -1462,6 +1571,44 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  /**
+   * Phone positions page (OK-61377): one provider's positions on one network
+   * for one account, in the wallet DeFi Portfolio contract. Same scope and
+   * headers as the batch investment detail, so the server caches per client.
+   */
+  @backgroundMethod()
+  async getPortfolioPositions(params: {
+    accountId: string;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    publicKey?: string;
+  }): Promise<IEarnPortfolioPositionsResponse> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, accountAddress, networkId, provider, publicKey } =
+      params;
+    // Explicit body: the server rejects unknown fields, and callers pass
+    // richer request objects.
+    const body = {
+      accountAddress,
+      networkId,
+      provider,
+      ...(publicKey ? { publicKey } : {}),
+      // Spark's and Native's ledger rewards on their holdings, marked
+      // `source: 'ledger'`; the Rewards totals leave those rows out.
+      withLedgerRewards: true,
+    };
+    const response = await client.post<{
+      data: IEarnPortfolioPositionsResponse;
+    }>('/earn/v1/portfolio/positions', body, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
+    return response.data.data;
+  }
+
   @backgroundMethod()
   async fetchInvestmentBatchDetail(params: {
     publicKey?: string | undefined;
@@ -1549,12 +1696,73 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+  async getEarnPageBannerList({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<IEarnPageBannerListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
       data: IEarnPageBannerListItem[];
     }>('/earn/v1/banner/list');
-    return response.data.data;
+    // The common request interceptor sends the same active theme to the
+    // server. Keep this local guard as well so a malformed or stale response
+    // cannot be rendered or persisted under the current theme cache key.
+    const list = response.data.data.filter((banner) => banner.theme === theme);
+    // Persist so the next cold start paints at the right height instead of
+    // expanding once this request lands (OK-60299).
+    //
+    // Deliberately not awaited. earnExtra runs with enableCache = false, so
+    // setRawData is a full read-modify-write — getItem + JSON.parse of the
+    // whole record, then stringify + setItem, all under the entity's shared
+    // mutex — which on native is real AsyncStorage IO. Awaiting it put that on
+    // the return path of a request the UI is blocked on, once per tab switch
+    // and once per pull-to-refresh. Skipping an unchanged write keeps the
+    // common case off the disk entirely, and off the mutex that
+    // setEthenaKycAddresses and markFirstOperation also queue on.
+    //
+    // Concurrent requests can still land out of order here, so the record may
+    // trail the newest response by one round. That only costs the next cold
+    // start a stale first paint, which the request behind it corrects.
+    void (async () => {
+      try {
+        const previous =
+          await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(
+            theme,
+          );
+        if (
+          previous.isThemeScoped &&
+          stringUtils.stableStringify(previous.list) ===
+            stringUtils.stableStringify(list)
+        ) {
+          return;
+        }
+        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList({
+          theme,
+          pageBannerList: list,
+        });
+      } catch {
+        // A cache write must never surface to the caller.
+      }
+    })();
+    return list;
+  }
+
+  @backgroundMethod()
+  async getEarnPageBannerListFromCache({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<{
+    list: IEarnPageBannerListItem[];
+    isCacheHit: boolean;
+  }> {
+    const cache =
+      await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(theme);
+    return {
+      list: cache.list,
+      isCacheHit: cache.isThemeScoped || cache.list.length > 0,
+    };
   }
 
   @backgroundMethod()
@@ -1756,9 +1964,16 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    deriveType?: IAccountDeriveTypes;
     btcOnlyTaproot?: boolean;
   }) {
-    const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
+    const {
+      accountId,
+      networkId,
+      indexedAccountId,
+      deriveType: requestedDeriveType,
+      btcOnlyTaproot,
+    } = params;
     if (!accountId && !indexedAccountId) {
       return null;
     }
@@ -1803,9 +2018,10 @@ class ServiceStaking extends ServiceBase {
     }
     try {
       const globalDeriveType =
-        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        requestedDeriveType ??
+        (await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId,
-        });
+        }));
       let deriveType = globalDeriveType;
       // only support taproot for earn
       if (networkUtils.isBTCNetwork(networkId) && btcOnlyTaproot) {
@@ -1972,10 +2188,17 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTx;
+    tx: IStakeTx | null;
     internalDappType: EInternalDappEnum;
     stakingAction?: EInternalStakingAction;
   }) {
+    if (!tx) {
+      // Server-executed order (Unitas): the caller must poll the order with
+      // waitForServerExecutedOrder instead of building a transaction.
+      throw new OneKeyLocalError(
+        'Order is executed by the protocol, no transaction to sign',
+      );
+    }
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildInternalDappEncodedTx({
       internalDappTx: tx as any,
@@ -1983,6 +2206,150 @@ class ServiceStaking extends ServiceBase {
       stakingAction,
     });
     return encodedTx;
+  }
+
+  @backgroundMethod()
+  async getEarnOrderDetail({
+    networkId,
+    accountId,
+    orderId,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+  }): Promise<IEarnServerOrderDetail> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const resp = await client.get<{ data: IEarnServerOrderDetail }>(
+      '/earn/v1/orders/detail',
+      {
+        params: { networkId, accountAddress: account.address, orderId },
+      },
+    );
+    return resp.data.data;
+  }
+
+  /**
+   * Polls a server-executed order (OK-61790, Unitas Booster) until it settles.
+   * Transient request errors are ignored; a timeout is not a failure because
+   * the server keeps tracking the order.
+   */
+  @backgroundMethod()
+  async waitForServerExecutedOrder({
+    networkId,
+    accountId,
+    orderId,
+    intervalMs = 3000,
+    timeoutMs = 5 * 60 * 1000,
+    returnOnBroadcast = false,
+    refreshScope,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+    returnOnBroadcast?: boolean;
+    refreshScope?: { provider: string; vault?: string };
+  }): Promise<IEarnServerOrderWaitResult> {
+    const deadline = Date.now() + timeoutMs;
+    let order: IEarnServerOrderDetail | undefined;
+    for (;;) {
+      try {
+        order = await this.getEarnOrderDetail({
+          networkId,
+          accountId,
+          orderId,
+        });
+      } catch {
+        // transient network error: keep polling until the deadline
+      }
+      if (order?.status === 'success' || order?.status === 'failed') {
+        if (refreshScope) {
+          // Publish from background even when the UI stopped awaiting this
+          // call. Account metadata failure must not hide a settled order.
+          const account = await this.backgroundApi.serviceAccount
+            .getAccount({ accountId, networkId })
+            .catch(() => undefined);
+          appEventBus.emit(EAppEventBusNames.EarnServerOrderSettled, {
+            ...refreshScope,
+            // Use the server provider key, also used by portfolio scopes.
+            provider: order.provider,
+            accountId,
+            indexedAccountId: account?.indexedAccountId,
+            networkId,
+            orderId,
+            status: order.status,
+          });
+        }
+        return { status: order.status, order };
+      }
+      if (returnOnBroadcast && order?.txId) {
+        return { status: 'submitted', order };
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout', order };
+      }
+      await timerUtils.wait(intervalMs);
+    }
+  }
+
+  /**
+   * Asks the server to run a claim step itself (OK-61790, Unitas: converting
+   * the claimed USDu back to USDT) and returns the order to poll. It is called
+   * right after the claim transaction is broadcast, and until that transaction
+   * is mined the server has nothing to convert and answers "no claimable
+   * amount": retry on that answer until the deadline. Running out of time is
+   * not a failure, the server converts on its own once the claim confirms.
+   * Any other error (allowance, redeem limit, vault paused, network) comes
+   * back as a rejection with the server's wording when it has one: the caller
+   * shows it in its own dialog, and an error thrown across the background
+   * bridge would also raise the global error toast.
+   */
+  @backgroundMethod()
+  async requestServerExecutedClaim({
+    intervalMs = 3000,
+    timeoutMs = 90 * 1000,
+    ...params
+  }: IStakeClaimBaseParams & {
+    identity: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<IEarnServerClaimRequestResult> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        const resp = await this.buildClaimTransaction(params);
+        if (!resp.tx && resp.orderId) {
+          return { status: 'accepted', orderId: resp.orderId };
+        }
+        throw new OneKeyLocalError(
+          'Server-executed claim returned a transaction to sign',
+        );
+      } catch (error) {
+        const { code, message, className } =
+          (error as
+            | { code?: unknown; message?: unknown; className?: unknown }
+            | undefined) ?? {};
+        if (Number(code) !== EARN_ERROR_NO_CLAIMABLE_AMOUNT) {
+          // Only the server's own message is fit to show; anything else
+          // (network failure, local error) leaves the wording to the caller.
+          const isServerError =
+            className === EOneKeyErrorClassNames.OneKeyServerApiError;
+          return {
+            status: 'rejected',
+            ...(isServerError && typeof message === 'string' && message
+              ? { message }
+              : {}),
+          };
+        }
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout' };
+      }
+      await timerUtils.wait(intervalMs);
+    }
   }
 
   @backgroundMethod()
@@ -2089,24 +2456,58 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addEarnOrder(order: IAddEarnOrderParams) {
+  async addEarnOrder(
+    order: IAddEarnOrderParams,
+    options?: { remoteSync: 'once'; preserveExistingTx?: true },
+  ) {
     defaultLogger.staking.order.addOrder({
       status: order.status,
       stakingLabel: order.stakingLabel,
       stakingProtocol: order.stakingProtocol,
       stakingTags: order.stakingTags,
     });
-    await simpleDb.earnOrders.addOrder(order);
+    let isCurrent: boolean | undefined;
+    try {
+      isCurrent = options?.preserveExistingTx
+        ? await simpleDb.earnOrders.addOrder(order, {
+            preserveExistingTx: true,
+          })
+        : await simpleDb.earnOrders.addOrder(order);
+    } catch (error) {
+      if (options?.remoteSync === 'once') {
+        return { localStatus: 'failed', remoteStatus: 'notAttempted' } as const;
+      }
+      throw error;
+    }
+    if (isCurrent === undefined && options?.remoteSync === 'once') {
+      return {
+        localStatus: 'unavailable',
+        remoteStatus: 'notAttempted',
+      } as const;
+    }
+    if (isCurrent === false) {
+      return {
+        localStatus: options?.preserveExistingTx ? 'existing' : 'superseded',
+        remoteStatus: 'skipped',
+      } as const;
+    }
+    let remoteStatus: 'synced' | 'failed' = 'synced';
     try {
       await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
+        ...(options?.remoteSync === 'once' ? { maxAttempts: 1 as const } : {}),
       });
     } catch (_e) {
       // ignore error, continue
+      remoteStatus = 'failed';
       defaultLogger.staking.order.updateOrderStatusError({
         status: order.status,
       });
     }
+    return {
+      localStatus: isCurrent === undefined ? 'unavailable' : 'saved',
+      remoteStatus,
+    } as const;
   }
 
   @backgroundMethod()
@@ -2164,8 +2565,17 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
-    const maxRetries = 3;
+  async updateEarnOrderStatusToServer({
+    order,
+    maxAttempts = 3,
+  }: {
+    order: IEarnOrderItem;
+    maxAttempts?: number;
+  }) {
+    if (maxAttempts !== 1 && maxAttempts !== 3) {
+      throw new OneKeyLocalError('Invalid Earn order retry policy');
+    }
+    const maxRetries = maxAttempts;
     let lastError;
 
     for (let i = 0; i < maxRetries; i += 1) {

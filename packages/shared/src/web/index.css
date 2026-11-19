@@ -55,7 +55,7 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-/* Disable Roobert contextual alternates that convert (1) to ① */
+/* Disable brand font contextual alternates that convert (1) to ① */
 * {
   font-feature-settings: 'calt' 0 !important;
 }
@@ -89,6 +89,67 @@ body {
   /* gray color palette comes from design file "illustration" */
   background: #74748b;
   border-radius: 3px;
+}
+
+[data-onekey-scroll-view-scrollbar='hidden'] {
+  scrollbar-width: none;
+}
+
+[data-onekey-scroll-view-scrollbar='hidden']::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+[data-onekey-scroll-view-scrollbar='visible'] {
+  scrollbar-width: auto;
+}
+
+[data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.perp-table-overlay-scrollbar {
+  display: none;
+  position: absolute;
+  border-radius: 2px;
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  touch-action: none;
+  user-select: none;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='vertical'] {
+  top: 0;
+  right: 0;
+  width: 4px;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='horizontal'] {
+  bottom: 0;
+  left: 0;
+  height: 4px;
+}
+
+.perp-table-overlay-scrollbar:hover,
+.perp-table-overlay-scrollbar:active {
+  background: linear-gradient(var(--textDisabled), var(--textDisabled)),
+    var(--bgApp);
+}
+
+[data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  border-radius: 2px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-corner {
+  background: var(--bgApp);
 }
 
 .show-scrollbar ::-webkit-scrollbar {
@@ -232,8 +293,8 @@ textarea {
   }
 }
 
-/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
-[data-sonner-toast] {
+/* Keep a toast card inside a narrow window. */
+[data-onekey-toast] {
   max-width: calc(100vw - 32px);
 }
 
@@ -254,8 +315,40 @@ textarea {
   cursor: default !important;
 }
 
-.onekey-img-cropper {
-  height: 100%;
+/* @onekeyfe/react-native-native-list ships `cursor: pointer` on its icon
+   buttons. The account row's more button follows the app's buttons, which keep
+   the default cursor and signal interactivity through their hover background.
+   The create-address button has no hover background, so it keeps the pointer.
+   Remove once the package changes this upstream. */
+.ok-native-list-account-row[data-native-list-selector='accountSelector']
+  .ok-native-list-icon-button:not(
+    [data-native-list-account-control='createAddress']
+  ) {
+  cursor: default;
+}
+
+/* Watchlist rows stay reorderable but keep the default cursor. */
+[data-testid='market-watchlist-list']
+  .ok-native-list-item[data-native-list-reorderable='true']
+  > .ok-native-list-row {
+  cursor: default;
+}
+
+/* NFT tiles signal hover by dimming the image, without a tile background. */
+[data-testid='home-nft-list']
+  .ok-native-list-item[data-native-list-row-press-enabled='true']:hover
+  .ok-native-list-media-image {
+  opacity: 0.8;
+}
+
+/* The package centers the index rail inside its host container through an
+   inline `top`. The network selector pins it to the top of the list area so a
+   short index does not float mid-list. Hit-testing reads the rail's live rect,
+   so overriding `top` is safe. Remove once the package exposes an alignment
+   option. */
+[data-testid='chain-selector-unified-section-index-container']
+  > .ok-native-list-index-rail {
+  top: 0 !important;
 }
 
 /* 

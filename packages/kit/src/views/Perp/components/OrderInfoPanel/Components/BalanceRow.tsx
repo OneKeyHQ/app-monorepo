@@ -8,6 +8,7 @@ import {
   IconButton,
   NumberSizeableText,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
   useClipboard,
@@ -186,13 +187,21 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
           alignItems="center"
           gap="$3"
         >
-          <Token size="md" tokenImageUri={item.logoURI} />
+          <XStack
+            onPress={isAssetClickable ? onChangeAsset : undefined}
+            cursor={isAssetClickable ? 'pointer' : 'default'}
+          >
+            <Token size="md" tokenImageUri={item.logoURI} />
+          </XStack>
           <YStack flex={1} minWidth={0} gap="$0.5">
             <XStack
               minWidth={0}
               alignItems="center"
               gap="$1"
+              alignSelf="flex-start"
+              maxWidth="100%"
               onPress={isAssetClickable ? onChangeAsset : undefined}
+              cursor={isAssetClickable ? 'pointer' : 'default'}
             >
               <SizableText
                 size="$bodyMdMedium"
@@ -345,12 +354,22 @@ function BalanceRowDesktop({
     }
 
     return (
-      <SizableText
-        size="$bodySmMedium"
-        color={cell.key === 'pnl' ? pnlColor : undefined}
-      >
-        {cell.cellValue}
-      </SizableText>
+      <Tooltip
+        triggerAsChild
+        renderContent={cell.cellValue}
+        renderTrigger={
+          <SizableText
+            size="$bodySmMedium"
+            color={cell.key === 'pnl' ? pnlColor : undefined}
+            numberOfLines={1}
+            flexShrink={1}
+            maxWidth="100%"
+            pr="$3"
+          >
+            {cell.cellValue}
+          </SizableText>
+        }
+      />
     );
   };
 

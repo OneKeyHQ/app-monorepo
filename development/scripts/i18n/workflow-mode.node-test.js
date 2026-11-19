@@ -1,0 +1,307 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { test } = require('node:test');
+
+const { run, runAdd } = require('./i18n-workflow');
+const { applyPlan, verifyPlan } = require('./workflow-apply');
+const { digest, writeJson } = require('./workflow-data');
+const { singleDraft } = require('./workflow-draft');
+const {
+  preparePlan,
+  readPlan,
+  renderPreview,
+  savePlan,
+} = require('./workflow-plan');
+const { scanModule } = require('./workflow-scan');
+const { fixture, fakeClient, fakePull } = require('./workflow-test-fixture');
+
+async function prepare(ctx, api, draft) {
+  const plan = await preparePlan({
+    draft,
+    client: api.client,
+    root: ctx.root,
+  });
+  const file = path.join(ctx.root, 'plan.json');
+  savePlan(plan, file);
+  return {
+    plan,
+    file,
+    apply: () =>
+      applyPlan({
+        file,
+        approval: plan.approval,
+        client: api.client,
+        root: ctx.root,
+        pullImpl: fakePull,
+      }),
+  };
+}
+
+test('default completion creates new keys and reuses existing translations without writes to them', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  const draft = singleDraft('travel_mode__title', ctx.translations(), ctx.root);
+  draft.entries.push({
+    key: 'global.existing',
+    action: 'upsert',
+    translations: ctx.old,
+    sources: [],
+  });
+  const prepared = await prepare(ctx, api, draft);
+  assert.equal(prepared.plan.mode, 'complete');
+  assert.match(renderPreview(prepared.plan), /模式：补全/);
+  await prepared.apply();
+  assert.deepEqual(
+    api.writes.map((write) => write.method),
+    ['POST'],
+  );
+  assert.deepEqual(
+    prepared.plan.entries.find((entry) => entry.key === 'global.existing')
+      .changedLocales,
+    [],
+  );
+});
+
+test('apply pulls the preview of the exact commit it proposed', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  api.client.finalize = async () => ({
+    number: 9,
+    url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
+    branch: 'i18n/app-x',
+    commit: 'c2',
+    files: [],
+  });
+  const prepared = await prepare(
+    ctx,
+    api,
+    singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+  );
+  const pulls = [];
+  await applyPlan({
+    file: prepared.file,
+    approval: prepared.plan.approval,
+    client: api.client,
+    root: ctx.root,
+    pullImpl: (plan, root, _outputRoot, options) => {
+      pulls.push(options);
+      fakePull(plan, root);
+    },
+  });
+  assert.deepEqual(pulls, [{ pr: 9, commit: 'c2' }]);
+});
+
+test('preview refuses a new key whose name only an archived onekey-i18n key uses', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  api.client.archivedRefs = async (key) =>
+    key === 'travel_mode__title' ? ['travel_mode__title'] : [];
+  await assert.rejects(
+    prepare(
+      ctx,
+      api,
+      singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+    ),
+    /travel_mode__title is archived in onekey-i18n \(travel_mode__title\)/,
+  );
+  assert.equal(api.writes.length, 0);
+});
+
+test('verify after apply checks the onekey-i18n PR apply opened, not the release', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  // The release does not have the copy until the PR is merged and published.
+  const release = fakeClient(ctx);
+  const proposals = [];
+  api.client.finalize = async (proposal) => {
+    proposals.push(proposal);
+    return {
+      number: 9,
+      url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
+      branch: 'i18n/app-x',
+      commit: 'c2',
+      files: [],
+    };
+  };
+  const prepared = await prepare(
+    ctx,
+    api,
+    singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+  );
+  await prepared.apply();
+  assert.equal(proposals[0].key, prepared.plan.approval.slice(0, 12));
+
+  const commits = [];
+  const verify = () =>
+    verifyPlan({
+      file: prepared.file,
+      client: release.client,
+      root: ctx.root,
+      clientAt: (commit) => {
+        commits.push(commit);
+        return api.client;
+      },
+    });
+  const result = await verify();
+  assert.deepEqual(
+    [commits, result.verifiedKeys, result.checked],
+    [['c2'], 1, 'https://github.com/OneKeyHQ/onekey-i18n/pull/9'],
+  );
+  // Without this plan's receipt, the release is checked.
+  fs.rmSync(`${prepared.file}.receipt.json`);
+  await assert.rejects(
+    verify(),
+    /remote translations do not match the approved plan/,
+  );
+  assert.deepEqual(commits, ['c2']);
+});
+
+for (const mode of ['complete', 'update']) {
+  test(`${mode} fills only missing language values on an existing key`, async (t) => {
+    const ctx = fixture(t);
+    const api = fakeClient(ctx);
+    const records = api.keys.get('global.existing').translations;
+    records.find((record) => record.language_iso === 'zh_CN').translation = '';
+    records.find((record) => record.language_iso === 'de').translation = '  \n';
+    const preserved = records.filter((record) => record.translation.trim());
+    const before = structuredClone(preserved);
+    const prepared = await prepare(
+      ctx,
+      api,
+      singleDraft('global.existing', ctx.old, ctx.root, mode),
+    );
+    assert.deepEqual(prepared.plan.entries[0].changedLocales, ['de', 'zh_CN']);
+    await prepared.apply();
+    assert.deepEqual(
+      api.writes.map((write) => write.method),
+      ['PUT', 'PUT'],
+    );
+    assert.deepEqual(preserved, before);
+    assert(
+      records.every(
+        (record) => record.translation === ctx.old[record.language_iso],
+      ),
+    );
+    await prepared.apply();
+    assert.equal(api.writes.length, 2);
+  });
+}
+
+test('completion rejects non-empty overwrites but update allows existing changes and new keys', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  const draft = singleDraft(
+    'global.existing',
+    { ...ctx.old, zh_CN: '更新后的消息。' },
+    ctx.root,
+  );
+  await assert.rejects(
+    () => prepare(ctx, api, draft),
+    /complete mode cannot overwrite/,
+  );
+  assert.equal(api.writes.length, 0);
+  draft.mode = 'update';
+  draft.entries.push(ctx.draft().entries[0]);
+  const prepared = await prepare(ctx, api, draft);
+  assert.match(renderPreview(prepared.plan), /模式：更新/);
+  await prepared.apply();
+  assert.deepEqual(
+    api.writes.map((write) => write.method),
+    ['PUT', 'POST'],
+  );
+});
+
+for (const stage of ['before apply', 'immediate read']) {
+  test(`completion stops when another translator fills the blank ${stage}`, async (t) => {
+    const ctx = fixture(t);
+    const api = fakeClient(ctx);
+    const record = api.keys
+      .get('global.existing')
+      .translations.find((item) => item.language_iso === 'zh_CN');
+    record.translation = '';
+    const prepared = await prepare(
+      ctx,
+      api,
+      singleDraft('global.existing', ctx.old, ctx.root),
+    );
+    if (stage === 'before apply') {
+      record.translation = 'Another translator';
+    } else {
+      const request = api.client.request;
+      api.client.request = async (...args) => {
+        record.translation = 'Another translator';
+        return request(...args);
+      };
+    }
+    await assert.rejects(
+      prepared.apply,
+      /remote translation changed|concurrent translation update/,
+    );
+    assert.equal(api.writes.length, 0);
+    assert.equal(record.translation, 'Another translator');
+  });
+}
+
+test('mode is bound to approval; invalid and legacy plans and apply overrides stop before writes', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  const prepared = await prepare(
+    ctx,
+    api,
+    singleDraft(
+      'global.existing',
+      { ...ctx.old, zh_CN: '更新' },
+      ctx.root,
+      'update',
+    ),
+  );
+  const { approval, ...content } = prepared.plan;
+  const switched = { ...content, mode: 'complete' };
+  assert.notEqual(digest(switched), approval);
+  writeJson(prepared.file, { ...switched, approval });
+  assert.throws(() => readPlan(prepared.file), /changed or are invalid/);
+  writeJson(prepared.file, { ...switched, approval: digest(switched) });
+  await assert.rejects(
+    () =>
+      applyPlan({
+        file: prepared.file,
+        approval: digest(switched),
+        client: api.client,
+        root: ctx.root,
+        pullImpl: fakePull,
+      }),
+    /complete mode cannot overwrite/,
+  );
+  delete switched.mode;
+  writeJson(prepared.file, { ...switched, approval: digest(switched) });
+  assert.throws(() => readPlan(prepared.file), /no operation mode/);
+  await assert.rejects(
+    () => run(['apply', '--file', prepared.file, '--mode', 'update']),
+    /confirmed plan mode/,
+  );
+  await assert.rejects(
+    () => runAdd(['--apply', prepared.file, '--mode', 'update']),
+    /cannot override/,
+  );
+  assert.throws(
+    () =>
+      singleDraft(
+        'travel_mode__title',
+        ctx.translations(),
+        ctx.root,
+        'invalid',
+      ),
+    /Mode must be/,
+  );
+  assert.throws(
+    () =>
+      scanModule({
+        modules: ['module'],
+        root: ctx.root,
+        includeComplete: true,
+      }),
+    /requires --mode update/,
+  );
+  assert.equal(api.writes.length, 0);
+});

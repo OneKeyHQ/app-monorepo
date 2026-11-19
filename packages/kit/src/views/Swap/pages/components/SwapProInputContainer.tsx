@@ -3,7 +3,13 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import { Input, SizableText, Skeleton, YStack } from '@onekeyhq/components';
+import {
+  Input,
+  SizableText,
+  Skeleton,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
@@ -111,6 +117,11 @@ const SwapProInputContainer = ({
     // group, so the slider sits vertically centered between its neighbors.
     <YStack gap="$2.5">
       <YStack
+        onPress={
+          platformEnv.isNativeIOSPhone
+            ? () => inputRef.current?.focus()
+            : undefined
+        }
         borderRadius="$2"
         bg="$bgStrong"
         alignItems="center"
@@ -146,7 +157,9 @@ const SwapProInputContainer = ({
           onFocus={onInputFocus}
           onChangeText={handleInputChange}
           inputAccessoryViewID={
-            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+            platformEnv.isNativeIOSPhone
+              ? SwapAmountInputAccessoryViewID
+              : undefined
           }
           placeholder={intl.formatMessage({
             id: ETranslations.dexmarket_details_history_amount,
@@ -160,12 +173,16 @@ const SwapProInputContainer = ({
         onSlideStart={onSlideStart}
         onSlideComplete={onSlideComplete}
       />
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </InputAccessoryView>
+      {platformEnv.isNativeIOSPhone ? (
+        // The accessory's page host can overlap the amount card; its keyboard
+        // content is hosted separately by React Native.
+        <Stack position="absolute" pointerEvents="none">
+          <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          </InputAccessoryView>
+        </Stack>
       ) : null}
     </YStack>
   );

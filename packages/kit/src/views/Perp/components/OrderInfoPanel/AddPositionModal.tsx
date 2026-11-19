@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
 import {
   Button,
@@ -19,6 +20,7 @@ import {
   useKeyboardHeight,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { getOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useConnectionStateAtom,
@@ -28,14 +30,13 @@ import {
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  calculateLiquidationPrice,
+  estimateLiquidationPrice,
   formatPriceToSignificantDigits,
   parseDexCoin,
   resolveTradingSize,
@@ -47,7 +48,9 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
@@ -90,19 +93,29 @@ export interface IAddPositionParams {
 
 interface IAddPositionFormProps extends IAddPositionParams {
   onClose: () => void;
+  resizeOnKeyboard: boolean;
 }
 
 const AddPositionForm = memo(
-  ({ coin, isBuy, accountAddress, onClose }: IAddPositionFormProps) => {
+  ({
+    coin,
+    isBuy,
+    accountAddress,
+    onClose,
+    resizeOnKeyboard,
+  }: IAddPositionFormProps) => {
     const intl = useIntl();
     const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
+    const ensureTradingEnabled = useEnsureTradingEnabled();
     const [activeAccount] = usePerpsActiveAccountAtom();
     const [{ isConnected }] = useConnectionStateAtom();
-    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
-    const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
+    const tpslButtonPaddingTop =
+      (resizeOnKeyboard && keyboardHeight > 0) || !platformEnv.isNative
+        ? 0
+        : '$4';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -306,6 +319,16 @@ const AddPositionForm = memo(
     // Margin this add consumes, and where the position would be liquidated once
     // it fills. Both are previews of the position AFTER the add, so the
     // liquidation price blends the existing position with the new size.
+    const crossAvailableAfterMaintenance =
+      usePerpsCrossAvailableAfterMaintenance(coin);
+    // assetData is a one-shot fetch; the position is pushed with the account
+    // state, so its mark stays live and in step with the collateral.
+    const positionMarkPrice = useMemo(() => {
+      const size = new BigNumber(currentPosition?.szi ?? 0).abs();
+      return size.gt(0)
+        ? new BigNumber(currentPosition?.positionValue ?? 0).dividedBy(size)
+        : new BigNumber(0);
+    }, [currentPosition?.positionValue, currentPosition?.szi]);
     const addPositionPreview = useMemo(() => {
       const sizeBN = new BigNumber(resolvedSize || 0);
       const priceBN = new BigNumber(effectivePrice || 0);
@@ -324,38 +347,30 @@ const AddPositionForm = memo(
 
       const marginMode = assetData?.leverage?.type;
       const maxLeverage = targetAsset?.universe?.maxLeverage;
-      if (!marginMode || !maxLeverage) {
+      if (
+        (marginMode !== 'cross' && marginMode !== 'isolated') ||
+        !maxLeverage
+      ) {
         return { marginRequired, liquidationPrice: null };
       }
 
-      const side = isBuy ? 'long' : 'short';
-      const liquidationPrice = calculateLiquidationPrice({
-        totalValue,
-        referencePrice: priceBN,
-        // An aggressive limit fills near the mark, so the preview must
-        // converge on it instead of the extreme limit price — mirrors
-        // useLiquidationPrice and the chart limit ticket.
-        clampToCurrentMark: true,
-        markPrice: assetData?.markPx
-          ? new BigNumber(assetData.markPx)
-          : undefined,
-        positionSize: sizeBN,
-        side,
+      const positionLeverage = currentPosition?.leverage;
+      const liquidationPrice = estimateLiquidationPrice({
+        side: isBuy ? 'long' : 'short',
+        orderSize: sizeBN,
+        priceMode: orderType,
+        orderPrice: priceBN,
+        markPrice: positionMarkPrice,
+        marginMode,
         leverage: safeLeverage,
-        mode: marginMode,
         marginTiers: targetAsset?.margin?.marginTiers,
         maxLeverage,
-        crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || 0),
-        crossMaintenanceMarginUsed: new BigNumber(
-          accountSummary?.crossMaintenanceMarginUsed || 0,
-        ),
-        existingPositionSize: currentPosition
-          ? new BigNumber(currentPosition.szi)
-          : undefined,
-        existingEntryPrice: currentPosition
-          ? new BigNumber(currentPosition.entryPx)
-          : undefined,
-        newOrderSide: side,
+        existingPositionSize: new BigNumber(currentPosition?.szi ?? 0),
+        isolatedRawUsd:
+          positionLeverage?.type === 'isolated'
+            ? new BigNumber(positionLeverage.rawUsd)
+            : undefined,
+        crossAvailableAfterMaintenance,
       });
 
       return {
@@ -364,14 +379,14 @@ const AddPositionForm = memo(
           liquidationPrice && liquidationPrice.gt(0) ? liquidationPrice : null,
       };
     }, [
-      accountSummary?.crossAccountValue,
-      accountSummary?.crossMaintenanceMarginUsed,
       assetData?.leverage?.type,
-      assetData?.markPx,
+      crossAvailableAfterMaintenance,
       currentPosition,
       effectivePrice,
       isBuy,
       leverage,
+      orderType,
+      positionMarkPrice,
       resolvedSize,
       targetAsset?.margin?.marginTiers,
       targetAsset?.universe?.maxLeverage,
@@ -520,7 +535,7 @@ const AddPositionForm = memo(
       }
       setIsSubmitting(true);
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const latestTargetData = await fetchTargetAssetData();
         const latestAssetData = latestTargetData.data;
         if (
@@ -603,11 +618,14 @@ const AddPositionForm = memo(
           tpTriggerPx,
           slTriggerPx,
         } as const;
-        const placeOrder = async () => {
+        try {
           await actions.current.placeOrderByCoin(orderParams);
           onClose();
-        };
-        await placeOrder();
+        } catch {
+          // placeOrderByCoin already reports the failure through withToast,
+          // which localizes the HyperLiquid rejection; toasting error.message
+          // here repeated the same rejection in raw English.
+        }
       } catch (error) {
         Toast.error({
           title:
@@ -626,6 +644,7 @@ const AddPositionForm = memo(
       amount,
       coin,
       effectivePrice,
+      ensureTradingEnabled,
       fetchTargetAssetData,
       hasAssetDataError,
       hasTpsl,
@@ -760,7 +779,7 @@ const AddPositionForm = memo(
             disabled={isSubmitting || !isTargetAssetReady}
             segments={4}
             snapTapToSegment
-            showBubble={false}
+            showBubble
             sliderHeight={4}
           />
           <YStack gap="$2">
@@ -782,6 +801,7 @@ const AddPositionForm = memo(
             {hasTpsl ? (
               <YStack gap="$4">
                 <TpSlFormInput
+                  ifOnDialog
                   type="tp"
                   label={intl.formatMessage({
                     id: ETranslations.perp_trade_tp_price,
@@ -794,6 +814,7 @@ const AddPositionForm = memo(
                   onTypeChange={setTpType}
                 />
                 <TpSlFormInput
+                  ifOnDialog
                   type="sl"
                   label={intl.formatMessage({
                     id: ETranslations.perp_trade_sl_price,
@@ -812,7 +833,7 @@ const AddPositionForm = memo(
         <YStack gap="$2">
           <XStack justifyContent="space-between">
             <DashText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               dashThickness={0.3}
               tooltip={intl.formatMessage({
@@ -827,7 +848,7 @@ const AddPositionForm = memo(
             </DashText>
             {addPositionPreview.marginRequired ? (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -835,7 +856,7 @@ const AddPositionForm = memo(
                 {addPositionPreview.marginRequired.toFixed()}
               </NumberSizeableText>
             ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             )}
@@ -843,7 +864,7 @@ const AddPositionForm = memo(
 
           <XStack justifyContent="space-between">
             <DashText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
@@ -858,7 +879,7 @@ const AddPositionForm = memo(
             </DashText>
             {addPositionPreview.liquidationPrice ? (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$text"
                 formatter="price"
                 formatterOptions={{ currency: '$' }}
@@ -866,13 +887,13 @@ const AddPositionForm = memo(
                 {addPositionPreview.liquidationPrice.toFixed()}
               </NumberSizeableText>
             ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             )}
           </XStack>
         </YStack>
-        <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
+        <YStack pt={tpslButtonPaddingTop}>
           <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
             <Button
               testID={PerpTestIDs.AddPositionConfirmButton}
@@ -908,6 +929,10 @@ export function showAddPositionDialog({
 }: IAddPositionParams & {
   intl: IntlShape;
 }) {
+  // UIKit already moves the sheet with the keyboard. Keep its detent stable.
+  const resizeOnKeyboard =
+    !platformEnv.isNativeIOS ||
+    getOverlayWidthClass(Dimensions.get('window').width) === 'expanded';
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.add_position__title,
@@ -916,12 +941,13 @@ export function showAddPositionDialog({
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <PerpKeyboardAwareDialogContent>
+          <PerpKeyboardAwareDialogContent resizeOnKeyboard={resizeOnKeyboard}>
             <AddPositionForm
               coin={coin}
               isBuy={isBuy}
               accountAddress={accountAddress}
               onClose={() => dialogInstance.close()}
+              resizeOnKeyboard={resizeOnKeyboard}
             />
           </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>

@@ -33,4 +33,5 @@ public class SecurityClassVisitor extends ClassVisitor {
 
         return methodVisitor;
     }
+
 }

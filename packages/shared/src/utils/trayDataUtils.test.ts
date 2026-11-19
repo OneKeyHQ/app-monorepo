@@ -2,6 +2,7 @@ import { EDecodedTxActionType } from '../../types/tx';
 
 import {
   composeTrayAccountChange24h,
+  formatTrayHiddenAmount,
   formatTrayPendingTxAmount,
   getTrayPendingTxAmountInfo,
   getTrayPendingTxType,
@@ -139,5 +140,16 @@ describe('composeTrayAccountChange24h', () => {
     // Documents the deliberate gap left by OK-53612 partial fix. When a
     // backend feed arrives, replace this test with the new behavior.
     expect(composeTrayAccountChange24h()).toBeUndefined();
+  });
+});
+
+describe('formatTrayHiddenAmount', () => {
+  test('keeps the token symbol next to the mask', () => {
+    expect(formatTrayHiddenAmount('USDC')).toBe('**** USDC');
+  });
+
+  test('masks a value that has no symbol', () => {
+    expect(formatTrayHiddenAmount()).toBe('****');
+    expect(formatTrayHiddenAmount('')).toBe('****');
   });
 });

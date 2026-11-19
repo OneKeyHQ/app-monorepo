@@ -8,7 +8,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { prewarmColdStartImagesFromSnapshot } from '../../utils/coldStartImagePreload';
+import { primeHomeTokenListCellsFromColdStart } from '../../states/jotai/contexts/tokenList/cells/coldStart';
 
 // Web/desktop gate the React mount on BOTH:
 //   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
@@ -31,7 +31,6 @@ const isWebOrDesktop = platformEnv.isWeb || platformEnv.isDesktop;
 // seconds on cold IDB), short enough that a stuck handler can never hang
 // the app forever.
 const GATE_SAFETY_TIMEOUT_MS = 5000;
-const COLD_START_IMAGE_PRIME_TIMEOUT_MS = isWebOrDesktop ? 160 : 0;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -89,12 +88,6 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
   }
 }
 
-async function primeColdStartImagesBeforeRender(): Promise<void> {
-  await prewarmColdStartImagesFromSnapshot({
-    primeTimeoutMs: COLD_START_IMAGE_PRIME_TIMEOUT_MS,
-  });
-}
-
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
@@ -125,7 +118,13 @@ function isReadySync(): boolean {
 }
 
 export function GlobalJotaiReady({ children }: { children: any }) {
-  const [isReady, setIsReady] = useState(() => isReadySync());
+  const [isReady, setIsReady] = useState(() => {
+    const ready = isReadySync();
+    if (ready) {
+      primeHomeTokenListCellsFromColdStart();
+    }
+    return ready;
+  });
   logGlobalJotaiReady(`render isReady=${isReady}, syncReady=${isReadySync()}`);
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog(
@@ -136,6 +135,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
   useEffect(() => {
     if (isReadySync()) {
       logGlobalJotaiReady('effect sees ready=true, rendering children');
+      primeHomeTokenListCellsFromColdStart();
       setIsReady(true);
       return;
     }
@@ -144,6 +144,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
     const release = () => {
       if (!isMounted) return;
       logGlobalJotaiReady('gate releasing');
+      primeHomeTokenListCellsFromColdStart();
       startTransition(() => {
         if (process.env.NODE_ENV !== 'production') {
           debugLandingLog('GlobalJotaiReady resolved', 'released');
@@ -151,14 +152,11 @@ export function GlobalJotaiReady({ children }: { children: any }) {
         setIsReady(true);
       });
     };
-    const releaseAfterImagePrime = () => {
-      void primeColdStartImagesBeforeRender().then(release, release);
-    };
     if (isWebOrDesktop) {
-      void waitForJotaiReadyOnWebOrDesktop().then(releaseAfterImagePrime);
+      void waitForJotaiReadyOnWebOrDesktop().then(release, release);
     } else {
       // Native/extension: single handler, always resolves with `true`.
-      void globalJotaiStorageReadyHandler.ready.then(releaseAfterImagePrime);
+      void globalJotaiStorageReadyHandler.ready.then(release, release);
     }
     return () => {
       isMounted = false;

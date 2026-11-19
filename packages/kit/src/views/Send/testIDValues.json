@@ -1,0 +1,7 @@
+{
+  "amountInput": "send-amount-input",
+  "dataInputPage": "send-recipient-amount-form",
+  "recipientInput": "send-recipient-input",
+  "recipientItemPrefix": "send-recipient-item-",
+  "recipientQuickSelectAccountTab": "send-recipient-quick-account-tab"
+}

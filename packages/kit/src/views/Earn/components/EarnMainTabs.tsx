@@ -1,29 +1,33 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import { View } from 'react-native';
+import PagerView from 'react-native-pager-view';
 
-import type { ITabContainerRef } from '@onekeyhq/components';
 import {
-  Tabs,
   XStack,
   YStack,
   rootNavigationRef,
   useScrollContentTabBarOffset,
-  useTheme,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
-import { useTabContainerWidth } from '../../../hooks/useTabContainerWidth';
 import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
 import { EarnPortfolioSettings } from './EarnPortfolioSettings';
@@ -32,20 +36,14 @@ import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
-import type {
-  CollapsibleProps,
-  TabBarProps,
-} from 'react-native-collapsible-tab-view';
+
+type IEarnTabKey = 'assets' | 'portfolio' | 'faqs';
 
 interface IEarnMainTabsProps {
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
-  containerProps?: Partial<CollapsibleProps>;
-  defaultTab?: 'assets' | 'portfolio' | 'faqs';
+  defaultTab?: IEarnTabKey;
   portfolioData: IUseEarnPortfolioReturn;
-  header?: React.ReactNode;
-  tabsRef?: React.RefObject<ITabContainerRef | null>;
-  nestedPager?: boolean;
   isActive?: boolean;
 }
 
@@ -53,16 +51,14 @@ const TabContentContainer = ({
   children,
   withHorizontalPadding,
   maxWidth,
-  useTabsScrollView = true,
 }: {
   children: React.ReactNode;
   withHorizontalPadding?: boolean;
   maxWidth?: number;
-  useTabsScrollView?: boolean;
 }) => {
   const tabBarHeight = useScrollContentTabBarOffset();
 
-  const content = (
+  return (
     <YStack
       pt="$6"
       pb="$6"
@@ -74,360 +70,144 @@ const TabContentContainer = ({
       {children}
     </YStack>
   );
-
-  if (!useTabsScrollView) {
-    return content;
-  }
-
-  return (
-    <Tabs.ScrollView showsVerticalScrollIndicator={false}>
-      {content}
-    </Tabs.ScrollView>
-  );
 };
 
 const EarnMainTabsComponent = ({
   faqList,
   isFaqLoading = false,
-  containerProps,
   defaultTab,
   portfolioData,
-  header,
-  tabsRef: externalTabsRef,
-  nestedPager = false,
   isActive = true,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
-  const theme = useTheme();
-  const internalTabsRef = useRef<ITabContainerRef>(null);
-  const tabsRef = externalTabsRef || internalTabsRef;
+  const pagerRef = useRef<PagerView>(null);
   const { hideSmallAssets } = useEarnHideSmallAssets();
-  const useDesktopPageScrollTabs = platformEnv.isDesktop;
-  const directTabPressAnimationEnabled = platformEnv.isNativeIOS;
 
   const tabNames = useMemo(
     () => ({
-      assets: intl.formatMessage({
-        id: ETranslations.earn_available_assets,
-      }),
-      portfolio: intl.formatMessage({
-        id: ETranslations.earn_positions,
-      }),
+      assets: intl.formatMessage({ id: ETranslations.earn_available_assets }),
+      portfolio: intl.formatMessage({ id: ETranslations.earn_positions }),
       faqs: intl.formatMessage({ id: ETranslations.global_faqs }),
     }),
     [intl],
   );
-
-  const getTabName = useCallback(
-    (tabName: 'assets' | 'portfolio' | 'faqs' | undefined) => {
-      if (tabName === 'portfolio') return tabNames.portfolio;
-      if (tabName === 'faqs') return tabNames.faqs;
-      return tabNames.assets;
-    },
+  const pages = useMemo(
+    () =>
+      (['assets', 'portfolio', 'faqs'] as const).map((key) => ({
+        key,
+        name: tabNames[key],
+      })),
     [tabNames],
   );
-
-  const initialTabName = useMemo(() => {
-    return getTabName(defaultTab);
-  }, [defaultTab, getTabName]);
-  const initialTabNameRef = useRef(initialTabName);
-  const containerInitialTabName = platformEnv.isNativeIOS
-    ? initialTabNameRef.current
-    : initialTabName;
-
-  const tabNameList = useMemo(
-    () => [tabNames.assets, tabNames.portfolio, tabNames.faqs],
-    [tabNames.assets, tabNames.faqs, tabNames.portfolio],
-  );
-
-  const tabKeyByName = useMemo(() => {
-    const map: Record<string, 'assets' | 'portfolio' | 'faqs'> = {};
-    (
-      Object.entries(tabNames) as Array<[keyof typeof tabNames, string]>
-    ).forEach(([key, value]) => {
-      map[value] = key;
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
+  const initialTabName = tabNames[defaultTab ?? 'assets'];
+  const { initialIndex, selectedIndex, focusedTab, indexDecimal, selectIndex } =
+    useAppPagerController({
+      pages,
+      initialTabName,
+      pagerRef,
+      animationEnabled: false,
     });
-    return map;
-  }, [tabNames]);
-  const desktopFocusedTab = useSharedValue(initialTabName);
-  const [desktopTabName, setDesktopTabName] = useState(initialTabName);
-  const [currentTabName, setCurrentTabName] = useState(initialTabName);
 
-  const handleTabChange = useCallback(
-    ({ tabName }: { tabName: string }) => {
-      setCurrentTabName(tabName);
-      const tabKey = tabKeyByName[tabName];
-      if (tabKey) {
-        if (platformEnv.isNativeIOS) {
-          rootNavigationRef.current?.setParams?.({
-            earnTab: tabKey,
-          });
-          return;
-        }
+  // Sync only the committed selection: batched web pager commands can race
+  // against its previous page before React commits their intermediate state.
+  useLayoutEffect(() => {
+    indexDecimal.value = selectedIndex;
+    pagerRef.current?.setPageWithoutAnimation(selectedIndex);
+  }, [indexDecimal, selectedIndex]);
 
-        rootNavigationRef.current?.setParams?.({
-          tab: tabKey,
-        });
-      }
-    },
-    [tabKeyByName],
-  );
-
-  useEffect(() => {
-    setCurrentTabName(initialTabName);
-  }, [initialTabName]);
-
-  const syncDesktopTabName = useCallback(
+  const handleTabPress = useCallback(
     (tabName: string) => {
-      desktopFocusedTab.value = tabName;
-      setDesktopTabName(tabName);
+      const index = pages.findIndex((item) => item.name === tabName);
+      if (index < 0) return;
+      selectIndex(index, false);
+      rootNavigationRef.current?.setParams?.({ tab: pages[index].key });
     },
-    [desktopFocusedTab],
+    [pages, selectIndex],
   );
 
-  const handleDesktopTabPress = useCallback(
-    (tabName: string) => {
-      syncDesktopTabName(tabName);
-      handleTabChange({ tabName });
-    },
-    [handleTabChange, syncDesktopTabName],
+  const defaultIndex = pages.findIndex(
+    (page) => page.key === (defaultTab ?? 'assets'),
   );
-
   useEffect(() => {
-    if (!useDesktopPageScrollTabs) {
-      return;
-    }
-    syncDesktopTabName(initialTabName);
-  }, [initialTabName, syncDesktopTabName, useDesktopPageScrollTabs]);
-
-  useEffect(() => {
-    if (!useDesktopPageScrollTabs) {
-      return;
-    }
-
-    tabsRef.current = {
-      jumpToTab: handleDesktopTabPress,
-      setIndex: (index: number) => {
-        const tabName = tabNameList[index];
-        if (tabName) {
-          handleDesktopTabPress(tabName);
-        }
-      },
-      getFocusedTab: () => desktopTabName,
-      getCurrentIndex: () =>
-        tabNameList.findIndex((name) => name === desktopTabName),
-      syncCurrentPage: () => undefined,
-    };
-
-    return () => {
-      tabsRef.current = null;
-    };
-  }, [
-    desktopTabName,
-    handleDesktopTabPress,
-    tabNameList,
-    tabsRef,
-    useDesktopPageScrollTabs,
-  ]);
+    selectIndex(defaultIndex, false);
+  }, [defaultIndex, selectIndex]);
 
   const isFocused = useRouteIsFocused();
-  const isFocusedRef = useRef(isFocused);
+  const wasFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    const wasFocused = wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (isFocused && !wasFocused && defaultTab) {
+      selectIndex(defaultIndex, false);
+    }
+  }, [defaultIndex, defaultTab, isFocused, selectIndex]);
 
   useEffect(() => {
-    if (platformEnv.isNativeIOS) {
-      return;
-    }
-    if (isFocused === isFocusedRef.current) {
-      return;
-    }
-    isFocusedRef.current = isFocused;
-    if (defaultTab) {
-      const targetTabName = initialTabName;
-      if (!useDesktopPageScrollTabs) {
-        const focusedTabName = tabsRef.current?.getFocusedTab();
-        if (focusedTabName !== targetTabName) {
-          tabsRef.current?.jumpToTab(targetTabName);
-        }
-      } else if (desktopTabName !== targetTabName) {
-        syncDesktopTabName(targetTabName);
-      }
-    }
-  }, [
-    defaultTab,
-    desktopTabName,
-    initialTabName,
-    isFocused,
-    syncDesktopTabName,
-    tabsRef,
-    useDesktopPageScrollTabs,
-  ]);
-
-  useEffect(() => {
-    const callback = ({ tab }: { tab: 'assets' | 'portfolio' | 'faqs' }) => {
-      const targetTabName = getTabName(tab);
-      if (!useDesktopPageScrollTabs) {
-        tabsRef.current?.jumpToTab(targetTabName);
-      } else {
-        handleDesktopTabPress(targetTabName);
-      }
+    const callback = ({ tab }: { tab: IEarnTabKey }) => {
+      handleTabPress(tabNames[tab]);
     };
     appEventBus.on(EAppEventBusNames.SwitchEarnTab, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnTab, callback);
     };
-  }, [getTabName, handleDesktopTabPress, tabsRef, useDesktopPageScrollTabs]);
-
-  useEffect(
-    () => () => {
-      tabsRef.current = null;
-    },
-    [tabsRef],
-  );
-
-  const tabContainerWidth = useTabContainerWidth();
+  }, [handleTabPress, tabNames]);
 
   const renderPortfolioToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) =>
-      focusedTab === tabNames.portfolio ? (
+    ({ focusedTab: tabName }: { focusedTab: string }) =>
+      tabName === tabNames.portfolio ? (
         <XStack pr="$5">
           <EarnPortfolioSettings />
         </XStack>
       ) : null,
     [tabNames.portfolio],
   );
-
-  const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => {
-      return (
-        <Tabs.TabBar
-          {...tabBarProps}
-          directTabPressAnimation={directTabPressAnimationEnabled}
-          renderToolbar={renderPortfolioToolbar}
-        />
-      );
-    },
-    [directTabPressAnimationEnabled, renderPortfolioToolbar],
-  );
-
-  const mergedContainerProps = useMemo<
-    Partial<CollapsibleProps> | undefined
-  >(() => {
-    const mergedHeaderContainerStyle = StyleSheet.flatten(
-      containerProps?.headerContainerStyle,
-    );
-    const headerContainerStyle = {
-      backgroundColor: theme.bgApp.val,
-      ...mergedHeaderContainerStyle,
-    };
-    if (!header) {
-      return {
-        ...containerProps,
-        headerContainerStyle,
-      };
-    }
-    const renderHeader = containerProps?.renderHeader;
-    return {
-      ...containerProps,
-      headerContainerStyle,
-      renderHeader: (props: TabBarProps<string>) => (
-        <YStack>
-          {header}
-          {renderHeader ? renderHeader(props) : null}
-        </YStack>
-      ),
-    };
-  }, [containerProps, header, theme.bgApp.val]);
-  const activeTabName = useDesktopPageScrollTabs
-    ? desktopTabName
-    : currentTabName;
-  const isAssetsTabActive = isActive && activeTabName === tabNames.assets;
-
-  if (useDesktopPageScrollTabs) {
-    return (
-      <YStack>
-        <Tabs.TabBar
-          tabNames={tabNameList}
-          focusedTab={desktopFocusedTab}
-          onTabPress={handleDesktopTabPress}
-          renderToolbar={renderPortfolioToolbar}
-        />
-        <YStack
-          display={desktopTabName === tabNames.assets ? 'flex' : 'none'}
-          pointerEvents={desktopTabName === tabNames.assets ? 'auto' : 'none'}
-        >
-          <TabContentContainer useTabsScrollView={false}>
-            <ProtocolsTabContent isActive={isAssetsTabActive} />
-          </TabContentContainer>
-        </YStack>
-        <YStack
-          display={desktopTabName === tabNames.portfolio ? 'flex' : 'none'}
-          pointerEvents={
-            desktopTabName === tabNames.portfolio ? 'auto' : 'none'
-          }
-        >
-          <TabContentContainer useTabsScrollView={false}>
-            <PortfolioTabContent
-              portfolioData={portfolioData}
-              hideSmallAssets={hideSmallAssets}
-            />
-          </TabContentContainer>
-        </YStack>
-        <YStack
-          display={desktopTabName === tabNames.faqs ? 'flex' : 'none'}
-          pointerEvents={desktopTabName === tabNames.faqs ? 'auto' : 'none'}
-        >
-          <TabContentContainer
-            withHorizontalPadding
-            maxWidth={960}
-            useTabsScrollView={false}
-          >
-            <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-          </TabContentContainer>
-        </YStack>
-      </YStack>
-    );
-  }
+  const isAssetsTabActive = isActive && pages[selectedIndex]?.key === 'assets';
 
   return (
-    <Tabs.Container
-      width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
-      ref={tabsRef as any}
-      renderTabBar={renderTabBar}
-      initialTabName={containerInitialTabName}
-      onTabChange={handleTabChange}
-      useNativeHeaderAnimation={platformEnv.isNativeAndroid}
-      pagerProps={
-        nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-      }
-      {...mergedContainerProps}
-    >
-      <Tabs.Tab name={tabNames.assets}>
-        <TabContentContainer>
-          <ProtocolsTabContent isActive={isAssetsTabActive} />
-        </TabContentContainer>
-      </Tabs.Tab>
-      <Tabs.Tab name={tabNames.portfolio}>
-        <TabContentContainer>
-          <PortfolioTabContent
-            portfolioData={portfolioData}
-            hideSmallAssets={hideSmallAssets}
-          />
-        </TabContentContainer>
-      </Tabs.Tab>
-      <Tabs.Tab name={tabNames.faqs}>
-        <TabContentContainer withHorizontalPadding maxWidth={960}>
-          <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-        </TabContentContainer>
-      </Tabs.Tab>
-    </Tabs.Container>
+    <YStack>
+      <TabBar
+        tabNames={tabBarNames}
+        focusedTab={focusedTab}
+        indexDecimal={indexDecimal}
+        onTabPress={handleTabPress}
+        renderToolbar={renderPortfolioToolbar}
+      />
+      <PagerView
+        ref={pagerRef}
+        initialPage={initialIndex}
+        scrollEnabled={false}
+      >
+        <View key="assets" collapsable={false}>
+          <YStack display={selectedIndex === 0 ? 'flex' : 'none'}>
+            <TabContentContainer>
+              <ProtocolsTabContent isActive={isAssetsTabActive} />
+            </TabContentContainer>
+          </YStack>
+        </View>
+        <View key="portfolio" collapsable={false}>
+          <YStack display={selectedIndex === 1 ? 'flex' : 'none'}>
+            <TabContentContainer>
+              <PortfolioTabContent
+                portfolioData={portfolioData}
+                hideSmallAssets={hideSmallAssets}
+              />
+            </TabContentContainer>
+          </YStack>
+        </View>
+        <View key="faqs" collapsable={false}>
+          <YStack display={selectedIndex === 2 ? 'flex' : 'none'}>
+            <TabContentContainer withHorizontalPadding maxWidth={960}>
+              <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+            </TabContentContainer>
+          </YStack>
+        </View>
+      </PagerView>
+    </YStack>
   );
 };
 
-export const MemoizedEarnMainTabs = memo(EarnMainTabsComponent);
-
-function ForwardedEarnMainTabs(
-  props: React.ComponentProps<typeof EarnMainTabsComponent>,
-) {
+function ForwardedEarnMainTabs(props: IEarnMainTabsProps) {
   const isFocused = useIsFocused();
   const isFirstFocused = useIsFirstFocused(isFocused);
   return isFirstFocused ? <EarnMainTabsComponent {...props} /> : null;

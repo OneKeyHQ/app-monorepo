@@ -26,6 +26,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
@@ -35,11 +36,12 @@ import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -76,6 +78,11 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFee';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
+import {
+  buildSwapHistoryOrderExplorerUrl,
+  getSwapHistoryProviderOrderId,
+  shortenSwapOrderId,
+} from '../../utils/swapHistoryIdentity';
 import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
@@ -171,6 +178,8 @@ function getPrivateSendProgressStepStatuses({
 
   if (
     status === ESwapTxHistoryStatus.FAILED ||
+    status === ESwapTxHistoryStatus.REFUNDED ||
+    status === ESwapTxHistoryStatus.EXPIRED ||
     status === ESwapTxHistoryStatus.CANCELED ||
     extraStatus === ESwapExtraStatus.EXPIRED ||
     extraStatus === ESwapExtraStatus.REFUNDED ||
@@ -211,6 +220,12 @@ function getPrivateSendHistoryStatusTextProps({
       key: ETranslations.swap_history_detail_badge_refunded,
       color: '$textSuccess',
     } as const;
+  }
+  if (
+    status === ESwapTxHistoryStatus.REFUNDED ||
+    status === ESwapTxHistoryStatus.EXPIRED
+  ) {
+    return getSwapHistoryStatusTextProps(status);
   }
   if (
     crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
@@ -962,6 +977,17 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
+  // Only show Order ID when the provider has a third-party order explorer
+  // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
+  // hidden per OK-57251. (OK-59978)
+  const providerOrderId = txHistory
+    ? getSwapHistoryProviderOrderId(txHistory)
+    : undefined;
+  const shouldRenderOrderId =
+    !!providerOrderId &&
+    !!txHistory?.swapInfo.orderSupportUrl &&
+    !isPrivateSendHistory;
+
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
   }, []);
@@ -1302,7 +1328,7 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {isSwapHistoryRefundStatus(txHistory?.crossChainStatus) &&
+        {isSwapHistoryRefundStatus(txHistory) &&
         txHistory?.swapOrderHash?.refundHash &&
         !transactionIdRows.some((row) => row.kind === 'refund') ? (
           <XStack
@@ -1395,11 +1421,21 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const isSponsored = txHistory?.swapInfo?.isFreeNetworkFee === true;
-    if (isSponsored) {
+    // `isFreeNetworkFee` is persisted from the build-tx pre-check, but
+    // external-wallet accounts always pay the fee charged by the connected
+    // wallet, so the sponsored badge would be wrong for them — fall through
+    // to the real recorded fee instead (OK-61254).
+    const senderAccountId = txHistory?.accountInfo?.sender?.accountId;
+    const isExternalAccount = senderAccountId
+      ? accountUtils.isExternalAccount({ accountId: senderAccountId })
+      : false;
+    const isSponsored =
+      txHistory?.swapInfo?.isFreeNetworkFee === true && !isExternalAccount;
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
+    const isRefunded = gasFeeInNativeBN.isFinite() && gasFeeInNativeBN.lt(0);
+    if (isSponsored && !isRefunded) {
       return <SwapSponsoredNetworkFee />;
     }
-    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
     if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1407,7 +1443,6 @@ const SwapHistoryDetailModal = () => {
         </SizableText>
       );
     }
-    const gasFeeDisplay = gasFeeInNativeBN.toFixed();
     const nativePriceKey = getPrivateSendNetworkNativePriceKey(txHistory);
     let privateSendGasFeeFiatValue: string | undefined;
     if (isPrivateSendHistory && nativePriceKey) {
@@ -1427,30 +1462,50 @@ const SwapHistoryDetailModal = () => {
           targetCurrency: displayCurrencyId,
           value: gasFeeFiatValue,
         });
-    const finalGasFeeFiatValueBN = new BigNumber(finalGasFeeFiatValue ?? '');
+    const gasFeeDisplayValues = getHistoryFeeDisplayValues({
+      gasFee: gasFeeInNativeBN.toFixed(),
+      gasFeeFiatValue: finalGasFeeFiatValue,
+    });
+    const gasFeeTextColor = gasFeeDisplayValues.isRefunded
+      ? '$textSuccess'
+      : '$textSubdued';
+    const finalGasFeeFiatValueBN = new BigNumber(
+      gasFeeDisplayValues.gasFeeFiatValue ?? '',
+    );
     const shouldRenderGasFeeFiatValue =
       !finalGasFeeFiatValueBN.isNaN() && finalGasFeeFiatValueBN.isFinite();
     return (
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color={gasFeeTextColor}>
+        {gasFeeDisplayValues.isRefunded ? '+' : null}
         <NumberSizeableText
           size="$bodyMd"
-          color="$textSubdued"
+          color={gasFeeTextColor}
           formatter="balance"
         >
-          {gasFeeDisplay}
+          {gasFeeDisplayValues.gasFee}
         </NumberSizeableText>
-        {` ${txHistory?.baseInfo.fromNetwork?.symbol ?? ''}`}(
+        {` ${txHistory?.baseInfo.fromNetwork?.symbol ?? ''}${
+          gasFeeDisplayValues.isRefunded ? ' ' : ''
+        }`}
+        (
         <NumberSizeableText
-          color="$textSubdued"
+          color={gasFeeTextColor}
           size="$bodyMd"
           formatter="value"
           formatterOptions={{
             currency: displayCurrencySymbol,
           }}
         >
-          {shouldRenderGasFeeFiatValue ? finalGasFeeFiatValue : '--'}
+          {shouldRenderGasFeeFiatValue
+            ? gasFeeDisplayValues.gasFeeFiatValue
+            : '--'}
         </NumberSizeableText>
         )
+        {gasFeeDisplayValues.isRefunded
+          ? ` · ${intl.formatMessage({
+              id: ETranslations.sui_rebate_refunded,
+            })}`
+          : null}
       </SizableText>
     );
   }, [
@@ -1458,6 +1513,7 @@ const SwapHistoryDetailModal = () => {
     displayCurrencyId,
     displayCurrencySymbol,
     historySourceCurrencyId,
+    intl,
     isPrivateSendHistory,
     privateSendTokenDisplayPriceMap,
     txHistory,
@@ -1587,7 +1643,10 @@ const SwapHistoryDetailModal = () => {
               compactAll
             />
             {renderSwapLongPendingWarning()}
-            {txHistory?.crossChainStatus ? (
+            {txHistory?.crossChainStatus &&
+            txHistory.status !== ESwapTxHistoryStatus.EXPIRED &&
+            (txHistory.status !== ESwapTxHistoryStatus.REFUNDED ||
+              txHistory.crossChainStatus === ESwapCrossChainStatus.REFUNDED) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_order_detail,
@@ -1650,6 +1709,24 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderSwapProvider()}
             />
+            {shouldRenderOrderId ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.Limit_order_history_order_id,
+                })}
+                renderContent={shortenSwapOrderId(providerOrderId)}
+                copyContent={providerOrderId}
+                showCopy
+                openWithUrl={() =>
+                  onViewInBrowser(
+                    buildSwapHistoryOrderExplorerUrl({
+                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
+                      orderId: providerOrderId,
+                    }) ?? '',
+                  )
+                }
+              />
+            ) : null}
             {isPrivateSendHistory ? null : (
               <InfoItem
                 disabledCopy
@@ -1694,6 +1771,9 @@ const SwapHistoryDetailModal = () => {
     renderSwapOrderStatus,
     renderSwapProvider,
     renderSwapTransactionIdRows,
+    shouldRenderOrderId,
+    providerOrderId,
+    onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
   ]);

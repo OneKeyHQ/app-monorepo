@@ -1,8 +1,62 @@
 import {
   buildInitialTradeInstrumentSwitchParams,
+  resolveInitialPreferredInstrument,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
+
+describe('resolveInitialPreferredInstrument', () => {
+  const restored = {
+    mode: 'perp' as const,
+    coin: 'BTC',
+    assetId: 0,
+    universe: { name: 'BTC' } as never,
+  };
+
+  // OK-60543: the restored coin predates the tap, and the event carrying the
+  // tapped one cannot reach a page that has not mounted yet.
+  it('opens the market a context-less caller asked for', () => {
+    expect(
+      resolveInitialPreferredInstrument({
+        pendingInstrument: { mode: 'perp', coin: 'para:SMCI' },
+        restoredInstrument: restored,
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'para:SMCI',
+      assetId: undefined,
+      universe: undefined,
+    });
+  });
+
+  it('carries a spot pick across as spot', () => {
+    expect(
+      resolveInitialPreferredInstrument({
+        pendingInstrument: { mode: 'spot', coin: '@107' },
+        restoredInstrument: restored,
+      }),
+    ).toMatchObject({ mode: 'spot', coin: '@107' });
+  });
+
+  // The ordinary cold start, and what keeps #12680's restore intact.
+  it('restores the persisted instrument when nothing was picked', () => {
+    expect(
+      resolveInitialPreferredInstrument({
+        pendingInstrument: undefined,
+        restoredInstrument: restored,
+      }),
+    ).toBe(restored);
+  });
+
+  it('ignores a pick with no coin', () => {
+    expect(
+      resolveInitialPreferredInstrument({
+        pendingInstrument: { mode: 'perp', coin: '' },
+        restoredInstrument: restored,
+      }),
+    ).toBe(restored);
+  });
+});
 
 describe('buildInitialTradeInstrumentSwitchParams', () => {
   // The optimistic instrument is written synchronously when a switch starts,

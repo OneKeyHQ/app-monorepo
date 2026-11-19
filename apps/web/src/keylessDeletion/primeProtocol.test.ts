@@ -1,5 +1,8 @@
 import {
   CONFIRMATION_VERSION,
+  DELETION_SCOPE,
+  RETAINED_SCOPE,
+  UPDATED_CONFIRMATION_VERSION,
   WARNING_CODES,
   createDeletionClient as createClient,
 } from './protocol';
@@ -31,6 +34,48 @@ const receipt = {
 function returning(data: unknown, init?: ResponseInit) {
   return createDeletionClient(() => Promise.resolve(Response.json(data, init)));
 }
+
+const link = {
+  status: 'ready',
+  allowedProvider: 'google',
+  expiresAt: '2030-01-01T01:00:00Z',
+  serverTime: '2030-01-01T00:00:00Z',
+  deletionScope: [DELETION_SCOPE],
+  retainedScope: RETAINED_SCOPE,
+  warningCodes: [WARNING_CODES[1], WARNING_CODES[0]],
+  recreationPolicy: 'allowed_new_wallet',
+};
+
+it.each([CONFIRMATION_VERSION, UPDATED_CONFIRMATION_VERSION])(
+  'accepts the supported confirmation copy for %s',
+  async (confirmationVersion) => {
+    const data = { ...link, confirmationVersion };
+    await expect(
+      returning({ code: 0, message: '', data }).getLinkInfo(
+        proof.invitationToken,
+      ),
+    ).resolves.toEqual(data);
+  },
+);
+
+it('rejects an unknown confirmation version with an otherwise valid warning set without submitting', async () => {
+  const confirmationVersion = 'keyless-server-share-deletion/v3';
+  await expect(
+    returning({
+      code: 0,
+      message: '',
+      data: { ...link, confirmationVersion },
+    }).getLinkInfo(proof.invitationToken),
+  ).rejects.toMatchObject({ name: 'NotSupportedError' });
+  const transport = jest.fn<Promise<Response>, [Request]>();
+  await expect(
+    createDeletionClient(transport).deleteShare(
+      { ...attempt, confirmationVersion },
+      'fixture-key',
+    ),
+  ).rejects.toMatchObject({ name: 'NotSupportedError' });
+  expect(transport).not.toHaveBeenCalled();
+});
 
 it('sends the official deletion payload with the leading zero intact, and limits result requests to proof', async () => {
   const sent: Request[] = [];

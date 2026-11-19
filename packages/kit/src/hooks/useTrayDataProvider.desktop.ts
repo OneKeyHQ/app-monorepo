@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import pLimit from 'p-limit';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import {
   resetAboveMainRoute,
   rootNavigationRef,
@@ -19,16 +22,23 @@ import {
   useAppIsLockedAtom,
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -78,8 +88,10 @@ import { hasDeFiSupportedEnabledNetwork } from '../views/Home/hooks/homeWalletTa
 import {
   type ITrayActiveAccountScope,
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
+  createTrayDataSender,
   formatTrayUsdPrice,
   getTrayCurrencyDisplayInfo,
   getTrayMarketNavigationTarget,
@@ -89,6 +101,11 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
+
+// Every tray action bumps this so an async navigation (top-coin detail
+// resolve) that outlives a newer tap cannot steer the UI back to the old
+// destination — same guard useToMarketDetailPage keeps for the Market list.
+const trayNavigationGenerationRef = { current: 0 };
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -505,6 +522,7 @@ async function getTrayEnabledNetworkScope({
 }
 
 export function useTrayDataProvider() {
+  const intl = useIntl();
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
   const [
@@ -516,6 +534,7 @@ export function useTrayDataProvider() {
     },
   ] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const {
     activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
@@ -528,6 +547,16 @@ export function useTrayDataProvider() {
   currencyInfoRef.current = currencyInfo;
   const currencyMapRef = useRef(currencyMap);
   currencyMapRef.current = currencyMap;
+  const hideValueRef = useRef(hideValue);
+  hideValueRef.current = hideValue;
+  // Every outbound payload goes through this sender so it carries the
+  // hide-value setting the tray renderer cannot read by itself.
+  const [trayDataSender] = useState(() =>
+    createTrayDataSender({
+      send: (data) => globalThis.desktopApi?.sendTrayData(data),
+      getHideValue: () => hideValueRef.current,
+    }),
+  );
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const accountRef = useRef(account);
@@ -605,7 +634,7 @@ export function useTrayDataProvider() {
     });
 
     if (appIsLockedRef.current) {
-      globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+      trayDataSender.send(buildLockedPayload());
       return;
     }
 
@@ -721,8 +750,16 @@ export function useTrayDataProvider() {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
         if (watchListData?.data?.length) {
+          // Listing favorites (Market top coins / stocks) have no chainId, so
+          // they need their own quote source instead of the spot batch
+          // (OK-63844, OK-63845).
           const spotItems = watchListData.data.filter(
-            (item: any) => !item.perpsCoin && item.chainId,
+            (item) =>
+              !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
+          );
+          const assetItems = watchListData.data.filter((item) => item.assetId);
+          const stockItems = watchListData.data.filter(
+            (item) => !item.assetId && item.stockId,
           );
           const perpsItems = watchListData.data.filter(
             (item: any) => !!item.perpsCoin,
@@ -734,6 +771,8 @@ export function useTrayDataProvider() {
               contractAddress?: string;
               isNative?: boolean;
               perpsCoin?: string;
+              assetId?: string;
+              stockId?: string;
             };
             item: ITrayWatchlistItem;
           }> = [];
@@ -778,7 +817,10 @@ export function useTrayDataProvider() {
                       price: formatTrayUsdPrice(coin.price),
                       change24h: Number(coin.priceChange24hPercent || 0),
                       type: 'spot',
-                      tokenAddress,
+                      // Natives such as SUI resolve to a Move type-tag address
+                      // that the detail route needs; the Market list opens
+                      // them with this same API address (OK-63847).
+                      tokenAddress: coin.address || tokenAddress,
                       networkId: spotItem.chainId,
                       isNative: spotIsNative,
                       communityRecognized: coin.communityRecognized,
@@ -789,6 +831,84 @@ export function useTrayDataProvider() {
               }
             } catch {
               // spot fetch failed
+            }
+          }
+
+          if (assetItems.length > 0 || stockItems.length > 0) {
+            const limit = pLimit(4);
+            const [assetResults, stockResults] = await Promise.all([
+              Promise.all(
+                assetItems.map((item) =>
+                  limit(async () => {
+                    try {
+                      const quote =
+                        await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                          { assetId: item.assetId },
+                        );
+                      return { item, quote };
+                    } catch {
+                      // A delisted or failing asset must not hide the rest.
+                      return { item, quote: undefined };
+                    }
+                  }),
+                ),
+              ),
+              (async () => {
+                if (stockItems.length === 0) return [];
+                try {
+                  return await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch(
+                    {
+                      stockIds: Array.from(
+                        new Set(stockItems.map((item) => item.stockId ?? '')),
+                      ),
+                    },
+                  );
+                } catch {
+                  return [];
+                }
+              })(),
+            ]);
+
+            for (const { item, quote } of assetResults) {
+              if (quote?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: quote.symbol.toUpperCase(),
+                    name: quote.name || '',
+                    icon: quote.logoUrl || '',
+                    ...buildTrayListingQuoteDisplay({
+                      price: quote.price,
+                      priceChange24hPercent: quote.priceChange24hPercent,
+                    }),
+                    type: 'spot',
+                    assetId: item.assetId,
+                  },
+                });
+              }
+            }
+
+            const stockById = new Map(
+              stockResults.map((stock) => [stock.stockId.toUpperCase(), stock]),
+            );
+            for (const item of stockItems) {
+              const stock = stockById.get((item.stockId ?? '').toUpperCase());
+              if (stock?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: stock.symbol.toUpperCase(),
+                    name: stock.name || '',
+                    icon: stock.logoUrl || '',
+                    ...buildTrayListingQuoteDisplay({
+                      price: stock.price,
+                      priceChange24hPercent: stock.priceChange24hPercent,
+                    }),
+                    type: 'spot',
+                    stockId: stock.stockId,
+                  },
+                });
+              }
             }
           }
 
@@ -848,6 +968,7 @@ export function useTrayDataProvider() {
                         type: 'perps',
                         perpsCoin: item.perpsCoin,
                         maxLeverage: coin.maxLeverage,
+                        dexLabel: parsedCoin.dexLabel || parsedDisplay.dexLabel,
                         subtitle: getTokenSubtitle(
                           coin.name || item.perpsCoin || '',
                           tokenSearchAliases,
@@ -949,29 +1070,29 @@ export function useTrayDataProvider() {
       // User may have locked mid-fetch — without this, gathered data would
       // leak to the tray window after lock, replacing the locked placeholder.
       if (appIsLockedRef.current) {
-        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        trayDataSender.send(buildLockedPayload());
         return;
       }
 
       if (pendingTxReadFailed) {
-        globalThis.desktopApi?.sendTrayData({
+        trayDataSender.send({
           ...trayData,
           isError: true,
         });
         return;
       }
 
-      globalThis.desktopApi?.sendTrayData(trayData);
+      trayDataSender.send(trayData);
     } catch {
       // Prefer locked placeholder over error if user locked during the
       // failing request, so the panel doesn't flash last-known balances.
       if (appIsLockedRef.current) {
-        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        trayDataSender.send(buildLockedPayload());
         return;
       }
       // `isError` tells trayIpc to keep the previous good cache instead of
       // forwarding a placeholder to the tray window.
-      globalThis.desktopApi?.sendTrayData({
+      trayDataSender.send({
         isError: true,
         locale,
         accountId: activeAccountId,
@@ -991,7 +1112,7 @@ export function useTrayDataProvider() {
         pendingTxs: [],
       });
     }
-  }, []);
+  }, [trayDataSender]);
 
   const handleTrayDataRequest = useCallback(async () => {
     if (inFlightRef.current) {
@@ -1054,6 +1175,11 @@ export function useTrayDataProvider() {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
+      const navigationGeneration = trayNavigationGenerationRef.current + 1;
+      trayNavigationGenerationRef.current = navigationGeneration;
+      const isStaleNavigation = () =>
+        trayNavigationGenerationRef.current !== navigationGeneration;
+
       // Tamagui Popover/Sheet portal to body at high zIndex and would
       // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
       appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
@@ -1066,6 +1192,10 @@ export function useTrayDataProvider() {
             screen: ETabRoutes.Home,
           });
         } else if (action.route === TRAY_ROUTE_MARKET) {
+          // Same rule as the tab bars: already on Market is not an entry.
+          if (willTabFocusTransition(ETabRoutes.Market)) {
+            markMarketHomeEntry(EMarketHomeEntrySource.Tray);
+          }
           resetAboveMainRoute();
           setTimeout(resetAboveMainRoute, 120);
           void switchTabAsync(ETabRoutes.Market).then(() => {
@@ -1111,7 +1241,19 @@ export function useTrayDataProvider() {
           if (willTabFocusTransition(ETabRoutes.Perp)) {
             setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
           }
-          void switchTabAsync(ETabRoutes.Perp).then(async () => {
+          void (async () => {
+            // A missing intent only costs the first-mount restore, so this
+            // must not be able to abort the tap. Recorded before the tab
+            // switch that mounts Perp, so the claiming initial-select cannot
+            // run ahead of it.
+            try {
+              await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+                { coin, mode: 'perp' },
+              );
+            } catch {
+              // ignore
+            }
+            await switchTabAsync(ETabRoutes.Perp);
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1127,7 +1269,89 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
+          })();
+          return;
+        }
+
+        if (action.stockId) {
+          const stockId = action.stockId;
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketStockDetail,
+                params: { stockId },
+              },
+            });
           });
+          return;
+        }
+
+        if (action.assetId) {
+          const assetId = action.assetId;
+          void (async () => {
+            // Same resolution the Market list performs for a top-coin row:
+            // the asset's default variant decides network and address.
+            let variant:
+              | {
+                  variantId: string;
+                  networkId: string;
+                  tokenAddress: string;
+                  isNative: boolean;
+                }
+              | undefined;
+            try {
+              const { selectedVariant } =
+                await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+                  assetId,
+                  currency: 'usd',
+                  autoHandleError: false,
+                });
+              variant = selectedVariant;
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] asset navigation error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+              if (isStaleNavigation()) return;
+              // fetchMarketAssetDetail runs with autoHandleError: false, so
+              // this is the only feedback the user gets for a failed tap.
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+              });
+              return;
+            }
+            if (isStaleNavigation()) return;
+            if (!variant) return;
+            const shortCode = networkUtils.getNetworkShortCode({
+              networkId: variant.networkId,
+            });
+            const params = {
+              tokenAddress: variant.tokenAddress,
+              network: shortCode || variant.networkId,
+              isNative: variant.isNative,
+              marketTokenId: assetId,
+              marketVariantId: variant.variantId,
+              marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+            };
+            // A newer tray action can land during the overlay-dismiss wait
+            // inside switchTabAsync; let it abandon the tab switch too, not
+            // only the detail navigation.
+            await switchTabAsync(ETabRoutes.Market, {
+              shouldContinue: () => !isStaleNavigation(),
+            });
+            if (isStaleNavigation()) return;
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketDetailV2,
+                params,
+              },
+            });
+          })();
           return;
         }
 
@@ -1169,7 +1393,7 @@ export function useTrayDataProvider() {
         }
       }
     },
-    [handleOpenTransactionDetail],
+    [handleOpenTransactionDetail, intl],
   );
 
   useEffect(() => {
@@ -1214,7 +1438,7 @@ export function useTrayDataProvider() {
         currencyInfo,
         currencyMap,
       });
-      globalThis.desktopApi?.sendTrayData({
+      trayDataSender.send({
         accountId: currentAccountId,
         // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
         wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
@@ -1239,7 +1463,13 @@ export function useTrayDataProvider() {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [isTrayActive, activeAccountValue, currencyInfo, currencyMap]);
+  }, [
+    isTrayActive,
+    activeAccountValue,
+    currencyInfo,
+    currencyMap,
+    trayDataSender,
+  ]);
 
   useEffect(() => {
     if (!isTrayActive) return;
@@ -1250,6 +1480,17 @@ export function useTrayDataProvider() {
     if (!isTrayActive) return;
     handleTrayDataRequestRef.current?.();
   }, [isTrayActive, settingsLocale, settingsLastLocale]);
+
+  // Hide-value toggle: re-deliver the last payload right away instead of
+  // running a gather, so the tray never lags behind the main window.
+  useEffect(() => {
+    if (!isTrayActive) {
+      // Main dropped its cache together with the tray.
+      trayDataSender.reset();
+      return;
+    }
+    trayDataSender.syncHideValue();
+  }, [isTrayActive, hideValue, trayDataSender]);
 
   // Main process inits tray by default — if the user previously disabled
   // it, tell main to destroy on startup.

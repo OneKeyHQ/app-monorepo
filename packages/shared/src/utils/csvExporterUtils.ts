@@ -64,7 +64,10 @@ async function exportCSVExpo(
       );
       return false;
     }
-    await Sharing.shareAsync(fileUri);
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'text/csv',
+      UTI: 'public.comma-separated-values-text',
+    });
     return true;
   } catch (error) {
     defaultLogger.app.error.log(`exportCSV failed: ${String(error)}`);

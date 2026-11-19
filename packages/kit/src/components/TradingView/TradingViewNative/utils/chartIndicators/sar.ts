@@ -1,4 +1,16 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import {
+  type ITradingViewNativeIndicatorSettingsItem,
+  TRADING_VIEW_NATIVE_THEME_COLORS,
+} from '@onekeyhq/shared/types/tradingViewNative';
+
+import { TRADING_VIEW_NATIVE_INDICATOR_SAR_COLOR } from '../../chartConstants';
+
+import {
+  getTradingViewNativeIndicatorLine,
+  getTradingViewNativeIndicatorParameter,
+  getTradingViewNativeIndicatorSeriesStyle,
+} from './seriesSettings';
 
 import type { ITradingViewNativeIndicatorSeries } from './types';
 
@@ -127,14 +139,74 @@ export function calculateTradingViewNativeParabolicSar(
 
 export function buildTradingViewNativeSarSeries(
   points: readonly IMarketTokenKLineDataPoint[],
+  settings?: ITradingViewNativeIndicatorSettingsItem,
 ): ITradingViewNativeIndicatorSeries[] {
+  const line = getTradingViewNativeIndicatorLine(settings, 'sar', {
+    color: TRADING_VIEW_NATIVE_INDICATOR_SAR_COLOR,
+    enabled: true,
+    period: 0,
+    style: 'solid',
+  });
+  if (!line.enabled) {
+    return [];
+  }
+  const values = calculateTradingViewNativeParabolicSar(points, {
+    accelerationMax: getTradingViewNativeIndicatorParameter(
+      settings,
+      'accelerationMax',
+      SAR_ACCELERATION_MAX,
+    ),
+    accelerationStart: getTradingViewNativeIndicatorParameter(
+      settings,
+      'accelerationStart',
+      SAR_ACCELERATION_START,
+    ),
+    accelerationStep: getTradingViewNativeIndicatorParameter(
+      settings,
+      'accelerationStep',
+      SAR_ACCELERATION_STEP,
+    ),
+  });
+  const upValues = Array<number | null>(values.length).fill(null);
+  const downValues = Array<number | null>(values.length).fill(null);
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    const point = points[index];
+    if (value !== null && point) {
+      if (value <= point.c) {
+        upValues[index] = value;
+      } else {
+        downValues[index] = value;
+      }
+    }
+  }
+  const baseStyle = getTradingViewNativeIndicatorSeriesStyle(line, settings);
   return [
     {
       indicator: 'SAR',
-      key: 'sar',
+      key: 'sar-up',
       kind: 'points',
       paint: 'indicatorSarPoint',
-      values: calculateTradingViewNativeParabolicSar(points),
+      style: {
+        ...baseStyle,
+        color:
+          settings?.opacityColors?.upColor ??
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+      },
+      values: upValues,
+    },
+    {
+      indicator: 'SAR',
+      key: 'sar-down',
+      kind: 'points',
+      paint: 'indicatorSarPoint',
+      style: {
+        ...baseStyle,
+        color:
+          settings?.opacityColors?.downColor ??
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+      },
+      values: downValues,
     },
   ];
 }

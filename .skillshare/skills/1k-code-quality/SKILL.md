@@ -1,6 +1,6 @@
 ---
 name: 1k-code-quality
-description: Code quality standards — lint (eslint/oxlint), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
+description: Code quality standards — lint (oxlint), format (oxfmt), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -11,22 +11,45 @@ Linting, documentation, and general code quality standards for OneKey.
 ## Lint Commands
 
 ```bash
-# Agent pre-commit gate (fast, only staged files)
+# Agent pre-commit gate (includes worktree auto-fixes)
 yarn agent:check --profile commit
 
-# Agent PR readiness gate (local staged checks + GitHub CI/review summary)
+# Agent PR readiness gate (local auto-fixes + GitHub CI/review summary)
 yarn agent:check --profile pr
 
+# Remote CI/review status without source edits
+yarn agent:check --profile ci --pr <number>
+
 # CI only (full project check)
-yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
-yarn lint:only   # Quick: oxlint only
+yarn lint        # Comprehensive: TypeScript, oxlint, folder structure, i18n
+yarn lint:only   # Oxlint and oxfmt
 yarn tsc:only    # Full type check
 yarn lint:agent-context # Skill metadata and startup-context budgets
 ```
 
-**Note:** `yarn lint` is for CI only. For agent workflows, always use
-`yarn agent:check` first; use lower-level commands only when debugging the log
-path reported by `agent:check`.
+**Side effects:** The `commit` and `pr` profiles run `oxlint --fix` and `oxfmt`
+on matching modified and untracked worktree files, in addition to staged checks.
+Inspect the worktree first; preserve unrelated user changes. Do not run these
+profiles for read-only reviews. The `ci` profile reads remote status and writes
+local logs, without running local auto-fixes.
+
+`yarn lint` is for CI only. For implementation gates, use `agent:check`; use
+lower-level lint/type checks to diagnose failures in its reported logs. Run
+targeted behavioral tests separately when the change warrants them.
+
+**Type check compiler:** `tsc`, `npx tsc`, and `yarn tsc` run the TypeScript 7
+native compiler (`tsgo`). TypeScript 7 ships no classic JS compiler API; repo
+tooling that parses source uses `oxc-parser` / `@babel/parser` / `@swc/core`
+instead of `ts.createSourceFile` / `ts.transpileModule`.
+
+This repository uses **oxlint**, not ESLint, for active lint validation. Do not
+run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`; those entries are
+legacy compatibility remnants and `yarn eslint` runs a whole-repository
+auto-fix. For a read-only targeted diagnostic, run:
+
+```bash
+npx oxlint --tsconfig ./tsconfig.json --type-aware packages/example/src/file.ts --deny-warnings
+```
 
 ## Pre-Commit Workflow
 

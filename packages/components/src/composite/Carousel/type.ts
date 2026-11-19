@@ -21,6 +21,8 @@ export interface ICarouselProps<T> {
   pageWidth?: number | string;
   data?: T[];
   autoPlayInterval?: number;
+  /** Whether this carousel is currently allowed to advance automatically. */
+  autoPlayEnabled?: boolean;
   loop?: boolean;
   ref?: React.RefObject<ICarouselInstance | null>;
   renderItem: ({ item, index }: { item: T; index: number }) => React.ReactNode;
@@ -46,6 +48,15 @@ export interface ICarouselProps<T> {
    * @description Disable animation for page transitions
    */
   disableAnimation?: boolean;
+  /**
+   * @description Wrap around at both ends, so the pager never sits at a content
+   * edge. Opt-in: at an edge the platform pager hands the horizontal gesture to
+   * its parent, which is what a nested carousel needs to avoid (OK-61479,
+   * OK-61516), but a standalone carousel may want the edge to be felt.
+   * Ignored for a single page, which has nothing to wrap around.
+   * @default false
+   */
+  infinite?: boolean;
   /**
    * @platform native
    * @description Props for the PagerView component

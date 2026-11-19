@@ -1,5 +1,6 @@
 import {
   getIsMarketTabSelectionInFlight,
+  shouldHandleMarketPagerPageSelected,
   shouldIgnoreStalePagerTabChange,
   shouldRestoreSpotCategoryFromAtom,
 } from './marketTabSelectionGuards';
@@ -126,5 +127,15 @@ describe('shouldIgnoreStalePagerTabChange', () => {
         isRecentPagerDrag: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('shouldHandleMarketPagerPageSelected', () => {
+  it('accepts a page selection emitted during a user drag sequence', () => {
+    expect(shouldHandleMarketPagerPageSelected(true)).toBe(true);
+  });
+
+  it('ignores programmatic and freeze-resume page selections', () => {
+    expect(shouldHandleMarketPagerPageSelected(false)).toBe(false);
   });
 });

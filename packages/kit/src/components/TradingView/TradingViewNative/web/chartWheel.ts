@@ -1,3 +1,5 @@
+import { clampTradingViewNativePriceRangeScale } from '../utils/priceAxisScale';
+
 const WHEEL_AXIS_DOMINANCE_RATIO = 3;
 const WHEEL_GESTURE_RESET_DELAY = 100;
 const WHEEL_DELTA_NORMALIZATION_FACTOR = 100;
@@ -7,6 +9,7 @@ const WHEEL_DELTA_LINE_MULTIPLIER = 32;
 const WHEEL_DELTA_PAGE_MULTIPLIER = 120;
 const WHEEL_PAN_MULTIPLIER = 80;
 const WHEEL_ZOOM_STEP = 0.1;
+const WHEEL_PRICE_RANGE_SCALE_STEP = 0.1;
 
 interface ITradingViewNativeWheelEventData {
   deltaMode: number;
@@ -129,4 +132,18 @@ export function getTradingViewNativeWheelZoomScale({
   const zoomDelta =
     Math.sign(-deltaY) * Math.min(1, Math.abs(deltaY)) * WHEEL_ZOOM_STEP;
   return currentZoomScale * (1 + zoomDelta);
+}
+
+export function getTradingViewNativeWheelPriceRangeScale({
+  currentScale,
+  deltaY,
+}: {
+  currentScale: number;
+  deltaY: number;
+}) {
+  const scaleDelta =
+    Math.sign(deltaY) *
+    Math.min(1, Math.abs(deltaY)) *
+    WHEEL_PRICE_RANGE_SCALE_STEP;
+  return clampTradingViewNativePriceRangeScale(currentScale * (1 + scaleDelta));
 }

@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import { ListView, Stack, YStack, useStyle } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -28,11 +28,12 @@ import ApprovalListHeader from './ApprovalListHeader';
 import ApproveListItem from './ApprovalListItem';
 import { ApprovalListViewContext } from './ApprovalListViewContext';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 type IProps = {
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
-  inTabList?: boolean;
   tableLayout?: boolean;
   onRefresh?: () => void;
   onPress?: (approval: IContractApproval) => void;
@@ -50,9 +51,10 @@ type IProps = {
   hideRiskOverview?: boolean;
 };
 
-function ApprovalListViewCmp(props: IProps) {
+function ApprovalListViewCmp(
+  props: IProps & { onLayout: (event: LayoutChangeEvent) => void },
+) {
   const {
-    inTabList,
     listViewStyleProps,
     onRefresh,
     onPress,
@@ -99,10 +101,6 @@ function ApprovalListViewCmp(props: IProps) {
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
-
-  const ListComponent = useMemo(() => {
-    return inTabList ? Tabs.FlatList : ListView;
-  }, [inTabList]);
 
   const showSkeleton = useMemo(() => {
     if (!approvalListState.initialized) {
@@ -172,29 +170,18 @@ function ApprovalListViewCmp(props: IProps) {
     intl,
   ]);
 
-  const ListComponentRef = useRef<typeof ListComponent>(null);
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // update tab list header height after alert dismissed
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
-
   return (
-    <ListComponent
+    <ListView
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       showsVerticalScrollIndicator={false}
-      ref={ListComponentRef as any}
-      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
+      onLayout={platformEnv.isNative ? props.onLayout : undefined}
+      nestedScrollEnabled={false}
       refreshControl={
         !platformEnv.isNativeAndroid && onRefresh ? (
           <PullToRefresh onRefresh={onRefresh} />
         ) : undefined
       }
-      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}
       contentContainerStyle={resolvedContentContainerStyle as any}
@@ -202,14 +189,13 @@ function ApprovalListViewCmp(props: IProps) {
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
-        withHeader && !showSkeleton ? (
+        withHeader && !showSkeleton && (tableLayout || !hideRiskOverview) ? (
           <ApprovalListHeader
-            recomputeLayout={recomputeLayout}
             hideRiskOverview={hideRiskOverview}
             tokenMap={tokenMap}
             contractMap={contractMap}
           />
-        ) : null
+        ) : undefined
       }
       renderItem={({ item }) => (
         <ApproveListItem
@@ -228,12 +214,18 @@ function ApprovalListViewCmp(props: IProps) {
 }
 
 const ApprovalListView = memo((props: IProps) => {
+  const [listWidth, setListWidth] = useState(0);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
+  const tableLayout =
+    props.tableLayout ?? (platformEnv.isNative && listWidth >= 768);
   const contextValue = useMemo(() => {
     return {
       accountId: props.accountId,
       networkId: props.networkId,
       indexedAccountId: props.indexedAccountId,
-      tableLayout: props.tableLayout,
+      tableLayout,
       hideRiskBadge: props.hideRiskBadge,
       selectDisabled: props.selectDisabled,
       isAllNetworks: networkUtils.isAllNetwork({ networkId: props.networkId }),
@@ -244,12 +236,16 @@ const ApprovalListView = memo((props: IProps) => {
     props.hideRiskBadge,
     props.networkId,
     props.selectDisabled,
-    props.tableLayout,
+    tableLayout,
   ]);
 
   return (
     <ApprovalListViewContext.Provider value={contextValue}>
-      <ApprovalListViewCmp {...props} />
+      <ApprovalListViewCmp
+        {...props}
+        tableLayout={tableLayout}
+        onLayout={onLayout}
+      />
     </ApprovalListViewContext.Provider>
   );
 });

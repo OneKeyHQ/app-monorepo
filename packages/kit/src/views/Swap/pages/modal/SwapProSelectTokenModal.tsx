@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -11,6 +11,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -43,7 +44,7 @@ const SwapProSelectTokenPage = ({
   autoSearch,
 }: ISwapProSelectTokenPageProps) => {
   const intl = useIntl();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { selectSwapProToken } = useSwapActions().current;
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const [selectedNetworkId, setSelectedNetworkId] = useState<
     string | undefined
@@ -61,6 +62,14 @@ const SwapProSelectTokenPage = ({
   );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
+    if (!isMarketTokenDecimalsReady(token)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
+      return;
+    }
     if (
       !equalTokenNoCaseSensitive({
         token1: swapProTokenSelect,
@@ -77,7 +86,7 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
-    void setSwapProSelectToken({
+    const selectedToken = {
       networkId: token.networkId,
       contractAddress: token.address,
       decimals: token.decimals,
@@ -88,7 +97,8 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
       isStock: Boolean(token.stock),
-    });
+    };
+    void selectSwapProToken(selectedToken);
   };
   const handleSearchTokenSelect = (
     token: IMarketSearchV2Token & { networkLogoURI: string },
@@ -109,7 +119,7 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
-    void setSwapProSelectToken({
+    const selectedToken = {
       networkId: token.network,
       contractAddress: token.address,
       decimals: token.decimals,
@@ -120,7 +130,8 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
       isStock: Boolean(token.stock),
-    });
+    };
+    void selectSwapProToken(selectedToken);
   };
   return (
     <Page>
@@ -168,6 +179,7 @@ const SwapProSelectTokenPage = ({
               <MarketWatchlistTokenList
                 onItemPress={handleTokenSelect}
                 hidePerps
+                hideListings
               />
             ) : (
               <MarketNormalTokenList

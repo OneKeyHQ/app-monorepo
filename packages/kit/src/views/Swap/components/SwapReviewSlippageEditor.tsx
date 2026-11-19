@@ -10,7 +10,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import {
+  SLIPPAGE_INPUT_FOCUS_BORDER_COLOR,
+  SlippageInput,
+} from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -32,11 +35,13 @@ const reviewSlippagePresets = [
 ];
 
 export function SwapReviewSlippageEditor({
+  disableSaveSlippageForFutureOrders = false,
   initialValue,
   savingScope,
   showTitle = true,
   onSave,
 }: {
+  disableSaveSlippageForFutureOrders?: boolean;
   initialValue: number;
   savingScope?: ISwapReviewSlippageSaveScope;
   showTitle?: boolean;
@@ -112,36 +117,40 @@ export function SwapReviewSlippageEditor({
   );
   const actionButtons = (
     <XStack gap="$2">
-      <Button
-        testID="swap-review-slippage-all-future-orders"
-        flex={1}
-        flexBasis={0}
-        minWidth={0}
-        size={controlSize}
-        borderRadius={platformEnv.isNative ? '$3' : '$2'}
-        variant="secondary"
-        disabled={isSaveDisabled}
-        loading={savingScope === 'future'}
-        onPress={() => handleSave('future')}
-      >
-        {intl.formatMessage({
-          id: ETranslations.trade_silp_all_future_orders,
-        })}
-      </Button>
+      {disableSaveSlippageForFutureOrders ? null : (
+        <Button
+          testID="swap-review-slippage-all-future-orders"
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          size={controlSize}
+          borderRadius={platformEnv.isNative ? '$3' : '$full'}
+          variant="secondary"
+          disabled={isSaveDisabled}
+          loading={savingScope === 'future'}
+          onPress={() => handleSave('future')}
+        >
+          {intl.formatMessage({
+            id: ETranslations.trade_silp_all_future_orders,
+          })}
+        </Button>
+      )}
       <Button
         testID="swap-review-slippage-this-order"
         flex={1}
         flexBasis={0}
         minWidth={0}
         size={controlSize}
-        borderRadius={platformEnv.isNative ? '$3' : '$2'}
+        borderRadius={platformEnv.isNative ? '$3' : '$full'}
         variant="primary"
         disabled={isSaveDisabled}
         loading={savingScope === 'current'}
         onPress={() => handleSave('current')}
       >
         {intl.formatMessage({
-          id: ETranslations.trade_silp_this_order,
+          id: disableSaveSlippageForFutureOrders
+            ? ETranslations.global_confirm
+            : ETranslations.trade_silp_this_order,
         })}
       </Button>
     </XStack>
@@ -165,6 +174,7 @@ export function SwapReviewSlippageEditor({
           onChangeText={setInputValue}
           props={{
             size: controlSize,
+            disabled: isSaving,
             onFocus: () => setIsInputFocused(true),
             onBlur: () => setIsInputFocused(false),
             containerProps: {
@@ -173,7 +183,9 @@ export function SwapReviewSlippageEditor({
               height: platformEnv.isNative ? 44 : undefined,
               borderRadius: '$3',
               bg: '$bgStrong',
-              borderColor: isInputFocused ? '#2f7cf6' : '$borderStrong',
+              borderColor: isInputFocused
+                ? SLIPPAGE_INPUT_FOCUS_BORDER_COLOR
+                : '$borderStrong',
               borderWidth: isInputFocused ? 1.5 : '$px',
             },
           }}

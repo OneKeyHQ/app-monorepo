@@ -11,6 +11,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type {
   IDBAccount,
   IDBDevice,
@@ -25,9 +26,9 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -35,12 +36,17 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import { TutorialsList } from '../../TutorialsList';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
-    backgroundApiProxy;
+  const {
+    serviceAccount,
+    serviceBatchCreateAccount,
+    serviceHardwareUI,
+    serviceNetwork,
+  } = backgroundApiProxy;
   const intl = useIntl();
   const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { createQrWalletAccount } = useCreateQrWallet();
@@ -110,7 +116,6 @@ export function useAccountSelectorCreateAddress() {
             }
           | undefined,
       ) => {
-        console.log(result);
         // await refreshCurrentAccount();
         await callAccountSelectorAction('refresh', { num });
 
@@ -147,13 +152,15 @@ export function useAccountSelectorCreateAddress() {
         // If indexedAccountId is empty, create the first account (index 0) for all networks
         const indexes = account?.indexedAccountId ? undefined : [0];
         const result =
-          await serviceBatchCreateAccount.addDefaultNetworkAccounts({
-            walletId: account?.walletId,
-            indexedAccountId: account?.indexedAccountId,
-            indexes,
-            customNetworks,
-            ...hwUiControlParams,
-          });
+          await serviceBatchCreateAccount.addDefaultNetworkAccountsForUserCreation(
+            {
+              walletId: account?.walletId,
+              indexedAccountId: account?.indexedAccountId,
+              indexes,
+              customNetworks,
+              ...hwUiControlParams,
+            },
+          );
         if (
           result &&
           result?.failedAccounts?.length &&
@@ -192,22 +199,63 @@ export function useAccountSelectorCreateAddress() {
             ? filterThirdPartyHwCreateFailureToasts(failedList)
             : failedList;
           for (const failedAccount of failedListForToast) {
-            Toast.error({
-              title: failedAccount.error.message || 'Unknown error',
-            });
+            if (
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
+            ) {
+              Toast.error({
+                title:
+                  ETranslations.hardware_third_party_passphrase_always_on_device,
+              });
+            } else if (isThirdPartyHw) {
+              // Label lookup failures must not block refreshing accounts already created.
+              const network = await serviceNetwork
+                .getNetwork({
+                  networkId: failedAccount.networkId,
+                })
+                .catch(() => undefined);
+              const deriveTypeInfo = await serviceNetwork
+                .getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                })
+                .catch(() => undefined);
+              Toast.error({
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_hw_create_unsupported_address_title,
+                  },
+                  {
+                    network: network?.name || failedAccount.networkId,
+                    addressType:
+                      deriveTypeInfo?.label || failedAccount.deriveType,
+                  },
+                ),
+                message: failedAccount.error.message || 'Unknown error',
+              });
+            } else {
+              Toast.error({
+                title: failedAccount.error.message || 'Unknown error',
+              });
+            }
           }
         }
 
-        // If indexedAccountId was empty, get the first indexed account from wallet
+        // Empty-wallet creation requested index 0; list order may put another index first.
         let resultIndexedAccountId = account?.indexedAccountId;
         if (!resultIndexedAccountId && account?.walletId) {
+          const createdIndexedAccountId = accountUtils.buildIndexedAccountId({
+            walletId: account.walletId,
+            index: 0,
+          });
           const { accounts: indexedAccounts } =
             await serviceAccount.getIndexedAccountsOfWallet({
               walletId: account.walletId,
             });
-          if (indexedAccounts.length > 0) {
-            resultIndexedAccountId = indexedAccounts[0].id;
-          }
+          resultIndexedAccountId = indexedAccounts.find(
+            (indexedAccount) => indexedAccount.id === createdIndexedAccountId,
+          )?.id;
         }
 
         return handleAddAccounts({
@@ -220,12 +268,11 @@ export function useAccountSelectorCreateAddress() {
       const addAccounts = async () => {
         try {
           if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
-            await addAccountsForAllNetwork();
-            return;
+            return await addAccountsForAllNetwork();
           }
           // If indexedAccountId is empty, create the first account (index 0)
           const indexes = account?.indexedAccountId ? undefined : [0];
-          const result = await serviceAccount.addHDOrHWAccounts({
+          const result = await serviceAccount.addHDOrHWAccountsForUserCreation({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
@@ -280,7 +327,7 @@ export function useAccountSelectorCreateAddress() {
                 await serviceAccount.isBtcOnlyFirmwareByWalletId({
                   walletId: account.walletId,
                 });
-              Dialog.show({
+              const dialog = Dialog.show({
                 title: intl.formatMessage({
                   id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
                 }),
@@ -306,7 +353,9 @@ export function useAccountSelectorCreateAddress() {
                           children: (
                             <Stack>
                               <Button
-                                testID="account-selector-is-btc-only-wallet-btn"
+                                testID={
+                                  AccountSelectorTestIDs.btcOnlyWalletButton
+                                }
                                 size="small"
                                 mt="$2"
                                 iconAfter="OpenOutline"
@@ -333,8 +382,11 @@ export function useAccountSelectorCreateAddress() {
                       </SizableText>
                       <Button
                         variant="tertiary"
-                        onPress={() => showIntercom()}
-                        testID="account-selector-btn"
+                        onPress={async () => {
+                          await dialog.close();
+                          await showIntercom();
+                        }}
+                        testID={AccountSelectorTestIDs.genericButton}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
@@ -360,6 +412,7 @@ export function useAccountSelectorCreateAddress() {
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
+      serviceNetwork,
     ],
   );
 

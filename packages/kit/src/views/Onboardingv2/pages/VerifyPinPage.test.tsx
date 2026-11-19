@@ -28,9 +28,6 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Dialog: {
-    confirm: jest.fn(),
-  },
   Toast: {
     error: jest.fn(),
   },

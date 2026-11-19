@@ -1,6 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,6 +15,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -26,24 +26,19 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { useHyperliquidReferralPromotion } from '../../hooks/useHyperliquidReferralPromotion';
 import { SignatureConfirmTestIDs } from '../../testIDs';
+
+import type { ISecurityCheckConfirmation } from '../SecurityCheckCard';
 
 type IProps = {
   accountId: string;
   networkId: string;
   unsignedMessage: IUnsignedMessage;
-  messageDisplay: ISignatureConfirmDisplay | undefined;
-  continueOperate: boolean;
-  setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
-  showContinueOperate?: boolean;
-  urlSecurityInfo?: IHostSecurity;
-  isConfirmationRequired?: boolean;
+  securityCheckConfirmation: ISecurityCheckConfirmation;
+  securityCheckAcknowledgementKey: string;
   sourceInfo?: IDappSourceInfo;
   walletInternalSign?: boolean;
   skipBackupCheck?: boolean;
@@ -57,12 +52,8 @@ function MessageConfirmActions(props: IProps) {
     accountId,
     networkId,
     unsignedMessage,
-    messageDisplay,
-    continueOperate: continueOperateLocal,
-    setContinueOperate: setContinueOperateLocal,
-    showContinueOperate: showContinueOperateLocal,
-    urlSecurityInfo,
-    isConfirmationRequired,
+    securityCheckConfirmation,
+    securityCheckAcknowledgementKey,
     sourceInfo,
     walletInternalSign,
     skipBackupCheck,
@@ -81,7 +72,8 @@ function MessageConfirmActions(props: IProps) {
 
   const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [continueOperate, setContinueOperate] = useState(false);
+  const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
+    useScopedAcknowledgement(securityCheckAcknowledgementKey);
 
   // Get user address for referral promotion check
   const { result: accountAddress } = usePromiseResult(
@@ -229,7 +221,6 @@ function MessageConfirmActions(props: IProps) {
           result,
         });
         isSubmitted.current = true;
-        onSuccess?.(result);
 
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
@@ -242,16 +233,29 @@ function MessageConfirmActions(props: IProps) {
           // noop
         }
 
-        if (accountUtils.isQrAccount({ accountId })) {
-          navigation.popStack();
-        }
+        try {
+          if (accountUtils.isQrAccount({ accountId })) {
+            navigation.popStack();
+          }
 
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_sign_success,
-          }),
-        });
-        close?.({ flag: EDAppModalPageStatus.Confirmed });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_sign_success,
+            }),
+          });
+          close?.({ flag: EDAppModalPageStatus.Confirmed });
+        } finally {
+          // Resolve the caller only after close() has been issued. The
+          // history write above yields to the event loop, so firing onSuccess
+          // before it lets a caller that re-shows its own UI on success (the
+          // WalletConnect Pay host dialog) stack over this page until close()
+          // runs. TxConfirmActions avoids this by popping synchronously right
+          // after onSuccess; this path awaits in between, so order it after
+          // close. The finally keeps the caller's promise settling even if
+          // one of the statements above ever throws: isSubmitted is already
+          // set, so the unmount onCancel fallback would not fire either.
+          onSuccess?.(result);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -274,35 +278,9 @@ function MessageConfirmActions(props: IProps) {
     ],
   );
 
-  const showTakeRiskAlert = useMemo(() => {
-    if (walletInternalSign) {
-      return false;
-    }
-
-    if (isConfirmationRequired) {
-      return true;
-    }
-
-    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
-      return false;
-    }
-
-    if (!isEmpty(messageDisplay?.alerts)) {
-      return true;
-    }
-
-    if (showContinueOperateLocal) {
-      return true;
-    }
-
-    return false;
-  }, [
-    messageDisplay?.alerts,
-    showContinueOperateLocal,
-    urlSecurityInfo?.level,
-    walletInternalSign,
-    isConfirmationRequired,
-  ]);
+  const isSecurityCheckPending = securityCheckConfirmation === 'pending';
+  const showTakeRiskAlert =
+    !walletInternalSign && securityCheckConfirmation === 'risk';
 
   const cancelCalledRef = useRef(false);
   const onCancelOnce = useCallback(() => {
@@ -347,7 +325,7 @@ function MessageConfirmActions(props: IProps) {
         confirmButtonProps={{
           loading: isLoading,
           disabled:
-            showTakeRiskAlert && (!continueOperate || !continueOperateLocal),
+            isSecurityCheckPending || (showTakeRiskAlert && !continueOperate),
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
@@ -360,8 +338,8 @@ function MessageConfirmActions(props: IProps) {
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setContinueOperate(!!checked);
-                setContinueOperateLocal(!!checked);
+                const isChecked = !!checked;
+                setSecurityCheckAccepted(isChecked);
               }}
             />
           ) : null}

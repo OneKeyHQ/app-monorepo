@@ -7,7 +7,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
@@ -36,6 +35,7 @@ import {
   PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { normalizeErrorProps } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -49,13 +49,19 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  SCALE_ORDER_MIN_NOTIONAL,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionMaxSize,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -85,6 +91,7 @@ import type {
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -100,6 +107,7 @@ import {
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
+  openTokenSelectorsAtom,
   orderBookTickOptionsAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
@@ -130,6 +138,7 @@ import {
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
 import {
+  getPerpsActiveAccountChangedMessage,
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
   getPerpsTokenInfoNotFoundMessage,
@@ -169,15 +178,12 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
+type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
   ? 60_000
   : 15_000;
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 
 const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
@@ -217,7 +223,9 @@ type ITwapSliceFillsLoadResult =
     };
 
 type ITwapDataLoadPromises = {
-  webData2Promise: Promise<HL.IWsWebData2 | undefined>;
+  webData2Promise: Promise<
+    Pick<HL.IWsWebData2, 'user' | 'twapStates'> | undefined
+  >;
   historyPromise: Promise<ITwapHistoryLoadResult>;
   fillsPromise: Promise<ITwapSliceFillsLoadResult>;
 };
@@ -444,7 +452,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private fetchTwapData(accountAddress: string): ITwapDataLoadPromises {
     return {
       webData2Promise: backgroundApiProxy.serviceHyperliquid
-        .getWebData2({
+        .getTwapStates({
           user: accountAddress as HL.IHex,
         })
         .catch(() => undefined),
@@ -552,11 +560,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
     ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
+    expectedAccountAddress?: string,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAccountAddress = normalizePerpsAccountAddress(
       activeAccount?.accountAddress,
     );
+    if (
+      expectedAccountAddress !== undefined &&
+      activeAccountAddress !==
+        normalizePerpsAccountAddress(expectedAccountAddress)
+    ) {
+      throw new OneKeyLocalError(getPerpsActiveAccountChangedMessage());
+    }
     if (!activeAccountAddress) {
       return undefined;
     }
@@ -1436,12 +1452,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeInstrument = get(activeTradeInstrumentAtom());
-    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo | null) => {
     if (!data) {
+      set(bboAtom(), null);
       return;
     }
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
       if (
@@ -1507,11 +1524,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
+        source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
-      const { symbol, option } = payload;
-      const prev = get(orderBookTickOptionsAtom());
+      const { symbol, option, source } = payload;
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
+        return;
+      }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
         ...prev,
       };
@@ -1687,6 +1710,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         triggerPrice: '',
         executionPrice: '',
         triggerReduceOnly: true,
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
 
       // update limit price once using current atom snapshot.
@@ -1863,6 +1888,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         sizePercent: 0,
         triggerPrice: '',
         executionPrice: '',
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
       // Spot doesn't have margin mode -- force to usd if currently set to margin
       const currentPrefs = await perpsTradingPreferencesAtom.get();
@@ -1953,7 +1980,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         source: Extract<
           ISubscriptionRecoveryProofSource,
-          'route-focused' | 'token-selector'
+          'route-focused' | 'token-selector' | 'trade-history-details'
         >;
       },
     ) =>
@@ -1961,6 +1988,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         source: params.source,
         isSourceLive: () => {
           const state = get(tradeRouteViewStateAtom());
+          if (params.source === 'trade-history-details') {
+            return state.tradeHistoryDetailsOpen;
+          }
           return params.source === 'token-selector'
             ? state.tokenSelectorOpen
             : state.routeFocused;
@@ -1984,6 +2014,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(tradeRouteViewStateAtom(), {
         ...current,
         ...patch,
+      });
+    },
+  );
+
+  /** Token pickers report here; the flag stays on while any is open. */
+  setTokenSelectorOpen = contextAtomMethod(
+    (get, set, params: { owner: string; open: boolean }) => {
+      const owners = get(openTokenSelectorsAtom());
+      if (owners.includes(params.owner) === params.open) return;
+      const next = params.open
+        ? [...owners, params.owner]
+        : owners.filter((owner) => owner !== params.owner);
+      set(openTokenSelectorsAtom(), next);
+      this.setTradeRouteViewState.call(set, {
+        tokenSelectorOpen: next.length > 0,
       });
     },
   );
@@ -2401,14 +2446,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
-      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      const nextUpdates =
+        updates.side !== undefined &&
+        updates.side !== current.side &&
+        updates.twapStopPrice === undefined
+          ? { ...updates, twapStopPrice: '' }
+          : updates;
+      const updateKeys = Object.keys(nextUpdates) as Array<
+        keyof ITradingFormData
+      >;
       if (
         updateKeys.length === 0 ||
-        updateKeys.every((key) => current[key] === updates[key])
+        updateKeys.every((key) => current[key] === nextUpdates[key])
       ) {
         return;
       }
-      set(tradingFormAtom(), { ...current, ...updates });
+      set(tradingFormAtom(), { ...current, ...nextUpdates });
     },
   );
 
@@ -2430,6 +2483,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       slValue: '',
       triggerPrice: '',
       executionPrice: '',
+      twapTriggerPrice: '',
+      twapStopPrice: '',
     });
   });
 
@@ -2861,6 +2916,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         formData?: ITradingFormData;
         price?: string;
+        triggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -2888,6 +2944,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             ]);
 
             const isSpot = activeTradeInstrument.mode === 'spot';
+            const spotActiveAssetCtxValue = isSpot
+              ? await spotActiveAssetCtxAtom.get()
+              : undefined;
             if (
               isSpot &&
               (typeof params.assetId !== 'number' ||
@@ -2899,21 +2958,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             }
 
             const minutes = Number(formData.twapDurationMinutes ?? 0);
-            if (
-              !Number.isInteger(minutes) ||
-              minutes < TWAP_MIN_DURATION_MINUTES ||
-              minutes > TWAP_MAX_DURATION_MINUTES
-            ) {
+            if (!isValidTwapDuration(minutes)) {
               throw new OneKeyLocalError(
                 `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
               );
             }
 
-            const markPrice = isSpot
-              ? (params.price ?? env.markPrice ?? '')
-              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
-            const markPriceBN = new BigNumber(markPrice);
-            if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
+            const markPriceBN = new BigNumber(
+              isSpot
+                ? (spotActiveAssetCtxValue?.ctx?.markPrice ?? '')
+                : (activeAssetCtxValue?.ctx?.markPrice ??
+                    activeAssetDataValue?.markPx ??
+                    env.markPrice ??
+                    ''),
+            );
+            const sizePriceBN = isSpot
+              ? new BigNumber(params.price ?? env.markPrice ?? '')
+              : markPriceBN;
+            if (
+              !sizePriceBN.isFinite() ||
+              sizePriceBN.lte(0) ||
+              ((formData.twapTriggerPrice?.trim() ||
+                formData.twapStopPrice?.trim()) &&
+                (!markPriceBN.isFinite() || markPriceBN.lte(0)))
+            ) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
               );
@@ -2929,8 +2997,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               manualSize: formData.size,
               sizePercent: formData.sizePercent,
               side: formData.side,
-              price: markPriceBN.toFixed(),
-              markPrice: markPriceBN.toFixed(),
+              price: sizePriceBN.toFixed(),
+              markPrice: sizePriceBN.toFixed(),
               maxTradeSzs: isSpot
                 ? env.maxTradeSzs
                 : activeAssetDataValue?.maxTradeSzs,
@@ -2945,19 +3013,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               throw new OneKeyLocalError('Order size is required');
             }
 
-            const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
-            const estimatedSlices = Math.max(
-              1,
-              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-            );
-            const averageSliceNotional =
-              totalNotional.dividedBy(estimatedSlices);
             if (
-              !averageSliceNotional.isFinite() ||
-              averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+              !isTwapTotalNotionalValid({
+                size: resolvedSizeBN,
+                price: sizePriceBN,
+                szDecimals,
+              })
             ) {
               throw new OneKeyLocalError(
-                'TWAP order size is too small for this duration',
+                normalizeErrorProps({
+                  key: ETranslations.perp_twap_min_order_notional__msg,
+                  info: { amount: TWAP_MIN_ORDER_NOTIONAL },
+                }),
               );
             }
 
@@ -3000,6 +3067,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   reduceOnly,
                   minutes,
                   randomize: formData.twapRandomize ?? true,
+                  triggerPrice: formData.twapTriggerPrice?.trim(),
+                  triggerAbove: params.triggerAbove,
+                  stopPrice: formData.twapStopPrice?.trim(),
+                  referencePrice: sizePriceBN.toFixed(),
+                  markPrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
               );
@@ -3085,6 +3157,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
+        twapTriggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -3111,6 +3184,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           assetId: params.assetId,
           formData,
           price: params.price,
+          triggerAbove: params.twapTriggerAbove,
         });
       }
 
@@ -3266,6 +3340,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         oid: number;
         newPrice: string;
+        expectedAccountAddress?: string;
       },
     ) => {
       // Side stays as placed — HL rejects modify that flips isBuy.
@@ -3277,6 +3352,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (existing.coin !== params.coin) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
+          }
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            ) {
+              throw new OneKeyLocalError(getPerpsOrderChangedMessage());
+            }
           }
           const amendKind = getPerpsOrderAmendKind(existing);
           if (!amendKind) {
@@ -3292,6 +3376,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
+              ...(params.expectedAccountAddress
+                ? { expectedAccountAddress: params.expectedAccountAddress }
+                : {}),
             },
           );
         },
@@ -3308,11 +3395,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         oid: number;
         newPrice: string;
+        expectedAccountAddress: string;
       },
     ) => {
       return withToast({
         asyncFn: async () => {
-          const existing = await this.findChartOrder(get, params.oid);
+          const existing = await this.findChartOrder(
+            get,
+            params.oid,
+            params.expectedAccountAddress,
+          );
           if (!existing) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
@@ -3329,6 +3421,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
+          // Preserve queue priority for unchanged ALO orders; same-price GTC orders
+          // still need amendment to enforce post-only execution.
+          if (
+            existing.tif === 'Alo' &&
+            new BigNumber(existing.limitPx).eq(params.newPrice)
+          ) {
+            return undefined;
+          }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3339,11 +3439,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
-              alwaysPlace: true,
+              expectedAccountAddress: params.expectedAccountAddress,
             },
           );
         },
         actionType: EActionType.MODIFY_ORDER,
+        shouldShowSuccess: (result) => result !== undefined,
       });
     },
   );
@@ -3354,12 +3455,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         oid: number;
+        coin?: string;
+        expectedAccountAddress?: string;
       },
     ) => {
       // Inner cancelOrder owns the CANCEL_ORDER toast; emit our own
       // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
-      if (!existing) {
+      if (!existing || (params.coin && existing.coin !== params.coin)) {
         Toast.error({
           title: getPerpsOrderChangedMessage(),
         });
@@ -3377,6 +3480,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return this.cancelOrder.call(set, {
         orders: [{ assetId: symbolMeta.assetId, oid: params.oid }],
+        expectedAccountAddress: params.expectedAccountAddress,
       });
     },
   );
@@ -3391,17 +3495,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           oid: number;
         }>;
         showToast?: boolean;
+        expectedAccountAddress?: string;
       },
     ) => {
       return withToast({
         asyncFn: async () => {
-          const result =
-            await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-              params.orders.map((order) => ({
-                assetId: order.assetId,
-                oid: order.oid,
-              })),
-            );
+          const cancels = params.orders.map((order) => ({
+            assetId: order.assetId,
+            oid: order.oid,
+          }));
+          const result = params.expectedAccountAddress
+            ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                cancels,
+                { expectedAccountAddress: params.expectedAccountAddress },
+              )
+            : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                cancels,
+              );
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            )
+              return result;
+          }
 
           // Track canceled order ids so UI can remove them immediately
           for (const o of params.orders) {
@@ -3430,6 +3548,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
 
           const prevSpot = await spotActiveOpenOrdersAtom.get();
+          if (
+            params.expectedAccountAddress &&
+            normalizePerpsAccountAddress(prevSpot.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+          )
+            return result;
           const nextSpotOpenOrders = prevSpot.openOrders.filter(
             (o) => !this.canceledOrderIds.has(o.oid),
           );
@@ -3531,7 +3655,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         userAccountId: string;
         amount: string;
-        destination: `0x${string}`;
+        destinationId: IUsdcWithdrawDestinationId;
+        expectedRoute?: 'bridge' | 'cctp';
+        expectedCctpFee?: string;
       },
     ) => {
       return withToast({
@@ -3539,7 +3665,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
             userAccountId: params.userAccountId,
             amount: params.amount,
-            destination: params.destination,
+            destinationId: params.destinationId,
+            expectedRoute: params.expectedRoute,
+            expectedCctpFee: params.expectedCctpFee,
           });
         },
         actionType: EActionType.WITHDRAW,
@@ -3548,13 +3676,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
-    const info = await perpsActiveAccountIsAgentReadyAtom.get();
-    if (info.isAgentReady === false) {
-      showEnableTradingDialog();
-      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
-    }
-  });
+  ensureTradingEnabled = contextAtomMethod(
+    async (_get, _set, runEnableTradingFlow: IRunEnableTradingFlow) => {
+      const info = await perpsActiveAccountIsAgentReadyAtom.get();
+      if (info.isAgentReady === false) {
+        await runEnableTradingFlow();
+        throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
+      }
+    },
+  );
 
   tokenSzDecimalsCache: {
     [coin: string]: number | null | undefined;
@@ -3620,7 +3750,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
           // Apply filter if specified
@@ -3639,20 +3768,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               coins: filteredPositions.map((p) => p.position.coin),
             });
 
-          // Get current mid prices for all positions
+          // The main-runtime atom carries no age marker, so every coin is
+          // priced by the background owner (fresh snapshot or per-dex REST),
+          // matching the single close submit path.
           const midPrices = await Promise.all(
             filteredPositions.map(async (p) => {
+              const { coin } = p.position;
               try {
-                const midPriceInfo = await this.getMidPrice.call(set, {
-                  coin: p.position.coin,
-                });
-                return { coin: p.position.coin, midPrice: midPriceInfo.mid };
+                return {
+                  coin,
+                  midPrice:
+                    await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+                      coin,
+                    ),
+                };
               } catch (error) {
-                console.warn(
-                  `Failed to get mid price for ${p.position.coin}:`,
-                  error,
-                );
-                return { coin: p.position.coin, midPrice: null };
+                console.warn(`Failed to get mid price for ${coin}:`, error);
+                return { coin, midPrice: null };
               }
             }),
           );
@@ -3660,6 +3792,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const midPriceMap = Object.fromEntries(
             midPrices.map((item) => [item.coin, item.midPrice]),
           );
+
+          // Never close a subset silently: a position without a price would
+          // be dropped while the rest reports success.
+          const unpricedCoins = filteredPositions
+            .map((p) => p.position.coin)
+            .filter((coin) => !symbolsMetaMap[coin] || !midPriceMap[coin]);
+          if (unpricedCoins.length > 0) {
+            // TODO(i18n): same pre-existing literal as ClosePositionModal.
+            const message = 'Unable to get current market price';
+            Toast.error({ title: message });
+            throw new OneKeyLocalError(
+              `${message}: ${unpricedCoins.join(', ')}`,
+            );
+          }
 
           // Prepare close orders for all positions
           const positionsToClose = filteredPositions
@@ -3844,6 +3990,7 @@ export function useHyperliquidActions() {
   const captureInstrumentSwitchSubscriptionProof =
     actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
+  const setTokenSelectorOpen = actions.setTokenSelectorOpen.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
@@ -3921,6 +4068,7 @@ export function useHyperliquidActions() {
     switchTradeInstrument,
     captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
+    setTokenSelectorOpen,
     updateTwapStates,
     updateTwapHistory,
     updateTwapSliceFills,

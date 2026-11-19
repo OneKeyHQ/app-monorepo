@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -43,6 +44,8 @@ export const useBorrowMarkets = ({
     [],
     {
       initResult: defaultMarkets,
+      swrKey: swrKeys.borrowMarkets(),
+      swrShouldPersist: (result) => result.length > 0,
       watchLoading: true,
       checkIsFocused: true,
       undefinedResultIfReRun: false,
@@ -51,11 +54,12 @@ export const useBorrowMarkets = ({
     },
   );
 
-  useEffect(() => {
-    if (markets) {
-      marketsRef.current = markets;
-    }
-  }, [markets]);
+  // usePromiseResult starts its request effect before effects declared below.
+  // Mirror a synchronously hydrated SWR result during render so an inactive
+  // first run returns that snapshot instead of overwriting it with [].
+  if (markets) {
+    marketsRef.current = markets;
+  }
 
   const refetchMarkets = useCallback(async () => {
     lastUpdatedAtRef.current = null;

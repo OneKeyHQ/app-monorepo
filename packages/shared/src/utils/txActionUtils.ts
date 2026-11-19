@@ -25,6 +25,8 @@ import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
+import tokenRebaseUtils from './tokenRebaseUtils';
+
 import type {
   IDisplayComponent,
   IDisplayComponentAddress,
@@ -85,10 +87,12 @@ export function collectDecodedTxInvolvedAddresses({
     const transfer = action.assetTransfer;
     if (transfer) {
       transfer.sends.forEach((send) => {
+        if (send.isShielded) return;
         add(send.from);
         add(send.to);
       });
       transfer.receives.forEach((receive) => {
+        if (receive.isShielded) return;
         add(receive.from);
         add(receive.to);
       });
@@ -195,6 +199,140 @@ export function calculateTokenAmountInActions({
   return {
     tokenAmount,
   };
+}
+
+// True when any decoded action involves a token whose balanceMultiplier
+// actually scales (valid and !== 1). Used by the signature-confirm service
+// to force the LOCAL txDisplay path: local decode emits display-basis
+// amounts (and fail-closed approve editing), while server display
+// components would carry raw amounts for these tokens.
+export function checkDecodedTxHasScalingBalanceMultiplier(
+  decodedTx: IDecodedTx,
+): boolean {
+  return (decodedTx.actions ?? []).some((action) => {
+    if (
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        action.tokenApprove?.balanceMultiplier,
+      )
+    ) {
+      return true;
+    }
+    const transfers = [
+      ...(action.assetTransfer?.sends ?? []),
+      ...(action.assetTransfer?.receives ?? []),
+    ];
+    return transfers.some((transfer) =>
+      tokenRebaseUtils.isScalingBalanceMultiplier(transfer.balanceMultiplier),
+    );
+  });
+}
+
+// Address-tag severities that must survive a local-display replacement.
+export const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
+  'warning',
+  'critical',
+]);
+
+// When the signature-confirm service replaces server display components with
+// locally decoded ones (scaled-UI forced-local path), the local Address
+// components carry `tags: []`. The server may flag a risky counterparty ONLY
+// via `Address.tags` without emitting `display.alerts`, so dropping the tags
+// could also let a request without a scan render "No issues". Merge the
+// server's risk tags back onto matching local Address components, and
+// preserve risk-tagged server Address rows that have no local counterpart
+// (the server may flag an address the local decoder never renders, e.g. the
+// token contract on a plain transfer) by appending them verbatim — Address
+// rows carry no amounts, so raw-basis contamination is impossible.
+export function mergeServerAddressRiskTagsIntoComponents({
+  localComponents,
+  serverComponents,
+  normalizeAddress = (address) => address.toLowerCase(),
+  unmatchedAddressLabel,
+}: {
+  localComponents: IDisplayComponent[];
+  serverComponents: IDisplayComponent[] | undefined;
+  normalizeAddress?: (address: string) => string;
+  unmatchedAddressLabel?: string;
+}): IDisplayComponent[] {
+  const serverRiskAddressComponents = (serverComponents ?? []).filter(
+    (component): component is IDisplayComponentAddress =>
+      component.type === EParseTxComponentType.Address &&
+      Boolean(component.address) &&
+      (component.tags ?? []).some((tag) =>
+        ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+      ),
+  );
+  if (serverRiskAddressComponents.length === 0) {
+    return localComponents;
+  }
+
+  const riskTagsByAddress = new Map<string, IDisplayComponentAddress['tags']>();
+  for (const component of serverRiskAddressComponents) {
+    const riskTags = (component.tags ?? []).filter((tag) =>
+      ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+    );
+    const key = normalizeAddress(component.address);
+    const existing = riskTagsByAddress.get(key) ?? [];
+    const existingKeys = new Set(
+      existing.map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    riskTagsByAddress.set(key, [
+      ...existing,
+      ...riskTags.filter(
+        (tag) => !existingKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ]);
+  }
+
+  const localAddressKeys = new Set(
+    localComponents
+      .filter(
+        (component): component is IDisplayComponentAddress =>
+          component.type === EParseTxComponentType.Address &&
+          Boolean(component.address),
+      )
+      .map((component) => normalizeAddress(component.address)),
+  );
+
+  const merged = localComponents.map((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return component;
+    }
+    const serverRiskTags = component.address
+      ? riskTagsByAddress.get(normalizeAddress(component.address))
+      : undefined;
+    if (!serverRiskTags?.length) {
+      return component;
+    }
+    const existingTagKeys = new Set(
+      (component.tags ?? []).map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    const mergedTags = [
+      ...(component.tags ?? []),
+      ...serverRiskTags.filter(
+        (tag) => !existingTagKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ];
+    return { ...component, tags: mergedTags };
+  });
+
+  const unmatchedServerRiskComponents = serverRiskAddressComponents.filter(
+    (component) => !localAddressKeys.has(normalizeAddress(component.address)),
+  );
+
+  return [
+    ...merged,
+    ...unmatchedServerRiskComponents.map((component) =>
+      unmatchedAddressLabel
+        ? {
+            ...component,
+            label: unmatchedAddressLabel,
+            role: undefined,
+            highlight: false,
+          }
+        : component,
+    ),
+  ];
 }
 
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
@@ -497,6 +635,14 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     });
   }
 
+  // Scaled-UI (rebase) tokens: `action.amount` is display-basis (multiplied
+  // at decode). The editor write-back re-encodes amountParsed verbatim as
+  // raw units, so editing must be fail-closed to prevent over-approval by
+  // the multiplier. Multiplier === 1 is the documented no-op — never block.
+  const isScalingMultiplier = tokenRebaseUtils.isScalingBalanceMultiplier(
+    action.balanceMultiplier,
+  );
+
   const approveComponent: IDisplayComponentApprove = {
     type: EParseTxComponentType.Approve,
     label: approveLabel,
@@ -509,10 +655,11 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         isNative: false,
         decimals: action.decimals,
         logoURI: action.icon,
+        balanceMultiplier: action.balanceMultiplier,
       },
     },
     amountParsed: action.amount,
-    isEditable: !isRevoke && !isMultiTxs,
+    isEditable: !isRevoke && !isMultiTxs && !isScalingMultiplier,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
     approveType: action.approveType,

@@ -1,15 +1,9 @@
-import { useCallback, useState } from 'react';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Button,
-  Dialog,
-  Toast,
-  rootNavigationRef,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
+import type { IToastAction } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -21,227 +15,149 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import type { IntlShape } from 'react-intl';
 
 interface IErrorActionParams {
   errorCode?: number | string;
+  connectId?: string;
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
 }
 
-// Cooldown mechanism: prevent high-frequency log uploads (1 minute)
-const LOG_UPLOAD_COOLDOWN_MS = timerUtils.getTimeDurationMs({ seconds: 60 });
-let lastLogUploadTime = 0;
-
-function ContactSupportButton({ requestId }: { requestId: string }) {
-  const intl = useIntl();
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handlePress = useCallback(async () => {
-    setIsUploading(true);
-
-    // Open Intercom immediately
-    void showIntercom({ requestId });
-
-    // Check cooldown before uploading
-    const now = Date.now();
-    const timeSinceLastUpload = now - lastLogUploadTime;
-    const isInCooldown = timeSinceLastUpload < LOG_UPLOAD_COOLDOWN_MS;
-
-    if (isInCooldown) {
-      const remainingSeconds = Math.ceil(
-        (LOG_UPLOAD_COOLDOWN_MS - timeSinceLastUpload) / 1000,
-      );
-      console.log(
-        `[ContactSupport] Log upload in cooldown, skipping. Retry in ${remainingSeconds}s`,
-      );
-      setIsUploading(false);
-      return;
-    }
-
-    // Update last upload time
-    lastLogUploadTime = now;
-
-    // Silently upload logs in background (fire and forget)
-    void (async () => {
-      try {
-        // Dynamically import to avoid circular dependencies and reduce initial bundle size
-        const { collectLogDigest, uploadLogBundle } =
-          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs');
-
-        // Generate timestamp-based filename
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-        const fileBaseName = `OneKeyLogs-${timestamp}`;
-
-        // Collect logs and upload silently
-        const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-
-        console.log(
-          '[ContactSupport] Logs uploaded successfully in background',
-        );
-      } catch (error) {
-        // Silent failure - don't show error to user
-        console.warn('[ContactSupport] Failed to upload logs:', error);
-      } finally {
-        setIsUploading(false);
-      }
-    })();
-  }, [requestId]);
-
-  return (
-    <Button
-      testID="provider-token-btn"
-      icon="HelpSupportOutline"
-      size="small"
-      loading={isUploading}
-      disabled={isUploading}
-      onPress={() => {
-        void handlePress();
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.global_contact_us })}
-    </Button>
-  );
+/**
+ * What the actions need from the React tree. A toast is drawn by the platform
+ * from data, so its buttons cannot call hooks themselves: the container that
+ * shows the toast supplies these.
+ */
+export interface IErrorActionDeps {
+  intl: IntlShape;
+  copyText: (text: string) => void;
+  // Platform-aware entry: moves extension popup/side-panel to an expanded tab
+  // and checks device reachability before pushing the change-log modal.
+  openChangeLogModal: (params: { connectId: string | undefined }) => unknown;
 }
 
-function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
-  const intl = useIntl();
-  const { copyText } = useClipboard();
-
-  return (
-    <Button
-      testID="provider-intl-btn"
-      variant="primary"
-      size="small"
-      onPress={() => {
-        void copyText(diagnosticText);
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.global_copy })}
-    </Button>
-  );
+function clearPendingTransactionsAction(intl: IntlShape): IToastAction {
+  return {
+    testID: 'error-toast-clear-pending-tx-btn',
+    variant: 'primary',
+    label: intl.formatMessage({
+      id: ETranslations.settings_clear_pending_transactions,
+    }),
+    onPress: () => {
+      Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.settings_clear_pending_transactions,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.settings_clear_pending_transactions_desc,
+        }),
+        tone: 'destructive',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_clear,
+        }),
+        onConfirm: async () => {
+          await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+          appEventBus.emit(
+            EAppEventBusNames.ClearLocalHistoryPendingTxs,
+            undefined,
+          );
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.global_success,
+            }),
+          });
+        },
+      });
+    },
+  };
 }
 
-function NeedFirmwareUpgradeFromWebButton() {
-  const intl = useIntl();
-
-  return (
-    <Button
-      testID="provider-intl-btn"
-      size="small"
-      onPress={() => {
+export function getErrorAction(
+  {
+    errorCode,
+    connectId,
+    requestId,
+    diagnosticText,
+    i18nKey,
+  }: IErrorActionParams,
+  { intl, copyText, openChangeLogModal }: IErrorActionDeps,
+): IToastAction | IToastAction[] | undefined {
+  // Special case: firmware upgrade button
+  if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
+    return {
+      testID: 'provider-intl-btn',
+      label: intl.formatMessage({ id: ETranslations.update_update_now }),
+      onPress: () => {
         openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.update_update_now })}
-    </Button>
-  );
-}
+      },
+    };
+  }
 
-function NavigateToCloudSyncSwitchButton() {
-  const intl = useIntl();
+  // Firmware compatibility errors and the generic hardware fallback both offer
+  // the existing in-app firmware update flow.
+  // connectId is stamped onto the error by withHardwareProcessing when the
+  // call ran under it; the ChangeLog page resolves the device itself when it
+  // is absent (getCompatibleConnectId returns '' for UPDATE_FIRMWARE without
+  // a connectId).
+  if (
+    errorCode === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+    errorCode === ECustomOneKeyHardwareError.UnknownHardwareError
+  ) {
+    return {
+      testID: 'error-toast-check-firmware-update-btn',
+      label: intl.formatMessage({ id: ETranslations.global_check_for_updates }),
+      onPress: () => {
+        void openChangeLogModal({ connectId });
+      },
+    };
+  }
 
-  return (
-    <Button
-      testID="provider-intl-btn"
-      variant="primary"
-      size="small"
-      onPress={() => {
+  // Cloud sync: navigate to Cloud Sync settings page
+  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncSunsetReminder) {
+    return {
+      testID: 'provider-intl-btn',
+      variant: 'primary',
+      label: intl.formatMessage({ id: ETranslations.switch_now__action }),
+      onPress: () => {
         Toast.dismiss(CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID);
         rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
           screen: EModalRoutes.PrimeModal,
           params: { screen: EPrimePages.PrimeCloudSync },
         });
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.switch_now__action })}
-    </Button>
-  );
-}
-
-function ClearPendingTransactionsButton() {
-  const intl = useIntl();
-
-  return (
-    <Button
-      testID="error-toast-clear-pending-tx-btn"
-      variant="primary"
-      size="small"
-      onPress={() => {
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.settings_clear_pending_transactions,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.settings_clear_pending_transactions_desc,
-          }),
-          tone: 'destructive',
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_clear,
-          }),
-          onConfirm: async () => {
-            await backgroundApiProxy.serviceSetting.clearPendingTransaction();
-            appEventBus.emit(
-              EAppEventBusNames.ClearLocalHistoryPendingTxs,
-              undefined,
-            );
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.global_success,
-              }),
-            });
-          },
-        });
-      }}
-    >
-      {intl.formatMessage({
-        id: ETranslations.settings_clear_pending_transactions,
-      })}
-    </Button>
-  );
-}
-
-export function getErrorAction({
-  errorCode,
-  requestId,
-  diagnosticText,
-  i18nKey,
-}: IErrorActionParams) {
-  // Special case: firmware upgrade button
-  if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
-    return <NeedFirmwareUpgradeFromWebButton />;
-  }
-
-  // Cloud sync: navigate to Cloud Sync settings page
-  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncSunsetReminder) {
-    return <NavigateToCloudSyncSwitchButton />;
+      },
+    };
   }
 
   // Pending queue too long: clear pending transactions button
   if (i18nKey === ETranslations.send_engine_pending_queue_too_long) {
-    return <ClearPendingTransactionsButton />;
+    return clearPendingTransactionsAction(intl);
   }
 
   // Default: show contact support + copy diagnostic info buttons
   if (diagnosticText && requestId) {
     return [
-      <ContactSupportButton key="contact" requestId={requestId} />,
-      <CopyDiagnosticButton key="copy" diagnosticText={diagnosticText} />,
+      {
+        testID: 'provider-token-btn',
+        icon: 'HelpSupportOutline',
+        label: intl.formatMessage({ id: ETranslations.global_contact_us }),
+        onPress: () => {
+          void showIntercom({ requestId });
+        },
+      },
+      {
+        testID: 'provider-intl-btn',
+        variant: 'primary',
+        label: intl.formatMessage({ id: ETranslations.global_copy }),
+        onPress: () => {
+          copyText(diagnosticText);
+        },
+      },
     ];
   }
 

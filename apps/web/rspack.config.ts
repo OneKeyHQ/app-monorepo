@@ -4,6 +4,8 @@ import { createWebConfig } from '../../development/rspack/rspack.web.config';
 
 import { getKeylessEntry } from './src/keylessDeletion/entry';
 
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
 const config = createWebConfig({ basePath: __dirname });
 const devServerConfig = config.devServer;
 
@@ -14,7 +16,11 @@ if (devServerConfig) {
       return [
         {
           name: 'keyless-deletion-page-headers',
-          middleware(request, response, next) {
+          middleware(
+            request: IncomingMessage,
+            response: ServerResponse,
+            next: () => void,
+          ) {
             if (
               getKeylessEntry(new URL(request.url ?? '/', 'http://localhost'))
             ) {

@@ -34,10 +34,62 @@ function renderAutoClose({
       }),
     { initialProps: { enabled, isFocused } },
   );
-  return { ...view, close, onPopStack, onBroadcast };
+  return { ...view, close, onPopStack, onBroadcast, dialogRef };
 }
 
 describe('useSwapModalAutoCloseOnBroadcast', () => {
+  it('acknowledges an old broadcast without closing a new Review', async () => {
+    const { result, onBroadcast, close, onPopStack } = renderAutoClose();
+    await act(async () => {
+      await result.current(() => false);
+    });
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    expect(onPopStack).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current(() => true);
+    });
+    expect(onBroadcast).toHaveBeenCalledTimes(2);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks the Review again after the business acknowledgment', async () => {
+    const acknowledgment = createDeferred();
+    const { result, close, onPopStack } = renderAutoClose({
+      onBroadcast: jest.fn(() => acknowledgment.promise),
+    });
+    let current = true;
+    let completion!: Promise<void>;
+    act(() => {
+      completion = result.current(() => current);
+    });
+    current = false;
+    await act(async () => {
+      acknowledgment.resolve();
+      await completion;
+    });
+    expect(close).not.toHaveBeenCalled();
+    expect(onPopStack).not.toHaveBeenCalled();
+  });
+
+  it('does not pop a new Review opened while the old dialog closes', async () => {
+    const closing = createDeferred();
+    const { result, dialogRef, onPopStack } = renderAutoClose({
+      close: jest.fn(() => closing.promise),
+    });
+    let completion!: Promise<void>;
+    await act(async () => {
+      completion = result.current();
+    });
+    dialogRef.current = { close: jest.fn().mockResolvedValue(undefined) };
+    await act(async () => {
+      closing.resolve();
+      await completion;
+    });
+    expect(onPopStack).not.toHaveBeenCalled();
+    expect(dialogRef.current.close).not.toHaveBeenCalled();
+  });
+
   it('closes the owned review dialog before popping the focused Swap modal', async () => {
     const { result, close, onPopStack } = renderAutoClose();
 

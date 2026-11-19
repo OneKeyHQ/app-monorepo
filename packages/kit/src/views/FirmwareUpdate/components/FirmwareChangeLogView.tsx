@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -25,11 +25,16 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
+  useDevSettingsPersistAtom,
+  useFirmwareUpdateDevSettingsPersistAtom,
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -38,12 +43,68 @@ import type {
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
+import {
+  getFirmwareUpdateUSBPreflightParams,
+  getProtocolV2FirmwareVersionDisplayItems,
+  getProtocolV2FirmwareVersionTitle,
+  shouldHidePro2FirmwareDebugInfo,
+} from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
+
+import type { IProtocolV2FirmwareVersionDisplayItem } from '../utils';
+
+function FirmwareVersionOnlyProgressText({
+  fromVersion = '',
+  toVersion,
+  active,
+}: {
+  fromVersion?: string | null;
+  toVersion?: string | null;
+  active: boolean;
+}) {
+  const { versionValid, unknownMessage } = useFirmwareVersionValid();
+  const textColor = active ? '$text' : '$textSubdued';
+  const versionTextProps = {
+    size: '$bodyLgMedium',
+    minWidth: 0,
+    flexShrink: 1,
+    numberOfLines: 1,
+  } as const;
+  const fromVersionText = versionValid(fromVersion ?? '')
+    ? fromVersion
+    : unknownMessage;
+  const toVersionText = versionValid(toVersion ?? '')
+    ? toVersion
+    : unknownMessage;
+
+  return (
+    <XStack alignItems="center" gap="$1.5" minWidth={0} flexShrink={1}>
+      <SizableText {...versionTextProps} color={textColor}>
+        {fromVersionText}
+      </SizableText>
+      {toVersion ? (
+        <>
+          <Icon
+            name="ArrowRightSolid"
+            size="$4"
+            color={textColor}
+            flexShrink={0}
+          />
+          <SizableText {...versionTextProps} color={textColor}>
+            {toVersionText}
+          </SizableText>
+        </>
+      ) : null}
+    </XStack>
+  );
+}
 
 function ChangeLogMarkdown({
   changelog,
@@ -73,9 +134,15 @@ function ChangeLogSection({
   title,
   updateInfo,
   accordionValue,
+  versionOnly,
+  fromVersion,
+  toVersion,
 }: {
   title: string;
   accordionValue: string;
+  versionOnly?: boolean;
+  fromVersion?: string | null;
+  toVersion?: string | null;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
@@ -110,14 +177,7 @@ function ChangeLogSection({
       >
         {({ open }: { open: boolean }) => (
           <>
-            <XStack
-              ai="center"
-              gap="$1.5"
-              flex={1}
-              minWidth={0}
-              flexShrink={1}
-              flexWrap="wrap"
-            >
+            <XStack ai="center" gap="$1.5" flex={1} minWidth={0} flexShrink={1}>
               <SizableText
                 size="$bodyLgMedium"
                 color={open ? '$text' : '$textSubdued'}
@@ -125,17 +185,25 @@ function ChangeLogSection({
               >
                 {title}
               </SizableText>
-              <FirmwareVersionProgressText
-                fromVersion={updateInfo?.fromVersion}
-                fromFirmwareType={updateInfo?.fromFirmwareType}
-                toVersion={updateInfo?.toVersion}
-                toFirmwareType={updateInfo?.toFirmwareType}
-                githubReleaseUrl={updateInfo?.githubReleaseUrl}
-                active={open}
-              />
+              {versionOnly ? (
+                <FirmwareVersionOnlyProgressText
+                  fromVersion={fromVersion ?? updateInfo?.fromVersion}
+                  toVersion={toVersion ?? updateInfo?.toVersion}
+                  active={open}
+                />
+              ) : (
+                <FirmwareVersionProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  fromFirmwareType={updateInfo?.fromFirmwareType}
+                  toVersion={updateInfo?.toVersion}
+                  toFirmwareType={updateInfo?.toFirmwareType}
+                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                  active={open}
+                />
+              )}
             </XStack>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
               flexShrink={0}
@@ -149,9 +217,9 @@ function ChangeLogSection({
           </>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           px="$5"
@@ -167,6 +235,48 @@ function ChangeLogSection({
   );
 }
 
+function ProtocolV2VersionSection({
+  item,
+}: {
+  item: IProtocolV2FirmwareVersionDisplayItem;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+      minWidth={0}
+      px="$5"
+      py="$3"
+    >
+      <SizableText size="$bodyLgMedium" color="$textSubdued" flexShrink={0}>
+        {getProtocolV2FirmwareVersionTitle({ target: item.target, intl })}
+      </SizableText>
+      {item.releaseIdentifierOnly ? (
+        <SizableText
+          size="$bodyLgMedium"
+          color="$textSubdued"
+          minWidth={0}
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {item.targetVersion ??
+            intl.formatMessage({
+              id: ETranslations.hardware_status_update_available,
+            })}
+        </SizableText>
+      ) : (
+        <FirmwareVersionOnlyProgressText
+          fromVersion={item.currentVersion}
+          toVersion={item.targetVersion}
+          active={false}
+        />
+      )}
+    </XStack>
+  );
+}
+
 export function FirmwareChangeLogContentView({
   result,
   ...rest
@@ -174,12 +284,54 @@ export function FirmwareChangeLogContentView({
   result: ICheckAllFirmwareReleaseResult | undefined;
 } & IStackProps) {
   const intl = useIntl();
-  const defaultExpandedSections = useMemo(() => {
-    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
-    if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
+  const [devSettings] = useDevSettingsPersistAtom();
+  const [firmwareDevSettings] = useFirmwareUpdateDevSettingsPersistAtom();
+  const hideDebugInfo = shouldHidePro2FirmwareDebugInfo({
+    developerModeEnabled: devSettings.enabled,
+    hidePro2FirmwareDebugInfo: firmwareDevSettings.hidePro2FirmwareDebugInfo,
+    deviceType: result?.deviceType,
+  });
+  const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
+    result,
+    { includeComponents: devSettings.enabled && !hideDebugInfo },
+  );
+  const [safeOSItem, ...componentItems] = protocolV2VersionItems;
+  if (safeOSItem) {
+    return (
+      <Stack {...rest}>
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="single"
+          defaultValue="safeos"
+          collapsible
+        >
+          <ChangeLogSection
+            title="SafeOS"
+            updateInfo={result?.updateInfos?.firmware}
+            accordionValue="safeos"
+            versionOnly
+            fromVersion={safeOSItem.currentVersion}
+            toVersion={safeOSItem.targetVersion}
+          />
+        </Accordion>
+        {componentItems.map((item) => (
+          <ProtocolV2VersionSection key={item.target} item={item} />
+        ))}
+      </Stack>
+    );
+  }
+
+  const defaultExpandedSections = (() => {
+    if (result?.updateInfos?.firmware?.hasUpgrade) {
+      return 'firmware';
+    }
+    if (result?.updateInfos?.bootloader?.hasUpgrade) {
+      return 'bootloader';
+    }
     if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
     return undefined;
-  }, [result?.updateInfos]);
+  })();
 
   return (
     <Stack {...rest}>
@@ -301,32 +453,92 @@ export function FirmwareChangeFirmwareWarn({
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
+  onRetryClick,
+  usbSuggestionAcknowledged,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
+  onRetryClick?: () => void | Promise<void>;
+  /** The entry that opened this page already showed the USB suggestion. */
+  usbSuggestionAcknowledged?: boolean;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const { showCheckList } = useFirmwareUpdateActions();
+  const { showCheckList, confirmUpdateViaBluetooth } =
+    useFirmwareUpdateActions();
+  // "Continue via Bluetooth" answers the suggestion for this page: closing
+  // the checklist and tapping "Update now" again does not ask a second time.
+  const continuedViaBluetoothRef = useRef(false);
 
   const handleConfirmClick = useCallback(async () => {
-    const isUSBDeviceAvailable =
-      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
-    if (!isUSBDeviceAvailable) {
-      Dialog.show({
-        icon: 'TypeCoutline',
-        title: intl.formatMessage({
-          id: ETranslations.upgrade_use_usb,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.upgrade_recommend_usb,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_got_it,
-        }),
-        showCancelButton: false,
-      });
+    if (onRetryClick) {
+      await onRetryClick();
       return;
+    }
+    if (platformEnv.isDesktop) {
+      const usbPreflightParams =
+        await getFirmwareUpdateUSBPreflightParams(result);
+      let isUSBDeviceAvailable: boolean;
+      try {
+        isUSBDeviceAvailable =
+          await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+            usbPreflightParams,
+          );
+      } catch (error) {
+        if (
+          !isHardwareErrorByCode({
+            error: error as IOneKeyError,
+            code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          })
+        ) {
+          throw error;
+        }
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
+      if (!isUSBDeviceAvailable) {
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.upgrade_use_usb,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.upgrade_recommend_usb,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
+    }
+    if (
+      !usbSuggestionAcknowledged &&
+      !continuedViaBluetoothRef.current &&
+      shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: platformEnv.isNative,
+        deviceType: result?.deviceType,
+        estimatedTransferBytes: result?.estimatedTransferBytes,
+      })
+    ) {
+      const shouldContinue = await confirmUpdateViaBluetooth();
+      if (!shouldContinue) {
+        return;
+      }
+      continuedViaBluetoothRef.current = true;
     }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
@@ -346,7 +558,16 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+  }, [
+    result,
+    showCheckList,
+    onConfirmClick,
+    onRetryClick,
+    setStepInfo,
+    intl,
+    confirmUpdateViaBluetooth,
+    usbSuggestionAcknowledged,
+  ]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 
@@ -359,7 +580,9 @@ export function FirmwareChangeLogView({
     <>
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({
-          id: ETranslations.update_update_now,
+          id: onRetryClick
+            ? ETranslations.global_retry
+            : ETranslations.update_update_now,
         })}
         onConfirm={handleConfirmClick}
         confirmButtonProps={{

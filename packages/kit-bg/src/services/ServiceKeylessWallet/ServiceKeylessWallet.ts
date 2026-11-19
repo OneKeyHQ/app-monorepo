@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -57,11 +58,13 @@ import type {
   IKeylessRealmOperation,
   IKeylessRealmTokenDiagnosticContext,
 } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { IOneKeyIdAuthFailureTrigger } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -99,9 +102,16 @@ function loadKeylessOAuthAccessTokenUtils() {
   return import('./utils/keylessOAuthAccessToken');
 }
 
-function logMaskedKeylessError(stage: string, error: unknown) {
+function logMaskedKeylessError(
+  stage: string,
+  error: unknown,
+  // Unset for stages shared by user flows and passive migrations.
+  trigger?: IOneKeyIdAuthFailureTrigger,
+) {
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: `${stage}: ${getSanitizedErrorLogText(error)}`,
+    trigger,
+    error,
   });
 }
 
@@ -256,6 +266,14 @@ type IKeylessBackendShareV2MigrationIdentity = {
 };
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
+  /**
+   * Keyless payload crypto runs outside IndexedDB transaction callbacks. Keep
+   * callers outside those callbacks before selecting the async WebCrypto KDF.
+   */
+  private getKeylessNonDbKdfParams() {
+    return getPbkdf2KdfParamsForNonDbTx();
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -313,6 +331,11 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string,
     operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
+    if (platformEnv.isNativeIOSMacCatalyst) {
+      throw new OneKeyLocalError(
+        'Keyless wallets are unavailable on Mac Catalyst',
+      );
+    }
     const diagnosticContext =
       await this.buildKeylessRealmTokenDiagnosticContext({
         operation,
@@ -440,6 +463,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_MNEMONIC_GCM_AAD,
+      ...this.getKeylessNonDbKdfParams(),
     });
   }
 
@@ -461,6 +485,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_MNEMONIC_GCM_AAD,
       sharedScene: EAppCryptoSharedEncryptScene.keylessMnemonic,
+      ...this.getKeylessNonDbKdfParams(),
     });
   }
 
@@ -713,6 +738,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return this.assertKeylessBackendSharePayload(JSON.parse(decryptedJson));
@@ -734,6 +760,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
       sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
@@ -790,6 +817,7 @@ class ServiceKeylessWallet extends ServiceBase {
           iterations: KEYLESS_ENCRYPTION_ITERATIONS,
           mode: EAppCryptoAesEncryptionMode.gcm,
           aad,
+          ...this.getKeylessNonDbKdfParams(),
         });
         return {
           backendShareData: this.assertKeylessBackendSharePayload(
@@ -824,6 +852,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: this.getKeylessBackendSharePayloadV2Aad({ hashId }),
       sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2}${encryptedPayload}`;
@@ -2083,6 +2112,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet passive backend-share migration failed and was downgraded to a result status',
         error,
+        'passive',
       );
       if (this.isKeylessPassiveMigrationNetworkLikeError(error)) {
         // Roll back the throttle write so the next natural trigger (app
@@ -2912,6 +2942,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet current OneKey ID session refresh failed during Keyless creation preparation',
         error,
+        'interactive',
       );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
@@ -3764,6 +3795,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet OAuth access token refresh preparation failed and was downgraded to a recovery status',
         error,
+        'interactive',
       );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
@@ -3968,6 +4000,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet PIN confirmation status update failed after successful verification',
         error,
+        'interactive',
       );
       return false;
     }
@@ -4024,7 +4057,8 @@ class ServiceKeylessWallet extends ServiceBase {
 
       if (!response.ok) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned HTTP ${response.status}`,
+          reason: `ServiceKeylessWallet auth server health check returned an HTTP error: ${response.status}`,
+          trigger: 'interactive',
         });
         return false;
       }
@@ -4033,9 +4067,10 @@ class ServiceKeylessWallet extends ServiceBase {
       const isHealthy = result?.status === 'ok';
       if (!isHealthy) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned status=${String(
+          reason: `ServiceKeylessWallet auth server health check returned an unhealthy status: ${String(
             result?.status || 'missing',
           )}`,
+          trigger: 'interactive',
         });
       }
       return isHealthy;
@@ -4044,6 +4079,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet auth server health check failed and was downgraded to unhealthy',
         error,
+        'interactive',
       );
       return false;
     }

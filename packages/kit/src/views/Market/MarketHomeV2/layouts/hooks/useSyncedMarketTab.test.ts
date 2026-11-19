@@ -4,7 +4,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import type { ITabContainerRef } from '@onekeyhq/components';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 
 import { useSyncedMarketTab } from './useSyncedMarketTab';
 
@@ -36,7 +36,9 @@ describe('useSyncedMarketTab', () => {
       return frameId;
     });
     globalThis.cancelAnimationFrame = jest.fn((frameId) => {
-      frameCallbacks.delete(frameId);
+      if (frameId !== null && frameId !== undefined) {
+        frameCallbacks.delete(frameId);
+      }
     });
   });
 
@@ -55,7 +57,7 @@ describe('useSyncedMarketTab', () => {
     const onBeforeJumpToTab = jest.fn(() => {
       shouldDefer = true;
     });
-    const tabContainerRef: ITabContainerRef = {
+    const tabContainerRef: IAppPagerRef = {
       getCurrentIndex: jest.fn(() => 2),
       getFocusedTab: jest.fn(() => focusedTab),
       jumpToTab,
@@ -104,7 +106,7 @@ describe('useSyncedMarketTab', () => {
     let focusedTab = 'Stocks';
     const jumpToTab = jest.fn();
     const syncCurrentPage = jest.fn();
-    const tabContainerRef: ITabContainerRef = {
+    const tabContainerRef: IAppPagerRef = {
       getCurrentIndex: jest.fn(() => 2),
       getFocusedTab: jest.fn(() => focusedTab),
       jumpToTab,

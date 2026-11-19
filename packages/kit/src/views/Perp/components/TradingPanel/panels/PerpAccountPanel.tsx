@@ -9,6 +9,7 @@ import {
   DebugRenderTracker,
   IconButton,
   SizableText,
+  Skeleton,
   Tooltip,
   XStack,
   YStack,
@@ -26,10 +27,24 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { usePerpsAccountSummaryLabels } from '../../../hooks/usePerpsAccountSummaryLabels';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
+import { PerpTestIDs } from '../../../testIDs';
 import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
+import { PerpsMarginRatioGauge } from '../components/PerpsMarginRatioGauge';
+import { showMarginRatioRiskDialog } from '../modals/MarginRatioRiskDialog';
+
+export const PerpAccountPanelTitle = memo(function PerpAccountPanelTitle() {
+  const intl = useIntl();
+  const { title } = usePerpsAccountSummaryLabels();
+  return (
+    <SizableText size="$bodyMdMedium">
+      {intl.formatMessage({ id: title })}
+    </SizableText>
+  );
+});
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -48,8 +63,9 @@ export function PerpAccountDebugInfo() {
 }
 
 function PerpAccountMMRView() {
-  const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
+  const [{ mmr, mmrPercent, status }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
+  const { ratio } = usePerpsAccountSummaryLabels();
   const mmrColor = (() => {
     const pct = parseFloat(mmrPercent ?? '0');
     if (pct <= 40) return '$green11';
@@ -72,24 +88,52 @@ function PerpAccountMMRView() {
         dashThickness={1}
       >
         {intl.formatMessage({
-          id: ETranslations.perp_account_cross_margin_ration,
+          id: ratio,
         })}
       </DashText>
     ),
-    [intl],
+    [intl, ratio],
   );
 
-  if (mmrPercent) {
+  const isLoading = status === 'loading';
+  if (mmrPercent || isLoading) {
     return (
-      <XStack justifyContent="space-between">
+      <XStack justifyContent="space-between" alignItems="center">
         <Tooltip
           placement="top"
           renderContent={mmrTooltipContent}
           renderTrigger={mmrTooltipTrigger}
         />
-        <SizableText size="$bodySmMedium" color={mmrColor}>
-          {mmrPercent}%
-        </SizableText>
+        {isLoading ? (
+          // Reserve space for the gauge and "00.00%" while loading.
+          <Skeleton width={66} height={16} />
+        ) : (
+          <Button
+            testID={PerpTestIDs.MarginRatioRiskButton}
+            variant="link"
+            childrenAsText={false}
+            p="$0"
+            m="$0"
+            borderWidth={0}
+            alignItems="baseline"
+            gap="$1.5"
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.perp_margin_ratio_risk_levels__title,
+            })}
+            onPress={() => showMarginRatioRiskDialog(intl)}
+          >
+            <PerpsMarginRatioGauge ratio={Number(mmr)} />
+            <DashText
+              size="$bodySmMedium"
+              color={mmrColor}
+              cursor="pointer"
+              dashThickness={1}
+              dashOverlay
+            >
+              {mmrPercent}%
+            </DashText>
+          </Button>
+        )}
       </XStack>
     );
   }
@@ -174,6 +218,7 @@ function PerpAccountPanel() {
   const content = (
     <YStack flex={1} gap="$4" px="$2.5" pb="$4">
       <YStack flex={1} gap="$2.5">
+        <PerpAccountMMRView />
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <Tooltip
@@ -183,6 +228,7 @@ function PerpAccountPanel() {
           />
           <PerpsAccountNumberValue
             value={computedValue?.accountValue ?? ''}
+            isPartial={computedValue?.isAccountValuePartial}
             skeletonWidth={70}
           />
         </XStack>
@@ -218,7 +264,6 @@ function PerpAccountPanel() {
             skeletonWidth={70}
           />
         </XStack>
-        <PerpAccountMMRView />
         {userAddress ? (
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued" cursor="default">

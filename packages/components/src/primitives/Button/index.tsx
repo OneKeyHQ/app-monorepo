@@ -182,22 +182,26 @@ const useSizeStyles = (size: IButtonProps['size']) =>
   }, [size]);
 
 export const ButtonFrame = styled(ThemeableStack, {
-  tag: 'button',
+  // `type="button"` is load-bearing: inside a <form>, a <button> without a type
+  // is a submit button. The first one becomes the form's default button, so a
+  // key press in a text field would activate that button (pasting into the
+  // address field, opening a picker) and submit instead of doing nothing. Only
+  // `Form`'s hidden submit button may opt into `type="submit"`.
+  // The accessible label is supplied by ButtonFrame children at render time.
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label
+  render: <button type="button" />,
   role: 'button',
-  type: 'button',
   flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
   borderRadius: '$full',
-} as IButtonProps);
+});
 
 function ButtonIcon({
   size,
   ...props
 }: Pick<IButtonProps, 'size'> & Omit<IIconProps, 'size'>) {
-  return (
-    <Icon aria-hidden size={size === 'small' ? '$4.5' : '$5'} {...props} />
-  );
+  return <Icon size={size === 'small' ? '$4.5' : '$5'} {...props} />;
 }
 
 type ISharedFrameStylesProps = {
@@ -355,7 +359,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
                 : buttonTextColor
             }
             textAlign={textAlign}
-            ellipse={textEllipsis}
+            ellipsis={textEllipsis}
           >
             {children}
           </SizableText>

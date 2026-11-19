@@ -1,0 +1,31 @@
+diff --git a/node_modules/react-native/React/Views/RCTBorderDrawing.m b/node_modules/react-native/React/Views/RCTBorderDrawing.m
+index 472885c..b95da78 100644
+--- a/node_modules/react-native/React/Views/RCTBorderDrawing.m
++++ b/node_modules/react-native/React/Views/RCTBorderDrawing.m
+@@ -229,7 +229,9 @@ static UIImage *RCTGetSolidBorderImage(
+   // Rdar: http://www.openradar.me/15959788
+   borderInsets = RCTRoundInsetsToPixel(borderInsets);
+ 
+-  const BOOL makeStretchable =
++  // OneKey patch: upstream decides `makeStretchable` here; it is now decided below, once the slice sizes are known.
++  // const BOOL makeStretchable =
++  const BOOL bordersFitInView =
+       (borderInsets.left + cornerInsets.topLeft.width + borderInsets.right + cornerInsets.bottomRight.width <=
+        viewSize.width) &&
+       (borderInsets.left + cornerInsets.bottomLeft.width + borderInsets.right + cornerInsets.topRight.width <=
+@@ -245,6 +247,15 @@ static UIImage *RCTGetSolidBorderImage(
+                      borderInsets.bottom + MAX(cornerInsets.bottomLeft.height, cornerInsets.bottomRight.height),
+                      borderInsets.right + MAX(cornerInsets.bottomRight.width, cornerInsets.topRight.width)};
+ 
++  // OneKey patch: the stretchable image below rounds every fixed edge slice up to a whole point, and
++  // CALayer.contentsCenter is undefined once the layer is smaller than its fixed slices. A box as thin as its own
++  // one-sided hairline border (a zero-height separator) got a 1pt slice squeezed into a 1px layer and lost its line,
++  // or kept it, depending on float rounding of the layer's size. Stretch only when the rounded slices and the 1pt
++  // center fit; otherwise draw the image at the view's own size, which is always exact.
++  const BOOL makeStretchable = bordersFitInView &&
++      (ceil(edgeInsets.left) + 1 + ceil(edgeInsets.right) <= viewSize.width) &&
++      (ceil(edgeInsets.top) + 1 + ceil(edgeInsets.bottom) <= viewSize.height);
++
+   const CGSize size = makeStretchable ? (CGSize){
+     // 1pt for the middle stretchable area along each axis
+     // we also need to round the edge insets to avoid border bleeding

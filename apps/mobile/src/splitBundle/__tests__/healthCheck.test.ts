@@ -16,6 +16,7 @@ beforeEach(() => {
     }),
   );
   (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+  (globalThis as any).__ONEKEY_RUNTIME_POLYFILLS_READY__ = 1;
   (globalThis as any).__SEGMENT_MANIFEST__ = {
     segments: {
       'seg:one': {
@@ -40,6 +41,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
+  delete (globalThis as any).__ONEKEY_RUNTIME_POLYFILLS_READY__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__loadBundleAsync;
   delete (globalThis as any).__METRO_GLOBAL_PREFIX__;

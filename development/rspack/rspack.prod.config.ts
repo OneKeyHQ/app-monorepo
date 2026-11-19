@@ -28,12 +28,14 @@ interface IProdConfigOptions {
   platform: string;
   basePath: string;
   dropConsole?: boolean;
+  compressPasses?: number;
 }
 
 export function createProductionConfig({
   platform,
   basePath,
   dropConsole,
+  compressPasses = 2,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
@@ -70,6 +72,7 @@ export function createProductionConfig({
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
+              passes: compressPasses,
               // Preserve dependency runtime logging; first-party console calls
               // are stripped earlier by the scoped Babel rule.
               drop_console: shouldDropConsole,
@@ -136,10 +139,30 @@ export function createProductionConfig({
                 priority: 30,
                 reuseExistingChunk: true,
               },
+              ...(isWeb
+                ? {
+                    dateFnsVendor: {
+                      // Keep eager date utilities in one stable package group.
+                      // Otherwise small dependency updates can split the generic
+                      // vendor group into an additional initial request.
+                      // Initial-only keeps async-only locales out of startup.
+                      test: /[\\/]node_modules[\\/]date-fns[\\/]/,
+                      name: 'vendor-date-fns',
+                      chunks: 'initial' as const,
+                      priority: 20,
+                      reuseExistingChunk: true,
+                    },
+                  }
+                : {}),
               cryptoVendor: {
+                // 'initial' for the same reason as lodashVendor: with 'all',
+                // crypto copies used solely by async SDK chunks (e.g. the
+                // nested @noble/hashes and @scure/base bundled under
+                // @walletconnect/utils and @alephium/web3) are merged into
+                // this named chunk and dragged onto first paint.
                 test: /[\\/]node_modules[\\/](@noble|@scure|ethers|bn\.js|elliptic|hash\.js|browserify)[\\/]/,
                 name: 'vendor-crypto',
-                chunks: 'all' as const,
+                chunks: 'initial' as const,
                 priority: 20,
                 reuseExistingChunk: true,
               },

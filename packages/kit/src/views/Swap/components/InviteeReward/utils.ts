@@ -2,7 +2,6 @@ import type {
   ISwapInviteeRewardsParams,
   ISwapInviteeRewardsResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -19,27 +18,24 @@ function shouldShowSwapInviteeRewardAction({
   );
 }
 
-export type ISwapInviteeRewardActionPlacement =
+export type ISwapActivityHubActionPlacement =
   | 'desktopHeader'
-  | 'mobileSettings'
-  | 'swapHeader'
+  | 'settings'
   | 'hidden';
 
-export function getSwapInviteeRewardActionPlacement({
+export function getSwapActivityHubActionPlacement({
   isDesktop,
   isMediumLayout,
   isModal,
-  isNative,
   pendingRouteSwapType,
   swapTypeSwitch,
 }: {
   isDesktop: boolean;
   isMediumLayout: boolean;
   isModal?: boolean;
-  isNative?: boolean;
   pendingRouteSwapType?: ESwapTabSwitchType;
   swapTypeSwitch?: ESwapTabSwitchType;
-}): ISwapInviteeRewardActionPlacement {
+}): ISwapActivityHubActionPlacement {
   if (
     !shouldShowSwapInviteeRewardAction({
       isModal,
@@ -49,11 +45,9 @@ export function getSwapInviteeRewardActionPlacement({
     return 'hidden';
   }
 
-  if (isNative) {
-    return 'mobileSettings';
-  }
-
-  return isDesktop && !isMediumLayout ? 'desktopHeader' : 'swapHeader';
+  // Only the wide desktop header has room for its own gift button; every other
+  // surface reaches the activity hub through the Swap settings sheet.
+  return isDesktop && !isMediumLayout ? 'desktopHeader' : 'settings';
 }
 
 interface ISwapInviteeWalletInfo {
@@ -69,10 +63,6 @@ export function isSwapInviteeRewardWalletSupported(
 }
 
 interface ILoadSwapInviteeRewardDependencies {
-  ethNetworkId: string;
-  getReferralCodeWalletInfo: (params: {
-    walletId: string;
-  }) => Promise<ISwapInviteeWalletInfo | null>;
   getSwapInviteeRewards: (
     params: ISwapInviteeRewardsParams,
   ) => Promise<ISwapInviteeRewardsResponse>;
@@ -91,30 +81,17 @@ export type ILoadSwapInviteeRewardResult =
     };
 
 export async function loadSwapInviteeReward({
-  accountId,
   currentEvmAddress,
   dependencies,
 }: {
-  accountId: string;
   currentEvmAddress?: string;
   dependencies: ILoadSwapInviteeRewardDependencies;
 }): Promise<ILoadSwapInviteeRewardResult> {
+  if (!currentEvmAddress) {
+    return { status: 'unsupported' };
+  }
+
   try {
-    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    const walletInfo = await dependencies.getReferralCodeWalletInfo({
-      walletId,
-    });
-
-    if (
-      !isSwapInviteeRewardWalletSupported(walletInfo, dependencies.ethNetworkId)
-    ) {
-      return { status: 'unsupported' };
-    }
-
-    if (!currentEvmAddress) {
-      return { status: 'unsupported' };
-    }
-
     const data = await dependencies.getSwapInviteeRewards({
       walletAddress: currentEvmAddress,
     });

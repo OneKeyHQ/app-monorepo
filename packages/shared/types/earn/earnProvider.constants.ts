@@ -11,6 +11,7 @@ import {
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '../../src/consts/addresses';
 import { EEarnProviderEnum } from '../earn';
@@ -109,6 +110,8 @@ export const isSupportStaking = (symbol: string) =>
     'WBTC',
     'U',
     'BTW',
+    'VBUSDC',
+    'XAUT',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
@@ -172,6 +175,9 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'plasmausd': 'PlasmaUSD',
     'wsteth': 'wstETH',
     'weeth': 'weETH',
+    'eeth': 'eETH',
+    'steth': 'stETH',
+    'ebtc': 'eBTC',
     'ausdt0': 'aUSDT0',
     'stcusd': 'stcUSD',
     'khype': 'kHYPE',
@@ -179,6 +185,7 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'u': 'U',
     'btw': 'BTW',
     'vbusdc': 'vbUSDC',
+    'xaut': 'XAUt',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -200,7 +207,9 @@ export function normalizeToEarnProvider(
     'momentum': EEarnProviderEnum.Momentum,
     'native': EEarnProviderEnum.Native,
     'spark': EEarnProviderEnum.Spark,
+    'etherfi': EEarnProviderEnum.EtherFi,
     'bitway': EEarnProviderEnum.Bitway,
+    'unitas': EEarnProviderEnum.Unitas,
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
@@ -269,6 +278,12 @@ export function getImportFromToken({
       }
       break;
     }
+    case networkIdsMap.katana: {
+      if (tokenAddress.toLowerCase() === KatanaVbUSDC.toLowerCase()) {
+        importFromToken = earnTradeDefaultSetUSDC;
+      }
+      break;
+    }
     case networkIdsMap.sol: {
       importFromToken = earnTradeDefaultSetSOL;
       break;
@@ -327,7 +342,10 @@ export function getSymbolSupportedNetworks(): Record<
     'slisBNBx': [networkIdsMap.bsc],
     'PlasmaUSD': [PlasmaNetworkId],
     'wstETH': [networkIdsMap.eth],
-    'weETH': [networkIdsMap.arbitrum],
+    'weETH': [networkIdsMap.arbitrum, networkIdsMap.eth],
+    'eETH': [networkIdsMap.eth],
+    'stETH': [networkIdsMap.eth],
+    'eBTC': [networkIdsMap.eth],
     'aUSDT0': [PlasmaNetworkId],
     'stcUSD': [networkIdsMap.eth],
     'kHYPE': [networkIdsMap.hyperevm],
@@ -336,5 +354,6 @@ export function getSymbolSupportedNetworks(): Record<
     'U': [networkIdsMap.bsc],
     'BTW': [networkIdsMap.bsc],
     'vbUSDC': [networkIdsMap.katana],
+    'XAUt': [networkIdsMap.bsc],
   };
 }

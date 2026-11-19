@@ -67,7 +67,7 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      {...(searchBarMinWidth as any)}
+      {...searchBarMinWidth}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
@@ -92,6 +92,7 @@ export function UniversalSearchInput({
         ]}
       />
       <View
+        testID="home-header-search-btn"
         position="absolute"
         top={0}
         left={0}

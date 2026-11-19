@@ -31,6 +31,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
+  getUtxoHistoryDisplayValue,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -56,6 +57,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
@@ -63,7 +65,6 @@ import type {
   IEstimateGasResp,
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
-  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -77,7 +78,10 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -97,6 +101,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 import type {
@@ -112,7 +117,10 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
+import { ESignedTxBroadcastStatus } from '../types';
+
 import { VaultContext } from './VaultContext';
+import { keyringMapSupportsAccount } from './walletTypeSupport';
 
 import type { KeyringBase } from './KeyringBase';
 import type {
@@ -121,6 +129,7 @@ import type {
   IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
+import type { ILocalWalletCapability } from '../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -134,6 +143,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  IPreActionsBeforeSendingParams,
   ISignTransactionParams,
   ITransferInfo,
   ITransferPayload,
@@ -154,6 +164,7 @@ export type IKeyringMap = Record<
 > & {
   hwLedger?: typeof KeyringBase | undefined;
   hwTrezor?: typeof KeyringBase | undefined;
+  hwKeystone?: typeof KeyringBase | undefined;
 };
 
 if (platformEnv.isExtensionUi) {
@@ -198,6 +209,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   // async getDisplayAddress(address: string): Promise<string> {
 
   abstract validateAddress(address: string): Promise<IAddressValidation>;
+
+  // Address forms a watch-only account can be built on; a send recipient may take more.
+  async validateWatchingAddress(address: string): Promise<IAddressValidation> {
+    return this.validateAddress(address);
+  }
 
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
 
@@ -412,10 +428,36 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  /**
+   * Bulk send fetches sender balances through the search-batch endpoint, keyed
+   * by address rather than by this vault's account. Only address-agnostic
+   * adjustments (e.g. a chain-wide native reserve) belong here; account-bound
+   * logic in `fillTokensDetails` must not be applied to other senders.
+   */
+  async fillTokensDetailsBatch({
+    tokensDetailsBatch,
+  }: {
+    tokensDetailsBatch: IFetchTokenDetailBatchResp;
+  }) {
+    return Promise.resolve(tokensDetailsBatch);
+  }
+
   async verifyMessage(params: IVerifyMessageParams) {
     return Promise.resolve({
       valid: false,
     });
+  }
+
+  // Client-scanned chains return their scheduler/UI contract here;
+  // server-indexed chains return undefined.
+  getLocalWalletCapability(): ILocalWalletCapability | undefined {
+    return undefined;
+  }
+
+  // Whether this chain has a keyring for the wallet that owns `accountId`,
+  // so the UI never offers a control the chain cannot back.
+  supportsAccountWalletType(_params: { accountId: string }): boolean {
+    return true;
   }
 }
 
@@ -427,6 +469,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   keyring!: KeyringBase;
 
   abstract keyringMap: IKeyringMap;
+
+  override supportsAccountWalletType({
+    accountId,
+  }: {
+    accountId: string;
+  }): boolean {
+    return keyringMapSupportsAccount({
+      keyringMap: this.keyringMap,
+      accountId,
+    });
+  }
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -460,6 +513,96 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     unsignedTx: IUnsignedTxPro,
   ): Promise<IUnsignedTxPro> {
     return unsignedTx;
+  }
+
+  // Override in chain vaults whose tx carries a short-lived field (e.g. the
+  // Solana blockhash) that must be re-stamped right before signing, after
+  // the user confirmed but before hardware PIN/passphrase/confirm can run
+  // the validity window out. Only called for txs the wallet broadcasts.
+  async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    return unsignedTx;
+  }
+
+  // Override in chain vaults that can tell whether a signed payload reached
+  // the network. A retry after an ambiguous broadcast failure (request
+  // timeout, custom RPC accepted but the server record failed) asks this
+  // before signing again: Broadcast replays the landed tx, NotBroadcast signs
+  // a fresh one, Unknown keeps the chain's pre-OK-65147 retry behavior.
+  async checkSignedTxBroadcastStatus(_params: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    // A node returned a txid for this payload on an earlier attempt.
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return ESignedTxBroadcastStatus.Unknown;
+  }
+
+  // Override to recognize broadcast errors that prove the node never
+  // accepted the payload (e.g. a preflight rejection), so a retry can sign
+  // again at once instead of waiting for a chain verdict.
+  async isSignedTxRejectedByBroadcast(
+    _error: unknown,
+    // The route this broadcast took, which the stored custom RPC setting
+    // alone does not tell.
+    _options?: { useDefaultRpc?: boolean },
+  ): Promise<boolean> {
+    return false;
+  }
+
+  // Override in chain vaults that can prove the chain accepts at most one of
+  // an earlier signed payload and the tx about to be signed (same sender
+  // nonce, a shared UTXO input). A retry whose earlier broadcast has no
+  // verdict signs again only when this holds; otherwise the stored payload
+  // is sent again, because a tx built on fresh inputs or a fresh nonce pays
+  // a second time when the first one did land (OK-67090). The default keeps
+  // the earlier retry behavior of chains that have no such proof.
+  // An override throws when neither holds: the tx no longer matches the
+  // stored payload, so sending that again would not do what the caller
+  // shows, and signing it could execute next to the earlier one. The retry
+  // then stops and the record is kept.
+  async isUnsignedTxConflictingWithSignedTx(_params: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    return true;
+  }
+
+  // Shared verdict for chains whose signed tx id is known before broadcast
+  // and whose history API finds a tx by id: a tx the chain has executed has
+  // reached it, whatever its execution result, so its nonce or inputs are
+  // taken. Anything else, a failed lookup included, is no verdict at all,
+  // because an unseen tx may still be in flight or in a private mempool.
+  // A pending answer is no proof either: a lookup that cannot find the tx
+  // may return a pending placeholder that echoes the requested id (custom
+  // networks always do).
+  protected async checkSignedTxBroadcastStatusByTxDetails({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const { txid } = signedTx;
+    // A payload the node already took is replayed with or without this
+    // verdict, so the lookup would only cost a request per replayed tx.
+    if (!txid || isAcceptedByNode) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const txDetails =
+      await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        txid,
+      });
+    const onChainTx = txDetails?.data;
+    const isExecuted =
+      onChainTx?.status === EOnChainHistoryTxStatus.Success ||
+      onChainTx?.status === EOnChainHistoryTxStatus.Failed;
+    return isExecuted && onChainTx?.tx?.toLowerCase() === txid.toLowerCase()
+      ? ESignedTxBroadcastStatus.Broadcast
+      : ESignedTxBroadcastStatus.Unknown;
   }
 
   async buildBulkSendEncodedTxs(_params: {
@@ -508,6 +651,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return null;
   }
 
+  // The user left the review page without sending. Chains that reserve
+  // inputs while building (Zcash PCZTs) give them back here.
+  async releaseUnsignedTx(_params: { unsignedTx: IUnsignedTxPro }) {
+    return Promise.resolve();
+  }
+
   async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
     precheckTiming: ESendPreCheckTimingEnum;
@@ -521,10 +670,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
    * Extension point for vault implementations to perform preparatory actions
    * before sending transactions, such as resource rental for Tron.
    */
-  async preActionsBeforeSending(params: {
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }): Promise<
+  async preActionsBeforeSending(
+    params: IPreActionsBeforeSendingParams,
+  ): Promise<
     | {
         preSendTx?: {
           txid: string;
@@ -564,6 +712,45 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({
       encodedTx,
     });
+  }
+
+  // Watch-only local-wallet scans may need the spend key for follow-up work
+  // (Monero key images); the scheduler asks after each sync turn while unlocked.
+  async localWalletHasPasswordWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoPasswordWork(_params: {
+    password: string;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // The same follow-up work for a hardware account, done by its device; only
+  // ever on the user's request, never from a background sync turn.
+  async localWalletHasDeviceWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoDeviceWork(_params: {
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // A defined result replaces the server history query entirely; undefined
+  // means a server-indexed chain.
+  async fetchAccountHistoryFromLocal(_params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+    // Pull-to-refresh; a vault may use it to skip incremental shortcuts.
+    isManualRefresh?: boolean;
+  }): Promise<IAccountHistoryTx[] | undefined> {
+    return undefined;
   }
 
   async buildFetchHistoryListParams(params: {
@@ -761,6 +948,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       const isPrivateSendHistory =
         onChainHistoryTx.isPrivateSend === true ||
         onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
+      // UTXO rows render the server's net `value`; a transfer between the
+      // account's own addresses nets to 0, so resolve the moved amount instead.
+      const historyValue = vaultSettings.isUtxo
+        ? getUtxoHistoryDisplayValue(onChainHistoryTx)
+        : onChainHistoryTx.value;
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -786,7 +978,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
-        nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
+        nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
         extraInfo: await this.buildOnChainHistoryTxExtraInfo({
           onChainHistoryTx,
@@ -795,7 +987,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           type: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.type,
-          value: onChainHistoryTx.value,
+          value: historyValue,
           label: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.label,
@@ -1204,6 +1396,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return action;
   }
 
+  getTxDiagnosticContext(unsignedTx: IUnsignedTxPro) {
+    return unsignedTx.solanaTxDiagnostic;
+  }
+
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
@@ -1519,8 +1715,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       '/wallet/v1/account/estimate-fee',
       rest,
       {
+        // Wallet-type header plus the OneKey ID login token: the Gas Account
+        // quote is bound to the member identity the BFF resolves from it.
         headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          await this.backgroundApi.serviceGas.getGasAccountRequestHeaders({
             accountId,
           }),
       },
@@ -1550,7 +1748,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByApi(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    const { accountId, ...rest } = params;
+    // Client-side-only fields; the backend never needs them.
+    const {
+      accountId,
+      withUTXOs: _withUTXOs,
+      privacyChainPoolId: _privacyChainPoolId,
+      requestCurrency,
+      ...rest
+    } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
@@ -1561,6 +1766,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       rest,
       {
         headers: {
+          ...(requestCurrency
+            ? { 'x-onekey-request-currency': requestCurrency }
+            : {}),
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
               accountId,
@@ -1605,6 +1813,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  // Override in chain vaults where a broadcast tx can expire without ever
+  // landing (e.g. Solana blockhash expiry): return the pending txs that the
+  // chain will never confirm so history marks them dropped instead of
+  // keeping them in the pending bucket until the user clears them.
+  async getDroppedPendingTxs({
     pendingTxs,
   }: {
     pendingTxs: IAccountHistoryTx[];

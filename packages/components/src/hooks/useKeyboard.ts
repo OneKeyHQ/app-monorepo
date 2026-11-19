@@ -7,7 +7,9 @@ import { withTiming } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { EmitterSubscription, KeyboardEventListener } from 'react-native';
+import type { EmitterSubscription, KeyboardEvent } from 'react-native';
+
+type IKeyboardEventListener = (event: KeyboardEvent) => void;
 
 export function useIsKeyboardShown() {
   const [isKeyboardShown, setIsKeyboardShown] = useState(false);
@@ -48,14 +50,14 @@ export const KEYBOARD_HIDE_EVENT_NAME = platformEnv.isNativeIOS
 export function useKeyboardHeight() {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
 
-  const handleKeyboardWillShow: KeyboardEventListener = useCallback((e) => {
+  const handleKeyboardWillShow: IKeyboardEventListener = useCallback((e) => {
     setKeyboardHeight(e.endCoordinates.height);
   }, []);
-  // const handleKeyboardDidShow: KeyboardEventListener = useCallback((e) => {});
-  const handleKeyboardWillHide: KeyboardEventListener = useCallback(() => {
+  // const handleKeyboardDidShow: IKeyboardEventListener = useCallback((e) => {});
+  const handleKeyboardWillHide: IKeyboardEventListener = useCallback(() => {
     setKeyboardHeight(0);
   }, []);
-  // const handleKeyboardDidHide: KeyboardEventListener = useCallback((e) => {});
+  // const handleKeyboardDidHide: IKeyboardEventListener = useCallback((e) => {});
 
   useEffect(() => {
     const subscriptions = [
@@ -77,8 +79,8 @@ export const useKeyboardEvent = (
     keyboardWillShow = noop,
     keyboardWillHide = noop,
   }: {
-    keyboardWillShow?: KeyboardEventListener;
-    keyboardWillHide?: KeyboardEventListener;
+    keyboardWillShow?: IKeyboardEventListener;
+    keyboardWillHide?: IKeyboardEventListener;
   },
   deps: DependencyList = [],
 ) => {
@@ -116,8 +118,8 @@ export const useKeyboardEventWithoutNavigation = (
     keyboardWillShow = noop,
     keyboardWillHide = noop,
   }: {
-    keyboardWillShow?: KeyboardEventListener;
-    keyboardWillHide?: KeyboardEventListener;
+    keyboardWillShow?: IKeyboardEventListener;
+    keyboardWillHide?: IKeyboardEventListener;
   },
   deps: DependencyList = [],
 ) => {

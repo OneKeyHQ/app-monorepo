@@ -69,6 +69,34 @@ describe('resolveHwWalletTransportType', () => {
     ).toBe(EHardwareTransportType.WEBUSB);
   });
 
+  it.each(['ble', 'webble', 'electron-ble'] as const)(
+    'persists a desktop OneKey %s selection as DesktopWebBle under a USB default',
+    (deviceCommType) => {
+      expect(
+        resolveHwWalletTransportType({
+          globalTransportType: EHardwareTransportType.WEBUSB,
+          deviceConnectionType: undefined,
+          deviceCommType,
+          isNative: false,
+        }),
+      ).toBe(EHardwareTransportType.DesktopWebBle);
+    },
+  );
+
+  it.each(['usb', 'webusb', 'bridge'] as const)(
+    'persists a desktop OneKey %s selection as WEBUSB under a BLE default',
+    (deviceCommType) => {
+      expect(
+        resolveHwWalletTransportType({
+          globalTransportType: EHardwareTransportType.DesktopWebBle,
+          deviceConnectionType: undefined,
+          deviceCommType,
+          isNative: false,
+        }),
+      ).toBe(EHardwareTransportType.WEBUSB);
+    },
+  );
+
   it('does not pull a USB device to WEBUSB on native (USB is not a native transport)', () => {
     expect(
       resolveHwWalletTransportType({
@@ -96,9 +124,7 @@ describe('resolveHwWalletTransportType', () => {
     ).toBe(EHardwareTransportType.DesktopWebBle);
   });
 
-  it('is a no-op when connectionType is unknown (OneKey HD)', () => {
-    // OneKey HD devices carry no connectionType → global value is preserved.
-    // (Third-party Trezor/Ledger devices always carry one and are corrected above.)
+  it('keeps the global value when neither connectionType nor commType is known', () => {
     for (const global of [
       EHardwareTransportType.WEBUSB,
       EHardwareTransportType.Bridge,

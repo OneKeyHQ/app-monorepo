@@ -264,6 +264,22 @@ export function resolveProtocolLendingRemainingDebtState({
   };
 }
 
+export function shouldShowProtocolLendingFallbackWarning({
+  hasDebts,
+  isWithdraw,
+  checkAmountAlertCount,
+  riskOfLiquidationAlert,
+}: {
+  hasDebts?: boolean;
+  isWithdraw: boolean;
+  checkAmountAlertCount: number;
+  riskOfLiquidationAlert?: boolean;
+}) {
+  const hasServerLiquidationAlert =
+    checkAmountAlertCount > 0 && typeof riskOfLiquidationAlert === 'boolean';
+  return Boolean(hasDebts && isWithdraw && !hasServerLiquidationAlert);
+}
+
 export type IProtocolLendingPrimaryBalanceLabel =
   | 'available'
   | 'availableToWithdraw'

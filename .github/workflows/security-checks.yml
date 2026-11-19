@@ -26,27 +26,23 @@ env:
 
 jobs:
   supply-chain:
-    name: Supply Chain - Minimum Release Age
+    name: Release Age
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
 
-    strategy:
-      matrix:
-        node-version: [24.x]
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          lfs: true
+          lfs: false
           fetch-depth: 0
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@onekeyhq'
+          node-version: 24.x
+          package-manager-cache: false
+          check-latest: true
 
       - name: Write security checks AI prompt
         run: |
@@ -54,25 +50,18 @@ jobs:
           node .github/scripts/ciFailureIssue.js prompt security-checks > ci-ai/security-checks-ai-prompt.md || \
             echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
-      - name: Install Dependency
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
-
       - name: Check minimum release age
         run: |
           mkdir -p ci-ai
           set +e
-          npx tsx development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
+          node development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
 
       - name: Upload security checks AI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ci-ai-security-checks-diagnostics
           path: |

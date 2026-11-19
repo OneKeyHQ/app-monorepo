@@ -3,6 +3,7 @@ export * from './ColorPicker';
 export * from './Form';
 export * from './Form/formInstances';
 export * from './Input';
+export * from './NumberInput';
 export * from './Radio';
 export * from './Select';
 export * from './Slider';

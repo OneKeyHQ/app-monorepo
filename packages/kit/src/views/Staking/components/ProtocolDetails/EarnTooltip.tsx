@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  runAfterActionListClose,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -37,11 +38,16 @@ function RewardAmountPopoverContent({
   onHistory?: (params?: { filterType?: string }) => void;
 }) {
   const { closePopover } = usePopoverContext();
-  const handleHistoryPress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      onHistory?.({ filterType: 'rebate' });
-    }, 50);
+  const handleHistoryPress = useCallback(() => {
+    void runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        setTimeout(() => {
+          onHistory?.({ filterType: 'rebate' });
+        }, 50);
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, onHistory]);
   return (
     <>
@@ -317,6 +323,7 @@ export function EarnTooltip({
       if (isFeeComparisonTooltip(tooltip)) {
         return <FeeComparisonContent tooltip={tooltip} />;
       }
+      const total = tooltip.type === 'text' ? tooltip.data.total : undefined;
       return (
         <YStack gap="$2">
           <EarnText text={tooltip.data.description} />
@@ -326,6 +333,26 @@ export function EarnTooltip({
               <EarnText text={item.description} size="$bodyMdMedium" />
             </XStack>
           ))}
+          {/* What the rows add up to, and how (Spark effective APY:
+              base + bonus × share) */}
+          {total ? (
+            <>
+              <Divider my="$1" />
+              <XStack jc="space-between" ai="flex-start" gap="$3">
+                <YStack flex={1} gap="$0.5">
+                  <EarnText text={total.title} size="$bodyMdMedium" />
+                  {total.subtitle ? (
+                    <EarnText
+                      text={total.subtitle}
+                      size="$bodySm"
+                      color="$textSubdued"
+                    />
+                  ) : null}
+                </YStack>
+                <EarnText text={total.description} size="$bodyMdMedium" />
+              </XStack>
+            </>
+          ) : null}
         </YStack>
       );
     }

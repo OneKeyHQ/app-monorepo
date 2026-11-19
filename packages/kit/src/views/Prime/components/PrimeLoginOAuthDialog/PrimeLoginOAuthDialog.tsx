@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
@@ -31,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
 import type {
   IIdentityExitOAuthHandoff,
@@ -89,6 +91,7 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
+  const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
   );
@@ -263,7 +266,9 @@ function PrimeLoginOAuthDialog(props: {
           showOneKeyIdLoginFailedToast({ error, intl });
         }
         if (didCloseDialogBeforeOAuth && !isOneKeyIdLoginCommitted) {
-          if (onReopenAfterOAuthFailure) {
+          if (isPrimeUserBannedError(error)) {
+            await onCancel?.();
+          } else if (onReopenAfterOAuthFailure) {
             await onReopenAfterOAuthFailure({
               showKeylessLogoutAction: accountMismatchDetectedRef.current,
             });
@@ -357,7 +362,8 @@ function PrimeLoginOAuthDialog(props: {
               if (!continuation || continuation.provider !== provider) {
                 throwLocalizedOneKeyIdLoginError({
                   intl,
-                  reason: 'OAuth provider-switch continuation is unavailable.',
+                  reason:
+                    'OAuth provider-switch continuation failed: unavailable.',
                 });
               }
               await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(
@@ -423,6 +429,7 @@ function PrimeLoginOAuthDialog(props: {
             localKeylessLoginPrepareErrorMessage || '',
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         Toast.error({
           title: intl.formatMessage({
@@ -504,7 +511,7 @@ function PrimeLoginOAuthDialog(props: {
                 throwLocalizedOneKeyIdLoginError({
                   intl,
                   reason:
-                    'OAuth continuation after Keyless recovery is unavailable.',
+                    'OAuth continuation after Keyless recovery failed: unavailable.',
                 });
               }
               await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(
@@ -613,16 +620,31 @@ function PrimeLoginOAuthDialog(props: {
     return null;
   }
 
+  const titleContent = (
+    <Dialog.Title testID="prime-login-title">
+      {intl.formatMessage({
+        id: ETranslations.sign_in_to_onekey_id__title,
+      })}
+    </Dialog.Title>
+  );
+
   return (
     <Stack>
       {isEmailVerificationStep ? null : (
         <Dialog.Header>
           <Dialog.Icon icon="OnekeyBrand" />
-          <Dialog.Title testID="prime-login-title">
-            {intl.formatMessage({
-              id: ETranslations.sign_in_to_onekey_id__title,
-            })}
-          </Dialog.Title>
+          {isSignInMethodsExpanded && !isLoginBusy ? (
+            <MultipleClickStack
+              key={debugPanelOpenCount}
+              devSettingsOnly
+              testID="prime-login-debug-trigger"
+              onPress={() => setDebugPanelOpenCount((count) => count + 1)}
+            >
+              {titleContent}
+            </MultipleClickStack>
+          ) : (
+            titleContent
+          )}
           <Dialog.Description color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.prime_onekeyid_continue_description,
@@ -685,7 +707,7 @@ function PrimeLoginOAuthDialog(props: {
                         id: ETranslations.more_sign_in_methods__action,
                       })}
                     </SizableText>
-                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                    <Stack transition="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
                         name="ChevronDownSmallOutline"
                         size="$4"
@@ -715,6 +737,7 @@ function PrimeLoginOAuthDialog(props: {
               >
                 <PrimeLoginEmailDialogV2
                   embedded
+                  debugPanelOpenCount={debugPanelOpenCount}
                   embeddedVerificationEmail={emailVerificationEmail}
                   onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
                   disabled={Boolean(loggingInProvider)}

@@ -1,9 +1,13 @@
 /* cspell:ignore SKHX SKHY */
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
-import { resolvePerpMarketDetail } from './usePerpMarketDetail';
+import {
+  resolvePerpMarketDetail,
+  usePerpFundingHistory,
+} from './usePerpMarketDetail';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -29,6 +33,39 @@ const mockServiceHyperliquid = jest.mocked(
 );
 const mockServiceMarket = jest.mocked(backgroundApiProxy.serviceMarket);
 const mockServiceMarketV2 = jest.mocked(backgroundApiProxy.serviceMarketV2);
+const mockUsePromiseResult = jest.mocked(usePromiseResult);
+
+describe('usePerpFundingHistory', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUsePromiseResult.mockReturnValue({
+      result: [],
+      isLoading: false,
+      run: jest.fn(),
+      setResult: jest.fn(),
+      setStopPolling: jest.fn(),
+    });
+  });
+
+  it('preserves the current result while a polling refresh runs', () => {
+    usePerpFundingHistory('BTC', '90d');
+
+    expect(mockUsePromiseResult).toHaveBeenCalledWith(
+      expect.any(Function),
+      ['BTC', '90d'],
+      expect.not.objectContaining({
+        undefinedResultIfReRun: true,
+      }),
+    );
+    expect(mockUsePromiseResult).toHaveBeenCalledWith(
+      expect.any(Function),
+      ['BTC', '90d'],
+      expect.objectContaining({
+        pollingInterval: 60 * 1000,
+      }),
+    );
+  });
+});
 
 describe('resolvePerpMarketDetail', () => {
   beforeEach(() => {

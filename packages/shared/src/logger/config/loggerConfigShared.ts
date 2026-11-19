@@ -1,6 +1,11 @@
 export type ILoggerConfig = {
   highlightDurationGt?: string;
   colorfulLog?: boolean;
+  /**
+   * Dev-only production parity switch: when true, every scope/scene logs and
+   * persists exactly like production builds (which ignore the `enabled` map).
+   */
+  enableAllScenes?: boolean;
   enabled: {
     [scope: string]: {
       [scene: string]: boolean;

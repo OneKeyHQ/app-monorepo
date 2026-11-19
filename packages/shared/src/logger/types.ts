@@ -51,9 +51,12 @@ export interface IScope {
 }
 
 export type IMethodDecoratorMetadata = {
+  devOnly?: boolean;
   level: ILogLevel;
   type?: 'local' | 'server' | 'console';
   waitForServer?: boolean;
+  // A synchronous handoff to the existing queue, without waiting for the network.
+  enqueueImmediately?: boolean;
 };
 
 export interface IScene {
@@ -61,13 +64,16 @@ export interface IScene {
 }
 export const NO_LOG_OUTPUT = '$$_NO_LOG_OUTPUT_8888888';
 
+export type ILogExportScope = 'recent' | 'full';
+export const RECENT_LOG_EXPORT_BYTES = 10 * 1024 * 1024;
+export const BROWSER_LOG_MAX_BYTES = 40 * 1024 * 1024;
+
 export type ILogBundle =
   | {
-      type: 'text';
+      type: 'blob';
       fileName: string;
       mimeType: string;
       blob: Blob;
-      content: string;
     }
   | {
       type: 'file';
@@ -86,6 +92,49 @@ export type ILogUploadResponse = {
   objectKey: string;
   uploadedBytes: number;
   durationMs: number;
+};
+
+export type ILogUploadPath =
+  | 'sni'
+  | 'upload_task'
+  | 'fetch_fallback'
+  | 'domain';
+
+// Prefix of the desktop main-process upload timeout error; error classes do
+// not survive IPC, so the renderer matches on this code.
+export const LOG_UPLOAD_TIMEOUT_ERROR_CODE = 'LOG_UPLOAD_TIMEOUT';
+
+export type ILogUploadViaIpTableResult =
+  | { route: 'sni'; httpStatus: number; body: string; ipHash: string }
+  | { route: 'skipped'; reason: string }
+  | { route: 'failed'; errorCode: string; errorMessage: string };
+
+export type ILogUploadAttemptLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  timeoutMs: number;
+  skipReason?: string;
+};
+
+export type ILogUploadResultLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  elapsedMs: number;
+  httpStatus?: number;
+  serverCode?: number;
+  sentBytes?: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export type ILogUploadFlowLog = {
+  attempt: number;
+  tokenReused: boolean;
+  retryable?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
 };
 
 export enum ELogUploadStage {

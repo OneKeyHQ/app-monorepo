@@ -1,5 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import type { useInTabDialog } from '@onekeyhq/components';
-import { YStack } from '@onekeyhq/components';
+import { Divider, ScrollView, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
@@ -9,17 +11,22 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
+import { RewardHistoryList } from './components/RewardHistoryList';
 import { RewardSummaryCard } from './components/RewardSummaryCard';
 
 interface IInviteeRewardContentProps {
   walletAddress: string;
   isMobile?: boolean;
+  // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
+  onBeforeNavigate?: () => void | Promise<void>;
 }
 
 export function InviteeRewardContent({
   walletAddress,
   isMobile,
+  onBeforeNavigate,
 }: IInviteeRewardContentProps) {
+  const intl = useIntl();
   const { result: data, isLoading } = usePromiseResult(
     async () => {
       if (!walletAddress) {
@@ -35,17 +42,38 @@ export function InviteeRewardContent({
   );
 
   if (!walletAddress) {
-    return <InviteeRewardNoWallet testID="perp-to-on-boarding-page-btn" />;
+    return (
+      <InviteeRewardNoWallet
+        testID="perp-to-on-boarding-page-btn"
+        onBeforeNavigate={onBeforeNavigate}
+      />
+    );
   }
+
+  const showLoading = isLoading !== false;
 
   const content = (
     <YStack gap="$5">
       <RewardSummaryCard
-        isLoading={isLoading}
+        isLoading={showLoading}
         totalBonus={data?.totalBonus}
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
       />
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
+        </SizableText>
+        <RewardHistoryList
+          key={walletAddress}
+          isLoading={showLoading}
+          history={data?.history}
+          token={data?.token}
+        />
+      </YStack>
     </YStack>
   );
 
@@ -57,7 +85,11 @@ export function InviteeRewardContent({
     );
   }
 
-  return content;
+  return (
+    <ScrollView minHeight={350} maxHeight={500}>
+      {content}
+    </ScrollView>
+  );
 }
 
 export async function showInviteeRewardDialog(
@@ -77,7 +109,12 @@ export async function showInviteeRewardDialog(
     },
     renderContent: (
       <PerpsProviderMirror>
-        <InviteeRewardContent walletAddress={walletAddress} />
+        <InviteeRewardContent
+          walletAddress={walletAddress}
+          onBeforeNavigate={async () => {
+            await dialogInTabRef.close();
+          }}
+        />
       </PerpsProviderMirror>
     ),
     showFooter: false,

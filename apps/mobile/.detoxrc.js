@@ -153,6 +153,8 @@ module.exports = {
 
     'android.emu.release': {
       type: 'android.apk',
+      // Other instrumentation tests target the Debug app and its resource classes.
+      launchArgs: { class: 'so.onekey.app.wallet.DetoxTest' },
       binaryPath: path.join(
         __dirname,
         'android/app/build/outputs/apk/prod/release/app-prod-release.apk',
@@ -168,7 +170,8 @@ module.exports = {
         'cd android && ' +
         // Ensure perf monitor is enabled at bundle-time for Release bundles.
         'PERF_MONITOR_ENABLED=1 SENTRY_DISABLE_AUTO_UPLOAD=true ' +
-        './gradlew assembleProdRelease assembleProdDebugAndroidTest -DtestBuildType=debug',
+        './gradlew assembleProdRelease assembleProdDebugAndroidTest ' +
+        '-DtestBuildType=debug -PdetoxBuild=true',
     },
   },
 

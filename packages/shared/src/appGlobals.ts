@@ -25,6 +25,11 @@ import type Realm from 'realm';
 export type IAppGlobals = {
   $backgroundApiProxy: BackgroundApiProxy;
   $$backgroundApi: BackgroundApi; // not available for ext ui
+  $$webEmbedMainRuntime?: {
+    currentRuntimeId?: string;
+    retiredRuntimeIds: Set<string>;
+    pendingMountRuntimeIds?: Set<string>;
+  };
   $offscreenApiProxy: IOffscreenApi;
   $webembedApiProxy: IWebembedApi;
   $navigationRef: React.RefObject<NavigationContainerRef<any>>;

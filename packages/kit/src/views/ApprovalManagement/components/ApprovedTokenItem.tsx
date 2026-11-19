@@ -88,7 +88,7 @@ function ApprovedTokenItem(props: IProps) {
     ];
 
   const approvalDate = formatDate(new Date(approval.time), {
-    formatTemplate: 'PP',
+    hideTimeForever: true,
   });
   const permit2ExpirationText = useMemo(() => {
     if (!isPermit2Approval) {
@@ -114,7 +114,7 @@ function ApprovedTokenItem(props: IProps) {
       return '--';
     }
     const formattedExpiration = formatDate(expirationDate, {
-      formatTemplate: 'PP, HH:mm',
+      hideSeconds: true,
     });
     if (!formattedExpiration || formattedExpiration === '-') {
       return '--';

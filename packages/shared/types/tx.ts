@@ -139,6 +139,9 @@ export type IDecodedTx = {
   updatedAt?: number; // finishedAt, signedAt, blockSignedAt
 
   status: EDecodedTxStatus;
+  // A signed transaction was submitted without a confirmed broadcast response.
+  block?: number;
+  confirmations?: number;
   // data wont change anymore
   isFinal?: boolean;
 
@@ -177,6 +180,10 @@ export type IDecodedTx = {
   txParseType?: EParseTxType;
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
+  // Set when txDisplay was locally built but a server parse DID run and its
+  // risk alerts were retained (scaled-UI forced-local path) — security UI
+  // must not report such txs as unverified.
+  hasServerSecurityAnalysis?: boolean;
   isConfirmationRequired?: boolean;
 
   isPsbt?: boolean;
@@ -195,9 +202,20 @@ export type IDecodedTxActionUnknown = IDecodedTxActionBase & {
   label?: string;
 };
 
+// Privacy chains: an endpoint inside a shielded pool. The matching address
+// field holds an address only when it is exactly known. `poolId` is a
+// settings.localWallet.pools id, absent when not known; `isOwn` marks this
+// account's side, which the UI shows with the account's displayed address.
+export type IDecodedTxShieldedEndpoint = {
+  poolId?: number;
+  isOwn?: boolean;
+};
+
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
+  shieldedFrom?: IDecodedTxShieldedEndpoint;
+  shieldedTo?: IDecodedTxShieldedEndpoint;
   amount: string;
   icon: string;
   name: string;
@@ -206,10 +224,17 @@ export type IDecodedTxTransferInfo = {
   isNative?: boolean;
   isNFT?: boolean;
   isOwn?: boolean; // for UTXO
+  isChange?: boolean;
+  // A shielded input/output from history I/O; see shieldedFrom/shieldedTo.
+  isShielded?: boolean;
   label?: string;
   price?: string;
   networkId?: string;
   NFTType?: ENFTType;
+  // Scaled-UI (rebase) tokens: multiplier applied to `amount` (display
+  // basis) at decode time; lets the signature-confirm service detect
+  // rebase involvement and force the local display path.
+  balanceMultiplier?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -220,6 +245,8 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
+  shieldedFrom?: IDecodedTxShieldedEndpoint;
+  shieldedTo?: IDecodedTxShieldedEndpoint;
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
   utxoFrom?: IUtxoAddressInfo[];
@@ -252,6 +279,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenIdOnNetwork: string;
   label?: string;
   approveType?: EApproveType;
+  // Scaled-UI (rebase) tokens: multiplier used to convert `amount` to
+  // display basis at decode time; lets UI converters fail-close editing.
+  balanceMultiplier?: string;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
@@ -273,6 +303,13 @@ export type IDecodedTxAction = {
   functionCall?: IDecodedTxActionFunctionCall;
 
   unknownAction?: IDecodedTxActionUnknown;
+};
+
+export type IBroadcastAcceptedFact = {
+  uuid: string;
+  accountId: string;
+  networkId: string;
+  txid: string;
 };
 
 export type ISendTxOnSuccessData = {

@@ -2,7 +2,11 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isNumber } from 'lodash';
 
-import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  getEvmAccessListForChain,
+  normalizeEvmAccessList,
+  validateEvmAddress,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
@@ -14,13 +18,18 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
+import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  JsonRPCResponseError,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitRejectedCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -28,6 +37,7 @@ import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -102,6 +112,7 @@ import {
 } from './decoder/utils';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -113,6 +124,7 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -164,6 +176,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -1116,6 +1129,28 @@ export default class Vault extends VaultBase {
         allowance === InfiniteAmountText ||
         !allowanceBn.isFinite() ||
         (approveType === EApproveType.Approve && isUnlimited);
+
+      // Scaled-UI (rebase) tokens: the editor UI is fail-closed for them
+      // (display-basis allowance strings must never be re-encoded as raw
+      // units — that would over-approve by the multiplier). This guard is
+      // defense in depth behind those UI gates, not a reachable branch.
+      // The multiplier comes from the same decode snapshot as the displayed
+      // action (no second token fetch that could diverge from it).
+      // Unlimited and revoke (allowance === 0) are multiplier-invariant and
+      // skip the check; every other path re-encodes a finite non-zero
+      // allowance and must not pass with a scaling multiplier.
+      if (!isMaxUint256 && !allowanceBn.isZero()) {
+        if (
+          tokenRebaseUtils.isScalingBalanceMultiplier(
+            action.tokenApprove.balanceMultiplier,
+          )
+        ) {
+          throw new OneKeyLocalError(
+            'Approve editing is not supported for scaled-UI tokens',
+          );
+        }
+      }
+
       const amountHex = toBigIntHex(
         isMaxUint256
           ? new BigNumber(2).pow(256).minus(1)
@@ -1242,9 +1277,26 @@ export default class Vault extends VaultBase {
       value = txDesc?.args[2] as ethers.BigNumber;
     }
 
-    const amount = chainValueUtils.convertTokenChainValueToAmount({
+    const rawAmount = chainValueUtils.convertTokenChainValueToAmount({
       value: value.toString(),
       token,
+    });
+    // Scaled-UI (rebase) tokens: decoded calldata carries the raw on-chain
+    // value; convert to the display basis the send page rendered. This
+    // governs the locally saved pending-history entry and the local
+    // txDisplay path — ServiceSignatureConfirm forces the local path for
+    // scaling-token txs so the confirm page renders these amounts.
+    // Snapshot-preference per the same-snapshot contract; EVM hex
+    // addresses compare case-insensitively.
+    const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
+      snapshotToken: transferPayload?.tokenInfo,
+      fetchedToken: token,
+      tokenAddress: token.address,
+      addressCaseInsensitive: true,
+    });
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmount,
+      balanceMultiplier,
     });
 
     if (
@@ -1263,6 +1315,7 @@ export default class Vault extends VaultBase {
       name: token.name,
       symbol: token.symbol,
       amount,
+      balanceMultiplier,
       isNFT: false,
     };
 
@@ -1283,7 +1336,17 @@ export default class Vault extends VaultBase {
     const { encodedTx, txDesc, token } = params;
     const spender = txDesc?.args[0] as string;
     const value = txDesc?.args[1] as ethers.BigNumber;
-    const amount = formatValue(value, token.decimals);
+    const rawAmountText = formatValue(value, token.decimals);
+    // Scaled-UI (rebase) tokens: show the display-basis approve amount.
+    // dApp approves have no send-page snapshot, so the fetched token is the
+    // only multiplier source. The 'Infinite' sentinel is non-finite and
+    // passes through applyBalanceMultiplier unchanged (pinned by test);
+    // revoke (0) is multiplier-invariant.
+    const balanceMultiplier = token.balanceMultiplier;
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmountText,
+      balanceMultiplier,
+    });
     const accountAddress = await this.getAccountAddress();
 
     const approveType =
@@ -1303,8 +1366,10 @@ export default class Vault extends VaultBase {
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
         isInfiniteAmount:
-          approveType === EApproveType.Approve && amount === InfiniteAmountText,
+          approveType === EApproveType.Approve &&
+          rawAmountText === InfiniteAmountText,
         approveType,
+        balanceMultiplier,
       },
     };
 
@@ -1445,6 +1510,20 @@ export default class Vault extends VaultBase {
         this.networkId === getNetworkIdsMap().fevm ? '0x1' : '0x0';
     }
 
+    // The access list adds intrinsic gas and changes execution gas, so the
+    // estimate has to price the list the signer will put on chain. A QR
+    // wallet signs without it and some chains reject it. Hardware also drops
+    // it from a gas-price transaction, but the fee mode is only known from
+    // the estimate itself.
+    const accessList = accountUtils.isQrWallet({ walletId: this.walletId })
+      ? undefined
+      : getEvmAccessListForChain({
+          accessList: encodedTx.accessList,
+          chainId: networkUtils.getNetworkChainId({
+            networkId: this.networkId,
+          }),
+        });
+
     return Promise.resolve({
       encodedTx: {
         chainId,
@@ -1453,6 +1532,7 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+        ...(accessList ? { accessList } : {}),
       },
     });
   }
@@ -1532,6 +1612,13 @@ export default class Vault extends VaultBase {
       throw new OneKeyError('speedUpOrCancelTx ERROR: nonce is missing!');
     }
 
+    // Speeding up re-sends the same transaction, so it keeps the access
+    // list. The encrypted copy is preferred because it cannot be edited in
+    // local history.
+    const accessList = normalizeEvmAccessList(
+      (encodedTxOrigin ?? encodedTx).accessList,
+    );
+
     // set only fields of IEncodedTxEvm
     const encodedTxEvm: IEncodedTxEvm = {
       from: encodedTx.from,
@@ -1547,12 +1634,16 @@ export default class Vault extends VaultBase {
       gasPrice: encodedTx.gasPrice,
       maxFeePerGas: encodedTx.maxFeePerGas,
       maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
+      ...(accessList ? { accessList } : {}),
     };
 
     if (replaceType === EReplaceTxType.Cancel) {
       encodedTxEvm.to = encodedTxEvm.from;
       encodedTxEvm.value = '0x0';
       encodedTxEvm.data = '0x';
+      // A cancel is a plain self-transfer; the replaced call's list would
+      // only add gas.
+      delete encodedTxEvm.accessList;
     }
     if (replaceType === EReplaceTxType.SpeedUp) {
       if (
@@ -1625,6 +1716,91 @@ export default class Vault extends VaultBase {
     const recoveredTxid = ethers.utils.keccak256(signedTx.rawTx);
 
     return recoveredTxid.toLowerCase() === txid.toLowerCase();
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
+  // A first attempt the node evaluated and refused never left this device
+  // in any useful sense, so the retry may sign the tx as the confirm page
+  // now holds it (it takes a fresh nonce on every submit). Without this the
+  // refused payload would be sent again in place of the corrected tx.
+  override async isSignedTxRejectedByBroadcast(
+    error: unknown,
+    options?: { useDefaultRpc?: boolean },
+  ): Promise<boolean> {
+    // The custom RPC node's own answer.
+    if (error instanceof JsonRPCResponseError) {
+      return this.backgroundApi.serviceSend.isReplaceTxNonceAlreadyUsedRpcError(
+        error,
+      );
+    }
+    const serverError = error as
+      | { className?: string; code?: number }
+      | undefined;
+    const isRejectedByServer =
+      serverError?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+      (Object.values(SEND_TX_SERVER_ERROR_CODES).some(
+        (code) => code === serverError.code,
+      ) ||
+        // A sponsored send refused at quote admission was never executed.
+        // Kept on record, its payload would be sent again in place of the
+        // tx the user corrected (a quote is bound to one nonce), and be
+        // refused every time.
+        isGasAccountSubmitRejectedCode(serverError.code));
+    if (!isRejectedByServer) {
+      return false;
+    }
+    // A send the user routed to the default RPC for this once is broadcast
+    // by the server, whatever the stored custom RPC setting says.
+    if (options?.useDefaultRpc) {
+      return true;
+    }
+    // With a custom RPC the server is only told about a tx the node already
+    // took, so its answer says nothing about the broadcast.
+    const customRpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+    return !(customRpcInfo?.rpc && customRpcInfo?.enabled);
+  }
+
+  // Same sender and same nonce: the chain executes at most one of the two.
+  // Read from the signed bytes, which are what a node may be holding. A
+  // payload that cannot be parsed proves nothing, so it is sent again
+  // rather than replaced by a new signature.
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm | null;
+    const nonce = new BigNumber(encodedTx?.nonce ?? unsignedTx.nonce ?? NaN);
+    if (!encodedTx?.from || !nonce.isInteger()) {
+      return false;
+    }
+    try {
+      const signed = ethers.utils.parseTransaction(signedTx.rawTx);
+      return (
+        signed.from?.toLowerCase() === encodedTx.from.toLowerCase() &&
+        nonce.isEqualTo(signed.nonce)
+      );
+    } catch {
+      return false;
+    }
   }
 
   // RPC Client

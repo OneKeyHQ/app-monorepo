@@ -7,11 +7,14 @@ import type {
 
 import {
   E_MODE_PENDING_GUARD_ACTIONS,
+  buildEModeRowSubtitle,
   buildEModeRows,
   buildNeedActionItems,
   isEModeBorrowActionTag,
   isEModePendingGuardActive,
 } from './emodeUtils';
+
+import type { IEModeRow } from './emodeUtils';
 
 describe('isEModeBorrowActionTag', () => {
   it('matches every transaction that can invalidate an E-Mode switch check', () => {
@@ -121,5 +124,49 @@ describe('buildNeedActionItems', () => {
 
     expect(items[0].hfSafety).toBe(false);
     expect(items[1].hfSafety).toBe(true);
+  });
+});
+
+describe('buildEModeRowSubtitle', () => {
+  const subtitleOf = (row: Partial<IEModeRow>) =>
+    buildEModeRowSubtitle({
+      row: {
+        eModeId: 1,
+        label: 'stablecoins',
+        displayLabel: 'Stablecoins',
+        disabled: false,
+        selected: false,
+        isOff: false,
+        ...row,
+      },
+      offText: 'Standard borrowing',
+      formatMaxLtv: (ltv) => `Max LTV ${ltv}%`,
+      needsActionText: 'Needs action',
+    });
+
+  it('leads with Max LTV so the picker rows stay comparable', () => {
+    expect(subtitleOf({ ltv: '93' })).toBe('Max LTV 93%');
+  });
+
+  // The Off row's ltv is the market LTV before any e-mode boost, which is the
+  // number the boosted categories are being compared against.
+  it('keeps Max LTV on the Off row when the market reports one', () => {
+    expect(subtitleOf({ isOff: true, ltv: '80' })).toBe('Max LTV 80%');
+  });
+
+  it('falls back to the off copy only when the Off row has no LTV', () => {
+    expect(subtitleOf({ isOff: true })).toBe('Standard borrowing');
+  });
+
+  it('does not describe a boosted category as standard borrowing', () => {
+    expect(subtitleOf({})).toBe('');
+  });
+
+  it('appends the blocker only when the backend says the switch is refused', () => {
+    expect(subtitleOf({ ltv: '90', canSwitch: false })).toBe(
+      'Max LTV 90% · Needs action',
+    );
+    expect(subtitleOf({ ltv: '90', canSwitch: true })).toBe('Max LTV 90%');
+    expect(subtitleOf({ ltv: '90' })).toBe('Max LTV 90%');
   });
 });

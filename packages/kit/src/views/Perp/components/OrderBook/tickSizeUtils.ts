@@ -28,13 +28,32 @@ export interface IReferenceTickOptionsData {
   tickOptions: ITickParam[];
   defaultTickOption: ITickParam;
   priceDecimals: number;
+  // Set only by the szDecimals-less fallback builder, which labels the same
+  // tick differently; callers use it to refuse that list where the labelling
+  // has to be right.
+  isFallback?: boolean;
 }
 
-type IOrderBookTickOptionState = {
-  value: string;
-  nSigFigs?: INSig;
-  mantissa?: IMantissa | null;
-};
+export function shouldSeedOrderBookTickOption({
+  isReady,
+  isFallbackList,
+  hasLoadedPersistedOptions,
+  hasPersistedOption,
+}: {
+  isReady: boolean;
+  isFallbackList: boolean;
+  hasLoadedPersistedOptions: boolean;
+  hasPersistedOption: boolean;
+}) {
+  // Seeding is first-write-wins, so each of these would otherwise be permanent:
+  // a list that is not ready, a fallback list that labels ticks differently, a
+  // seed racing the stored preferences load, or overwriting a value another
+  // order book already established (OK-59102).
+  if (!isReady || isFallbackList || !hasLoadedPersistedOptions) {
+    return false;
+  }
+  return !hasPersistedOption;
+}
 
 export function getTickOptionsDataDuringTransition<
   T extends { symbol: string },
@@ -56,26 +75,6 @@ export function getTickOptionsDataDuringTransition<
     return cached;
   }
   return reference?.symbol === symbol ? reference : null;
-}
-
-export function shouldPersistOrderBookTickOption({
-  isReady,
-  persisted,
-  next,
-}: {
-  isReady: boolean;
-  persisted: IOrderBookTickOptionState | undefined;
-  next: IOrderBookTickOptionState;
-}) {
-  if (!isReady) {
-    return false;
-  }
-
-  return (
-    persisted?.value !== next.value ||
-    (persisted?.nSigFigs ?? null) !== (next.nSigFigs ?? null) ||
-    (persisted?.mantissa ?? null) !== (next.mantissa ?? null)
-  );
 }
 
 function floorLog10(x: number): number {

@@ -1,6 +1,7 @@
 import {
   TradingViewNativeWheelDeltaNormalizer,
   getTradingViewNativeWheelPanOffsetDelta,
+  getTradingViewNativeWheelPriceRangeScale,
   getTradingViewNativeWheelZoomAnchorX,
   getTradingViewNativeWheelZoomScale,
 } from './chartWheel';
@@ -110,6 +111,27 @@ describe('TradingViewNative chart wheel', () => {
         deltaY: -0.25,
       }),
     ).toBe(2.05);
+  });
+
+  it('scales the price range when the wheel is over the price axis', () => {
+    expect(
+      getTradingViewNativeWheelPriceRangeScale({
+        currentScale: 2,
+        deltaY: -1,
+      }),
+    ).toBe(1.8);
+    expect(
+      getTradingViewNativeWheelPriceRangeScale({
+        currentScale: 2,
+        deltaY: 1,
+      }),
+    ).toBe(2.2);
+    expect(
+      getTradingViewNativeWheelPriceRangeScale({
+        currentScale: 10,
+        deltaY: 1,
+      }),
+    ).toBe(10);
   });
 
   it('uses the platform modifier only for focused zoom', () => {

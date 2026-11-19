@@ -49,6 +49,12 @@ function buildEnvExposedToClientDangerously({ platform }) {
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');
     transformInlineEnvironmentVariables.push('JPUSH_CHANNEL');
+    // Onramper Headless SDK production pair (publishable key + client id,
+    // NOT the backend partner secret) — consumed by
+    // shared/src/modules3rdParty/onramper/realClient.native.ts.
+    transformInlineEnvironmentVariables.push('ONRAMPER_CLIENT_ID');
+    transformInlineEnvironmentVariables.push('ONRAMPER_API_KEY');
+    // Publishable Messenger SDK keys, not server REST access tokens.
   }
 
   return transformInlineEnvironmentVariables;

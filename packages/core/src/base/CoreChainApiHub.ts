@@ -28,8 +28,9 @@ import CoreChainStellar from '../chains/stellar';
 import CoreChainSui from '../chains/sui';
 import CoreChainTon from '../chains/ton';
 import CoreChainTron from '../chains/tron';
-// import CoreChainXmr from '../chains/xmr';
+import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
+import CoreChainZcash from '../chains/zcash';
 
 export class CoreChainApiHub {
   onekeyall = new CoreAllNetwork();
@@ -76,7 +77,7 @@ export class CoreChainApiHub {
 
   fil = new CoreChainFil();
 
-  // xmr = new CoreChainXmr();
+  xmr = new CoreChainXmr();
 
   nexa = new CoreChainNexa();
 
@@ -95,4 +96,6 @@ export class CoreChainApiHub {
   neo = new CoreChainNeo();
 
   stellar = new CoreChainStellar();
+
+  zec = new CoreChainZcash();
 }

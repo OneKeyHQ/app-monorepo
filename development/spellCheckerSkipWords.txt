@@ -1,8 +1,11 @@
 # Custom words for cspell spell checker
 # Migrated from spellCheckerSkipWords.js
 rescan
+rescans
 fixpoint
 mmap
+opfs
+sahpool
 segs
 unixTime
 nodata
@@ -82,8 +85,10 @@ Ctxs
 ctxs
 ntli
 unfocus
+oklch
 usdc
 USDC
+EURC
 Realtime
 Tpsl
 tpsl
@@ -222,6 +227,7 @@ bypassable
 bytesize
 bytify
 cacheable
+caip
 caips
 calc
 camelcase
@@ -261,6 +267,7 @@ Cmp
 Codec
 codespace
 coinbase
+coinbasepay
 coingecko
 coinselect
 cointype
@@ -417,6 +424,7 @@ fs
 fucntion
 func
 Func
+funder
 Geist
 getr
 gif
@@ -517,6 +525,7 @@ keyring
 keysend
 keytag
 krc20
+Lamport
 Lamports
 lang
 lasttime
@@ -536,6 +545,7 @@ lru
 ltc
 Ltc
 lte
+macappstore
 macos
 mainnet
 malloc
@@ -615,6 +625,7 @@ Offchain
 offscreen
 Offscreen
 offscreens
+OLED
 okx
 Okx
 OKX
@@ -630,6 +641,7 @@ onekeyhq
 onekeyid
 onopen
 onramper
+onramps
 Ons
 onsuccess
 onupgradeneeded
@@ -651,6 +663,7 @@ passcode
 passpharse
 passphrase
 pathname
+paybis
 payin
 payout
 Pbkdf2
@@ -705,6 +718,7 @@ pwkey
 qrcode
 Queueing
 Rabby
+rasterizes
 rbf
 rbtc
 rdns
@@ -801,6 +815,7 @@ sompi
 Sompi
 Sparkline
 splitter
+Stax
 sr25519
 starcoin
 Starcoin
@@ -957,6 +972,7 @@ vtc
 wagmi
 Wagmi
 walletconnect
+walletkit
 wasm
 Wasm
 wasmd
@@ -980,6 +996,7 @@ wmin
 wns
 wordlist
 wordlists
+wordmark
 worklet
 xaid
 xbuf
@@ -1569,6 +1586,9 @@ navigations
 # OpenType tabular-figures feature tag
 tnum
 
+# Circle Cross-Chain Transfer Protocol
+cctp
+
 EXCLUDEFROMCAPTURE
 
 # KeyTag punch/verify domain terms
@@ -1583,3 +1603,87 @@ lookback
 
 # @rehookify/datepicker package name
 rehookify
+zcash
+zcash's
+lightwalletd
+pczt
+ufvk
+webzjs
+zatoshi
+zatoshis
+sighashes
+cashaddr
+coep
+coop
+credentialless
+subresources
+bytezhang
+goldens
+diversifier
+rederive
+treestate
+serde
+fingerprintable
+inlines
+journaled
+monerod
+monerod's
+piconero
+recognised
+rescanned
+rescanning
+subaddresses
+ufvks
+unopenable
+unrecoverably
+unscanned
+unspendable
+zcashd's
+rebuildable
+unmined
+
+# bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
+# plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)
+bstocks
+
+# Otsu's method (wallpaper black/white threshold algorithm)
+otsu
+Otsu
+OTSU
+binarize
+scure
+
+# password manager brand referenced in Input suppression comment
+Dashlane
+robinhood
+usdg
+USDG
+cyeth
+# Market launchpad protocol names (logo file names from the token detail API)
+bankr
+clanker
+dyorfun
+dyorfunvthree
+fourmeme
+jupstudio
+launchlab
+longxyz
+meteoradbc
+moonshotmoney
+ooneexchange
+ponsvtwo
+poolsfun
+poolstrade
+pumpfun
+sunpump
+
+# AndroidX WebView asset loader host, referenced in web-embed origin comments
+androidx
+
+# protobuf code generation, referenced in the zcash grpc-web comment
+codegen
+Jsign
+misttrack
+Borsh
+Galxe
+Hookable

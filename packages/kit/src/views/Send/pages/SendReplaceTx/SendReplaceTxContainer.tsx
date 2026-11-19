@@ -25,9 +25,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInscriptionProtectionStateAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
@@ -46,6 +48,9 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import { FeeEditor } from '../../components/SendFee';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SendTestIDs } from '../../testIDs';
+
+import { shouldCloseReplaceTxOnError } from './replaceTxErrorUtils';
+import { getReplaceTxGasLimit } from './replaceTxGasLimit';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -109,6 +114,7 @@ function SendReplaceTxContainer() {
   );
 
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const [feeInfo, setFeeInfo] = useState<IFeeInfoUnit | undefined>(undefined);
   const [isInit, setIsInit] = useState(false);
@@ -148,15 +154,13 @@ function SendReplaceTxContainer() {
           await backgroundApiProxy.serviceToken.getNativeTokenAddress({
             networkId,
           });
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountId,
@@ -166,7 +170,15 @@ function SendReplaceTxContainer() {
         });
         return r[0];
       },
-      [accountId, network, networkId, settings.inscriptionProtection],
+      // The policy state is an intentional invalidation signal; bg computes the final value.
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+      [
+        accountId,
+        network,
+        networkId,
+        inscriptionProtectionState.localEnabled,
+        inscriptionProtectionState.serverEnabled,
+      ],
       { watchLoading: true },
     );
 
@@ -258,6 +270,21 @@ function SendReplaceTxContainer() {
         }
       }
 
+      // The original gas limit may not cover an access list the replacement
+      // now carries, so the estimate for the replacement can raise it.
+      const replaceGasLimit = getReplaceTxGasLimit({
+        replaceEncodedTx: replaceEncodedTx as IEncodedTxEvm,
+        originalGasLimit: gasLimit,
+        estimatedGasLimit: (f.gasEIP1559?.[1] ?? f.gas?.[1])?.gasLimit,
+      });
+      if (replaceGasLimit !== gasLimit) {
+        setReplaceFeeInfo((prev) => ({ ...prev, gasLimit: replaceGasLimit }));
+        setFeeInfoUsedAsRestBase((prev) => ({
+          ...prev,
+          gasLimit: replaceGasLimit,
+        }));
+      }
+
       setIsLoadingFeeInfo(false);
 
       setFeeInfo({
@@ -271,6 +298,7 @@ function SendReplaceTxContainer() {
   }, [
     account,
     accountId,
+    gasLimit,
     isInit,
     network,
     networkId,
@@ -783,11 +811,9 @@ function SendReplaceTxContainer() {
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
-      // The replace was aborted because the original tx is already confirmed or
-      // replaced (its nonce is consumed). bg has already surfaced a friendly
-      // toast and cleaned up the stale pending tx, so just close this page
-      // instead of re-throwing the error.
-      if (e?.className === EOneKeyErrorClassNames.ReplaceTxNonceConsumed) {
+      // Terminal replacement failures already surface a localized bg toast.
+      // Dismiss the stale route snapshot instead of enabling another attempt.
+      if (shouldCloseReplaceTxOnError(e)) {
         navigation.popStack();
         return;
       }

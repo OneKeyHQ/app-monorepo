@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 import pLimit from 'p-limit';
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  ROBINHOOD_NETWORK_ID,
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
   presetNetworksMap,
@@ -24,9 +25,18 @@ import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
   NETWORK_SHOW_VALUE_THRESHOLD_USD,
 } from '@onekeyhq/shared/src/consts/networkConsts';
-import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_SOL,
+  IMPL_TRON,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -41,15 +51,15 @@ import type {
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../../vaults/factory';
+import {
+  hideLocalWalletPrivatePools,
+  isLocalWalletPrivacyDisabled,
+} from '../../vaults/localWallet/remoteConfig';
 import {
   getVaultSettings,
   getVaultSettingsAccountDeriveInfo,
@@ -67,6 +77,8 @@ import type {
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
+  // Robinhood sits above Bitcoin in the single-network selector (OK-62300).
+  ROBINHOOD_NETWORK_ID,
   getNetworkIdsMap().btc,
   getNetworkIdsMap().lightning,
   getNetworkIdsMap().eth,
@@ -138,14 +150,17 @@ class ServiceNetwork extends ServiceBase {
 
       perf.markStart('getServerNetworks-and-getAllCustomNetworks');
       // Fetch server and custom networks
-      const [serverNetworks, customNetworks] = await Promise.all([
-        this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+      const [
+        { networks: serverNetworks, delistedPresetNetworkIds },
+        customNetworks,
+      ] = await Promise.all([
+        this.backgroundApi.serviceCustomRpc.getServerNetworkState(),
         this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
       ]);
       perf.markEnd('getServerNetworks-and-getAllCustomNetworks');
 
       // Create a Map to store unique networks by id
-      // Priority: serverNetworks > presetNetworks > customNetworks
+      // Priority: presetNetworks > serverNetworks > customNetworks
       const networkMap = new Map<string, IServerNetwork>();
 
       // Helper function to add networks to the map
@@ -158,8 +173,16 @@ class ServiceNetwork extends ServiceBase {
       };
 
       perf.markStart('addNetworks-presetNetworks');
-      // Add networks in order of priority
-      addNetworks(presetNetworks);
+      // Add networks in order of priority. A preset the server delisted keeps
+      // its slot as TRASH, so the TRASH filter below hides it.
+      const delistedPresetNetworkIdSet = new Set(delistedPresetNetworkIds);
+      addNetworks(
+        presetNetworks.map((network) =>
+          delistedPresetNetworkIdSet.has(network.id)
+            ? { ...network, status: ENetworkStatus.TRASH }
+            : network,
+        ),
+      );
       perf.markEnd('addNetworks-presetNetworks');
 
       perf.markStart('addNetworks-serverNetworks');
@@ -344,7 +367,15 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
-    return this._getVaultSettingsByNetworkId(networkId);
+    const settings = await this._getVaultSettingsByNetworkId(networkId);
+    if (!settings.localWallet) {
+      return settings;
+    }
+    await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+    // Privacy switched off by the server: pages see only the public pool.
+    return isLocalWalletPrivacyDisabled(networkId)
+      ? hideLocalWalletPrivatePools(settings)
+      : settings;
   }
 
   @backgroundMethod()
@@ -940,10 +971,12 @@ class ServiceNetwork extends ServiceBase {
     for (const network of availableNetworks) {
       try {
         const localValidateResult =
-          await this.backgroundApi.serviceValidator.localValidateAddress({
-            networkId: network.id,
-            address,
-          });
+          await this.backgroundApi.serviceValidator.localValidateWatchingAddress(
+            {
+              networkId: network.id,
+              address,
+            },
+          );
         if (localValidateResult?.isValid) {
           if (!detectedNetworksMap[network.impl]) {
             detectedNetworksMap[network.impl] = [];
@@ -1100,20 +1133,37 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getSupportExportAccountKeyNetworks({
     exportType,
+    walletId,
   }: {
     exportType: 'privateKey' | 'publicKey' | 'mnemonic';
+    walletId?: string;
   }): Promise<
     {
       network: IServerNetwork;
     }[]
   > {
+    let networksInfo: { network: IServerNetwork }[];
     if (exportType === 'privateKey') {
-      return this.getSupportExportPrivateKeyNetworks();
+      networksInfo = await this.getSupportExportPrivateKeyNetworks();
+    } else if (exportType === 'publicKey') {
+      networksInfo = await this.getSupportExportPublicKeyNetworks();
+    } else {
+      throw new OneKeyLocalError('Not implemented');
     }
-    if (exportType === 'publicKey') {
-      return this.getSupportExportPublicKeyNetworks();
+
+    if (!walletId) {
+      return networksInfo;
     }
-    throw new OneKeyLocalError('Not implemented');
+
+    const { networkIdsCompatible } =
+      await this.getNetworkIdsCompatibleWithWalletId({
+        walletId,
+        networkIds: networksInfo.map((item) => item.network.id),
+      });
+    const compatibleNetworkIds = new Set(networkIdsCompatible);
+    return networksInfo.filter((item) =>
+      compatibleNetworkIds.has(item.network.id),
+    );
   }
 
   @backgroundMethod()
@@ -1328,6 +1378,18 @@ class ServiceNetwork extends ServiceBase {
           });
 
         if (walletDevice) {
+          if (walletDevice.deviceType === EDeviceType.Pro2) {
+            const networksNotSupportedByPro2QrWallet = networkVaultSettings
+              .filter(
+                (o) =>
+                  o.network.impl === IMPL_SOL || o.network.impl === IMPL_TRON,
+              )
+              .map((o) => o.network.id);
+            networkIdsIncompatible = networkIdsIncompatible.concat(
+              networksNotSupportedByPro2QrWallet,
+            );
+          }
+
           // Filter by firmware type (Bitcoin Only, etc.)
           const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
             walletId,
@@ -1342,7 +1404,7 @@ class ServiceNetwork extends ServiceBase {
               networkIdsIncompatible.concat(nonBtcNetworks);
           }
         }
-        // Qr account only support btc/evm network
+        // Pro2 QR accounts only support BTC/EVM networks.
       }
     }
 
@@ -1577,14 +1639,19 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     const timestamp = Date.now();
-    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+    await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
       [networkId]: { updatedAt: timestamp },
     });
+    const network = await this.getNetworkSafe({ networkId });
+    if (network) {
+      appEventBus.emit(EAppEventBusNames.RecentNetworkRecorded, { network });
+    }
   }
 
   @backgroundMethod()
   async clearRecentNetworks() {
-    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    await this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    appEventBus.emit(EAppEventBusNames.RecentNetworksCleared, undefined);
   }
 
   @backgroundMethod()
@@ -1594,55 +1661,13 @@ class ServiceNetwork extends ServiceBase {
     });
   }
 
-  // Prime the SWR cache used by UnifiedNetworkSelector's Portfolio tab so
-  // that after the user mutates enabled/disabled networks (via the "完成"
-  // button), the next cold open paints the new state directly from MMKV
-  // instead of flashing the previously cached allNetworksState for a
-  // frame before revalidation lands. Same assumption as recent-networks:
-  // bg shares the UI's MMKV instance.
-  //
-  // We aggregate the same shape that UnifiedNetworkSelector's
-  // `usePromiseResult(... swrKey: swrKeys.unifiedNetworkSelectorMeta)`
-  // returns — allNetworksState + allNetworks + compatibleNetworks.
-  @backgroundMethod()
-  async primeUnifiedNetworkSelectorMetaCache({
-    walletId,
-    accountId,
-  }: {
-    walletId: string;
-    accountId?: string;
-  }) {
-    if (!walletId) return;
-    try {
-      const [allNetworksStateResp, { networks: allNetworks }] =
-        await Promise.all([
-          this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
-          this.getAllNetworks(),
-        ]);
-
-      const compatibleNetworks =
-        await this.getChainSelectorNetworksCompatibleWithAccountId({
-          accountId,
-          walletId,
-          networkIds: allNetworks.map((network) => network.id),
-          excludeTestNetwork: true,
-        });
-
-      swrCacheUtils.set(
-        swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
-        {
-          allNetworksState: {
-            enabledNetworks: allNetworksStateResp.enabledNetworks,
-            disabledNetworks: allNetworksStateResp.disabledNetworks,
-          },
-          allNetworks,
-          compatibleNetworks,
-        },
-      );
-    } catch {
-      // Best-effort — fall back to UI-side revalidation on miss.
-    }
-  }
+  // `primeUnifiedNetworkSelectorMetaCache` used to live here: it re-ran the
+  // selector's own three calls, assembled the same shape and wrote the
+  // `unifiedNetworkSelectorMeta` SWR entry from bg. That made the namespace
+  // two-writer — the UI writes the same key through `usePromiseResult` — over
+  // one shared MMKV file with no lock between the runtimes. The selector now
+  // refreshes its own entry after it saves, so the cache has one writer and
+  // bg stays out of it.
 
   @backgroundMethod()
   async sortChainSelectorNetworksByValue({
@@ -1683,6 +1708,15 @@ class ServiceNetwork extends ServiceBase {
     const deriveTypeRawData =
       await this.backgroundApi.simpleDb.accountSelector.getRawData();
 
+    const selectorNetworkIds = new Set(
+      [
+        ...chainSelectorNetworks.mainnetItems,
+        ...chainSelectorNetworks.testnetItems,
+        ...chainSelectorNetworks.frequentlyUsedItems,
+        ...chainSelectorNetworks.unavailableItems,
+      ].map((network) => network.id),
+    );
+
     for (const [key, value] of Object.entries(accountNetworkValues)) {
       const keyArray = key.split('_');
       const networkId = keyArray.pop() as string;
@@ -1693,7 +1727,10 @@ class ServiceNetwork extends ServiceBase {
         string,
       ];
       const shouldUseAccountNetworkValue = Boolean(
-        networkId && accountId && walletId === _walletId,
+        selectorNetworkIds.has(networkId) &&
+        networkId &&
+        accountId &&
+        walletId === _walletId,
       );
       if (shouldUseAccountNetworkValue) {
         if (!networkInfoMap[networkId]) {

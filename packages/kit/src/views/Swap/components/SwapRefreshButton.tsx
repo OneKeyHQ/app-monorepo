@@ -67,34 +67,41 @@ function BasicSwapRefreshButton({
   });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onRefresh = useCallback(
-    debounce(() => {
-      if (
-        !isFocusedRef.current ||
-        disabledRef.current ||
-        isRefreshQuoteRef.current ||
-        refreshLockedRef.current
-      ) {
-        return;
-      }
-      refreshLockedRef.current = true;
-      loadingAnimRef.current.setValue(0);
-      Animated.timing(loadingAnimRef.current, {
-        toValue: -1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start((finished) => {
-        if (finished) {
-          refreshActionRef.current();
-          setTimeout(() => {
-            if (!isRefreshQuoteRef.current) {
-              refreshLockedRef.current = false;
-            }
-          }, 100);
-        } else {
-          refreshLockedRef.current = false;
+    debounce(
+      () => {
+        if (
+          !isFocusedRef.current ||
+          disabledRef.current ||
+          isRefreshQuoteRef.current ||
+          refreshLockedRef.current
+        ) {
+          return;
         }
-      });
-    }, 10),
+        refreshLockedRef.current = true;
+        loadingAnimRef.current.setValue(0);
+        Animated.timing(loadingAnimRef.current, {
+          toValue: -1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start((finished) => {
+          if (finished) {
+            refreshActionRef.current();
+            setTimeout(() => {
+              if (!isRefreshQuoteRef.current) {
+                refreshLockedRef.current = false;
+              }
+            }, 100);
+          } else {
+            refreshLockedRef.current = false;
+          }
+        });
+      },
+      10,
+      {
+        leading: true,
+        trailing: false,
+      },
+    ),
     [],
   );
 

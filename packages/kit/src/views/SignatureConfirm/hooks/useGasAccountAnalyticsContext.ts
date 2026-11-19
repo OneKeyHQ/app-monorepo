@@ -22,7 +22,10 @@ import {
   type IGasAccountScenario,
 } from '@onekeyhq/shared/types/fee';
 
-import { buildGasAccountAnalyticsContext } from '../utils/gasAccountAnalytics';
+import {
+  buildGasAccountAnalyticsContext,
+  getBackendGasAccountUnavailableReason,
+} from '../utils/gasAccountAnalytics';
 
 export function useGasAccountAnalyticsContext({
   networkId,
@@ -98,8 +101,10 @@ export function useGasAccountAnalyticsContext({
       } else if (gasAccountTemporarilyDisabled) {
         unavailableReason = 'temporarilyDisabled';
       } else {
-        unavailableReason =
-          gasAccountUiState.gasAccountScenarioReason ?? 'backend_unknown';
+        unavailableReason = getBackendGasAccountUnavailableReason({
+          gasAccountScenarioReason: gasAccountUiState.gasAccountScenarioReason,
+          gasAccountSkipReason: gasAccountUiState.gasAccountSkipReason,
+        });
       }
     }
 
@@ -116,6 +121,8 @@ export function useGasAccountAnalyticsContext({
       selectedPayer: gasAccountUiState.selectedPayer ?? 'user',
       effectiveFeePayer,
       unavailableReason,
+      gasAccountSkipReason: gasAccountUiState.gasAccountSkipReason,
+      quoteOwnerType: gasAccountUiState.gasAccountQuote?.identity?.ownerType,
       estimatedGasNative:
         sendSelectedFeeInfo.originalTotalNative ??
         sendSelectedFeeInfo.totalNative,
@@ -136,7 +143,9 @@ export function useGasAccountAnalyticsContext({
     gasAccountTemporarilyDisabled,
     gasAccountUiState.gasAccountEligible,
     gasAccountUiState.gasAccountQuote?.quoteId,
+    gasAccountUiState.gasAccountQuote?.identity?.ownerType,
     gasAccountUiState.gasAccountScenarioReason,
+    gasAccountUiState.gasAccountSkipReason,
     gasAccountUiState.selectedPayer,
     gasAccountUiState.sponsorDisabledByCustomRpc,
     nativeTokenInfo.balance,

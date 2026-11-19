@@ -8,6 +8,7 @@ import type {
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnUtmParams,
   IEarnWithdrawType,
   IProtocolInfo,
   IStakeProtocolDetails,
@@ -22,6 +23,7 @@ export enum EModalStakingRoutes {
   BorrowTokenSelect = 'BorrowTokenSelect',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowEModeSwitch = 'BorrowEModeSwitch',
+  BorrowEModeCategorySelect = 'BorrowEModeCategorySelect',
   BorrowEModeNeedAction = 'BorrowEModeNeedAction',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
@@ -114,15 +116,35 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
+    // Campaign attribution from the Earn link that opened the detail page;
+    // rides along into the stake / withdraw request.
+    utm?: IEarnUtmParams;
+    // Fires after a deposit/withdraw confirms, before this modal pops. The
+    // inline wide-layout ManagePositionPart takes the same callback as a prop;
+    // opened as a modal there is no other way back to the caller. Same shape as
+    // the onSuccess this file already carries on the Claim routes.
+    onStakeWithdrawSuccess?: () => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
+  };
+  // Pass the scope so the picker can read live status while it is open.
+  [EModalStakingRoutes.BorrowEModeCategorySelect]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    selectedEModeId: number | null;
+    // The focused picker may have fresher status than the switch page.
+    onSelect: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
     targetEModeId: number;
     categoryLabel: string;
   };
@@ -167,6 +189,7 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams & {
     onSuccess?: () => void;
     isInModalContext?: boolean;
+    withdrawType?: IEarnWithdrawType;
   };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;

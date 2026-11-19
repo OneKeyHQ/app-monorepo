@@ -848,34 +848,6 @@ const boba: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const blast: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '81457',
-  'id': 'evm--81457',
-  'name': 'Blast',
-  'symbol': 'ETH',
-  'code': 'blast',
-  'shortcode': 'blast',
-  'shortname': 'blast',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'ETH',
-    'maxSendFeeUpRatio': 1.2,
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const btr: IServerNetwork = {
   'impl': 'evm',
   'chainId': '200901',
@@ -983,7 +955,7 @@ const katana: IServerNetwork = {
   'logoURI':
     'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
   'defaultEnabled': true,
-  'backendIndex': true,
+  'backendIndex': false,
 };
 const aurora: IServerNetwork = {
   'impl': 'evm',
@@ -1037,35 +1009,6 @@ const neox: IServerNetwork = {
   },
   'logoURI':
     'https://uni.onekey-asset.com/dashboard/logo/upload_1729561119021.0.635920670130657.0.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
-
-const azero: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '41455',
-  'id': 'evm--41455',
-  'name': 'Aleph Zero EVM',
-  'symbol': 'AZERO',
-  'code': 'alephazero',
-  'shortcode': 'alephazero',
-  'shortname': 'azero',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI':
-    'https://uni.onekey-asset.com/dashboard/logo/upload_1729837141734.0.5402483107018017.0.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1398,6 +1341,51 @@ const bch: IServerNetwork = {
   },
   'defaultEnabled': true,
   'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const zec: IServerNetwork = {
+  'chainId': '0',
+  'code': 'zec',
+  'decimals': 8,
+  'id': 'zec--0',
+  'impl': 'zec',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zec.png',
+  'name': 'Zcash',
+  'shortcode': 'zec',
+  'shortname': 'ZEC',
+  'symbol': 'ZEC',
+  'feeMeta': {
+    'decimals': 8,
+    'symbol': 'ZEC',
+  },
+  'defaultEnabled': true,
+  'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+// Monero is client-scanned: scanning is opt-in per account and costs real
+// bandwidth, so the network ships disabled by default.
+const xmr: IServerNetwork = {
+  'chainId': '0',
+  'code': 'xmr',
+  'decimals': 12,
+  'id': 'xmr--0',
+  'impl': 'xmr',
+  'isTestnet': false,
+  'logoURI': 'https://common.onekey-asset.com/chain/monero.png',
+  'name': 'Monero',
+  'shortcode': 'xmr',
+  'shortname': 'XMR',
+  'symbol': 'XMR',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'XMR',
+  },
+  'defaultEnabled': false,
+  // No backend indexer: the runtime is the only source of balances and history.
+  'backendIndex': false,
   'status': ENetworkStatus.LISTED,
 };
 
@@ -2349,12 +2337,17 @@ const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
 
+// The Web app (not web-embed) does not support the client-scanned privacy chains.
+const chainsUnsupportedOnWeb = new Set([zec, xmr]);
+
 export const presetNetworksMap = {
+  xmr,
   // btc & btc fork
   btc,
   doge,
   bch,
   ltc,
+  zec,
   neurai,
   tbtc,
   sbtc,
@@ -2390,13 +2383,11 @@ export const presetNetworksMap = {
   cronos,
   cfxespace,
   boba,
-  blast,
   btr,
   base,
   bob,
   aurora,
   neox,
-  azero,
   dtc,
   sonic,
   hsk,
@@ -2463,7 +2454,6 @@ export const getDefaultEnabledNetworksInAllNetworks = memoFn(
     avalanche,
     polygon,
     optimism,
-    blast,
     mantle,
     cronos,
     linea,
@@ -2515,13 +2505,14 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
 }
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
-  const networks = [
+  const allNetworks = [
     dangerAllNetworkRepresent,
     // btc & btc fork
     btc,
     doge,
     bch,
     ltc,
+    zec,
     neurai,
     tbtc,
     sbtc,
@@ -2556,14 +2547,12 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     cronos,
     cfxespace,
     boba,
-    blast,
     btr,
     base,
     bob,
     katana,
     aurora,
     neox,
-    azero,
     dtc,
     sonic,
     hsk,
@@ -2609,6 +2598,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nexa,
     kaspa,
     dnx,
+    xmr,
     fil,
     algo,
     sui,
@@ -2622,6 +2612,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     stellarTestnet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
+  const networks = platformEnv.isWeb
+    ? allNetworks.filter((network) => !chainsUnsupportedOnWeb.has(network))
+    : allNetworks;
 
   // Only run validation in development mode
   if (platformEnv.isDev) {
@@ -2633,7 +2626,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
 // Robinhood Chain is delivered via the server network list instead of
 // presetNetworks, so feature switches below reference it by network id.
-const ROBINHOOD_NETWORK_ID = 'evm--4663';
+export const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+// Network ids enabled by default under All Networks. Extends the preset list
+// with server-delivered chains that cannot live in presetNetworks.
+export const getDefaultEnabledNetworkIdsInAllNetworks = memoFn((): string[] => [
+  ...getDefaultEnabledNetworksInAllNetworks().map((network) => network.id),
+  ROBINHOOD_NETWORK_ID,
+]);
 
 export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
   eth.id,
@@ -2652,33 +2652,28 @@ export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
   ROBINHOOD_NETWORK_ID,
 ]);
 
+type IMevProtectionProviderInfo = {
+  name: string;
+  logoURI: string;
+  logoURIDark?: string;
+};
+
+const blinkMevProtectionProvider: IMevProtectionProviderInfo = {
+  name: 'Blink',
+  logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+  logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
+};
+
+// Client fallback for the tx-confirm MEV badge; must mirror the vendor the
+// server actually broadcasts through. Blink only since OK-61501.
 export const getNetworksSupportMevProtection = memoFn(
-  (): Record<
-    string,
-    {
-      name: string;
-      logoURI: string;
-      logoURIDark?: string;
-    }
-  > => ({
-    [eth.id]: {
-      name: 'MEV Blocker',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/mev_blocker.png',
-    },
-    [bsc.id]: {
-      name: 'Block Razor',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/block_razor.png',
-    },
-    [base.id]: {
-      name: 'Blink',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
-      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
-    },
-    [sol.id]: {
-      name: 'Blink',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
-      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
-    },
+  (): Record<string, IMevProtectionProviderInfo> => ({
+    [eth.id]: blinkMevProtectionProvider,
+    [bsc.id]: blinkMevProtectionProvider,
+    [base.id]: blinkMevProtectionProvider,
+    [arbitrum.id]: blinkMevProtectionProvider,
+    [ROBINHOOD_NETWORK_ID]: blinkMevProtectionProvider,
+    [sol.id]: blinkMevProtectionProvider,
     [sui.id]: {
       name: 'Shio',
       logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',

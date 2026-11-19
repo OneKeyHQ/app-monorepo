@@ -1,33 +1,12 @@
-import { useMemo } from 'react';
-
 import { Page, XStack, useMedia } from '@onekeyhq/components';
-import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpFooterActions } from '../../../components/Footer';
-import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
+import { perpFooterConfig } from '../../../components/Footer/perpFooterConfig';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
 
 import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
-
-function PerpNetworkStatus() {
-  const [networkStatus] = usePerpsNetworkStatusAtom();
-  const connected = networkStatus?.connected !== false;
-  const pingMs = networkStatus?.pingMs;
-
-  const monoLabel = useMemo(() => {
-    if (
-      networkStatus?.connected === true &&
-      pingMs !== null &&
-      pingMs !== undefined
-    ) {
-      return `${pingMs}ms`;
-    }
-    return undefined;
-  }, [networkStatus?.connected, pingMs]);
-
-  return <NetworkStatusBadge connected={connected} monoLabel={monoLabel} />;
-}
+import { PerpNetworkStatus } from './PerpNetworkStatus';
 
 export function PerpContentFooter() {
   const { gtSm } = useMedia();
@@ -42,7 +21,7 @@ export function PerpContentFooter() {
           h={40}
           alignItems="center"
           pl="$2"
-          pr="$6"
+          pr={perpFooterConfig.paddingRight}
           gap="$2"
         >
           <XStack alignItems="center" gap="$2" flexShrink={0}>

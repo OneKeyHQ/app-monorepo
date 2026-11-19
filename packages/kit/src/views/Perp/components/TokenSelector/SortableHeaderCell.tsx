@@ -86,6 +86,7 @@ function BaseSortableHeaderCell({
       flex={flex}
       flexBasis={typeof flex === 'number' ? 0 : undefined}
       minWidth={minWidth}
+      flexShrink={1}
       onPress={handlePress}
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"

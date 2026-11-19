@@ -37,6 +37,7 @@ import type {
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList,
 } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -53,6 +54,11 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../Prime/hooks/usePrimeFreeTrialUsage';
 import BulkRevokeItem from '../components/BulkRevokeItem';
 import { ApprovalManagementTestIDs } from '../testIDs';
 
@@ -65,6 +71,11 @@ function getConfirmText({
   intl: IntlShape;
   progressState: ERevokeProgressState;
 }) {
+  if (progressState === ERevokeProgressState.NotStarted) {
+    return intl.formatMessage({
+      id: ETranslations.global_bulk_revoke,
+    });
+  }
   if (progressState === ERevokeProgressState.Finished) {
     return intl.formatMessage({
       id: ETranslations.global_finish,
@@ -92,6 +103,26 @@ function BulkRevoke() {
 
   const { contractMap } = route.params;
 
+  // Free trial (free users only, started when the user presses start).
+  // ServiceSend marks the usage consumed at the broadcast point; this page
+  // settles a round without any broadcast and decides whether a retry needs
+  // a new start. Refs only: the loop keeps running after unmount.
+  const {
+    startUsage,
+    settleUsage,
+    prepareRetryUsage: prepareRetryFreeTrialUsage,
+  } = usePrimeFreeTrialUsage({
+    featureId: EPrimeFeatures.BulkRevoke,
+  });
+  const freeTrialUsageIdRef = useRef<string | undefined>(undefined);
+  const freeTrialRetryAttemptIdRef = useRef<string | undefined>(undefined);
+  const freeTrialUsageSucceededRef = useRef(false);
+  const freeTrialRoundCancelledRef = useRef(false);
+  const retryStartingRef = useRef(false);
+  const [isRetryStarting, setIsRetryStarting] = useState(false);
+  const startingRef = useRef(false);
+  const [isStarting, setIsStarting] = useState(false);
+
   const [unsignedTxs, setUnsignedTxs] = useState<IUnsignedTxPro[]>(
     route.params.unsignedTxs,
   );
@@ -117,20 +148,24 @@ function BulkRevoke() {
   >({});
 
   const [progressState, setProgressState] = useState<ERevokeProgressState>(
-    ERevokeProgressState.InProgress,
+    ERevokeProgressState.NotStarted,
   );
+  const isNotStarted = progressState === ERevokeProgressState.NotStarted;
 
   const [currentProcessIndex, setCurrentProcessIndex] = useState(0);
 
   const isAborted = useRef(false);
   const progressStateRef = useRef(progressState);
 
+  // Parks a paused run until it is resumed or cancelled. Resolves to false
+  // once the run is aborted so the caller leaves the loop without touching
+  // the device or the network again: an abort that lands while the run is
+  // parked here is only observable after the wait returns.
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
-    if (
-      progressStateRef.current === ERevokeProgressState.InProgress ||
-      isAborted.current
-    )
-      return Promise.resolve(true);
+    if (isAborted.current) return false;
+    if (progressStateRef.current === ERevokeProgressState.InProgress) {
+      return true;
+    }
     await timerUtils.wait(1000);
     return waitUntilInProgress();
   }, [isAborted]);
@@ -161,7 +196,7 @@ function BulkRevoke() {
       };
     }, [revokeTxsStatusMap]);
 
-  usePromiseResult(async () => {
+  const runRevokeLoop = useCallback(async () => {
     for (let i = 0; i < unsignedTxs?.length; i += 1) {
       const tx = unsignedTxs[i];
 
@@ -181,11 +216,9 @@ function BulkRevoke() {
         continue;
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
       if (!uuid || !tx.networkId || !tx.accountId) {
@@ -224,11 +257,9 @@ function BulkRevoke() {
         console.error('=====>>>>>> fetchAccountNativeBalance error', error);
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
 
       try {
         if (networkStatusRef.current[tx.networkId ?? '']?.isInsufficientFunds) {
@@ -265,10 +296,9 @@ function BulkRevoke() {
             accountId: tx.accountId,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const { encodedTx, estimateFeeParams } =
           await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -343,10 +373,9 @@ function BulkRevoke() {
           continue;
         }
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const isFeeInfoOverflow =
           await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
@@ -357,10 +386,9 @@ function BulkRevoke() {
             accountAddress,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         if (isFeeInfoOverflow) {
           setRevokeTxsStatusMap((prev) => ({
@@ -392,10 +420,9 @@ function BulkRevoke() {
             feeInfo,
           });
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const sendSelectedFeeInfo: ISendSelectedFeeInfo = {
           feeInfo,
@@ -406,6 +433,7 @@ function BulkRevoke() {
           totalFiatForDisplay: feeResult.totalFiatForDisplay,
         };
 
+        const roundUsageId = freeTrialUsageIdRef.current;
         const result =
           await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
             accountId: tx.accountId,
@@ -413,7 +441,17 @@ function BulkRevoke() {
             unsignedTxs: [updatedTx],
             feeInfos: [sendSelectedFeeInfo],
             transferPayload: undefined,
+            freeTrialUsage: roundUsageId
+              ? {
+                  featureId: EPrimeFeatures.BulkRevoke,
+                  usageId: roundUsageId,
+                  analyticsRetryAttemptId: freeTrialRetryAttemptIdRef.current,
+                }
+              : undefined,
           });
+        if (roundUsageId) {
+          freeTrialUsageSucceededRef.current = true;
+        }
 
         if (
           !isNil(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance)
@@ -425,16 +463,19 @@ function BulkRevoke() {
               .minus(feeResult.totalNativeForDisplay ?? feeResult.totalNative)
               .toFixed();
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
+        // Read the result here, inside the try: a state updater runs during
+        // render, where a malformed result would take the whole page down
+        // instead of marking this tx as failed.
+        const txId = result[0].signedTx.txid;
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
           [uuid]: {
             status: ERevokeTxStatus.Succeeded,
-            txId: result[0].signedTx.txid,
+            txId,
             feeBalance: feeResult.totalNativeForDisplay,
             feeSymbol: resp.common.nativeSymbol,
             feeFiat: feeResult.totalFiatForDisplay,
@@ -443,6 +484,9 @@ function BulkRevoke() {
       } catch (error: unknown) {
         let passphraseEnabled;
         let deviceCommunicationError;
+        if (isPrimeFreeTrialUserCancelError(error)) {
+          freeTrialRoundCancelledRef.current = true;
+        }
         if (
           isHardwareInterruptErrorByCode({
             error: error as IOneKeyError,
@@ -539,6 +583,36 @@ function BulkRevoke() {
     setProgressState(ERevokeProgressState.Finished);
   }, [unsignedTxs, waitUntilInProgress, intl]);
 
+  usePromiseResult(async () => {
+    if (isNotStarted) {
+      return;
+    }
+    try {
+      await runRevokeLoop();
+    } finally {
+      // Round over and every broadcast of it has returned: settle a usage
+      // without any broadcast right away (the background ignores this once a
+      // broadcast succeeded).
+      const roundUsageId = freeTrialUsageIdRef.current;
+      if (
+        roundUsageId &&
+        (!freeTrialUsageSucceededRef.current ||
+          freeTrialRetryAttemptIdRef.current)
+      ) {
+        void settleUsage(
+          roundUsageId,
+          isAborted.current || freeTrialRoundCancelledRef.current
+            ? 'cancelled'
+            : 'failed',
+          freeTrialRetryAttemptIdRef.current,
+        );
+      }
+    }
+    // Re-runs exactly when the loop itself changes (retry resets the txs)
+    // and once when the user starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runRevokeLoop, isNotStarted]);
+
   const renderBulkRevokeAlert = useCallback(() => {
     return (
       <Stack pb="$2" px="$5">
@@ -579,6 +653,15 @@ function BulkRevoke() {
     progressStateRef.current = progressState;
   }, [progressState]);
 
+  // Leaving the page stops the loop right away and keeps a start still
+  // pending from running a round.
+  useEffect(() => {
+    isAborted.current = false;
+    return () => {
+      isAborted.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     const handleVisibilityStateChange = (visible: boolean) => {
       if (
@@ -588,7 +671,7 @@ function BulkRevoke() {
         setProgressState(ERevokeProgressState.Paused);
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
-          [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+          [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
             status: ERevokeTxStatus.Paused,
           },
         }));
@@ -601,7 +684,45 @@ function BulkRevoke() {
     return removeSubscription;
   }, [currentProcessIndex, unsignedTxs, progressState]);
 
+  // Nothing runs, and no free use is reserved, until the user presses start.
+  const handleStart = useCallback(async () => {
+    if (startingRef.current) {
+      return;
+    }
+    startingRef.current = true;
+    setIsStarting(true);
+    try {
+      const outcome = await startUsage({
+        networkId: unsignedTxs[0]?.networkId,
+      });
+      if (outcome.status === 'rejected' || outcome.status === 'error') {
+        return;
+      }
+      if (isAborted.current) {
+        // The page was closed while starting: release the new reservation.
+        if (outcome.status === 'granted') {
+          void settleUsage(outcome.usageId, 'cancelled');
+        }
+        return;
+      }
+      if (outcome.status === 'granted') {
+        freeTrialUsageIdRef.current = outcome.usageId;
+        freeTrialUsageSucceededRef.current = false;
+      }
+      // The loop reads the ref; set it now so it does not wait a tick.
+      progressStateRef.current = ERevokeProgressState.InProgress;
+      setProgressState(ERevokeProgressState.InProgress);
+    } finally {
+      startingRef.current = false;
+      setIsStarting(false);
+    }
+  }, [startUsage, settleUsage, unsignedTxs]);
+
   const handleOnConfirm = useCallback(() => {
+    if (progressState === ERevokeProgressState.NotStarted) {
+      void handleStart();
+      return;
+    }
     if (progressState === ERevokeProgressState.Finished) {
       defaultLogger.prime.usage.bulkRevokeSuccess({
         revokeCount: succeededTxCount,
@@ -614,7 +735,7 @@ function BulkRevoke() {
       setProgressState(ERevokeProgressState.Paused);
       setRevokeTxsStatusMap((prev) => ({
         ...prev,
-        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+        [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
           status: ERevokeTxStatus.Paused,
         },
       }));
@@ -622,7 +743,7 @@ function BulkRevoke() {
       setProgressState(ERevokeProgressState.InProgress);
       setRevokeTxsStatusMap((prev) => ({
         ...prev,
-        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+        [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
           status: ERevokeTxStatus.Processing,
         },
       }));
@@ -633,17 +754,62 @@ function BulkRevoke() {
     currentProcessIndex,
     unsignedTxs,
     succeededTxCount,
+    handleStart,
   ]);
 
-  const handleOnCancel = useCallback(() => {
-    if (skippedTxCount === 0 && failedTxCount === 0) {
+  // Retry of failed items after the round finished. A usage with a
+  // broadcast is reused; a settled usage without one needs a new start, and
+  // a rejected start keeps the result page untouched.
+  const prepareRetryUsage = useCallback(async () => {
+    // A retry while the round still runs keeps the current usage.
+    if (progressState !== ERevokeProgressState.Finished) {
+      return true;
+    }
+    const prepared = await prepareRetryFreeTrialUsage({
+      usageId: freeTrialUsageIdRef.current,
+      succeededLocally: freeTrialUsageSucceededRef.current,
+      isCallerGone: () => isAborted.current,
+    });
+    freeTrialRetryAttemptIdRef.current = prepared.analyticsRetryAttemptId;
+    if (prepared.isNewUsage) {
+      freeTrialUsageIdRef.current = prepared.usageId;
+      freeTrialUsageSucceededRef.current = false;
+    }
+    return prepared.proceed;
+  }, [prepareRetryFreeTrialUsage, progressState]);
+
+  const handleOnCancel = useCallback(async () => {
+    const canRetry =
+      progressState === ERevokeProgressState.Finished &&
+      (skippedTxCount !== 0 || failedTxCount !== 0);
+    if (!canRetry) {
       isAborted.current = true;
       setProgressState(ERevokeProgressState.Aborted);
       navigation.popStack();
       return;
     }
+    if (retryStartingRef.current) {
+      return;
+    }
+    retryStartingRef.current = true;
+    setIsRetryStarting(true);
+    try {
+      if (!(await prepareRetryUsage())) {
+        return;
+      }
+    } finally {
+      retryStartingRef.current = false;
+      setIsRetryStarting(false);
+    }
+    freeTrialRoundCancelledRef.current = false;
     setProgressState(ERevokeProgressState.InProgress);
+    // The restarted loop reads the ref before the effect syncing it has run;
+    // without this it idles one poll interval before the first tx.
+    progressStateRef.current = ERevokeProgressState.InProgress;
     networkStatusRef.current = {};
+    // The retried list is shorter than the finished one; the index from the
+    // previous run must not outlive it.
+    setCurrentProcessIndex(0);
     setUnsignedTxs((prev) =>
       prev.filter(
         (tx) =>
@@ -652,7 +818,14 @@ function BulkRevoke() {
       ),
     );
     setRevokeTxsStatusMap({});
-  }, [skippedTxCount, failedTxCount, navigation, revokeTxsStatusMap]);
+  }, [
+    progressState,
+    skippedTxCount,
+    failedTxCount,
+    navigation,
+    revokeTxsStatusMap,
+    prepareRetryUsage,
+  ]);
 
   return (
     <Page
@@ -675,11 +848,20 @@ function BulkRevoke() {
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
+          // Before start the footer only holds the free-use hint, kept above
+          // the button on wide screens too.
+          {...(isNotStarted
+            ? {
+                gap: '$3',
+                $gtMd: { flexDirection: 'column', alignItems: 'flex-end' },
+              }
+            : {})}
           onConfirm={handleOnConfirm}
           onConfirmText={getConfirmText({
             intl,
             progressState,
           })}
+          confirmButtonProps={{ loading: isStarting, disabled: isStarting }}
           cancelButton={
             progressState === ERevokeProgressState.Finished &&
             skippedTxCount === 0 &&
@@ -693,7 +875,11 @@ function BulkRevoke() {
                     size: 'large',
                   } as any
                 }
-                onPress={handleOnCancel}
+                loading={isRetryStarting}
+                disabled={isRetryStarting}
+                onPress={() => {
+                  void handleOnCancel();
+                }}
               >
                 {progressState === ERevokeProgressState.Finished &&
                 (failedTxCount !== 0 || skippedTxCount !== 0)
@@ -701,68 +887,76 @@ function BulkRevoke() {
                       id: ETranslations.global_retry,
                     })} (${failedTxCount + skippedTxCount})`
                   : intl.formatMessage({
-                      id: ETranslations.global_cancel,
+                      id: ETranslations.global_close,
                     })}
               </Button>
             )
           }
         >
-          <YStack
-            gap="$1"
-            $md={{
-              width: '100%',
-              pb: '$2.5',
-            }}
-          >
-            <XStack
-              alignItems="center"
-              gap="$2"
+          {isNotStarted ? (
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.BulkRevoke}
+              $md={{ alignSelf: 'center', textAlign: 'center' }}
+              $gtMd={{ flex: 1 }}
+            />
+          ) : (
+            <YStack
+              gap="$1"
               $md={{
-                justifyContent: 'space-between',
+                width: '100%',
+                pb: '$2.5',
               }}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_process,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {`${currentProcessIndex + 1}/${
-                  unsignedTxs?.length ?? 0
-                } (${succeededTxCount} ${intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_status_succeeded,
-                })}, ${failedTxCount} ${intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_status_failed,
-                })}, ${skippedTxCount} ${intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_status_skipped,
-                })})`}
-              </SizableText>
-            </XStack>
-            {progressState === ERevokeProgressState.Finished ? (
               <XStack
                 alignItems="center"
+                gap="$2"
                 $md={{
                   justifyContent: 'space-between',
                 }}
-                gap="$2"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.wallet_approval_bulk_revoke_total_gas,
+                    id: ETranslations.global_process,
                   })}
                 </SizableText>
-                <NumberSizeableText
-                  size="$bodyMdMedium"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
-                >
-                  {totalFeeFiat ?? '-'}
-                </NumberSizeableText>
+                <SizableText size="$bodyMdMedium">
+                  {`${currentProcessIndex + 1}/${
+                    unsignedTxs?.length ?? 0
+                  } (${succeededTxCount} ${intl.formatMessage({
+                    id: ETranslations.wallet_approval_bulk_revoke_status_succeeded,
+                  })}, ${failedTxCount} ${intl.formatMessage({
+                    id: ETranslations.wallet_approval_bulk_revoke_status_failed,
+                  })}, ${skippedTxCount} ${intl.formatMessage({
+                    id: ETranslations.wallet_approval_bulk_revoke_status_skipped,
+                  })})`}
+                </SizableText>
               </XStack>
-            ) : null}
-          </YStack>
+              {progressState === ERevokeProgressState.Finished ? (
+                <XStack
+                  alignItems="center"
+                  $md={{
+                    justifyContent: 'space-between',
+                  }}
+                  gap="$2"
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_approval_bulk_revoke_total_gas,
+                    })}
+                  </SizableText>
+                  <NumberSizeableText
+                    size="$bodyMdMedium"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                  >
+                    {totalFeeFiat ?? '-'}
+                  </NumberSizeableText>
+                </XStack>
+              ) : null}
+            </YStack>
+          )}
         </Page.FooterActions>
       </Page.Footer>
     </Page>

@@ -20,13 +20,13 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { JuiceboxClient } from '@onekeyhq/kit-bg/src/services/ServiceKeylessWallet/utils/JuiceboxClient';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   EOAuthSocialLoginProvider,
   GOOGLE_OAUTH_CLIENT_IDS,
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
-  SUPABASE_PROJECT_URL,
-  SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -69,6 +69,8 @@ function demoError(error: unknown, apiName: string) {
 }
 
 function OneKeyIDApiTests() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const emailAuthConfig = getOneKeyIdAuthConfigByDevSettings(devSettings);
   const navigation = useAppNavigation();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -156,7 +158,7 @@ function OneKeyIDApiTests() {
             SUPABASE_PROJECT_URL:
           </SizableText>
           <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
-            {SUPABASE_PROJECT_URL || '(empty)'}
+            {emailAuthConfig.projectUrl || '(empty)'}
           </SizableText>
         </XStack>
         <XStack gap="$2">
@@ -164,7 +166,7 @@ function OneKeyIDApiTests() {
             SUPABASE_PUBLIC_API_KEY:
           </SizableText>
           <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
-            {SUPABASE_PUBLIC_API_KEY || '(empty)'}
+            {emailAuthConfig.publicKey || '(empty)'}
           </SizableText>
         </XStack>
         <XStack gap="$2">

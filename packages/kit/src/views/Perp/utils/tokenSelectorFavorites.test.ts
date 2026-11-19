@@ -7,6 +7,7 @@ import {
   getTokenSelectorFavoriteSortEntry,
   reconcileTokenSelectorFavoritesOrder,
   sortTokenSelectorFavoriteItems,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 } from './tokenSelectorFavorites';
@@ -221,5 +222,29 @@ describe('tokenSelectorFavorites', () => {
     });
 
     expect(entry.volume24h).toBe(42);
+  });
+
+  it('orders favorites by the persisted drag sequence and appends the rest', () => {
+    expect(
+      sortTokenSelectorFavoritesBySequence(
+        [
+          { mode: 'perp', coinName: 'BTC' },
+          { mode: 'perp', coinName: 'ETH' },
+          { mode: 'spot', coinName: '@142' },
+          { mode: 'perp', coinName: 'SOL' },
+        ],
+        [
+          { mode: 'perp', coinName: 'SOL' },
+          { mode: 'spot', coinName: '@142' },
+          { mode: 'perp', coinName: 'DOGE' },
+          { mode: 'perp', coinName: 'SOL' },
+        ],
+      ),
+    ).toEqual([
+      { mode: 'perp', coinName: 'SOL' },
+      { mode: 'spot', coinName: '@142' },
+      { mode: 'perp', coinName: 'BTC' },
+      { mode: 'perp', coinName: 'ETH' },
+    ]);
   });
 });

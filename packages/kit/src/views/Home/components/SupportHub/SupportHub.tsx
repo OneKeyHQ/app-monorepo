@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IIconProps } from '@onekeyhq/components';
@@ -12,16 +14,21 @@ import {
   Theme,
   XStack,
   YStack,
+  useCarouselPressSuppressor,
 } from '@onekeyhq/components';
+import { BannerSwiper } from '@onekeyhq/components/src/composite/Banner/BannerSwiper';
+import type { IRenderPaginationParams } from '@onekeyhq/components/src/layouts/Swiper/type';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   ONEKEY_SIFU_URL,
   ONEKEY_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appendUtmSourceToUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -33,11 +40,13 @@ function SupportHubItem({
   title,
   link,
   onPress,
+  showUnreadDot,
 }: {
   icon: IIconProps['name'];
   title: string;
   link?: string;
   onPress?: () => void;
+  showUnreadDot?: boolean;
 }) {
   return (
     <XStack
@@ -63,8 +72,11 @@ function SupportHubItem({
       }
     >
       <XStack alignItems="center" gap="$2.5" flex={1}>
-        <Stack borderRadius="$full" p="$2" bg="$bgStrong">
+        <Stack borderRadius="$full" p="$2" bg="$bgStrong" position="relative">
           <Icon name={icon} size="$6" />
+          {showUnreadDot ? (
+            <SupportUnreadDot testID="support-hub-unread-dot" />
+          ) : null}
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>
       </XStack>
@@ -93,15 +105,21 @@ function SupportHubBannerItem({
   themeVariant: string;
   intl: ReturnType<typeof useIntl>;
 }) {
+  const shouldSuppressPress = useCarouselPressSuppressor();
+  const handlePress = useCallback(() => {
+    if (shouldSuppressPress()) {
+      return;
+    }
+    openWebView({ url: item.url, source: 'in-app' });
+  }, [item.url, shouldSuppressPress]);
+
   return (
     <YStack
       height={151}
       justifyContent="center"
       px="$4"
       position="relative"
-      onPress={() => {
-        openWebView({ url: item.url, source: 'in-app' });
-      }}
+      onPress={handlePress}
     >
       <Stack
         position="absolute"
@@ -138,6 +156,57 @@ function SupportHubBannerItem({
   );
 }
 
+function SupportHubWebBanner({
+  data,
+  renderItem,
+}: {
+  data: ISupportHubBanner[];
+  renderItem: (info: { item: ISupportHubBanner }) => ReactNode;
+}) {
+  const isFocused = useIsFocused();
+  const keyExtractor = useCallback((item: ISupportHubBanner) => item.title, []);
+  const renderPagination = useCallback(
+    ({ currentIndex, goToIndex }: IRenderPaginationParams) => (
+      <XStack position="absolute" bottom={8} left={0} right={0} jc="center">
+        {data.map((item, index) => (
+          <YStack
+            key={item.title}
+            testID={`support-hub-banner-dot-${index}`}
+            accessibilityRole="button"
+            accessibilityLabel={String(index + 1)}
+            aria-current={index === currentIndex ? 'page' : undefined}
+            onPress={() => goToIndex(index)}
+            p="$1"
+            borderRadius="$full"
+            hoverStyle={{ bg: '$bgHover' }}
+          >
+            <YStack
+              w="$1.5"
+              h="$1.5"
+              borderRadius="$full"
+              bg={index === currentIndex ? '$bgPrimary' : '$neutral5'}
+            />
+          </YStack>
+        ))}
+      </XStack>
+    ),
+    [data],
+  );
+  return (
+    <BannerSwiper
+      testID="support-hub-banner"
+      height={151}
+      data={data}
+      renderItem={({ item }) => <Stack flex={1}>{renderItem({ item })}</Stack>}
+      keyExtractor={keyExtractor}
+      autoplay={isFocused}
+      autoplayLoop
+      autoplayDelayMs={5000}
+      renderPagination={renderPagination}
+    />
+  );
+}
+
 function SupportHub({
   helpCenterTitle,
   helpCenterLink,
@@ -148,6 +217,7 @@ function SupportHub({
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
 
   const defaultHelpCenterLink = useHelpLink({
     path: '',
@@ -218,6 +288,29 @@ function SupportHub({
   );
 
   const renderContent = useCallback(() => {
+    // Keep native Carousel until iOS, Android and Web migrate together.
+    const bannerContent = platformEnv.isNative ? (
+      <Carousel
+        data={bannerData}
+        renderItem={renderBannerItem}
+        pageWidth={bannerWidth}
+        autoPlayInterval={5000}
+        loop={bannerData.length > 1}
+        showPagination={bannerData.length > 1}
+        containerStyle={{
+          height: 151,
+        }}
+        paginationContainerStyle={{
+          position: 'absolute',
+          bottom: 8,
+          left: 0,
+          right: 0,
+          gap: 0,
+        }}
+      />
+    ) : (
+      <SupportHubWebBanner data={bannerData} renderItem={renderBannerItem} />
+    );
     return (
       <Stack
         flexDirection="row"
@@ -232,30 +325,7 @@ function SupportHub({
           onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}
         >
           <RichBlock
-            content={
-              bannerWidth > 0 ? (
-                <Carousel
-                  data={bannerData}
-                  renderItem={renderBannerItem}
-                  pageWidth={bannerWidth}
-                  autoPlayInterval={5000}
-                  loop={bannerData.length > 1}
-                  showPagination={bannerData.length > 1}
-                  containerStyle={{
-                    height: 151,
-                  }}
-                  paginationContainerStyle={{
-                    position: 'absolute',
-                    bottom: 8,
-                    left: 0,
-                    right: 0,
-                    gap: 0,
-                  }}
-                />
-              ) : (
-                <Stack height={151} />
-              )
-            }
+            content={bannerWidth > 0 ? bannerContent : <Stack height={151} />}
             contentContainerProps={{
               px: '$0',
               py: '$0',
@@ -279,6 +349,7 @@ function SupportHub({
             content={
               <SupportHubItem
                 icon="HelpSupportOutline"
+                showUnreadDot={hasUnreadSupportMessages}
                 title={intl.formatMessage({
                   id: ETranslations.global_contact_us,
                 })}
@@ -315,6 +386,7 @@ function SupportHub({
     );
   }, [
     intl,
+    hasUnreadSupportMessages,
     resolvedHelpCenterTitle,
     resolvedHelpCenterLink,
     bannerData,

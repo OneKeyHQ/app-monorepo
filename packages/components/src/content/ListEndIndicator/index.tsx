@@ -1,6 +1,6 @@
-import { Stack } from '../../primitives/Stack';
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { StackProps } from '@tamagui/core';
+import { Stack } from '../../primitives/Stack';
 
 export type IListEndIndicatorProps = StackProps;
 

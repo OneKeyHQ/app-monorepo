@@ -1,5 +1,24 @@
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import { resolveHardwarePassphraseEnabled } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import type {
+  EHardwareVendor,
+  IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
+} from '@onekeyhq/shared/types/device';
+
+export function resolveWalletPassphraseProtection({
+  deviceState,
+  features,
+}: {
+  deviceState?: IOneKeyDeviceState;
+  features?: IOneKeyDeviceFeatures;
+}): boolean {
+  const canonicalValue = deviceState?.status.passphraseProtection;
+  if (typeof canonicalValue === 'boolean') {
+    return canonicalValue;
+  }
+  return features ? resolveHardwarePassphraseEnabled({ features }) : false;
+}
 
 export function shouldShowAddHiddenWalletButtonForWallet(params: {
   isKeyless?: boolean;
@@ -10,10 +29,7 @@ export function shouldShowAddHiddenWalletButtonForWallet(params: {
   const { isKeyless, isHiddenWallet, isHwOrQrWallet, vendor } = params;
   if (isKeyless) return false;
   const profile = getVendorProfile(vendor);
-  if (
-    !profile.supportsPassphraseSetting ||
-    !profile.supportsHiddenWalletCreation
-  ) {
+  if (!profile.passphrase.hiddenWallet) {
     return false;
   }
   return !isHiddenWallet && isHwOrQrWallet;
@@ -27,7 +43,7 @@ export function shouldShowDeviceManagementButtonForWallet(params: {
 }) {
   const { isKeyless, isHiddenWallet, isHwOrQrWallet, vendor } = params;
   if (isKeyless || isHiddenWallet || !isHwOrQrWallet) return false;
-  return getVendorProfile(vendor).supportsDeviceManagementDetails;
+  return getVendorProfile(vendor).deviceManager.details;
 }
 
 export function shouldShowCreateHiddenWalletSidebarButtonForWallet(params: {

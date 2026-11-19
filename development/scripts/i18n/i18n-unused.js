@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/* cspell:ignore nextcursor prefilter quasis */
+/* cspell:ignore prefilter quasis */
 
 /**
  * Find translation keys that have no static references in source files.
@@ -10,15 +10,14 @@
  */
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
-const https = require('https');
 const path = require('path');
 
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
 const REPO_ROOT = path.join(__dirname, '../../..');
-const SHARED_PACKAGE_ROOT = path.join(REPO_ROOT, 'packages/shared');
 const LOCALE_JSON_PATH = path.join(
   REPO_ROOT,
   'packages/shared/src/locale/json/en_US.json',
@@ -101,6 +100,7 @@ const GENERATED_DIRS = [
   'apps/desktop/public/static/js-sdk',
   'apps/mobile/android/app/src/main/assets/web-embed',
   'apps/mobile/ios/OneKeyWallet/web-embed',
+  'apps/mobile/ios/outputs',
   'apps/ext/src/entry',
 ];
 
@@ -115,10 +115,10 @@ function parseArgs(argv) {
     format: 'table',
     includeTests: false,
     includeServerDynamic: false,
-    deleteBatchSize: 100,
     deleteLimit: 0,
-    deleteLokalise: false,
-    deleteLokaliseConfirm: false,
+    deleteKeysFile: '',
+    deleteCentral: false,
+    deleteConfirm: false,
     limit: DEFAULT_LIMIT,
     maxFileSize: DEFAULT_MAX_FILE_SIZE,
     output: '',
@@ -161,20 +161,29 @@ function parseArgs(argv) {
       options.includeTests = true;
     } else if (arg === '--include-server-dynamic') {
       options.includeServerDynamic = true;
+    } else if (arg === '--delete-central') {
+      options.deleteCentral = true;
     } else if (arg === '--delete-lokalise') {
-      options.deleteLokalise = true;
+      throw new Error(
+        '--delete-lokalise is retired: app translations live in OneKeyHQ/onekey-i18n. Use --delete-central.',
+      );
     } else if (arg === '--yes' || arg === '--confirm-delete') {
-      options.deleteLokaliseConfirm = true;
+      options.deleteConfirm = true;
     } else if (arg === '--delete-limit') {
       options.deleteLimit = Number(next());
     } else if (arg.startsWith('--delete-limit=')) {
       options.deleteLimit = Number(arg.slice('--delete-limit='.length));
-    } else if (arg === '--delete-batch-size') {
-      options.deleteBatchSize = Number(next());
-    } else if (arg.startsWith('--delete-batch-size=')) {
-      options.deleteBatchSize = Number(
-        arg.slice('--delete-batch-size='.length),
-      );
+    } else if (
+      arg === '--delete-keys-file' ||
+      arg.startsWith('--delete-keys-file=')
+    ) {
+      options.deleteKeysFile =
+        arg === '--delete-keys-file'
+          ? next()
+          : arg.slice('--delete-keys-file='.length);
+      if (!options.deleteKeysFile.trim()) {
+        throw new Error('--delete-keys-file requires a non-empty path');
+      }
     } else if (arg === '--pull-after-delete') {
       options.pullAfterDelete = true;
     } else if (arg === '--all') {
@@ -201,17 +210,19 @@ function parseArgs(argv) {
   if (!Number.isFinite(options.deleteLimit) || options.deleteLimit < 0) {
     throw new Error('--delete-limit must be a non-negative number');
   }
-  if (
-    !Number.isFinite(options.deleteBatchSize) ||
-    options.deleteBatchSize <= 0
-  ) {
-    throw new Error('--delete-batch-size must be a positive number');
+  if (options.deleteConfirm && !options.deleteCentral) {
+    throw new Error('--yes requires --delete-central');
   }
-  if (options.deleteLokaliseConfirm && !options.deleteLokalise) {
-    throw new Error('--yes requires --delete-lokalise');
+  if (options.deleteKeysFile && !options.deleteCentral) {
+    throw new Error('--delete-keys-file requires --delete-central');
   }
-  if (options.pullAfterDelete && !options.deleteLokaliseConfirm) {
-    throw new Error('--pull-after-delete requires --delete-lokalise --yes');
+  if (options.deleteKeysFile && options.deleteLimit !== 0) {
+    throw new Error(
+      '--delete-keys-file cannot be combined with --delete-limit',
+    );
+  }
+  if (options.pullAfterDelete && !options.deleteConfirm) {
+    throw new Error('--pull-after-delete requires --delete-central --yes');
   }
   if (options.roots.length === 0) {
     options.roots = DEFAULT_ROOTS;
@@ -232,11 +243,11 @@ Options:
   --root <path>             Root to scan. Can be repeated
   --include-tests           Count test/spec/e2e files as usage
   --include-server-dynamic  Include keys reserved for unconfirmed server APIs
-  --delete-lokalise         Build a Lokalise deletion plan for unused keys
-  --yes                     Actually delete from Lokalise. Requires --delete-lokalise
+  --delete-central          Plan deleting unused keys from OneKeyHQ/onekey-i18n
+  --yes                     Delete them: opens an onekey-i18n PR. Requires --delete-central
   --delete-limit <n>        Delete only the first n unused keys. 0 means all
-  --delete-batch-size <n>   Lokalise bulk-delete batch size. Default: 100
-  --pull-after-delete       Run yarn i18n:pull after confirmed deletion
+  --delete-keys-file <path> Delete only keys in a non-empty JSON array; all must be unused
+  --pull-after-delete       Wait for that PR's CI preview and pull it
   --max-file-size <bytes>   Skip larger files. Default: ${DEFAULT_MAX_FILE_SIZE}
   --verbose                 Print parse and dynamic-reference warnings
 
@@ -245,8 +256,9 @@ Examples:
   yarn i18n:unused --all
   yarn i18n:unused --format json --output tmp/i18n-unused.json
   yarn i18n:unused --include-tests --root packages/kit
-  yarn i18n:unused --delete-lokalise
-  yarn i18n:unused --delete-lokalise --yes --pull-after-delete
+  yarn i18n:unused --delete-central
+  yarn i18n:unused --include-tests --delete-central --delete-keys-file .tmp/old-keys.json
+  yarn i18n:unused --delete-central --yes --pull-after-delete
 `);
 }
 
@@ -752,261 +764,42 @@ function getServerDynamicReservationForKey(key) {
   );
 }
 
-function getOptionalEnvVar(name) {
-  return process.env[name] || '';
-}
-
-function getRequiredEnvVar(name) {
-  const value = getOptionalEnvVar(name);
-  if (!value) {
-    throw new Error(
-      `${name} environment variable is required for confirmed Lokalise deletion`,
-    );
-  }
-  return value;
-}
-
-function requestLokalise({ body, method, path: requestPath, token }) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : '';
-    const req = https.request(
-      {
-        hostname: 'api.lokalise.com',
-        method,
-        path: requestPath,
-        port: 443,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Api-Token': token,
-          ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
-        },
-      },
-      (res) => {
-        let responseBody = '';
-        res.on('data', (chunk) => {
-          responseBody += chunk;
-        });
-        res.on('end', () => {
-          let parsed;
-          try {
-            parsed = responseBody ? JSON.parse(responseBody) : {};
-          } catch (_error) {
-            parsed = responseBody;
-          }
-
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({ body: parsed, headers: res.headers });
-            return;
-          }
-
-          reject(
-            new Error(`Lokalise API error: ${res.statusCode} ${responseBody}`),
-          );
-        });
-      },
-    );
-
-    req.on('error', reject);
-    if (payload) {
-      req.write(payload);
-    }
-    req.end();
-  });
-}
-
-function getNextCursor(headers) {
-  const value =
-    headers.nextcursor ||
-    headers['next-cursor'] ||
-    headers['x-next-cursor'] ||
-    headers['x-pagination-next-cursor'];
-  return Array.isArray(value) ? value[0] : value || '';
-}
-
-async function fetchLokaliseKeys({ filterKeys, projectId, token }) {
-  const keys = [];
-  let cursor = '';
-  const seenCursors = new Set();
-
-  do {
-    const params = new URLSearchParams({
-      disable_references: '1',
-      include_comments: '0',
-      include_screenshots: '0',
-      include_translations: '0',
-      limit: '500',
-      pagination: 'cursor',
-    });
-    if (filterKeys?.length) {
-      params.set('filter_keys', filterKeys.join(','));
-    }
-    if (cursor) {
-      if (seenCursors.has(cursor)) {
-        throw new Error(`Lokalise cursor pagination loop detected: ${cursor}`);
-      }
-      seenCursors.add(cursor);
-      params.set('cursor', cursor);
-    }
-
-    const response = await requestLokalise({
-      method: 'GET',
-      path: `/api2/projects/${encodeURIComponent(projectId)}/keys?${params}`,
-      token,
-    });
-    const bodyKeys = Array.isArray(response.body?.keys)
-      ? response.body.keys
-      : [];
-    keys.push(...bodyKeys);
-    cursor = getNextCursor(response.headers);
-  } while (cursor);
-
-  return keys;
-}
-
-async function fetchLokaliseKeysForLocalKeys({ localKeys, projectId, token }) {
-  const allKeys = [];
-  const seenKeyIds = new Set();
-  const batchSize = 50;
-
-  for (let i = 0; i < localKeys.length; i += batchSize) {
-    const batch = localKeys.slice(i, i + batchSize);
-    const filterKeys = [
-      ...new Set(batch.flatMap((key) => getLokaliseKeyNameVariants(key))),
-    ];
-    const keys = await fetchLokaliseKeys({ filterKeys, projectId, token });
-    for (const keyInfo of keys) {
-      const keyId = String(keyInfo?.key_id ?? '');
-      if (keyId && !seenKeyIds.has(keyId)) {
-        seenKeyIds.add(keyId);
-        allKeys.push(keyInfo);
-      }
-    }
-    console.error(
-      `Resolved Lokalise key IDs: ${Math.min(
-        i + batch.length,
-        localKeys.length,
-      )}/${localKeys.length} candidates...`,
-    );
-  }
-
-  return allKeys;
-}
-
-function getLokaliseKeyNames(keyInfo) {
-  const keyName = keyInfo?.key_name;
-  if (typeof keyName === 'string') {
-    return [keyName];
-  }
-  if (keyName && typeof keyName === 'object') {
-    return Object.values(keyName).filter(
-      (value) => typeof value === 'string' && value,
-    );
-  }
-  return [];
-}
-
-function buildLokaliseKeyIndex(keys) {
-  const index = new Map();
-  for (const keyInfo of keys) {
-    for (const name of getLokaliseKeyNames(keyInfo)) {
-      const list = index.get(name) || [];
-      list.push(keyInfo);
-      index.set(name, list);
-    }
-  }
-  return index;
-}
-
-function getLokaliseKeyNameVariants(localKey) {
-  const variants = new Set([localKey]);
-  if (localKey.includes('.')) {
-    variants.add(localKey.replace('.', '::'));
-    variants.add(localKey.replace(/\./g, '::'));
-  }
-  return [...variants];
-}
-
-function findLokaliseKeyMatches(localKey, keyIndex) {
-  const matchesById = new Map();
-  for (const variant of getLokaliseKeyNameVariants(localKey)) {
-    const matches = keyIndex.get(variant) || [];
-    for (const match of matches) {
-      if (match?.key_id !== undefined && match?.key_id !== null) {
-        matchesById.set(String(match.key_id), {
-          keyId: String(match.key_id),
-          keyName: variant,
-        });
-      }
-    }
-  }
-  return [...matchesById.values()];
-}
-
-function buildLokaliseDeletePlan({ keyIndex, unused }) {
-  const ambiguous = [];
-  const missing = [];
-  const toDelete = [];
-  const seenKeyIds = new Set();
-
+// Old keys are removed in OneKeyHQ/onekey-i18n through the GitHub-backed
+// workflow client; the deletion lands as an onekey-i18n PR whose preview the app can pull.
+async function buildCentralDeletePlan({ client, unused }) {
+  const plan = { toDelete: [], missing: [], ambiguous: [] };
   for (const item of unused) {
-    const matches = findLokaliseKeyMatches(item.key, keyIndex);
-    if (matches.length === 0) {
-      missing.push(item);
-    } else if (matches.length > 1) {
-      ambiguous.push({
-        ...item,
-        matches,
-      });
+    let found = null;
+    let lookupError = null;
+    try {
+      found = await client.findKey(item.key);
+    } catch (error) {
+      lookupError = error;
+    }
+    if (lookupError) {
+      plan.ambiguous.push({ key: item.key, error: lookupError.message });
+    } else if (found) {
+      plan.toDelete.push({ key: item.key, ref: found.key_id });
     } else {
-      const match = matches[0];
-      if (!seenKeyIds.has(match.keyId)) {
-        seenKeyIds.add(match.keyId);
-        toDelete.push({
-          ...item,
-          lokaliseKeyId: match.keyId,
-          lokaliseKeyName: match.keyName,
-        });
-      }
+      plan.missing.push({ key: item.key });
     }
   }
-
-  return { ambiguous, missing, toDelete };
+  return plan;
 }
 
-function chunkArray(items, size) {
-  const chunks = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-async function deleteLokaliseKeys({ keyIds, options, projectId, token }) {
-  const chunks = chunkArray(keyIds, options.deleteBatchSize);
-  let deleted = 0;
-
-  for (const chunk of chunks) {
-    await requestLokalise({
-      body: { keys: chunk },
-      method: 'DELETE',
-      path: `/api2/projects/${encodeURIComponent(projectId)}/keys`,
-      token,
-    });
-    deleted += chunk.length;
-    console.error(`Deleted ${deleted}/${keyIds.length} keys from Lokalise...`);
-  }
-
-  return deleted;
-}
-
-function runPullAfterDelete() {
+function runPullAfterDelete(pullRequest, commit) {
   const scriptPath = path.resolve(__dirname, 'i18n-pull.js');
-  const result = spawnSync(process.execPath, [scriptPath], {
-    cwd: SHARED_PACKAGE_ROOT,
-    env: process.env,
-    stdio: 'inherit',
-  });
+  const result = spawnSync(
+    process.execPath,
+    [
+      scriptPath,
+      '--pr',
+      String(pullRequest),
+      ...(commit ? ['--commit', commit] : []),
+      '--wait',
+    ],
+    { cwd: REPO_ROOT, env: process.env, stdio: 'inherit' },
+  );
 
   if (result.error) {
     throw result.error;
@@ -1019,20 +812,66 @@ function runPullAfterDelete() {
   }
 }
 
-async function applyLokaliseDeleteIfRequested(report, options) {
-  if (!options.deleteLokalise) {
+function selectUnusedForDeletion(report, options) {
+  if (!options.deleteKeysFile) {
+    return options.deleteLimit > 0
+      ? report.unused.slice(0, options.deleteLimit)
+      : report.unused;
+  }
+  if (options.deleteLimit > 0) {
+    throw new Error(
+      '--delete-keys-file cannot be combined with --delete-limit',
+    );
+  }
+  const keys = JSON.parse(
+    fs.readFileSync(resolveRoot(options.deleteKeysFile), 'utf8'),
+  );
+  if (
+    !Array.isArray(keys) ||
+    keys.length === 0 ||
+    keys.some(
+      (key) => typeof key !== 'string' || !/^[A-Za-z0-9_.:-]+$/.test(key),
+    )
+  ) {
+    throw new Error(
+      '--delete-keys-file must contain a non-empty JSON array of exact key names',
+    );
+  }
+  if (new Set(keys).size !== keys.length) {
+    throw new Error('--delete-keys-file contains duplicate keys');
+  }
+  const unusedByKey = new Map(report.unused.map((item) => [item.key, item]));
+  const rejected = keys.filter((key) => !unusedByKey.has(key));
+  if (rejected.length > 0) {
+    throw new Error(
+      `Requested keys are used, reserved or absent from the local catalog: ${rejected.join(', ')}`,
+    );
+  }
+  return keys.map((key) => unusedByKey.get(key));
+}
+
+async function applyCentralDeleteIfRequested(
+  report,
+  options,
+  {
+    createClient = () => {
+      const { CentralClient } = require('./workflow-client-central');
+      return new CentralClient();
+    },
+    pullAfterDelete = runPullAfterDelete,
+  } = {},
+) {
+  if (!options.deleteCentral) {
     return;
   }
 
-  const selectedUnused =
-    options.deleteLimit > 0
-      ? report.unused.slice(0, options.deleteLimit)
-      : report.unused;
+  const selectedUnused = selectUnusedForDeletion(report, options);
 
   const summary = {
-    dryRun: !options.deleteLokaliseConfirm,
+    dryRun: !options.deleteConfirm,
     requestedCandidates: report.unused.length,
     selectedCandidates: selectedUnused.length,
+    keysFile: options.deleteKeysFile || null,
     matched: 0,
     missing: 0,
     ambiguous: 0,
@@ -1043,83 +882,89 @@ async function applyLokaliseDeleteIfRequested(report, options) {
     sampleAmbiguous: [],
     sampleToDelete: [],
   };
-  report.lokaliseDelete = summary;
+  report.centralDelete = summary;
 
   if (selectedUnused.length === 0) {
-    summary.note = 'No unused candidates selected for Lokalise deletion.';
+    summary.note = 'No unused candidates selected for deletion.';
     return;
   }
 
-  const token = options.deleteLokaliseConfirm
-    ? getRequiredEnvVar('LOKALISE_TOKEN')
-    : getOptionalEnvVar('LOKALISE_TOKEN');
-  const projectId = options.deleteLokaliseConfirm
-    ? getRequiredEnvVar('LOKALISE_PROJECT_ID')
-    : getOptionalEnvVar('LOKALISE_PROJECT_ID');
+  const client = createClient();
 
-  if (!token || !projectId) {
-    summary.note =
-      'Dry run only: set LOKALISE_TOKEN and LOKALISE_PROJECT_ID to resolve Lokalise key IDs.';
-    return;
-  }
-
-  console.error('Resolving Lokalise key IDs for deletion plan...');
-  const lokaliseKeys = await fetchLokaliseKeysForLocalKeys({
-    localKeys: selectedUnused.map((item) => item.key),
-    projectId,
-    token,
-  });
-  const keyIndex = buildLokaliseKeyIndex(lokaliseKeys);
-  const plan = buildLokaliseDeletePlan({
-    keyIndex,
-    unused: selectedUnused,
-  });
-
+  const plan = await buildCentralDeletePlan({ client, unused: selectedUnused });
   summary.matched = plan.toDelete.length;
   summary.missing = plan.missing.length;
   summary.ambiguous = plan.ambiguous.length;
   summary.sampleMissing = plan.missing.slice(0, 20).map((item) => item.key);
-  summary.sampleAmbiguous = plan.ambiguous.slice(0, 20).map((item) => ({
-    key: item.key,
-    matches: item.matches,
-  }));
-  summary.sampleToDelete = plan.toDelete.slice(0, 20).map((item) => ({
-    key: item.key,
-    lokaliseKeyId: item.lokaliseKeyId,
-    lokaliseKeyName: item.lokaliseKeyName,
-  }));
+  summary.sampleAmbiguous = plan.ambiguous.slice(0, 20);
+  summary.sampleToDelete = plan.toDelete.slice(0, 20);
 
-  if (summary.ambiguous > 0) {
+  if (
+    summary.ambiguous > 0 ||
+    (options.deleteKeysFile && summary.missing > 0)
+  ) {
     summary.note =
-      'Ambiguous Lokalise key matches found. Resolve them before confirmed deletion.';
-    if (options.deleteLokaliseConfirm) {
+      'Missing or ambiguous onekey-i18n keys. Resolve them before confirmed deletion.';
+    if (options.deleteConfirm) {
       throw new Error(summary.note);
     }
     return;
   }
 
-  if (!options.deleteLokaliseConfirm) {
+  if (!options.deleteConfirm) {
     summary.note =
-      'Dry run: add --yes to delete matched keys from Lokalise. Server dynamic reserved keys are excluded unless --include-server-dynamic is used.';
+      'Dry run: add --yes to delete the matched keys through an onekey-i18n PR. Server dynamic reserved keys are excluded unless --include-server-dynamic is used.';
     return;
   }
 
   if (plan.toDelete.length === 0) {
-    summary.note = 'No matching Lokalise keys found for selected candidates.';
+    summary.note =
+      'No matching onekey-i18n keys found for selected candidates.';
     return;
   }
 
-  summary.deleted = await deleteLokaliseKeys({
-    keyIds: plan.toDelete.map((item) => item.lokaliseKeyId),
-    options,
-    projectId,
-    token,
+  for (const item of plan.toDelete) {
+    await client.remove(item.ref);
+    summary.deleted += 1;
+  }
+  const proposal = await client.finalize({
+    title: 'chore: remove unused app keys',
+    body: [
+      'Removed with `yarn i18n:unused --delete-central` in app-monorepo:',
+      '',
+      ...plan.toDelete.map((item) => `- \`${item.ref}\``),
+      '',
+    ].join('\n'),
+    branchHint: 'app-unused-keys',
+    // Named after the target and the removed refs, so rerunning the same
+    // deletion reuses its open PR instead of opening a second one, and a
+    // deletion against another branch or channel never reuses this one.
+    key: crypto
+      .createHash('sha256')
+      .update(
+        [
+          client.base ?? 'main',
+          client.channel ?? 'latest',
+          ...plan.toDelete.map((item) => item.ref).toSorted(),
+        ].join('\n'),
+      )
+      .digest('hex')
+      .slice(0, 12),
   });
-  summary.note = `Deleted ${summary.deleted} keys from Lokalise.`;
+  summary.proposal = proposal;
+  summary.note = `Removed ${summary.deleted} keys in onekey-i18n PR #${proposal.number}: ${proposal.url}`;
 
   if (options.pullAfterDelete) {
-    runPullAfterDelete();
-    summary.pulledAfterDelete = true;
+    try {
+      pullAfterDelete(proposal.number, proposal.commit);
+      summary.pulledAfterDelete = true;
+    } catch (error) {
+      // The PR exists; report it so the pull can be retried on its own.
+      summary.pullError = error.message;
+      // The same command the pull ran, with the same GitHub credentials. A
+      // fixed relative path needs no shell quoting on any platform.
+      summary.note += ` Pulling its preview failed: ${error.message}. Retry from the repository root with \`node development/scripts/i18n/i18n-pull.js --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
+    }
   }
 }
 
@@ -1319,16 +1164,16 @@ function formatTable(report, options) {
     );
   }
 
-  if (report.lokaliseDelete) {
-    const deleteSummary = report.lokaliseDelete;
+  if (report.centralDelete) {
+    const deleteSummary = report.centralDelete;
     lines.push('');
-    lines.push('Lokalise deletion:');
+    lines.push('onekey-i18n deletion:');
     lines.push(`  Mode: ${deleteSummary.dryRun ? 'dry-run' : 'confirmed'}`);
     lines.push(
       `  Selected candidates: ${deleteSummary.selectedCandidates}/${deleteSummary.requestedCandidates}`,
     );
-    lines.push(`  Matched Lokalise keys: ${deleteSummary.matched}`);
-    lines.push(`  Missing in Lokalise: ${deleteSummary.missing}`);
+    lines.push(`  Matched keys: ${deleteSummary.matched}`);
+    lines.push(`  Missing in onekey-i18n: ${deleteSummary.missing}`);
     lines.push(`  Ambiguous matches: ${deleteSummary.ambiguous}`);
     lines.push(`  Deleted: ${deleteSummary.deleted}`);
     lines.push(`  Pull after delete: ${deleteSummary.pulledAfterDelete}`);
@@ -1416,9 +1261,14 @@ async function main() {
       usedKeys,
       warnings,
     });
-    await applyLokaliseDeleteIfRequested(report, options);
+    await applyCentralDeleteIfRequested(report, options);
     const output = formatReport(report, options);
     writeOutput(output, options.output);
+    // CSV output has no room for it, so the PR and the retry always go to stderr.
+    if (report.centralDelete?.pullError) {
+      console.error(`Error: ${report.centralDelete.note}`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.error(`Error: ${error.message}`);
     console.error('Run `yarn i18n:unused --help` for usage.');
@@ -1426,4 +1276,14 @@ async function main() {
   }
 }
 
-void main();
+if (require.main === module) {
+  require('./central').loadLocalSettings();
+  void main();
+}
+
+module.exports = {
+  parseArgs,
+  selectUnusedForDeletion,
+  buildCentralDeletePlan,
+  applyCentralDeleteIfRequested,
+};

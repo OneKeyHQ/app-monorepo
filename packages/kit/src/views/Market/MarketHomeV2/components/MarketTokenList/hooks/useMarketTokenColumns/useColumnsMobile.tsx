@@ -14,9 +14,11 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PriceChangeBadge } from '../../../PriceChangeBadge';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
@@ -44,7 +46,7 @@ export const useColumnsMobile = (
                 : `${intl.formatMessage({
                     id: ETranslations.global_name,
                   })} / ${intl.formatMessage({
-                    id: ETranslations.dexmarket_turnover,
+                    id: ETranslations.market_stock_volume__title,
                   })}`}
             </SizableText>
             {sortIcon}
@@ -84,6 +86,9 @@ export const useColumnsMobile = (
                     {record.maxLeverage ? (
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
+                    <PerpDexBadge
+                      dexLabel={parseDexCoin(record.perpsCoin).dexLabel}
+                    />
                   </XStack>
                   {record.perpsSubtitle || record.turnover ? (
                     <XStack alignItems="center" gap="$1" minWidth={0}>
@@ -194,7 +199,7 @@ export const useColumnsMobile = (
                   currency: '$',
                 }}
               >
-                {record.price}
+                {Number.isFinite(record.price) ? record.price : '--'}
               </NumberSizeableText>
               <PriceChangeBadge change={priceChange} />
             </XStack>

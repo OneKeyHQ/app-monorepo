@@ -5,7 +5,7 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 
-enum ETransferServerErrorCode {
+export enum ETransferServerErrorCode {
   // General errors (1000-1099)
   UNKNOWN_ERROR = 1000,
   INVALID_PARAMETER = 1001,

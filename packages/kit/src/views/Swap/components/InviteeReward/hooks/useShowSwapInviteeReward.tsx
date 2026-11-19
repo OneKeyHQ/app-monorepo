@@ -89,6 +89,9 @@ export function useShowSwapInviteeReward({
             <SwapInviteeRewardContent
               accountId={accountId}
               currentEvmAddress={currentEvmAddress}
+              onBeforeNavigate={async () => {
+                await dialog?.close();
+              }}
             />
           ),
           showFooter: false,

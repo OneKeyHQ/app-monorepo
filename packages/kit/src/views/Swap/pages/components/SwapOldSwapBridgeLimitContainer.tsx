@@ -13,13 +13,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  useSwapSelectFromTokenAtom,
-  useSwapSelectToTokenAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -28,10 +23,13 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
-import { getSwapExecutionType } from '../../utils/swapTypeUtils';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
+import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../../utils/swapDesktopCardShadow';
 
 import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
@@ -61,6 +59,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   swapTypeSwitch: ESwapTabSwitchType;
+  routeSwapType?: ESwapTabSwitchType;
   alerts: {
     states: ISwapAlertState[];
     quoteId: string;
@@ -76,46 +75,10 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
-}
-
-const DESKTOP_SWAP_TITLE_TRANSITION =
-  'color 180ms ease, font-size 180ms ease, opacity 180ms ease';
-
-function SwapTitleText({
-  children,
-  isActive,
-  shouldUseDesktopLayoutTitleState,
-  inactiveOpacity = 0.8,
-}: {
-  children: ReactNode;
-  isActive: boolean;
-  shouldUseDesktopLayoutTitleState: boolean;
-  inactiveOpacity?: number;
-}) {
-  const shouldUseInactiveDesktopLayoutStyle =
-    shouldUseDesktopLayoutTitleState && !isActive;
-  let titleOpacity: number | undefined;
-
-  if (shouldUseDesktopLayoutTitleState) {
-    titleOpacity = isActive ? 1 : inactiveOpacity;
-  }
-
-  return (
-    <SizableText
-      size={shouldUseInactiveDesktopLayoutStyle ? '$headingMd' : '$headingLg'}
-      color={isActive ? '$text' : '$textSubdued'}
-      opacity={titleOpacity}
-      $platform-web={
-        shouldUseDesktopLayoutTitleState
-          ? {
-              transition: DESKTOP_SWAP_TITLE_TRANSITION,
-            }
-          : undefined
-      }
-    >
-      {children}
-    </SizableText>
-  );
+  hasExternalHeader?: boolean;
+  hideSwapTips?: boolean;
+  hideRecentTokenPairs?: boolean;
+  showThirdPartyNotice?: boolean;
 }
 
 const SwapOldSwapBridgeLimitContainer = ({
@@ -133,60 +96,35 @@ const SwapOldSwapBridgeLimitContainer = ({
   quoteLoading,
   quoteEventFetching,
   swapTypeSwitch,
+  routeSwapType,
   alerts,
   isWrapped,
   onSelectRecentTokenPairs,
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
+  hasExternalHeader,
+  hideSwapTips,
+  hideRecentTokenPairs,
+  showThirdPartyNotice,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
 
-  const swapLabel = intl.formatMessage({ id: ETranslations.swap_page_swap });
-  const bridgeLabel = intl.formatMessage({
-    id: ETranslations.swap_page_bridge,
-  });
   const stockLabel = intl.formatMessage({
     id: ETranslations.perps_token_selector_stocks,
   });
-  const effectiveSwapType = getSwapExecutionType({
-    fromNetworkId: fromToken?.networkId,
-    toNetworkId: toToken?.networkId,
-  });
-  const isEffectiveBridge =
-    effectiveSwapType === ESwapTabSwitchType.BRIDGE &&
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
-  const shouldUseDesktopLayoutTitleState = Boolean(
-    platformEnv.isDesktop || platformEnv.isWeb,
-  );
 
+  // Plain static title: the swap/bridge halves used to be emphasized by the
+  // current route type, which users read as a clickable toggle. Share the
+  // header tab's key so the label and its connector stay locale-correct
+  // (OK-58055).
   let swapTitleContent = (
-    <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
-      <SwapTitleText
-        isActive={!isEffectiveBridge}
-        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
-      >
-        {swapLabel}
-      </SwapTitleText>
-      <SwapTitleText
-        isActive={false}
-        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
-        inactiveOpacity={0.72}
-      >
-        &
-      </SwapTitleText>
-      <SwapTitleText
-        isActive={isEffectiveBridge}
-        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
-      >
-        {bridgeLabel}
-      </SwapTitleText>
-    </XStack>
+    <SizableText size="$headingLg" numberOfLines={1}>
+      {intl.formatMessage({ id: ETranslations.swap_history_title })}
+    </SizableText>
   );
   if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
     swapTitleContent = (
@@ -212,6 +150,10 @@ const SwapOldSwapBridgeLimitContainer = ({
     gtLg &&
     pageType !== EPageType.modal &&
     swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+
+  const thirdPartyNotice = showThirdPartyNotice ? (
+    <SwapThirdPartyNotice />
+  ) : null;
 
   const mainContent = (
     <YStack
@@ -260,12 +202,18 @@ const SwapOldSwapBridgeLimitContainer = ({
       alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={swapRecentTokenPairs}
-        fromTokenAmount={fromTokenAmountValue}
+      {hideRecentTokenPairs ? null : (
+        <SwapRecentTokenPairsGroup
+          onSelectTokenPairs={onSelectRecentTokenPairs}
+          tokenPairs={swapRecentTokenPairs}
+          fromTokenAmount={fromTokenAmountValue}
+        />
+      )}
+      <SwapPendingHistoryListComponent
+        pageType={pageType}
+        storeName={storeName}
       />
-      <SwapPendingHistoryListComponent pageType={pageType} />
+      {thirdPartyNotice}
     </YStack>
   );
 
@@ -279,22 +227,17 @@ const SwapOldSwapBridgeLimitContainer = ({
         borderWidth={1}
         borderColor="$borderSubdued"
         elevationAndroid="$1"
-        $platform-web={{
-          boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-        }}
-        style={{
-          shadowColor: 'rgba(0, 0, 0, 0.08)',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 1,
-          shadowRadius: 24,
-        }}
+        $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+        style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
       >
         <XStack alignItems="center" justifyContent="space-between">
           {swapTitleContent}
           <SwapHeaderRightActionContainer
+            storeName={storeName}
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
+            routeSwapType={routeSwapType}
           />
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
@@ -321,18 +264,23 @@ const SwapOldSwapBridgeLimitContainer = ({
         alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
-        <SwapRecentTokenPairsGroup
-          onSelectTokenPairs={onSelectRecentTokenPairs}
-          tokenPairs={swapRecentTokenPairs}
-          fromTokenAmount={fromTokenAmountValue}
+        {hideRecentTokenPairs ? null : (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={swapRecentTokenPairs}
+            fromTokenAmount={fromTokenAmountValue}
+          />
+        )}
+        <SwapPendingHistoryListComponent
+          pageType={pageType}
+          storeName={storeName}
         />
-        <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
     );
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <SwapTipsContainer pageType={pageType} />
-        {headerContent ? (
+        {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+        {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
           </YStack>
@@ -345,11 +293,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           maxWidth={1140}
           marginHorizontal="auto"
         >
-          <YStack p="$5" flexBasis="50%">
-            <YStack gap="$12">
-              {mainContentWithCard}
-              <SwapFAQ />
-            </YStack>
+          <YStack p="$5" flexBasis="50%" gap="$4">
+            {mainContentWithCard}
+            {thirdPartyNotice}
           </YStack>
           <YStack p="$5" flexBasis="50%">
             <SwapProviderListPanel refreshAction={refreshAction} />
@@ -362,8 +308,8 @@ const SwapOldSwapBridgeLimitContainer = ({
   if (showLimitDesktopCard) {
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <SwapTipsContainer pageType={pageType} />
-        {headerContent ? (
+        {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+        {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
           </YStack>
@@ -372,6 +318,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           px="$5"
           pt="$6"
           pb="$5"
+          gap="$4"
           width="100%"
           maxWidth={600}
           marginHorizontal="auto"
@@ -383,22 +330,17 @@ const SwapOldSwapBridgeLimitContainer = ({
             borderWidth={1}
             borderColor="$borderSubdued"
             elevationAndroid="$1"
-            $platform-web={{
-              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-            }}
-            style={{
-              shadowColor: 'rgba(0, 0, 0, 0.08)',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 1,
-              shadowRadius: 24,
-            }}
+            $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+            style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
           >
             <XStack alignItems="center" justifyContent="space-between">
               {swapTitleContent}
               <SwapHeaderRightActionContainer
+                storeName={storeName}
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
+                routeSwapType={routeSwapType}
               />
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />
@@ -426,13 +368,19 @@ const SwapOldSwapBridgeLimitContainer = ({
             alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
               <SwapAlertContainer alerts={alerts.states} />
             ) : null}
-            <SwapRecentTokenPairsGroup
-              onSelectTokenPairs={onSelectRecentTokenPairs}
-              tokenPairs={swapRecentTokenPairs}
-              fromTokenAmount={fromTokenAmountValue}
+            {hideRecentTokenPairs ? null : (
+              <SwapRecentTokenPairsGroup
+                onSelectTokenPairs={onSelectRecentTokenPairs}
+                tokenPairs={swapRecentTokenPairs}
+                fromTokenAmount={fromTokenAmountValue}
+              />
+            )}
+            <SwapPendingHistoryListComponent
+              pageType={pageType}
+              storeName={storeName}
             />
-            <SwapPendingHistoryListComponent pageType={pageType} />
           </YStack>
+          {thirdPartyNotice}
         </YStack>
       </ScrollView>
     );
@@ -445,8 +393,8 @@ const SwapOldSwapBridgeLimitContainer = ({
       ref={scrollViewRef}
       bottomOffset={bottomOffset}
     >
-      <SwapTipsContainer pageType={pageType} />
-      {headerContent ? (
+      {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+      {headerContent && !hasExternalHeader ? (
         <YStack pt="$8" pb="$4">
           {headerContent}
         </YStack>

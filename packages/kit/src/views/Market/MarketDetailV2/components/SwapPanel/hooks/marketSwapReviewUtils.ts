@@ -6,6 +6,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
+  ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -289,12 +290,14 @@ export function canReuseMarketSigningQuoteResult(
 }
 
 export function buildMarketSwapApprovingTransaction({
+  analyticsSwapInfo,
   quoteResult,
   amount,
   useAddress,
   spenderAddress,
   isResetApprove,
 }: {
+  analyticsSwapInfo?: ISwapTxInfo;
   quoteResult: IFetchQuoteResult;
   amount: string;
   useAddress: string;
@@ -302,6 +305,7 @@ export function buildMarketSwapApprovingTransaction({
   isResetApprove?: boolean;
 }): ISwapApproveTransaction {
   return {
+    analyticsSwapInfo,
     swapType: getSwapExecutionTypeFromQuoteResult(quoteResult),
     protocol: quoteResult.protocol ?? EProtocolOfExchange.SWAP,
     provider: quoteResult.info.provider,

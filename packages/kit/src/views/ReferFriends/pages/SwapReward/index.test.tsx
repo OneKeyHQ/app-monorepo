@@ -124,6 +124,9 @@ jest.mock('../../components', () => ({
 }));
 
 jest.mock('../../hooks/useDatePresets', () => ({
+  ...jest.requireActual<typeof import('../../hooks/useDatePresets')>(
+    '../../hooks/useDatePresets',
+  ),
   useDatePresets: () => mockDatePresets,
 }));
 
@@ -281,7 +284,7 @@ describe('SwapReward refresh feedback', () => {
     mockRouteFocused = true;
   });
 
-  it('uses the Trade product name in the reward page title', async () => {
+  it('uses the Swap product name in the reward page title', async () => {
     mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
     mockGetSwapInvites.mockResolvedValue(invites);
 
@@ -290,7 +293,7 @@ describe('SwapReward refresh feedback', () => {
 
     expect(mockReferFriendsDetailHeader).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: ETranslations.global_trade,
+        title: ETranslations.global_swap,
       }),
     );
   });

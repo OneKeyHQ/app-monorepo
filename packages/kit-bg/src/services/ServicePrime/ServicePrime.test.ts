@@ -1,11 +1,40 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import { AxiosError as InfiniAxiosError } from 'axios';
+
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IOneKeyIdOAuthLoginResponse,
+  IPrimeServerUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+
 import type {
   IKeylessOAuthSessionPersistenceJournal,
   IKeylessOAuthSessionPersistenceJournalPreparation,
   SimpleDbEntityPrime,
 } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+import type { IPrimeGiftEligibilityCache } from '../../states/jotai/atoms/prime';
+
+let mockGiftEligibilityCache: IPrimeGiftEligibilityCache = {};
+const mockPrimeGiftEligibilityPersistAtom = {
+  set: jest.fn(
+    async (
+      update: (
+        cached: IPrimeGiftEligibilityCache,
+      ) => IPrimeGiftEligibilityCache,
+    ) => {
+      mockGiftEligibilityCache = update(mockGiftEligibilityCache);
+    },
+  ),
+};
 
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
@@ -23,6 +52,8 @@ const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
+const mockPrimeCryptoPaymentFlowLog = jest.fn();
+const mockHardwareSdkServiceEvent = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -64,12 +95,28 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
   ensureSensitiveTextEncoded: jest.fn(),
 }));
 
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
+  () => ({
+    __esModule: true,
+    default: {
+      supportSecureStorage: jest.fn(async () => false),
+      setSecureItem: jest.fn(async () => undefined),
+      getSecureItem: jest.fn(async () => 'TEST_CODE'),
+      removeSecureItem: jest.fn(async () => undefined),
+    },
+  }),
+);
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   function createLoggerProxy(path: string[] = []): any {
     return new Proxy(jest.fn(), {
       get: (_target, property: string | symbol) => {
         const nextPath = [...path, String(property)];
         const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.primeCryptoPaymentFlow') {
+          return mockPrimeCryptoPaymentFlowLog;
+        }
         if (loggerMethod === 'prime.subscription.onekeyIdRemoteLogoutFlow') {
           return mockOneKeyIdRemoteLogoutFlowLog;
         }
@@ -81,6 +128,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
         }
         if (loggerMethod === 'prime.subscription.onekeyIdLoginFailedReason') {
           return mockOneKeyIdLoginFailedReasonLog;
+        }
+        if (loggerMethod === 'hardware.sdkLog.serviceEvent') {
+          return mockHardwareSdkServiceEvent;
         }
         return createLoggerProxy(nextPath);
       },
@@ -94,13 +144,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     intl: {
-      formatMessage: jest.fn(() => ''),
+      formatMessage: jest.fn(({ id }: { id: string }) => id),
     },
     onLocaleChange: jest.fn(),
   },
 }));
 
 jest.mock('../../states/jotai/atoms/prime', () => ({
+  primeGiftEligibilityPersistAtom: mockPrimeGiftEligibilityPersistAtom,
   primePersistAtom: mockPrimePersistAtom,
   primePersistAtomInitialValue: { isLoggedIn: false },
   primeServerMasterPasswordStatusAtom: mockPrimeServerMasterPasswordStatusAtom,
@@ -123,6 +174,8 @@ jest.mock('../../endpoints', () => ({
 // Captures the interceptor callbacks that ServiceBase.getOneKeyIdClient
 // registers, so tests can invoke the response error interceptor directly.
 const mockCapturedInterceptors: {
+  requestOnFulfilled?: (config: any) => Promise<any>;
+  responseOnFulfilled?: (response: any) => Promise<any>;
   responseOnRejected?: (error: unknown) => Promise<unknown>;
 } = {};
 
@@ -146,14 +199,17 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
     getOneKeyIdAuthClient: jest.fn(async () => ({
       interceptors: {
         request: {
-          use: jest.fn(),
+          use: jest.fn((onFulfilled: (config: any) => Promise<any>) => {
+            mockCapturedInterceptors.requestOnFulfilled = onFulfilled;
+          }),
         },
         response: {
           use: jest.fn(
             (
-              _onFulfilled: unknown,
+              onFulfilled: (response: any) => Promise<any>,
               onRejected: (error: unknown) => Promise<unknown>,
             ) => {
+              mockCapturedInterceptors.responseOnFulfilled = onFulfilled;
               mockCapturedInterceptors.responseOnRejected = onRejected;
             },
           ),
@@ -195,6 +251,9 @@ const mockPersistKeylessAuthSession = jest.fn(
 );
 const mockClearAllSupabaseAuthSessions = jest.fn(async () => undefined);
 const mockVerifyEmailOtp = jest.fn();
+const mockAllowEmailSessionWrites = jest.fn(
+  async (_source: unknown) => undefined,
+);
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
@@ -209,7 +268,8 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
-  allowAuthSessionStorageWritesBySessionSource: jest.fn(),
+  allowAuthSessionStorageWritesBySessionSource: (source: unknown) =>
+    mockAllowEmailSessionWrites(source),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
   getAuthTokenBySessionSource: (source: unknown) =>
     mockGetAuthTokenBySessionSource(source),
@@ -255,6 +315,8 @@ jest.mock('./primeAuthSessionAccess', () => ({
   clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
+const { HardwareErrorCode } = require('@onekeyfe/hd-shared');
+
 const {
   EOAuthSocialLoginProvider,
 } = require('@onekeyhq/shared/src/consts/authConsts');
@@ -262,18 +324,37 @@ const {
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
+  OneKeyServerApiError,
+  PinCancelled,
+  UserCancel,
+  UserCancelFromOutside,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
 const {
+  convertDeviceError,
+  convertDeviceResponse,
+} = require('@onekeyhq/shared/src/errors/utils/deviceErrorUtils');
+const errorToastUtils =
+  require('@onekeyhq/shared/src/errors/utils/errorToastUtils').default;
+const {
+  toPlainErrorObject,
+} = require('@onekeyhq/shared/src/errors/utils/errorUtils');
+const {
   EAppEventBusNames,
   appEventBus,
 } = require('@onekeyhq/shared/src/eventBus/appEventBus');
 const {
+  ETranslations,
+} = require('@onekeyhq/shared/src/locale/enum/translations');
+const {
   stashRequestAuthTokenOfError,
-  takeRequestAuthTokenOfError,
+  takeRequestAuthContextOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const {
+  getPrimeGiftVerifyFailureLogPayload,
+} = require('@onekeyhq/shared/src/utils/primeGiftVerifyError');
 const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
@@ -296,6 +377,8 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    hasInfiniPaymentLocalSendEvidence: jest.fn(async () => false),
+    recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
       async () => undefined as string | undefined,
@@ -360,6 +443,10 @@ function createService() {
     tryClaimOneKeyIdOAuthBindPrompt: jest.fn(async () => true),
     completeOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
     releaseOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
+    isIdentityLinkDue: jest.fn(async () => false),
+    recordIdentityLinkReported: jest.fn(async () => undefined),
+    isPrimeProfileDue: jest.fn(async () => false),
+    recordPrimeProfileReported: jest.fn(async () => undefined),
   };
   const backgroundApi: any = {
     simpleDb: {
@@ -377,6 +464,12 @@ function createService() {
     servicePrimeCloudSync: {
       showAlertDialogIfServerPasswordNotSet: jest.fn(async () => undefined),
       showAlertDialogIfServerPasswordChanged: jest.fn(async () => undefined),
+    },
+    servicePrimeFreeTrial: {
+      allocateQuotaRequestSeq: jest.fn(() => 1),
+      applyQuotaFromPrimeUserInfo: jest.fn(async () => undefined),
+      normalizeFreeTrialError: jest.fn(() => undefined),
+      handleFreeTrialErrorFromServer: jest.fn(async () => undefined),
     },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => undefined),
@@ -471,6 +564,106 @@ function createDeferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
+
+describe('ServicePrime.sendEmailOTP', () => {
+  const serverTime = Date.parse('2026-10-15T12:00:00.000Z');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([-120_000, 0, 120_000])(
+    'uses the response clock with a %sms device clock offset',
+    async (clockOffset) => {
+      jest.spyOn(Date, 'now').mockReturnValue(serverTime + clockOffset);
+      const { service } = createService();
+      const post = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            canResendAt: serverTime + 60_001,
+            resendAt: 300,
+            uuid: 'otp-id',
+          },
+        },
+        headers: { date: new Date(serverTime).toUTCString() },
+      });
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ post });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 61,
+        resendAt: 300,
+        uuid: 'otp-id',
+      });
+      expect(post).toHaveBeenCalledWith('/prime/v1/general/emailOTP', {
+        scene: EPrimeEmailOTPScene.DeleteOneKeyId,
+      });
+    },
+  );
+
+  test.each([26_500, 61_000, 300_000])(
+    'preserves and rounds up a %sms server interval',
+    async (delay) => {
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + delay } },
+          headers: { date: new Date(serverTime).toUTCString() },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: Math.ceil(delay / 1000),
+      });
+    },
+  );
+
+  test.each([undefined, 'invalid date'])(
+    'uses the existing server time estimate when the response date is %s',
+    async (date) => {
+      jest
+        .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+        .mockReturnValue(serverTime);
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + 26_500 } },
+          headers: { date },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 27,
+      });
+    },
+  );
+
+  test('leaves the delay unset when no reliable server time is available', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(serverTime + 120_000);
+    jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(undefined);
+    const { service } = createService();
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+      post: jest.fn().mockResolvedValue({
+        data: { data: { canResendAt: serverTime + 60_000, uuid: 'otp-id' } },
+        headers: {},
+      }),
+    });
+
+    await expect(
+      service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+    ).resolves.toMatchObject({
+      retryAfterSeconds: undefined,
+      uuid: 'otp-id',
+    });
+  });
+});
 
 describe('ServicePrime.apiFetchPrimeUserInfo', () => {
   it('refreshes an expired legacy access token through the SDK before profile recovery', async () => {
@@ -832,6 +1025,166 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
   });
 });
 
+describe('ServicePrime.apiRemovePrimeForTest', () => {
+  const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+  const params = { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD };
+  const confirmingUser = { expectedOneKeyUserId: 'user-a' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createRemovalService() {
+    const result = createService();
+    const { service, simpleDbPrime } = result;
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const refresh = jest.fn(async () => ({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: false },
+    }));
+    service.apiFetchPrimeUserInfo = refresh;
+    return { ...result, post, refresh };
+  }
+
+  it('posts without a body using the confirming session, then refreshes the entitlement', async () => {
+    const { service, post, refresh } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).resolves.toBeUndefined();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(refresh).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(
+      refresh.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('rejects direct calls outside developer mode', async () => {
+    const { service, post } = createRemovalService();
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Developer mode is required');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the developer password in the method body', async () => {
+    const { service, post } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(
+        { $$devOnlyPassword: 'wrong-password' },
+        confirmingUser,
+      ),
+    ).rejects.toThrow(/devOnlyPassword is wrong/);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects an account switch after opening the confirmation', async () => {
+    const { service, post } = createRemovalService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the session after obtaining the client and before sending', async () => {
+    const { service, simpleDbPrime, post } = createRemovalService();
+    service.getPrimeClient = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { post };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('propagates server allowlist errors without refreshing or claiming success', async () => {
+    const { service, post, refresh } = createRemovalService();
+    post.mockRejectedValueOnce(new Error('Email not allowed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Email not allowed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not refresh a replacement session when the user changes during removal', async () => {
+    const { service, simpleDbPrime, post, refresh } = createRemovalService();
+    post.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('propagates a failed refresh instead of claiming removal was confirmed', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockRejectedValueOnce(new Error('Refresh failed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Refresh failed');
+  });
+
+  it('rejects success when the refreshed subscription remains active', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockResolvedValueOnce({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: true },
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Prime removal could not be confirmed');
+  });
+
+  it('rejects a session change while refreshing the entitlement', async () => {
+    const { service, simpleDbPrime, refresh } = createRemovalService();
+    refresh.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return {
+        serverUserInfo: { userId: 'user-a' },
+        primeSubscription: { isActive: false },
+      };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+  });
+});
+
 describe('ServicePrime.apiResetInfiniSubscription', () => {
   const userA = {
     isLoggedIn: true,
@@ -1069,6 +1422,462 @@ describe('ServicePrime.apiCancelInfiniSubscription', () => {
   });
 });
 
+describe('ServicePrime.apiGetCustomerJWT', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  it('requests the support token with the expected account session pinned', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const get = jest.fn(async () => ({ data: { data: { token: 'jwt-a' } } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toEqual({ token: 'jwt-a' });
+    expect(get).toHaveBeenCalledWith('/prime/v1/general/customer_jwt', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('rejects before requesting when another account is signed in', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Support session changed');
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('discards a token issued while the account switched in flight', async () => {
+    const { service, simpleDbPrime } = createService();
+    let currentUser = userA;
+    let authStateGeneration = 3;
+    let activeToken = 'token-a';
+    mockPrimePersistAtom.get.mockImplementation(async () => currentUser);
+    simpleDbPrime.getActiveAuthToken.mockImplementation(
+      async () => activeToken,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => authStateGeneration,
+    );
+    const requestStarted = createDeferred();
+    const response = createDeferred();
+    const get = jest.fn(async () => {
+      requestStarted.resolve();
+      await response.promise;
+      return { data: { data: { token: 'jwt-a' } } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const result = service
+      .apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    await requestStarted.promise;
+    currentUser = { isLoggedIn: true, onekeyUserId: 'user-b' };
+    authStateGeneration = 4;
+    activeToken = 'token-b';
+    response.resolve();
+
+    await expect(result).resolves.toEqual(
+      expect.objectContaining({ message: 'Support session changed' }),
+    );
+  });
+});
+
+describe('ServicePrime Prime redemption API', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+  const redemption = {
+    addedDays: 30,
+    finalExpiresAt: 1_790_138_829_137,
+  };
+  const redemptionResponse = {
+    code: 'OKP-PJ37L-DYXWR',
+    daysAdded: redemption.addedDays,
+    changeType: 'activate',
+    primeExpiresAt: redemption.finalExpiresAt,
+    primeExpiresAtIso: '2026-09-23T04:47:09.137Z',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createRedemptionService() {
+    const result = createService();
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    return result;
+  }
+
+  function mockRedemptionClient({
+    service,
+    post,
+    tokenOwnerOneKeyUserId = 'user-a',
+  }: {
+    service: ReturnType<typeof createRedemptionService>['service'];
+    post: jest.Mock;
+    tokenOwnerOneKeyUserId?: string;
+  }) {
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: { onekeyUserId: tokenOwnerOneKeyUserId },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    return get;
+  }
+
+  it('redeems a trimmed code with the pinned OneKey ID session', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn(async () => ({
+      data: { data: redemptionResponse },
+    }));
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: '  OKP-PJ37L-DYXWR  ',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(redemption);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/redemption/redeem',
+      { code: 'OKP-PJ37L-DYXWR' },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('rejects an empty code without making a request', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: '   ',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects before redeeming when the pinned token belongs to another user', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({
+      service,
+      post,
+      tokenOwnerOneKeyUserId: 'user-b',
+    });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing data', undefined],
+    ['zero days', { ...redemptionResponse, daysAdded: 0 }],
+    ['fractional days', { ...redemptionResponse, daysAdded: 1.5 }],
+    [
+      'seconds timestamp',
+      { ...redemptionResponse, primeExpiresAt: 1_800_000_000 },
+    ],
+    [
+      'invalid timestamp',
+      { ...redemptionResponse, primeExpiresAt: Number.NaN },
+    ],
+  ])(
+    'rejects a malformed redemption response with %s',
+    async (_label, data) => {
+      const { service } = createRedemptionService();
+      const post = jest.fn(async () => ({ data: { data } }));
+      mockRedemptionClient({ service, post });
+
+      await expect(
+        service.apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toThrow('prime_redemption_invalid_response__msg');
+    },
+  );
+
+  it('rejects before the request when the logged-in user changed', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects the result when the logged-in user changes in flight', async () => {
+    const { service } = createRedemptionService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: { data: typeof redemptionResponse };
+    }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    mockRedemptionClient({ service, post });
+
+    const redemptionPromise = service.apiRedeemPrimeCode({
+      code: 'OKP-PJ37L-DYXWR',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    deferred.resolve({ data: { data: redemptionResponse } });
+
+    await expect(redemptionPromise).rejects.toBeInstanceOf(OneKeyLocalError);
+  });
+
+  it('rejects the result after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createRedemptionService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: { data: typeof redemptionResponse };
+    }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    mockRedemptionClient({ service, post });
+
+    const redemptionPromise = service.apiRedeemPrimeCode({
+      code: 'OKP-PJ37L-DYXWR',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    deferred.resolve({ data: { data: redemptionResponse } });
+
+    await expect(redemptionPromise).rejects.toBeInstanceOf(OneKeyLocalError);
+  });
+
+  it('preserves the server error for inline display without a global toast', async () => {
+    const { service } = createRedemptionService();
+    const message = '当前订阅不支持兑换；不会影响订阅扣款日期';
+    const error = Object.assign(new Error(message), {
+      autoToast: true,
+      code: 90_506,
+      data: {
+        code: 90_506,
+        message,
+        messageId: 'error__prime_redemption_code_unlimited_entitlement',
+      },
+    });
+    const post = jest.fn(async () => Promise.reject(error));
+    mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+  });
+
+  it('keeps the invalid-session auto toast and existing logout flow', async () => {
+    const { service } = createRedemptionService();
+    const error = new OneKeyErrorPrimeLoginInvalidToken({
+      autoToast: true,
+      message: '用户认证失败，请重试登录。',
+    });
+    const post = jest.fn(async () => Promise.reject(error));
+    mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(true);
+  });
+
+  it.each([400, 404, 409, 422])(
+    'normalizes Axios HTTP %s business errors so translated copy survives the bridge',
+    async (status) => {
+      const { service } = createRedemptionService();
+      const translatedMessage = '当前订阅不支持兑换；不会影响订阅扣款日期';
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        {
+          headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+        },
+        {},
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: { 'x-secret': 'should-not-copy' },
+          config: {
+            headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+          },
+          data: {
+            code: 90_506,
+            message: 'server-message',
+            translatedMessage,
+            extra: 'drop-me',
+          },
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      const error = await service
+        .apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(OneKeyServerApiError);
+      expect((error as { autoToast?: boolean }).autoToast).toBe(false);
+      expect((error as { httpStatusCode?: number }).httpStatusCode).toBe(
+        status,
+      );
+      const plain = toPlainErrorObject(error);
+      expect(plain.data).toEqual({
+        code: 90_506,
+        message: 'server-message',
+        translatedMessage,
+      });
+      expect(plain.code).toBe(90_506);
+      expect(JSON.stringify(plain)).not.toContain('secret-token');
+      expect(JSON.stringify(plain)).not.toContain('should-not-copy');
+      expect(JSON.stringify(plain)).not.toContain('drop-me');
+    },
+  );
+
+  it.each([
+    { status: 400, payload: '<html>not-json</html>' },
+    { status: 401, payload: { code: 90_003, message: 'Expired session' } },
+    { status: 403, payload: { code: 403, message: 'Forbidden' } },
+  ])(
+    'preserves non-business HTTP $status errors',
+    async ({ status, payload }) => {
+      const { service } = createRedemptionService();
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        undefined,
+        undefined,
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: {},
+          config: { headers: new AxiosHeaders() },
+          data: payload,
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      await expect(
+        service.apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toBe(axiosError);
+      expect((axiosError as { autoToast?: boolean }).autoToast).toBe(false);
+    },
+  );
+});
+
 describe('ServicePrime Infini payment APIs', () => {
   const userA = {
     isLoggedIn: true,
@@ -1113,6 +1922,297 @@ describe('ServicePrime Infini payment APIs', () => {
     result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
     return result;
   }
+
+  function pendingResponse(payments: unknown) {
+    return {
+      data: { code: 0, message: 'success', data: { payments } },
+    };
+  }
+
+  it.each(['monthly', 'yearly', 'annual', undefined])(
+    'discovers account-scoped pending data with plan %s',
+    async (plan) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () =>
+        pendingResponse([{ ...payment, plan, transactions: [] }]),
+      );
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.plan).toBe(
+        plan === 'annual' ? 'yearly' : plan,
+      );
+      expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/pending', {
+        headers: { 'X-Onekey-Request-Token': 'token-a' },
+        timeout: 5000,
+      });
+      expect(JSON.stringify(result)).not.toContain('token-a');
+    },
+  );
+
+  it.each([false, true])(
+    'keeps pending visible when local send evidence lookup fails=%s',
+    async (fails) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      if (fails)
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockRejectedValue(
+          new Error('storage unavailable'),
+        );
+      else
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockResolvedValue(true);
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () =>
+          pendingResponse([{ ...payment, plan: 'monthly', transactions: [] }]),
+        ),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.hasLocalSendEvidence).toBe(
+        fails ? undefined : true,
+      );
+      expect(result.status).toBe(fails ? 'unavailable' : undefined);
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).toHaveBeenCalledWith({
+        onekeyUserId: 'user-a',
+        paymentId: payment.paymentId,
+      });
+    },
+  );
+
+  it('confirms absence only for a successful payments empty array', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => pendingResponse([])),
+    }));
+    const result = await service.apiGetInfiniPendingPayment({
+      expectedOneKeyUserId: 'user-a',
+    });
+    expect(result).toEqual({
+      hasPendingPayments: false,
+      authContext: {
+        onekeyUserId: 'user-a',
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 3,
+      },
+    });
+    expect(
+      simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [payment, { ...payment, paymentId: 'other-order', amountConfirming: '1' }],
+    [{ ...payment, paymentId: 'other-order', amountConfirming: '1' }, payment],
+    [payment, payment],
+    [{ paymentId: 'remote-id' }, payment],
+  ])(
+    'never chooses a recovery from multiple orders: %j',
+    async (...payments) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse(payments)),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBeUndefined();
+      expect(result.hasPendingPayments).toBe(true);
+      expect(result.pendingPayment).toBeUndefined();
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'])(
+    'returns unknown status, never confirmed absence, on %s',
+    async (code) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw new InfiniAxiosError('secret-token private-address', code);
+        }),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result).toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /secret-token|private-address/,
+      );
+      expect(
+        JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+      ).not.toMatch(/secret-token|private-address/);
+    },
+  );
+
+  it.each([
+    undefined,
+    { data: {} },
+    ...[null, undefined, false, 0, '', [], {}, payment].map((data) => ({
+      data: { code: 0, data },
+    })),
+    ...[null, undefined, false, 0, '', {}, '[]'].map(pendingResponse),
+    ...[
+      null,
+      undefined,
+      false,
+      1,
+      '',
+      [],
+      {},
+      { paymentId: '' },
+      { paymentId: ' ' },
+      { paymentId: null },
+      { paymentId: 1 },
+    ].map((item) => pendingResponse([item])),
+    { data: { code: 1, data: { payments: [] } } },
+    { data: { data: { payments: [] } } },
+    pendingResponse([payment, null]),
+    pendingResponse([null, payment]),
+  ])(
+    'warns instead of blocking a new purchase on invalid discovery: %j',
+    async (response) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => response),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBe('unavailable');
+      expect(result.pendingPayment).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { paymentId: 'remote-id' },
+    {
+      paymentId: 'remote-id',
+      status: 'pending',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      amountRemaining: '29.99',
+      expiresAt: payment.expiresAt,
+      lastQuotedAt: payment.expiresAt - 1_800_000,
+    },
+  ])(
+    'warns without reconstructing a quote from order-only data: %j',
+    async (pending) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse([pending])),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toEqual({
+        paymentId: 'remote-id',
+        payment: undefined,
+        plan: undefined,
+        hasTransactions: undefined,
+        hasLocalSendEvidence: false,
+      });
+    },
+  );
+
+  it('keeps identity changes blocking even when discovery has failed', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        throw new InfiniAxiosError('timeout', 'ECONNABORTED');
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it('rejects an account change even after a successful empty lookup', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        return pendingResponse([]);
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([401, 403])(
+    'keeps endpoint HTTP%s advisory while the pinned account lifecycle is unchanged',
+    async (httpStatusCode) => {
+      const { service } = createInfiniService();
+      const error = new OneKeyServerApiError({
+        httpStatusCode,
+        message: 'auth rejected',
+      });
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw error;
+        }),
+      }));
+      await expect(
+        service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+      ).resolves.toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+    },
+  );
+
+  it('keeps unavailable discovery client setup advisory under the same authenticated identity', async () => {
+    const { service } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => {
+      throw new OneKeyLocalError('discovery client unavailable');
+    });
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toMatchObject({
+      status: 'unavailable',
+      authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+    });
+  });
+
+  it('still refuses creating after the consent auth lifecycle has changed', async () => {
+    const { service } = createInfiniService();
+    const authContext = {
+      onekeyUserId: 'user-a',
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 2,
+    };
+    const post = jest.fn();
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+        authContext,
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+    expect(post).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
 
   it('loads supported payment options', async () => {
     const { service } = createInfiniService();
@@ -1159,6 +2259,60 @@ describe('ServicePrime Infini payment APIs', () => {
     expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/options');
   });
 
+  it.each([
+    { symbol: ' eth ' },
+    { symbol: 'ETH', contract: '' },
+    { symbol: 'ETH', contract: null },
+    { symbol: 'ETH', contract: ' ' },
+  ])(
+    'normalizes a native payment option with contract $contract',
+    async (token) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: {
+          data: {
+            chains: [
+              {
+                chain: 'ETHEREUM',
+                networkId: 'evm--1',
+                tokens: [token],
+              },
+            ],
+          },
+        },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'ETH', contract: '' }],
+        },
+      ]);
+    },
+  );
+
+  it('drops a native payment option when the chain conflicts with the network', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: 'BSC',
+              networkId: 'evm--1',
+              tokens: [{ symbol: 'ETH', contract: '' }],
+            },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([]);
+  });
+
   it('drops malformed payment options at the service boundary', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
@@ -1174,6 +2328,10 @@ describe('ServicePrime Infini payment APIs', () => {
                   contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
                 },
                 { symbol: 'USDT', contract: '' },
+                { symbol: 'USDT' },
+                { symbol: 'ETH', contract: 123 },
+                { symbol: 'ETH', contract: {} },
+                { symbol: 'ETH', contract: false },
                 123,
               ],
             },
@@ -1334,6 +2492,158 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
+  it.each([undefined, [], ['First warning', 'Second warning']])(
+    'preserves the latest payment warning messages: %p',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: { data: { ...payment, warningMessages } },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).resolves.toEqual({ ...payment, warningMessages });
+    },
+  );
+
+  it('carries the same UI flow into background validation without changing the HTTP request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    const flowContext = {
+      flowId: 'flow-from-ui',
+      paymentSource: 'restoreRefresh' as const,
+      expectedChain: payment.chain,
+      expectedToken: payment.token,
+    };
+    await service.apiGetInfiniPayment({
+      paymentId: payment.paymentId,
+      expectedOneKeyUserId: 'user-a',
+      flowContext,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      payment,
+      flowId: 'flow-from-ui',
+    });
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'flow-from-ui',
+        paymentSource: 'restoreRefresh',
+        stage: 'responseValidation',
+        actualChain: payment.chain,
+        actualToken: payment.token,
+      }),
+    );
+  });
+
+  it('returns confirmed payment progress when diagnostic metadata cannot be persisted', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const confirmedPayment = {
+      ...payment,
+      amountConfirmed: payment.amountDue,
+    };
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: confirmedPayment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        },
+      }),
+    ).resolves.toEqual(confirmedPayment);
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'polling-flow',
+        paymentSource: 'polling',
+        stage: 'sessionPersistence',
+        failureReason: 'localPersistenceFailed',
+      }),
+    );
+    expect(
+      JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+    ).not.toContain('disk full');
+  });
+
+  it('still rejects an auth change when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: payment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockImplementation(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+      throw new OneKeyLocalError('disk full');
+    });
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: { flowId: 'polling-flow', paymentSource: 'polling' },
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([null, 'warning', ['warning', 1]])(
+    'rejects malformed warnings as invalidResponse (%p)',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: async () => ({ data: { data: { ...payment, warningMessages } } }),
+      }));
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'invalidResponse' },
+      });
+    },
+  );
+
+  it.each(['NaN', 'Infinity', '-0.01', ''])(
+    'rejects invalid progress amounts (%s)',
+    async (amount) => {
+      const { service } = createInfiniService();
+      for (const field of ['amountConfirmed', 'amountConfirming']) {
+        service.getPrimeClient = jest.fn(async () => ({
+          get: async () => ({
+            data: { data: { ...payment, [field]: amount } },
+          }),
+        }));
+        await expect(
+          service.apiGetInfiniPayment({
+            paymentId: payment.paymentId,
+            expectedOneKeyUserId: 'user-a',
+          }),
+        ).rejects.toMatchObject({
+          data: { paymentValidationFailure: 'invalidResponse' },
+        });
+      }
+    },
+  );
+
   it('rejects a payment query response with a different paymentId', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
@@ -1439,6 +2749,65 @@ describe('ServicePrime Infini payment APIs', () => {
         expectedOneKeyUserId: 'user-a',
       }),
     ).rejects.toThrow('Invalid Infini payment response');
+  });
+
+  it('captures a checkout identity without exposing the request token', async () => {
+    const { service } = createInfiniService();
+    await expect(service.getInfiniCheckoutAuthContext()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 3,
+    });
+  });
+
+  it.each([
+    'userChanged',
+    'loggedOut',
+    'authGenerationChanged',
+    'authSourceChanged',
+  ])('invalidates an existing checkout when %s', async (change) => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const context = await service.getInfiniCheckoutAuthContext();
+    await expect(
+      service.isInfiniCheckoutAuthContextCurrent({ context }),
+    ).resolves.toBe(true);
+    if (change === 'userChanged') {
+      mockPrimePersistAtom.get.mockResolvedValue({
+        ...userA,
+        onekeyUserId: 'user-b',
+      });
+    } else if (change === 'loggedOut') {
+      mockPrimePersistAtom.get.mockResolvedValue({
+        ...userA,
+        isLoggedIn: false,
+      });
+    } else if (change === 'authSourceChanged') {
+      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+    } else {
+      // A -> B -> A retains the visible user but replaces the login epoch.
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    }
+    await expect(
+      service.isInfiniCheckoutAuthContextCurrent({ context }),
+    ).resolves.toBe(false);
+  });
+
+  it('rejects a stale checkout identity before sending the creation request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const authContext = await service.getInfiniCheckoutAuthContext();
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    const post = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+        authContext,
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('pins the validated session token on hosted checkout creation', async () => {
@@ -1696,8 +3065,11 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
-  it('returns payment and purchase status from one pre-broadcast auth snapshot', async () => {
-    const { service } = createInfiniService();
+  it('returns a pre-broadcast auth snapshot when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
     const subscription = {
       subscriptionId: 'infini-subscription-id',
       status: 'active',
@@ -1727,6 +3099,10 @@ describe('ServicePrime Infini payment APIs', () => {
       service.apiGetInfiniPaymentPreBroadcastSnapshot({
         paymentId: payment.paymentId,
         expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'pre-broadcast-flow',
+          paymentSource: 'preflightRefresh',
+        },
       }),
     ).resolves.toEqual({
       payment,
@@ -2459,6 +3835,95 @@ describe('ServicePrime invalid-token handling', () => {
       await service.getPrimeClient();
     });
 
+    it('signs out a 90012 session through the invalid-token handler without exposing the token', async () => {
+      const rawError = {
+        data: { code: 90_012, requestUrl: '/prime/v1/user/info' },
+      };
+      stashRequestAuthTokenOfError({
+        error: rawError,
+        requestAuthToken: REQUEST_TOKEN,
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(rawError),
+      ).rejects.toMatchObject({
+        code: 90_012,
+        className: 'OneKeyErrorPrimeUserBanned',
+      });
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        }),
+      );
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
+    });
+
+    it('keeps the signed-in account for a bind ban whose error records only the service origin', async () => {
+      const error = {
+        data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
+      };
+      stashRequestAuthTokenOfError({
+        error,
+        requestAuthToken: REQUEST_TOKEN,
+        requestUrl: '/prime/v1/account/identities/oauth/bind',
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(error),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).not.toHaveBeenCalled();
+    });
+
+    it('rejects a banned body even when automatic error handling was disabled', async () => {
+      const response = {
+        data: { code: 90_012, data: { status: 'merge_required' } },
+        config: {
+          url: '/prime/v1/account/oauth/login',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+          autoHandleError: false,
+        },
+      };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).toHaveBeenCalled();
+    });
+
+    it('normalizes a ban returned as HTTP 403 without exposing its request config', async () => {
+      const error = {
+        response: { data: { code: 90_012 } },
+        config: {
+          url: '/prime/v1/user/info',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+        },
+      };
+      const thrown = await mockCapturedInterceptors
+        .responseOnRejected?.(error)
+        .catch((reason: unknown) => reason);
+      expect(thrown).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      );
+    });
+
+    it('does not treat an ordinary successful payload code as a server ban', async () => {
+      const response = { data: { code: 0, data: { code: 90_012 } } };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).resolves.toBe(response);
+    });
+
+    it('keeps the banned error when signing out fails', async () => {
+      handlerImpl.mockRejectedValueOnce(
+        new OneKeyLocalError('storage unavailable'),
+      );
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.({
+          data: { code: 90_012 },
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+    });
+
     async function invokeInterceptorWith90002() {
       const onRejected = mockCapturedInterceptors.responseOnRejected;
       expect(onRejected).toBeDefined();
@@ -2500,7 +3965,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
       // Read-and-delete: a second take returns nothing.
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
@@ -3441,6 +4906,38 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     jest.clearAllMocks();
   });
 
+  it('reopens the email storage slot before OTP verification can persist a new session', async () => {
+    const { service } = createService();
+    let allowWrites!: () => void;
+    let noteReopen!: () => void;
+    const reopening = new Promise<void>((resolve) => {
+      noteReopen = resolve;
+    });
+    mockAllowEmailSessionWrites.mockImplementationOnce(() => {
+      noteReopen();
+      return new Promise<undefined>((resolve) => {
+        allowWrites = () => resolve(undefined);
+      });
+    });
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+    const login = service.apiEmailOtpLogin({
+      email: 'next@example.com',
+      otp: '111111',
+    });
+    await reopening;
+    expect(mockAllowEmailSessionWrites).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    allowWrites();
+    await expect(login).resolves.toEqual({ success: true });
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+  });
+
   it('records an email OTP verification failure once in the background runtime', async () => {
     const { service } = createService();
     mockVerifyEmailOtp.mockResolvedValue({
@@ -3477,6 +4974,7 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       reason: expect.stringContaining(
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
+      trigger: 'interactive',
     });
   });
 
@@ -3510,6 +5008,8 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
+      trigger: 'interactive',
+      error: expect.objectContaining({ message: 'Prime login commit failed' }),
     });
   });
 
@@ -3776,6 +5276,59 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(result.serverUserInfo).toBeUndefined();
     expect(result.userInfo.onekeyUserId).toBe('user-a');
+  });
+
+  it('does not let an older fetch overwrite a newer Prime response', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue('commit-a');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token-a');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+
+    const olderResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const newerResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const olderFetchStarted = createDeferred();
+    const newerFetchStarted = createDeferred();
+    service.callApiFetchPrimeUserInfo = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        olderFetchStarted.resolve();
+        return olderResponse.promise;
+      })
+      .mockImplementationOnce(() => {
+        newerFetchStarted.resolve();
+        return newerResponse.promise;
+      });
+    const updateSpy = jest
+      .spyOn(service, 'updatePrimeAtomByServerUserInfo')
+      .mockResolvedValue({ primeSubscription: { isActive: true } as any });
+
+    const olderFetch = (service as any)._fetchPrimeUserInfo();
+    await olderFetchStarted.promise;
+    const newerFetch = (service as any)._fetchPrimeUserInfo();
+    await newerFetchStarted.promise;
+
+    newerResponse.resolve({ userId: 'user-a', isPrime: true });
+    await newerFetch;
+    olderResponse.resolve({ userId: 'user-a', isPrime: false });
+    await olderFetch;
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith({
+      serverUserInfo: { userId: 'user-a', isPrime: true },
+    });
   });
 });
 
@@ -4656,6 +6209,7 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(mockToastIfErrorMethods).toContain('apiOAuthLogin');
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('OneKey ID is already logged in'),
+      trigger: 'interactive',
     });
     expect(
       simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
@@ -6128,5 +7682,1574 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
 
     expect(get).not.toHaveBeenCalled();
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime hardware Prime gift orchestration', () => {
+  let giftEventSpy: jest.SpyInstance;
+  const user = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+    displayEmail: 'receiver@example.com',
+  };
+  const prepareParams = {
+    serialNo: 'DEVICE_SERIAL',
+    expectedOneKeyUserId: 'user-a',
+    device: { connectId: 'DEVICE_USB', deviceType: 'pro' },
+  };
+  const redemption = { addedDays: 180, finalExpiresAt: 1_800_000_000_000 };
+  const redeemParams = {
+    code: 'TEST_CODE',
+    expectedOneKeyUserId: 'user-a',
+    primeGiftSerialNo: 'DEVICE_SERIAL',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    giftEventSpy = jest
+      .spyOn(appEventBus, 'emit')
+      .mockImplementation(() => true);
+    mockPrimePersistAtom.get.mockResolvedValue(user);
+    mockGiftEligibilityCache = {};
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    giftEventSpy.mockRestore();
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createGiftService() {
+    const result = createService();
+    const { service, backgroundApi, simpleDbPrime } = result;
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    // Legacy metadata must not be consulted or updated by the new flow.
+    const legacyRead = jest.fn(async () => ({
+      devices: {
+        DEVICE_SERIAL: {
+          giftMonths: 6,
+          codeOwnerOneKeyUserId: 'another-user',
+          claimStatus: 'resultUnknown',
+          result: { onekeyUserId: 'another-user', ...redemption },
+        },
+      },
+    }));
+    const legacyWrite = jest.fn();
+    Object.assign(simpleDbPrime, {
+      getPrimeGiftClaimState: legacyRead,
+      setPrimeGiftClaimState: legacyWrite,
+    });
+    service.apiFetchPrimeUserInfo = jest.fn(async () => ({ userInfo: user }));
+    const verify = jest.fn<Promise<IPrimeGiftVerifyV2Result>, [unknown]>(
+      async () => ({ code: 'TEST_CODE', status: 'available' }),
+    );
+    backgroundApi.serviceHardware = {
+      hardwareVerifyManager: { firmwareAuthenticateForPrimeGift: verify },
+    };
+    const get = jest.fn(
+      async (): Promise<{
+        data: {
+          code: number;
+          message?: string;
+          data: {
+            userId: string;
+            onekeyAccount?: { onekeyUserId: string };
+          };
+        };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            userId: 'user-a',
+            onekeyAccount: { onekeyUserId: 'user-a' },
+          },
+        },
+      }),
+    );
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    }));
+    const eligibilityPost = jest.fn(
+      async (): Promise<{
+        data: { code: number; message?: string; data: unknown };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            sno: 'DEVICE_SERIAL',
+            eligible: true,
+            hasUnclaimedGift: true,
+            giftDays: 180,
+            giftMonths: 6,
+          },
+        },
+      }),
+    );
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    service.getClient = jest.fn(async () => ({ post: eligibilityPost }));
+    return {
+      ...result,
+      verify,
+      get,
+      post,
+      eligibilityPost,
+      legacyRead,
+      legacyWrite,
+    };
+  }
+
+  describe('resetting a device Prime gift in developer mode', () => {
+    const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+
+    beforeEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
+    });
+
+    afterEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    });
+
+    it('posts the current serial number and accepts success without response data', async () => {
+      const { service, eligibilityPost, legacyRead, legacyWrite } =
+        createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 0, data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toBeUndefined();
+      expect(service.getClient).toHaveBeenCalledWith('wallet');
+      expect(eligibilityPost).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/prime-gift/reset',
+        { sno: 'DEVICE_SERIAL' },
+      );
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+    });
+
+    it('does not call the server when developer mode is disabled', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('prime_gift_developer_mode_required__msg');
+      expect(eligibilityPost).not.toHaveBeenCalled();
+    });
+
+    it('preserves a failed reset response instead of reporting success', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 500, message: 'Reset failed', data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('Reset failed');
+    });
+  });
+
+  it('queries user info on every call without a profile or local user fallback', async () => {
+    const { service, get } = createGiftService();
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBe('user-a');
+    get.mockResolvedValueOnce({ data: { code: 0, data: { userId: '' } } });
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBeUndefined();
+    expect(get.mock.calls).toEqual([
+      ['/prime/v1/user/info'],
+      ['/prime/v1/user/info'],
+    ]);
+  });
+
+  it('does not accept a userId returned in a failed user-info response', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValue({
+      data: { code: 500, message: 'Info failed', data: { userId: 'user-a' } },
+    });
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toThrow(
+      'Info failed',
+    );
+  });
+
+  it.each([90_002, 90_003, 500])(
+    'prevents the background proxy from toasting automatic user-info error %s',
+    async (code) => {
+      const { service, get } = createGiftService();
+      mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+      const error =
+        code === 500
+          ? new OneKeyServerApiError({
+              code,
+              message: 'User info unavailable',
+              autoToast: true,
+            })
+          : new OneKeyErrorPrimeLoginInvalidToken({ code });
+      expect(error.autoToast).toBe(true);
+      get.mockRejectedValueOnce(error);
+
+      await expect(service.apiGetPrimeGiftUserId()).rejects.toBe(error);
+
+      expect(error.autoToast).toBe(false);
+      expect(toPlainErrorObject(error).autoToast).toBe(false);
+      errorToastUtils.showToastOfError(error);
+      await Promise.resolve();
+      expect(
+        giftEventSpy.mock.calls.filter(
+          ([event]) => event === EAppEventBusNames.ShowToast,
+        ),
+      ).toHaveLength(0);
+    },
+  );
+
+  it('mutes user-info authentication errors returned as response data', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValueOnce({
+      data: { code: 90_003, message: 'Login required', data: { userId: '' } },
+    });
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toMatchObject({
+      code: 90_003,
+      autoToast: false,
+    });
+  });
+
+  it('uses server eligibility even when legacy storage says another account claimed', async () => {
+    const { service, eligibilityPost, legacyRead, legacyWrite } =
+      createGiftService();
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).resolves.toMatchObject({ eligible: true, hasUnclaimedGift: true });
+    expect(service.getClient).toHaveBeenCalledWith('wallet');
+    expect(eligibilityPost).toHaveBeenCalledWith(
+      '/wallet/v1/hardware/prime-gift/eligibility',
+      {
+        sno: 'DEVICE_SERIAL',
+      },
+    );
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toMatchObject({
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: true,
+    });
+  });
+
+  it('persists separate device results and replaces previous duration fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const anotherDevice = {
+      sno: 'ANOTHER_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 45,
+    };
+    eligibilityPost.mockResolvedValue({
+      data: { code: 0, data: anotherDevice },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'ANOTHER_SERIAL' });
+    const updated = { ...anotherDevice, sno: 'DEVICE_SERIAL' };
+    eligibilityPost.mockResolvedValue({ data: { code: 0, data: updated } });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache).toEqual({
+      DEVICE_SERIAL: updated,
+      ANOTHER_SERIAL: anotherDevice,
+    });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL?.giftMonths).toBeUndefined();
+  });
+
+  it('retains the last successful result when a refresh fails or returns invalid data', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const cached = mockGiftEligibilityCache;
+    eligibilityPost.mockRejectedValueOnce(new Error('Offline'));
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow('Offline');
+    eligibilityPost.mockResolvedValueOnce({
+      data: { code: 0, data: { eligible: false } },
+    });
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow();
+    expect(mockGiftEligibilityCache).toBe(cached);
+  });
+
+  it('does not let an older request overwrite a newer no-gift response', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    type IResponse = Awaited<ReturnType<typeof eligibilityPost>>;
+    let resolveOld!: (response: IResponse) => void;
+    let resolveNew!: (response: IResponse) => void;
+    eligibilityPost
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve;
+        }),
+      );
+    const oldRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    const newRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    await Promise.resolve();
+    const noGift = {
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 180,
+      giftMonths: 6,
+    };
+    resolveNew({ data: { code: 0, data: noGift } });
+    await newRequest;
+    resolveOld({
+      data: { code: 0, data: { ...noGift, hasUnclaimedGift: true } },
+    });
+    await oldRequest;
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toEqual(noGift);
+  });
+
+  it('persists only eligibility metadata even if the response contains extra fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    eligibilityPost.mockResolvedValue({
+      data: {
+        code: 0,
+        data: {
+          sno: 'DEVICE_SERIAL',
+          eligible: true,
+          hasUnclaimedGift: true,
+          giftDays: 180,
+          primeCode: 'EXTRA_SERVER_FIELD',
+        },
+      },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).not.toHaveProperty(
+      'primeCode',
+    );
+  });
+
+  it.each([
+    { eligible: true, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: true },
+    { eligible: true, hasUnclaimedGift: true },
+  ])(
+    'preserves the real eligibility flags and gift duration: %j',
+    async (flags) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        ...flags,
+        giftDays: 360,
+        giftMonths: 12,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each([
+    {
+      code: 500,
+      message: 'Eligibility failed',
+      data: {
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    { code: 0, data: null },
+    { code: 0, data: { eligible: true, giftDays: 180, giftMonths: 6 } },
+    {
+      code: 0,
+      data: {
+        eligible: 'true',
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    {
+      code: 0,
+      data: { eligible: true, hasUnclaimedGift: true, giftMonths: 6 },
+    },
+  ])(
+    'rejects failed or incomplete eligibility responses instead of fabricating an offer: %j',
+    async (response) => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValue({ data: response });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow();
+    },
+  );
+
+  it.each([false, true])(
+    'propagates eligibility errors without a local override for isDev=%s',
+    async (isDev) => {
+      const { service, eligibilityPost } = createGiftService();
+      const error = new Error('Offer unavailable');
+      eligibilityPost.mockRejectedValue(error);
+      const environment = jest.replaceProperty(platformEnv, 'isDev', isDev);
+      try {
+        const request = service.apiGetPrimeGiftEligibility({
+          serialNo: 'DEVICE_SERIAL',
+        });
+        await expect(request).rejects.toBe(error);
+      } finally {
+        environment.restore();
+      }
+    },
+  );
+
+  it.each([undefined, null, '', 0])(
+    'preserves giftDays when giftMonths is empty or zero: %j',
+    async (giftMonths) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 45,
+        giftMonths,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each(['available', 'processing', 'redeemed', 'future-status'])(
+    'passes the server code through for status=%s',
+    async (status) => {
+      const { service, verify, legacyRead, legacyWrite, post } =
+        createGiftService();
+      verify.mockResolvedValue({ code: '  SERVER_CODE  ', status });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toEqual({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: '  SERVER_CODE  ',
+        verification: { hasCode: true, status },
+      });
+      expect(post).not.toHaveBeenCalled();
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+      expect(
+        jest.mocked(secureStorageInstance).supportSecureStorage.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).getSecureItem.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).setSecureItem.mock.calls,
+      ).toHaveLength(0);
+    },
+  );
+
+  it.each([undefined, '', '   '])(
+    'returns verification with an empty code without redeeming: %j',
+    async (code) => {
+      const { service, verify, post } = createGiftService();
+      verify.mockResolvedValue({ code, status: 'redeemed' });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        verification: { hasCode: false, status: 'redeemed' },
+      });
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('re-verifies without a claim cache and checks the session only when redeeming', async () => {
+    const { service, verify, simpleDbPrime, legacyRead, legacyWrite } =
+      createGiftService();
+    verify.mockRejectedValueOnce(new Error('Device cancelled'));
+    const failedPrepare = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(failedPrepare).toBeInstanceOf(OneKeyLocalError);
+    expect(failedPrepare).toMatchObject({
+      message: ETranslations.prime_gift_verify_failed__msg,
+      key: ETranslations.prime_gift_verify_failed__msg,
+      autoToast: false,
+    });
+    await service.apiPreparePrimeGiftRedemption(prepareParams);
+    expect(simpleDbPrime.getAuthSessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    await service.apiRedeemPrimeCode(redeemParams);
+    mockPrimePersistAtom.get.mockResolvedValue({
+      ...user,
+      onekeyUserId: 'user-b',
+    });
+    await expect(
+      service.apiPreparePrimeGiftRedemption({
+        ...prepareParams,
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).resolves.toMatchObject({ onekeyUserId: 'user-b', code: 'TEST_CODE' });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(simpleDbPrime.getAuthSessionSource).toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses only the login atom before device verification', async () => {
+    const { service, verify } = createGiftService();
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: true });
+    await expect(
+      service.apiPreparePrimeGiftRedemption(prepareParams),
+    ).resolves.toMatchObject({ code: 'TEST_CODE' });
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+    const loginExpired = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(loginExpired).toBeInstanceOf(OneKeyLocalError);
+    expect(loginExpired).toMatchObject({
+      message: ETranslations.id_login_expired_description,
+      key: ETranslations.id_login_expired_description,
+      autoToast: false,
+    });
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+  });
+
+  describe('device verification failures during gift prepare', () => {
+    function expectFriendlyVerifyFailedError(error: unknown) {
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+      expect(toPlainErrorObject(error)).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+    }
+
+    const SENSITIVE_LOG_VALUES = [
+      'DEVICE_SERIAL',
+      'TEST_CODE',
+      'user-a',
+      'receiver@example.com',
+      'access_token=',
+      'secret-auth-material',
+    ];
+
+    function leakText(prefix: string) {
+      return `${prefix} DEVICE_SERIAL TEST_CODE user-a receiver@example.com access_token=secret-auth-material`;
+    }
+
+    function expectSafeVerifyFailureLog(
+      originalError: unknown,
+      expected: Record<string, unknown>,
+    ) {
+      const logged = getPrimeGiftVerifyFailureLogPayload(originalError);
+      expect(logged).toEqual(expected);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledWith(
+        'firmwareAuthenticateForPrimeGift',
+        expected,
+      );
+      const serialized = JSON.stringify(
+        mockHardwareSdkServiceEvent.mock.calls[0][1],
+      );
+      for (const value of SENSITIVE_LOG_VALUES) {
+        expect(serialized).not.toContain(value);
+      }
+    }
+
+    it.each([
+      {
+        name: 'USB SDK failure',
+        error: Object.assign(
+          new Error(leakText('Protocol V2 USB read failed: transferIn')),
+          {
+            name: 'TransportError DEVICE_SERIAL',
+            code: 'TEST_CODE',
+            requestId: 'user-a',
+            cause: { message: leakText('usb cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              userId: 'user-a',
+              email: 'receiver@example.com',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: { reason: 'usbReadFailed' },
+      },
+      {
+        name: 'firmware verification failure',
+        error: Object.assign(
+          new OneKeyServerApiError({
+            code: 500,
+            message: leakText('Firmware verification failed'),
+            requestId: 'user-a',
+          }),
+          {
+            cause: { message: leakText('verify cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: {
+          reason: 'firmwareVerificationFailed',
+          errorName: EOneKeyErrorClassNames.OneKeyServerApiError,
+          errorCode: 500,
+        },
+      },
+      {
+        name: 'plain serialized error',
+        error: {
+          name: 'Error',
+          message: leakText('Protocol V2 USB read failed: transferIn'),
+          code: 'TEST_CODE',
+          requestId: 'user-a',
+          cause: { message: leakText('serialized usb cause') },
+          payload: {
+            serialNo: 'DEVICE_SERIAL',
+            userId: 'user-a',
+            email: 'receiver@example.com',
+          },
+        },
+        expectedLog: { reason: 'usbReadFailed', errorName: 'Error' },
+      },
+    ])(
+      'converts $name into a friendly verify-failed error and logs a structured diagnostic',
+      async ({ error: originalError, expectedLog }) => {
+        const { service, verify } = createGiftService();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).not.toBe(originalError);
+        expectFriendlyVerifyFailedError(error);
+        expectSafeVerifyFailureLog(originalError, expectedLog);
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a converted verification failure', async () => {
+      const { service, verify } = createGiftService();
+      verify.mockRejectedValueOnce(
+        new Error('Protocol V2 USB read failed: transferIn'),
+      );
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBeInstanceOf(OneKeyLocalError);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: 'TEST_CODE',
+        verification: { hasCode: true, status: 'available' },
+      });
+      expect(verify).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      {
+        name: 'converted ActionCancelled UserCancel',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+      },
+      {
+        name: 'converted PinCancelled',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.PinCancelled }),
+      },
+      {
+        name: 'UserCancel instance',
+        createError: () => new UserCancel(),
+      },
+      {
+        name: 'PinCancelled instance',
+        createError: () => new PinCancelled(),
+      },
+      {
+        name: 'convertDeviceResponse CallQueueActionCancelled',
+        createError: async () => {
+          const error = await convertDeviceResponse(async () => ({
+            success: false,
+            payload: {
+              code: HardwareErrorCode.CallQueueActionCancelled,
+              error: 'Action cancelled by user on call queue',
+            },
+          })).then(
+            () => undefined,
+            (caught: unknown) => caught,
+          );
+          expect(error).toBeDefined();
+          return error;
+        },
+      },
+      {
+        name: 'serialized ActionCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      },
+      {
+        name: 'serialized CallQueueActionCancelled payload.code',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+        }),
+      },
+      {
+        name: 'serialized PinCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.PinCancelled },
+        }),
+      },
+      {
+        name: 'UserCancelFromOutside instance',
+        createError: () => new UserCancelFromOutside(),
+      },
+      {
+        name: 'serialized HardwareUserCancelFromOutside',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+          message: 'UserCancelFromOutside',
+        }),
+      },
+      {
+        name: 'hardware busy preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.feedback_hardware_is_busy,
+            key: ETranslations.feedback_hardware_is_busy,
+            autoToast: false,
+          }),
+      },
+      {
+        name: 'missing connect preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.prime_gift_connect_device__msg,
+            key: ETranslations.prime_gift_connect_device__msg,
+            autoToast: false,
+          }),
+      },
+    ])(
+      'rethrows $name without converting it or writing a failure log',
+      async ({ createError }) => {
+        const { service, verify } = createGiftService();
+        const originalError = await createError();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).toBe(originalError);
+        expect(error).not.toMatchObject({
+          key: ETranslations.prime_gift_verify_failed__msg,
+        });
+        expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a preserved hardware-busy preflight error', async () => {
+      const { service, verify } = createGiftService();
+      const busy = new OneKeyLocalError({
+        message: ETranslations.feedback_hardware_is_busy,
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(busy);
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBe(busy);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({ code: 'TEST_CODE' });
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+    });
+
+    it('still converts an unrelated OneKeyLocalError into a friendly verify-failed error', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new OneKeyLocalError({
+        message: 'Some other local failure',
+        key: ETranslations.prime_gift_user_info_failed__msg,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new Error('Device cancelled');
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expectSafeVerifyFailureLog(originalError, {
+        reason: 'unknown',
+        errorName: 'Error',
+      });
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it.each([
+    'missing token',
+    'persisted token mismatch',
+    'different token owner',
+    'session changed during profile lookup',
+  ])('blocks hardware redemption for %s', async (scenario) => {
+    const { service, simpleDbPrime, get, post } = createGiftService();
+    if (scenario === 'missing token') {
+      simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    } else if (scenario === 'persisted token mismatch') {
+      mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+        status: 'ok',
+        accessToken: 'token-b',
+      });
+    } else {
+      get.mockImplementationOnce(async () => {
+        if (scenario === 'session changed during profile lookup') {
+          simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        }
+        return {
+          data: {
+            code: 0,
+            data: {
+              userId: 'user-a',
+              onekeyAccount: {
+                onekeyUserId:
+                  scenario === 'different token owner' ? 'user-b' : 'user-a',
+              },
+            },
+          },
+        };
+      });
+    }
+
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(post).not.toHaveBeenCalled();
+    expect(giftEventSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects hardware redemption success after the session changes in flight', async () => {
+    const { service, simpleDbPrime, post } = createGiftService();
+    const postStarted = createDeferred();
+    const response = createDeferred<Awaited<ReturnType<typeof post>>>();
+    post.mockImplementationOnce(() => {
+      postStarted.resolve();
+      return response.promise;
+    });
+
+    const request = service.apiRedeemPrimeCode(redeemParams);
+    await postStarted.promise;
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    response.resolve({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    });
+
+    await expect(request).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(giftEventSpy).not.toHaveBeenCalled();
+    expect(service.apiFetchPrimeUserInfo).not.toHaveBeenCalled();
+  });
+
+  it('submits each redemption to the server and preserves server failures without recording a receipt', async () => {
+    const { service, post, get, legacyRead, legacyWrite } = createGiftService();
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).resolves.toMatchObject(redemption);
+    const error = new OneKeyServerApiError({
+      code: 400,
+      message: 'Already redeemed on server',
+    });
+    post.mockRejectedValueOnce(error);
+    await expect(service.apiRedeemPrimeCode(redeemParams)).rejects.toBe(error);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/redemption/redeem',
+      { code: 'TEST_CODE' },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(giftEventSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime.apiTranslate free-trial batches', () => {
+  const ServicePrimeFreeTrial =
+    require('../ServicePrimeFreeTrial/ServicePrimeFreeTrial').default;
+
+  // 9 texts -> batches of 4, 4 and 1.
+  const texts = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4', 'c1'];
+
+  function translated(batch: string[]) {
+    return batch.map((text) => `T(${text})`);
+  }
+
+  function createTranslateService(
+    replyOfBatch: (batch: string[]) => { code: number; data?: unknown },
+  ) {
+    const { service, backgroundApi } = createService();
+    // The real normalization (raw 90005 -> 90601, 90600 business data).
+    backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError = jest.fn(
+      (params: unknown) =>
+        ServicePrimeFreeTrial.prototype.normalizeFreeTrialError.call(
+          {},
+          params,
+        ),
+    );
+    const post = jest.fn(async (_url: string, body: { texts: string[] }) => {
+      const reply = replyOfBatch(body.texts);
+      return {
+        status: 200,
+        data: { message: `code ${reply.code}`, ...reply },
+      };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, backgroundApi, post };
+  }
+
+  function translate(service: any) {
+    return service.apiTranslate({
+      texts,
+      sourceLang: 'auto',
+      targetLang: 'zh',
+      engine: 'ai',
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: false },
+    });
+  });
+
+  it.each(['typed', 'serialized'] as const)(
+    'surfaces a %s ban without automatic per-request toasts',
+    async (kind) => {
+      const { service, post } = createTranslateService(() => ({ code: 0 }));
+      post.mockRejectedValue(
+        kind === 'typed'
+          ? new OneKeyErrorPrimeUserBanned()
+          : { code: '90012', autoToast: true },
+      );
+      await expect(translate(service)).rejects.toMatchObject({
+        code: 90_012,
+        autoToast: false,
+      });
+    },
+  );
+
+  it('prioritizes a concurrent ban over AI-unavailable fallback', async () => {
+    const { service } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_012,
+    }));
+    await expect(translate(service)).rejects.toMatchObject({
+      code: 90_012,
+      autoToast: false,
+    });
+  });
+
+  it('keeps the billed batches when another batch is exhausted', async () => {
+    const { service, backgroundApi, post } = createTranslateService((batch) =>
+      batch[0] === 'b1'
+        ? {
+            code: 90_600,
+            data: { featureId: 'DAppTranslate', resetAt: 2000 },
+          }
+        : { code: 0, data: { translations: translated(batch) } },
+    );
+
+    const result = await translate(service);
+
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(result.translations).toEqual([
+      ...translated(['a1', 'a2', 'a3', 'a4']),
+      'b1',
+      'b2',
+      'b3',
+      'b4',
+      ...translated(['c1']),
+    ]);
+    expect(result.hasBilledBatch).toBe(true);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', remaining: 0, resetAt: 2000 },
+    });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a 90600 over for the user the requests were sent as', async () => {
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', resetAt: 2000 },
+    }));
+    mockPrimePersistAtom.get
+      .mockResolvedValueOnce({
+        isLoggedIn: true,
+        onekeyUserId: 'user-a',
+        primeSubscription: { isActive: false },
+      })
+      // Another user is logged in by the time the replies arrive.
+      .mockResolvedValue({
+        isLoggedIn: true,
+        onekeyUserId: 'user-b',
+        primeSubscription: { isActive: false },
+      });
+
+    await translate(service);
+
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledWith(expect.objectContaining({ code: 90_600 }), {
+      onekeyUserId: 'user-a',
+    });
+  });
+
+  it('normalizes a raw 90005 to the client not-open code', async () => {
+    const { service } = createTranslateService(() => ({ code: 90_005 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_601,
+      data: { featureId: 'DAppTranslate' },
+    });
+  });
+
+  it('lets 90104 win over 90600 and skips the quota update', async () => {
+    const { service, backgroundApi } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_600,
+    }));
+
+    await expect(translate(service)).rejects.toMatchObject({ code: 90_104 });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps the original fallback for a locally active subscription', async () => {
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: true },
+    });
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_005,
+    }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.freeTrialError).toBeUndefined();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports no billed batch when every batch falls back', async () => {
+    const { service } = createTranslateService(() => ({ code: 500 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toBeUndefined();
+  });
+});
+
+describe('ServicePrime inviteProfilePublic', () => {
+  const originalPrimeAtomGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalPrimeAtomSet = mockPrimePersistAtom.set.getMockImplementation();
+  const restoreSpies: Array<{ mockRestore: () => void }> = [];
+
+  function installPrimeAtom(initial: Record<string, unknown>) {
+    let stored = initial;
+    mockPrimePersistAtom.get.mockImplementation(async () => stored);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      if (typeof update === 'function') {
+        stored = (
+          update as (value: Record<string, unknown>) => Record<string, unknown>
+        )(stored);
+        return undefined;
+      }
+      stored = update as Record<string, unknown>;
+      return undefined;
+    });
+    return {
+      read: () => stored,
+    };
+  }
+
+  afterEach(() => {
+    for (const spy of restoreSpies) {
+      spy.mockRestore();
+    }
+    restoreSpies.length = 0;
+    mockPrimePersistAtom.get.mockImplementation(
+      originalPrimeAtomGet ?? (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalPrimeAtomSet ?? (async () => undefined),
+    );
+    jest.useRealTimers();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function pinInviteAuth(
+    simpleDbPrime: ReturnType<typeof createService>['simpleDbPrime'],
+  ) {
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  }
+
+  function loggedInConsent(inviteProfilePublic: boolean) {
+    return {
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+      inviteProfilePublic,
+    };
+  }
+
+  it('updates only the invite consent flag and keeps it on the same user', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const atom = installPrimeAtom(loggedInConsent(false));
+    restoreSpies.push(
+      jest
+        .spyOn(service, 'apiFetchPrimeUserInfo')
+        .mockResolvedValue({} as never),
+    );
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(true);
+
+    expect(put).toHaveBeenCalledWith(
+      '/prime/v1/user/info',
+      { inviteProfilePublic: true },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(atom.read().inviteProfilePublic).toBe(true);
+    jest.runOnlyPendingTimers();
+  });
+
+  it('rejects the consent write when the visible account is no longer current', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    installPrimeAtom(loggedInConsent(false));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the account changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      atom.read().onekeyUserId = 'user-b';
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const refresh = jest
+      .spyOn(service, 'apiFetchPrimeUserInfo')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().onekeyUserId).toBe('user-b');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the auth generation changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('leaves the flag unchanged when the server rejects the consent write', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => ({ data: { code: 1 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(false);
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('stores an explicit consent flag and keeps it when a non-user-info payload omits it', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const profile = {
+      avatar: 'https://example.com/cat.png',
+      nickname: 'eric',
+      isPrime: false,
+      emails: ['eric@example.com'],
+    };
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: true,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: false,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(false);
+
+    atom.read().inviteProfilePublic = true;
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-b',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+  });
+
+  it('lets only a successful user-info response decide invite consent', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    const completeProfile = {
+      userId: 'user-a',
+      emails: ['a@example.com'],
+      isPrime: false,
+      primeExpiredAt: 1_800_000_000_000,
+      level: 'NORMAL',
+      salt: 'salt',
+      pwdHash: 'hash',
+      inviteCode: 'CODE',
+    };
+    const respond = (routes: Record<string, unknown>) => {
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async (url: string) => ({
+          status: 200,
+          data: { code: 0, data: routes[url] },
+        })),
+      }));
+    };
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: 'true' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: true },
+      '/prime/v1/account/profile': {
+        userId: 'user-a',
+        inviteProfilePublic: false,
+      },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: true,
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        if (url === '/prime/v1/user/info') {
+          return Promise.reject(new OneKeyLocalError('user info unavailable'));
+        }
+        return {
+          status: 200,
+          data: { code: 0, data: completeProfile },
+        };
+      }),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: undefined,
+    });
+  });
+
+  it('does not carry invite consent across an account switch', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-b',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-b',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+    expect(atom.read().onekeyUserId).toBe('user-b');
+  });
+
+  it('keeps the same user consent when the login payload omits the field', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(true);
+  });
+
+  it('uses an explicit false from the login payload', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      inviteProfilePublic: false,
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+});
+
+describe('ServicePrime banned OneKey ID', () => {
+  let user: Record<string, unknown>;
+  const originalGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalSet = mockPrimePersistAtom.set.getMockImplementation();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    user = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'user-a',
+      primeSubscription: { isActive: true },
+    };
+    mockPrimePersistAtom.get.mockImplementation(async () => user);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      user = typeof update === 'function' ? update(user) : update;
+      return undefined;
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: REQUEST_TOKEN,
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(
+      originalGet || (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalSet || (async () => undefined),
+    );
+    jest.restoreAllMocks();
+  });
+
+  function setup() {
+    const result = createService();
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(7);
+    return result;
+  }
+
+  it('does not reinterpret 90012 carrying conflict metadata as an account merge', () => {
+    const { service } = setup();
+    expect(
+      service.isOneKeyIdOAuthIdentityAlreadyBoundError({
+        code: 90_012,
+        data: { messageId: 'oauth_identity_already_bound', code: 90_300 },
+      }),
+    ).toBe(false);
+  });
+
+  it('lets a ban win over a successful sibling profile response', async () => {
+    const { service } = setup();
+    const get = jest.fn(async (url: string) => ({
+      status: 200,
+      data:
+        url === '/prime/v1/account/profile'
+          ? { code: 90_012 }
+          : { code: 0, data: { userId: 'user-a', isPrime: true } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
+    );
   });
 });

@@ -12,6 +12,7 @@ import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
 
 import {
+  QR_CODE_BRAND_MARK,
   ensureQRCodeUtilLoaded,
   generateMatrix,
   getQRCodeDotCells,
@@ -40,6 +41,11 @@ type IBasicQRCodeProps = {
   logoBorderRadius?: number;
   logoMargin?: number;
   logoSize?: number;
+  // Draws the OneKey mark on the logo plate as static shapes, in the same
+  // pass as the code. Unlike `logo` (an image) and `logoSvg` (a lazily loaded
+  // icon) nothing has to load, so the mark is on screen by the time
+  // `onRenderReady` fires. Sized by `logoSize` and `logoMargin`.
+  brandMark?: boolean;
   value: string;
   // Color of the dark modules. Keep it far from the light background so the
   // code stays scannable.
@@ -83,9 +89,9 @@ function BasicQRCode({
   logoSvg,
   logoBackgroundColor: logoBGColor,
   logoBorderRadius,
-  logoSvgColor = '$text',
   logoMargin = DEFAULT_LOGO_MARGIN,
   logoSize = DEFAULT_LOGO_SIZE,
+  brandMark,
   size,
   value,
   drawType = 'dot',
@@ -95,7 +101,7 @@ function BasicQRCode({
   const primaryColor = getTokenValue('$textLight', 'color');
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
   const logoBackgroundColor = logoBGColor || secondaryColor;
-  const hasLogo = Boolean(logo || logoSvg);
+  const hasLogo = Boolean(logo || logoSvg || brandMark);
   const darkColor = darkColorProp || primaryColor;
   const result = useMemo(() => {
     const matrix = generateMatrix(value, ecl);
@@ -157,9 +163,17 @@ function BasicQRCode({
   // second logo would be clipped to the first one's shape. Only the logo
   // image needs a clip — the plate is a <Rect> that rounds itself.
   const logoClipId = `qrLogo${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  // Keep edge-touching finder rings inside the viewport when fractional SVG
+  // dimensions are rounded by the renderer. Center without scaling the symbol.
+  const svgSize = Math.ceil(size) + 2;
+  const svgInset = (svgSize - size) / 2;
 
   return (
-    <Svg height={size} width={size}>
+    <Svg
+      height={svgSize}
+      width={svgSize}
+      viewBox={`${-svgInset} ${-svgInset} ${svgSize} ${svgSize}`}
+    >
       {logo ? (
         <Defs>
           <ClipPath id={logoClipId}>
@@ -193,13 +207,19 @@ function BasicQRCode({
                 width={logoSize}
               />
             ) : null}
-            {logoSvg ? (
-              <Icon
-                name="OnekeyBrand"
-                width={logoSize}
-                height={logoSize}
-                color={logoSvgColor}
-              />
+            {brandMark ? (
+              <G scale={logoSize / QR_CODE_BRAND_MARK.size}>
+                <G x={-QR_CODE_BRAND_MARK.inset} y={-QR_CODE_BRAND_MARK.inset}>
+                  {QR_CODE_BRAND_MARK.shapes.map((shape) => (
+                    <Path
+                      key={shape.d}
+                      d={shape.d}
+                      fill={shape.fill}
+                      fillRule={shape.fillRule}
+                    />
+                  ))}
+                </G>
+              </G>
             ) : null}
           </G>
         </G>
@@ -228,6 +248,7 @@ export function QRCode({
   padding = 10,
   quietZoneModules = 0,
   onRenderReady,
+  drawType,
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
@@ -292,9 +313,12 @@ export function QRCode({
           console.log('QRCode >>>> encodeWhole', wholeParts);
           console.log(`\n\n ${wholeParts.join('\n\n').toUpperCase()} \n\n`);
         }
+        // The first frame shows now, not one interval later: the code's
+        // seat otherwise stood empty for `interval` on every mount — a
+        // bare white plate where the code should be (OK-62158).
+        setPartValue(nextPart());
         timerId = setInterval(() => {
-          const part = nextPart();
-          setPartValue(part);
+          setPartValue(nextPart());
         }, interval);
       })();
     }
@@ -345,10 +369,31 @@ export function QRCode({
         <BasicQRCode
           value={displayValue}
           {...props}
+          // Air-gap UR frames are read by hardware-wallet cameras, and some
+          // device scanners cannot reliably decode the dot style, so UR-driven
+          // codes default to line while static codes stay dot.
+          drawType={drawType ?? (valueUr ? 'line' : 'dot')}
           size={qrCodeSize}
           logoSize={scaledLogoSize}
           logoMargin={scaledLogoMargin}
         />
+        {props.logoSvg ? (
+          <Stack
+            position="absolute"
+            left={(canvasSize - scaledLogoSize) / 2}
+            top={(canvasSize - scaledLogoSize) / 2}
+            width={scaledLogoSize}
+            height={scaledLogoSize}
+            pointerEvents="none"
+          >
+            <Icon
+              name="OnekeyBrand"
+              width={scaledLogoSize}
+              height={scaledLogoSize}
+              color={props.logoSvgColor ?? '$text'}
+            />
+          </Stack>
+        ) : null}
       </Stack>
     </Theme>
   );

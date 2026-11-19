@@ -3,6 +3,10 @@ import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorB
 import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
+import { initIPhoneDuoOrientation } from './src/iphoneDuo/orientation';
+
+initIPhoneDuoOrientation();
+
 const SentryKitProvider = withSentryHOC(
   KitProvider,
   SentryErrorBoundaryFallback,

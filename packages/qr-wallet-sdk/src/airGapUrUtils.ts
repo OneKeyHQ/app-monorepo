@@ -1,12 +1,15 @@
 import { decodeToDataItem } from '@keystonehq/bc-ur-registry';
+import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { isString } from 'lodash';
 
 import { AirGapUR, AirGapURDecoder, AirGapUREncoder } from './AirGapUR';
+import { assertBoundedCbor, checkUrPart, urTooLargeError } from './boundedUr';
 
 import type { IAirGapUrJson } from './AirGapUR';
 
 function decodeUrToDataItem(cbor: string) {
   const cborBuffer = Buffer.from(cbor, 'hex');
+  assertBoundedCbor(cborBuffer);
   return decodeToDataItem(cborBuffer);
 }
 
@@ -27,7 +30,13 @@ function jsonToUr({ ur }: { ur: IAirGapUrJson | AirGapUR }): AirGapUR {
 }
 
 // EQRCodeHandlerType.ANIMATION_CODE
-function createAnimatedURDecoder() {
+function createAnimatedURDecoder({
+  throwOnMalformed = false,
+}: {
+  /** One-shot decoding of a complete code: a malformed part fails the call, as the vendor
+   * decoder's parse did, instead of being dropped as a misread camera frame. */
+  throwOnMalformed?: boolean;
+} = {}) {
   const decoder = new AirGapURDecoder();
   let receivePart: ((data: string) => void) | undefined;
   let abort = () => undefined;
@@ -36,9 +45,27 @@ function createAnimatedURDecoder() {
       reject(new Error('AnimatedURDecode aborted'));
     };
     receivePart = (data: string) => {
+      // A scanned frame is untrusted until bounded. A malformed one is dropped and the scan goes
+      // on, as the vendor decoder does for a bad checksum; a code beyond the limits ends it.
+      const verdict = checkUrPart(data);
+      if (verdict === 'too-large') {
+        reject(urTooLargeError());
+        return;
+      }
+      if (verdict === 'malformed') {
+        if (throwOnMalformed) throw new InvalidSchemeError();
+        return;
+      }
       decoder.receivePart(data);
       if (decoder.isComplete()) {
-        resolve(decoder.resultUR());
+        const ur = decoder.resultUR();
+        try {
+          assertBoundedCbor(ur.cbor);
+        } catch (error) {
+          reject(error);
+          return;
+        }
+        resolve(ur);
       }
     };
   });
@@ -97,7 +124,7 @@ function createAnimatedUREncoder({
 }
 
 function qrcodeToUr(qrcode: string | string[]): Promise<AirGapUR> {
-  const decoder = createAnimatedURDecoder();
+  const decoder = createAnimatedURDecoder({ throwOnMalformed: true });
   const empty: string[] = [];
   if (isString(qrcode)) {
     // eslint-disable-next-line no-param-reassign

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { otpCooldownDeadline } from '@onekeyhq/components/src/hooks/otpInputState';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getServerApiErrorMessage } from '@onekeyhq/shared/src/errors/utils/serverApiErrorMessage';
 
 import { DeletionBusinessError } from './deletionBusinessError';
+import { otpCooldownDeadline } from './otpInputState';
 import {
   DeletionError,
   OTP_RESEND_SECONDS,
@@ -56,13 +56,13 @@ type IAcceptedNotice = {
 };
 type IResultScreen = {
   step: 'result';
-  proof: IProof;
+  provider: IProvider;
+  proof?: IProof;
   result?: IResult;
   accepted?: IAcceptedNotice;
   attempt?: IAttempt;
   checkAfter?: number;
   canRetry?: boolean;
-  needsSignIn?: boolean;
   needsNewConfirmation?: boolean;
   cannotRetry?: boolean;
   submissionError?: DeletionBusinessError | DeletionError;
@@ -354,6 +354,7 @@ export function useDeletionFlow(
       if (isCurrent()) {
         remember({
           step: 'result',
+          provider: proof.provider,
           proof,
           result,
           checkAfter: checkAfter(result),
@@ -453,10 +454,11 @@ export function useDeletionFlow(
   async function loadResult(
     client: IDeletionClient,
     previous: IResultScreen,
+    proof: IProof,
     isCurrent: () => boolean,
   ) {
     try {
-      const result = await client.getResult(previous.proof);
+      const result = await client.getResult(proof);
       if (!isCurrent()) {
         return;
       }
@@ -474,7 +476,7 @@ export function useDeletionFlow(
         }
         if (
           info.status !== 'ready' ||
-          info.allowedProvider !== previous.proof.provider ||
+          info.allowedProvider !== previous.provider ||
           info.confirmationVersion === previous.attempt.body.confirmationVersion
         ) {
           throw new SyntaxError(
@@ -490,7 +492,7 @@ export function useDeletionFlow(
           ...previous.attempt.review,
           step: 'confirm',
           info,
-          proof: previous.proof,
+          proof,
           key: undefined,
           confirmationUpdated: true,
         });
@@ -499,8 +501,8 @@ export function useDeletionFlow(
       const { submissionError, ...resolved } = previous;
       remember({
         ...resolved,
+        proof,
         result,
-        needsSignIn: false,
         canRetry:
           result.status === 'not_submitted' &&
           !!previous.attempt &&
@@ -515,7 +517,12 @@ export function useDeletionFlow(
       if (isCurrent()) {
         remember({
           ...previous,
-          needsSignIn: isAuthError(cause),
+          proof:
+            isAuthError(cause) ||
+            (cause instanceof DeletionError &&
+              cause.response.code === 'IDENTITY_MISMATCH')
+              ? undefined
+              : previous.proof,
           canRetry: false,
         });
         showError(cause);
@@ -529,7 +536,12 @@ export function useDeletionFlow(
     }
     const { client } = channel.current;
     run(async (isCurrent) => {
-      const pending: IResultScreen = { step: 'result', proof, attempt };
+      const pending: IResultScreen = {
+        step: 'result',
+        provider: proof.provider,
+        proof,
+        attempt,
+      };
       history.set(token, pending);
       try {
         const result = await client.deleteShare(
@@ -537,14 +549,14 @@ export function useDeletionFlow(
           attempt.key,
         );
         if (isCurrent()) {
-          remember({ step: 'result', proof, result });
+          remember({ step: 'result', provider: proof.provider, proof, result });
         }
       } catch (cause) {
         if (!isCurrent()) {
           return;
         }
         if (isAuthError(cause)) {
-          remember({ ...pending, needsSignIn: true });
+          remember({ ...pending, proof: undefined });
           showError(cause);
           return;
         }
@@ -617,7 +629,7 @@ export function useDeletionFlow(
         };
         remember(recovery);
         if (code !== 'MANUAL_REVIEW_REQUIRED') {
-          await loadResult(client, recovery, isCurrent);
+          await loadResult(client, recovery, proof, isCurrent);
         }
       }
     });
@@ -650,26 +662,23 @@ export function useDeletionFlow(
   }
 
   function checkStatus() {
-    if (screen.step !== 'result' || !channel.current || screen.needsSignIn) {
+    if (screen.step !== 'result' || !channel.current || !screen.proof) {
       return;
     }
     const { client } = channel.current;
+    const { proof } = screen;
     const previous = { ...screen, canRetry: false };
-    run((isCurrent) => loadResult(client, previous, isCurrent));
+    run((isCurrent) => loadResult(client, previous, proof, isCurrent));
   }
 
   function reauthenticate() {
-    if (screen.step === 'result' && channel.current && screen.needsSignIn) {
+    if (screen.step === 'result' && channel.current && !screen.proof) {
       const { client, signal } = channel.current;
       const previous = screen;
       run(async (isCurrent) => {
-        const proof = await authenticate(previous.proof.provider, signal);
+        const proof = await authenticate(previous.provider, signal);
         if (isCurrent()) {
-          await loadResult(
-            client,
-            { ...previous, proof, canRetry: false },
-            isCurrent,
-          );
+          await loadResult(client, previous, proof, isCurrent);
         }
       });
     }
@@ -680,7 +689,7 @@ export function useDeletionFlow(
       screen.step === 'result' &&
       screen.attempt &&
       screen.canRetry &&
-      !screen.needsSignIn
+      screen.proof
     ) {
       submitAttempt(screen.attempt, screen.proof);
     }

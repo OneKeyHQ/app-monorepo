@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { NativeModules } from 'react-native';
+
 import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -9,7 +11,10 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedRoutePath,
+  WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -35,15 +40,72 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
+const DEV_SESSION_ID_PATTERN =
+  /^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u;
+
+function getDevSessionWebEmbedUrl() {
+  if (process.env.NODE_ENV === 'production' || !platformEnv.isNative) {
+    return undefined;
+  }
+  const sourceCodeModule = NativeModules.SourceCode as
+    | { getConstants?: () => { scriptURL?: string } }
+    | undefined;
+  const scriptUrl = sourceCodeModule?.getConstants?.().scriptURL || '';
+  try {
+    const metroUrl = new URL(scriptUrl);
+    const sessionId = metroUrl.searchParams.get('resolver.devSessionId');
+    if (
+      !['http:', 'https:'].includes(metroUrl.protocol) ||
+      !DEV_SESSION_ID_PATTERN.test(sessionId || '')
+    ) {
+      return undefined;
+    }
+    return `${metroUrl.origin}/onekey-dev-session/web-embed/index.html`;
+  } catch {
+    return undefined;
+  }
+}
+
+// Mirrors the handlers registered by WebEmbedLocalOrigin (apps/mobile/android).
+const ANDROID_LOCAL_BUNDLE_DIR_MARKER = '/onekey-bundle/';
+
+function getAndroidLocalOriginWebEmbedUrl(webEmbedPath: string) {
+  const markerIndex = webEmbedPath.indexOf(ANDROID_LOCAL_BUNDLE_DIR_MARKER);
+  if (webEmbedPath && markerIndex >= 0) {
+    const relativePath = webEmbedPath.slice(
+      markerIndex + ANDROID_LOCAL_BUNDLE_DIR_MARKER.length,
+    );
+    return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/bundle/${relativePath}/index.html`;
+  }
+  if (webEmbedPath) {
+    // A hot-update dir outside the mapped root would silently lose the update.
+    defaultLogger.app.webembed.webViewOnError({
+      code: 0,
+      description: 'web-embed hot-update path is outside onekey-bundle',
+      url: webEmbedPath,
+    });
+  }
+  return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/web-embed/index.html`;
+}
 
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   isSingleton,
+  mountId,
+  mountSequence,
+  requestId,
+  isCurrentMount,
+  onContentProcessTerminate,
   customReceiveHandler,
   hashRoutePath,
   hashRouteQueryParams,
 }: {
   isSingleton?: boolean;
+  mountId?: string;
+  mountSequence?: number;
+  requestId?: string;
+  isCurrentMount?: (mountId: string) => boolean;
+  onContentProcessTerminate?: (mountId: string) => void;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   hashRoutePath?: EWebEmbedRoutePath;
   hashRouteQueryParams?: Record<string, string>;
@@ -52,6 +114,98 @@ export function WebViewWebEmbed({
   const { instanceId } = settingsPersistAtom;
 
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
+  const activationPromiseRef = useRef<Promise<boolean> | undefined>(undefined);
+  const connectedBridgeRef = useRef<JsBridgeBase | undefined>(undefined);
+  const requestIdRef = useRef(requestId);
+  requestIdRef.current = requestId;
+  const activateMount = useCallback(() => {
+    if (!isSingleton || !mountId || !mountSequence) {
+      return Promise.resolve(true);
+    }
+    if (!activationPromiseRef.current) {
+      const activation = backgroundApiProxy.serviceDApp
+        .activateWebEmbedMount({
+          mountId,
+          mountSequence,
+          requestId: requestIdRef.current,
+        })
+        .catch((error: unknown) => {
+          if (activationPromiseRef.current === activation) {
+            activationPromiseRef.current = undefined;
+          }
+          throw error;
+        });
+      activationPromiseRef.current = activation;
+    }
+    return activationPromiseRef.current;
+  }, [isSingleton, mountId, mountSequence]);
+  useEffect(() => {
+    if (!isSingleton || !mountId) {
+      return;
+    }
+    return () => {
+      const activation = activationPromiseRef.current;
+      if (activation === undefined) {
+        return;
+      }
+      void activation
+        .then((active) => {
+          if (active) {
+            return backgroundApiProxy.serviceDApp.deactivateWebEmbedMount(
+              mountId,
+            );
+          }
+          return undefined;
+        })
+        .catch(() => undefined);
+    };
+  }, [activateMount, isSingleton, mountId]);
+  const handleSingletonReceive = useCallback<IJsBridgeReceiveHandler>(
+    async (payload, bridge) => {
+      if (
+        mountId &&
+        payload.scope === '$private' &&
+        ['webEmbedApiReady', 'webEmbedApiNotReady'].includes(
+          (payload.data as { method?: string } | undefined)?.method || '',
+        )
+      ) {
+        if (
+          (payload.data as { method?: string }).method === 'webEmbedApiReady'
+        ) {
+          const active = await activateMount();
+          const jsBridge = webviewRef.current?.jsBridge as
+            | JsBridgeBase
+            | undefined;
+          if (
+            active &&
+            jsBridge &&
+            isCurrentMount?.(mountId) &&
+            connectedBridgeRef.current !== jsBridge
+          ) {
+            backgroundApiProxy.connectWebEmbedBridge(
+              jsBridge,
+              mountId,
+              mountSequence,
+            );
+            connectedBridgeRef.current = jsBridge;
+          }
+        }
+        payload.data = {
+          ...(payload.data as Record<string, unknown>),
+          params: [{ mountId }],
+        };
+      }
+      const result: unknown = await customReceiveHandler?.(payload, bridge);
+      return result;
+    },
+    [
+      activateMount,
+      customReceiveHandler,
+      isCurrentMount,
+      mountId,
+      mountSequence,
+    ],
+  );
   const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
     webviewRef.current = $ref;
   }, []);
@@ -137,6 +291,7 @@ export function WebViewWebEmbed({
       if (config?.url) {
         return config?.url;
       }
+      return getDevSessionWebEmbedUrl();
     }
     return undefined;
   }, [config?.url, devSettingsPersistAtom.enabled]);
@@ -149,18 +304,15 @@ export function WebViewWebEmbed({
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    // Android serves local files from a virtual https origin (file:// is opaque and cannot use OPFS), so storage survives updates.
+    if (platformEnv.isNativeAndroid) {
+      const nativeUri = getAndroidLocalOriginWebEmbedUrl(webEmbedPath);
+      defaultLogger.app.webembed.webEmbedWebViewSource({ nativeUri });
+      return { uri: nativeUri };
+    }
     if (webEmbedPath) {
       return {
         uri: `file://${webEmbedPath}/index.html`,
-      };
-    }
-    // Android
-    if (platformEnv.isNativeAndroid) {
-      defaultLogger.app.webembed.webEmbedWebViewSource({
-        nativeUri: 'file:///android_asset/web-embed/index.html',
-      });
-      return {
-        uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
@@ -239,6 +391,9 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      return undefined;
+    }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     return !!webEmbedPath || undefined;
   }, []);
@@ -284,12 +439,20 @@ export function WebViewWebEmbed({
         pullToRefreshEnabled={false}
         useGeckoView={false}
         useInjectedNativeCode={false}
+        recreateOnContentProcessTerminate={
+          isSingleton && mountId && onContentProcessTerminate
+            ? () => onContentProcessTerminate(mountId)
+            : true
+        }
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
-        customReceiveHandler={customReceiveHandler}
+        customReceiveHandler={
+          isSingleton ? handleSingletonReceive : customReceiveHandler
+        }
+        isWebEmbedChannel={!!isSingleton}
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
@@ -327,6 +490,10 @@ export function WebViewWebEmbed({
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
+    handleSingletonReceive,
+    mountId,
+    onContentProcessTerminate,
+    isSingleton,
     handleMessage,
     handleError,
   ]);
@@ -353,17 +520,49 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
+    // Only the singleton carries webembedApi calls; other instances (Prime modal) use their own handler and must not take over or drop the bridge.
+    if (!isSingleton) {
+      return;
+    }
+    if (mountId && mountSequence) {
+      let disposed = false;
+      void activateMount()
+        .then((active) => {
+          if (active && !disposed && isCurrentMount?.(mountId)) {
+            if (connectedBridgeRef.current !== jsBridge) {
+              backgroundApiProxy.connectWebEmbedBridge(
+                jsBridge as unknown as JsBridgeBase,
+                mountId,
+                mountSequence,
+              );
+              connectedBridgeRef.current = jsBridge as unknown as JsBridgeBase;
+            }
+          }
+        })
+        .catch(() => undefined);
+      return () => {
+        disposed = true;
+        connectedBridgeRef.current = undefined;
+        backgroundApiProxy.connectWebEmbedBridge(null, mountId, mountSequence);
+      };
+    }
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
     return () => {
-      // Reset BG's canonical `isWebEmbedApiReady` alongside disconnecting the
-      // bridge. Without this, the next mount could see a stale BG ready and
-      // dispatch calls before the new page replays its `webEmbedApiReady`.
+      // Legacy hosts may still reset readiness when no API mount owns it.
       void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
       backgroundApiProxy.connectWebEmbedBridge(null);
     };
-  }, [webviewRef, webview, webEmbedAppSettings]);
+  }, [
+    activateMount,
+    isCurrentMount,
+    isSingleton,
+    mountId,
+    mountSequence,
+    webview,
+    webEmbedAppSettings,
+  ]);
 
   const webviewUrlOrUri = useMemo(() => {
     if (remoteUrl) {
@@ -427,13 +626,30 @@ export function WebViewWebEmbed({
   );
 }
 
-function WebViewWebEmbedSingletonView() {
+function WebViewWebEmbedSingletonView({
+  mountId,
+  mountSequence,
+  requestId,
+  isCurrentMount,
+  onContentProcessTerminate,
+}: {
+  mountId?: string;
+  mountSequence?: number;
+  requestId?: string;
+  isCurrentMount?: (mountId: string) => boolean;
+  onContentProcessTerminate?: (mountId: string) => void;
+}) {
   console.log('WebViewWebEmbedSingletonView render');
   defaultLogger.app.webembed.renderWebviewSingleton();
   return (
     <GlobalJotaiReady>
       <WebViewWebEmbed
         isSingleton
+        mountId={mountId}
+        mountSequence={mountSequence}
+        requestId={requestId}
+        isCurrentMount={isCurrentMount}
+        onContentProcessTerminate={onContentProcessTerminate}
         hashRoutePath={EWebEmbedRoutePath.webEmbedApi}
       />
     </GlobalJotaiReady>

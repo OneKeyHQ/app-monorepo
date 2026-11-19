@@ -15,6 +15,7 @@ export const MESSAGE_TYPES = {
 // Iframe -> App message methods
 export const PERPS_TV_MESSAGE_METHODS = {
   CHART_READY: 'tradingview_chartReady',
+  PRICE_UPDATE: 'tradingview_priceUpdate',
   READY: 'tradingview_perpsReady',
   LINE_DRAG_COMMIT: 'tradingview_lineDragCommit',
   ORDER_CANCEL: 'tradingview_perpsOrderCancel',

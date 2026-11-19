@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react';
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { ProviderJotaiContextHyperliquid } from '../../states/jotai/contexts/hyperliquid';
+import { ProviderJotaiContextHyperliquid } from '../../states/jotai/contexts/hyperliquid/atoms';
 
 export function usePerpsContextStoreInitData() {
   const data = useMemo(

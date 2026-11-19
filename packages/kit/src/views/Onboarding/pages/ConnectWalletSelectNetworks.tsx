@@ -12,6 +12,7 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { NetworkAvatarGroup } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { OnboardingTestIDs } from '../../Onboardingv2/testIDs';
 
 export function ConnectWalletSelectNetworksPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -53,6 +54,7 @@ export function ConnectWalletSelectNetworksPage() {
           /> */}
           <ListItem
             title="EVM"
+            testID={OnboardingTestIDs.connectExternalWalletNetworkEvm}
             drillIn
             renderIcon={() => (
               <NetworkAvatarGroup networkIds={[eth, bsc, avalanche]} />

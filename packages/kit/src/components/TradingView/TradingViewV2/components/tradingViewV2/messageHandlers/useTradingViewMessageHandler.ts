@@ -14,8 +14,8 @@ import {
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 import {
-  normalizeTradingViewChartTypeState,
-  normalizeTradingViewLayoutRestored,
+  normalizeIntervalConfig,
+  normalizeNativeChartControlsConfig,
 } from './nativeChartControlsConfigUtils';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
@@ -24,7 +24,6 @@ import type {
   ITradingViewIndicatorsDialogData,
   ITradingViewInteractionOverlayData,
   ITradingViewIntervalConfigData,
-  ITradingViewIntervalOption,
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
@@ -35,6 +34,7 @@ import type {
 import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
+const TRADINGVIEW_CHART_READY = 'tradingview_chartReady';
 const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 const TRADINGVIEW_INTERVAL_CONFIG = 'tradingview_intervalConfig';
 const TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG =
@@ -64,14 +64,10 @@ interface IUseTradingViewMessageHandlerParams {
   onNativeChartControlsConfigChange?: (
     data: ITradingViewNativeChartControlsConfigData,
   ) => void;
+  onChartReady?: () => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
-}
-
-interface INormalizedNativeChartControlsConfig {
-  config: ITradingViewNativeChartControlsConfigData;
-  chartTypeToSync?: number;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -278,311 +274,6 @@ function getInteractionOverlayOpenState(
   return undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function normalizeStringOptionDisabled(option: Record<string, unknown>) {
-  if (typeof option.disabled === 'boolean') {
-    return option.disabled;
-  }
-  if (typeof option.enabled === 'boolean') {
-    return !option.enabled;
-  }
-  if (typeof option.available === 'boolean') {
-    return !option.available;
-  }
-  if (typeof option.selectable === 'boolean') {
-    return !option.selectable;
-  }
-  return undefined;
-}
-
-function normalizeStringOptions(
-  options: unknown,
-): { label: string; value: string }[] | null {
-  if (!Array.isArray(options)) {
-    return null;
-  }
-
-  const normalizedOptions: { label: string; value: string }[] = [];
-  for (const option of options) {
-    if (!isRecord(option)) {
-      return null;
-    }
-
-    const label = typeof option.label === 'string' ? option.label.trim() : '';
-    const value = typeof option.value === 'string' ? option.value.trim() : '';
-    if (!label || !value) {
-      return null;
-    }
-
-    normalizedOptions.push({ label, value });
-  }
-
-  return normalizedOptions;
-}
-
-function normalizeIntervalOptions(
-  options: unknown,
-): ITradingViewIntervalOption[] | null {
-  const normalizedOptions = normalizeStringOptions(options);
-  if (!normalizedOptions) {
-    return null;
-  }
-
-  return normalizedOptions.map((option, index) => {
-    const rawOption = Array.isArray(options) ? options[index] : null;
-    const disabled = isRecord(rawOption)
-      ? normalizeStringOptionDisabled(rawOption)
-      : undefined;
-    return {
-      ...option,
-      ...(disabled === undefined ? {} : { disabled }),
-    };
-  });
-}
-
-function normalizeIntervalConfig(
-  data: unknown,
-): ITradingViewIntervalConfigData | null {
-  if (!isRecord(data)) {
-    return null;
-  }
-
-  const intervals = normalizeIntervalOptions(data.intervals);
-  const activeInterval =
-    typeof data.activeInterval === 'string' ? data.activeInterval.trim() : '';
-  if (!intervals?.length || !activeInterval) {
-    return null;
-  }
-
-  return {
-    intervals,
-    activeInterval,
-    ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
-      ? { timestamp: data.timestamp }
-      : {}),
-  };
-}
-
-function normalizeIndicators(
-  indicators: unknown,
-): ITradingViewNativeChartControlsConfigData['indicators'] | null {
-  const options = normalizeStringOptions(indicators);
-  if (!options) {
-    return null;
-  }
-
-  return options.map((option, index) => {
-    const rawIndicator = Array.isArray(indicators) ? indicators[index] : null;
-    return {
-      ...option,
-      ...(isRecord(rawIndicator) && typeof rawIndicator.active === 'boolean'
-        ? { active: rawIndicator.active }
-        : {}),
-    };
-  });
-}
-
-function normalizeResetLayout(
-  resetLayout: unknown,
-): ITradingViewNativeChartControlsConfigData['resetLayout'] | undefined {
-  if (!isRecord(resetLayout)) {
-    return undefined;
-  }
-
-  const label =
-    typeof resetLayout.label === 'string' ? resetLayout.label.trim() : '';
-  if (typeof resetLayout.enabled !== 'boolean' || !label) {
-    return undefined;
-  }
-
-  return {
-    enabled: resetLayout.enabled,
-    label,
-  };
-}
-
-type IPriceMarketCapConfig = NonNullable<
-  ITradingViewNativeChartControlsConfigData['priceMarketCap']
->;
-
-function normalizePriceMarketCapOptions(
-  options: unknown,
-): IPriceMarketCapConfig['options'] | null {
-  if (!Array.isArray(options)) {
-    return null;
-  }
-
-  const normalizedOptions: IPriceMarketCapConfig['options'] = [];
-  for (const option of options) {
-    if (!isRecord(option)) {
-      return null;
-    }
-
-    const label = typeof option.label === 'string' ? option.label.trim() : '';
-    const value = option.value;
-    if (!label || (value !== 'price' && value !== 'marketcap')) {
-      return null;
-    }
-
-    normalizedOptions.push({ label, value });
-  }
-
-  return normalizedOptions;
-}
-
-function normalizePriceMarketCap(
-  priceMarketCap: unknown,
-): ITradingViewNativeChartControlsConfigData['priceMarketCap'] | undefined {
-  if (!isRecord(priceMarketCap)) {
-    return undefined;
-  }
-
-  const label =
-    typeof priceMarketCap.label === 'string' ? priceMarketCap.label.trim() : '';
-  const options = normalizePriceMarketCapOptions(priceMarketCap.options);
-  const activeMode = priceMarketCap.activeMode;
-  if (
-    typeof priceMarketCap.enabled !== 'boolean' ||
-    !label ||
-    !options ||
-    (activeMode !== 'price' && activeMode !== 'marketcap')
-  ) {
-    return undefined;
-  }
-
-  return {
-    enabled: priceMarketCap.enabled,
-    label,
-    options,
-    activeMode,
-  };
-}
-
-type IPriceScaleConfig = NonNullable<
-  ITradingViewNativeChartControlsConfigData['priceScale']
->;
-
-function normalizePriceScaleOptions(
-  options: unknown,
-): IPriceScaleConfig['options'] | null {
-  if (!Array.isArray(options)) {
-    return null;
-  }
-
-  const normalizedOptions: IPriceScaleConfig['options'] = [];
-  for (const option of options) {
-    if (!isRecord(option)) {
-      return null;
-    }
-
-    const label = typeof option.label === 'string' ? option.label.trim() : '';
-    const value = option.value;
-    if (
-      !label ||
-      (value !== 'auto' && value !== 'log' && value !== 'percentage')
-    ) {
-      return null;
-    }
-
-    normalizedOptions.push({ label, value });
-  }
-
-  return normalizedOptions;
-}
-
-function normalizePriceScale(
-  priceScale: unknown,
-): ITradingViewNativeChartControlsConfigData['priceScale'] | undefined {
-  if (!isRecord(priceScale)) {
-    return undefined;
-  }
-
-  const label =
-    typeof priceScale.label === 'string' ? priceScale.label.trim() : '';
-  const options = normalizePriceScaleOptions(priceScale.options);
-  const activeMode = priceScale.activeMode;
-  if (
-    typeof priceScale.enabled !== 'boolean' ||
-    !label ||
-    !options ||
-    (activeMode !== 'auto' &&
-      activeMode !== 'log' &&
-      activeMode !== 'percentage')
-  ) {
-    return undefined;
-  }
-
-  return {
-    enabled: priceScale.enabled,
-    label,
-    options,
-    activeMode,
-  };
-}
-
-function normalizeNativeChartControlsConfig(
-  data: unknown,
-): INormalizedNativeChartControlsConfig | null {
-  if (!isRecord(data)) {
-    return null;
-  }
-
-  const indicators = normalizeIndicators(data.indicators);
-  const chartTypeState = normalizeTradingViewChartTypeState(
-    data.chartTypes,
-    data.activeChartType,
-  );
-  if (!indicators || !chartTypeState) {
-    return null;
-  }
-
-  const intervals =
-    data.intervals === undefined
-      ? undefined
-      : normalizeIntervalOptions(data.intervals);
-  if (data.intervals !== undefined && !intervals) {
-    return null;
-  }
-
-  const activeInterval =
-    typeof data.activeInterval === 'string' ? data.activeInterval.trim() : '';
-  const resetLayout = normalizeResetLayout(data.resetLayout);
-  const priceMarketCap = normalizePriceMarketCap(data.priceMarketCap);
-  const priceScale = normalizePriceScale(data.priceScale);
-  const layoutRestored = normalizeTradingViewLayoutRestored(
-    data.layoutRestored,
-  );
-
-  return {
-    config: {
-      ...(intervals?.length ? { intervals } : {}),
-      ...(activeInterval ? { activeInterval } : {}),
-      ...(typeof data.indicatorsEnabled === 'boolean'
-        ? { indicatorsEnabled: data.indicatorsEnabled }
-        : {}),
-      indicators,
-      ...(typeof data.chartTypesEnabled === 'boolean'
-        ? { chartTypesEnabled: data.chartTypesEnabled }
-        : {}),
-      chartTypes: chartTypeState.chartTypes,
-      activeChartType: chartTypeState.activeChartType,
-      ...(resetLayout ? { resetLayout } : {}),
-      ...(priceMarketCap ? { priceMarketCap } : {}),
-      ...(priceScale ? { priceScale } : {}),
-      ...(layoutRestored !== undefined ? { layoutRestored } : {}),
-      ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
-        ? { timestamp: data.timestamp }
-        : {}),
-    },
-    ...(chartTypeState.chartTypeToSync !== undefined
-      ? { chartTypeToSync: chartTypeState.chartTypeToSync }
-      : {}),
-  };
-}
-
 function normalizeTradingViewMessagePayload({
   data,
   scope,
@@ -618,6 +309,7 @@ export function useTradingViewMessageHandler({
   onPriceUpdate,
   onIntervalConfigChange,
   onNativeChartControlsConfigChange,
+  onChartReady,
   onKLineDataReady,
   onKLineLoadError,
   onKLinePeriodChange,
@@ -645,6 +337,13 @@ export function useTradingViewMessageHandler({
         onKLineLoadError,
         onKLinePeriodChange,
       };
+
+      if (
+        data.scope === '$private' &&
+        data.method === TRADINGVIEW_CHART_READY
+      ) {
+        onChartReady?.();
+      }
 
       // Handle TradingView private API requests
       if (
@@ -807,6 +506,7 @@ export function useTradingViewMessageHandler({
       onPriceUpdate,
       onIntervalConfigChange,
       onNativeChartControlsConfigChange,
+      onChartReady,
       onKLineDataReady,
       onKLineLoadError,
       onKLinePeriodChange,

@@ -19,10 +19,8 @@ import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { getRootRoutersLength } from '../../../hooks/useRouteIsFocused';
-import {
-  SwapInviteeRewardHeaderAction,
-  useSwapInviteeRewardActionPlacement,
-} from '../components/InviteeReward/SwapInviteeRewardHeaderAction';
+import { SwapActivityHubHeaderAction } from '../components/InviteeReward/SwapActivityHubHeaderAction';
+import { useSwapActivityHubActionPlacement } from '../components/InviteeReward/useSwapActivityHubActionPlacement';
 
 import SwapMainLandWithPageType from './components/SwapMainLand';
 
@@ -48,10 +46,9 @@ const SwapPageContainer = () => {
     return { swapTabSwitchType };
   }, [tabParam]);
 
-  const swapInviteeRewardActionPlacement = useSwapInviteeRewardActionPlacement({
+  const swapActivityHubActionPlacement = useSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),
     isMediumLayout: md,
-    isNative: Boolean(platformEnv.isNative),
     routeSwapType: swapInitParams?.swapTabSwitchType,
   });
 
@@ -80,7 +77,7 @@ const SwapPageContainer = () => {
           sceneName={EAccountSelectorSceneName.swap}
           tabRoute={ETabRoutes.Swap}
           customHeaderRightItems={
-            swapInviteeRewardActionPlacement === 'desktopHeader' ? (
+            swapActivityHubActionPlacement === 'desktopHeader' ? (
               // headerRight mounts in the navigator's header tree, outside this
               // page's providers, so it must bring its own account-selector
               // mirror (same as Perp's customHeaderRightItems).
@@ -91,7 +88,7 @@ const SwapPageContainer = () => {
                 }}
                 enabledNum={[0]}
               >
-                <SwapInviteeRewardHeaderAction />
+                <SwapActivityHubHeaderAction />
               </AccountSelectorProviderMirror>
             ) : undefined
           }

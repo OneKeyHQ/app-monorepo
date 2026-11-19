@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
+import { SETTINGS_PAGE_BODY_INSET_X } from '@onekeyhq/kit/src/views/Setting/pages/Tab/settingsSurface';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -618,7 +619,9 @@ function ChainListSearch() {
         })}
         headerRight={headerRight}
       />
-      <Page.Body>
+      <Page.Body
+        px={isSettingsContext ? SETTINGS_PAGE_BODY_INSET_X : undefined}
+      >
         <Stack px="$5" pb="$2">
           <SearchBar
             placeholder={intl.formatMessage({

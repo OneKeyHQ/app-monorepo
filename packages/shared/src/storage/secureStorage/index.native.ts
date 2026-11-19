@@ -1,5 +1,6 @@
 import {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  canUseBiometricAuthentication,
   deleteItemAsync,
   getItemAsync,
   setItemAsync,
@@ -29,14 +30,29 @@ export const setSecureItem = async (
 export const getSecureItem = async (key: string) =>
   getItemAsync(key, keychainOptions);
 
-export const removeSecureItem = async (key: string) =>
-  deleteItemAsync(key, keychainOptions);
+export const removeSecureItem = async (
+  key: string,
+  options?: { keychainService?: string },
+) => deleteItemAsync(key, { ...keychainOptions, ...options });
 
 const supportSecureStorage = async () => true;
 
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
+  async supportSecureStorageWithBiometrics() {
+    // SecureStore checks enrolled strong biometrics, including Android Class 3.
+    return canUseBiometricAuthentication();
+  },
+  getSecureItemWithBiometrics(key, options) {
+    // Expo enforces the ACL from creation; this option cannot upgrade an old
+    // unauthenticated item. Callers must use freshly protected key references.
+    return getItemAsync(key, {
+      ...keychainOptions,
+      ...options,
+      requireAuthentication: true,
+    });
+  },
   removeSecureItem,
   supportSecureStorage,
   async hasSecureItem(key: string): Promise<boolean> {
@@ -57,6 +73,7 @@ const storage: ISecureStorage = {
       ...keychainOptions,
       requireAuthentication: true,
       authenticationPrompt: options?.authenticationPrompt,
+      keychainService: options?.keychainService,
     });
   },
 };

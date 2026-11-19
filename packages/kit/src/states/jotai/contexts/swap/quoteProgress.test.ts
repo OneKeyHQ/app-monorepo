@@ -19,15 +19,18 @@ import {
   isSwapQuoteInputAmountMatched,
   isSwapQuoteInputAmountValid,
   isSwapQuoteManualRefreshRequired,
+  isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
   resolveSwapQuoteRefreshAction,
+  selectSwapCurrentEventQuotes,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
   shouldPlaySwapQuoteRefreshAnimation,
   shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteLimitWarning,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
 
@@ -60,6 +63,85 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('keeps a current-event quote visible while provider keys are mirrored', () => {
+    const currentQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'current',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [currentQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [],
+      }),
+    ).toEqual([currentQuote]);
+  });
+
+  it('does not leak a previous event while waiting for provider keys', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'previous',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [previousQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('uses provider keys once the current event has received them', () => {
+    const firstQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'first',
+    });
+    const secondQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'second',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [firstQuote, secondQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [buildSwapQuoteProviderKey(secondQuote)],
+      }),
+    ).toEqual([secondQuote]);
+  });
+
+  it('does not show a previous-event quote while provider keys are mirrored', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'same-provider',
+    });
+    const currentProviderKeys = [buildSwapQuoteProviderKey(previousQuote)];
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [previousQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 1 },
+        currentEventProviderKeys: currentProviderKeys,
+      }),
+    ).toEqual([]);
+  });
+
+  it('waits for the quote event to settle before showing limit warnings', () => {
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: true,
+        quoteEventFetching: false,
+      }),
+    ).toBe(true);
+  });
   it('validates the amount on the active quote side', () => {
     expect(
       isSwapQuoteInputAmountValid({
@@ -1116,5 +1198,78 @@ describe('swap quote progress', () => {
     });
 
     expect(selectedQuote).toBe(manualErrorQuote);
+  });
+});
+
+describe('isSwapQuoteProvenForCurrentRequest', () => {
+  const retainedQuote = buildQuote({ eventId: 'event-1', provider: 'p1' });
+
+  it('proves an idle settled quote from the current event', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-1' },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: false,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects the request-starting interval before the event reports (OK-58326)', () => {
+    // quoteAction clears the event id and writes the new matching lock BEFORE
+    // runQuoteEvent flips the loading flags. A same-pair previous-account
+    // quote is still selected in that interval and must stay unproven even
+    // though the no-event-id fallback and the lock match would both pass.
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 0 },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a previous-event quote once the new event reports its id', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-2' },
+        quoteLoading: false,
+        quoteEventFetching: true,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('proves streamed quotes of the active event while it is still locked', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: buildQuote({ eventId: 'event-2', provider: 'p1' }),
+        quoteEventTotalCount: { count: 1, eventId: 'event-2' },
+        quoteLoading: false,
+        quoteEventFetching: true,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects any quote when the request lock no longer matches the input', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-1' },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: false,
+        requestMatchesCurrentInput: false,
+      }),
+    ).toBe(false);
   });
 });

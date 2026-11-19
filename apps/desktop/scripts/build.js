@@ -9,6 +9,15 @@ const glob = require('glob');
 
 const pkg = require('../app/package.json');
 
+const {
+  update: updateDesktopApiMethods,
+} = require('./generate-desktop-api-methods');
+
+async function buildDesktopMain(options) {
+  await updateDesktopApiMethods();
+  return build(options);
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 console.log('building for', isProduction ? 'production' : 'development');
 const electronSource = path.join(__dirname, '..', 'app');
@@ -108,7 +117,7 @@ console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
-build({
+buildDesktopMain({
   entryPoints,
   platform: 'node',
   bundle: true,
@@ -160,20 +169,16 @@ build({
     '@sentry/electron',
     'systeminformation',
     'iconv-lite',
-    // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
-    // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
-    // XML stack, js-yaml) out of app.js parse.
-    'electron-updater',
+    // Keep archive extraction out of app.js parse.
     'adm-zip',
-    // Tier 2: large lookup-table deps reached transitively via node-fetch /
-    // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
-    // FOOTGUN: these three are *transitive* — no app code imports them directly.
+    // Tier 2: large lookup-table deps reached transitively via the local HTTP
+    // server (mime-db, validator).
+    // FOOTGUN: these are *transitive* — no app code imports them directly.
     // esbuild leaves a bare `require('<name>')` and only ONE copy ships in the
     // asar, so the shipped version is whatever is pinned in app/package.json, NOT
-    // what yarn.lock resolves for the real consumers. When bumping node-fetch /
-    // whatwg-url / the http stack, re-check that these pins still match the
-    // resolved transitive versions, or the asar will ship a mismatched copy.
-    'tr46',
+    // what yarn.lock resolves for the real consumers. When bumping the HTTP
+    // stack, re-check that these pins still match the resolved transitive
+    // versions, or the asar will ship a mismatched copy.
     'mime-db',
     'validator',
     ...Object.keys(pkg.dependencies),
@@ -207,8 +212,8 @@ build({
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
     // APPIMAGE is intentionally NOT defined here. It is a runtime env set by
-    // the AppImage launcher and read (via bracket notation) by electron-updater
-    // and our canAutoInstallAppImage guard. AppImage BUILD detection is done
+    // the AppImage launcher and read by our canAutoInstallAppImage guard.
+    // AppImage BUILD detection is done
     // via DESK_CHANNEL=appImage instead (see release-desktop-all.yml).
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
     'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),

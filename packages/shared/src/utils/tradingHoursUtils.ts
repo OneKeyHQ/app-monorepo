@@ -1,3 +1,5 @@
+import { normalizeStockIssuer } from './stockTokenVariant';
+
 import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
 
 /**
@@ -482,29 +484,21 @@ function isEffectiveUSMarketHalt({
 }
 
 /**
- * Sources treated as Ondo-issued. Some Ondo stocks report a legacy
- * 'coingecko' source — keep this the single source of truth (kit's
- * `isOndoStockSource` delegates here).
- */
-const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
-
-/**
- * Only Ondo-issued stock tokens follow the US-session trading model this
- * feature describes (OK-58043). xStocks and other providers run 7×24 with no
- * open/closed distinction, so they keep the legacy open/closed badge and get
- * no trading-hours entry.
+ * Identifies Ondo sources for issuer-specific token behavior. Some Ondo
+ * stocks report a legacy 'coingecko' source; the alias list lives in
+ * `normalizeStockIssuer` (kit's `isOndoStockSource` delegates here).
  */
 export function isOndoUSMarketStock(
   source: string | undefined | null,
 ): boolean {
-  const normalized = source?.trim().toLowerCase();
-  return !!normalized && ONDO_US_MARKET_STOCK_SOURCES.has(normalized);
+  return normalizeStockIssuer(source ?? undefined) === 'ondo';
 }
 
 /**
- * Single source of truth for a stock token's displayed market status.
- * Returns undefined for non-Ondo issuers (callers fall back to the legacy
- * two-state badge) and for tokens without stock signals.
+ * Single source of truth for a stock's displayed US market status, independent
+ * of the token issuer. Returns undefined when stock signals are unavailable
+ * and for a non-US listing (`isUSListing === false`), which follows no US
+ * session even though the stock feed reports one for it.
  *
  * Signal priority:
  *   1. per-stock halt (`isPaused`) → Halted, regardless of `isOpen` — the
@@ -515,7 +509,9 @@ export function isOndoUSMarketStock(
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
  *   3. market-wide closure (backend CLOSED / weekend) with `isOpen === true`
  *      → Open247: only 7×24 instruments stay open through a closure, and a
- *      plain "Closed" would hide that they remain tradable;
+ *      plain "Closed" would hide that they remain tradable. A US listing
+ *      (`isUSListing === true`) is never 7×24 and reads Closed there; its
+ *      `isOpen` only disagrees through a retained stale detail;
  *   4. inter-session gap (clock math) → AwaitingOpen: the venue is switching
  *      session state; a halt/closed flash there reads as an error, and the
  *      panel highlights the upcoming session row alongside;
@@ -525,19 +521,20 @@ export function isOndoUSMarketStock(
  * weekends are detectable locally, holidays are not.
  */
 export function resolveUSMarketStatusVariant({
-  source,
+  isUSListing,
   isOpen,
   isPaused,
   status,
   now = new Date(),
 }: {
-  source?: string;
+  /** true: a US listing; false: a non-US listing; undefined: unknown. */
+  isUSListing?: boolean;
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
   now?: Date;
 }): EUSMarketStatusVariant | undefined {
-  if (!isOndoUSMarketStock(source)) {
+  if (isUSListing === false) {
     return undefined;
   }
   // The cycle computation is Intl-heavy — compute it lazily, at most once,
@@ -578,11 +575,15 @@ export function resolveUSMarketStatusVariant({
         return EUSMarketStatusVariant.Open;
     }
   };
+  // Through a market-wide closure only a 7×24 token stays open; the listing
+  // itself is closed whatever a stale `isOpen` still says.
+  const closureVariant = isUSListing
+    ? EUSMarketStatusVariant.Closed
+    : EUSMarketStatusVariant.Open247;
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
-      // isOpen === true is guaranteed here (checked above): a token still
-      // open through a market-wide closure is a 7×24 instrument.
-      return EUSMarketStatusVariant.Open247;
+      // isOpen === true is guaranteed here (checked above).
+      return closureVariant;
     }
     const tradingHours = resolveTradingHours();
     // Inter-session gap: the dedicated chip wins over the backend session,
@@ -601,9 +602,8 @@ export function resolveUSMarketStatusVariant({
     nowMs >= tradingHours.weekendStartInstant &&
     nowMs < tradingHours.weekendEndInstant
   ) {
-    // Same 7×24 rule as the status branch: isOpen === true through the
-    // weekend closure marks a 7×24 instrument.
-    return EUSMarketStatusVariant.Open247;
+    // Same closure rule as the status branch.
+    return closureVariant;
   }
   // Same gap rule as the status branch, on the pure clock fallback.
   if (tradingHours.isNowInSessionGap) {
@@ -679,4 +679,72 @@ export function resolveUSTradingHoursActiveRow({
   }
   // A gap `now` already resolves to the upcoming session here.
   return tradingHours.currentSessionKey;
+}
+
+export interface IUSMarketNextOpenCountdown {
+  days: number;
+  hours: number;
+  minutes: number;
+  totalMinutes: number;
+}
+
+/**
+ * Time left until the market reopens, for the "closed" status label.
+ *
+ * `nextOpenTime` wins over `nextOpenMinutes`: the minute count is a snapshot
+ * taken when the response was built, so it drifts as the payload ages between
+ * polls, while the timestamp stays correct however stale the response is. The
+ * minute count is only the fallback for a payload that omits the timestamp,
+ * and it is anchored to `nextOpenMinutesObservedAt` so it still ticks down
+ * between polls instead of repeating the snapshot forever.
+ *
+ * Rounds up, so the final partial minute reads "1m" rather than counting down
+ * to a "0m" that would claim the market is already open. Returns undefined
+ * once the moment has passed (or with nothing usable to measure) so callers
+ * render no countdown instead of a negative one.
+ */
+export function getUSMarketNextOpenCountdown({
+  nextOpenTime,
+  nextOpenMinutes,
+  nextOpenMinutesObservedAt,
+  now = Date.now(),
+}: {
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
+  /** When the `nextOpenMinutes` snapshot was taken. */
+  nextOpenMinutesObservedAt?: number;
+  now?: number;
+}): IUSMarketNextOpenCountdown | undefined {
+  let totalMinutes: number | undefined;
+
+  if (nextOpenTime) {
+    const openAt = new Date(nextOpenTime).getTime();
+    if (Number.isFinite(openAt)) {
+      totalMinutes = Math.ceil((openAt - now) / MINUTE_MS);
+    }
+  }
+
+  if (
+    totalMinutes === undefined &&
+    typeof nextOpenMinutes === 'number' &&
+    Number.isFinite(nextOpenMinutes)
+  ) {
+    const elapsedMinutes =
+      typeof nextOpenMinutesObservedAt === 'number' &&
+      Number.isFinite(nextOpenMinutesObservedAt)
+        ? Math.max(0, now - nextOpenMinutesObservedAt) / MINUTE_MS
+        : 0;
+    totalMinutes = Math.ceil(nextOpenMinutes - elapsedMinutes);
+  }
+
+  if (totalMinutes === undefined || totalMinutes <= 0) {
+    return undefined;
+  }
+
+  return {
+    days: Math.floor(totalMinutes / MINUTES_PER_DAY),
+    hours: Math.floor((totalMinutes % MINUTES_PER_DAY) / 60),
+    minutes: totalMinutes % 60,
+    totalMinutes,
+  };
 }

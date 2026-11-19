@@ -25,7 +25,7 @@ describe('CLI App request headers', () => {
 
     expect(headers).toMatchObject({
       'user-agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) OneKeyWallet/6.3.0 Chrome/142.0.7444.265 Electron/39.8.9 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) OneKeyWallet/6.3.0 Chrome/150.0.7871.114 Electron/43.1.1 Safari/537.36',
       'x-onekey-hide-asset-details': 'false',
       'x-onekey-instance-id': '45304ac0-2271-4b57-b7d8-ba111a627a6d',
       'x-onekey-request-build-number': '2026043075',

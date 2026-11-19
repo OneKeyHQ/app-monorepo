@@ -158,11 +158,8 @@ describe('KeyringHardwareTrezor personal message signing', () => {
       Object.create(KeyringHardwareTrezor.prototype),
       {
         backgroundApi: {
-          serviceThirdPartyHardware: {
-            requestTrezorBleConnectIdForDevice: jest.fn(),
-          },
+          serviceThirdPartyHardware: {},
         },
-        getBleFallbackOptions: jest.fn(() => ({})),
         getNetworkChainId: jest.fn().mockResolvedValue('1'),
       },
     ) as KeyringHardwareTrezor;
@@ -274,11 +271,8 @@ describe('KeyringHardwareTrezor typed-data signing', () => {
       Object.create(KeyringHardwareTrezor.prototype),
       {
         backgroundApi: {
-          serviceThirdPartyHardware: {
-            requestTrezorBleConnectIdForDevice: jest.fn(),
-          },
+          serviceThirdPartyHardware: {},
         },
-        getBleFallbackOptions: jest.fn(() => ({})),
         getNetworkChainId: jest.fn().mockResolvedValue('1'),
       },
     ) as KeyringHardwareTrezor;

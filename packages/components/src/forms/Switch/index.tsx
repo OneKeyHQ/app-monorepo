@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  SwitchStyledContext,
+  TMSwitch,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -35,13 +39,48 @@ const SWITCH_SIZE_CONFIG = {
 
 export type ISwitchProps = IFormFieldProps<
   boolean,
-  Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
+  Omit<
+    GetProps<typeof TMSwitch>,
+    'checked' | 'onChange' | 'onCheckedChange' | 'value'
+  > & {
     size?: ISwitchSize;
     thumbProps?: Partial<GetProps<typeof TMSwitch.Thumb>>;
   }
 > & {
   isUncontrolled?: boolean;
 };
+
+const DESKTOP_THUMB_ANIMATION: ('left' | 'transform')[] = ['left', 'transform'];
+
+function DesktopSwitchThumb({
+  thumbSize,
+  thumbProps,
+}: {
+  thumbSize: (typeof SWITCH_SIZE_CONFIG)[ISwitchSize]['thumbSize'];
+  thumbProps?: ISwitchProps['thumbProps'];
+}) {
+  const { active } = SwitchStyledContext.useStyledContext();
+
+  // Percentages use the track and thumb widths directly, so hiding a retained
+  // desktop tab cannot reset the measured position and replay the animation.
+  return (
+    <TMSwitch.Thumb
+      unstyled
+      w={thumbSize}
+      h={thumbSize}
+      borderRadius="$full"
+      bg="$bg"
+      position="absolute"
+      left={active ? '100%' : 0}
+      top="50%"
+      x={active ? '-100%' : 0}
+      y="-50%"
+      transition="switch"
+      animateOnly={DESKTOP_THUMB_ANIMATION}
+      {...thumbProps}
+    />
+  );
+}
 
 export function Switch({
   value,
@@ -77,15 +116,15 @@ export function Switch({
   const nativeProps = useMemo(
     () => ({
       disabled,
-      // iOS 26 gives the native UISwitch a Liquid Glass track; a solid off-state
-      // background bleeds past the glass as an extra-gray sliver, so drop it
-      // there and let the system render the glass off-track. iOS < 26 / Android
-      // keep the neutral5 background unchanged.
-      ios_backgroundColor: platformEnv.isNativeIOS26Plus
-        ? 'transparent'
-        : theme.neutral5.val,
+      testID,
+      // The off-track fill is $neutral4, the design's stamp for the toggle.
+      // On iOS 26 this deliberately paints over the Liquid Glass off-track:
+      // the glass sampling a dark surface (the device stage's near-black
+      // face) rendered the off state close to invisible, which costs more
+      // than the faint sliver a solid background bleeds past the glass.
+      ios_backgroundColor: theme.neutral4.val,
       trackColor: {
-        false: theme.neutral5.val,
+        false: theme.neutral4.val,
         // On iOS the on-state uses the brand green ($bgAccent) so "activated"
         // reads unmistakably — a saturated color cue, not just a darker/lighter
         // track. The native thumb is $bg (white in light mode, near-black in
@@ -107,8 +146,9 @@ export function Switch({
     }),
     [
       disabled,
+      testID,
       nativeScale,
-      theme.neutral5.val,
+      theme.neutral4.val,
       theme.bgAccent.val,
       theme.bgPrimary.val,
       theme.bg.val,
@@ -117,7 +157,7 @@ export function Switch({
 
   return (
     <TMSwitch
-      tag="span"
+      render="span"
       flexShrink={0}
       unstyled
       checked={checked}
@@ -138,16 +178,23 @@ export function Switch({
       testID={testID}
       {...restProps}
     >
-      <TMSwitch.Thumb
-        unstyled
-        w={sizeConfig.thumbSize}
-        h={sizeConfig.thumbSize}
-        borderRadius="$full"
-        bg="$bg"
-        animation="switch"
-        animateOnly={ANIMATE_ONLY_TRANSFORM}
-        {...thumbProps}
-      />
+      {platformEnv.isDesktop ? (
+        <DesktopSwitchThumb
+          thumbSize={sizeConfig.thumbSize}
+          thumbProps={thumbProps}
+        />
+      ) : (
+        <TMSwitch.Thumb
+          unstyled
+          w={sizeConfig.thumbSize}
+          h={sizeConfig.thumbSize}
+          borderRadius="$full"
+          bg="$bg"
+          transition="switch"
+          animateOnly={ANIMATE_ONLY_TRANSFORM}
+          {...thumbProps}
+        />
+      )}
     </TMSwitch>
   );
 }

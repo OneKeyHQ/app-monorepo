@@ -21,6 +21,32 @@ type IInitialTradeInstrument =
   | { mode: 'perp'; coin: string }
   | { mode: 'spot'; coin: string; universe?: ISpotUniverse };
 
+// What the first Perp frame of a launch should restore. A market picked by a
+// context-less caller outranks the persisted one: both answer the same
+// question, but that pick happened after the snapshot was written, and the
+// event carrying it cannot reach a page that has not mounted. Its assetId and
+// universe are unresolved by construction — the background fills them in when
+// it applies the switch.
+export function resolveInitialPreferredInstrument<
+  TRestored extends { mode: 'perp' | 'spot'; coin: string },
+>({
+  pendingInstrument,
+  restoredInstrument,
+}: {
+  pendingInstrument: { mode: 'perp' | 'spot'; coin: string } | undefined;
+  restoredInstrument: TRestored | undefined;
+}) {
+  if (!pendingInstrument?.coin) {
+    return restoredInstrument;
+  }
+  return {
+    mode: pendingInstrument.mode,
+    coin: pendingInstrument.coin,
+    assetId: undefined,
+    universe: undefined,
+  };
+}
+
 export function buildInitialTradeInstrumentSwitchParams({
   mode,
   perpAsset,

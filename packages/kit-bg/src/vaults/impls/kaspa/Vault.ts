@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import { RestAPIClient } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
-import type { IKaspaGetTransactionResponse } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
+import type { IKaspaBlockTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -70,6 +70,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { buildKaspaRefTx } from './refTxUtils';
 import { ClientKaspa } from './sdkKaspa/ClientKaspa';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -813,43 +814,8 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // Map a REST tx to the refTx shape the device recomputes the txid from. The REST
-  // API doesn't return lockTime/gas/sequenceNumber/scriptVersion; they are 0 on the
-  // v0 txs this is gated to below.
-  buildPrevTx(tx: IKaspaGetTransactionResponse): IKaspaRefTransaction {
-    return {
-      txId: tx.transaction_id,
-      version: tx.version,
-      inputs: (tx.inputs ?? []).map((input) => ({
-        prevTxId: input.previous_outpoint_hash,
-        outputIndex: Number(input.previous_outpoint_index),
-        sequenceNumber: 0,
-      })),
-      outputs: tx.outputs.map((output) => {
-        // The proxy JSON-parses amount into a JS number, so a sompi value beyond
-        // 2^53 (reachable on kaspa: supply ~2.9e18) is already rounded before we
-        // see it — BigNumber can't recover what the parse lost. Bail so the
-        // caller blind-signs rather than stream a refTx whose recomputed txid
-        // would silently be wrong.
-        const satoshis = new BigNumber(String(output.amount));
-        if (!satoshis.isInteger() || satoshis.gt(Number.MAX_SAFE_INTEGER)) {
-          throw new OneKeyLocalError(
-            `kaspa refTx: output amount ${String(
-              output.amount,
-            )} exceeds safe integer range`,
-          );
-        }
-        return {
-          satoshis: satoshis.toFixed(),
-          script: output.script_public_key,
-          scriptVersion: 0,
-        };
-      }),
-      lockTime: 0,
-      subNetworkID: tx.subnetwork_id,
-      gas: 0,
-      payload: tx.payload ?? '',
-    };
+  buildPrevTx(tx: IKaspaBlockTransaction): IKaspaRefTransaction {
+    return buildKaspaRefTx({ tx, networkId: this.networkId });
   }
 
   // Fetch previous transactions as refTxs for on-device input verification.
@@ -858,13 +824,11 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       backgroundApi: this.backgroundApi,
     });
-    const prevTxs = await client.getTransactions(txids);
-    const refTxs = prevTxs
-      .filter((tx) => tx?.transaction_id)
-      .map((tx) => this.buildPrevTx(tx));
-    // Only trust version-0 txs: the REST API returns bad fields for non-standard
-    // txs (a v1 tx's subnetwork_id mirrors its txid prefix), which would make the
-    // device hard-reject. Bail → caller blind-signs. TODO: handle v1 via wasm SDK.
+    const prevTxs = await client.getRefTransactions(txids);
+    const refTxs = Array.from(prevTxs.values()).map((tx) =>
+      this.buildPrevTx(tx),
+    );
+    // The refTx stream only carries the fields a v0 txid is computed from.
     if (refTxs.some((tx) => tx.version !== 0)) {
       throw new OneKeyLocalError('kaspa refTx: unsupported non-v0 prev tx');
     }

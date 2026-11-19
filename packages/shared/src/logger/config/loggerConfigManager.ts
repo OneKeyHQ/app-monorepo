@@ -87,6 +87,11 @@ export class LoggerConfigManager {
     if (!this._env.isDev) {
       return true;
     }
+    // Dev production-parity switch: persist every scene like production
+    // instead of consulting the per-scene opt-in map.
+    if (this._config?.enableAllScenes) {
+      return true;
+    }
     return !!this._config?.enabled?.[scopeName]?.[sceneName];
   }
 

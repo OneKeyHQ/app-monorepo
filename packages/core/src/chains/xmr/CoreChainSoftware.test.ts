@@ -124,3 +124,35 @@ describe('XMR Core tests', () => {
     });
   });
 });
+
+describe('XMR software signing of a hardware-built transaction', () => {
+  it('refuses before any key is derived', async () => {
+    const coreApi = new CoreChainHd();
+    const getSigner = jest.spyOn(
+      coreApi as unknown as { baseGetSingleSigner: () => Promise<unknown> },
+      'baseGetSingleSigner',
+    );
+    await expect(
+      coreApi.signTransaction({
+        networkInfo,
+        account: hdAccounts[0],
+        credentials: { hd: hdCredential },
+        unsignedTx: {
+          encodedTx: {
+            from: hdAccounts[0].address,
+            to: hdAccounts[0].address,
+            amount: '1',
+            amountAtomic: '1000000000000',
+            feeAtomic: '30000000',
+            changeAtomic: '0',
+            priority: 'normal',
+            chainTip: 3_767_827,
+            inputCount: 1,
+            devicePlanJson: '{"version":1}',
+          },
+        },
+      } as never),
+    ).rejects.toThrow('built for a hardware device');
+    expect(getSigner).not.toHaveBeenCalled();
+  });
+});

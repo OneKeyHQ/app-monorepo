@@ -4,6 +4,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -116,6 +117,7 @@ import {
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
@@ -415,7 +417,8 @@ function MobileTokenSelectorModal({
     [onLoadingChange, navigation, actions, spotUniverses],
   );
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetsByDex, query: filteredQuery }] =
+    usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
@@ -541,17 +544,14 @@ function MobileTokenSelectorModal({
     };
   }, [shouldEnableSpotData]);
 
+  const selectorOwner = useId();
   useEffect(() => {
-    const currentActions = actions.current;
-    currentActions.setTradeRouteViewState({
-      tokenSelectorOpen: true,
-    });
+    const { setTokenSelectorOpen } = actions.current;
+    setTokenSelectorOpen({ owner: selectorOwner, open: true });
     return () => {
-      currentActions.setTradeRouteViewState({
-        tokenSelectorOpen: false,
-      });
+      setTokenSelectorOpen({ owner: selectorOwner, open: false });
     };
-  }, [actions]);
+  }, [actions, selectorOwner]);
 
   useEffect(() => {
     actions.current.setTradeRouteViewState({
@@ -960,6 +960,11 @@ function MobileTokenSelectorModal({
   const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
     ? assetCtxsByDex
     : undefined;
+  const activeFavoritesTabUserSort = isPerpTokenSelectorFavoritesTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
 
   // Layer 2: filter — cheap O(n) filter; only dynamic user sort sorts the
   // filtered dynamic-token subset against live values.
@@ -991,7 +996,7 @@ function MobileTokenSelectorModal({
           tokenSearchAliases,
         }),
       });
-      if (sortField) {
+      if (activeFavoritesTabUserSort && sortField) {
         result = sortTokenSelectorFavoriteItems({
           items: result,
           sortField,
@@ -1015,6 +1020,7 @@ function MobileTokenSelectorModal({
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1076,7 +1082,9 @@ function MobileTokenSelectorModal({
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
+    activeFavoritesTabUserSort,
     assetsByDex,
     categoryTabs,
     favoritesOrder.sequence,
@@ -1431,7 +1439,7 @@ function MobileTokenSelectorModal({
                 platformEnv.isNativeIOS ? IOS_INITIAL_ROWS_SNAPSHOT_COUNT : 5
               }
               decelerationRate="normal"
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={false}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               {...tokenSelectorScrollBehaviorProps}
               contentContainerStyle={{

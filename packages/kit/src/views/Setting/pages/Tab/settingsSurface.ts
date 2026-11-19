@@ -1,8 +1,20 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 export type ISettingsSectionPresentation = 'flat' | 'mobile' | 'tab';
 
 export const SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE = {
-  marginStart: 0,
+  marginStart: 4,
 } as const;
+
+export const SETTINGS_PAGE_CONTENT_PADDING_X = platformEnv.isNative
+  ? '$5'
+  : '$6';
+
+// Raw Settings lists already own a 20px row inset. Web renderers add the
+// remaining 4px at the page body; native keeps the platform-standard 20px.
+export const SETTINGS_PAGE_BODY_INSET_X = platformEnv.isNative
+  ? undefined
+  : '$1';
 
 export function resolveSettingsSectionPresentation({
   isMobileLayout,
@@ -50,6 +62,28 @@ export function resolveSettingsHeaderBackgroundTokenKey({
   return pageBackgroundTokenKey ?? (isNativeIOS ? undefined : 'bgApp');
 }
 
+export function isVisibleSubSettingsItem({
+  hasDesktopTab,
+  isMobileHome,
+  isTabNavigator,
+  isMobileLayout,
+}: {
+  hasDesktopTab: boolean;
+  isMobileHome: boolean;
+  isTabNavigator: boolean;
+  isMobileLayout: boolean;
+}): boolean {
+  // Sidebar already exposes desktopTab items; keep the source row on
+  // extension / narrow web, where that tab does not exist.
+  if (isTabNavigator && hasDesktopTab) {
+    return false;
+  }
+  if (!isMobileLayout) {
+    return true;
+  }
+  return !isMobileHome;
+}
+
 export function resolveSettingsSectionSurface(
   presentation: ISettingsSectionPresentation,
 ) {
@@ -78,4 +112,15 @@ export function resolveSettingsSectionSurface(
     borderRadius: '$2.5' as const,
     borderCurve: undefined,
   };
+}
+
+export function resolveSettingsRowHoverMaskColor(
+  background: unknown,
+): string | undefined {
+  if (typeof background !== 'string') {
+    return undefined;
+  }
+  return background.startsWith('$')
+    ? `var(--${background.slice(1)})`
+    : background;
 }

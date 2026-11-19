@@ -1,6 +1,7 @@
 import {
   EBorrowDataStatus,
   deriveBorrowDataStatus,
+  hasBorrowReservesForMarket,
   isBorrowReservesPending,
 } from './borrowDataStatus';
 
@@ -50,6 +51,18 @@ describe('deriveBorrowDataStatus', () => {
     ).toBe(EBorrowDataStatus.LoadingMarkets);
   });
 
+  it('publishes a newly selected market from its own cache during market refresh', () => {
+    expect(
+      deriveBorrowDataStatus({
+        ...settledActiveState,
+        marketsLoading: true,
+        hasCachedReserves: true,
+        hasOwnedReservesResult: true,
+        isCurrentFetchKey: false,
+      }),
+    ).toBe(EBorrowDataStatus.Refreshing);
+  });
+
   it('keeps current owned reserves visible during a market refresh', () => {
     expect(
       deriveBorrowDataStatus({
@@ -97,6 +110,38 @@ describe('deriveBorrowDataStatus', () => {
         isCurrentFetchKey: false,
       }),
     ).toBe(EBorrowDataStatus.LoadingReserves);
+  });
+
+  it('publishes a changed scope with an owned SWR result before its refresh starts', () => {
+    expect(
+      deriveBorrowDataStatus({
+        ...settledActiveState,
+        hasCachedReserves: true,
+        hasOwnedReservesResult: true,
+        isCurrentFetchKey: false,
+      }),
+    ).toBe(EBorrowDataStatus.Refreshing);
+  });
+
+  it('waits for account resolution before creating a reserves fetch scope', () => {
+    expect(
+      deriveBorrowDataStatus({
+        ...settledActiveState,
+        hasFetchKey: false,
+        shouldWaitForAccount: true,
+      }),
+    ).toBe(EBorrowDataStatus.WaitingForAccount);
+  });
+
+  it('shows a retryable error after account resolution fails', () => {
+    expect(
+      deriveBorrowDataStatus({
+        ...settledActiveState,
+        hasFetchKey: false,
+        shouldWaitForAccount: true,
+        hasAccountError: true,
+      }),
+    ).toBe(EBorrowDataStatus.Error);
   });
 
   it('keeps a cacheless active scope pending before its request effect runs', () => {
@@ -157,5 +202,30 @@ describe('isBorrowReservesPending', () => {
     EBorrowDataStatus.Error,
   ])('treats %s as settled for rendering', (status) => {
     expect(isBorrowReservesPending(status)).toBe(false);
+  });
+});
+
+describe('hasBorrowReservesForMarket', () => {
+  it('rejects a missing or differently owned snapshot for a visible market', () => {
+    expect(
+      hasBorrowReservesForMarket({
+        data: null,
+        ownerMarketKey: 'aave:evm--1:0xold',
+        marketKey: 'aave:evm--1:0xnew',
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts the current market snapshot and an unresolved market scope', () => {
+    expect(
+      hasBorrowReservesForMarket({
+        data: {},
+        ownerMarketKey: 'aave:evm--1:0xcurrent',
+        marketKey: 'aave:evm--1:0xcurrent',
+      }),
+    ).toBe(true);
+    expect(
+      hasBorrowReservesForMarket({ data: null, marketKey: undefined }),
+    ).toBe(true);
   });
 });

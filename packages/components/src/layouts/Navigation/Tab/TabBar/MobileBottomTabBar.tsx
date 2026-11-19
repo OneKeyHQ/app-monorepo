@@ -17,6 +17,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -91,6 +95,7 @@ export default function MobileBottomTabBar({
       if (!isActive && !event.defaultPrevented) {
         switchTab(route.name as ETabRoutes);
         if (route.name === ETabRoutes.Market) {
+          markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
           appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
             from: EEnterWay.HomeTab,
           });

@@ -2,16 +2,19 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { LocalDbBase } from './LocalDbBase';
 
-import type { IDBDevice } from './types';
+import type { IDBDevice, IDBWallet } from './types';
 
 // getExistingDevice drives the private _matchExistingDeviceRecord — the same
 // isolation boundary all three vendors share. A prototype-backed stub is
 // enough since only getAllDevices/getAllWallets are read here.
-function buildDb(devices: Partial<IDBDevice>[]): LocalDbBase {
+function buildDb(
+  devices: Partial<IDBDevice>[],
+  wallets: Partial<IDBWallet>[] = [],
+): LocalDbBase {
   const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
   Object.assign(db, {
     getAllDevices: jest.fn().mockResolvedValue({ devices }),
-    getAllWallets: jest.fn().mockResolvedValue({ wallets: [] }),
+    getAllWallets: jest.fn().mockResolvedValue({ wallets }),
   });
   return db;
 }
@@ -33,6 +36,54 @@ describe('LocalDbBase shared device matcher — vendor isolation', () => {
         vendor: EHardwareVendor.onekey,
       }),
     ).resolves.toBe(onekeyDevice);
+  });
+
+  it('reuses a reset OneKey device when onboarding restores the same recovery phrase', async () => {
+    const previousDevice = {
+      id: 'device-onekey-before-reset',
+      deviceId: 'RAW-BEFORE-RESET',
+      uuid: 'SERIAL-1',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice;
+    const previousWallet = {
+      id: 'hw-onekey-before-reset',
+      associatedDevice: previousDevice.id,
+      firstEvmAddress: '0x1234',
+    } as IDBWallet;
+    const db = buildDb([previousDevice], [previousWallet]);
+
+    await expect(
+      db.getExistingDevice({
+        rawDeviceId: 'RAW-AFTER-RESET',
+        uuid: 'SERIAL-1',
+        getFirstEvmAddressFn: jest.fn().mockResolvedValue('0x1234'),
+        vendor: EHardwareVendor.onekey,
+      }),
+    ).resolves.toBe(previousDevice);
+  });
+
+  it('creates a new OneKey identity when onboarding uses a different recovery phrase after reset', async () => {
+    const previousDevice = {
+      id: 'device-onekey-before-reset',
+      deviceId: 'RAW-BEFORE-RESET',
+      uuid: 'SERIAL-1',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice;
+    const previousWallet = {
+      id: 'hw-onekey-before-reset',
+      associatedDevice: previousDevice.id,
+      firstEvmAddress: '0x1234',
+    } as IDBWallet;
+    const db = buildDb([previousDevice], [previousWallet]);
+
+    await expect(
+      db.getExistingDevice({
+        rawDeviceId: 'RAW-AFTER-RESET',
+        uuid: 'SERIAL-1',
+        getFirstEvmAddressFn: jest.fn().mockResolvedValue('0xabcd'),
+        vendor: EHardwareVendor.onekey,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('never matches a device belonging to a different vendor, same deviceId/uuid', async () => {

@@ -1,7 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { hasSwapCurrentEventProvider } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapStockChannelStage,
@@ -21,6 +23,7 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
 } as const;
 
 export type IStockChartCoinGeckoIdLookupResult = {
+  cacheable?: boolean;
   tokenScope: string;
   coinGeckoId?: string;
 };
@@ -73,6 +76,16 @@ export function getStockChartCoinGeckoIdState({
   };
 }
 
+export function isStockChartRequestReady({
+  chartCacheReady,
+  coinGeckoIdLoading,
+}: {
+  chartCacheReady: boolean;
+  coinGeckoIdLoading: boolean;
+}) {
+  return chartCacheReady && !coinGeckoIdLoading;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
   channelStage: ESwapStockChannelStage,
@@ -100,6 +113,30 @@ export function isStockMarketPanelLoadingStage(
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function shouldDeferStockInitialContent({
+  channelStage,
+  startedWithoutContent,
+}: {
+  channelStage: ESwapStockChannelStage;
+  startedWithoutContent: boolean;
+}) {
+  return (
+    startedWithoutContent &&
+    (isStockMarketPanelLoadingStage(channelStage) ||
+      channelStage === ESwapStockChannelStage.InitializingPayToken)
+  );
+}
+
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
 }
 
 export function shouldShowStockMarketHeaderSkeleton({
@@ -239,4 +276,102 @@ export function getStockChartDisplayState({
         Boolean(isLoading) ||
         !isChartStateForCurrentScope),
   };
+}
+export function isStockReceivePairSynced({
+  fromTokenKey,
+  toTokenKey,
+  stockTokenKey,
+  payTokenKey,
+  tradeSide,
+}: {
+  fromTokenKey?: string;
+  toTokenKey?: string;
+  stockTokenKey?: string;
+  payTokenKey?: string;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  if (!fromTokenKey || !toTokenKey || !stockTokenKey || !payTokenKey) {
+    return false;
+  }
+  return tradeSide === ESwapStockTradeSide.Buy
+    ? fromTokenKey === payTokenKey && toTokenKey === stockTokenKey
+    : fromTokenKey === stockTokenKey && toTokenKey === payTokenKey;
+}
+
+export function getStockReceiveDisplayScope({
+  accounts,
+  fromAddress,
+  toAddress,
+  fromTokenKey,
+  toTokenKey,
+  tradeSide,
+  amount,
+  currencyId,
+}: {
+  accounts: (string | undefined)[];
+  fromAddress?: string;
+  toAddress?: string;
+  fromTokenKey?: string;
+  toTokenKey?: string;
+  tradeSide: ESwapStockTradeSide;
+  amount: string;
+  currencyId: string;
+}): string | undefined {
+  if (!fromAddress || !toAddress || !fromTokenKey || !toTokenKey) {
+    return undefined;
+  }
+  return JSON.stringify([
+    ...accounts,
+    fromAddress,
+    toAddress,
+    fromTokenKey,
+    toTokenKey,
+    tradeSide,
+    amount,
+    currencyId,
+  ]);
+}
+
+export function isStockReceiveQuoteCurrent({
+  quote,
+  eventId,
+  currentEventProviderKeys,
+  matchesAccount,
+  matchesTrade,
+}: {
+  quote?: Pick<IFetchQuoteResult, 'eventId' | 'info'>;
+  eventId?: string;
+  currentEventProviderKeys: string[];
+  matchesAccount: boolean;
+  matchesTrade: boolean;
+}) {
+  return Boolean(
+    matchesAccount &&
+    matchesTrade &&
+    eventId &&
+    quote?.eventId === eventId &&
+    hasSwapCurrentEventProvider(quote, currentEventProviderKeys),
+  );
+}
+
+export function shouldInvalidateStockReceiveSnapshot({
+  hasPositiveAmount,
+  matchesAccount,
+  completed,
+  shouldRefreshQuote,
+  currentEventProviderKeys,
+}: {
+  hasPositiveAmount: boolean;
+  matchesAccount: boolean;
+  completed: boolean;
+  shouldRefreshQuote: boolean;
+  currentEventProviderKeys: string[];
+}) {
+  return (
+    hasPositiveAmount &&
+    matchesAccount &&
+    completed &&
+    shouldRefreshQuote &&
+    currentEventProviderKeys.length === 0
+  );
 }

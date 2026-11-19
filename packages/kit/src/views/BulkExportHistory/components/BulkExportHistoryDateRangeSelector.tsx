@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { SegmentControl } from '@onekeyhq/components';
+import { SegmentControl, useMedia } from '@onekeyhq/components';
+
+import BulkExportHistoryDateRangeSelect from './BulkExportHistoryDateRangeSelect';
 
 import type { IBulkExportHistoryDateRangeSelectorProps } from './BulkExportHistoryDateRangeSelector.types';
 
@@ -11,6 +13,7 @@ function BulkExportHistoryDateRangeSelector({
   disabled,
   testID,
 }: IBulkExportHistoryDateRangeSelectorProps) {
+  const { md } = useMedia();
   const resolvedOptions = useMemo(
     () =>
       disabled
@@ -27,6 +30,18 @@ function BulkExportHistoryDateRangeSelector({
     },
     [disabled, onChange, options],
   );
+
+  if (md) {
+    return (
+      <BulkExportHistoryDateRangeSelect
+        value={value}
+        options={options}
+        onChange={onChange}
+        disabled={disabled}
+        testID={testID}
+      />
+    );
+  }
 
   return (
     <SegmentControl

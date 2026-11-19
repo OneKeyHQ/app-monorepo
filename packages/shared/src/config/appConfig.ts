@@ -34,8 +34,11 @@ export const NOTIFICATIONS_HELP_CENTER_URL =
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
+// `client=desktop` keeps the page on the desktop app when opened from a phone;
+// it resolves to the desktop OS closest to the visitor (portal PR #911).
+export const DOWNLOAD_DESKTOP_APP_URL =
+  'https://onekey.so/download/?client=desktop';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
-export const CREATOR_PROGRAM_URL = 'https://creator.onekey.so/';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
@@ -87,34 +90,15 @@ export function getOneKeyWebUrl(env: IEndpointEnv): string {
   return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
-export function buildReferralUrl({
-  code,
-  source,
-  env = 'prod',
-}: {
-  code: string;
-  source: 'Perps' | 'Earn';
-  env?: IEndpointEnv;
-}): string {
-  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
-  const baseUrl = getWebAppUrl(env);
-  return `${baseUrl}/r/${code}${path}`;
-}
+export type IReferralShareSource = 'Earn' | 'Perps' | 'Swap';
 
-export const EXT_RATE_URL = {
-  'chrome':
-    'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
-  'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
-  'edge':
-    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
-};
-
-const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
+export const APP_STORE_APP_ID = '1609559473';
+const APP_STORE_BASE_LINK = `itms-apps://apps.apple.com/app/id${APP_STORE_APP_ID}`;
 export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;
 export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
 // App Store web fallback (works when auto-redirects to itms-apps are blocked).
-export const APP_STORE_DOWNLOAD_WEB_LINK =
-  'https://apps.apple.com/app/id1609559473';
+export const APP_STORE_DOWNLOAD_WEB_LINK = `https://apps.apple.com/app/id${APP_STORE_APP_ID}`;
+export const MAC_APP_STORE_DOWNLOAD_LINK = `macappstore://itunes.apple.com/app/id${APP_STORE_APP_ID}?mt=12`;
 export const ANDROID_PACKAGE_NAME = 'so.onekey.app.wallet';
 export const ONEKEY_EIP6963_RDNS = 'so.onekey.app.wallet';
 export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;

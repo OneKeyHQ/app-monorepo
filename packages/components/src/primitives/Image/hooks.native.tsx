@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-import { Image as ImageNet } from 'expo-image';
-import { Image } from 'react-native';
+import { OneKeyImage } from '@onekeyfe/react-native-image';
 
 import { ImageNull } from './ImageNull';
 import { useSourceKey, useSourceRef } from './utils';
@@ -38,8 +37,5 @@ export const useImageComponent: IUseImageComponent = (imageSource) =>
     if (!imageSource) {
       return ImageNull as unknown as ReturnType<IUseImageComponent>;
     }
-    const uri = (imageSource as ImageURISource).uri;
-    return uri && typeof uri === 'string' && uri.startsWith('http')
-      ? (ImageNet as unknown as ReturnType<IUseImageComponent>)
-      : Image;
+    return OneKeyImage as unknown as ReturnType<IUseImageComponent>;
   }, [imageSource]);

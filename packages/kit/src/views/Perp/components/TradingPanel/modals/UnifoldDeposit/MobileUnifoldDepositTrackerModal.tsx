@@ -82,6 +82,7 @@ export default function MobileUnifoldDepositTrackerModal() {
         {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}
       >
         <UnifoldTrackerContent
+          isMobile
           recipientAddress={expectedRecipient ?? null}
           fillAvailableHeight
           useExternalHeader

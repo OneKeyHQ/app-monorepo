@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 import type { IDateRange, IDateRangePreset } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+// The earliest date the reward pages query: their default range and the
+// "All time" preset start here.
+export const REFERRAL_ALL_TIME_START = new Date('2024-01-01T00:00:00.000');
+
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -86,7 +90,7 @@ export function useDatePresets(): IDateRangePreset[] {
         label: intl.formatMessage({
           id: ETranslations.referral_filter_alltime,
         }),
-        getRange: makeRange(() => new Date('2024-01-01T00:00:00.000')),
+        getRange: makeRange(() => REFERRAL_ALL_TIME_START),
       },
     ],
     [intl],

@@ -10,6 +10,27 @@ type IGenerateSwapHistoryItem = (params: {
 
 type IOnSwapBroadcast = () => void | Promise<void>;
 
+export async function persistBroadcastedSendHistory<TDecodedTx>({
+  buildDecodedTx,
+  saveHistory,
+}: {
+  buildDecodedTx: () => Promise<TDecodedTx>;
+  saveHistory: (decodedTx: TDecodedTx) => Promise<void>;
+}) {
+  try {
+    const decodedTx = await buildDecodedTx();
+    await saveHistory(decodedTx);
+    return true;
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to persist send history after Swap broadcast: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
+}
+
 /**
  * The transaction is already out on the network by the time this runs, so a
  * history failure must not abort the rest of the post-broadcast flow. It still

@@ -378,6 +378,16 @@ class DesktopApiSystem {
     );
   }
 
+  async openAppStoreSubscriptions(): Promise<boolean> {
+    if (process.platform !== 'darwin') {
+      return false;
+    }
+    await shell.openExternal(
+      'macappstores://apps.apple.com/account/subscriptions',
+    );
+    return true;
+  }
+
   // Electron only implements the system share picker (ShareMenu) on macOS;
   // a false return means "no system share on this platform" and callers are
   // expected to hide their share entry or fall back to saving the file.

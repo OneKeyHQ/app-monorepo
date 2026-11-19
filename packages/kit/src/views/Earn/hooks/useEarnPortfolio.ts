@@ -10,8 +10,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAirdropInvestmentItemV2,
@@ -70,14 +72,6 @@ interface IAccountAssetPair {
 // ============================================================================
 // Pure Utility Functions
 // ============================================================================
-
-const createInvestmentKey = (item: {
-  provider: string;
-  symbol: string;
-  vault?: string;
-  networkId: string;
-}): string =>
-  `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
 
 const resolveVault = ({
   protocolVault,
@@ -142,7 +136,7 @@ const createInvestmentKeyFromInvestment = (
     protocolVault: investment.protocol.vault,
     requestVault: firstAsset?.metadata?.protocol?.vault,
   });
-  return createInvestmentKey({
+  return createEarnPortfolioRequestKey({
     provider: investment.protocol.providerDetail.code,
     symbol: investment.protocol.symbol || firstAsset?.token.info.symbol || '',
     vault: resolvedVault,
@@ -215,7 +209,7 @@ function normalizeAirdropInvestmentResult(
     ...(resolvedVault ? { vault: resolvedVault } : {}),
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedVault,
@@ -237,6 +231,9 @@ function normalizeAirdropInvestmentResult(
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
       earnings24hFiatValue: '0',
+      // Kept on its own field: the phone positions page sums it into the
+      // Rewards header while totalFiatValue stays principal-only.
+      airdropFiatValue: result.totalFiatValue,
       protocol: normalizedProtocol,
       network: result.network,
       assets: [],
@@ -257,10 +254,14 @@ function normalizeInvestmentResult(
   const normalizedProtocol = {
     ...result.protocol,
     ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
-    symbol: params.symbol,
+    symbol: earnUtils.isEtherFiProvider({
+      providerName: result.protocol.providerDetail.code,
+    })
+      ? result.protocol.symbol || params.symbol
+      : params.symbol,
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedProtocolVault,
@@ -280,12 +281,22 @@ function normalizeInvestmentResult(
       protocolVault: result.protocol.vault,
       requestVault: params.vault,
     });
+    const assetProtocol = earnUtils.isEtherFiProvider({
+      providerName: result.protocol.providerDetail.code,
+    })
+      ? normalizedProtocol
+      : {
+          ...result.protocol,
+          symbol: result.protocol.symbol?.trim()
+            ? result.protocol.symbol
+            : params.symbol,
+        };
     return {
       ...asset,
       metadata: {
         protocol: resolvedAssetVault
-          ? { ...result.protocol, vault: resolvedAssetVault }
-          : result.protocol,
+          ? { ...assetProtocol, vault: resolvedAssetVault }
+          : assetProtocol,
         network: result.network,
         fiatValue: result.totalFiatValue,
         fiatValueUsd: result.totalFiatValueUsd,
@@ -302,6 +313,9 @@ function normalizeInvestmentResult(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
+      ...(result.rewardsFiatValue !== undefined
+        ? { rewardsFiatValue: result.rewardsFiatValue }
+        : {}),
       netPnl: result.netPnl,
       netPnlFiatValue: result.netPnlFiatValue,
       protocol: normalizedProtocol,
@@ -482,6 +496,8 @@ export interface IUseEarnPortfolioReturn {
   investments: IEarnPortfolioInvestment[];
   earnTotalFiatValue: BigNumber;
   earnTotalEarnings24hFiatValue: BigNumber;
+  cachedOverviewTotalFiatValue: string | undefined;
+  cachedOverviewEarnings24h: string | undefined;
   isLoading: boolean;
   refresh: (options?: IRefreshOptions) => Promise<void>;
 }
@@ -720,15 +736,8 @@ export const useEarnPortfolio = ({
           singlePairs.push(pair);
         });
 
-        const { batchGroups, singleRequests } = buildEarnPortfolioBatchGroups({
+        const { batchGroups } = buildEarnPortfolioBatchGroups({
           requests: batchCandidateRequests,
-        });
-
-        singleRequests.forEach((request) => {
-          singlePairs.push({
-            isAirdrop: false,
-            params: request,
-          });
         });
 
         const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
@@ -837,38 +846,109 @@ export const useEarnPortfolio = ({
                 return;
               }
 
+              const resolvedKeys = new Set<string>();
+              const ambiguousSymbols = new Set<string>();
+              const unmatchedVaults = new Set<string>();
+              let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
+                const symbol =
+                  item.protocol.symbol ||
+                  item.assets[0]?.token.info.symbol ||
+                  '';
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
-                  symbol:
-                    item.protocol.symbol ||
-                    item.assets[0]?.token.info.symbol ||
-                    '',
+                  symbol,
                   vault: item.protocol.vault,
+                  symbolIsAuthoritative: Boolean(item.protocol.symbol?.trim()),
                 });
 
+                if (!matchedRequest) {
+                  if (item.protocol.vault) {
+                    unmatchedVaults.add(
+                      createEarnPortfolioRequestKey({
+                        provider: group.provider,
+                        networkId: group.networkId,
+                        symbol: '',
+                        vault: item.protocol.vault,
+                      }),
+                    );
+                  } else if (symbol) {
+                    ambiguousSymbols.add(symbol);
+                  } else {
+                    hasUnidentifiedItem = true;
+                  }
+                }
+                if (!matchedRequest) return;
                 if (
-                  !matchedRequest ||
-                  (matchedRequest.accountId &&
-                    matchedRequest.accountId !== accountIdValue)
+                  matchedRequest.accountId &&
+                  matchedRequest.accountId !== accountIdValue
                 ) {
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
+                  return;
+                }
+
+                // EtherFi returns a zero-value item while request history is
+                // syncing; it is not proof that an earlier position is empty.
+                const itemValue = new BigNumber(item.totalFiatValue || '0');
+                if (
+                  earnUtils.isEtherFiProvider({
+                    providerName: group.provider,
+                  }) &&
+                  (!itemValue.isFinite() || itemValue.lte(0))
+                ) {
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
                   return;
                 }
 
                 applyResult(normalizeInvestmentResult(matchedRequest, item));
+                resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              response.errors.forEach((errorItem) => {
-                const matchedRequest = matchEarnPortfolioBatchRequest({
-                  group,
-                  symbol: errorItem.symbol,
-                  vault: errorItem.vault,
+              const failedKeys = new Set<string>();
+              let hasUnidentifiedError = !Array.isArray(response.errors);
+              if (Array.isArray(response.errors)) {
+                response.errors.forEach((error) => {
+                  const request = matchEarnPortfolioBatchRequest({
+                    group,
+                    symbol: error.symbol,
+                    vault: error.vault,
+                  });
+                  if (request) {
+                    failedKeys.add(createEarnPortfolioRequestKey(request));
+                  } else {
+                    hasUnidentifiedError = true;
+                  }
                 });
-
-                if (matchedRequest) {
-                  normalKeysFailedInThisSession.add(
-                    createEarnPortfolioRequestKey(matchedRequest),
-                  );
+              }
+              group.requestsByKey.forEach((request, key) => {
+                if (!resolvedKeys.has(key)) {
+                  const canRemoveMissingVault =
+                    earnUtils.isEtherFiProvider({
+                      providerName: group.provider,
+                    }) &&
+                    request.vault &&
+                    !failedKeys.has(key) &&
+                    !hasUnidentifiedError;
+                  const canRemoveMissingPendle =
+                    group.provider === EEarnProviderEnum.Pendle.toLowerCase() &&
+                    Array.isArray(response.errors) &&
+                    response.errors.length === 0;
+                  if (
+                    (canRemoveMissingVault || canRemoveMissingPendle) &&
+                    !hasUnidentifiedItem &&
+                    !ambiguousSymbols.has(request.symbol) &&
+                    !unmatchedVaults.has(
+                      createEarnPortfolioRequestKey({ ...request, symbol: '' }),
+                    )
+                  ) {
+                    applyResult({ key, source: 'normal', remove: true });
+                  } else {
+                    normalKeysFailedInThisSession.add(key);
+                  }
                 }
               });
             }),
@@ -1104,6 +1184,8 @@ export const useEarnPortfolio = ({
     investments: aggregatedInvestments,
     earnTotalFiatValue,
     earnTotalEarnings24hFiatValue,
+    cachedOverviewTotalFiatValue: currentOverviewData?.totalFiatValue,
+    cachedOverviewEarnings24h: currentOverviewData?.earnings24h,
     isLoading,
     refresh,
   };

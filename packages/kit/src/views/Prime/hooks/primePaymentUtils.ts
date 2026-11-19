@@ -1,8 +1,15 @@
 import { BigNumber } from 'bignumber.js';
 
+import { REVENUECAT_SANDBOX_OFFERING_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type {
+  IPrimeCardCheckoutFlow,
+  IPrimePaymentMethod,
+  IPrimeSubscribeFailedReason,
+} from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
@@ -11,8 +18,6 @@ import type {
   ISubscriptionPeriod,
 } from './usePrimePaymentTypes';
 import type { Offerings, Purchases } from '@revenuecat/purchases-js';
-
-const SANDBOX_OFFERING_ID = 'Sandbox_testing';
 
 const FREE_TRIAL_PERIOD_UNITS: ReadonlySet<IPackageFreeTrial['periodUnit']> =
   new Set(['day', 'week', 'month', 'year']);
@@ -136,11 +141,11 @@ async function fetchWebTargetOffering({
   }
   const offerings = await purchases.getOfferings(getOfferingsParams);
   const targetOffering = isSandboxKey
-    ? offerings.all[SANDBOX_OFFERING_ID]
+    ? offerings.all[REVENUECAT_SANDBOX_OFFERING_ID]
     : offerings.current;
   if (isSandboxKey && !targetOffering) {
     throw new OneKeyLocalError(
-      `Sandbox offering not found: ${SANDBOX_OFFERING_ID}`,
+      `Sandbox offering not found: ${REVENUECAT_SANDBOX_OFFERING_ID}`,
     );
   }
   return { offerings, targetOffering, getOfferingsParams };
@@ -170,11 +175,15 @@ function trackPrimeSubscriptionSuccess({
   subscriptionPeriod,
   featureName,
   paymentMethod,
+  cardCheckoutFlow,
+  periodType,
 }: {
   amount: number;
   currency?: string;
   subscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  cardCheckoutFlow?: IPrimeCardCheckoutFlow;
+  periodType?: string;
   // Required so every success event carries its payment channel: the event
   // pairs with primeSubscribeIntent (logged per channel) to measure the
   // attempt → success rate per channel, which breaks if success events
@@ -188,7 +197,84 @@ function trackPrimeSubscriptionSuccess({
     currency: currency || 'USD',
     featureName,
     paymentMethod,
+    cardCheckoutFlow,
+    periodType,
   });
+}
+
+// Mirrors ErrorCode.UserCancelledError in @revenuecat/purchases-js. Kept as a
+// literal so this shared util never pulls the web SDK into native bundles.
+const REVENUECAT_WEB_USER_CANCELLED_ERROR_CODE = 1;
+const REVENUECAT_NATIVE_CANCELLED_MESSAGE = 'Purchase was cancelled.';
+
+function classifyPurchaseError(error: unknown): {
+  reason: IPrimeSubscribeFailedReason;
+  errorCode?: string;
+  errorMessage?: string;
+} {
+  const e = error as
+    | {
+        userCancelled?: boolean | null;
+        errorCode?: unknown;
+        code?: unknown;
+        message?: unknown;
+      }
+    | null
+    | undefined;
+  const errorMessage = typeof e?.message === 'string' ? e.message : undefined;
+  const rawCode = e?.errorCode ?? e?.code;
+  const errorCode =
+    rawCode === undefined || rawCode === null ? undefined : String(rawCode);
+  const isUserCancelled =
+    // react-native-purchases sets PurchasesError.userCancelled; older
+    // bridges only expose the readable message.
+    e?.userCancelled === true ||
+    errorMessage === REVENUECAT_NATIVE_CANCELLED_MESSAGE ||
+    // @revenuecat/purchases-js reports cancellation via
+    // PurchasesError.errorCode.
+    e?.errorCode === REVENUECAT_WEB_USER_CANCELLED_ERROR_CODE;
+  let reason: IPrimeSubscribeFailedReason = 'paymentFailed';
+  if (isUserCancelled) {
+    reason = 'userCancelled';
+  } else if (
+    errorUtils.isErrorByClassName({
+      error,
+      className: EOneKeyErrorClassNames.OneKeyLocalError,
+    })
+  ) {
+    reason = 'clientError';
+  }
+  return {
+    reason,
+    errorCode,
+    errorMessage,
+  };
+}
+
+// Returns the classification so callers can gate UX (e.g. skip the error
+// toast on user cancellation) without classifying the same error twice.
+function trackPrimeSubscriptionFailed({
+  error,
+  paymentMethod,
+  subscriptionPeriod,
+  featureName,
+  cardCheckoutFlow,
+}: {
+  error: unknown;
+  paymentMethod: IPrimePaymentMethod;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures;
+  cardCheckoutFlow?: IPrimeCardCheckoutFlow;
+}): ReturnType<typeof classifyPurchaseError> {
+  const classification = classifyPurchaseError(error);
+  defaultLogger.prime.subscription.primeSubscribeFailed({
+    paymentMethod,
+    subscriptionPeriod,
+    featureName,
+    cardCheckoutFlow,
+    ...classification,
+  });
+  return classification;
 }
 
 function normalizeNativePrice(
@@ -230,6 +316,8 @@ function formatPriceString(
 const primePaymentUtils = {
   extractCurrencySymbol,
   trackPrimeSubscriptionSuccess,
+  classifyPurchaseError,
+  trackPrimeSubscriptionFailed,
   normalizeNativePrice,
   extractWebPaywallPrice,
   formatPriceString,

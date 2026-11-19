@@ -12,6 +12,7 @@ const flexBasisByWidthMode = {
 export type IOverviewMetricProps = {
   title: IEarnText;
   text?: IEarnText;
+  valueText?: React.ReactNode;
   action?: React.ReactNode;
   tooltip?: React.ReactNode;
   isLoading?: boolean;
@@ -24,6 +25,7 @@ export type IOverviewMetricProps = {
 export function OverviewMetric({
   title,
   text,
+  valueText,
   action,
   tooltip,
   isLoading,
@@ -41,17 +43,18 @@ export function OverviewMetric({
     </>
   ) : (
     <>
-      {text ? (
-        <EarnText
-          text={text}
-          size="$bodyLgMedium"
-          color="$text"
-          flexShrink={1}
-          numberOfLines={1}
-          adjustsFontSizeToFit={widthMode === 'equal'}
-          minimumFontScale={widthMode === 'equal' ? 0.75 : undefined}
-        />
-      ) : null}
+      {valueText ??
+        (text ? (
+          <EarnText
+            text={text}
+            size="$bodyLgMedium"
+            color="$text"
+            flexShrink={1}
+            numberOfLines={1}
+            adjustsFontSizeToFit={widthMode === 'equal'}
+            minimumFontScale={widthMode === 'equal' ? 0.75 : undefined}
+          />
+        ) : null)}
       {action}
     </>
   );

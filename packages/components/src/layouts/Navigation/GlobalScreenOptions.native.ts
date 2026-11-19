@@ -40,15 +40,22 @@ export function makeModalOpenAnimationOptions(info: {
   }
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
     return {
-      animation: 'none',
+      animation: 'slide_from_bottom',
     };
   }
 
   // fallback to platform defaults animation
   return { animation: 'none' };
 }
+
+// iOS 26 applies its automatic top scroll-edge effect to the page's main list
+// even under the opaque modal header, blurring the first rows when the list
+// mounts late (OK-61458, OK-62750). Route options and Page.Header replace this
+// object as a whole, so an override must restate `top` and never pass
+// undefined or a partial object.
+const MODAL_SCROLL_EDGE_EFFECTS: IStackNavigationOptions['scrollEdgeEffects'] =
+  { top: 'hidden' };
 
 export function makeModalStackNavigatorOptions({
   optionsInfo,
@@ -71,8 +78,9 @@ export function makeModalStackNavigatorOptions({
   if (platformEnv.isNativeAndroid) {
     options = {
       headerShown: true,
-      animation: 'none',
+      animation: 'slide_from_right',
       presentation: 'modal',
+      gestureDirection: 'horizontal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
       ...makeHeaderScreenOptions({
@@ -109,6 +117,15 @@ export function makeModalStackNavigatorOptions({
       // @ts-expect-error
       contentStyle: { backgroundColor: bgColor ?? 'transparent' },
     };
+    // fullScreen (pushFullModal) mounts the same modal routes under the same
+    // opaque header, so it must match modal. Onboarding keeps the effect for
+    // its Liquid Glass header; webView and fullScreenPush are out of scope.
+    if (
+      platformEnv.isNativeIOS26Plus &&
+      (pageType === EPageType.modal || pageType === EPageType.fullScreen)
+    ) {
+      options.scrollEdgeEffects = MODAL_SCROLL_EDGE_EFFECTS;
+    }
   }
 
   // Disable modal first screen navigation.replace() animation
@@ -127,6 +144,9 @@ export function makeModalScreenOptions(info: {
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
     ...makeModalOpenAnimationOptions(info),
+    ...(platformEnv.isNativeAndroid
+      ? { gestureEnabled: true, gestureDirection: 'vertical' as const }
+      : {}),
   };
 }
 
@@ -138,8 +158,7 @@ export function makeRootModalStackOptions(params?: {
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'slide_from_right';
   }
 
   if (params?.bgColor) {
@@ -169,8 +188,7 @@ export function makeTabScreenOptions({
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'slide_from_right';
   }
 
   return options;
@@ -194,9 +212,6 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
-  }
   return options;
 }
 
@@ -212,8 +227,5 @@ export function makeWebviewScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
-  }
   return options;
 }

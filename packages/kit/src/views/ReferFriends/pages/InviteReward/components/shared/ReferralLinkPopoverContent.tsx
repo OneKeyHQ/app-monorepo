@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   IconButton,
   SizableText,
   Stack,
@@ -13,13 +15,10 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  WEB_APP_URL,
-  WEB_APP_URL_DEV,
-} from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import { buildReferralLinks } from './referralLinks';
+import { useReferralWebAppUrl } from './useReferralWebAppUrl';
 
 interface IReferralLinkItemProps {
   title: string;
@@ -44,6 +43,10 @@ function ReferralLinkItem({
       alignItems="center"
       borderRadius="$3"
       borderCurve="continuous"
+      // The whole row copies; keep the arrow cursor and no text selection
+      // over its labels.
+      cursor="default"
+      userSelect="none"
       onPress={onCopy}
       {...(!md && {
         hoverStyle: {
@@ -87,53 +90,19 @@ function ReferralLinkItem({
 
 interface IReferralLinkPopoverContentProps {
   inviteUrl: string;
-}
-
-const REFERRAL_LINKS = [
-  {
-    pathSuffix: '/shop',
-    titleId: ETranslations.referral_link_hw_title,
-    descId: ETranslations.referral_link_hw_desc,
-    useWebAppUrl: false,
-  },
-  {
-    pathSuffix: '/app/defi',
-    titleId: ETranslations.referral_link_defi_title,
-    descId: ETranslations.referral_link_defi_desc,
-    useWebAppUrl: true,
-  },
-  {
-    pathSuffix: '/app/perps',
-    titleId: ETranslations.referral_link_perps_title,
-    descId: ETranslations.referral_link_perps_desc,
-    useWebAppUrl: true,
-  },
-  {
-    pathSuffix: '/app/swap',
-    titleId: ETranslations.global_trade,
-    descId: ETranslations.swap_referral_link__desc,
-    useWebAppUrl: true,
-  },
-];
-
-function extractInviteCode(url: string): string | undefined {
-  const match = url.match(/\/r\/([^/]+)/);
-  return match?.[1];
+  // Below the links, under a hairline: settings about what the invite pages
+  // show, which the invite card's menu carries.
+  footer?: ReactNode;
 }
 
 export function ReferralLinkPopoverContent({
   inviteUrl,
+  footer,
 }: IReferralLinkPopoverContentProps) {
   const intl = useIntl();
   const { copyUrl } = useClipboard();
   const { closePopover } = usePopoverContext();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const webAppUrl = useMemo(() => {
-    const useTestUrl =
-      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
-    return useTestUrl ? WEB_APP_URL_DEV : WEB_APP_URL;
-  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
+  const webAppUrl = useReferralWebAppUrl();
 
   const handleCopyLink = useCallback(
     (url: string) => {
@@ -144,16 +113,10 @@ export function ReferralLinkPopoverContent({
     [closePopover, copyUrl],
   );
 
-  const links = useMemo(() => {
-    const inviteCode = extractInviteCode(inviteUrl);
-    return REFERRAL_LINKS.map((link) => ({
-      ...link,
-      url:
-        link.useWebAppUrl && inviteCode
-          ? `${webAppUrl}/r/${inviteCode}${link.pathSuffix}`
-          : `${inviteUrl}${link.pathSuffix}`,
-    }));
-  }, [inviteUrl, webAppUrl]);
+  const links = useMemo(
+    () => buildReferralLinks({ inviteUrl, webAppUrl }),
+    [inviteUrl, webAppUrl],
+  );
 
   return (
     <YStack p="$1" $md={{ pb: '$3' }}>
@@ -166,6 +129,14 @@ export function ReferralLinkPopoverContent({
           onCopy={() => handleCopyLink(link.url)}
         />
       ))}
+      {footer ? (
+        <>
+          <Divider mx="$4" my="$1" />
+          <YStack px="$4" py="$3">
+            {footer}
+          </YStack>
+        </>
+      ) : null}
     </YStack>
   );
 }

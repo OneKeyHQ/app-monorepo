@@ -19,35 +19,42 @@ import {
   onVisibilityStateChange,
 } from '../utils/appVisibility';
 
-// Kept at 1 deliberately: installProdBundleLoader caps a segment at
-// MAX_RETRYABLE_ATTEMPTS=3 native attempts per process, then PERMANENTLY caches
-// it as failed. With 1 boundary retry a single failed mount spends only 2 of
-// those attempts, so it can never single-handedly trip that permanent cache and
-// poison the route for the rest of the process — a later navigation still gets
-// the 3rd attempt once the transient (NO_RUNTIME / suspend-false-fire) clears.
-// One retry is enough for the target bug: the watchdog false-fire recovers as
-// soon as the buffered executor flushes on resume, which the foreground-gated
-// retry lands on.
+// Native main-runtime imports already get up to three foreground-gated retries
+// inside installProdBundleLoader, sharing a total budget of four native calls
+// per segment. Once exhausted, retryable=false prevents this boundary from
+// starting another import. A later mount can recover with a fresh loader budget.
+// Other runtimes keep their existing single boundary retry.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
+// Defense in depth for a split-bundle error that reaches the boundary WITHOUT
+// the loader's `retryable` flag. Nothing in-tree produces one today: every
+// error leaving loadSegmentInternal is a SegmentLoadError carrying an explicit
+// `retryable`, including the one handed to a caller that joins an in-flight
+// load (installProdBundleLoader.ts publishes classifyLoadOutcome's promise to
+// inflightSegments for exactly that reason). So this set is a backstop for a
+// producer that bypasses the loader entirely, NOT a second source of truth to
+// keep in sync with RETRYABLE_NATIVE_REJECT_CODES — if a segment error is
+// reaching a boundary unclassified, fix the producer rather than adding its
+// code here.
 const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
+  'SPLIT_BUNDLE_NOT_FOUND',
 ]);
 const RETRYABLE_ERROR_NAMES = new Set(['ChunkLoadError']);
 
 // Exported for unit testing. A split-bundle segment timeout is normally
-// TRANSIENT, so it re-attempts. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR /
-// IO_ERROR / NOT_FOUND / SHA256_MISMATCH) are non-retryable and surface
-// immediately.
+// TRANSIENT, so it re-attempts, as is a NOT_FOUND (Android can report a
+// concurrently-extracting segment as missing — see the loader's set). Real eval
+// failures (SPLIT_BUNDLE_EVAL_ERROR / IO_ERROR / SHA256_MISMATCH) are
+// non-retryable and surface immediately.
 //
 // IMPORTANT: installProdBundleLoader exhausts its own retry budget
-// (MAX_RETRYABLE_ATTEMPTS) and then PERMANENTLY caches the failure with
-// `retryable` cleared to false. An explicit `retryable === false` is therefore
-// AUTHORITATIVE and must win over a transient-looking code/message — otherwise a
-// permanently-dead route would burn a full retry round (fallback spinner +
-// guaranteed-failing attempts) on every re-navigation instead of going fatal at
-// once.
+// (MAX_RETRYABLE_ATTEMPTS) and clears `retryable` to false. That flag is
+// AUTHORITATIVE for this boundary even when the code/message looks transient:
+// otherwise the boundary would immediately start another full retry round.
+// Main-runtime transient failures remain recoverable by a later route mount;
+// fatal failures and exhausted background loads stay cached in the loader.
 export function isRetryableLazyError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as {

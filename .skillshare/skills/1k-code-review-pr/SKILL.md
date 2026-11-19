@@ -10,21 +10,45 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 
 ## Review Scope
 
-- Base branch: `x`
-- Diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot)
+- Default base branch: `x`; use the actual base for a specified PR.
+- For a specified PR, read its current base/head and diff with `gh pr view`
+  and `gh pr diff`; do not assume the active branch is the PR head.
+- For a local review, honor the requested worktree, staged, or branch scope
+  and report the exact comparison. Branch comparisons do not include
+  uncommitted work.
+- Initialize `review_diff` and `review_file` using the selected scope in
+  [quick-commands.md](references/quick-commands.md#select-the-review-scope).
+  All checks and linked guides must use those same inputs. Read surrounding
+  code from the reviewed commit, index, or worktree as appropriate.
+- Source review is read-only unless edits are requested. Publishing comments
+  is a separate action: follow the existing standing workflow authorization
+  only within its agreed target and limits. An explicit request for local-only
+  results or no posting takes precedence. Skill steps do not grant permission.
 
 ## Workflow
 
-1. **Checkout** — `gh pr checkout <PR_NUMBER>` (skip if already on branch)
-2. **Scope** — `git diff origin/x...HEAD --stat` to see change scope
+For a local diff without a specified PR, skip PR metadata, existing-comment
+queries, and publishing. Use a local-review title and omit PR-only report fields
+or mark them not applicable; retain findings, evidence, scoring, and validation.
+
+1. **Inspect Target** — Read the requested PR or local diff without switching
+   the active checkout. If source inspection requires a checkout, use an
+   isolated worktree and preserve the user's active workspace.
+2. **Scope** — Inspect the selected diff's changed files and change size
 3. **Triage** — Determine which review modules apply (see triage table)
 4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
 5. **Codex Cross-Review** — If Codex available, run full parallel review (see below)
-6. **PR Comment Analysis** — Fetch all existing PR comments (bot + human), analyze with local codebase context (see below)
+6. **PR Comment Analysis** — For a specified PR, fetch existing comments
+   (bot + human) and analyze them against the reviewed source (see below)
 7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
-10. **GH Comment** — Post qualifying findings as inline PR comments immediately (do not wait for confirmation)
+10. **GH Comment** — When publishing is authorized for this PR, post qualifying
+    inline comments without reconfirming. Otherwise return findings locally.
+
+Do not run `agent:check --profile commit` or `--profile pr` for read-only review;
+both can auto-fix worktree files. For remote status use `--profile ci --pr <N>`
+(writes local logs), or read GitHub status directly.
 
 ## Codex Cross-Review Integration
 
@@ -48,7 +72,7 @@ Check if Codex is available by confirming the `codex:codex-rescue` subagent type
    ```
 2. Parse Agent result for structured findings
 3. Merge into primary review:
-   - **Both found same issue** → Mark `{Cross-validated ✅}`, auto-promote to 🔵 High confidence
+   - **Both found same issue** → Mark `{Cross-validated ✅}`; assign confidence from evidence, not agreement alone
    - **Codex-only finding** → Include with tag `[Codex]`, review manually to assign confidence
    - **Primary-only finding** → Include normally
 4. Add a **Codex 交叉验证摘要** table in the report (see report template)
@@ -90,11 +114,11 @@ For each substantive comment (skip empty approvals, CI status badges, pure forma
 | **✅ Confirmed** | Comment identifies a real issue | Include in findings, tag source `[<author>]` |
 | **🔍 Enriched** | Real issue, but analysis is shallow or fix is wrong | Include with deeper fix guidance from your codebase knowledge |
 | **❌ Noise** | Not an issue given full codebase context | Note in "评论误报分析" with brief explanation of why |
-| **📋 Already Covered** | Your primary review caught it | Cross-validate, boost confidence |
+| **📋 Already Covered** | Your primary review caught it | Record both sources; assess supporting evidence |
 
 **Your local advantages — use them aggressively:**
 - **Full source** — trace data flow across files, not just the diff
-- **Type system** — run `tsc`, verify types end-to-end
+- **Type system** — run `yarn tsc` (TypeScript 7 native), verify types end-to-end
 - **Architecture** — you know OneKey's import hierarchy and platform patterns
 - **Dependencies** — `yarn info`, changelogs, actual vulnerability reachability
 - **Runtime reasoning** — state flows, async lifecycles, race conditions
@@ -103,7 +127,7 @@ When someone flags something vague, dig into the source to confirm or refute. Wh
 
 ### Cross-Validation Rules
 
-- Comment + primary review agree → Mark `{Cross-validated ✅}`, promote to 🔵 High
+- Comment + primary review agree → Mark `{Cross-validated ✅}`; verify the claim against the reviewed source before assigning confidence
 - Comment-only finding you confirm → Include at appropriate confidence with `[<author>]` tag
 - Comment-only finding you can't confirm or refute → Include as ⚪ Low with note
 - Comment you refute with evidence → Add to "评论误报分析" section
@@ -117,7 +141,7 @@ For security-related comments (from bots like Snyk/Dependabot or from human revi
 
 ## Triage: Which Checks to Run
 
-Run `git diff origin/x...HEAD --name-only` and match:
+List changed files from the selected PR or local diff and match:
 
 | Changed Files Match | Load |
 |---------------------|------|
@@ -151,10 +175,12 @@ apps/*               <- imports all
 ```
 
 ```bash
-# Quick hierarchy violation check on changed files
-git diff origin/x...HEAD --name-only | grep -E '\.tsx?$' | \
-  while IFS= read -r f; do [ -f "$f" ] && grep -l "from.*@onekeyhq" "$f" 2>/dev/null; done | \
-  while IFS= read -r f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
+# Inspect imports from the selected scope and source version
+review_diff --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' |
+  while IFS= read -r f; do
+    printf '%s\n' "$f"
+    review_file "$f" | rg -n 'from.*@onekeyhq'
+  done
 ```
 
 ## Existing Implementation Reuse (ALWAYS verify)
@@ -197,8 +223,8 @@ Rate the PR on 4 dimensions (1-10 each):
 
 **Scoring anchors** — to keep scores consistent:
 - Start at 8 for each dimension, deduct for issues found
-- A single Critical security issue → Security capped at 3
-- A single High bug → Code Quality capped at 5
+- A single P0 security issue → Security capped at 3
+- A single P0 crash/runtime bug → Code Quality capped at 5
 - Import hierarchy violation → Architecture capped at 4
 
 ## Confidence Levels
@@ -211,7 +237,10 @@ Rate the PR on 4 dimensions (1-10 each):
 | **🟠 Medium** | Likely issue, needs context | Pattern suggests problem, might be intentional |
 | **⚪ Low** | Possible issue, needs human check | Heuristic match, depends on business logic |
 
-Cross-validated findings (primary + Codex agree, or primary + PR comment agree) → automatically **🔵 High**.
+Agreement between reviewers records multiple sources; it does not establish
+**🔵 High** confidence. High confidence requires a concrete execution path in
+the reviewed code snapshot, a regression test, or reproduction evidence that confirms
+the issue. State missing conditions when evidence is incomplete.
 
 ## Auto-Fix Patches
 
@@ -241,12 +270,20 @@ Do NOT generate auto-fix for:
 
 ## GH CLI Inline Comments
 
-After generating the report, if there are findings that meet the comment threshold, **post them immediately**. Do not ask "是否确认？" and do not wait for a follow-up message. New conversations have no memory of a verbal "以后都自动发" — this section is the source of truth.
+The existing automatic-comment workflow applies when user authorization covers
+posting to the specified PR, including an applicable standing authorization.
+Post qualifying findings in the same turn without reconfirming that permission.
+If the current request prohibits posting or no publishing authorization applies,
+return the findings locally. Reviewing a local diff alone does not identify an
+authorized remote target. Publishing never authorizes source edits.
 
-**Comment threshold**: 🔴 高 priority (any confidence) OR 🟡 中 priority with 🔵 High confidence. This means:
-- All 🔴 高 findings (regardless of confidence)
-- All 🟡 中 findings with 🔵 High confidence (cross-validated or confirmed from code)
-- Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
+**Comment threshold**: P0 (any confidence) OR P1 with 🔵 High confidence. This means:
+- All P0 findings (regardless of confidence)
+- All P1 findings with 🔵 High confidence supported by current-head evidence
+- Excludes: P2 findings, and P1 with 🟠 Medium or ⚪ Low confidence
+
+For a P0 with incomplete evidence, explicitly state its confidence and the
+conditions that still require verification in the posted comment.
 
 1. List the qualifying findings that warrant PR comments
 2. Post them in the same turn as the report, using `ManagePullRequest` `post_comment` (path + line) when available, otherwise:
@@ -254,7 +291,7 @@ After generating the report, if there are findings that meet the comment thresho
 ```bash
 # Inline comment on specific file:line
 gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
-  --field body="🟡 **问题标题**: 描述...
+  --field body="**[P1] 问题标题**: 描述...
 
 **建议修复:**
 \`\`\`suggestion
@@ -265,11 +302,13 @@ _— Auto-review by Claude_" \
   --field path="path/to/file.tsx" \
   --field line=42 \
   --field side="RIGHT" \
-  --field commit_id="$(git rev-parse HEAD)"
+  --field commit_id="{PR_HEAD_SHA}"
 ```
 
 **Rules:**
-- Always post qualifying findings in the same turn as the review report
+- Resolve `{PR_HEAD_SHA}` from the specified PR; if its head changed since
+  review, recheck the affected finding and diff location before posting.
+- Post qualifying findings in the same turn when authorized for that PR
 - Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
 - Maximum 5 inline comments per PR
@@ -319,7 +358,7 @@ _— Auto-review by Claude_" \
 
 ## 发现的问题 [REQUIRED]
 
-### [🔴 高] [🔵 High] 问题标题 {Cross-validated ✅}
+### [P0] [🔵 High] 问题标题 {Cross-validated ✅}
 **文件**: `path/to/file.tsx:42`
 **类型**: 安全 / 构建 / 运行时 / 性能 / 规范
 **描述**: 问题是什么，为什么有风险
@@ -331,7 +370,7 @@ _— Auto-review by Claude_" \
 
 ---
 
-### [🟡 中] [🟠 Medium] 问题标题
+### [P1] [🟠 Medium] 问题标题
 **文件**: `path/to/file.tsx:18`
 **类型**: 运行时
 **描述**: ...
@@ -343,28 +382,29 @@ _— Auto-review by Claude_" \
 
 | 优先级 | 置信度 | 文件 | 类型 | 描述 | Auto-fix |
 |--------|--------|------|------|------|----------|
-| 🔴 高 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
-| 🟡 中 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
+| P0 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
+| P1 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
 
 ## 测试建议 [REQUIRED]
 1. 测试场景
 2. 测试场景
 
 ## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
-以下问题（🔵 High 置信度 + 🟡 中及以上）建议直接评论到 PR：
-- [ ] 问题1 — `file.tsx:42`
-- [ ] 问题2 — `file.tsx:88`
-
-> 达标问题已在本回合直接发为 inline comments，无需再确认。
+报告每项问题的实际状态：已发布（附评论链接）、已有评论覆盖、仅本地输出或发布失败（说明原因）。
+仅在工具结果确认发布成功后，才标记为已发布。
 ```
 
 ## Priority Definitions
 
+**MANDATORY** — every finding must carry exactly one `P0`–`P2` tag as its priority. Do NOT use 高/中/低 or Critical/High/Medium/Low as finding priority labels.
+
 | Priority | Criteria | Action |
 |----------|----------|--------|
-| **🔴 高** | Build failure, security vulnerability, data loss, crash | Must fix before merge |
-| **🟡 中** | Runtime bug, incorrect behavior, maintainability | Should fix before merge |
-| **🟢 低** | Nice-to-have, minor inconsistency | Can fix in follow-up |
+| **P0** | Security vulnerability, key/fund exposure, data loss, crash, runtime bug affecting users, build failure | Blocker — must fix before merge |
+| **P1** | Edge-case bug, concurrency risk, robustness gap, maintainability problem | Should fix before merge |
+| **P2** | Nice-to-have, minor inconsistency, nit (naming, comments, style) | Follow-up / optional |
+
+Historical PR threads may still use the legacy 5-tier scale; when analyzing them, map old P1 → P0, old P2 → P1, old P3/P4 → P2.
 
 ## Review Discipline
 

@@ -18,7 +18,7 @@ import {
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { LazyAllNetworksManagerTrigger } from '../AccountSelector/LazyAllNetworksManagerTrigger';
-import { MoreActionButton } from '../MoreActionButton';
+import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import {
   GiftAction,
@@ -28,7 +28,7 @@ import {
 } from './components';
 
 export function MoreAction() {
-  return <MoreActionButton key="more-action" />;
+  return <LazyMoreActionButton key="more-action" />;
 }
 
 export function SelectorTrigger() {
@@ -106,7 +106,14 @@ export function HeaderRight({
 }) {
   const items = useMemo(() => {
     if (customHeaderRightItems) {
-      return customHeaderRightItems;
+      return platformEnv.isDesktop ? (
+        <>
+          <HeaderUpdateButton />
+          {customHeaderRightItems}
+        </>
+      ) : (
+        customHeaderRightItems
+      );
     }
 
     const fixedItems = (
@@ -119,7 +126,7 @@ export function HeaderRight({
 
     const earnItems = (
       <>
-        <GiftAction copyAsUrl />
+        <GiftAction />
         {fixedItems}
       </>
     );
@@ -147,6 +154,7 @@ export function HeaderRight({
       case ETabRoutes.WebviewPerpTrade:
         return (
           <>
+            <HeaderUpdateButton />
             <WalletConnectionForWeb tabRoute={tabRoute} />
           </>
         );
@@ -156,16 +164,18 @@ export function HeaderRight({
         if (selectedHeaderTab === ETranslations.global_earn) {
           return (
             <>
-              <GiftAction copyAsUrl />
+              <HeaderUpdateButton />
+              <GiftAction />
             </>
           );
         }
         if (selectedHeaderTab === ETranslations.global_market) {
-          return null;
+          return platformEnv.isDesktop ? <HeaderUpdateButton /> : null;
         }
         // Browser tab
         return (
           <>
+            <HeaderUpdateButton />
             <HistoryIconButton />
             {platformEnv.isNative ? (
               <TabCountButton testID="browser-header-tabs" />
@@ -177,7 +187,7 @@ export function HeaderRight({
       case ETabRoutes.ReferFriends:
         return fixedItems;
       default:
-        break;
+        return platformEnv.isDesktop ? <HeaderUpdateButton /> : undefined;
     }
   }, [
     customHeaderRightItems,

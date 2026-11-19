@@ -18,6 +18,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -130,7 +131,7 @@ function EarnFixedRateTokensContent() {
       }
       if (
         keyword &&
-        !asset.symbol.toLowerCase().includes(keyword) &&
+        !earnUtils.matchesSymbolKeyword(asset, keyword) &&
         !asset.name?.toLowerCase().includes(keyword)
       ) {
         return false;
@@ -215,12 +216,11 @@ function EarnFixedRateTokensContent() {
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.FixedRate}
-        totalLiquidityLabel={totalLiquidityLabel}
         testID={EarnTestIDs.fixedRateItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel],
+    [handleAssetPress],
   );
 
   const keyExtractor = useCallback(

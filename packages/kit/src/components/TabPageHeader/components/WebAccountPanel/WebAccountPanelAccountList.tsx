@@ -8,6 +8,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -16,7 +17,7 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -40,7 +41,7 @@ export function WebAccountPanelAccountList({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
 
   const focusedWallet = selectedAccount?.focusedWallet;
   const networkId = selectedAccount?.networkId;
@@ -73,23 +74,46 @@ export function WebAccountPanelAccountList({
 
   const handleSelect = useCallback(
     async (item: IDBAccount | IDBIndexedAccount, isOthers: boolean) => {
-      if (isOthers) {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: item as IDBAccount,
-          autoChangeToAccountMatchedNetworkId: networkId,
+      try {
+        let confirmed: boolean;
+        if (isOthers) {
+          confirmed = await runAccountSelectorAction('confirmAccountSelect', {
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: item as IDBAccount,
+            autoChangeToAccountMatchedNetworkId: networkId,
+            entry: 'webAccountPanel:othersWallet',
+            throwOnError: true,
+          });
+        } else {
+          confirmed = await runAccountSelectorAction('confirmAccountSelect', {
+            num: 0,
+            indexedAccount: item as IDBIndexedAccount,
+            othersWalletAccount: undefined,
+            entry: 'webAccountPanel:indexedAccount',
+            throwOnError: true,
+          });
+        }
+        if (!confirmed) {
+          // A stale request returns false when a newer selection supersedes
+          // it. Keep the panel open without showing a misleading error.
+          return;
+        }
+      } catch {
+        // Keep the panel open so the user can retry after an execution failure.
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
         });
-      } else {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: item as IDBIndexedAccount,
-          othersWalletAccount: undefined,
-        });
+        return;
       }
       onRequestClose();
     },
-    [actions, networkId, onRequestClose],
+    [intl, networkId, onRequestClose, runAccountSelectorAction],
   );
 
   // "Add external wallet" must open the connect-options flow (Continue with

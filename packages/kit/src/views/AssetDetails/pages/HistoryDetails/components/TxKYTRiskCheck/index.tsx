@@ -15,6 +15,7 @@ import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getKytBadgeColorOverride } from '@onekeyhq/kit/src/utils/kytRiskLevelColorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -143,9 +144,14 @@ function KytBadge({ level }: { level: EKytRiskLevel }) {
     );
   }
 
+  const colorOverride = getKytBadgeColorOverride(level);
   return (
-    <Badge badgeType={config.badgeType} badgeSize="sm">
-      {config.label ? intl.formatMessage({ id: config.label }) : null}
+    <Badge badgeType={config.badgeType} badgeSize="sm" bg={colorOverride?.bg}>
+      {config.label ? (
+        <Badge.Text color={colorOverride?.color}>
+          {intl.formatMessage({ id: config.label })}
+        </Badge.Text>
+      ) : null}
     </Badge>
   );
 }

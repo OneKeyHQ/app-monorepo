@@ -8,6 +8,7 @@ import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid'
 
 export type IPerpsOrderPanelEnableTradingStepKey =
   | 'deposit'
+  | 'password'
   | 'builderFee'
   | 'agentRemoval'
   | 'agent'
@@ -57,9 +58,11 @@ function resolveAbstractionOk({
 export function getPerpsOrderPanelEnableTradingModeByAccount({
   accountId,
   indexedAccountId,
+  requiresPasswordSetupOrVerify = false,
 }: {
   accountId?: string | null;
   indexedAccountId?: string | null;
+  requiresPasswordSetupOrVerify?: boolean;
 }): IPerpsOrderPanelEnableTradingMode {
   const resolvedAccountId = accountId ?? indexedAccountId;
   if (!resolvedAccountId) {
@@ -77,13 +80,15 @@ export function getPerpsOrderPanelEnableTradingModeByAccount({
     accountId: resolvedAccountId,
   });
   const shouldUseOrderPanelEnableTradingDialog =
-    isHardwareAccount || !isSoftwareAccount;
+    isHardwareAccount || !isSoftwareAccount || requiresPasswordSetupOrVerify;
 
   return {
-    canAutoEnableInOrderPanel: isSoftwareAccount,
+    canAutoEnableInOrderPanel:
+      isSoftwareAccount && !requiresPasswordSetupOrVerify,
     requiresEnableTradingDialogInOrderPanel:
       shouldUseOrderPanelEnableTradingDialog,
-    requiresExplicitEnableTrading: !isSoftwareAccount,
+    requiresExplicitEnableTrading:
+      !isSoftwareAccount || requiresPasswordSetupOrVerify,
   };
 }
 
@@ -130,8 +135,13 @@ export function getPerpsOrderPanelEnableTradingSteps(
   status: IPerpsActiveAccountStatusAtom,
   {
     abstractionMode,
+    passwordStatus,
   }: {
     abstractionMode?: IPerpsEnableTradingAbstractionMode;
+    passwordStatus?: {
+      isPasswordSet: boolean;
+      requiresPasswordSetupOrVerify: boolean;
+    };
   } = {},
 ): IPerpsOrderPanelEnableTradingStep[] {
   const { details } = status;
@@ -147,6 +157,15 @@ export function getPerpsOrderPanelEnableTradingSteps(
   }
 
   const steps: IPerpsOrderPanelEnableTradingStep[] = [];
+  if (passwordStatus?.requiresPasswordSetupOrVerify) {
+    steps.push({
+      key: 'password',
+      labelId: passwordStatus.isPasswordSet
+        ? ETranslations.confirm_unlock_passcode__title
+        : ETranslations.set_unlock_passcode__title,
+      requiresSignature: false,
+    });
+  }
   if (!details || details.builderFeeOk !== true) {
     steps.push({
       key: 'builderFee',

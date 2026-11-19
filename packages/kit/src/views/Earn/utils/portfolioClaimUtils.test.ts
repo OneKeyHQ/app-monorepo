@@ -32,6 +32,51 @@ describe('buildPortfolioClaimSymbolMap', () => {
     ).toEqual({ status: 'matched', symbol: 'USDC' });
   });
 
+  it.each(['MORPHO', 'KAT'])(
+    'maps the Katana %s reward to the vbUSDC staking identity',
+    (rewardSymbol) => {
+      const katanaVault = '0xbeeff2d5d126d4809195eea02b605423917bb6c6';
+      const airdropAsset: IEarnAvailableAssetV2 = {
+        type: 'airdrop',
+        networkId: 'evm--747474',
+        provider: 'morpho',
+        symbol: rewardSymbol,
+        vault: katanaVault,
+      };
+      const claimSymbolMap = buildPortfolioClaimSymbolMap([
+        {
+          type: 'normal',
+          networkId: 'evm--747474',
+          provider: 'morpho',
+          symbol: 'vbUSDC',
+          vault: katanaVault.toUpperCase(),
+        },
+        airdropAsset,
+      ]);
+      const claimSymbolMatch = claimSymbolMap.get(
+        getPortfolioProtocolIdentityKey(airdropAsset),
+      );
+
+      expect(claimSymbolMatch).toEqual({
+        status: 'matched',
+        symbol: 'vbUSDC',
+      });
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: true,
+          providerName: 'morpho',
+          assetSymbol: rewardSymbol,
+          assetVault: katanaVault,
+          claimSymbol:
+            claimSymbolMatch?.status === 'matched'
+              ? claimSymbolMatch.symbol
+              : undefined,
+          claimSymbolStatus: claimSymbolMatch?.status,
+        }),
+      ).toEqual({ symbol: 'vbUSDC', vault: katanaVault });
+    },
+  );
+
   it('resolves non-USDC claim symbols without provider-specific rules', () => {
     const airdropAsset: IEarnAvailableAssetV2 = {
       type: 'airdrop',
@@ -112,6 +157,51 @@ describe('buildPortfolioClaimSymbolMap', () => {
 });
 
 describe('resolvePortfolioClaimProtocolIdentity', () => {
+  it.each([undefined, 'OTHER'])(
+    'keeps the displayed token identity for existing non-EtherFi actions (protocol symbol %p)',
+    (protocolSymbol) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: 'Morpho',
+          assetSymbol: 'USDC',
+          protocolSymbol,
+          assetVault: 'morpho-vault',
+        }),
+      ).toEqual({ symbol: 'USDC', vault: 'morpho-vault' });
+    },
+  );
+
+  it('uses the input protocol symbol when the displayed holding is a receipt token', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: false,
+        providerName: 'etherfi',
+        assetSymbol: 'liquidETH',
+        protocolSymbol: 'eETH',
+        assetVault: 'liquid-eth-vault',
+      }),
+    ).toEqual({
+      symbol: 'eETH',
+      vault: 'liquid-eth-vault',
+    });
+  });
+
+  it.each([undefined, '', '   '])(
+    'does not use a receipt token when the protocol symbol is %p',
+    (protocolSymbol) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: 'etherfi',
+          assetSymbol: 'liquidETH',
+          protocolSymbol,
+          assetVault: 'liquid-eth-vault',
+        }),
+      ).toBeNull();
+    },
+  );
+
   it('uses the server-derived Base Morpho claim identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
@@ -147,12 +237,13 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
     });
   });
 
-  it('keeps a normal Morpho asset symbol without a provider hardcode', () => {
+  it('keeps a normal Morpho protocol symbol without a provider hardcode', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
         isAirdrop: false,
         providerName: 'Morpho',
         assetSymbol: 'USDT',
+        protocolSymbol: 'USDT',
         assetVault: 'morpho-usdt-vault',
       }),
     ).toEqual({

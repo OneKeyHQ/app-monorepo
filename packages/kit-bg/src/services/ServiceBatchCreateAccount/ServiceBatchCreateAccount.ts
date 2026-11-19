@@ -1,8 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core/errors';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -12,18 +8,16 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceError,
   convertDeviceResponse,
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -32,8 +26,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { buildRequiredLedgerAppNamesForNetworks } from '@onekeyhq/shared/src/hardware/ledgerApps';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  LEDGER_CONFIG,
+  buildRequiredLedgerAppNamesForNetworks,
+} from '@onekeyhq/shared/src/hardware/config/ledger';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -47,29 +44,41 @@ import {
   EHardwareCallContext,
   EHardwareVendor,
   type IDeviceCommonParams,
+  type IHardwareOperationContext,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
+import { pinKeystoneAccountKeys } from '../../vaults/base/keystoneAccountKeyUtils';
 import {
+  hasStoredLedgerChainFingerprint,
   isLedgerFingerprintChain,
   persistLedgerChainFingerprint,
+  verifySeedMatch,
+  withNewLedgerOperation,
 } from '../../vaults/base/ledgerFingerprintUtils';
-import { thirdPartyCommonCallParamsForCreateScene } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
-} from '../../vaults/base/trezorTransportUtils';
+  thirdPartyCommonCallParamsForCreateScene,
+  thirdPartyConnectionContextFromDevice,
+  withHardwareOperationContext,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
+import { callTrezorWithDevice } from '../../vaults/base/trezorTransportUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
+import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   type IThirdPartyAllNetworkAddressParams,
   attachLedgerAllNetworkFingerprints,
+  getMissingLedgerFingerprintChains,
   normalizeThirdPartyAllNetworkBundle,
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
@@ -83,7 +92,9 @@ import type {
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
   ChainForFingerprint,
@@ -189,6 +200,7 @@ export function getLedgerAllNetworkDeviceIdentity(
 }
 
 export type IBatchBuildAccountsBaseParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string;
   networkId: string;
   deriveType: IAccountDeriveTypes;
@@ -197,6 +209,7 @@ export type IBatchBuildAccountsBaseParams = {
   errorMessage?: string;
   customNetworks?: IBatchCreateCustomNetworkParams[];
   isAutoCreateMultiNetwork?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
 } & IWithHardwareProcessingControlParams;
 // networksParams entry: a custom network may scope the flow-level `indexes`
 // down to its own list (see IBatchCreateCustomNetworkParams.indexes).
@@ -222,6 +235,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   };
   applyRestoreSyncPolicy?: boolean;
   hdCredentialCacheScopeId?: string;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -232,6 +246,7 @@ export type IBatchBuildAccountsNormalFlowParams =
   };
 
 type IAdvancedModeFlowParamsBase = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   fromIndex: number;
   toIndex: number;
   excludedIndexes: {
@@ -258,6 +273,12 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   customNetworks?: IBatchCreateCustomNetworkParams[];
   autoHandleExitError?: boolean;
   showUIProgress?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
+  /**
+   * Background-only: a response the caller already fetched, consumed
+   * instead of calling the device.
+   */
+  hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
 } & IAdvancedModeFlowParamsBase &
   IWithHardwareProcessingControlParams;
 
@@ -325,6 +346,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   isCreateFlowCancelled = false;
 
+  // Monotonic id stamped at the synchronous entry of every batch-create flow
+  // request. cancelBatchCreateAccountsFlow() records the latest id, so a flow
+  // that was cancelled while queued behind the hardware operation lease can
+  // tell that cancel apart from stale flags left by an earlier flow.
+  latestFlowRequestId = 0;
+
+  cancelledFlowRequestId = 0;
+
   buildNetworkAccountCacheKey({
     walletId,
     networkId,
@@ -347,14 +376,43 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.networkAccountsCache = {};
   }
 
-  beforeStartFlow() {
-    this.isCreateFlowCancelled = false;
+  beforeStartFlow({ flowRequestId }: { flowRequestId: number }) {
+    // Runs once the flow owns the hardware lease. A cancel issued after this
+    // request entered (while it waited for the lease) must survive the reset;
+    // a cancel from before it entered belongs to an earlier flow and is
+    // dropped, matching the pre-lease reset semantics.
+    this.isCreateFlowCancelled = this.cancelledFlowRequestId >= flowRequestId;
     this.progressInfo = undefined;
   }
 
-  async updateAccountExistsInDb({ account }: { account: IBatchCreateAccount }) {
+  async updateAccountExistsInDb({
+    account,
+    publicAccountCreationContext,
+  }: {
+    account: IBatchCreateAccount;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
+  }) {
     if (await localDb.getAccountSafe({ accountId: account.id })) {
       account.existsInDb = true;
+      // Removing an indexed account can leave its chain rows until cleanup.
+      // A trusted user recreation must restore their tombstones, not skip them.
+      if (isPublicAccountCreationContext(publicAccountCreationContext)) {
+        const keyInfo =
+          await this.backgroundApi.servicePrimeCloudSync.syncManagers.account.buildSyncKeyInfo(
+            {
+              target: {
+                targetId: account.id,
+                dataType: EPrimeCloudSyncDataType.Account,
+                account,
+              },
+            },
+          );
+        if (
+          keyInfo?.key &&
+          (await localDb.getSyncItemSafe({ id: keyInfo.key }))?.isDeleted
+        )
+          account.existsInDb = false;
+      }
     } else {
       account.existsInDb = false;
     }
@@ -363,6 +421,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   async prepareBatchCreate() {
     await this.clearNetworkAccountCache();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async startBatchCreateAccountsFlowForUserCreation(
+    payload: Parameters<
+      ServiceBatchCreateAccount['startBatchCreateAccountsFlow']
+    >[0],
+  ) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) => {
+      if (payload.mode === 'advanced')
+        return this.startBatchCreateAccountsFlow({
+          ...payload,
+          params: { ...payload.params, publicAccountCreationContext },
+        });
+      return this.startBatchCreateAccountsFlow({
+        ...payload,
+        params: { ...payload.params, publicAccountCreationContext },
+      });
+    });
   }
 
   @backgroundMethod()
@@ -380,8 +458,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
           params: IBatchBuildAccountsNormalFlowParams;
         },
   ) {
-    this.beforeStartFlow();
-
+    // Assigned before any await so a cancel that lands while this request
+    // waits for the hardware lease is attributed to it.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
     let indexes: number[] = [];
     let excludedIndexes: {
       [index: number]: true;
@@ -420,8 +500,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
+    let flowStarted = false;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
+        // Reset the singleton flow state only once this flow owns the
+        // hardware operation lease. Resetting before acquiring it would wipe
+        // the progressInfo of a flow that is still running (OK-62413).
+        flowStarted = true;
+        this.beforeStartFlow({ flowRequestId });
+        // Fail fast before touching the device when the user cancelled the
+        // ProcessingDialog while this request was queued for the lease.
+        this.checkIfCancelled({
+          saveToDb,
+          showUIProgress: payload.params.showUIProgress,
+        });
+
         let customNetworks: IBatchCreateCustomNetworkParams[] = [
           {
             networkId: payload.params.networkId,
@@ -471,6 +564,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             saveToCache: payload.saveToCache,
             loopMode: true,
             isAutoCreateMultiNetwork: payload.params.isAutoCreateMultiNetwork,
+            oneKeyOperationLease,
           });
         this.progressInfo = this.buildProgressInfo({
           indexes,
@@ -505,6 +599,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               hwRootFingerprintInfo,
               hdCredentialCacheScopeId,
+              oneKeyOperationLease,
             });
             result.accountsForCreate = result.accountsForCreate.concat(
               resp.accountsForCreate,
@@ -532,6 +627,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       {
         deviceParams,
         hideCheckingDeviceLoading: payload.params.hideCheckingDeviceLoading,
+        debugMethodName: 'batchCreateAccount.startBatchCreateAccountsFlow',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -541,10 +637,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
     return flow.catch((error) => {
       // Emit only for a UI-progress flow's prepare-phase escape; background
       // (no-UI) flows must not broadcast to the shared progress event.
+      // A flow rejected before its callback ran never touched the singleton
+      // state, so stale flags from an earlier flow must not suppress it.
       if (
-        !this.isCreateFlowCancelled &&
-        !this.progressInfo &&
-        payload.params.showUIProgress
+        payload.params.showUIProgress &&
+        (!flowStarted || (!this.isCreateFlowCancelled && !this.progressInfo))
       ) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: 0,
@@ -568,6 +665,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey,
     saveToCache,
     isVerifyAddressAction,
+    oneKeyOperationLease,
   }: {
     walletId: string;
     networkId: string;
@@ -576,6 +674,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     isVerifyAddressAction?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }) {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
@@ -592,7 +691,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const result =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
+        async (activeOneKeyOperationLease) => {
           const networksParams =
             await this.buildBatchCreateAccountsNetworksParams({
               walletId,
@@ -614,6 +713,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               showOnOneKey,
               saveToCache,
               isVerifyAddressAction,
+              oneKeyOperationLease: activeOneKeyOperationLease,
               // skipDeviceCancel: true,
             });
 
@@ -628,11 +728,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
             skipDeviceCancel: true,
             isVerifyAddressAction,
             hdCredentialCacheScopeId,
+            oneKeyOperationLease: activeOneKeyOperationLease,
           });
         },
         {
           deviceParams,
+          oneKeyOperationLease,
           skipDeviceCancel: true,
+          debugMethodName: 'batchCreateAccount.previewBatchBuildAccounts',
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();
             this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -724,6 +827,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async addDefaultNetworkAccountsForUserCreation(
+    params: Parameters<
+      ServiceBatchCreateAccount['addDefaultNetworkAccounts']
+    >[0],
+  ) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addDefaultNetworkAccounts({
+        ...params,
+        publicAccountCreationContext,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async addDefaultNetworkAccounts({
     walletId,
     indexedAccountId,
@@ -735,7 +853,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isCreateWallet,
     isAutoCreateMultiNetwork,
     autoHandleExitError = true,
+    hardwareOperationContext,
+    publicAccountCreationContext,
   }: {
+    publicAccountCreationContext?: IPublicAccountCreationContext;
     autoHandleExitError?: boolean;
     walletId: string | undefined;
     indexedAccountId: string | undefined;
@@ -744,6 +865,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isCreateWallet?: boolean;
     // Auto multi-network fill scene; HW auto-install is derived from it.
     isAutoCreateMultiNetwork?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
   } & IWithHardwareProcessingControlParams): Promise<{
     addedAccounts: {
       networkId: string;
@@ -790,6 +912,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       }
 
       return this.startBatchCreateAccountsFlowForAllNetwork({
+        publicAccountCreationContext,
         walletId,
         fromIndex,
         toIndex,
@@ -798,6 +921,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         customNetworks: customNetworks || [],
         isCreateWallet,
         isAutoCreateMultiNetwork,
+        hardwareOperationContext,
         autoHandleExitError: autoHandleExitError ?? true,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
@@ -912,22 +1036,93 @@ class ServiceBatchCreateAccount extends ServiceBase {
     shouldPersistLedgerFingerprints?: boolean;
   }): Promise<IHwAllNetworkPrepareAccountsItem[]> {
     const bundle = normalizeThirdPartyAllNetworkBundle(bundleParams);
+    if (
+      LEDGER_CONFIG.enableCrossChainFingerprintVerification &&
+      vendor === EHardwareVendor.ledger &&
+      dbDevice &&
+      commonParams?.allowDeviceIdentityBootstrap !== true
+    ) {
+      const missingChains = getMissingLedgerFingerprintChains({
+        bundle,
+        settingsRaw: dbDevice.settingsRaw,
+      });
+      if (missingChains.length) {
+        if (
+          !commonParams?.operationId &&
+          hasStoredLedgerChainFingerprint(dbDevice.settingsRaw)
+        ) {
+          return withNewLedgerOperation(
+            this.backgroundApi,
+            // Same reason as callLedgerWithFingerprint: locators travel in
+            // knownConnections tagged with their channel.
+            '',
+            (operationId) =>
+              this.callThirdPartyAllNetworkGetAddress({
+                allNetworkGetAddress,
+                connectId,
+                deviceId,
+                dbDeviceId,
+                commonParams: {
+                  ...commonParams,
+                  passphraseState: commonParams?.passphraseState,
+                  useEmptyPassphrase: commonParams?.useEmptyPassphrase,
+                  operationId,
+                },
+                createSceneParams,
+                bundleParams,
+                vendorName,
+                shouldPersistLedgerFingerprints,
+                dbDevice,
+                vendor,
+              }),
+            thirdPartyConnectionContextFromDevice(dbDevice),
+          );
+        }
+        const seedMatch = await verifySeedMatch(
+          this.backgroundApi,
+          dbDevice,
+          commonParams?.operationId || connectId,
+        );
+        if (seedMatch !== 'match') {
+          throw convertThirdPartyDeviceError(
+            {
+              code: ThirdPartyHwErrorCode.DeviceMismatch,
+              error: `No trusted Ledger fingerprint is available for ${missingChains.join(
+                ', ',
+              )}, and the connected device could not be verified from another chain.`,
+            },
+            { vendor: vendorName },
+          );
+        }
+      }
+    }
     const thirdPartyCommonParams =
       thirdPartyCommonCallParamsForCreateScene(createSceneParams);
+    const {
+      allowDeviceIdentityBootstrap: _allowDeviceIdentityBootstrap,
+      ...sdkCommonParams
+    } = commonParams ?? {};
     const requestParams = {
-      ...commonParams,
+      ...thirdPartyConnectionContextFromDevice(dbDevice),
+      ...sdkCommonParams,
       ...thirdPartyCommonParams,
       bundle,
     };
-    const response =
-      vendor === EHardwareVendor.trezor && dbDevice
-        ? await callTrezorWithBleFallback(
-            dbDevice,
-            (targetConnectId) =>
-              allNetworkGetAddress(targetConnectId, deviceId, requestParams),
-            buildTrezorBleFallbackOptions(this.backgroundApi),
-          )
-        : await allNetworkGetAddress(connectId, deviceId, requestParams);
+    const operationId = commonParams?.operationId;
+    let response: Awaited<ReturnType<IThirdPartyAllNetworkGetAddressFn>>;
+    if (operationId) {
+      response = await allNetworkGetAddress(
+        operationId,
+        deviceId,
+        requestParams,
+      );
+    } else if (vendor === EHardwareVendor.trezor && dbDevice) {
+      response = await callTrezorWithDevice(dbDevice, (targetConnectId) =>
+        allNetworkGetAddress(targetConnectId, deviceId, requestParams),
+      );
+    } else {
+      response = await allNetworkGetAddress(connectId, deviceId, requestParams);
+    }
 
     if (!response.success) {
       throw convertThirdPartyDeviceError(response.payload, {
@@ -942,6 +1137,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
         dbDeviceId,
         items: payload,
       });
+    }
+
+    if (vendor === EHardwareVendor.keystone && dbDeviceId) {
+      await pinKeystoneAccountKeys({ dbDeviceId, items: payload, vendorName });
     }
 
     return payload;
@@ -986,6 +1185,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     loopMode?: boolean;
     isAutoCreateMultiNetwork?: boolean;
     isVerifyAddressAction?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
     const hwAllNetworkPrepareAccountsResponse =
       new HardwareAllNetworkGetAddressResponse();
@@ -999,12 +1200,19 @@ class ServiceBatchCreateAccount extends ServiceBase {
         'call getHwAllNetworkPrepareAccountsResponse',
       );
       const hideCheckingDeviceLoading = params.hideCheckingDeviceLoading;
-      const deviceParams =
+      let deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: params.walletId,
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
+      if (deviceParams) {
+        deviceParams = withHardwareOperationContext(
+          deviceParams,
+          params.hardwareOperationContext,
+        );
+      }
       const deviceVendor = deviceParams?.dbDevice?.vendor;
+      hwAllNetworkPrepareAccountsResponse.vendor = deviceVendor;
       const vendorProfile = getVendorProfile(deviceVendor);
       const isThirdPartyWallet = !!deviceVendor && vendorProfile.isThirdParty;
       let thirdPartyAllNetworkAdapter: IThirdPartyHardwareAdapter | undefined;
@@ -1108,6 +1316,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
             let allNetworkGetAddressResponse: IHwAllNetworkPrepareAccountsItem[] =
               [];
+            let usingSdkLoopMode = false;
             try {
               const thirdPartyAllNetworkGetAddress =
                 bindThirdPartyAllNetworkGetAddress(thirdPartyHw);
@@ -1127,7 +1336,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     dbDevice: deviceParams.dbDevice,
                     vendor: thirdPartyAllNetworkAdapter.vendor,
                     vendorName:
-                      vendorProfile.defaultDeviceName ||
+                      vendorProfile.presentation.defaultName ||
                       thirdPartyAllNetworkAdapter.vendor,
                     shouldPersistLedgerFingerprints:
                       thirdPartyAllNetworkAdapter.vendor ===
@@ -1139,6 +1348,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 !thirdPartyAllNetworkAdapter ||
                 !thirdPartyAllNetworkGetAddress
               ) {
+                usingSdkLoopMode = Boolean(
+                  params.loopMode && !platformEnv.isExtension,
+                );
                 const sdk =
                   await this.backgroundApi.serviceHardware.getSDKInstance({
                     connectId: deviceParams.dbDevice?.connectId,
@@ -1155,59 +1367,67 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
                 allNetworkGetAddressResponse = (await convertDeviceResponse(
                   async () => {
-                    const sdkPromiseResult =
-                      params.loopMode && !platformEnv.isExtension
-                        ? sdk.allNetworkGetAddressByLoop(
-                            compatibleConnectId,
-                            deviceParams.dbDevice?.deviceId || '',
-                            {
-                              ...deviceParams.deviceCommonParams,
-                              bundle: bundleParams,
-                              onLoopItemResponse: (data) => {
-                                if (hideCheckingDeviceLoading) {
-                                  void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
-                                    {
-                                      connectId: compatibleConnectId,
-                                    },
-                                  );
-                                }
-                                if (data) {
-                                  hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
-                                    data as IHwAllNetworkPrepareAccountsItem,
-                                  );
-                                }
-                              },
-                              onAllItemsResponse: (data, error) => {
-                                if (data === undefined && error) {
-                                  const hwError = convertDeviceError(
-                                    {
-                                      code: error.payload?.code,
-                                      error: error.payload?.error,
-                                    },
-                                    {},
-                                  );
-                                  hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
-                                    hwError ||
-                                      new OneKeyLocalError(
-                                        'Device communication interrupted, please try again later (386147)',
-                                      ),
-                                  );
-                                }
-                                appEventBus.emit(
-                                  EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
-                                  undefined,
+                    const sdkPromiseResult = usingSdkLoopMode
+                      ? sdk.allNetworkGetAddressByLoop(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
+                            onLoopItemResponse: (data) => {
+                              if (hideCheckingDeviceLoading) {
+                                void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
+                                  {
+                                    connectId: compatibleConnectId,
+                                  },
                                 );
-                              },
+                              }
+                              if (data) {
+                                hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
+                                  data as IHwAllNetworkPrepareAccountsItem,
+                                );
+                              }
                             },
-                          )
-                        : sdk.allNetworkGetAddress(
-                            compatibleConnectId,
-                            deviceParams.dbDevice?.deviceId || '',
-                            {
-                              ...deviceParams.deviceCommonParams,
-                              bundle: bundleParams,
+                            onAllItemsResponse: (data, error) => {
+                              if (data === undefined && error) {
+                                const hwError = convertDeviceError(
+                                  {
+                                    code: error.payload?.code,
+                                    error: error.payload?.error,
+                                  },
+                                  {},
+                                );
+                                hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
+                                  hwError ||
+                                    new OneKeyLocalError(
+                                      'Device communication interrupted, please try again later (386147)',
+                                    ),
+                                );
+                              } else {
+                                hwAllNetworkPrepareAccountsResponse.onSdkResponse(
+                                  {
+                                    items:
+                                      (data as IHwAllNetworkPrepareAccountsItem[]) ||
+                                      [],
+                                    completed: true,
+                                  },
+                                );
+                              }
+                              appEventBus.emit(
+                                EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
+                                undefined,
+                              );
                             },
-                          );
+                          },
+                        )
+                      : sdk.allNetworkGetAddress(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
+                          },
+                        );
 
                     const sdkAllNetworkGetAddressResponse =
                       await sdkPromiseResult;
@@ -1221,7 +1441,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   allNetworkGetAddressResponse,
                 );
             } catch (error) {
-              if (params.loopMode) {
+              if (usingSdkLoopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
                   undefined,
@@ -1229,7 +1449,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               }
               throw error;
             } finally {
-              if (!params.loopMode) {
+              if (!usingSdkLoopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
                   undefined,
@@ -1239,14 +1459,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
             setTimeout(() => {
               const resolveSdkGetAllAddressResponse = () => {
-                for (const item of allNetworkGetAddressResponse) {
-                  hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
-                    item,
-                  );
-                }
+                hwAllNetworkPrepareAccountsResponse.onSdkResponse({
+                  items: allNetworkGetAddressResponse,
+                  completed: false,
+                });
               };
 
               resolveSdkGetAllAddressResponse();
+              if (!usingSdkLoopMode) {
+                hwAllNetworkPrepareAccountsResponse.completeSdkResponse();
+              }
 
               if (process.env.NODE_ENV !== 'production') {
                 // resolve by console call manually:
@@ -1265,6 +1487,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
           skipCloseHardwareUiStateDialog:
             skipCloseHardwareUiStateDialog ?? false,
           hideCheckingDeviceLoading,
+          oneKeyOperationLease: params.oneKeyOperationLease,
+          debugMethodName:
+            'batchCreateAccount.getHwAllNetworkPrepareAccountsResponse',
         },
       );
     }
@@ -1288,13 +1513,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
       error: IOneKeyError;
     }[];
   }> {
-    this.beforeStartFlow();
+    // See startBatchCreateAccountsFlow: stamp the request before any await.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
 
-    const deviceParams =
+    const hardwareOperationContext: IHardwareOperationContext = {
+      ...params.hardwareOperationContext,
+      allowDeviceIdentityBootstrap: params.isCreateWallet === true,
+    };
+
+    let deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
+    if (deviceParams) {
+      deviceParams = withHardwareOperationContext(
+        deviceParams,
+        hardwareOperationContext,
+      );
+    }
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
@@ -1304,7 +1542,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
+        // See startBatchCreateAccountsFlow: reset only while owning the lease
+        // and honour a cancel received while queued for it.
+        this.beforeStartFlow({ flowRequestId });
+        this.checkIfCancelled({
+          saveToDb: params.saveToDb,
+          showUIProgress: params.showUIProgress,
+        });
+
         const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
@@ -1353,14 +1599,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
           networksCount: networksParams.length,
         });
         hwAllNetworkPrepareAccountsResponse =
-          await this.getHwAllNetworkPrepareAccountsResponse({
+          params.hwAllNetworkPrepareAccountsResponse ??
+          (await this.getHwAllNetworkPrepareAccountsResponse({
             walletId: params.walletId,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             excludedIndexes,
             indexes,
             networksParams,
             isAutoCreateMultiNetwork: params.isAutoCreateMultiNetwork,
-          });
+            hardwareOperationContext,
+            oneKeyOperationLease,
+          }));
         await this.recordPrimeTransferImportBatchCreateTrace({
           event: 'done',
           stage: 'getHwAllNetworkPrepareAccountsResponse',
@@ -1387,6 +1636,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
               ...networkParams,
+              hardwareOperationContext,
               showUIProgress:
                 params.showUIProgress || networkParams.showUIProgress,
               // Consume per-pair index scoping symmetrically with
@@ -1400,6 +1650,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               indexedAccountNames: params.indexedAccountNames,
               hdCredentialCacheScopeId,
+              oneKeyOperationLease,
               // isAutoCreateMultiNetwork flows from ...params.
             });
             addedAccounts.push({
@@ -1429,6 +1680,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               walletId: params.walletId,
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
+              hwAllNetworkPrepareAccountsResponse,
             });
             const plainError = errorUtils.toPlainErrorObject(error);
             failedAccounts.push({
@@ -1457,6 +1709,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
         deviceParams,
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        debugMethodName:
+          'batchCreateAccount.startBatchCreateAccountsFlowForAllNetwork',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -1473,12 +1727,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb,
     autoHandleExitError,
     showUIProgress,
+    hwAllNetworkPrepareAccountsResponse,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
     autoHandleExitError?: boolean;
     showUIProgress?: boolean;
+    hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
     errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
 
@@ -1507,42 +1763,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
       throw error;
     }
 
-    // **** hardware terminated errors ****
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [
-            // OneKey HW (legacy enum)
-            HardwareErrorCode.DeviceNotFound,
-            HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.ActionCancelled,
-            HardwareErrorCode.CallQueueActionCancelled,
-            HardwareErrorCode.DeviceInterruptedFromOutside,
-            HardwareErrorCode.DeviceInterruptedFromUser,
-            // Third-party HW batch-abort codes from SDK.
-            ...ORPHAN_ELIGIBLE_ERROR_CODES,
-          ],
-        })
-      ) {
-        throw error;
-      }
-    }
-    // **** password cancel
     if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: [
-          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-          EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-          EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-        ],
-      })
+      shouldAbortAccountCreation(error) &&
+      !hwAllNetworkPrepareAccountsResponse?.isCompletedAppFailure(error)
     ) {
       throw error;
     }
@@ -1586,6 +1809,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   async cancelBatchCreateAccountsFlow() {
     this.isCreateFlowCancelled = true;
+    // Also cancel every request that already entered but is still waiting
+    // for the hardware lease (see beforeStartFlow).
+    this.cancelledFlowRequestId = this.latestFlowRequestId;
     this.progressInfo = undefined;
   }
 
@@ -1680,6 +1906,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
     applyRestoreSyncPolicy,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    hardwareOperationContext,
+    oneKeyOperationLease,
+    publicAccountCreationContext,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1763,7 +1992,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
         }
       }
       this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
-      await this.updateAccountExistsInDb({ account: accountForCreate });
+      await this.updateAccountExistsInDb({
+        account: accountForCreate,
+        publicAccountCreationContext,
+      });
       if (saveToCache) {
         this.networkAccountsCache[key] = accountForCreate;
       }
@@ -1773,6 +2005,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
+            publicAccountCreationContext,
             walletId,
             networkId,
             account: accountForCreate,
@@ -1890,6 +2123,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               hdCredentialCacheScopeId,
               isAutoCreateMultiNetwork,
+              hardwareOperationContext,
+              oneKeyOperationLease,
             });
           await this.recordPrimeTransferImportBatchCreateTrace({
             event: 'done',

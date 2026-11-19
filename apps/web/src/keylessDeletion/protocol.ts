@@ -40,8 +40,8 @@ export function getConfirmationWarnings(
   version: unknown,
 ): readonly IWarningCode[] | undefined {
   if (
-    typeof version === 'string' &&
-    /^keyless-server-share-deletion\/v[1-9]\d{0,8}$/.test(version)
+    version === CONFIRMATION_VERSION ||
+    version === UPDATED_CONFIRMATION_VERSION
   ) {
     return WARNING_CODES;
   }
@@ -534,7 +534,7 @@ export function createDeletionClient(
       request('/link-info', { invitationToken }, isLinkInfo),
     sendDeletionOtp: (body: IProof) =>
       request('/otp/send', proofFields(body), isChallenge),
-    deleteShare: (
+    deleteShare: async (
       {
         challengeId,
         code,
@@ -543,19 +543,28 @@ export function createDeletionClient(
         ...proof
       }: IDeleteRequest,
       idempotencyKey: string,
-    ) =>
-      request(
+    ) => {
+      const warnings = getConfirmationWarnings(confirmationVersion);
+      const uniqueAcknowledgements = [...new Set(acknowledgements)];
+      if (!warnings || !matchesWarnings(uniqueAcknowledgements, warnings)) {
+        throw new DOMException(
+          'Unsupported confirmation content.',
+          'NotSupportedError',
+        );
+      }
+      return request(
         '/delete',
         {
           ...proofFields(proof),
           challengeId,
           code,
           confirmationVersion,
-          acknowledgements: [...new Set(acknowledgements)],
+          acknowledgements: uniqueAcknowledgements,
         },
         isCompleted,
         idempotencyKey,
-      ),
+      );
+    },
     getResult: (body: IProof) =>
       request('/result', proofFields(body), isResult),
   };

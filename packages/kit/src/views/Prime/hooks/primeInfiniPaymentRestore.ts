@@ -1,7 +1,11 @@
 /* cspell:ignore Infini */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isPrimeInfiniPaymentCacheKeyForContext,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
+  isPrimeInfiniPaymentExplicitlyExpiredSnapshot,
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentTransferSnapshot,
@@ -51,18 +55,23 @@ export async function resolvePrimeInfiniPaymentRestore({
   supportedAssets,
   paymentOptionsLoaded,
   createNewPayment,
+  flowId,
   requestedPlan,
   requestedSubscriptionPeriod,
   fetchLatestPayment,
   fetchPurchaseStatusSnapshot,
   discardPaymentSession,
+  discardTerminalPaymentSession,
+  sessionChangedMessage,
   clearCompletedPaymentSession,
   persistRestoredSession,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
+  sessionChangedMessage: string;
   supportedAssets: IPrimeInfiniPaymentAsset[];
   paymentOptionsLoaded: boolean;
   createNewPayment: boolean;
+  flowId?: string;
   requestedPlan: IPrimeInfiniSubscriptionPlan;
   requestedSubscriptionPeriod: 'P1M' | 'P1Y';
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
@@ -70,9 +79,12 @@ export async function resolvePrimeInfiniPaymentRestore({
   discardPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
   ) => Promise<boolean>;
+  discardTerminalPaymentSession: (
+    latestPayment: IPrimeInfiniPayment,
+  ) => Promise<boolean>;
   clearCompletedPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   persistRestoredSession: (
     session: IPrimeInfiniPendingPaymentSession,
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
@@ -106,7 +118,11 @@ export async function resolvePrimeInfiniPaymentRestore({
       purchaseStatusSnapshot,
     })
   ) {
-    await clearCompletedPaymentSession(session.paymentCacheKey);
+    if (!(await clearCompletedPaymentSession(session.paymentCacheKey))) {
+      throw new OneKeyLocalError(
+        'Infini payment session changed during restore',
+      );
+    }
     return { type: 'completed' };
   }
   const transferSnapshotUnchanged = isSamePrimeInfiniPaymentTransferSnapshot({
@@ -122,6 +138,24 @@ export async function resolvePrimeInfiniPaymentRestore({
     previous: session.payment,
     latest: latestPayment,
   });
+  // Only recover a fresh, explicitly failed unpaid invoice. Expiry alone
+  // cannot prove that an already broadcast transfer will not arrive later.
+  if (
+    transferSnapshotUnchanged &&
+    paymentMatchesAsset &&
+    isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment) &&
+    !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
+  ) {
+    if (!(await discardTerminalPaymentSession(latestPayment))) {
+      throw new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        message: sessionChangedMessage,
+      });
+    }
+    return { type: 'discarded' };
+  }
   const supportedAsset = supportedAssets.find((asset) =>
     isSamePaymentAssetMetadata(asset, session.asset),
   );
@@ -143,7 +177,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   const assetIsStillSupported =
     !paymentOptionsLoaded || Boolean(supportedAsset);
   const shouldReplacePayment =
-    createNewPayment ||
+    (createNewPayment && (!flowId || session.flowId !== flowId)) ||
     !transferSnapshotUnchanged ||
     !paymentMatchesAsset ||
     !routeMatches ||

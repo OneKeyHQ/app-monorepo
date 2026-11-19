@@ -53,15 +53,59 @@ function createHistory({
 }
 
 describe('getSwapHistoryTransactionIdRows', () => {
-  it('keeps an ordinary single-hash swap unchanged', () => {
+  it('shows the explorer link on the hash row for an ordinary single-hash swap', () => {
     expect(getSwapHistoryTransactionIdRows(createHistory())).toEqual([
       {
         kind: 'transaction',
         transactionId: '0xsource',
         networkId: 'evm--1',
-        showExplorer: false,
+        showExplorer: true,
       },
     ]);
+  });
+
+  it('shows the explorer link on the stock transaction hash row', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({ protocol: EProtocolOfExchange.STOCK }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('uses the target network for a stock order with only a target hash', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          protocol: EProtocolOfExchange.STOCK,
+          fromNetworkId: 'evm--56',
+          toNetworkId: 'evm--1',
+          txId: null,
+          receiverTransactionId: '0xtarget',
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xtarget',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('does not render a stock transaction row without a hash', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({ protocol: EProtocolOfExchange.STOCK, txId: null }),
+      ),
+    ).toEqual([]);
   });
 
   it('renders pending sent and received rows for a known same-chain provider', () => {
@@ -239,6 +283,55 @@ describe('getSwapHistoryTransactionIdRows', () => {
         kind: 'refund',
         transactionId: '0xrefund',
         networkId: 'evm--56',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('renders the refund hash when state-tx only returns the refunded state', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          status: ESwapTxHistoryStatus.REFUNDED,
+          fromNetworkId: 'evm--1',
+          toNetworkId: 'btc--0',
+          swapOrderHash: {
+            fromTxHash: '0xsource',
+            refundHash: '0xrefund',
+          },
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'source',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+      {
+        kind: 'refund',
+        transactionId: '0xrefund',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('does not render a pending target row for an expired order', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          provider: 'Swap1inchFusion',
+          status: ESwapTxHistoryStatus.EXPIRED,
+          fromNetworkId: 'evm--1',
+          toNetworkId: 'evm--1',
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
         showExplorer: true,
       },
     ]);

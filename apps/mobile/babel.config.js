@@ -2,6 +2,8 @@ const path = require('path');
 
 const babelTools = require('../../development/babelTools');
 
+const { isMobileLockdownEnabled } = require('./plugins/mobileLockdown');
+
 console.log('process.env.TAMAGUI_TARGET: ', process.env.TAMAGUI_TARGET);
 if (process.env.TAMAGUI_TARGET !== 'native') {
   process.env.TAMAGUI_TARGET = 'native';
@@ -16,6 +18,12 @@ module.exports = function (api) {
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
+      // Security preludes execute before Metro require and must not gain Babel helpers.
+      ignore: [
+        /[\\/]ses[\\/]dist[\\/]ses(?:-hermes)?\.cjs$/,
+        /[\\/]react-native-lockdown[\\/]src[\\/]repair\.js$/,
+        path.resolve(__dirname, 'src/security/repair.js'),
+      ],
       presets: [
         [
           'babel-preset-expo',
@@ -27,7 +35,22 @@ module.exports = function (api) {
           },
         ],
       ],
+      overrides: [
+        {
+          test: /@ledgerhq[\\/]device-signer-kit-ethereum[\\/]lib[\\/]cjs[\\/]internal[\\/]app-binder[\\/]task[\\/]ProvideEIP712ContextTask\.js$/,
+          plugins: ['@babel/plugin-transform-classes'],
+        },
+      ],
       plugins: [
+        [
+          'transform-define',
+          {
+            'process.env.ONEKEY_MOBILE_LOCKDOWN': String(
+              isMobileLockdownEnabled(),
+            ),
+          },
+          'mobile-lockdown-mode',
+        ],
         // Strip jest.mock() calls when bundling for react-native-harness
         process.env.RN_HARNESS === 'true' &&
           require.resolve('./babel-plugin-jest-compat.js'),
@@ -35,7 +58,7 @@ module.exports = function (api) {
         //  in react-native-gesture-handler
         require('@babel/plugin-transform-shorthand-properties'),
         [
-          require('@tamagui/babel-plugin/dist/cjs/index.native'),
+          require('@tamagui/babel-plugin').default,
           {
             components: ['tamagui'],
             config: path.join(

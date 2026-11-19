@@ -1,7 +1,8 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
+import { useOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,9 +11,15 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { Input } from '../Input';
 
 import { SelectContext } from './context';
+import {
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
+  SelectSearchableList,
+} from './SelectSearchableList';
+import { isSelectSearchSheet } from './selectSearchPresentation';
 
 import type { IContextType } from './context';
 import type {
@@ -26,11 +33,11 @@ import type {
 import type { IListViewProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
-const useTriggerLabel = (value: string | number | undefined | boolean) => {
+const useTriggerItem = (value: string | number | undefined | boolean) => {
   const { sections, items } = useContext(SelectContext);
   return useMemo(() => {
     if (!value) {
-      return '';
+      return undefined;
     }
 
     if (sections) {
@@ -39,7 +46,7 @@ const useTriggerLabel = (value: string | number | undefined | boolean) => {
         for (let j = 0; j < section.data.length; j += 1) {
           const item = section.data[j];
           if (item.value === value) {
-            return item.label;
+            return item;
           }
         }
       }
@@ -49,12 +56,12 @@ const useTriggerLabel = (value: string | number | undefined | boolean) => {
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         if (item.value === value) {
-          return item.label;
+          return item;
         }
       }
     }
 
-    return '';
+    return undefined;
   }, [items, sections, value]);
 };
 
@@ -82,7 +89,7 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const renderValue = labelInValue
     ? (value as ISelectItem)?.value
     : (value as string);
-  const label = useTriggerLabel(renderValue);
+  const item = useTriggerItem(renderValue);
   return (
     <Trigger
       testID="select-trigger"
@@ -92,7 +99,8 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
       {renderTrigger({
         onPress: renderTriggerOnPress,
         value: renderValue,
-        label,
+        label: item?.label ?? '',
+        labelComponent: item?.labelComponent,
         placeholder,
         disabled,
       })}
@@ -106,16 +114,20 @@ const selectItemGtMdStyle = {
 
 function SelectItemView({
   label,
+  labelComponent,
   description,
-}: {
-  label: string;
-  description?: string;
-}) {
+}: Pick<ISelectItem, 'label' | 'labelComponent' | 'description'>) {
   return (
     <>
-      <SizableText size="$bodyLg" $gtMd={selectItemGtMdStyle} numberOfLines={2}>
-        {label}
-      </SizableText>
+      {labelComponent ?? (
+        <SizableText
+          size="$bodyLg"
+          $gtMd={selectItemGtMdStyle}
+          numberOfLines={2}
+        >
+          {label}
+        </SizableText>
+      )}
       {description ? (
         <SizableText
           mt="$0.5"
@@ -142,6 +154,7 @@ function SelectItem({
   onSelect,
   value,
   label,
+  labelComponent,
   leading,
   selectedValue,
   description,
@@ -170,6 +183,7 @@ function SelectItem({
         pressStyle={disabled ? undefined : selectItemPressStyle}
         onPress={handleSelect}
         testID={testID}
+        accessibilityLabel={labelComponent ? label : undefined}
         alignItems="center"
         cursor={disabled ? 'not-allowed' : undefined}
       >
@@ -179,7 +193,11 @@ function SelectItem({
           </Stack>
         ) : null}
         <Stack flex={1} userSelect="none">
-          <SelectItemView label={label} description={description} />
+          <SelectItemView
+            label={label}
+            labelComponent={labelComponent}
+            description={description}
+          />
         </Stack>
         {selectedValue === value ? (
           <Icon
@@ -196,7 +214,7 @@ function SelectItem({
             })}
           />
         ) : (
-          <Stack w="$8" h={1} />
+          <Stack w={labelComponent && !md ? '$6' : '$8'} h={1} />
         )}
       </XStack>
     ),
@@ -205,6 +223,7 @@ function SelectItem({
       disabled,
       handleSelect,
       label,
+      labelComponent,
       leading,
       md,
       selectedValue,
@@ -255,21 +274,52 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
+    searchable,
+    searchPlaceholder,
   } = useContext(SelectContext);
+  const isSelectingRef = useRef(false);
+  const selectionGenerationRef = useRef(0);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
+      if (isSelectingRef.current) {
+        return;
+      }
+      const nextValue = labelInValue ? item : item.value;
+      if (waitForChangeBeforeClose) {
+        const selectionGeneration = (selectionGenerationRef.current += 1);
+        isSelectingRef.current = true;
+        void (async () => {
+          try {
+            await onValueChange?.(nextValue);
+          } finally {
+            if (selectionGeneration === selectionGenerationRef.current) {
+              isSelectingRef.current = false;
+              changeOpenStatus?.(false);
+            }
+          }
+        })();
+        return;
+      }
       changeOpenStatus?.(false);
       requestIdleCallback(() => {
-        onValueChange?.(labelInValue ? item : item.value);
+        void onValueChange?.(nextValue);
       });
     },
-    [changeOpenStatus, labelInValue, onValueChange],
+    [changeOpenStatus, labelInValue, onValueChange, waitForChangeBeforeClose],
   );
 
   const handleOpenChange = useCallback(
     (openStatus: boolean) => {
+      if (!openStatus) {
+        // Closing the sheet cancels its pending selection lifecycle. The async
+        // work itself may continue, but its stale finally block must not lock
+        // or close a newly reopened Select instance.
+        selectionGenerationRef.current += 1;
+        isSelectingRef.current = false;
+      }
       changeOpenStatus?.(openStatus);
     },
     [changeOpenStatus],
@@ -309,9 +359,32 @@ function SelectContent() {
   );
 
   const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
+  const popoverTrigger = useRenderPopoverTrigger();
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
+  const isSearchSheet = isSelectSearchSheet({
+    hasPopoverTrigger: Boolean(popoverTrigger),
+    isExpandedWindow,
+  });
+  const renderContentVersion = waitForChangeBeforeClose
+    ? `${String(isOpen)}-${String((value as ISelectItem)?.value ?? value)}`
+    : isOpen;
 
   const renderContent = useMemo(
     () => {
+      if (searchable && !sections) {
+        if (!isOpen) {
+          return null;
+        }
+        return (
+          <SelectSearchableList
+            items={items}
+            renderItem={renderItem}
+            extraData={value}
+            searchPlaceholder={searchPlaceholder}
+            isSheet={isSearchSheet}
+          />
+        );
+      }
       const listProps = {
         keyExtractor,
         estimatedItemSize: '$6',
@@ -339,13 +412,18 @@ function SelectContent() {
         />
       );
     },
+    // Select lists are normally frozen while open. The wait mode is the one
+    // exception: its selected check must follow the value that settles before
+    // the sheet closes. isSearchSheet still updates so a resize that swaps the
+    // open web panel and sheet does not keep the previous search layout.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOpen],
+    [renderContentVersion, isSearchSheet],
   );
 
-  const popoverTrigger = useRenderPopoverTrigger();
   const usingPercentSnapPoints =
-    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
+    usingPercentSnapPointsFromContext ||
+    Boolean(searchable) ||
+    Boolean(items?.length && items.length > 10);
   const mergedSheetProps = useMemo(
     () => ({
       dismissOnSnapToBottom: true,
@@ -361,9 +439,15 @@ function SelectContent() {
     () => ({
       maxHeight: platformEnv.isNative ? undefined : '60vh',
       width: '$56',
+      ...(searchable && !isSearchSheet
+        ? {
+            height: SELECT_SEARCHABLE_PANEL_HEIGHT,
+            maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT,
+          }
+        : null),
       ...floatingPanelProps,
     }),
-    [floatingPanelProps],
+    [floatingPanelProps, isSearchSheet, searchable],
   );
   return (
     <Popover
@@ -371,7 +455,9 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       keepChildrenMounted={!platformEnv.isNative}
+      mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
+      sheetContentScrollable={!searchable || Boolean(sections)}
       floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
       renderTrigger={popoverTrigger}
@@ -383,24 +469,29 @@ function SelectContent() {
 
 function SelectFrame<
   T extends string | number | boolean | undefined | ISelectItem,
->({
-  items,
-  placeholder,
-  value,
-  open: openProp,
-  onChange,
-  onOpenChange,
-  children,
-  title,
-  disabled,
-  sections,
-  sheetProps,
-  offset,
-  labelInValue = false,
-  floatingPanelProps,
-  placement = platformEnv.isNative ? 'bottom-start' : undefined,
-  usingPercentSnapPoints,
-}: ISelectProps<T>) {
+>(props: ISelectProps<T>) {
+  assertOverlayProps('Select', props);
+  const {
+    items,
+    placeholder,
+    value,
+    open: openProp,
+    onChange,
+    onOpenChange,
+    children,
+    title,
+    disabled,
+    sections,
+    sheetProps,
+    offset,
+    labelInValue = false,
+    floatingPanelProps,
+    placement = platformEnv.isNative ? 'bottom-start' : undefined,
+    usingPercentSnapPoints,
+    waitForChangeBeforeClose,
+    searchable,
+    searchPlaceholder,
+  } = props;
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
   const isOpen = isControlled ? openProp : isOpenInternal;
@@ -435,6 +526,9 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     }),
     [
       isOpen,
@@ -452,6 +546,9 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     ],
   );
   return (
@@ -470,11 +567,23 @@ function BasicSelect<
   ...props
 }: ISelectProps<T>) {
   const media = useMedia();
+  const defaultChevronTop = media.gtMd ? '$2' : '$3';
+  const isSmallTrigger = defaultTriggerInputProps?.size === 'small';
   const defaultRenderTrigger = useCallback(
-    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
-      <Stack position="relative" flex={1}>
+    ({
+      label,
+      labelComponent,
+      placeholder,
+      disabled,
+    }: ISelectRenderTriggerProps) => (
+      <Stack
+        position="relative"
+        flex={1}
+        flexBasis={platformEnv.isNative ? undefined : 'auto'}
+      >
         <Input
-          value={label}
+          value={labelComponent ? '' : label}
+          accessibilityLabel={labelComponent ? label : undefined}
           disabled={disabled}
           placeholder={placeholder}
           readonly
@@ -482,6 +591,19 @@ function BasicSelect<
           testID={`${testID}-input`}
           {...defaultTriggerInputProps}
         />
+        {labelComponent ? (
+          <Stack
+            position="absolute"
+            left="$3"
+            right="$8"
+            top={0}
+            bottom={0}
+            justifyContent="center"
+            pointerEvents="none"
+          >
+            {labelComponent}
+          </Stack>
+        ) : null}
         {/* <Icon
           name="ChevronBottomSolid"
           position="absolute"
@@ -491,13 +613,14 @@ function BasicSelect<
         <Icon
           name="ChevronDownSmallOutline"
           color="$iconSubdued"
+          size={isSmallTrigger ? '$4.5' : undefined}
           position="absolute"
           right="$3"
-          top={media.gtMd ? '$2' : '$3'}
+          top={isSmallTrigger ? 5 : defaultChevronTop}
         />
       </Stack>
     ),
-    [defaultTriggerInputProps, media.gtMd, testID],
+    [defaultChevronTop, defaultTriggerInputProps, isSmallTrigger, testID],
   );
   return (
     <SelectFrame {...props}>
@@ -506,6 +629,8 @@ function BasicSelect<
     </SelectFrame>
   );
 }
+
+export { SELECT_SEARCHABLE_PANEL_HEIGHT };
 
 export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,

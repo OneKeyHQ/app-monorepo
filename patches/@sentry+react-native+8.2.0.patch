@@ -1,0 +1,15 @@
+diff --git a/node_modules/@sentry/react-native/ios/RNSentryReplay.mm b/node_modules/@sentry/react-native/ios/RNSentryReplay.mm
+index 40575a9..a05bc24 100644
+--- a/node_modules/@sentry/react-native/ios/RNSentryReplay.mm
++++ b/node_modules/@sentry/react-native/ios/RNSentryReplay.mm
+@@ -2,7 +2,9 @@
+ #import "RNSentryReplayBreadcrumbConverterHelper.h"
+ #import "RNSentryReplayQuality.h"
+ #import "RNSentryVersion.h"
+-#import "React/RCTTextView.h"
++// OneKey patch: React Native 0.88 removed RCTTextView.h; the class is only
++// referenced by name below.
++// #import "React/RCTTextView.h"
+ #import "Replay/RNSentryReplayMask.h"
+ #import "Replay/RNSentryReplayUnmask.h"
+ #import <Sentry/PrivateSentrySDKOnly.h>

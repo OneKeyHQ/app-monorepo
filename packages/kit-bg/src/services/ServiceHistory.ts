@@ -1,5 +1,6 @@
+/* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
-import { isNil, unionBy, uniqBy } from 'lodash';
+import { isNil, unionBy, uniq, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -19,14 +20,18 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  convertHistoryTxsFiatCurrency,
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
   isHistoryCursorAdvanced,
+  scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -35,9 +40,13 @@ import {
   getPrivateSendHistoryDisplayStatus,
   isPrivateSendAccountHistoryTx,
   isPrivateSendSwapHistoryItem,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -68,6 +77,7 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IDecodedTxAction,
   IReplaceTxInfo,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -78,8 +88,20 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { perpsDepositOrderAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  perpsDepositOrderAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
+import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
+import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  applyLocalWalletNativePriceToHistoryTx,
+  fetchLocalWalletNativeTokenPrice,
+  isLocalWalletHistoryTxUnpriced,
+} from '../vaults/localWallet/nativeTokenPrice';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -96,13 +118,6 @@ import type { IAccountDeriveTypes } from '../vaults/types';
 const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
-
-const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
 
 type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
@@ -123,12 +138,8 @@ function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
 ) {
-  const isNextTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    next.status,
-  );
-  const isCurrentTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    current.status,
-  );
+  const isNextTerminal = isSwapHistoryTerminalStatus(next.status);
+  const isCurrentTerminal = isSwapHistoryTerminalStatus(current.status);
 
   if (isNextTerminal !== isCurrentTerminal) {
     return isNextTerminal;
@@ -729,6 +740,159 @@ function mergePrivateSendLocalDecodedTxFields({
   };
 }
 
+// The indexer owns a tx's display label, but networks it cannot parse return an
+// empty one. Replacing the local record with such an on-chain record drops the
+// semantics the app already knew when it built the tx (Earn claim/redeem,
+// internal swap), leaving both the history row and its details page with an
+// empty title. Carry those local display fields over, but only when the indexer
+// gave us nothing to show. Replacement linkage is local-only, so it is carried
+// independently of the display-label branch below.
+function getLocalReplacementFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): Pick<
+  IAccountHistoryTx,
+  | 'replacedPrevId'
+  | 'replacedNextId'
+  | 'replacedType'
+  | 'replacedMethod'
+  | 'primeInfiniPayment'
+> {
+  // Replacement linkage is local-only metadata. The indexer response can
+  // replace the local record after confirmation, so carry it forward when the
+  // response does not provide an equivalent field. In particular, a cancel
+  // replacement must remain distinguishable from the staking metadata it
+  // inherits for pending-state guards.
+  return {
+    ...(localTx.primeInfiniPayment
+      ? { primeInfiniPayment: localTx.primeInfiniPayment }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
+      ? { replacedPrevId: localTx.replacedPrevId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedNextId) && !isNil(localTx.replacedNextId)
+      ? { replacedNextId: localTx.replacedNextId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedType) && !isNil(localTx.replacedType)
+      ? { replacedType: localTx.replacedType }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedMethod) && !isNil(localTx.replacedMethod)
+      ? { replacedMethod: localTx.replacedMethod }
+      : {}),
+  };
+}
+
+export function mergeLocalTxDisplayFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  const localStakingInfo = localTx.stakingInfo;
+  const localReplacementFields = getLocalReplacementFields({
+    localTx,
+    onChainHistoryTx,
+  });
+  const zcashPayment = mergeZcashLocalTransparentPayment({
+    localTx,
+    onChainHistoryTx,
+  });
+  if (zcashPayment !== onChainHistoryTx) {
+    return { ...zcashPayment, ...localReplacementFields };
+  }
+  if (onChainHistoryTx.decodedTx.payload?.label) {
+    return {
+      ...onChainHistoryTx,
+      ...localReplacementFields,
+      ...(localStakingInfo && !onChainHistoryTx.stakingInfo
+        ? { stakingInfo: localStakingInfo }
+        : {}),
+    };
+  }
+
+  const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
+  // stakingInfo also identifies a staking tx whose merged record no longer has
+  // an assetTransfer action (the indexer parsed no transfers), so the label
+  // survives every later refresh instead of only the first merge.
+  const isInternalStaking = Boolean(
+    localTransfer?.isInternalStaking || localStakingInfo,
+  );
+  const isInternalSwap = localTransfer?.isInternalSwap;
+  if (!isInternalStaking && !isInternalSwap) {
+    return { ...onChainHistoryTx, ...localReplacementFields };
+  }
+
+  // Keep local staking metadata even when the indexer already supplied a
+  // display label. Borrow metadata-only actions such as setCollateral are
+  // identified by these tags and otherwise disappear after confirmation.
+  const preserveLocalStakingInfo =
+    localStakingInfo && !onChainHistoryTx.stakingInfo
+      ? { stakingInfo: localStakingInfo }
+      : {};
+
+  const internalStakingLabel = isInternalStaking
+    ? localTransfer?.internalStakingLabel ||
+      (localStakingInfo
+        ? getStakingActionLabel({ stakingInfo: localStakingInfo })
+        : undefined)
+    : undefined;
+
+  const mergeAction = (action: IDecodedTxAction): IDecodedTxAction => {
+    if (action.assetTransfer) {
+      return {
+        ...action,
+        assetTransfer: {
+          ...action.assetTransfer,
+          ...(isInternalStaking ? { isInternalStaking } : {}),
+          ...(isInternalSwap ? { isInternalSwap } : {}),
+          ...(internalStakingLabel ? { internalStakingLabel } : {}),
+        },
+      };
+    }
+
+    // The indexer parsed no transfers at all, so the tx renders as a function
+    // call / unknown action instead. Those views read their own label field.
+    if (!internalStakingLabel) {
+      return action;
+    }
+    if (action.functionCall && !action.functionCall.functionName) {
+      return {
+        ...action,
+        functionCall: {
+          ...action.functionCall,
+          functionName: internalStakingLabel,
+        },
+      };
+    }
+    if (action.unknownAction && !action.unknownAction.label) {
+      return {
+        ...action,
+        unknownAction: {
+          ...action.unknownAction,
+          label: internalStakingLabel,
+        },
+      };
+    }
+    return action;
+  };
+
+  return {
+    ...onChainHistoryTx,
+    ...localReplacementFields,
+    ...preserveLocalStakingInfo,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      actions: onChainHistoryTx.decodedTx.actions.map((action, index) =>
+        index === 0 ? mergeAction(action) : action,
+      ),
+    },
+  };
+}
+
 // Sentinel value stored inside a merge-derive opaque cursor map to mark a
 // deriveType that has finished paginating. Future pages skip it entirely
 // instead of issuing a request that would just return an empty page.
@@ -1162,7 +1326,11 @@ class ServiceHistory extends ServiceBase {
     });
 
     const filtered = filterHistoryTxs({
-      txs: onChainResult.txs,
+      txs: await this.convertTxsToDisplayCurrency({
+        txs: onChainResult.txs,
+        displayCurrency: sourceCurrency,
+        currencyMap,
+      }),
       sourceCurrency,
       targetCurrency,
       currencyMap,
@@ -1212,6 +1380,35 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
     };
+  }
+
+  // Cached rows keep the fiat snapshot of the currency they were fetched in.
+  // Bring them to the caller's display currency, which is the current setting
+  // when the caller names none (OK-67171).
+  // The result is a copy for display: a row whose rate is missing loses its
+  // fiat values in it, while the cached row keeps them. A caller that saves
+  // the result passes `hideUnconvertible: false` to get such a row as stored.
+  private async convertTxsToDisplayCurrency({
+    txs,
+    displayCurrency,
+    currencyMap,
+    hideUnconvertible = true,
+  }: {
+    txs: IAccountHistoryTx[];
+    displayCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+    hideUnconvertible?: boolean;
+  }): Promise<IAccountHistoryTx[]> {
+    if (!txs.some((tx) => tx.fiatCurrency)) {
+      return txs;
+    }
+    return convertHistoryTxsFiatCurrency({
+      txs,
+      targetCurrency:
+        displayCurrency ?? (await settingsPersistAtom.get()).currencyInfo.id,
+      currencyMap: currencyMap ?? (await currencyPersistAtom.get()).currencyMap,
+      hideUnconvertible,
+    });
   }
 
   // Local history is cached per network + address/xpub and shared by every
@@ -1325,7 +1522,7 @@ class ServiceHistory extends ServiceBase {
     // Confirmed transactions
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
-    const pendingTxs: IAccountHistoryTx[] = [];
+    let pendingTxs: IAccountHistoryTx[] = [];
     const accountsWithCompletedDeFiPortfolioTxs: {
       accountId: string;
       networkId: string;
@@ -1345,20 +1542,27 @@ class ServiceHistory extends ServiceBase {
       }
     };
 
+    // The server prices each detail's fee in the request currency. Name one
+    // currency for the whole poll, so the confirmed rows built from these
+    // details can be brought to it whatever the setting does meanwhile.
+    const detailCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
+
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
       localHistoryPendingTxs.map(
-        (tx) => () =>
+        (tx) => async () =>
           this.fetchHistoryTxDetails({
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            requestCurrency: detailCurrency,
             // the locally built decoded tx carries the complete input/output
             // set, so detail polling can narrow vault extra params to the
             // addresses this tx actually involves
             txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
               decodedTx: tx.decodedTx,
             }),
+            privacyChainPoolId: await this.getBackendPrivacyChainPoolId(tx),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -1393,14 +1597,38 @@ class ServiceHistory extends ServiceBase {
             txid: remoteTxId,
           });
         }
+        // A pending row cached across a currency switch still carries the
+        // currency it was built in, while the detail fee is priced in the
+        // detail currency. Bring the row to that currency before the fee is
+        // merged, so the confirmed row holds one currency and its fee is not
+        // converted a second time on read (OK-67171).
+        const [pendingTxInDetailCurrency] =
+          await this.convertTxsToDisplayCurrency({
+            txs: [localHistoryPendingTx],
+            displayCurrency: detailCurrency,
+            currencyMap,
+            hideUnconvertible: false,
+          });
+        // This row is saved. With a rate missing it stays in its own currency
+        // and takes no detail fiat fee, so the saved row still holds one
+        // currency and is converted on a later read.
+        const isPendingTxInDetailCurrency =
+          !pendingTxInDetailCurrency.fiatCurrency ||
+          pendingTxInDetailCurrency.fiatCurrency === detailCurrency;
+        const confirmedFeeInNative = isNil(confirmedTx.data.gasFee)
+          ? localHistoryPendingTx.decodedTx.totalFeeInNative
+          : confirmedTx.data.gasFee;
         confirmedTxs.push({
-          ...localHistoryPendingTx,
+          ...pendingTxInDetailCurrency,
+          fiatCurrency: isPendingTxInDetailCurrency
+            ? detailCurrency
+            : pendingTxInDetailCurrency.fiatCurrency,
           originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
           decodedTx: {
-            ...localHistoryPendingTx.decodedTx,
+            ...pendingTxInDetailCurrency.decodedTx,
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
@@ -1409,18 +1637,49 @@ class ServiceHistory extends ServiceBase {
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
-            totalFeeInNative: isNil(confirmedTx.data.gasFee)
-              ? localHistoryPendingTx.decodedTx.totalFeeInNative
-              : confirmedTx.data.gasFee,
-            totalFeeFiatValue: isNil(confirmedTx.data.gasFeeFiatValue)
-              ? localHistoryPendingTx.decodedTx.totalFeeFiatValue
-              : confirmedTx.data.gasFeeFiatValue,
+            totalFeeInNative: confirmedFeeInNative,
+            // A row that cannot take the detail fiat fee prices the fee
+            // actually paid from its own snapshot. The pending fiat value was
+            // priced with the estimated fee, so it is scaled to the paid one
+            // rather than saved as the fiat value of a fee it does not match.
+            totalFeeFiatValue:
+              isPendingTxInDetailCurrency &&
+              !isNil(confirmedTx.data.gasFeeFiatValue)
+                ? confirmedTx.data.gasFeeFiatValue
+                : scaleFeeFiatValueToNativeFee({
+                    feeFiatValue:
+                      pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue,
+                    feeInNative:
+                      localHistoryPendingTx.decodedTx.totalFeeInNative,
+                    nextFeeInNative: confirmedFeeInNative,
+                  }),
             isFinal: true,
           },
         });
       } else {
         pendingTxs.push(localHistoryPendingTx);
       }
+    }
+
+    // Chains where a broadcast tx can expire without ever landing (Solana
+    // blockhash expiry, OK-63381) report those pending txs as dropped so they
+    // leave the pending bucket instead of showing as confirming until the
+    // user clears them by hand.
+    const droppedPendingTxs = await this.getDroppedPendingTxs({ pendingTxs });
+    if (droppedPendingTxs.length) {
+      const droppedTxIds = new Set(droppedPendingTxs.map((tx) => tx.id));
+      pendingTxs = pendingTxs.filter((tx) => !droppedTxIds.has(tx.id));
+      confirmedTxs.push(
+        ...droppedPendingTxs.map((tx) => ({
+          ...tx,
+          originalId: tx.id,
+          decodedTx: {
+            ...tx.decodedTx,
+            status: EDecodedTxStatus.Dropped,
+            isFinal: true,
+          },
+        })),
+      );
     }
 
     // Notify subscribers (e.g. DeFi scheduler) that locally-pending txs
@@ -1662,6 +1921,13 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    // Cached rows the fresh page did not replace may be priced in another
+    // currency.
+    result = await this.convertTxsToDisplayCurrency({
+      txs: result,
+      displayCurrency: sourceCurrency,
+      currencyMap,
+    });
     result = await this.attachPrivateSendDisplayStatus(result);
     result = await this.attachPrivateSendDisplayPrices({
       txs: result,
@@ -2019,16 +2285,18 @@ class ServiceHistory extends ServiceBase {
       const localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
-      const result = unionBy(
-        [
-          ...localHistoryPendingTxs,
-          ...localHistoryConfirmedTxs.toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          ),
-        ],
-        (tx) => tx.id,
+      const result = await this.gateLocalWalletCachedHistoryTxs(
+        unionBy(
+          [
+            ...localHistoryPendingTxs,
+            ...localHistoryConfirmedTxs.toSorted(
+              (b, a) =>
+                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+            ),
+          ],
+          (tx) => tx.id,
+        ),
       );
 
       for (let i = 0; i < result.length; i += 1) {
@@ -2040,7 +2308,13 @@ class ServiceHistory extends ServiceBase {
       }
 
       const resultWithPrivateSendDisplayStatus =
-        await this.attachPrivateSendDisplayStatus(result);
+        await this.attachPrivateSendDisplayStatus(
+          await this.convertTxsToDisplayCurrency({
+            txs: result,
+            displayCurrency: sourceCurrency,
+            currencyMap,
+          }),
+        );
       const resultWithPrivateSendDisplayPrices =
         await this.attachPrivateSendDisplayPrices({
           txs: resultWithPrivateSendDisplayStatus,
@@ -2085,13 +2359,21 @@ class ServiceHistory extends ServiceBase {
       accountId,
     });
 
-    const result = unionBy(
-      [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
-      (tx) => tx.id,
+    const result = await this.gateLocalWalletCachedHistoryTxs(
+      unionBy(
+        [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
+        (tx) => tx.id,
+      ),
     );
 
     const resultWithPrivateSendDisplayStatus =
-      await this.attachPrivateSendDisplayStatus(result);
+      await this.attachPrivateSendDisplayStatus(
+        await this.convertTxsToDisplayCurrency({
+          txs: result,
+          displayCurrency: sourceCurrency,
+          currencyMap,
+        }),
+      );
     const resultWithPrivateSendDisplayPrices =
       await this.attachPrivateSendDisplayPrices({
         txs: resultWithPrivateSendDisplayStatus,
@@ -2185,12 +2467,16 @@ class ServiceHistory extends ServiceBase {
           const localHistoryTx = localHistoryTxs.find((tx) =>
             this.isSameScopedHistoryTx(onChainHistoryTx, tx),
           );
-          return localHistoryTx
-            ? mergePrivateSendLocalDecodedTxFields({
-                localTx: localHistoryTx,
-                onChainHistoryTx,
-              })
-            : onChainHistoryTx;
+          if (!localHistoryTx) {
+            return onChainHistoryTx;
+          }
+          return mergeLocalTxDisplayFields({
+            localTx: localHistoryTx,
+            onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+              localTx: localHistoryTx,
+              onChainHistoryTx,
+            }),
+          });
         },
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
@@ -2300,8 +2586,55 @@ class ServiceHistory extends ServiceBase {
       allConfirmedTxsToSave,
       allMergedOnChainHistoryTxs,
       allNonceHasBeenUsedTxs,
-      allFinalPendingTxs,
+      // The per-account loop above concatenates each account's pending rows in
+      // account order, while the local store (and so the list's first paint)
+      // orders pending rows by time. Restore the time order here so an All
+      // Networks refresh does not shuffle the pending section (OK-66004).
+      allFinalPendingTxs: sortHistoryTxsByTime({ txs: allFinalPendingTxs }),
     };
+  }
+
+  // Asks each involved vault which of its pending txs the chain will never
+  // confirm; a vault failure only keeps that account's txs pending.
+  async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const txsByAccount = new Map<string, IAccountHistoryTx[]>();
+    for (const tx of pendingTxs) {
+      const { accountId, networkId } = tx.decodedTx;
+      const key = `${accountId}__${networkId}`;
+      const group = txsByAccount.get(key);
+      if (group) {
+        group.push(tx);
+      } else {
+        txsByAccount.set(key, [tx]);
+      }
+    }
+    if (!txsByAccount.size) {
+      return [];
+    }
+
+    const results = await promiseAllSettledEnhanced(
+      [...txsByAccount.values()].map((txs) => async () => {
+        const { accountId, networkId } = txs[0].decodedTx;
+        try {
+          const vault = await vaultFactory.getVault({ networkId, accountId });
+          return await vault.getDroppedPendingTxs({ pendingTxs: txs });
+        } catch (error) {
+          // Keep account identifiers out of the log; the network is enough
+          // to attribute the failure.
+          console.error(
+            `Failed to check dropped pending txs on ${networkId}:`,
+            error,
+          );
+          return [];
+        }
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    return results.flatMap((txs) => txs ?? []);
   }
 
   @backgroundMethod()
@@ -2400,6 +2733,38 @@ class ServiceHistory extends ServiceBase {
     return resp.data.data;
   }
 
+  // Local-wallet rows arrive unpriced; quote the native asset by itself, in
+  // the history's display currency, so they show fiat like server rows.
+  private async attachLocalWalletNativePrices({
+    txs,
+    networkId,
+    currency,
+  }: {
+    txs: IAccountHistoryTx[];
+    networkId: string;
+    currency?: string;
+  }): Promise<IAccountHistoryTx[]> {
+    if (!txs.some(isLocalWalletHistoryTxUnpriced)) {
+      return txs;
+    }
+    try {
+      const price = await fetchLocalWalletNativeTokenPrice({
+        backgroundApi: this.backgroundApi,
+        networkId,
+        requestCurrency: currency,
+      });
+      if (price === undefined) {
+        return txs;
+      }
+      return txs.map((tx) =>
+        applyLocalWalletNativePriceToHistoryTx({ tx, price }),
+      );
+    } catch {
+      // Best effort: an unpriced row shows no fiat, as before.
+      return txs;
+    }
+  }
+
   @backgroundMethod()
   public async fetchAccountOnChainHistory(
     params: IFetchAccountHistoryParams & {
@@ -2442,6 +2807,28 @@ class ServiceHistory extends ServiceBase {
       };
     }
 
+    // Client-computed history (e.g. zcash shielded): a defined local result replaces the server query.
+    const localTxs = await vault.fetchAccountHistoryFromLocal({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      isManualRefresh,
+    });
+    if (localTxs) {
+      return {
+        txs: await this.attachLocalWalletNativePrices({
+          txs: localTxs,
+          networkId,
+          currency: params.sourceCurrency,
+        }),
+        addressMap: {},
+        hasMore: false,
+        next: undefined as string | undefined,
+        isIndexer: false,
+      };
+    }
+
     let networkInfo;
     try {
       networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
@@ -2453,6 +2840,10 @@ class ServiceHistory extends ServiceBase {
     const isIndexerChain = networkInfo?.backendIndex === true;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The server prices the page in the request currency. Send it explicitly
+    // and stamp the rows with the same value, so a currency switch during the
+    // request cannot leave a row labelled with a currency it was not priced in.
+    const requestCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
     let resp;
     let extraParams: any;
     const fetchHistoryFromServer = async () => {
@@ -2516,6 +2907,7 @@ class ServiceHistory extends ServiceBase {
         },
         {
           headers: {
+            'x-onekey-request-currency': requestCurrency,
             ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId: params.accountId,
@@ -2585,14 +2977,136 @@ class ServiceHistory extends ServiceBase {
         ),
       )
     ).filter(Boolean);
+    for (const tx of txs) {
+      tx.fiatCurrency = requestCurrency;
+    }
 
     return {
-      txs,
+      txs:
+        networkId === getNetworkIdsMap().onekeyall
+          ? await this.applyAllNetworksPrivacyChainSource(txs)
+          : txs,
       addressMap,
       hasMore,
       next,
       isIndexer: isIndexerChain,
     };
+  }
+
+  // A privacy chain joins All Networks only with its backend pool; local-scan rows never enter.
+  private async applyAllNetworksPrivacyChainSource<
+    T extends IAccountHistoryTx | null,
+  >(txs: T[]): Promise<T[]> {
+    const backendPoolIds = new Map<string, number | undefined>();
+    await Promise.all(
+      uniq(txs.map((tx) => tx?.decodedTx.networkId)).map(async (id) => {
+        if (!id) return;
+        const localWallet = await this.backgroundApi.serviceNetwork
+          .getVaultSettings({ networkId: id })
+          .then((settings) => settings.localWallet)
+          .catch(() => undefined);
+        if (localWallet) {
+          backendPoolIds.set(
+            id,
+            localWallet.pools.find((pool) => pool.source === 'backend')?.id,
+          );
+        }
+      }),
+    );
+    if (!backendPoolIds.size) return txs;
+    const gates = new Map<string, ILocalWalletHistoryAddressGate>();
+    await Promise.all(
+      uniqBy(
+        txs.filter(
+          (tx): tx is NonNullable<T> =>
+            !!tx && backendPoolIds.get(tx.decodedTx.networkId) !== undefined,
+        ),
+        (tx) => `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`,
+      ).map(async (tx) => {
+        const { networkId, accountId } = tx.decodedTx;
+        gates.set(
+          `${networkId}:${accountId}`,
+          await getLocalWalletHistoryAddressGate({
+            backgroundApi: this.backgroundApi,
+            networkId,
+            accountId,
+          }),
+        );
+      }),
+    );
+    return txs.flatMap((tx) => {
+      if (!tx || !backendPoolIds.has(tx.decodedTx.networkId)) return [tx];
+      const poolId = backendPoolIds.get(tx.decodedTx.networkId);
+      const gate = gates.get(
+        `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`,
+      );
+      if (poolId === undefined || !gate) return [];
+      return [
+        {
+          ...gateLocalWalletHistoryTx(gate, tx),
+          privacyChainHistorySide: 'public' as const,
+          privacyChainHistoryPoolIds: [poolId],
+        },
+      ];
+    });
+  }
+
+  // Cached rows skip the vault's history build, so own-address gating happens here; if the gate can't be built, own addresses are hidden.
+  private async gateLocalWalletCachedHistoryTxs(
+    txs: IAccountHistoryTx[],
+  ): Promise<IAccountHistoryTx[]> {
+    const localWalletNetworkIds = new Set<string>();
+    await Promise.all(
+      uniq(txs.map((tx) => tx.decodedTx.networkId)).map(async (id) => {
+        const localWallet = await this.backgroundApi.serviceNetwork
+          .getVaultSettings({ networkId: id })
+          .then((settings) => settings.localWallet)
+          .catch(() => undefined);
+        if (localWallet) localWalletNetworkIds.add(id);
+      }),
+    );
+    if (!localWalletNetworkIds.size) return txs;
+    const gateKey = (tx: IAccountHistoryTx) =>
+      `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`;
+    const gates = new Map<string, ILocalWalletHistoryAddressGate>();
+    await Promise.all(
+      uniqBy(
+        txs.filter((tx) => localWalletNetworkIds.has(tx.decodedTx.networkId)),
+        gateKey,
+      ).map(async (tx) => {
+        const { networkId, accountId } = tx.decodedTx;
+        gates.set(
+          gateKey(tx),
+          await getLocalWalletHistoryAddressGate({
+            backgroundApi: this.backgroundApi,
+            networkId,
+            accountId,
+          }).catch((): ILocalWalletHistoryAddressGate => ({})),
+        );
+      }),
+    );
+    return txs.map((tx) => {
+      const gate = gates.get(gateKey(tx));
+      return gate ? gateLocalWalletHistoryTx(gate, tx) : tx;
+    });
+  }
+
+  // A row on backend pools only is the backend's to answer: its detail request names that pool.
+  private async getBackendPrivacyChainPoolId(
+    tx: IAccountHistoryTx,
+  ): Promise<number | undefined> {
+    const poolIds = tx.privacyChainHistoryPoolIds;
+    if (!poolIds?.length) return undefined;
+    const localWallet = await this.backgroundApi.serviceNetwork
+      .getVaultSettings({ networkId: tx.decodedTx.networkId })
+      .then((settings) => settings.localWallet)
+      .catch(() => undefined);
+    const isBackendOnly = poolIds.every(
+      (poolId) =>
+        localWallet?.pools.find((pool) => pool.id === poolId)?.source ===
+        'backend',
+    );
+    return isBackendOnly ? poolIds[0] : undefined;
   }
 
   @backgroundMethod()
@@ -2604,8 +3118,16 @@ class ServiceHistory extends ServiceBase {
     supported: boolean;
     data: ITransferRecipient[];
     lastUsedDeriveType?: string;
+    // True when `supported: false` comes from a failed request rather than
+    // the server, so callers do not memoize the network as unsupported.
+    errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
+
+    // Same shape as a server "unsupported" answer: the UI falls back to locally stored recipients.
+    if (await isAddressWithheldFromBackend({ networkId })) {
+      return { supported: false, data: [] };
+    }
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2649,12 +3171,23 @@ class ServiceHistory extends ServiceBase {
         return { supported: supported ?? true, data: data ?? [] };
       } catch (error) {
         console.error('Failed to fetch transfer recipients:', error);
-        return { supported: false, data: [] as ITransferRecipient[] };
+        return {
+          supported: false,
+          data: [] as ITransferRecipient[],
+          errored: true,
+        };
       }
     };
 
     if (xpubEntries.length <= 1) {
-      return callOnce(xpubEntries[0]?.xpub, limit);
+      const single = await callOnce(xpubEntries[0]?.xpub, limit);
+      this.persistTransferRecipients({
+        accountId,
+        networkId,
+        limit,
+        result: single,
+      });
+      return single;
     }
 
     // Each xpub requests the full limit so that addresses concentrated
@@ -2674,6 +3207,7 @@ class ServiceHistory extends ServiceBase {
         deriveType: IAccountDeriveTypes;
         supported: boolean;
         data: ITransferRecipient[];
+        errored?: boolean;
       } => !!r,
     );
 
@@ -2704,11 +3238,78 @@ class ServiceHistory extends ServiceBase {
       }
     }
     merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
-    return {
+    const result = {
       supported: anySupported,
       data: merged.slice(0, limit),
       lastUsedDeriveType: newestDeriveType,
+      errored: responses.length > 0 && responses.every((r) => r.errored),
     };
+    this.persistTransferRecipients({ accountId, networkId, limit, result });
+    return result;
+  }
+
+  // Remember the last successful answer so the Send address page can paint
+  // it on a cold start while the network refresh runs (OK-63452). Only a
+  // server-confirmed list is stored; unsupported or failed answers are not.
+  private persistTransferRecipients({
+    accountId,
+    networkId,
+    limit,
+    result,
+  }: {
+    accountId: string;
+    networkId: string;
+    limit: number;
+    result: {
+      supported: boolean;
+      data: ITransferRecipient[];
+      lastUsedDeriveType?: string;
+      errored?: boolean;
+    };
+  }) {
+    if (!result.supported || result.errored) {
+      return;
+    }
+    void this.backgroundApi.simpleDb.transferRecipientsCache
+      .setEntry({
+        accountId,
+        networkId,
+        limit,
+        data: result.data,
+        lastUsedDeriveType: result.lastUsedDeriveType,
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist transfer recipients:', error);
+      });
+  }
+
+  @backgroundMethod()
+  public async getCachedTransferRecipients({
+    accountId,
+    networkId,
+    limit = 10,
+  }: {
+    accountId: string;
+    networkId: string;
+    // Must match the `limit` passed to fetchTransferRecipients.
+    limit?: number;
+  }): Promise<
+    | {
+        data: ITransferRecipient[];
+        lastUsedDeriveType?: string;
+      }
+    | undefined
+  > {
+    const entry =
+      await this.backgroundApi.simpleDb.transferRecipientsCache.getEntry({
+        accountId,
+        networkId,
+        limit,
+      });
+    if (!entry) {
+      return undefined;
+    }
+    return { data: entry.data, lastUsedDeriveType: entry.lastUsedDeriveType };
   }
 
   @backgroundMethod()
@@ -2746,6 +3347,8 @@ class ServiceHistory extends ServiceBase {
             accountId,
             networkId,
             txid,
+            withUTXOs: true,
+            privacyChainPoolId: params.privacyChainPoolId,
           }
         : {
             accountId,
@@ -2753,6 +3356,10 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
+            privacyChainPoolId: params.privacyChainPoolId,
+            ...(params.requestCurrency
+              ? { requestCurrency: params.requestCurrency }
+              : {}),
             // skip account-scoped vault extras when the address lookup
             // failed: the server rejects `accountAddressArray` without an
             // accompanying `accountAddress`, and other vault extras (e.g.
@@ -2940,7 +3547,7 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async clearLocalHistoryPendingTxs() {
-    return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+    await this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
   }
 
   @backgroundMethod()
@@ -3081,8 +3688,10 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     data: ISendTxOnSuccessData;
     replaceTxInfo?: IReplaceTxInfo;
+    primeInfiniPayment?: IAccountHistoryTx['primeInfiniPayment'];
   }) {
-    const { networkId, accountId, data, replaceTxInfo } = params;
+    const { networkId, accountId, data, replaceTxInfo, primeInfiniPayment } =
+      params;
 
     if (!data || !data.decodedTx) {
       return;
@@ -3099,6 +3708,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (primeInfiniPayment) {
+      newHistoryTx.primeInfiniPayment = primeInfiniPayment;
+    }
 
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
@@ -3136,6 +3748,9 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
       if (prevTx) {
+        if (prevTx.stakingInfo && !newHistoryTx.stakingInfo) {
+          newHistoryTx.stakingInfo = prevTx.stakingInfo;
+        }
         prevTx.decodedTx.status = EDecodedTxStatus.Dropped;
         prevTx.replacedNextId = newHistoryTx.id;
 

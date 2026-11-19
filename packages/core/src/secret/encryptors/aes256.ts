@@ -225,11 +225,18 @@ function readSecretEncryptPayloadMetadata({
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
+// Prefixed keys are app-generated identifiers, not user-memorable passwords;
+// PBKDF2 is only used to derive the AES key and does not supply their entropy.
+const INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS = 1;
 let encodeKey = platformEnv.isWebEmbed
   ? ''
   : `${encodeKeyPrefix}${generateUUID()}`;
 // xor more fast but not safe
 const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
+
+function isInternalSensitiveTextKey(key: string): boolean {
+  return key.startsWith(encodeKeyPrefix);
+}
 
 function ensureEncodeKeyExists(key: string) {
   if (!key) {
@@ -257,7 +264,7 @@ async function decodePasswordAsync({
   enablePbkdf2Cache?: boolean;
 }): Promise<string> {
   // do nothing if password is encodeKey, but not a real password
-  if (password.startsWith(encodeKeyPrefix)) {
+  if (isInternalSensitiveTextKey(password)) {
     return password;
   }
   // decode password if it is encoded
@@ -1086,6 +1093,7 @@ async function decodeSensitiveTextAsyncWithMetadata({
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
   ensureEncodeKeyExists(theKey);
+  const isInternalKey = isInternalSensitiveTextKey(theKey);
   if (isEncodedSensitiveText(encodedText)) {
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
       const result = await decryptAsyncWithMetadata({
@@ -1096,7 +1104,9 @@ async function decodeSensitiveTextAsyncWithMetadata({
         ),
         ignoreLogger,
         allowRawPassword,
-        upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+        upgradeTargetIterations: isInternalKey
+          ? INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+          : getSecretEncryptV2LocalTargetIterations(),
       });
       return {
         text: result.plaintext.toString('utf-8'),
@@ -1104,7 +1114,10 @@ async function decodeSensitiveTextAsyncWithMetadata({
         format: result.format,
         version: result.version,
         iterations: result.iterations,
-        needsUpgrade: result.needsUpgrade,
+        needsUpgrade: isInternalKey
+          ? result.format !== ESecretEncryptPayloadFormat.v2 ||
+            result.iterations !== INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+          : result.needsUpgrade,
       };
     }
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
@@ -1178,6 +1191,11 @@ async function encodeSensitiveTextAsync({
         password: theKey,
         data: Buffer.from(text, 'utf-8'),
         allowRawPassword: true,
+        iterations:
+          isInternalSensitiveTextKey(theKey) &&
+          format !== ESecretEncryptPayloadFormat.legacy
+            ? INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+            : undefined,
         customSalt,
         customIv,
         format,

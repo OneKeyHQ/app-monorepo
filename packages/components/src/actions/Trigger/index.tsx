@@ -1,5 +1,12 @@
 import type { ForwardedRef, PropsWithChildren } from 'react';
-import { Children, cloneElement, forwardRef, isValidElement } from 'react';
+import {
+  Children,
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { debounce } from 'lodash';
 
@@ -8,13 +15,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives/Stack';
 
 import type { IButtonProps } from '../../primitives/Button';
-import type { View as IView, LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const composeEventHandlers =
-  (
-    onPress: (...params: any) => void | Promise<boolean>,
-    onTrigger?: () => void,
-  ) =>
+  (onPress: (...params: any) => unknown, onTrigger?: () => void) =>
   async (...params: any) => {
     const result = await onPress(...params);
     if (result !== false) {
@@ -41,11 +45,29 @@ const stopPropagationPress = (onPress: (...params: any[]) => void) =>
         return onPress(...params);
       }
     : onPress;
+type IPressHandler = Parameters<typeof stopPropagationPress>[0];
 
 function BasicTrigger(
   { onPress: onPressInTrigger, disabled, children, onLayout, testID }: ITrigger,
-  ref: ForwardedRef<IView>,
+  ref: ForwardedRef<ViewInstance>,
 ) {
+  const handleOpenRef = useRef<IPressHandler | undefined>(undefined);
+  const debounceHandlePress = useMemo(
+    () =>
+      stopPropagationPress(
+        debounce(
+          (...params: Parameters<IPressHandler>) =>
+            handleOpenRef.current?.(...params),
+          10,
+          {
+            leading: true,
+            trailing: false,
+          },
+        ),
+      ),
+    [],
+  );
+
   if (children) {
     const child = Children.only(children);
     if (isValidElement(child)) {
@@ -53,9 +75,7 @@ function BasicTrigger(
       const handleOpen = onPress
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
-      const debounceHandlePress = stopPropagationPress(
-        debounce(handleOpen as () => void, 10),
-      );
+      handleOpenRef.current = handleOpen as IPressHandler;
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 
       return (

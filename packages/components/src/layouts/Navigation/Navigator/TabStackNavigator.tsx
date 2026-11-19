@@ -15,16 +15,14 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
-import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
+import type { ITabNavigatorProps, ITabSubStackNavigatorProps } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const Stack = createStackNavigator();
 
-function BasicTabSubStackNavigator({
-  config,
-}: {
-  config: ITabSubNavigatorConfig<string, any>[] | null;
-}) {
+// `pushedScreenPresentation` only changes native headers; web panes already
+// share one header style.
+function BasicTabSubStackNavigator({ config }: ITabSubStackNavigatorProps) {
   const theme = useTheme();
   const intl = useIntl();
 

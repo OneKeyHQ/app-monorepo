@@ -17,11 +17,12 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -65,10 +66,15 @@ function useHandleClaimAction({
   protocolInfo,
   tokenInfo,
   token,
+  onSuccess,
 }: {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  // Fires once the claim transaction is confirmed, for callers that render
+  // balances the claim invalidates. Optional: existing call sites pass nothing
+  // and keep what they do today.
+  onSuccess?: () => void;
 }) {
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
@@ -122,10 +128,11 @@ function useHandleClaimAction({
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         portfolioSymbol: token?.symbol,
+        onSuccess,
       });
       setLoading(false);
     },
-    [handleClaim, protocolInfo, tokenInfo, token],
+    [handleClaim, protocolInfo, tokenInfo, token, onSuccess],
   );
 }
 
@@ -322,15 +329,18 @@ function BasicClaimActionIcon({
   tokenInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnClaimActionIcon;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const handleClaimAction = useHandleClaimAction({
+    onSuccess,
     protocolInfo,
     tokenInfo,
     token,
@@ -369,11 +379,16 @@ function BasicListaCheckActionIcon({
   protocolInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnListaCheckActionIcon;
   protocolInfo?: IProtocolInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  // Fires once the server has accepted the signature: the reward amount and
+  // its Claim button only exist in the next detail response, so the caller
+  // has to refetch (OK-62942). The positions page does the same.
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const signMessage = useEarnSignMessage();
@@ -390,8 +405,10 @@ function BasicListaCheckActionIcon({
       provider: protocolInfo.provider,
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
-    }).finally(() => setLoading(false));
-  }, [protocolInfo, signMessage, token]);
+    })
+      .then(() => onSuccess?.())
+      .finally(() => setLoading(false));
+  }, [protocolInfo, signMessage, token, onSuccess]);
 
   if (trigger) {
     return trigger({
@@ -539,6 +556,7 @@ function BasicEarnActionIcon({
   token,
   onHistory,
   trigger,
+  onActionSuccess,
 }: {
   title?: string;
   actionIcon?: IEarnActionIcon;
@@ -547,54 +565,99 @@ function BasicEarnActionIcon({
   token?: IEarnToken;
   onHistory?: (params?: { filterType?: string }) => void;
   trigger?: IActionTrigger;
+  // Fires after a claim confirms, so a caller showing the balance the claim
+  // changed can refetch it. Currently only the phone Portfolio tab passes it.
+  onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const appNavigation = useAppNavigation();
+  const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
   });
-  const handleCancelWithdrawal = useCallback(async () => {
-    const provider = protocolInfo?.provider || tokenInfo?.provider || '';
-    const symbol =
-      protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
+  const handleCancelWithdrawal = useCallback(
+    // Keep the button's vault when opening the picker or canceling a single request.
+    async () => {
+      const provider = protocolInfo?.provider || tokenInfo?.provider || '';
+      const symbol =
+        protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
 
-    if (!protocolInfo?.earnAccount?.accountId || !provider || !symbol) {
-      return;
-    }
-    setCancelLoading(true);
-    try {
-      await handleUniversalWithdraw({
-        amount: '0',
-        symbol,
-        provider,
-        protocolVault: earnUtils.shouldSendEarnProtocolVault({
-          providerName: provider,
-        })
-          ? protocolInfo?.vault
-          : undefined,
-        withdrawAll: false,
-        withdrawType: 'cancel',
-        stakingInfo: {
-          label: EEarnLabels.Withdraw,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
-        },
-      });
-    } finally {
-      setCancelLoading(false);
-    }
-  }, [handleUniversalWithdraw, protocolInfo, token, tokenInfo]);
+      if (
+        actionIcon?.type !== EStakingActionType.CancelWithdrawal ||
+        !protocolInfo?.earnAccount?.accountId ||
+        !provider ||
+        !symbol
+      ) {
+        return;
+      }
+      if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: protocolInfo.earnAccount.accountId,
+            networkId: protocolInfo.networkId || tokenInfo?.networkId || '',
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            onSuccess: onActionSuccess,
+          },
+        });
+        return;
+      }
+      setCancelLoading(true);
+      try {
+        await handleUniversalWithdraw({
+          amount: '0',
+          symbol,
+          provider,
+          protocolVault: earnUtils.shouldSendEarnProtocolVault({
+            providerName: provider,
+          })
+            ? protocolInfo?.vault
+            : undefined,
+          withdrawAll: false,
+          withdrawType: 'cancel',
+          stakingInfo: {
+            label: EEarnLabels.Withdraw,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+            tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+          },
+          onSuccess: onActionSuccess,
+        });
+      } finally {
+        setCancelLoading(false);
+      }
+    },
+    [
+      actionIcon,
+      appNavigation,
+      handleUniversalWithdraw,
+      onActionSuccess,
+      protocolInfo,
+      token,
+      tokenInfo,
+    ],
+  );
 
   if (!actionIcon) {
     return null;
   }
   let onPress: undefined | IIconButtonProps['onPress'];
   let icon: IKeyOfIcons | undefined;
+  let disabled: boolean | undefined;
   switch (actionIcon?.type) {
     case 'link':
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
+      break;
+    case 'copy':
+      icon = 'Copy3Outline';
+      disabled = actionIcon.disabled;
+      onPress = () => copyText(actionIcon.data.text);
       break;
     case 'portfolio':
       return (
@@ -612,6 +675,7 @@ function BasicEarnActionIcon({
           protocolInfo={protocolInfo}
           token={token}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case EStakingActionType.CancelWithdrawal:
@@ -648,6 +712,7 @@ function BasicEarnActionIcon({
           token={token}
           actionIcon={actionIcon}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case 'claimWithKyc': {
@@ -711,6 +776,7 @@ function BasicEarnActionIcon({
       size="small"
       icon={icon}
       onPress={onPress}
+      disabled={disabled}
       color="$iconSubdued"
       variant="tertiary"
     />

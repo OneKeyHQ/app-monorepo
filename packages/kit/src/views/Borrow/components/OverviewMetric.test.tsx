@@ -164,4 +164,28 @@ describe('OverviewMetric', () => {
     expect(value.getAttribute('data-adjusts-font-size-to-fit')).toBe('true');
     expect(value.getAttribute('data-minimum-font-scale')).toBe('0.75');
   });
+
+  it('shows a custom value only after loading completes', () => {
+    const { rerender } = render(
+      <OverviewMetric
+        isLoading
+        title={{ text: 'Net worth' }}
+        text={{ text: '$1,234,567.89' }}
+        valueText={<span>$1.23M</span>}
+      />,
+    );
+
+    expect(screen.queryByText('$1.23M')).toBeNull();
+    expect(screen.getByTestId('skeleton')).toBeTruthy();
+
+    rerender(
+      <OverviewMetric
+        title={{ text: 'Net worth' }}
+        text={{ text: '$1,234,567.89' }}
+        valueText={<span>$1.23M</span>}
+      />,
+    );
+    expect(screen.getByText('$1.23M')).toBeTruthy();
+    expect(screen.queryByText('$1,234,567.89')).toBeNull();
+  });
 });

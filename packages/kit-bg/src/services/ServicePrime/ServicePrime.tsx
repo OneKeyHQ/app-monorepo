@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
@@ -14,7 +15,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ONEKEY_ID_OAUTH_BIND_PATH,
+  RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
@@ -23,10 +27,12 @@ import {
   OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   markOneKeyIdFailureServerLogged,
   wasOneKeyIdFailureServerLogged,
@@ -39,7 +45,11 @@ import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/key
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   getBoundOAuthProviders,
   getOneKeyIdOAuthProviderFromSocialLoginProvider,
@@ -47,8 +57,19 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import {
+  getPrimeGiftVerifyFailureLogPayload,
+  isPrimeGiftVerifyCancellationError,
+} from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
+import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentErrorFailure,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -60,18 +81,36 @@ import type {
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type {
+  IPrimeFreeTrialError,
+  IPrimeFreeTrialQuota,
+  IPrimeFreeTrialUserInfoField,
+} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import type {
+  IPrimeGiftClaimParams,
+  IPrimeGiftClaimResult,
+  IPrimeGiftEligibility,
+  IPrimeGiftPreparedRedemption,
+  IPrimeGiftVerifyV2Result,
+} from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
   IOneKeyIdAccount,
   IOneKeyIdOAuthBindResponse,
   IOneKeyIdOAuthLoginResponse,
   IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
+  IPrimeInfiniCheckoutAuthContext,
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentCreateParams,
+  IPrimeInfiniPaymentFlowContext,
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
+  IPrimeInfiniPaymentSource,
+  IPrimeInfiniPendingPaymentLookup,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
+  IPrimeRedemptionParams,
+  IPrimeRedemptionResult,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -79,7 +118,9 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
+  primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
   primePersistAtom,
   primePersistAtomInitialValue,
@@ -97,6 +138,10 @@ import {
   markIdentityRecoveryReady,
 } from '../ServiceIdentityExit/identityLifecycleMutex';
 
+import {
+  enqueuePrimeProfileAnalyticsReport as enqueuePrimeProfileAnalyticsReportImpl,
+  trackOneKeyIdIdentityLinked as trackOneKeyIdIdentityLinkedImpl,
+} from './primeAnalyticsProfile';
 import {
   allowAuthSessionStorageWritesBySessionSource,
   clearAllSupabaseAuthSessions,
@@ -174,11 +219,88 @@ type IPrimeInfiniPaymentApiResponse = {
   infiniStatus?: unknown;
   amountConfirmed?: unknown;
   amountConfirming?: unknown;
+  warningMessages?: unknown;
 };
+
+type IPrimeRedemptionApiResponse = {
+  daysAdded?: unknown;
+  primeExpiresAt?: unknown;
+};
+
+function validatePrimeRedemptionResponse(
+  redemption: IPrimeRedemptionApiResponse | undefined,
+): IPrimeRedemptionResult {
+  if (
+    !redemption ||
+    !Number.isSafeInteger(redemption.daysAdded) ||
+    Number(redemption.daysAdded) <= 0 ||
+    !Number.isSafeInteger(redemption.primeExpiresAt) ||
+    Number(redemption.primeExpiresAt) < 1_000_000_000_000 ||
+    Number.isNaN(new Date(Number(redemption.primeExpiresAt)).getTime())
+  ) {
+    throw new OneKeyLocalError(
+      appLocale.intl.formatMessage({
+        id: ETranslations.prime_redemption_invalid_response__msg,
+      }),
+    );
+  }
+  return {
+    addedDays: Number(redemption.daysAdded),
+    finalExpiresAt: Number(redemption.primeExpiresAt),
+  };
+}
+
+function normalizePrimeRedemptionAxiosHttpError(
+  error: unknown,
+): OneKeyServerApiError | undefined {
+  if (!axios.isAxiosError<unknown>(error)) {
+    return undefined;
+  }
+  const status = error.response?.status;
+  const payload = error.response?.data;
+  if (
+    !status ||
+    status < 400 ||
+    status >= 500 ||
+    status === 401 ||
+    status === 403 ||
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
+    return undefined;
+  }
+  const record = payload as Record<string, unknown>;
+  const code =
+    typeof record.code === 'number' &&
+    Number.isSafeInteger(record.code) &&
+    record.code > 0
+      ? record.code
+      : undefined;
+  const message =
+    typeof record.message === 'string' ? record.message : undefined;
+  const translatedMessage =
+    typeof record.translatedMessage === 'string'
+      ? record.translatedMessage
+      : undefined;
+  if (!code && !message && !translatedMessage) {
+    return undefined;
+  }
+  // Only business fields cross the bridge; Axios config can contain auth tokens.
+  return new OneKeyServerApiError({
+    autoToast: false,
+    disableFallbackMessage: true,
+    message: translatedMessage || message || error.message,
+    code,
+    httpStatusCode: status,
+    data: { code, message, translatedMessage },
+  });
+}
 
 function validateInfiniPaymentResponse(
   payment: IPrimeInfiniPaymentApiResponse | undefined,
   expectedPaymentId?: string,
+  flowContext?: IPrimeInfiniPaymentFlowContext,
 ): IPrimeInfiniPayment {
   const rawAmountDue =
     payment?.amountDue === undefined ? payment?.payAmount : payment.amountDue;
@@ -213,12 +335,44 @@ function validateInfiniPaymentResponse(
     (payment.status !== undefined && !isString(payment.status)) ||
     (payment.infiniStatus !== undefined && !isString(payment.infiniStatus)) ||
     (payment.amountConfirmed !== undefined &&
-      !isString(payment.amountConfirmed)) ||
+      (!isString(payment.amountConfirmed) ||
+        !new BigNumber(payment.amountConfirmed).isFinite() ||
+        new BigNumber(payment.amountConfirmed).lt(0))) ||
     (payment.amountConfirming !== undefined &&
-      !isString(payment.amountConfirming)) ||
+      (!isString(payment.amountConfirming) ||
+        !new BigNumber(payment.amountConfirming).isFinite() ||
+        new BigNumber(payment.amountConfirming).lt(0))) ||
+    (payment.warningMessages !== undefined &&
+      (!Array.isArray(payment.warningMessages) ||
+        !payment.warningMessages.every(
+          (warning) => typeof warning === 'string',
+        ))) ||
     (expectedPaymentId !== undefined && payment.paymentId !== expectedPaymentId)
   ) {
-    throw new OneKeyLocalError('Invalid Infini payment response');
+    defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+      ...flowContext,
+      stage: 'responseValidation',
+      status: 'failed',
+      failureReason: 'invalidResponse',
+      actualChain: isString(payment?.chain) ? payment.chain : undefined,
+      actualToken: isString(payment?.token) ? payment.token : undefined,
+      remainingMs:
+        typeof payment?.expiresAt === 'number'
+          ? payment.expiresAt - Date.now()
+          : undefined,
+    });
+    throw createPrimeInfiniPaymentValidationError('invalidResponse');
+  }
+  if (flowContext?.paymentSource !== 'polling') {
+    defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+      ...flowContext,
+      stage: 'responseValidation',
+      status: 'succeeded',
+      paymentId: payment.paymentId,
+      actualChain: payment.chain,
+      actualToken: payment.token,
+      remainingMs: payment.expiresAt - Date.now(),
+    });
   }
   return {
     paymentId: payment.paymentId,
@@ -231,6 +385,7 @@ function validateInfiniPaymentResponse(
     infiniStatus: payment.infiniStatus,
     amountConfirmed: payment.amountConfirmed,
     amountConfirming: payment.amountConfirming,
+    warningMessages: payment.warningMessages as string[] | undefined,
   };
 }
 
@@ -346,16 +501,255 @@ async function withIdentityNetworkTimeout<T>(
   }
 }
 
-type IOneKeyIdAuthSnapshot = {
+export type IOneKeyIdAuthSnapshot = {
   expectedOneKeyUserId: string;
   requestAuthToken: string;
   authSessionSource: EPrimeAuthSessionSource;
   authStateGeneration: number;
 };
 
+// A non-boolean is not a decision. GET /user/info turns an omitted field
+// into false before this runs; other payloads keep the same user's value.
+function resolveInviteProfilePublic({
+  incoming,
+  previous,
+  isSameUser,
+}: {
+  incoming: unknown;
+  previous: boolean | undefined;
+  isSameUser: boolean;
+}): boolean | undefined {
+  if (typeof incoming === 'boolean') {
+    return incoming;
+  }
+  return isSameUser ? previous : undefined;
+}
+
 class ServicePrime extends ServiceBase {
+  private primeGiftMutex = new Semaphore(1);
+
+  private primeGiftEligibilityRequests = new Map<string, number>();
+
+  @backgroundMethod()
+  async apiGetPrimeGiftUserId(): Promise<string | undefined> {
+    try {
+      const client = await this.getPrimeClient();
+      const response = await client.get<
+        IPrimeApiClientResponse<IPrimeServerUserInfo>
+      >('/prime/v1/user/info');
+      const info = this.getPrimeApiResponseData({
+        response,
+        fallbackMessage: appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_user_info_failed__msg,
+        }),
+      });
+      return typeof info.userId === 'string'
+        ? info.userId.trim() || undefined
+        : undefined;
+    } catch (error) {
+      // The claim page handles this automatic login check; mute before the
+      // error crosses the background proxy and schedules a global toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  private async getPrimeGiftUser() {
+    const user = await primePersistAtom.get();
+    if (!user.isLoggedIn) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.id_login_expired_description,
+        }),
+        key: ETranslations.id_login_expired_description,
+        autoToast: false,
+      });
+    }
+    return user;
+  }
+
+  @backgroundMethod()
+  async apiPreparePrimeGiftRedemption({
+    device,
+    serialNo,
+    expectedOneKeyUserId,
+  }: IPrimeGiftClaimParams): Promise<IPrimeGiftPreparedRedemption> {
+    return this.primeGiftMutex.runExclusive(async () => {
+      await this.getPrimeGiftUser();
+      let verification: IPrimeGiftVerifyV2Result;
+      try {
+        verification =
+          await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+            { device, serialNo },
+          );
+      } catch (error) {
+        if (
+          isPrimeGiftVerifyCancellationError(error) ||
+          (error instanceof OneKeyLocalError &&
+            (error.key === ETranslations.feedback_hardware_is_busy ||
+              error.key === ETranslations.prime_gift_connect_device__msg))
+        ) {
+          throw error;
+        }
+        defaultLogger.hardware.sdkLog.serviceEvent(
+          'firmwareAuthenticateForPrimeGift',
+          getPrimeGiftVerifyFailureLogPayload(error),
+        );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.prime_gift_verify_failed__msg,
+          }),
+          key: ETranslations.prime_gift_verify_failed__msg,
+          autoToast: false,
+        });
+      }
+      return {
+        serialNo,
+        onekeyUserId: expectedOneKeyUserId,
+        code: verification.code,
+        verification: {
+          hasCode: Boolean(verification.code?.trim()),
+          status: verification.status,
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeGiftEligibility({
+    serialNo,
+  }: {
+    serialNo: string;
+  }): Promise<IPrimeGiftEligibility> {
+    const request = (this.primeGiftEligibilityRequests.get(serialNo) ?? 0) + 1;
+    this.primeGiftEligibilityRequests.set(serialNo, request);
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const response = await client.post<
+      IApiClientResponse<IPrimeGiftEligibility>
+    >('/wallet/v1/hardware/prime-gift/eligibility', { sno: serialNo });
+    const eligibility = this.getPrimeApiResponseData({
+      response,
+      fallbackMessage: appLocale.intl.formatMessage({
+        id: ETranslations.prime_gift_eligibility_failed__msg,
+      }),
+    });
+    if (
+      typeof eligibility.eligible !== 'boolean' ||
+      typeof eligibility.hasUnclaimedGift !== 'boolean' ||
+      !Number.isSafeInteger(eligibility.giftDays) ||
+      eligibility.giftDays < 0 ||
+      (eligibility.giftMonths !== undefined &&
+        eligibility.giftMonths !== null &&
+        eligibility.giftMonths !== '' &&
+        (!Number.isSafeInteger(eligibility.giftMonths) ||
+          eligibility.giftMonths < 0))
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_eligibility_failed__msg,
+        }),
+      );
+    }
+    await primeGiftEligibilityPersistAtom.set((cached) => {
+      // A slower previous request must not overwrite a newer device response.
+      if (this.primeGiftEligibilityRequests.get(serialNo) !== request) {
+        return cached;
+      }
+      return {
+        ...cached,
+        [serialNo]: {
+          sno: eligibility.sno,
+          eligible: eligibility.eligible,
+          hasUnclaimedGift: eligibility.hasUnclaimedGift,
+          giftDays: eligibility.giftDays,
+          giftMonths: eligibility.giftMonths,
+        },
+      };
+    });
+    return eligibility;
+  }
+
+  @backgroundMethod()
+  async apiResetPrimeGift({ serialNo }: { serialNo: string }): Promise<void> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_developer_mode_required__msg,
+        }),
+      );
+    }
+    if (!serialNo.trim()) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_serial_required__msg,
+        }),
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const response = await client.post<IApiClientResponse<unknown>>(
+      '/wallet/v1/hardware/prime-gift/reset',
+      { sno: serialNo },
+    );
+    if (response.data.code !== 0) {
+      throw this.buildPrimeApiResponseError({
+        response,
+        fallbackMessage: appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_reset_failed__msg,
+        }),
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async apiClaimPrimeGift({
+    code,
+    serialNo,
+    expectedOneKeyUserId,
+  }: IPrimeRedemptionParams & {
+    serialNo: string;
+  }): Promise<IPrimeGiftClaimResult> {
+    return this.primeGiftMutex.runExclusive(async () => {
+      const user = await this.getPrimeGiftUser();
+      const redemption = await this.redeemPrimeCode({
+        code,
+        expectedOneKeyUserId,
+      });
+      const result = {
+        ...redemption,
+        serialNo,
+        onekeyUserId: expectedOneKeyUserId,
+        email: user.displayEmail ?? user.email,
+      };
+      appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, { serialNo });
+      void this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
+        () => undefined,
+      );
+      return result;
+    });
+  }
+
+  private primeUserInfoFetchGeneration = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private trackOneKeyIdIdentityLinked({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string | undefined;
+  }) {
+    void trackOneKeyIdIdentityLinkedImpl({
+      simpleDb: this.backgroundApi.simpleDb.prime,
+      onekeyUserId,
+    });
+  }
+
+  private enqueuePrimeProfileAnalyticsReport() {
+    void enqueuePrimeProfileAnalyticsReportImpl({
+      simpleDb: this.backgroundApi.simpleDb.prime,
+    });
   }
 
   async getPrimeClient() {
@@ -365,6 +759,13 @@ class ServicePrime extends ServiceBase {
   private createInfiniPurchaseUserChangedError() {
     return new OneKeyLocalError({
       message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  private createInviteProfilePublicUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Invite profile consent user changed',
       autoToast: false,
     });
   }
@@ -485,6 +886,39 @@ class ServicePrime extends ServiceBase {
     };
   }
 
+  // Background-only (not exposed to the UI): lets other services pin the
+  // OneKey ID session an account-scoped request belongs to, e.g. free-trial
+  // usage reports that must never be sent as a different user.
+  async captureOneKeyIdAuthRequestConfig({
+    expectedOneKeyUserId,
+    createStateChangedError,
+  }: {
+    expectedOneKeyUserId: string;
+    createStateChangedError: () => Error;
+  }) {
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    return {
+      snapshot,
+      requestConfig: this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    };
+  }
+
+  async assertOneKeyIdAuthSnapshotUnchanged({
+    snapshot,
+    createStateChangedError,
+  }: {
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }) {
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+  }
+
   private async captureInfiniPurchaseAuthSnapshot(
     expectedOneKeyUserId: string,
   ): Promise<IOneKeyIdAuthSnapshot> {
@@ -517,8 +951,8 @@ class ServicePrime extends ServiceBase {
     try {
       await this.backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens();
     } catch (error) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `${callerName}: clear legacy keyless session storage failed: ${String(
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `${callerName}: clear legacy keyless session storage failed: ${getSanitizedAuthErrorLog(
           error,
         )}`,
       });
@@ -526,6 +960,9 @@ class ServicePrime extends ServiceBase {
   }
 
   private isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    if (isPrimeUserBannedError(error)) {
+      return false;
+    }
     const e = error as OneKeyError | undefined;
     const errorData = e?.data as IOneKeyIdOAuthBindErrorData | undefined;
     return (
@@ -559,6 +996,9 @@ class ServicePrime extends ServiceBase {
     };
     fallbackMessage: string;
   }) {
+    if (isPrimeUserBannedError(response.data)) {
+      return new OneKeyErrorPrimeUserBanned();
+    }
     const errorCode = Number(response.data.code);
     const errorMessage = response.data.message || fallbackMessage;
     if ([90_002, 90_003].includes(errorCode)) {
@@ -704,8 +1144,21 @@ class ServicePrime extends ServiceBase {
     targetLang: string;
     engine?: ETranslateEngine;
     testFlag?: string;
-  }): Promise<{ translations: Array<string | null> }> {
+  }): Promise<{
+    translations: Array<string | null>;
+    // Free-trial quota exhausted (90600) or not open (normalized 90601) on at
+    // least one batch. Returned instead of thrown so translations of the
+    // other, already billed batches are kept.
+    freeTrialError?: IPrimeFreeTrialError;
+    // At least one batch was translated by the server (and so billed).
+    hasBilledBatch: boolean;
+  }> {
     const client = await this.getPrimeClient();
+    const primeUser = await primePersistAtom.get();
+    // A locally active subscription keeps the original behavior (original
+    // text, no free-trial stop), even when the server already sees it as
+    // lapsed and the local state has not caught up yet.
+    const isLocalPrimeActive = Boolean(primeUser.primeSubscription?.isActive);
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
     const requestConfig: Parameters<typeof client.post>[2] & {
@@ -713,7 +1166,10 @@ class ServicePrime extends ServiceBase {
     } = {
       autoHandleError: false,
     };
-    const results: Array<Array<string | null>> = await Promise.all(
+    let freeTrialError: IPrimeFreeTrialError | undefined;
+    let hasBilledBatch = false;
+    // allSettled: one batch failing must not drop the other batches' results.
+    const settledResults = await Promise.allSettled(
       batches.map(async (batch): Promise<Array<string | null>> => {
         try {
           const res = await client.post<{
@@ -746,13 +1202,28 @@ class ServicePrime extends ServiceBase {
             });
           }
 
+          hasBilledBatch = true;
           const translations = res?.data?.data?.translations;
 
           return Array.isArray(translations) ? translations : batch;
         } catch (error) {
+          if (isPrimeUserBannedError(error)) {
+            throw error;
+          }
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
+          }
+
+          const batchFreeTrialError = isLocalPrimeActive
+            ? undefined
+            : this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
+                error,
+                featureId: EPrimeFeatures.DAppTranslate,
+              });
+          if (batchFreeTrialError) {
+            freeTrialError = freeTrialError ?? batchFreeTrialError;
+            return batch;
           }
 
           console.error(
@@ -763,7 +1234,35 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
-    return { translations: results.flat() };
+    if (
+      settledResults.some(
+        (result) =>
+          result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+      )
+    ) {
+      // The active UI session owns this feedback. Concurrent batches and
+      // stale sessions must not produce automatic background-call toasts.
+      const error = new OneKeyErrorPrimeUserBanned();
+      error.autoToast = false;
+      throw error;
+    }
+    const rejected = settledResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (rejected) {
+      // Keep the existing 90104 / 90105 AI-unavailable behavior.
+      throw rejected.reason;
+    }
+    const results = settledResults.map((result, index) =>
+      result.status === 'fulfilled' ? result.value : batches[index],
+    );
+    if (freeTrialError) {
+      await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
+        freeTrialError,
+        { onekeyUserId: primeUser.onekeyUserId },
+      );
+    }
+    return { translations: results.flat(), freeTrialError, hasBilledBatch };
   }
 
   async deleteOneKeyIdAccountOnServer({
@@ -912,7 +1411,7 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
         url: requestUrl || '',
         errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
+        errorMessage: `skip clearing invalid token response because local refresh failed: ${getSanitizedAuthErrorLog(
           tokenRead.retryableError,
         )}`,
       });
@@ -1253,7 +1752,7 @@ class ServicePrime extends ServiceBase {
         await this.assertOneKeyIdLoggedOutForInteractiveLogin(
           'ServicePrime.apiEmailOtpLogin',
         );
-        allowAuthSessionStorageWritesBySessionSource(
+        await allowAuthSessionStorageWritesBySessionSource(
           EPrimeAuthSessionSource.LegacyEmailSupabase,
         );
         const client = await getSupabaseClientBySessionSource(
@@ -1275,6 +1774,8 @@ class ServicePrime extends ServiceBase {
               reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
                 error,
               )}`,
+              trigger: 'interactive',
+              error,
             });
           }
         }
@@ -1290,6 +1791,7 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
               response.error,
             )}`,
+            trigger: 'interactive',
           });
           markOneKeyIdFailureServerLogged(error);
           throw error;
@@ -1302,6 +1804,9 @@ class ServicePrime extends ServiceBase {
           );
         }
         await this.apiLoginWithPersistedLegacySession({ accessToken });
+        defaultLogger.prime.subscription.onekeyIdLoginSuccess({
+          method: 'email',
+        });
         return { success: true };
       });
     } catch (error) {
@@ -1310,6 +1815,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'interactive',
+          error,
         });
         markOneKeyIdFailureServerLogged(error);
       }
@@ -1490,8 +1997,8 @@ class ServicePrime extends ServiceBase {
     try {
       await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
     } catch (cleanupError) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `${callerName}: post-commit legacy session cleanup failed: ${String(
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `${callerName}: post-commit legacy session cleanup failed: ${getSanitizedAuthErrorLog(
           cleanupError,
         )}`,
       });
@@ -1511,10 +2018,14 @@ class ServicePrime extends ServiceBase {
       await this.assertOneKeyIdLoggedOutForInteractiveLogin(
         'ServicePrime.apiOAuthLogin',
       );
-      return this.apiOAuthLoginWithPersistedSession({
+      const loginResponse = await this.apiOAuthLoginWithPersistedSession({
         accessToken,
         callerName: 'ServicePrime.apiOAuthLogin',
       });
+      defaultLogger.prime.subscription.onekeyIdLoginSuccess({
+        method: 'oauth',
+      });
+      return loginResponse;
     });
   }
 
@@ -1602,6 +2113,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -1617,6 +2129,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -1632,6 +2145,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2276,10 +2790,14 @@ class ServicePrime extends ServiceBase {
       // setSession may wait on network I/O. Recheck before the OneKey ID
       // POST so a Keyless wallet created during that wait wins the race.
       await this.assertNoLocalKeylessWalletForFreshOAuthLogin();
-      return this.apiOAuthLoginWithPersistedSession({
+      const loginResponse = await this.apiOAuthLoginWithPersistedSession({
         accessToken,
         callerName,
       });
+      defaultLogger.prime.subscription.onekeyIdLoginSuccess({
+        method: provider ?? 'oauth',
+      });
+      return loginResponse;
     });
   }
 
@@ -2540,6 +3058,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt upgrade state read failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -2570,6 +3090,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt OneKey ID refresh failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -2604,6 +3126,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt credential upgrade failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -2621,6 +3145,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt bind requirement check failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -2636,6 +3162,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt state write failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -2659,6 +3187,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt claim failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -2841,7 +3371,7 @@ class ServicePrime extends ServiceBase {
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
               url: '/prime/v1/account/profile',
               errorCode: Number(invalidTokenError.code) || -1,
-              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${String(
+              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${getSanitizedAuthErrorLog(
                 reconciliationError,
               )}`,
             });
@@ -2901,7 +3431,7 @@ class ServicePrime extends ServiceBase {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
         >(
-          '/prime/v1/account/identities/oauth/bind',
+          ONEKEY_ID_OAUTH_BIND_PATH,
           {
             token: oauthAccessToken,
             legacyOneKeyIdAuthToken,
@@ -2949,8 +3479,8 @@ class ServicePrime extends ServiceBase {
       try {
         await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
       } catch (cleanupError) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: post-commit legacy session cleanup failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: post-commit legacy session cleanup failed: ${getSanitizedAuthErrorLog(
             cleanupError,
           )}`,
         });
@@ -2965,8 +3495,8 @@ class ServicePrime extends ServiceBase {
       // pre-bind cached result.
       this.clearPrimeUserInfoCache();
       void this.apiFetchPrimeUserInfo().catch((error) => {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: refresh user info failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: refresh user info failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
         });
@@ -3409,18 +3939,10 @@ class ServicePrime extends ServiceBase {
         ),
       );
     } catch (error) {
-      const safeError = error as {
-        message?: unknown;
-        code?: unknown;
-        status?: unknown;
-        requestId?: unknown;
-      };
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: `${callerName}: server logout failed message=${String(
-          safeError?.message || 'unknown',
-        )} code=${String(safeError?.code || '')} status=${String(
-          safeError?.status || '',
-        )} requestId=${String(safeError?.requestId || '')}`,
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `${callerName}: server logout failed: ${getSanitizedAuthErrorLog(
+          error,
+        )}`,
       });
     }
   }
@@ -3867,6 +4389,7 @@ class ServicePrime extends ServiceBase {
    * persisted Legacy or pre-upgrade Keyless-backed login is repaired first;
    * every other state is delegated to the durable identity-exit coordinator.
    */
+  @backgroundMethod()
   async clearOneKeyIdAuthStateIfNoActiveToken({
     callerName,
   }: {
@@ -4097,7 +4620,12 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
+  async callApiFetchPrimeUserInfo({
+    onFreeTrial,
+  }: {
+    // Background-internal only; a UI caller cannot pass a function.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
+  } = {}): Promise<IPrimeServerUserInfoWithProfile> {
     // Snapshot the token AND pin it as the explicit request header (the
     // ServiceBase interceptor respects a pre-set header). Without pinning,
     // the interceptor would re-read the active token at send time, so a
@@ -4113,13 +4641,18 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     return this.callApiFetchPrimeUserInfoWithRequestToken({
       requestAuthToken,
+      onFreeTrial,
     });
   }
 
   private async callApiFetchPrimeUserInfoWithRequestToken({
     requestAuthToken,
+    onFreeTrial,
   }: {
     requestAuthToken: string;
+    // Receives `freeTrial` of /user/info, split off before the merge so it
+    // never leaks into IPrimeServerUserInfo. undefined means unknown.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
   }): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
@@ -4132,7 +4665,9 @@ class ServicePrime extends ServiceBase {
     };
     type IProfileApiResponse =
       IPrimeApiClientResponse<IOneKeyIdProfileResponse>;
-    type IUserInfoApiResponse = IPrimeApiClientResponse<IPrimeServerUserInfo>;
+    type IUserInfoApiResponse = IPrimeApiClientResponse<
+      IPrimeServerUserInfo & IPrimeFreeTrialUserInfoField
+    >;
     const profileRequest = client
       .get<IProfileApiResponse>('/prime/v1/account/profile', requestConfig)
       .then((response) =>
@@ -4156,6 +4691,15 @@ class ServicePrime extends ServiceBase {
       serverUserInfoRequest,
     ]);
 
+    // The client interceptor already signed out the banned session.
+    const bannedResult = [profileResult, serverUserInfoResult].find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+    );
+    if (bannedResult) {
+      throw bannedResult.reason;
+    }
+
     await this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
       results: [profileResult, serverUserInfoResult],
       requestAuthToken,
@@ -4163,20 +4707,30 @@ class ServicePrime extends ServiceBase {
 
     const profile =
       profileResult.status === 'fulfilled' ? profileResult.value : undefined;
-    const serverUserInfo =
-      serverUserInfoResult.status === 'fulfilled'
-        ? serverUserInfoResult.value
-        : undefined;
+    let serverUserInfo: IPrimeServerUserInfo | undefined;
+    if (serverUserInfoResult.status === 'fulfilled') {
+      const { freeTrial, ...restServerUserInfo } = serverUserInfoResult.value;
+      serverUserInfo = restServerUserInfo;
+      onFreeTrial?.(freeTrial);
+    }
 
     if (serverUserInfo) {
-      return this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
+      return {
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
+        }),
+        // Only this response decides consent. An omitted field is off, and
+        // a profile value must not replace it.
+        inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+      };
     }
 
     if (this.isCompletePrimeServerUserInfo(profile)) {
-      return profile;
+      return {
+        ...profile,
+        inviteProfilePublic: undefined,
+      };
     }
 
     if (serverUserInfoResult.status === 'rejected') {
@@ -4238,14 +4792,20 @@ class ServicePrime extends ServiceBase {
     const onekeyAccount = (serverUserInfo as Partial<IOneKeyIdProfileResponse>)
       .onekeyAccount;
     const serverUserId = serverUserInfo?.userId ?? onekeyAccount?.onekeyUserId;
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${beforeValue.primeSubscription?.isActive}, atom userId=${beforeValue.onekeyUserId}, server isPrime=${serverUserInfo?.isPrime}, server userId=${serverUserId}`,
+    // Local-only trace: fires on every user-info refresh, and user ids must
+    // never be embedded in server-bound free text.
+    defaultLogger.prime.subscription.onekeyIdStateTrace({
+      reason: `updatePrimeAtomByServerUserInfo: before update, atom isPrime=${
+        beforeValue.primeSubscription?.isActive
+      }, server isPrime=${serverUserInfo?.isPrime}, sameUser=${
+        beforeValue.onekeyUserId === serverUserId
+      }`,
     });
 
     const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
 
     const serverManagementUrl =
-      serverUserInfo.subscriptions?.[0]?.managementUrl;
+      serverUserInfo.subscriptions?.[0]?.managementUrl ?? undefined;
 
     // Sync the server KYT state into the settings cache before exposing
     // onekeyUserId, so the settings switch and intro dialog gate (both keyed by
@@ -4274,6 +4834,16 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
+        // Only a boolean is a decision. GET /user/info already normalized an
+        // omitted field to false; other callers leave a non-boolean untouched.
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: serverUserInfo?.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser:
+            Boolean(serverUserId) &&
+            (v.onekeyUserId === serverUserId ||
+              v.onekeyAccount?.onekeyUserId === serverUserId),
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4294,13 +4864,17 @@ class ServicePrime extends ServiceBase {
     });
 
     const afterValue = await primePersistAtom.get();
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `updatePrimeAtomByServerUserInfo: after update, atom isPrime=${afterValue.primeSubscription?.isActive}, atom userId=${afterValue.onekeyUserId}`,
+    defaultLogger.prime.subscription.onekeyIdStateTrace({
+      reason: `updatePrimeAtomByServerUserInfo: after update, atom isPrime=${afterValue.primeSubscription?.isActive}`,
     });
 
-    if (serverUserInfo?.inviteCode) {
+    void this.trackOneKeyIdIdentityLinked({ onekeyUserId: serverUserId });
+    this.enqueuePrimeProfileAnalyticsReport();
+
+    if (serverUserInfo?.inviteCode && serverUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         serverUserInfo.inviteCode,
+        serverUserId,
       );
     }
 
@@ -4358,6 +4932,11 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: loginResponse.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser,
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -4382,9 +4961,15 @@ class ServicePrime extends ServiceBase {
       };
     });
 
+    void this.trackOneKeyIdIdentityLinked({
+      onekeyUserId: onekeyAccount.onekeyUserId,
+    });
+    this.enqueuePrimeProfileAnalyticsReport();
+
     if (loginResponse.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         loginResponse.inviteCode,
+        onekeyAccount.onekeyUserId,
       );
     }
   }
@@ -4407,6 +4992,11 @@ class ServicePrime extends ServiceBase {
         isLoggedInOnServer: true,
       };
     });
+
+    void this.trackOneKeyIdIdentityLinked({
+      onekeyUserId: onekeyAccount.onekeyUserId,
+    });
+    this.enqueuePrimeProfileAnalyticsReport();
   }
 
   /**
@@ -4474,6 +5064,8 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
+    this.primeUserInfoFetchGeneration += 1;
+    const fetchGeneration = this.primeUserInfoFetchGeneration;
     await this.loginMutex.waitForUnlock();
     // Snapshot the RESOLVED source (not the raw persisted one): the
     // getActiveAuthToken() call below runs the self-healing resolver, which
@@ -4497,7 +5089,10 @@ class ServicePrime extends ServiceBase {
     const authToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     if (!authToken) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+      // Local-only traces: this branch runs for every logged-out user on
+      // every app start — as server events they flooded analytics and, worse,
+      // polluted the genuine invalid-token signal with synthetic -1759 noise.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() is null',
       });
@@ -4506,12 +5101,10 @@ class ServicePrime extends ServiceBase {
       });
       const localUserInfo = await primePersistAtom.get();
 
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: '',
-        errorCode: -1759,
-        errorMessage:
-          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() No auth token',
-      });
+      // App-start fetch runs for every user; this is the guaranteed trigger
+      // that gives never-logged-in users the membership profile attributes.
+      this.enqueuePrimeProfileAnalyticsReport();
+
       // Do NOT emit PrimeLoginInvalidToken here: having no token is not an
       // invalid-token event, and a payload-less emit would wipe local
       // keyless sessions (e.g. keyless-only users not logged into OneKey ID).
@@ -4524,7 +5117,14 @@ class ServicePrime extends ServiceBase {
           : undefined,
       };
     }
-    const serverUserInfo = await this.callApiFetchPrimeUserInfo();
+    const freeTrialQuotaRequestSeq =
+      this.backgroundApi.servicePrimeFreeTrial.allocateQuotaRequestSeq();
+    let freeTrialFromUserInfo: IPrimeFreeTrialQuota | null | undefined;
+    const serverUserInfo = await this.callApiFetchPrimeUserInfo({
+      onFreeTrial: (freeTrial) => {
+        freeTrialFromUserInfo = freeTrial;
+      },
+    });
 
     // Re-check auth token after the network request returns. If the user
     // logged out while this request was in flight, the simpleDb token will
@@ -4537,7 +5137,7 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
     const localUserInfoAfterFetch = await primePersistAtom.get();
     if (!authTokenAfterFetch) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: auth token cleared during request, discarding response',
       });
@@ -4556,7 +5156,7 @@ class ServicePrime extends ServiceBase {
       localUserInfoAfterFetch.onekeyUserId !==
         localUserInfoBeforeFetch.onekeyUserId
     ) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: auth session changed during request, discarding response',
       });
@@ -4592,6 +5192,7 @@ class ServicePrime extends ServiceBase {
         this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
       ]);
       const isSameSession = Boolean(
+        fetchGeneration === this.primeUserInfoFetchGeneration &&
         currentAuthToken &&
         currentOneKeyIdAuthState !== 'loggedOut' &&
         currentUserInfo.isLoggedIn &&
@@ -4614,6 +5215,15 @@ class ServicePrime extends ServiceBase {
       const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
         serverUserInfo,
       });
+      // Only atom writes happen here, so it is safe inside loginMutex.
+      await this.backgroundApi.servicePrimeFreeTrial.applyQuotaFromPrimeUserInfo(
+        {
+          freeTrial: freeTrialFromUserInfo,
+          onekeyUserId: localUserInfoBeforeFetch.onekeyUserId,
+          requestSeq: freeTrialQuotaRequestSeq,
+          isPrimeSubscriptionActive: Boolean(primeSubscription?.isActive),
+        },
+      );
       const serverPasswordUUID = serverUserInfo?.pwdHash;
       const isServerMasterPasswordSet = Boolean(
         serverPasswordUUID &&
@@ -4630,9 +5240,9 @@ class ServicePrime extends ServiceBase {
       };
     });
     if (!commitResult.committed) {
-      defaultLogger.prime.subscription.onekeyIdLogout({
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason:
-          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle changed before response commit, discarding response',
+          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle or fetch generation changed before response commit, discarding response',
       });
       return {
         userInfo: commitResult.userInfo,
@@ -4667,18 +5277,25 @@ class ServicePrime extends ServiceBase {
     // cached moments earlier can never be served after the state is reset.
     this.clearPrimeUserInfoCache();
     const beforeValue = await primePersistAtom.get();
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `setPrimePersistAtomNotLoggedIn: before clear, isLoggedIn=${beforeValue.isLoggedIn}, onekeyUserId=${beforeValue.onekeyUserId}, isPrime=${beforeValue.primeSubscription?.isActive}`,
-    });
+    const alreadyLoggedOut =
+      !beforeValue.isLoggedIn && !beforeValue.isLoggedInOnServer;
+    // Local-only: this method also runs for already-logged-out users on hot
+    // startup paths, so it must not produce server events. Skip the trace
+    // when the atom is already the logged-out projection.
+    if (!alreadyLoggedOut) {
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `setPrimePersistAtomNotLoggedIn: before clear, isLoggedIn=${beforeValue.isLoggedIn}, isPrime=${beforeValue.primeSubscription?.isActive}`,
+      });
+    }
 
     await primePersistAtom.set(
       (): IPrimePersistAtomData => cloneDeep(primePersistAtomInitialValue),
     );
 
-    const afterValue = await primePersistAtom.get();
-    defaultLogger.prime.subscription.onekeyIdLogout({
-      reason: `setPrimePersistAtomNotLoggedIn: after clear, isLoggedIn=${afterValue.isLoggedIn}, onekeyUserId=${afterValue.onekeyUserId}, isPrime=${afterValue.primeSubscription?.isActive}`,
-    });
+    // Runs for never-logged-in users too (hot startup paths), which is what
+    // gives every user the membership profile attributes; the reporter's
+    // lastHandled snapshot keeps repeats free.
+    this.enqueuePrimeProfileAnalyticsReport();
 
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
@@ -4694,8 +5311,9 @@ class ServicePrime extends ServiceBase {
       this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
     );
     if (tokenRead.retryableError) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-        reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${String(
+      // Local-only: transient refresh failures can repeat while offline.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${getSanitizedAuthErrorLog(
           tokenRead.retryableError,
         )}`,
       });
@@ -4704,9 +5322,13 @@ class ServicePrime extends ServiceBase {
     const authToken = tokenRead.token;
     const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
 
-    if (!result) {
-      // debugger;
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+    // Expected logged-out is the common result of this hot gate — do not
+    // trace it. Only log inconsistent flag/token combinations: "flags say
+    // logged in, no token" and "flags say logged out, token still exists"
+    // (e.g. an interrupted clear sequence). Never-logged-in users hit
+    // neither, so this cannot flood.
+    if (!result && (isLoggedIn || isLoggedInOnServer || authToken)) {
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason: `isLoggedIn=false ${JSON.stringify({
           isLoggedIn,
           isLoggedInOnServer,
@@ -4798,6 +5420,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiSendEmailVerificationCode failed and returned legacy fallback success: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
 
@@ -4832,6 +5456,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiPrimeLogin failed and returned legacy fallback failure: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
     return { success: false };
@@ -5130,26 +5756,151 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{
         resendAt: number;
+        canResendAt?: number;
         uuid: string;
       }>
     >('/prime/v1/general/emailOTP', {
       scene,
     });
-    return result?.data?.data;
+    const data = result?.data?.data;
+    const headerDate = result?.headers?.date;
+    const responseTime =
+      typeof headerDate === 'string' ? Date.parse(headerDate) : NaN;
+    const serverTime = Number.isFinite(responseTime)
+      ? responseTime
+      : systemTimeUtils.getEstimatedServerTime();
+    // Convert to a relative delay before crossing the background bridge.
+    const retryAfterSeconds =
+      typeof data?.canResendAt === 'number' &&
+      Number.isSafeInteger(data.canResendAt) &&
+      typeof serverTime === 'number' &&
+      Number.isFinite(serverTime)
+        ? Math.ceil((data.canResendAt - serverTime) / 1000)
+        : undefined;
+    return { ...data, retryAfterSeconds };
   }
 
   @backgroundMethod()
-  async apiGetCustomerJWT() {
+  async apiGetCustomerJWT({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }) {
+    const createSessionChangedError = () =>
+      new OneKeyLocalError({
+        message: 'Support session changed',
+        autoToast: false,
+      });
+    // Pin the request to the account the support session belongs to, so a
+    // login switch while it is in flight can never hand out another user's
+    // Intercom identity token.
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: createSessionChangedError,
+    });
     const client = await this.getPrimeClient();
     const result = await client.get<IApiClientResponse<{ token: string }>>(
       '/prime/v1/general/customer_jwt',
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
     );
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError: createSessionChangedError,
+    });
     return result?.data?.data;
   }
 
   @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
+  }
+
+  @backgroundMethod()
+  async apiRedeemPrimeCode({
+    code,
+    expectedOneKeyUserId,
+    primeGiftSerialNo,
+  }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
+    if (primeGiftSerialNo !== undefined) {
+      return this.apiClaimPrimeGift({
+        code,
+        expectedOneKeyUserId,
+        serialNo: primeGiftSerialNo,
+      });
+    }
+    return this.redeemPrimeCode({ code, expectedOneKeyUserId });
+  }
+
+  private async redeemPrimeCode({
+    code,
+    expectedOneKeyUserId,
+  }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
+    const redemptionCode = isString(code) ? code.trim() : '';
+    if (!redemptionCode) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.redemption_invalid_code_error,
+        }),
+        key: ETranslations.redemption_invalid_code_error,
+        autoToast: false,
+      });
+    }
+    const createSessionChangedError = () =>
+      new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.prime_onekey_id_session_changed__msg,
+        }),
+        autoToast: false,
+      });
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: createSessionChangedError,
+    });
+    const client = await this.getPrimeClient();
+    const requestConfig =
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot);
+    let result: {
+      data: IApiClientResponse<IPrimeRedemptionApiResponse>;
+    };
+    try {
+      const profileResult = await client.get<
+        IApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', requestConfig);
+      if (
+        profileResult?.data?.data?.onekeyAccount?.onekeyUserId !==
+        expectedOneKeyUserId
+      ) {
+        throw createSessionChangedError();
+      }
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot: authSnapshot,
+        createStateChangedError: createSessionChangedError,
+      });
+      result = await client.post<
+        IApiClientResponse<IPrimeRedemptionApiResponse>
+      >('/prime/v1/redemption/redeem', { code: redemptionCode }, requestConfig);
+    } catch (error) {
+      // The dialog renders non-auth failures inline. Invalid-session errors
+      // keep the existing global toast and OneKey ID logout flow.
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+        throw error;
+      }
+      const normalizedAxiosError =
+        normalizePrimeRedemptionAxiosHttpError(error);
+      if (normalizedAxiosError) {
+        throw normalizedAxiosError;
+      }
+      if (error && typeof error === 'object') {
+        (error as { autoToast?: boolean }).autoToast = false;
+      }
+      throw error;
+    }
+    const redemption = validatePrimeRedemptionResponse(result?.data?.data);
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError: createSessionChangedError,
+    });
+    return redemption;
   }
 
   @backgroundMethod()
@@ -5161,38 +5912,152 @@ class ServicePrime extends ServiceBase {
     return result?.data?.data ?? [];
   }
 
+  private async runInfiniPaymentRequest<T>({
+    flowContext,
+    paymentSource,
+    stage,
+    request,
+  }: {
+    flowContext?: IPrimeInfiniPaymentFlowContext;
+    paymentSource: IPrimeInfiniPaymentSource;
+    stage: IPrimeCryptoPaymentStage;
+    request: (context: IPrimeInfiniPaymentFlowContext) => Promise<T>;
+  }): Promise<T> {
+    const context: IPrimeInfiniPaymentFlowContext = {
+      ...flowContext,
+      flowId: flowContext?.flowId ?? generateUUID(),
+      paymentSource,
+    };
+    // Polling reports transitions in the monitor; successful ticks would flood
+    // diagnostics. Failed requests still carry the same flow correlation.
+    const logSuccess = paymentSource !== 'polling';
+    if (logSuccess) {
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...context,
+        stage,
+        status: 'started',
+      });
+    }
+    try {
+      const result = await request(context);
+      if (logSuccess) {
+        defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+          ...context,
+          stage,
+          status: 'succeeded',
+        });
+      }
+      return result;
+    } catch (error) {
+      const failureReason = getPrimeInfiniPaymentErrorFailure(error);
+      let failureStage = stage;
+      if (failureReason) {
+        failureStage =
+          failureReason === 'localPersistenceFailed'
+            ? 'sessionPersistence'
+            : 'responseValidation';
+      }
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...context,
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: failureStage,
+        status: 'failed',
+        failureReason: failureReason ?? 'apiRequestFailed',
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getInfiniCheckoutAuthContext(): Promise<IPrimeInfiniCheckoutAuthContext> {
+    const userInfo = await primePersistAtom.get();
+    const snapshot = await this.captureInfiniPurchaseAuthSnapshot(
+      userInfo.onekeyUserId ?? '',
+    );
+    // Only the non-secret identity reaches the UI runtime. The request token
+    // stays in the background and is pinned again when creating the checkout.
+    return {
+      onekeyUserId: snapshot.expectedOneKeyUserId,
+      authSessionSource: snapshot.authSessionSource,
+      authStateGeneration: snapshot.authStateGeneration,
+    };
+  }
+
+  @backgroundMethod()
+  async isInfiniCheckoutAuthContextCurrent({
+    context,
+  }: {
+    context: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<boolean> {
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const userInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      return Boolean(
+        userInfo.isLoggedIn &&
+        userInfo.onekeyUserId === context.onekeyUserId &&
+        authSessionSource === context.authSessionSource &&
+        authStateGeneration === context.authStateGeneration,
+      );
+    });
+  }
+
   @backgroundMethod()
   async apiGetInfiniCheckoutUrl({
     plan,
     expectedOneKeyUserId,
+    flowContext,
+    authContext,
   }: {
     plan: IPrimeInfiniSubscriptionPlan;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
   }): Promise<{ checkoutUrl: string }> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    // The checkout API's wire enum uses 'annual' for the yearly plan, while
-    // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
-    // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
-    // which maps 'annual' back to 'yearly' on the read path.
-    const planParam = getInfiniPlanParam(plan);
-    // The authenticated OneKey API owns the checkout destination and may move
-    // it without a client release. Keep only generic external-URL validation
-    // here; checkout-origin policy and authorization belong on the server.
-    const result = await client.post<
-      IApiClientResponse<{ checkoutUrl?: unknown }>
-    >(
-      '/prime/v1/infini/checkout',
-      {
-        plan: planParam,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: 'externalCheckout',
+      stage: 'externalCheckout',
+      request: async () => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        if (
+          authContext &&
+          (authContext.onekeyUserId !== authSnapshot.expectedOneKeyUserId ||
+            authContext.authSessionSource !== authSnapshot.authSessionSource ||
+            authContext.authStateGeneration !==
+              authSnapshot.authStateGeneration)
+        ) {
+          throw this.createInfiniPurchaseUserChangedError();
+        }
+        const client = await this.getPrimeClient();
+        // The checkout API's wire enum uses 'annual' for the yearly plan, while
+        // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
+        // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
+        // which maps 'annual' back to 'yearly' on the read path.
+        const planParam = getInfiniPlanParam(plan);
+        // The authenticated OneKey API owns the checkout destination and may move
+        // it without a client release. Keep only generic external-URL validation
+        // here; checkout-origin policy and authorization belong on the server.
+        const result = await client.post<
+          IApiClientResponse<{ checkoutUrl?: unknown }>
+        >(
+          '/prime/v1/infini/checkout',
+          {
+            plan: planParam,
+          },
+          this.getInfiniPurchaseRequestConfig(authSnapshot),
+        );
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return {
+          checkoutUrl: validateInfiniCheckoutUrl(
+            result?.data?.data?.checkoutUrl,
+          ),
+        };
       },
-      this.getInfiniPurchaseRequestConfig(authSnapshot),
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return {
-      checkoutUrl: validateInfiniCheckoutUrl(result?.data?.data?.checkoutUrl),
-    };
+    });
   }
 
   @backgroundMethod()
@@ -5219,6 +6084,8 @@ class ServicePrime extends ServiceBase {
       ) {
         return [];
       }
+      const chain = option.chain.trim().toUpperCase();
+      const networkId = option.networkId.trim();
       const tokens = option.tokens.flatMap((tokenValue) => {
         if (!tokenValue || typeof tokenValue !== 'object') {
           return [];
@@ -5227,15 +6094,28 @@ class ServicePrime extends ServiceBase {
         if (
           !isString(token.symbol) ||
           !token.symbol.trim() ||
-          !isString(token.contract) ||
-          !token.contract.trim()
+          (token.contract !== undefined &&
+            token.contract !== null &&
+            !isString(token.contract))
+        ) {
+          return [];
+        }
+        const symbol = token.symbol.trim().toUpperCase();
+        const contract = isString(token.contract) ? token.contract.trim() : '';
+        if (
+          !isValidPrimeInfiniPaymentContract({
+            chain,
+            networkId,
+            token: symbol,
+            contractAddress: contract,
+          })
         ) {
           return [];
         }
         return [
           {
-            symbol: token.symbol.trim().toUpperCase(),
-            contract: token.contract.trim(),
+            symbol,
+            contract,
           },
         ];
       });
@@ -5244,8 +6124,8 @@ class ServicePrime extends ServiceBase {
       }
       return [
         {
-          chain: option.chain.trim().toUpperCase(),
-          networkId: option.networkId.trim(),
+          chain,
+          networkId,
           tokens,
         },
       ];
@@ -5258,124 +6138,316 @@ class ServicePrime extends ServiceBase {
     chain,
     token,
     expectedOneKeyUserId,
+    flowContext,
+    authContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const result = await client.post<
-      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-    >(
-      '/prime/v1/infini/payment',
-      {
-        plan: getInfiniPlanParam(plan),
-        chain,
-        token,
+    return this.runInfiniPaymentRequest({
+      flowContext: flowContext
+        ? { ...flowContext, expectedChain: chain, expectedToken: token }
+        : undefined,
+      paymentSource: 'createResponse',
+      stage: 'paymentCreation',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
+        const client = await this.getPrimeClient();
+        const result = await client.post<
+          IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+        >(
+          '/prime/v1/infini/payment',
+          {
+            plan: getInfiniPlanParam(plan),
+            chain,
+            token,
+          },
+          this.getInfiniPurchaseRequestConfig(authSnapshot),
+        );
+        let payment = result?.data?.data;
+        if (
+          payment &&
+          isString(payment.paymentId) &&
+          payment.paymentId &&
+          (!isString(payment.address) || !payment.address)
+        ) {
+          const paymentId = payment.paymentId;
+          const queryResult = await client.get<
+            IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+          >('/prime/v1/infini/payment', {
+            params: {
+              paymentId,
+            },
+            ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+          });
+          payment = queryResult?.data?.data;
+          const validatedPayment = validateInfiniPaymentResponse(
+            payment,
+            paymentId,
+            context,
+          );
+          await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+          return validatedPayment;
+        }
+        const validatedPayment = validateInfiniPaymentResponse(
+          payment,
+          undefined,
+          context,
+        );
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return validatedPayment;
       },
-      this.getInfiniPurchaseRequestConfig(authSnapshot),
-    );
-    let payment = result?.data?.data;
-    if (
-      payment &&
-      isString(payment.paymentId) &&
-      payment.paymentId &&
-      (!isString(payment.address) || !payment.address)
-    ) {
-      const paymentId = payment.paymentId;
-      const queryResult = await client.get<
-        IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-      >('/prime/v1/infini/payment', {
-        params: {
-          paymentId,
-        },
-        ...this.getInfiniPurchaseRequestConfig(authSnapshot),
-      });
-      payment = queryResult?.data?.data;
-      const validatedPayment = validateInfiniPaymentResponse(
+    });
+  }
+
+  private async recordInfiniPaymentValidationBestEffort({
+    onekeyUserId,
+    payment,
+    flowContext,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    flowContext: IPrimeInfiniPaymentFlowContext;
+  }): Promise<void> {
+    try {
+      await this.backgroundApi.simpleDb.prime.recordInfiniPaymentValidation({
+        onekeyUserId,
         payment,
-        paymentId,
-      );
-      await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-      return validatedPayment;
+        flowId: flowContext.flowId,
+      });
+    } catch (error) {
+      // Diagnostic metadata must not hide a successful payment query.
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...flowContext,
+        ...getPrimeInfiniPaymentSafeError(error),
+        paymentId: payment.paymentId,
+        stage: 'sessionPersistence',
+        status: 'failed',
+        failureReason: 'localPersistenceFailed',
+      });
     }
-    const validatedPayment = validateInfiniPaymentResponse(payment);
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return validatedPayment;
+  }
+
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    )
+      throw this.createInfiniPurchaseUserChangedError();
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPendingPayment({
+    expectedOneKeyUserId,
+    authContext,
+  }: {
+    expectedOneKeyUserId: string;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<IPrimeInfiniPendingPaymentLookup> {
+    const snapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    this.assertInfiniPaymentRequestAuthContext(snapshot, authContext);
+    const lookup: IPrimeInfiniPendingPaymentLookup = {
+      authContext: {
+        onekeyUserId: snapshot.expectedOneKeyUserId,
+        authSessionSource: snapshot.authSessionSource,
+        authStateGeneration: snapshot.authStateGeneration,
+      },
+    };
+    try {
+      const client = await this.getPrimeClient();
+      const result = await client.get<
+        IApiClientResponse<{
+          payments: Array<
+            IPrimeInfiniPaymentApiResponse & {
+              plan?: unknown;
+              transactions?: unknown;
+            }
+          >;
+        }>
+      >('/prime/v1/infini/payment/pending', {
+        ...this.getInfiniPurchaseRequestConfig(snapshot),
+        timeout: 5000,
+      });
+      if (
+        !result?.data ||
+        result.data.code !== 0 ||
+        !result.data.data ||
+        typeof result.data.data !== 'object' ||
+        Array.isArray(result.data.data) ||
+        !Array.isArray(result.data.data.payments)
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      const { payments } = result.data.data;
+      for (const pending of payments) {
+        if (
+          !pending ||
+          typeof pending !== 'object' ||
+          Array.isArray(pending) ||
+          !isString(pending.paymentId) ||
+          !pending.paymentId.trim()
+        )
+          throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        // Warn for every known order, but only one order can be a recovery candidate.
+        if (payments.length === 1) {
+          let payment: IPrimeInfiniPayment | undefined;
+          try {
+            payment = validateInfiniPaymentResponse(pending);
+          } catch {
+            /* Warn without offering recovery when fields are incomplete. */
+          }
+          const hasTransactions = Array.isArray(pending.transactions)
+            ? pending.transactions.length > 0
+            : undefined;
+          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+          lookup.pendingPayment = {
+            paymentId: pending.paymentId,
+            payment,
+            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+            hasTransactions,
+          };
+          lookup.pendingPayment.hasLocalSendEvidence =
+            await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+              {
+                onekeyUserId: snapshot.expectedOneKeyUserId,
+                paymentId: pending.paymentId,
+              },
+            );
+        }
+      }
+      lookup.hasPendingPayments = payments.length > 0;
+    } catch (error) {
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'remotePendingLookupFailed',
+      });
+      // Advisory discovery cannot prove there is no old order on failure.
+      lookup.status = 'unavailable';
+    }
+    // Authentication failures are outside the advisory failure path.
+    await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+    return lookup;
   }
 
   @backgroundMethod()
   async apiGetInfiniPayment({
     paymentId,
     expectedOneKeyUserId,
+    flowContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPayment> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const result = await client.get<
-      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-    >('/prime/v1/infini/payment', {
-      params: {
-        paymentId,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: flowContext?.paymentSource ?? 'preflightRefresh',
+      stage: 'paymentPreflight',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        const result = await client.get<
+          IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+        >('/prime/v1/infini/payment', {
+          params: {
+            paymentId,
+          },
+          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+        });
+        const payment = validateInfiniPaymentResponse(
+          result?.data?.data,
+          paymentId,
+          context,
+        );
+        if (flowContext) {
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
+        }
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return payment;
       },
-      ...this.getInfiniPurchaseRequestConfig(authSnapshot),
     });
-    const payment = validateInfiniPaymentResponse(
-      result?.data?.data,
-      paymentId,
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return payment;
   }
 
   @backgroundMethod()
   async apiGetInfiniPaymentPreBroadcastSnapshot({
     paymentId,
     expectedOneKeyUserId,
+    flowContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPaymentPreBroadcastSnapshot> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const [paymentResult, serverUserInfo, infiniResult] = await Promise.all([
-      client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
-        '/prime/v1/infini/payment',
-        {
-          params: {
-            paymentId,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: 'preflightRefresh',
+      stage: 'paymentPreflight',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        const [paymentResult, serverUserInfo, infiniResult] = await Promise.all(
+          [
+            client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
+              '/prime/v1/infini/payment',
+              {
+                params: {
+                  paymentId,
+                },
+                ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+              },
+            ),
+            this.callApiFetchPrimeUserInfoWithRequestToken({
+              requestAuthToken: authSnapshot.requestAuthToken,
+            }),
+            client.get<
+              IApiClientResponse<IPrimeInfiniSubscription | undefined>
+            >(
+              '/prime/v1/infini/subscription',
+              this.getInfiniPurchaseRequestConfig(authSnapshot),
+            ),
+          ],
+        );
+        if (serverUserInfo.userId !== expectedOneKeyUserId) {
+          throw this.createInfiniPurchaseUserChangedError();
+        }
+        const payment = validateInfiniPaymentResponse(
+          paymentResult?.data?.data,
+          paymentId,
+          context,
+        );
+        if (flowContext) {
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
+        }
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return {
+          payment,
+          purchaseStatusSnapshot: {
+            onekeyUserId: expectedOneKeyUserId,
+            primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+            infiniSubscription: normalizeInfiniSubscriptionResponse(
+              infiniResult?.data?.data,
+            ),
           },
-          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
-        },
-      ),
-      this.callApiFetchPrimeUserInfoWithRequestToken({
-        requestAuthToken: authSnapshot.requestAuthToken,
-      }),
-      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
-        '/prime/v1/infini/subscription',
-        this.getInfiniPurchaseRequestConfig(authSnapshot),
-      ),
-    ]);
-    if (serverUserInfo.userId !== expectedOneKeyUserId) {
-      throw this.createInfiniPurchaseUserChangedError();
-    }
-    const payment = validateInfiniPaymentResponse(
-      paymentResult?.data?.data,
-      paymentId,
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return {
-      payment,
-      purchaseStatusSnapshot: {
-        onekeyUserId: expectedOneKeyUserId,
-        primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
-        infiniSubscription: normalizeInfiniSubscriptionResponse(
-          infiniResult?.data?.data,
-        ),
+        };
       },
-    };
+    });
   }
 
   @backgroundMethod()
@@ -5524,6 +6596,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async apiRemovePrimeForTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'apiRemovePrimeForTest');
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError('OneKey ID changed; reopen the confirmation');
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    // The server enforces the test environment and email allowlist. Use the
+    // configured Prime client so authentication and API errors stay standard.
+    await client.post(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    );
+    this.clearPrimeUserInfoCache();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    const { serverUserInfo, primeSubscription } =
+      await this.apiFetchPrimeUserInfo({
+        forceRefresh: true,
+      });
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    if (!serverUserInfo || primeSubscription?.isActive) {
+      throw new OneKeyLocalError(
+        'Removal requested, but Prime removal could not be confirmed. Refresh the account and try again.',
+      );
+    }
+  }
+
   // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
   // entry is reachable from a production build, so a dev-only decorator would
   // be a wrong description of it. Its password wrapper also only guards the
@@ -5596,6 +6717,56 @@ class ServicePrime extends ServiceBase {
       void this.apiFetchPrimeUserInfo();
     });
     return result.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async updateInviteProfilePublic({
+    enabled,
+    expectedOneKeyUserId,
+  }: {
+    enabled: boolean;
+    expectedOneKeyUserId: string;
+  }) {
+    const createStateChangedError = () =>
+      this.createInviteProfilePublicUserChangedError();
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    // Send only this field. Omitted avatar and nickname stay unchanged.
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        inviteProfilePublic: enabled,
+      },
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
+    );
+    if (result.data.code !== 0) {
+      return false;
+    }
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    await primePersistAtom.set((current) => {
+      if (current.onekeyUserId !== expectedOneKeyUserId) {
+        return current;
+      }
+      return {
+        ...current,
+        inviteProfilePublic: enabled,
+      };
+    });
+    this.clearPrimeUserInfoCache();
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return true;
   }
 }
 

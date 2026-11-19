@@ -1,5 +1,6 @@
 import { XStack, YStack } from '@onekeyhq/components';
 
+import { MARKET_MOBILE_CATEGORY_ROW_HEIGHT } from '../../layouts/mobileLayoutUtils';
 import { MobileNetworkDropdown } from '../MobileNetworkDropdown';
 import { TimeRangeDropdown } from '../TimeRangeDropdown';
 
@@ -8,6 +9,7 @@ import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
+  showNetworkSelector?: boolean;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
 }
@@ -15,22 +17,29 @@ export interface IMarketFilterBarSmallProps {
 function MarketFilterBarSmall({
   selectedNetworkId,
   timeRange = '1h',
+  showNetworkSelector = true,
   onNetworkIdChange,
   onTimeRangeChange,
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
+      {/* Both filters sit together on the left, so a tab without the network
+          selector keeps its time range in the same place. */}
+      {/* Fills the category chip row height and centers the dropdowns, so their
+          labels sit where the chip labels do on the other tabs. */}
       <XStack
         px="$5"
-        pt="$3"
-        pb="$2"
-        justifyContent="space-between"
+        height={MARKET_MOBILE_CATEGORY_ROW_HEIGHT}
+        gap="$4"
+        justifyContent="flex-start"
         alignItems="center"
       >
-        <MobileNetworkDropdown
-          selectedNetworkId={selectedNetworkId}
-          onNetworkIdChange={onNetworkIdChange}
-        />
+        <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+          <MobileNetworkDropdown
+            selectedNetworkId={selectedNetworkId}
+            onNetworkIdChange={onNetworkIdChange}
+          />
+        </XStack>
         {onTimeRangeChange ? (
           <TimeRangeDropdown
             value={timeRange}

@@ -10,7 +10,11 @@ import {
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
 
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollViewInstance,
+} from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
 import type { PagerViewProps } from 'react-native-pager-view';
 
@@ -19,6 +23,9 @@ export function PagerView({
   ref,
   style,
   onPageSelected,
+  // Native-only signal. Destructured so it is never spread onto the DOM node
+  // below; the web shim drives scrolling itself and has no equivalent state.
+  onPageScrollStateChanged: _onPageScrollStateChanged,
   keyboardDismissMode,
   pageWidth: pageWidthProp,
   disableAnimation = false,
@@ -30,7 +37,7 @@ export function PagerView({
   disableAnimation?: boolean;
 }) {
   const isWeb = typeof document !== 'undefined';
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const pageIndex = useRef<number>(initialPage);
   const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragClickResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -147,16 +154,27 @@ export function PagerView({
     };
   }, [onPageSelected]);
 
-  const lockScrollEvent = useCallback((page: number) => {
-    if (timerId.current) {
-      clearTimeout(timerId.current);
-    }
-    isLockPageIndex.current = true;
-    timerId.current = setTimeout(() => {
-      isLockPageIndex.current = false;
-      pageIndex.current = page;
-    }, 500);
-  }, []);
+  const lockScrollEvent = useCallback(
+    (page: number) => {
+      if (timerId.current) {
+        clearTimeout(timerId.current);
+      }
+      const safePage = getSafePageIndex(page);
+      isLockPageIndex.current = true;
+      timerId.current = setTimeout(() => {
+        isLockPageIndex.current = false;
+        if (pageIndex.current !== safePage) {
+          pageIndex.current = safePage;
+          void onPageSelected?.({
+            nativeEvent: {
+              position: safePage,
+            },
+          } as any);
+        }
+      }, 500);
+    },
+    [getSafePageIndex, onPageSelected],
+  );
 
   const handleMouseDown = useCallback(
     (event: MouseEvent) => {

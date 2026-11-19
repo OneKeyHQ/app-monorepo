@@ -1,5 +1,5 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
-import { flatten, groupBy, isEqual, uniqBy } from 'lodash';
+import { flatten, groupBy, isEqual, keyBy, uniqBy } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -8,14 +8,17 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+  isAutoUpdateStrategy,
+} from '@onekeyhq/shared/src/appUpdate';
+import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -46,6 +49,7 @@ import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
@@ -60,9 +64,16 @@ import type {
   IKytSupportedAsset,
   IReceiveKytIntroEntryPoint,
 } from '@onekeyhq/shared/types/kyt';
+import {
+  type ILinkConfigItem,
+  type ILinkConfigSlot,
+  asLinkConfigItems,
+} from '@onekeyhq/shared/types/linkConfig';
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
+  ITermsConsentPrompt,
+  ITermsConsentSource,
 } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -72,18 +83,27 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  appUpdatePersistAtom,
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
+  inscriptionProtectionControlPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
+  termsConsentPersistAtom,
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
 import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim';
+import {
+  TERMS_CONSENT_ACCEPT_PATH,
+  TERMS_CONSENT_SETTING_KEY,
+  hasTermsConsentDialogAsked,
+  resolveTermsConsentPrompt,
+} from './ServiceSetting/termsConsent';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
@@ -96,6 +116,19 @@ export type IAccountDerivationConfigItem = {
   icon?: string;
   defaultNetworkId: string;
 };
+
+const INSCRIPTION_PROTECTION_SETTING_KEY = 'BTC_INSCRIPTION_PROTECTION_ENABLED';
+
+function parseInscriptionProtectionServerEnabled(
+  value: string,
+): boolean | undefined {
+  try {
+    const parsed = JSON.parse(value) as { value?: unknown };
+    return typeof parsed?.value === 'boolean' ? parsed.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -282,6 +315,17 @@ class ServiceSetting extends ServiceBase {
     if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
       return;
     }
+    if (currentSettings.currencyInfo.id !== currencyInfo.id) {
+      // Cached history rows carry fiat values in the currency being left;
+      // record it before the switch so they are converted, not relabelled.
+      try {
+        await this.backgroundApi.simpleDb.localHistory.stampUnknownFiatCurrency(
+          { fiatCurrency: currentSettings.currencyInfo.id },
+        );
+      } catch {
+        // best-effort
+      }
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
     // Refresh the rate map before the token-list refresh — otherwise the
     // resulting fetchAccountTokens may see the new currency missing from
@@ -307,6 +351,12 @@ class ServiceSetting extends ServiceBase {
       // clear transaction history
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
+      await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    }
+    if (values.tokenAndNFT || values.transactionHistory) {
+      // Only saved balances and in-memory copies: scan data is not cache, clearing it means a rescan from the birthday.
+      await this.backgroundApi.servicePrivacyChain.clearLocalWalletCaches();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -366,12 +416,27 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async clearPendingTransaction() {
+  public async clearPendingTransaction(params?: {
+    selectedAccount?: {
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    };
+  }) {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
     await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
       ESwapTxHistoryStatus.CANCELING,
       ESwapTxHistoryStatus.PENDING,
     ]);
+    if (params?.selectedAccount) {
+      try {
+        await this.backgroundApi.servicePrivacyChain.clearSelectedAccountLocalWalletPendingSends(
+          params.selectedAccount,
+        );
+      } catch (error) {
+        console.error('Failed to clear local wallet pending sends:', error);
+      }
+    }
     defaultLogger.setting.page.clearData({ action: 'Pending txn' });
   }
 
@@ -506,6 +571,232 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private async fetchUtilitySettingValue(key: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: { value: string; key: string }[];
+    }>('/utility/v1/setting', {
+      params: {
+        key,
+      },
+    });
+    return response.data.data.find((item) => item.key === key)?.value;
+  }
+
+  private _fetchInscriptionProtectionControl = memoizee(
+    async () => {
+      const value = await this.fetchUtilitySettingValue(
+        INSCRIPTION_PROTECTION_SETTING_KEY,
+      );
+      const serverEnabled =
+        value === undefined
+          ? undefined
+          : parseInscriptionProtectionServerEnabled(value);
+      if (serverEnabled === undefined) {
+        throw new OneKeyLocalError(
+          'Invalid inscription protection control response',
+        );
+      }
+      await inscriptionProtectionControlPersistAtom.set(() => ({
+        enabled: serverEnabled,
+      }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async fetchInscriptionProtectionControl({
+    forceRefresh,
+  }: {
+    forceRefresh?: boolean;
+  } = {}) {
+    if (forceRefresh) {
+      void this._fetchInscriptionProtectionControl.clear();
+    }
+    try {
+      await this._fetchInscriptionProtectionControl();
+    } catch (error) {
+      void this._fetchInscriptionProtectionControl.clear();
+      defaultLogger.setting.page.consoleError(
+        'fetchInscriptionProtectionControl error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
+  }
+
+  private _fetchTermsConsentVersion = memoizee(
+    async () => {
+      const value = await this.fetchUtilitySettingValue(
+        TERMS_CONSENT_SETTING_KEY,
+      );
+      return value?.trim() || undefined;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  // `fallback` answers when the server can't be reached, which unlike an empty
+  // value doesn't mean the version was withdrawn.
+  private async getTermsConsentRequiredVersion(fallback?: string) {
+    try {
+      return await this._fetchTermsConsentVersion();
+    } catch (error) {
+      void this._fetchTermsConsentVersion.clear();
+      // Without the server value nothing is shown: until users agree, the
+      // terms they accepted before keep applying.
+      defaultLogger.setting.page.consoleError(
+        'fetchTermsConsentVersion error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return fallback;
+    }
+  }
+
+  // Settles once the latest acceptance is stored or has failed. Checks wait
+  // for it, so Enter wallet right after agreeing on the ready page, or a quick
+  // unlock after Agree, doesn't ask again, and a second tap uploads nothing.
+  private termsConsentAccepting: Promise<void> = Promise.resolve();
+
+  // The version this install still has to accept, for the ready page's notice.
+  // None once the dialog has asked about it: the dialog takes that answer.
+  @backgroundMethod()
+  public async getTermsConsentPendingVersion() {
+    await this.termsConsentAccepting;
+    const requiredVersion = await this.getTermsConsentRequiredVersion();
+    const state = await termsConsentPersistAtom.get();
+    if (
+      !requiredVersion ||
+      requiredVersion === state.acceptedVersion ||
+      hasTermsConsentDialogAsked(state, requiredVersion)
+    ) {
+      return undefined;
+    }
+    return requiredVersion;
+  }
+
+  @backgroundMethod()
+  public async getTermsConsentPrompt(): Promise<
+    ITermsConsentPrompt | undefined
+  > {
+    await this.termsConsentAccepting;
+    // New users accept on Get Started instead, so they skip the request too.
+    const { isOnboardingDone } =
+      await this.backgroundApi.serviceOnboarding.isOnboardingDone();
+    if (!isOnboardingDone) {
+      return undefined;
+    }
+    const requiredVersion = await this.getTermsConsentRequiredVersion();
+    if (!requiredVersion) {
+      return undefined;
+    }
+    const state = await termsConsentPersistAtom.get();
+    const { prompt, round } = resolveTermsConsentPrompt({
+      requiredVersion,
+      state,
+      now: Date.now(),
+    });
+    if (!prompt) {
+      return undefined;
+    }
+    if (round !== state.round) {
+      await termsConsentPersistAtom.set((prev) => ({ ...prev, round }));
+    }
+    return prompt;
+  }
+
+  @backgroundMethod()
+  public async snoozeTermsConsent({ version }: { version: string }) {
+    await termsConsentPersistAtom.set((prev) =>
+      prev.round?.version === version
+        ? { ...prev, round: { ...prev.round, notNowAt: Date.now() } }
+        : prev,
+    );
+  }
+
+  // Called by the dialog once it is on screen, which is what hands the answer
+  // to the dialog alone (see hasTermsConsentDialogAsked).
+  @backgroundMethod()
+  public async markTermsConsentShown({ version }: { version: string }) {
+    await termsConsentPersistAtom.set((prev) =>
+      prev.round?.version === version && prev.round.shownAt === undefined
+        ? { ...prev, round: { ...prev.round, shownAt: Date.now() } }
+        : prev,
+    );
+  }
+
+  @backgroundMethod()
+  public async acceptTermsConsent(params: {
+    source: ITermsConsentSource;
+    // The version the dialog or ready page showed; Get Started takes the
+    // current one.
+    version?: string;
+  }) {
+    const accepting = this.termsConsentAccepting.then(() =>
+      this.uploadTermsConsent(params),
+    );
+    this.termsConsentAccepting = accepting.catch(() => undefined);
+    await accepting;
+  }
+
+  private async uploadTermsConsent({
+    source,
+    version: shownVersion,
+  }: {
+    source: ITermsConsentSource;
+    version?: string;
+  }) {
+    // A failed lookup keeps the agreement to the version on screen.
+    const requiredVersion =
+      await this.getTermsConsentRequiredVersion(shownVersion);
+    // A dialog or ready page left open while the server moved on or withdrew
+    // the version must not record it, or roll the stored acceptance back.
+    if (shownVersion && shownVersion !== requiredVersion) {
+      return;
+    }
+    const version = shownVersion ?? requiredVersion;
+    if (!version) {
+      return;
+    }
+    const state = await termsConsentPersistAtom.get();
+    if (
+      state.acceptedVersion === version ||
+      // Only the notices that share the app with the dialog defer to it. The
+      // web dApp mode has no dialog, even after a wallet-mode visit left one
+      // shown on the same site.
+      ((source === 'onboarding' || source === 'wallet_ready') &&
+        hasTermsConsentDialogAsked(state, version))
+    ) {
+      return;
+    }
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      // The install id, platform and app version travel in the default
+      // request headers; the server keeps its own receive time.
+      await client.post(
+        TERMS_CONSENT_ACCEPT_PATH,
+        { version, source },
+        { headers: await this.getOneKeyIdAuthHeaders() },
+      );
+    } catch (error) {
+      // Only a stored record counts as agreement, so a failed upload leaves
+      // the local state untouched and the prompt comes back next time.
+      defaultLogger.setting.page.consoleError(
+        'acceptTermsConsent error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return;
+    }
+    await termsConsentPersistAtom.set((prev) => ({
+      ...prev,
+      acceptedVersion: version,
+    }));
+  }
+
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
@@ -575,33 +866,58 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchGetStartedLinks({
-    slots,
-  }: {
-    slots: ('hardware_faqs' | 'hardware_getstarteds')[];
-  }) {
+  public async fetchGetStartedLinks({ slots }: { slots: ILinkConfigSlot[] }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
-      data: {
-        linkId: string;
-        title: string;
-        mode: number;
-        payload: string;
-        image: string;
-        description: string;
-      }[];
+      data: ILinkConfigItem[];
     }>('/utility/v1/link-config', {
       params: {
         slots: slots.join(','),
       },
     });
-    return response.data.data;
+    return asLinkConfigItems(response.data.data);
   }
 
   @backgroundMethod()
   public async getInscriptionProtection() {
     const { inscriptionProtection } = await settingsPersistAtom.get();
     return inscriptionProtection;
+  }
+
+  @backgroundMethod()
+  public async setInscriptionProtection(enabled: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      inscriptionProtection: enabled,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtectionServerEnabled() {
+    const { enabled } = await inscriptionProtectionControlPersistAtom.get();
+    return enabled;
+  }
+
+  @backgroundMethod()
+  public async getEffectiveInscriptionProtection({
+    networkId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+  }: {
+    networkId: string;
+    accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
+  }) {
+    const [settings, control, accountEligible] = await Promise.all([
+      settingsPersistAtom.get(),
+      inscriptionProtectionControlPersistAtom.get(),
+      this.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+        mergeDeriveAssetsEnabled,
+      }),
+    ]);
+    return accountEligible && settings.inscriptionProtection && control.enabled;
   }
 
   @backgroundMethod()
@@ -699,9 +1015,13 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
+    const nextHardwareTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType,
+      hardwareTransportType: nextHardwareTransportType,
     }));
   }
 
@@ -709,7 +1029,9 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return hardwareTransportType;
+      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     }
     return deviceUtils.getDefaultHardwareTransportType();
   }
@@ -749,7 +1071,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableDesktopBluetooth() {
     const { enableDesktopBluetooth } = await settingsPersistAtom.get();
-    return enableDesktopBluetooth ?? false;
+    return enableDesktopBluetooth ?? true;
   }
 
   @backgroundMethod()
@@ -779,6 +1101,36 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       enableMenuBarTray: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setEnableAutoDownloadAppUpdate(value: boolean) {
+    const wasEnabled =
+      (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false;
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableAutoDownloadAppUpdate: value,
+    }));
+    if (!value || wasEnabled || !platformEnv.isDesktop) return;
+    const update = await appUpdatePersistAtom.get();
+    if (
+      update.status === EAppUpdateStatus.notify &&
+      isAutoUpdateStrategy(update.updateStrategy) &&
+      getUpdateFileType(update) === EUpdateFileType.appShell &&
+      !update.storeUrl &&
+      (await this.backgroundApi.serviceAppUpdate.canDownloadCurrentTarget())
+    ) {
+      appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+        decision: 'autoDownloadEnabled',
+      });
+    }
+  }
+
+  @backgroundMethod()
+  public async getEnableAutoDownloadAppUpdate() {
+    return (
+      (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false
+    );
   }
 
   @backgroundMethod()
@@ -891,7 +1243,16 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async syncWalletConfig() {
     await this.abortFetchWalletConfig();
-    const resp = await this.fetchWalletConfig();
+    // Aggregate members are gated on the merged network registry below, which
+    // includes server-delivered networks only once their cache has been filled.
+    // On a fresh install getServerNetworks returns an empty cache and refreshes
+    // it in the background, so without waiting here the first sync would drop
+    // every server-chain member and persist that incomplete map until the
+    // config TTL expires.
+    const [resp] = await Promise.all([
+      this.fetchWalletConfig(),
+      this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched(),
+    ]);
 
     if (!resp) {
       return;
@@ -914,7 +1275,17 @@ class ServiceSetting extends ServiceBase {
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
     const aggregateTokenSymbolMap: Record<string, boolean> = {};
-    const listedNetworkMap = getListedNetworkMap();
+    // Aggregate members may live on server-delivered chains (e.g. Robinhood)
+    // that are not part of presetNetworks, so gate on the merged network
+    // registry instead of the preset-only listed map: presets keep their
+    // preset status, server networks their server status, delisted (TRASH)
+    // networks are already dropped and user custom RPC networks are excluded.
+    const { networks: eligibleNetworks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        excludeCustomNetwork: true,
+        excludeAllNetworkItem: true,
+      });
+    const eligibleNetworkMap = keyBy(eligibleNetworks, 'id');
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
         buildHomeDefaultTokenMapKey({
@@ -926,7 +1297,7 @@ class ServiceSetting extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = uniqBy(
-          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          data.filter((token) => !!eligibleNetworkMap[token.networkId]),
           (token) => token.networkId,
         );
 
@@ -990,6 +1361,14 @@ class ServiceSetting extends ServiceBase {
       },
     );
 
+    // The server array is not guaranteed to follow `order` (prod USDG arrives
+    // as Ethereum, Robinhood, X Layer, Solana with orders 3, 1, 2, 4) and the
+    // Receive search flatten keeps array order, so sort members once here.
+    // Members without `order` sink to the end.
+    Object.values(allAggregateTokenMap).forEach((group) => {
+      group.tokens = sortTokensByOrder({ tokens: group.tokens });
+    });
+
     const allAggregateTokens: IAccountToken[] = Object.keys(
       allAggregateTokenMap,
     ).map((key) => {
@@ -1017,6 +1396,7 @@ class ServiceSetting extends ServiceBase {
         aggregateTokenSymbolMap,
         configSyncMeta: {
           appVersion: platformEnv.version ?? '',
+          bundleVersion: platformEnv.bundleVersion ?? '',
           syncedAt: Date.now(),
         },
       }),
@@ -1041,14 +1421,17 @@ class ServiceSetting extends ServiceBase {
         await this.backgroundApi.simpleDb.aggregateToken.getRawData();
       const configSyncMeta = rawData?.configSyncMeta;
       const appVersion = platformEnv.version ?? '';
-      // Re-sync when the config has never been synced, when the app version
-      // changed (the bundled preset network list may differ, leaving stale
-      // networks in the cached aggregate-token maps), or when the cache is
-      // older than the TTL.
+      const bundleVersion = platformEnv.bundleVersion ?? '';
+      // Re-sync when the config has never been synced, when the app or
+      // hot-update bundle version changed (the bundled preset network list may
+      // differ, leaving stale networks in the cached aggregate-token maps), or
+      // when the cache is older than the TTL. Hot updates keep
+      // platformEnv.version, so bundleVersion is what tells them apart.
       const shouldSync =
         !rawData?.aggregateTokenConfigMap ||
         !configSyncMeta ||
         configSyncMeta.appVersion !== appVersion ||
+        (configSyncMeta.bundleVersion ?? '') !== bundleVersion ||
         Date.now() - configSyncMeta.syncedAt >
           timerUtils.getTimeDurationMs({ day: 1 });
       if (shouldSync) {

@@ -1,4 +1,8 @@
+import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import https from 'https';
+import * as nodePath from 'path';
+import { fileURLToPath } from 'url';
 
 import { session } from 'electron';
 import logger from 'electron-log/main';
@@ -8,7 +12,9 @@ import { isSniFailClosedError } from '@onekeyhq/shared/src/request/helpers/sniFa
 import { safeSniLogValue } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import type {
   ISniRequestConfig,
+  ISniRequestDebugSnapshot,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -19,6 +25,7 @@ const MAX_REQUEST_ID_BYTES = 128;
 const MAX_TIMEOUT_MS = 120_000;
 const MAX_PATH_BYTES = 8 * 1024;
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_RESPONSE_BODY_BYTES = 10 * 1024 * 1024;
 const MAX_HEADER_COUNT = 64;
 const MAX_HEADER_NAME_BYTES = 128;
@@ -29,6 +36,14 @@ const MAX_SOCKETS_PER_PAIR = 16;
 const MAX_FREE_SOCKETS = 32;
 const MAX_ACTIVE_REQUESTS = 64;
 const MAX_ACTIVE_REQUESTS_PER_PAIR = 16;
+const MAX_PENDING_REQUESTS = 256;
+
+const UPLOAD_FILE_METHODS = new Set(['POST', 'PUT']);
+const LOGGER_UPLOAD_PATH = '/wallet/v1/client/log';
+const LOGGER_UPLOAD_ORIGINS = new Set([
+  'https://wallet.onekeycn.com',
+  'https://wallet.onekeytest.com',
+]);
 
 const ALLOWED_METHODS = new Set([
   'GET',
@@ -67,6 +82,8 @@ type NormalizedSniRequestConfig = Omit<
   'body' | 'headers' | 'method' | 'path'
 > & {
   body: string | null;
+  // Set only by uploadFile(); the file is streamed instead of `body`.
+  bodyFile?: { filePath: string; sizeBytes: number };
   headers: Record<string, string>;
   method: string;
   path: string;
@@ -76,6 +93,18 @@ type SniAgentState = {
   agent: https.Agent;
   activeRequests: Set<ClientRequest>;
   destroyed: boolean;
+};
+
+type SniRequestLimiterWaiter = {
+  key: string;
+  signal: AbortSignal | undefined;
+  abortListener: (() => void) | undefined;
+  resolve: (release: () => void) => void;
+};
+
+type SniRequestState = {
+  requestId: string | undefined;
+  cancel: (error: SniRequestError) => void;
 };
 
 export class SniRequestError extends Error {
@@ -99,22 +128,37 @@ function getErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function shortHashForLog(value: string | undefined | null): string {
-  if (!value) return 'none';
-  let hash = 0x81_1c_9d_c5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
-  }
-  return hash.toString(16).padStart(8, '0');
-}
-
 function formatNativeLogEvent(
   event: string,
   fields: Record<string, unknown>,
 ): string {
   return Object.entries({ event, ...fields })
-    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
+    .map(([key, value]) => {
+      const logValue =
+        key === 'requestId' || key === 'ip' || key === 'requestedHost'
+          ? String(value ?? 'none').replace(/[\r\n\s]+/g, '_')
+          : safeSniLogValue(value);
+      // Keep long diagnostic IDs recoverable without matching the logger's private-key filter.
+      let displayedValue = logValue;
+      let formatSuffix = '';
+      if (
+        key === 'requestId' &&
+        typeof value === 'string' &&
+        (value !== logValue || /[0-9a-fA-F]{64}/.test(value))
+      ) {
+        displayedValue = encodeURIComponent(
+          Buffer.from(value, 'utf8').toString('utf8'),
+        )
+          .replace(
+            /[!'()*~-]/g,
+            (character) =>
+              `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+          )
+          .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-');
+        formatSuffix = ' requestIdFormat=uri-hex32';
+      }
+      return `${key}=${displayedValue}${formatSuffix}`;
+    })
     .join(' ');
 }
 
@@ -144,6 +188,16 @@ function getIpFamily(ip: string): string {
   return ip.includes(':') ? 'ipv6' : 'ipv4';
 }
 
+function canonicalizeSniDestinationIp(ip: string): string {
+  if (!ipaddr.isValid(ip)) {
+    return ip;
+  }
+  const address = ipaddr.process(ip);
+  return address.kind() === 'ipv6'
+    ? address.toNormalizedString()
+    : address.toString();
+}
+
 function getProxyRuleType(
   proxyRules: string,
 ): 'direct' | 'proxy' | 'mixed' | 'unknown' {
@@ -171,7 +225,7 @@ function invalidConfig(message: string): never {
   throw new SniRequestError('SNI_INVALID_CONFIG', message, true);
 }
 
-export function classifyTransportError(error: Error): Error {
+export function classifyTransportError(error: Error, isUpload = false): Error {
   if (error instanceof SniRequestError) {
     return error;
   }
@@ -190,6 +244,17 @@ export function classifyTransportError(error: Error): Error {
   }
   if (/TLS|SSL|handshake|EPROTO/i.test(message)) {
     return new SniRequestError('SNI_TLS_FAILED', error.message, true);
+  }
+  if (isUpload) {
+    if (/\bECONNREFUSED\b/i.test(message)) {
+      return new SniRequestError('SNI_CONNECTION_REFUSED', error.message);
+    }
+    if (/\b(?:ENOTFOUND|EAI_AGAIN)\b/i.test(message)) {
+      return new SniRequestError('SNI_DNS_FAILED', error.message);
+    }
+    if (/\b(?:ENETUNREACH|EHOSTUNREACH)\b/i.test(message)) {
+      return new SniRequestError('SNI_NETWORK_UNREACHABLE', error.message);
+    }
   }
   return error;
 }
@@ -261,6 +326,140 @@ function validateBody(body: string | null): void {
   if (body !== null && byteSize(body) > MAX_REQUEST_BODY_BYTES) {
     invalidConfig('Request body too large');
   }
+}
+
+function getBodyBytes(config: NormalizedSniRequestConfig): number {
+  if (config.bodyFile) return config.bodyFile.sizeBytes;
+  return config.body ? byteSize(config.body) : 0;
+}
+
+function isPathInside(root: string, target: string): boolean {
+  const relative = nodePath.relative(root, target);
+  return (
+    !!relative && !relative.startsWith('..') && !nodePath.isAbsolute(relative)
+  );
+}
+
+// Only the main-process log archive directory (logs_zip next to the log
+// directory) may be uploaded; userData, raw logs, and temp are off-limits.
+async function getUploadFileRoots(): Promise<string[]> {
+  const candidates: string[] = [];
+  try {
+    candidates.push(
+      nodePath.join(
+        nodePath.dirname(
+          nodePath.dirname(logger.transports.file.getFile().path),
+        ),
+        'logs_zip',
+      ),
+    );
+  } catch {
+    // The logger file transport may be disabled.
+  }
+  const roots = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        return await fsPromises.realpath(candidate);
+      } catch {
+        return undefined;
+      }
+    }),
+  );
+  return roots.filter((root): root is string => !!root);
+}
+
+async function resolveUploadFile(
+  filePath: unknown,
+  desktopApi?: IDesktopApi,
+): Promise<{ filePath: string; sizeBytes: number }> {
+  if (typeof filePath !== 'string' || !filePath || hasControlChar(filePath)) {
+    invalidConfig('Invalid filePath');
+  }
+  let absolutePath = filePath;
+  if (filePath.startsWith('file://')) {
+    try {
+      absolutePath = fileURLToPath(filePath);
+    } catch {
+      invalidConfig('Invalid filePath');
+    }
+  }
+  if (!nodePath.isAbsolute(absolutePath)) {
+    invalidConfig('filePath must be absolute');
+  }
+
+  let realPath: string;
+  try {
+    realPath = await fsPromises.realpath(nodePath.resolve(absolutePath));
+  } catch {
+    invalidConfig('Upload file is not readable');
+  }
+  const roots = await getUploadFileRoots();
+  if (
+    !realPath.endsWith('.zip') ||
+    !roots.some(
+      (root) =>
+        nodePath.dirname(realPath) === root && isPathInside(root, realPath),
+    )
+  ) {
+    invalidConfig('Upload file is outside app storage');
+  }
+
+  let stat: fs.Stats;
+  try {
+    stat = await fsPromises.stat(realPath);
+    await fsPromises.access(realPath, fs.constants.R_OK);
+  } catch {
+    invalidConfig('Upload file is not readable');
+  }
+  if (!stat.isFile()) {
+    invalidConfig('Upload file is not a regular file');
+  }
+  if (stat.size < 1 || stat.size > MAX_UPLOAD_FILE_BYTES) {
+    invalidConfig(`Invalid upload file size: ${stat.size}`);
+  }
+  if (
+    typeof desktopApi?.dev?._isCollectedLoggerArchive === 'function' &&
+    !desktopApi.dev._isCollectedLoggerArchive(realPath, stat.size)
+  ) {
+    invalidConfig('Upload file was not collected by the main process');
+  }
+  return { filePath: realPath, sizeBytes: stat.size };
+}
+
+export async function validateSniUploadFileConfig(
+  config: ISniUploadFileConfig,
+  desktopApi?: IDesktopApi,
+): Promise<NormalizedSniRequestConfig> {
+  if ((config as { body?: unknown }).body !== undefined) {
+    invalidConfig('uploadFile does not accept a body');
+  }
+  const method =
+    typeof config.method === 'string' ? config.method.trim().toUpperCase() : '';
+  if (!UPLOAD_FILE_METHODS.has(method)) {
+    invalidConfig(`Invalid upload method: ${String(config.method)}`);
+  }
+  const normalized = validateSniRequestConfig({
+    requestId: config.requestId,
+    ip: config.ip,
+    hostname: config.hostname,
+    path: config.path,
+    headers: config.headers,
+    method,
+    body: null,
+    timeout: config.timeout,
+  });
+  if (
+    !LOGGER_UPLOAD_ORIGINS.has(
+      `https://${normalized.hostname.toLowerCase()}`,
+    ) ||
+    normalized.path !== LOGGER_UPLOAD_PATH
+  ) {
+    invalidConfig('Upload destination is not allowed');
+  }
+  return {
+    ...normalized,
+    bodyFile: await resolveUploadFile(config.filePath, desktopApi),
+  };
 }
 
 function ipv6Bytes(address: ipaddr.IPv6): number[] {
@@ -418,6 +617,9 @@ function normalizeHeaders(
 export function validateSniRequestConfig(
   config: ISniRequestConfig,
 ): NormalizedSniRequestConfig {
+  if ((config as { bodyFile?: unknown }).bodyFile !== undefined) {
+    invalidConfig('request does not accept bodyFile');
+  }
   validateRequestId(config.requestId);
   validatePublicIp(config.ip);
   validateHostname(config.hostname);
@@ -430,7 +632,9 @@ export function validateSniRequestConfig(
   }
 
   return {
-    ...config,
+    requestId: config.requestId,
+    ip: config.ip,
+    hostname: config.hostname,
     body,
     headers: normalizeHeaders(config.headers ?? {}),
     method: normalizeMethod(config.method ?? 'GET'),
@@ -458,7 +662,7 @@ function createCustomAgent(): https.Agent {
     const ip = options.host || '';
     const hostname = options.servername || '';
     const port = options.port || 443;
-    return `${hostname}:${ip}:${port}`;
+    return `${hostname}:${canonicalizeSniDestinationIp(ip)}:${port}`;
   };
   return agent;
 }
@@ -488,7 +692,9 @@ export function buildSniRequestOptions(
     Host: config.hostname,
     'Accept-Encoding': 'identity',
   };
-  if (config.body !== null) {
+  if (config.bodyFile) {
+    headers['Content-Length'] = String(config.bodyFile.sizeBytes);
+  } else if (config.body !== null) {
     headers['Content-Length'] = String(Buffer.byteLength(config.body, 'utf8'));
   }
 
@@ -526,66 +732,32 @@ export class SniRequestLimiter {
   constructor(
     private maxActiveRequests = MAX_ACTIVE_REQUESTS,
     private maxActiveRequestsPerPair = MAX_ACTIVE_REQUESTS_PER_PAIR,
+    private maxPendingRequests = MAX_PENDING_REQUESTS,
   ) {}
 
   private activeRequests = 0;
 
   private activeRequestsByPair = new Map<string, number>();
 
-  snapshot(
-    hostname?: string,
-    ip?: string,
-  ): {
-    activeRequests: number;
-    activeRequestsForPair: number;
-  } {
-    const key = hostname && ip ? `${hostname.toLowerCase()}|${ip}` : undefined;
-    return {
-      activeRequests: this.activeRequests,
-      activeRequestsForPair: key
-        ? (this.activeRequestsByPair.get(key) ?? 0)
-        : 0,
-    };
+  private pendingRequests: SniRequestLimiterWaiter[] = [];
+
+  private getKey(hostname: string, ip: string): string {
+    return `${hostname.toLowerCase()}|${canonicalizeSniDestinationIp(ip)}`;
   }
 
-  acquire(hostname: string, ip: string): () => void {
-    const key = `${hostname.toLowerCase()}|${ip}`;
-    if (this.activeRequests >= this.maxActiveRequests) {
-      writeNativeLog('warn', 'desktop_sni_resource_limit', {
-        hostname: hostname.toLowerCase(),
-        ipHash: shortHashForLog(ip),
-        ipFamily: getIpFamily(ip),
-        activeRequests: this.activeRequests,
-        activeRequestsForPair: this.activeRequestsByPair.get(key) ?? 0,
-        limit: this.maxActiveRequests,
-        reason: 'max_active_requests',
-      });
-      throw new SniRequestError(
-        'SNI_RESOURCE_LIMIT',
-        'Too many active SNI requests',
-        true,
-      );
-    }
-    const pairCount = this.activeRequestsByPair.get(key) ?? 0;
-    if (pairCount >= this.maxActiveRequestsPerPair) {
-      writeNativeLog('warn', 'desktop_sni_resource_limit', {
-        hostname: hostname.toLowerCase(),
-        ipHash: shortHashForLog(ip),
-        ipFamily: getIpFamily(ip),
-        activeRequests: this.activeRequests,
-        activeRequestsForPair: pairCount,
-        limit: this.maxActiveRequestsPerPair,
-        reason: 'max_active_requests_per_pair',
-      });
-      throw new SniRequestError(
-        'SNI_RESOURCE_LIMIT',
-        'Too many active SNI requests for destination',
-        true,
-      );
-    }
+  private hasCapacity(key: string): boolean {
+    return (
+      this.activeRequests < this.maxActiveRequests &&
+      (this.activeRequestsByPair.get(key) ?? 0) < this.maxActiveRequestsPerPair
+    );
+  }
 
+  private reserveSlot(key: string): () => void {
     this.activeRequests += 1;
-    this.activeRequestsByPair.set(key, pairCount + 1);
+    this.activeRequestsByPair.set(
+      key,
+      (this.activeRequestsByPair.get(key) ?? 0) + 1,
+    );
 
     let released = false;
     return () => {
@@ -598,7 +770,107 @@ export class SniRequestLimiter {
       } else {
         this.activeRequestsByPair.set(key, nextPairCount - 1);
       }
+      this.dispatchPendingRequests();
     };
+  }
+
+  private dispatchPendingRequests(): void {
+    while (this.activeRequests < this.maxActiveRequests) {
+      const index = this.pendingRequests.findIndex((waiter) =>
+        this.hasCapacity(waiter.key),
+      );
+      if (index < 0) return;
+
+      const [waiter] = this.pendingRequests.splice(index, 1);
+      if (waiter.signal && waiter.abortListener) {
+        waiter.signal.removeEventListener('abort', waiter.abortListener);
+      }
+      waiter.resolve(this.reserveSlot(waiter.key));
+    }
+  }
+
+  private getCancellationError(signal: AbortSignal): Error {
+    return signal.reason instanceof Error
+      ? signal.reason
+      : new SniRequestError('SNI_CANCELLED', 'Request cancelled', true);
+  }
+
+  snapshot(
+    hostname?: string,
+    ip?: string,
+  ): {
+    activeRequests: number;
+    activeRequestsForPair: number;
+    pendingRequests: number;
+    pendingRequestsForPair: number;
+  } {
+    const key = hostname && ip ? this.getKey(hostname, ip) : undefined;
+    return {
+      activeRequests: this.activeRequests,
+      activeRequestsForPair: key
+        ? (this.activeRequestsByPair.get(key) ?? 0)
+        : 0,
+      pendingRequests: this.pendingRequests.length,
+      pendingRequestsForPair: key
+        ? this.pendingRequests.filter((waiter) => waiter.key === key).length
+        : 0,
+    };
+  }
+
+  acquire(
+    hostname: string,
+    ip: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<() => void> {
+    const key = this.getKey(hostname, ip);
+    if (options.signal?.aborted) {
+      return Promise.reject(this.getCancellationError(options.signal));
+    }
+    if (this.hasCapacity(key)) {
+      return Promise.resolve(this.reserveSlot(key));
+    }
+    if (this.pendingRequests.length >= this.maxPendingRequests) {
+      const stats = this.snapshot(hostname, ip);
+      writeNativeLog('warn', 'desktop_sni_resource_limit', {
+        hostname: hostname.toLowerCase(),
+        ip,
+        ipFamily: getIpFamily(ip),
+        activeRequests: stats.activeRequests,
+        activeRequestsForPair: stats.activeRequestsForPair,
+        pendingRequests: stats.pendingRequests,
+        pendingRequestsForPair: stats.pendingRequestsForPair,
+        limit: this.maxPendingRequests,
+        reason: 'max_pending_requests',
+      });
+      return Promise.reject(
+        new SniRequestError(
+          'SNI_RESOURCE_LIMIT',
+          'Too many pending SNI requests',
+          true,
+        ),
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const waiter: SniRequestLimiterWaiter = {
+        key,
+        signal: options.signal,
+        abortListener: undefined,
+        resolve,
+      };
+      if (options.signal) {
+        waiter.abortListener = () => {
+          const index = this.pendingRequests.indexOf(waiter);
+          if (index < 0) return;
+          this.pendingRequests.splice(index, 1);
+          reject(this.getCancellationError(options.signal as AbortSignal));
+        };
+        options.signal.addEventListener('abort', waiter.abortListener, {
+          once: true,
+        });
+      }
+      this.pendingRequests.push(waiter);
+    });
   }
 }
 
@@ -612,7 +884,9 @@ class DesktopApiSniRequest {
 
   private agentState: SniAgentState;
 
-  private activeRequests = new Map<string, ClientRequest>();
+  private requestsById = new Map<string, SniRequestState>();
+
+  private allRequests = new Set<SniRequestState>();
 
   private allActiveRequests = new Set<ClientRequest>();
 
@@ -631,19 +905,19 @@ class DesktopApiSniRequest {
     }
   }
 
-  private removeActiveRequest(
-    requestId: string | undefined,
+  private removeRequestState(
+    requestState: SniRequestState,
     request: ClientRequest | undefined,
     agentState: SniAgentState | undefined,
   ): void {
     let cleanupAgentState = agentState;
     if (
-      requestId &&
-      request &&
-      this.activeRequests.get(requestId) === request
+      requestState.requestId &&
+      this.requestsById.get(requestState.requestId) === requestState
     ) {
-      this.activeRequests.delete(requestId);
+      this.requestsById.delete(requestState.requestId);
     }
+    this.allRequests.delete(requestState);
     if (request) {
       const state = agentState ?? this.requestAgentStates.get(request);
       this.allActiveRequests.delete(request);
@@ -682,37 +956,136 @@ class DesktopApiSniRequest {
     }
   }
 
+  private logInvalidConfig(
+    config: Pick<
+      ISniRequestConfig,
+      'hostname' | 'ip' | 'method' | 'timeout' | 'path' | 'headers'
+    >,
+    bodyBytes: number,
+    error: unknown,
+    startedAt: number,
+  ): void {
+    writeNativeLog('error', 'desktop_sni_request_failed', {
+      code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
+      failClosed: isSniFailClosedError(error),
+      hostname: config.hostname ?? 'unknown',
+      ip: config.ip,
+      ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
+      method: config.method ?? 'GET',
+      timeout: config.timeout ?? 'unknown',
+      pathBytes: config.path ? byteSize(config.path) : 0,
+      bodyBytes,
+      headerCount: Object.keys(config.headers ?? {}).length,
+      activeRequests: this.requestLimiter.snapshot().activeRequests,
+      activeRequestsForPair: 0,
+      pendingRequests: this.requestLimiter.snapshot().pendingRequests,
+      pendingRequestsForPair: 0,
+      durationMs: Date.now() - startedAt,
+      errorMessage: getErrorMessage(error),
+    });
+  }
+
   async request(config: ISniRequestConfig): Promise<ISniResponse> {
     const startedAt = Date.now();
     let normalizedConfig: NormalizedSniRequestConfig;
     try {
       normalizedConfig = validateSniRequestConfig(config);
     } catch (error) {
-      writeNativeLog('error', 'desktop_sni_request_failed', {
-        code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
-        failClosed: isSniFailClosedError(error),
-        hostname: config.hostname ?? 'unknown',
-        ipHash: shortHashForLog(config.ip),
-        ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
-        method: config.method ?? 'GET',
-        timeout: config.timeout ?? 'unknown',
-        pathBytes: config.path ? byteSize(config.path) : 0,
-        bodyBytes: config.body ? byteSize(config.body) : 0,
-        headerCount: Object.keys(config.headers ?? {}).length,
-        activeRequests: this.requestLimiter.snapshot().activeRequests,
-        activeRequestsForPair: 0,
-        durationMs: Date.now() - startedAt,
-        errorMessage: getErrorMessage(error),
-      });
+      this.logInvalidConfig(
+        config,
+        config.body ? byteSize(config.body) : 0,
+        error,
+        startedAt,
+      );
       return Promise.reject(error);
     }
-    let releaseRequestSlot: (() => void) | undefined;
+    return this.execute(normalizedConfig, startedAt);
+  }
+
+  /**
+   * Stream a local file in app-owned storage as the request body over the
+   * same pinned destination, admission, timeout and cancel rules as request().
+   */
+  async uploadFile(config: ISniUploadFileConfig): Promise<ISniResponse> {
+    const startedAt = Date.now();
+    let normalizedConfig: NormalizedSniRequestConfig;
     try {
-      releaseRequestSlot = this.requestLimiter.acquire(
-        normalizedConfig.hostname,
-        normalizedConfig.ip,
+      normalizedConfig = await validateSniUploadFileConfig(
+        config,
+        this.desktopApi,
       );
     } catch (error) {
+      this.logInvalidConfig(config, 0, error, startedAt);
+      return Promise.reject(error);
+    }
+    return this.execute(normalizedConfig, startedAt);
+  }
+
+  private async execute(
+    normalizedConfig: NormalizedSniRequestConfig,
+    startedAt: number,
+  ): Promise<ISniResponse> {
+    let releaseRequestSlot: (() => void) | undefined;
+    let queueTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    let activeRequest: ClientRequest | undefined;
+    let activeAgentState: SniAgentState | undefined;
+    let activeFileStream: fs.ReadStream | undefined;
+    const abortController = new AbortController();
+    const timeoutError = () =>
+      new SniRequestError(
+        'SNI_TIMEOUT',
+        `SNI request timeout after ${normalizedConfig.timeout}ms`,
+      );
+    const requestState: SniRequestState = {
+      requestId: normalizedConfig.requestId,
+      cancel: (error) => {
+        if (!abortController.signal.aborted) {
+          abortController.abort(error);
+        }
+        activeRequest?.destroy(error);
+      },
+    };
+
+    if (normalizedConfig.requestId) {
+      const previous = this.requestsById.get(normalizedConfig.requestId);
+      if (previous) {
+        writeNativeLog('warn', 'desktop_sni_lifecycle', {
+          action: 'duplicate_request_id',
+          requestId: normalizedConfig.requestId,
+          success: true,
+          activeCount: this.allActiveRequests.size,
+          pendingCount: this.requestLimiter.snapshot().pendingRequests,
+        });
+        previous.cancel(
+          new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
+        );
+      }
+      this.requestsById.set(normalizedConfig.requestId, requestState);
+    }
+    this.allRequests.add(requestState);
+
+    queueTimeoutId = setTimeout(() => {
+      requestState.cancel(timeoutError());
+    }, normalizedConfig.timeout);
+
+    try {
+      releaseRequestSlot = await this.requestLimiter.acquire(
+        normalizedConfig.hostname,
+        normalizedConfig.ip,
+        { signal: abortController.signal },
+      );
+      if (queueTimeoutId) clearTimeout(queueTimeoutId);
+      queueTimeoutId = undefined;
+      if (abortController.signal.aborted) {
+        throw abortController.signal.reason instanceof Error
+          ? abortController.signal.reason
+          : new SniRequestError('SNI_CANCELLED', 'Request cancelled', true);
+      }
+    } catch (error) {
+      if (queueTimeoutId) clearTimeout(queueTimeoutId);
+      releaseRequestSlot?.();
+      releaseRequestSlot = undefined;
+      this.removeRequestState(requestState, undefined, undefined);
       const stats = this.requestLimiter.snapshot(
         normalizedConfig.hostname,
         normalizedConfig.ip,
@@ -721,29 +1094,47 @@ class DesktopApiSniRequest {
         code: getErrorCode(error) ?? 'SNI_RESOURCE_LIMIT',
         failClosed: isSniFailClosedError(error),
         hostname: normalizedConfig.hostname,
-        ipHash: shortHashForLog(normalizedConfig.ip),
+        ip: normalizedConfig.ip,
         ipFamily: getIpFamily(normalizedConfig.ip),
         method: normalizedConfig.method,
         timeout: normalizedConfig.timeout,
         pathBytes: byteSize(normalizedConfig.path),
-        bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+        bodyBytes: getBodyBytes(normalizedConfig),
         headerCount: Object.keys(normalizedConfig.headers).length,
         activeRequests: stats.activeRequests,
         activeRequestsForPair: stats.activeRequestsForPair,
+        pendingRequests: stats.pendingRequests,
+        pendingRequestsForPair: stats.pendingRequestsForPair,
         durationMs: Date.now() - startedAt,
         errorMessage: getErrorMessage(error),
       });
       return Promise.reject(error);
     }
 
+    const remainingTimeout =
+      normalizedConfig.timeout - (Date.now() - startedAt);
+    if (remainingTimeout <= 0) {
+      releaseRequestSlot();
+      releaseRequestSlot = undefined;
+      this.removeRequestState(requestState, undefined, undefined);
+      return Promise.reject(timeoutError());
+    }
+
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      let activeRequest: ClientRequest | undefined;
-      let activeAgentState: SniAgentState | undefined;
       const releaseSlot = () => {
         releaseRequestSlot?.();
         releaseRequestSlot = undefined;
+        activeFileStream?.destroy();
+        if (
+          normalizedConfig.bodyFile &&
+          activeRequest &&
+          !activeRequest.writableEnded &&
+          !(activeRequest as { ended?: boolean }).ended
+        ) {
+          activeRequest.destroy();
+        }
       };
 
       const settleReject = (error: Error) => {
@@ -751,11 +1142,7 @@ class DesktopApiSniRequest {
         settled = true;
         releaseSlot();
         if (timeoutId) clearTimeout(timeoutId);
-        this.removeActiveRequest(
-          normalizedConfig.requestId,
-          activeRequest,
-          activeAgentState,
-        );
+        this.removeRequestState(requestState, activeRequest, activeAgentState);
         const stats = this.requestLimiter.snapshot(
           normalizedConfig.hostname,
           normalizedConfig.ip,
@@ -764,17 +1151,17 @@ class DesktopApiSniRequest {
           code: getErrorCode(error) ?? 'SNI_REQUEST_FAILED',
           failClosed: isSniFailClosedError(error),
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body
-            ? byteSize(normalizedConfig.body)
-            : 0,
+          bodyBytes: getBodyBytes(normalizedConfig),
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
+          pendingRequests: stats.pendingRequests,
+          pendingRequestsForPair: stats.pendingRequestsForPair,
           durationMs: Date.now() - startedAt,
           errorMessage: error.message,
         });
@@ -786,16 +1173,12 @@ class DesktopApiSniRequest {
         settled = true;
         releaseSlot();
         if (timeoutId) clearTimeout(timeoutId);
-        this.removeActiveRequest(
-          normalizedConfig.requestId,
-          activeRequest,
-          activeAgentState,
-        );
+        this.removeRequestState(requestState, activeRequest, activeAgentState);
         writeNativeLog('info', 'desktop_sni_request_result', {
           result: 'response',
           status: response.statusCode,
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
@@ -882,49 +1265,51 @@ class DesktopApiSniRequest {
           normalizedConfig.ip,
         );
         writeNativeLog('info', 'desktop_sni_request_start', {
-          requestIdHash: shortHashForLog(normalizedConfig.requestId),
+          requestId: normalizedConfig.requestId,
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body
-            ? byteSize(normalizedConfig.body)
-            : 0,
+          bodyBytes: getBodyBytes(normalizedConfig),
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
+          pendingRequests: stats.pendingRequests,
+          pendingRequestsForPair: stats.pendingRequestsForPair,
         });
 
-        if (normalizedConfig.requestId) {
-          const previous = this.activeRequests.get(normalizedConfig.requestId);
-          if (previous) {
-            writeNativeLog('warn', 'desktop_sni_lifecycle', {
-              action: 'duplicate_request_id',
-              requestIdHash: shortHashForLog(normalizedConfig.requestId),
-              success: true,
-              activeCount: this.allActiveRequests.size,
-            });
-            previous.destroy(
-              new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
-            );
-          }
-          this.activeRequests.set(normalizedConfig.requestId, request);
-        }
-
         request.on('error', (error: Error) => {
-          settleReject(classifyTransportError(error));
+          settleReject(
+            classifyTransportError(error, Boolean(normalizedConfig.bodyFile)),
+          );
         });
 
         timeoutId = setTimeout(() => {
-          request.destroy(
-            new SniRequestError(
-              'SNI_TIMEOUT',
-              `SNI request timeout after ${normalizedConfig.timeout}ms`,
-            ),
-          );
-        }, normalizedConfig.timeout);
+          request.destroy(timeoutError());
+        }, remainingTimeout);
+
+        const { bodyFile } = normalizedConfig;
+        if (bodyFile) {
+          // Bounded to the validated size so a growing file cannot exceed
+          // the Content-Length that was already sent.
+          activeFileStream = fs.createReadStream(bodyFile.filePath, {
+            start: 0,
+            end: bodyFile.sizeBytes - 1,
+          });
+          activeFileStream.on('error', (error: Error) => {
+            request.destroy(
+              new SniRequestError(
+                'SNI_FILE_READ_FAILED',
+                `Upload file read failed: ${error.message}`,
+                true,
+              ),
+            );
+          });
+          activeFileStream.pipe(request);
+          return;
+        }
 
         if (normalizedConfig.body) {
           request.write(normalizedConfig.body);
@@ -938,42 +1323,57 @@ class DesktopApiSniRequest {
   }
 
   async cancelRequest(requestId: string): Promise<{ success: boolean }> {
-    const request = this.activeRequests.get(requestId);
-    if (!request) {
+    const requestState = this.requestsById.get(requestId);
+    if (!requestState) {
       writeNativeLog('warn', 'desktop_sni_lifecycle', {
         action: 'cancel_request',
-        requestIdHash: shortHashForLog(requestId),
+        requestId,
         success: false,
         activeCount: this.allActiveRequests.size,
+        pendingCount: this.requestLimiter.snapshot().pendingRequests,
       });
       return { success: false };
     }
-    this.removeActiveRequest(requestId, request, undefined);
-    request.destroy(
+    requestState.cancel(
       new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
     );
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_request',
-      requestIdHash: shortHashForLog(requestId),
+      requestId,
       success: true,
       activeCount: this.allActiveRequests.size,
+      pendingCount: this.requestLimiter.snapshot().pendingRequests,
     });
     return { success: true };
   }
 
+  async getDebugSnapshot({
+    hostname,
+    ip,
+  }: Pick<
+    ISniRequestConfig,
+    'hostname' | 'ip'
+  >): Promise<ISniRequestDebugSnapshot> {
+    validateHostname(hostname);
+    validatePublicIp(ip);
+    return this.requestLimiter.snapshot(hostname, ip);
+  }
+
   async cancelAllRequests(): Promise<{ success: boolean }> {
-    const requests = Array.from(this.allActiveRequests.values());
-    this.activeRequests.clear();
-    this.allActiveRequests.clear();
+    const requests = Array.from(this.allRequests);
+    this.requestsById.clear();
+    this.allRequests.clear();
     for (const request of requests) {
-      request.destroy(
+      request.cancel(
         new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
       );
     }
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_all_requests',
       success: true,
-      activeCount: requests.length,
+      requestCount: requests.length,
+      activeCount: this.allActiveRequests.size,
+      pendingCount: this.requestLimiter.snapshot().pendingRequests,
     });
     return { success: true };
   }

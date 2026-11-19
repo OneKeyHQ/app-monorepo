@@ -22,7 +22,7 @@ export function WebEmbedDevConfig() {
 
   const updateConfig = useDebouncedCallback(
     async ({ url, debug }: { url: string; debug: boolean }) => {
-      webEmbedConfig.setWebEmbedConfig({
+      await webEmbedConfig.setWebEmbedConfig({
         url,
         debug,
       });

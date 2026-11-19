@@ -1,7 +1,11 @@
 import { EEarnProviderEnum } from '../../types/earn';
 import { EApproveType } from '../../types/staking';
+import { getNetworkIdsMap } from '../config/networkIds';
 import {
+  EtherFiLiquidReferContract,
+  MorphoBaseBundlerContract,
   MorphoBundlerContract,
+  MorphoKatanaBundlerContract,
   PendleRouterContract,
 } from '../consts/addresses';
 
@@ -11,6 +15,7 @@ import type { IEarnPermitCacheKey } from '../../types/earn';
 import type {
   IEarnText,
   IEarnToken,
+  IEarnUtmParams,
   IEarnWithdrawType,
 } from '../../types/staking';
 import type { IToken } from '../../types/token';
@@ -45,6 +50,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isEtherFiProvider = createProviderCheck(EEarnProviderEnum.EtherFi);
+
 const isSparkProvider = createProviderCheck(EEarnProviderEnum.Spark);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
@@ -52,6 +59,8 @@ const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
 const isNativeProvider = createProviderCheck(EEarnProviderEnum.Native);
 
 const isBitwayProvider = createProviderCheck(EEarnProviderEnum.Bitway);
+
+const isUnitasProvider = createProviderCheck(EEarnProviderEnum.Unitas);
 
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
@@ -66,16 +75,35 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isEtherFiProvider({ providerName }) ||
     isSparkProvider({ providerName }) ||
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName }) ||
-    isBitwayProvider({ providerName })
+    isBitwayProvider({ providerName }) ||
+    isUnitasProvider({ providerName })
   );
 };
 
+// Unitas (OK-61790): every withdraw is a queued path; waiting for the server
+// declared withdrawType keeps the receipt approve step ahead of the redeem order.
 const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
-  isSparkProvider({ providerName }) || isBitwayProvider({ providerName });
+  isSparkProvider({ providerName }) ||
+  isBitwayProvider({ providerName }) ||
+  isUnitasProvider({ providerName });
+
+// Unitas (OK-66931): the protocol submits the deposit itself once the allowance
+// lands, so the approve is the only step the user signs and the button says so.
+const isProtocolExecutedStake = ({ providerName }: { providerName: string }) =>
+  isUnitasProvider({ providerName });
+
+// Unitas (OK-66931): the only withdraw that needs an approve is the gold-vault
+// redeem request, which the protocol submits once the receipt allowance lands.
+const isProtocolExecutedWithdraw = ({
+  providerName,
+}: {
+  providerName: string;
+}) => isUnitasProvider({ providerName });
 
 const isEarnWithdrawPathReady = ({
   providerName,
@@ -120,6 +148,10 @@ function resolveEarnApproveSpenderAddress({
   protocolVault?: string;
   backendApproveTarget?: string;
 }) {
+  // The EtherFi receipt vault identifies the position but cannot spend deposits.
+  if (isEtherFiProvider({ providerName })) {
+    return backendApproveTarget ?? '';
+  }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
@@ -149,6 +181,9 @@ function resolveEarnApproveType({
   if (!networkUtils.isEvmNetwork({ networkId })) {
     return undefined;
   }
+  if (isEtherFiProvider({ providerName })) {
+    return EApproveType.Legacy;
+  }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveTypeOverrides[providerKey]) {
     return providerApproveTypeOverrides[providerKey];
@@ -156,18 +191,55 @@ function resolveEarnApproveType({
   return backendApproveType ?? EApproveType.Legacy;
 }
 
+/** Returns a known Permit spender; unsupported provider/network pairs fail closed. */
+export function resolveEarnPermitSpenderAddress({
+  providerName,
+  networkId,
+}: {
+  providerName: string;
+  networkId: string;
+}): string | undefined {
+  if (isEtherFiProvider({ providerName })) {
+    return networkId === getNetworkIdsMap().eth
+      ? EtherFiLiquidReferContract
+      : undefined;
+  }
+  if (!isMorphoProvider({ providerName })) {
+    return undefined;
+  }
+  if (networkId === getNetworkIdsMap().eth) {
+    return MorphoBundlerContract;
+  }
+  if (networkId === getNetworkIdsMap().base) {
+    return MorphoBaseBundlerContract;
+  }
+  if (networkId === getNetworkIdsMap().katana) {
+    return MorphoKatanaBundlerContract;
+  }
+  return undefined;
+}
+
 function resolveEarnAllowanceSpenderAddress({
+  providerName,
+  networkId,
   approveType,
   approveSpenderAddress,
 }: {
+  providerName: string;
+  networkId: string;
   approveType?: EApproveType;
   approveSpenderAddress?: string;
 }) {
   if (!approveSpenderAddress) {
     return '';
   }
-  if (approveType === EApproveType.Permit) {
-    return MorphoBundlerContract;
+  // Morpho historically exposes its vault as approveTarget, while Permit uses
+  // a bundler. Other providers already expose their actual deposit spender.
+  if (
+    approveType === EApproveType.Permit &&
+    isMorphoProvider({ providerName })
+  ) {
+    return resolveEarnPermitSpenderAddress({ providerName, networkId }) ?? '';
   }
   return approveSpenderAddress;
 }
@@ -194,7 +266,8 @@ function getEarnProviderName({
 }
 
 function getEarnPermitCacheKey(payload: IEarnPermitCacheKey) {
-  return `${payload.accountId}_${payload.networkId}_${payload.tokenAddress}_${payload.amount}`;
+  // A token allowance signed for one spender cannot authorize another protocol.
+  return `${payload.accountId}_${payload.networkId}_${payload.providerName.toLowerCase()}_${payload.approveSpenderAddress.toLowerCase()}_${payload.tokenAddress}_${payload.amount}`;
 }
 
 function isUSDTonETHNetwork({
@@ -221,6 +294,42 @@ function convertEarnTokenToIToken(earnToken?: IEarnToken): IToken | undefined {
     symbol: earnToken.symbol,
     uniqueKey: earnToken.uniqueKey,
   };
+}
+
+/**
+ * Resolves the label a token should be shown under.
+ *
+ * `symbol` stays the protocol identifier — it is the request param, the route
+ * segment and the key the server matches on, so it must never be swapped for a
+ * label. `displaySymbol` is an optional server-supplied relabel (e.g. Katana's
+ * vbUSDC reads as "USDC for Katana (vbUSDC)") that only ever affects rendering,
+ * and is absent for almost every token.
+ *
+ * Use this for identity surfaces — list rows, search results, page titles.
+ * Do NOT use it as an amount unit: a relabel can be far longer than a symbol
+ * and would wreck "0.00 <symbol>" layouts.
+ */
+function getDisplaySymbol(
+  token?: { symbol?: string; displaySymbol?: string } | null,
+): string {
+  return token?.displaySymbol || token?.symbol || '';
+}
+
+/**
+ * Whether a keyword matches a token by either of its labels, so search still
+ * finds a relabelled token by the symbol users already know.
+ */
+function matchesSymbolKeyword(
+  token: { symbol?: string; displaySymbol?: string } | null | undefined,
+  keyword: string,
+): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return true;
+  }
+  return [token?.symbol, token?.displaySymbol].some((label) =>
+    label?.toLowerCase().includes(normalizedKeyword),
+  );
 }
 
 function extractAmountFromText(text?: IEarnText): string {
@@ -292,14 +401,55 @@ function normalizeBorrowAddressParams<
   };
 }
 
+// Mirrors the server rule for the order DTO: visible ASCII, 1-100 chars.
+// Anything else is dropped so a malformed campaign link never blocks the
+// order with a validation error.
+const EARN_UTM_VALUE_PATTERN = /^[\x21-\x7e]{1,100}$/;
+
+function normalizeEarnUtmValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return EARN_UTM_VALUE_PATTERN.test(trimmed) ? trimmed : undefined;
+}
+
+/**
+ * Reads campaign attribution from a parsed Earn link or from route params.
+ * Accepts the link spelling (utm_source) and the route spelling (utmSource)
+ * because the web router hands query params through unchanged.
+ * @returns undefined when nothing usable is present, so callers can spread
+ * the result into request params without leaving empty keys behind.
+ */
+function normalizeEarnUtmParams(
+  params?: Record<string, unknown> | null,
+): IEarnUtmParams | undefined {
+  if (!params) return undefined;
+  const utmSource = normalizeEarnUtmValue(
+    params.utmSource ?? params.utm_source,
+  );
+  const utmMedium = normalizeEarnUtmValue(
+    params.utmMedium ?? params.utm_medium,
+  );
+  const utmCampaign = normalizeEarnUtmValue(
+    params.utmCampaign ?? params.utm_campaign,
+  );
+  if (!utmSource && !utmMedium && !utmCampaign) return undefined;
+  return {
+    ...(utmSource ? { utmSource } : {}),
+    ...(utmMedium ? { utmMedium } : {}),
+    ...(utmCampaign ? { utmCampaign } : {}),
+  };
+}
+
 export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isEtherFiProvider,
   isSparkProvider,
   isPendleProvider,
   isNativeProvider,
   isBitwayProvider,
+  isUnitasProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
@@ -314,12 +464,18 @@ export default {
   isVaultBasedProvider,
   requiresEarnWithdrawPath,
   isEarnWithdrawPathReady,
+  isProtocolExecutedStake,
+  isProtocolExecutedWithdraw,
   shouldSendEarnProtocolVault,
+  normalizeEarnUtmParams,
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,
   resolveEarnApproveType,
+  resolveEarnPermitSpenderAddress,
   resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
+  getDisplaySymbol,
+  matchesSymbolKeyword,
   extractAmountFromText,
   normalizeBorrowAddress,
   normalizeBorrowAddressParams,

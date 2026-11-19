@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
@@ -17,7 +18,10 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { dedupeTokenSelectorFavoriteCoins } from '../utils/tokenSelectorFavorites';
+import {
+  dedupeTokenSelectorFavoriteCoins,
+  sortTokenSelectorFavoritesBySequence,
+} from '../utils/tokenSelectorFavorites';
 
 export type IFavoriteItem = {
   mode: 'perp' | 'spot';
@@ -37,6 +41,7 @@ export function usePerpsFavorites(options?: {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [perpFavorites] = usePerpTokenFavoritesPersistAtom();
   const [spotFavorites] = useSpotTokenFavoritesPersistAtom();
+  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
   const favoritesMode =
     options?.mode === 'current'
       ? activeTradeInstrument.mode
@@ -97,7 +102,7 @@ export function usePerpsFavorites(options?: {
     { checkIsFocused: false },
   );
 
-  const favoriteItems = useMemo(() => {
+  const unorderedFavoriteItems = useMemo(() => {
     if (!uniqueFavorites.length || !taggedUniverse) {
       return [];
     }
@@ -157,6 +162,16 @@ export function usePerpsFavorites(options?: {
 
     return items;
   }, [uniqueFavorites, taggedUniverse]);
+
+  // Every consumer follows the drag order set in the favorites bar.
+  const favoriteItems = useMemo(
+    () =>
+      sortTokenSelectorFavoritesBySequence(
+        unorderedFavoriteItems,
+        favoritesOrder.sequence,
+      ),
+    [unorderedFavoriteItems, favoritesOrder.sequence],
+  );
 
   return { favoriteItems, isReady: taggedUniverse !== undefined };
 }

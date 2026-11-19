@@ -173,20 +173,23 @@ describe('perpsTpSlUtils', () => {
   });
 
   describe('getPerpsChaseOrderAmendKind', () => {
-    test('builds a Gtc limit amend for an eligible chase order', () => {
-      expect(
-        getPerpsChaseOrderAmendKind(
-          mkOrder({
-            orderType: 'Limit',
-            isTrigger: false,
-            isPositionTpsl: false,
-            tif: 'Gtc',
-          }),
-        ),
-      ).toEqual({ kind: 'limit', tif: 'Gtc' });
-    });
+    test.each(['Gtc', 'Alo'] as const)(
+      'chases an eligible %s order as post-only',
+      (tif) => {
+        expect(
+          getPerpsChaseOrderAmendKind(
+            mkOrder({
+              orderType: 'Limit',
+              isTrigger: false,
+              isPositionTpsl: false,
+              tif,
+            }),
+          ),
+        ).toEqual({ kind: 'limit', tif: 'Alo' });
+      },
+    );
 
-    test.each(['Alo', 'Ioc', null] as const)(
+    test.each(['Ioc', null] as const)(
       'rejects a latest order snapshot with TIF %s',
       (tif) => {
         expect(

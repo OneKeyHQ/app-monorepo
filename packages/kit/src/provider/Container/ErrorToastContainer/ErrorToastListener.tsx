@@ -41,54 +41,56 @@ const getDeduplicationId = (
 
 type IErrorToastPayload = IAppEventBusPayload[EAppEventBusNames.ShowToast];
 
-export function ErrorToastListener({
-  getActions,
-}: {
-  getActions?: (payload: IErrorToastPayload) => IToastProps['actions'];
-}) {
+export function shouldSuppressErrorToast(payload: IErrorToastPayload) {
+  return (
+    getNetworkErrorToastSuppressReason({
+      isInternetReachable: globalNetInfo.currentState().isInternetReachable,
+      payload,
+    }) !== null
+  );
+}
+
+export function showErrorToast(
+  payload: IErrorToastPayload,
+  { title = payload.title, actions }: Pick<IToastProps, 'title' | 'actions'> = {
+    title: payload.title,
+  },
+) {
+  const deduplication = getDeduplicationId(getEffectiveHttpStatusCode(payload));
+  const toastId = deduplication.forceDeduplicate
+    ? deduplication.id
+    : payload.toastId ||
+      deduplication.id ||
+      (payload.errorCode !== undefined
+        ? String(payload.errorCode)
+        : undefined) ||
+      payload.title ||
+      payload.requestId;
+
+  Toast[payload.method]({
+    title,
+    message: payload.message,
+    icon: payload.icon as IToastProps['icon'],
+    toastId,
+    actions,
+    duration: payload.duration,
+    nativeStorageRecoveryTestSessionId:
+      payload.nativeStorageRecoveryTestSessionId,
+  });
+}
+
+export function ErrorToastListener() {
   useEffect(() => {
-    const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      if (!p.title) {
-        return;
+    const listener = (payload: IErrorToastPayload) => {
+      if (payload.title && !shouldSuppressErrorToast(payload)) {
+        showErrorToast(payload);
       }
-      const isInternetReachable =
-        globalNetInfo.currentState().isInternetReachable;
-      const suppressReason = getNetworkErrorToastSuppressReason({
-        isInternetReachable,
-        payload: p,
-      });
-      const shouldSuppress = suppressReason !== null;
-      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
-      if (shouldSuppress) {
-        return;
-      }
-
-      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
-      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
-      // Otherwise, respect custom toastId from caller
-      const toastId = deduplication.forceDeduplicate
-        ? deduplication.id
-        : p.toastId ||
-          deduplication.id ||
-          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
-          p.title ||
-          p.requestId;
-
-      Toast[p.method]({
-        title: p.title,
-        message: p.message,
-        // icon is string in event bus (shared can't import IKeyOfIcons from components)
-        icon: p.icon as IToastProps['icon'],
-        toastId,
-        actions: getActions?.(p),
-        duration: p.duration,
-      });
     };
-    appEventBus.on(EAppEventBusNames.ShowToast, fn);
+    appEventBus.on(EAppEventBusNames.ShowToast, listener);
     return () => {
-      appEventBus.off(EAppEventBusNames.ShowToast, fn);
+      appEventBus.off(EAppEventBusNames.ShowToast, listener);
     };
-  }, [getActions]);
+  }, []);
 
   return null;
 }

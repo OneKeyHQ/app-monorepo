@@ -1,30 +1,31 @@
+/* OneKeySans is the brand sans slot filled by `yarn fonts:sync`. */
 @font-face {
-  font-family: 'Roobert';
-  src: url('./fonts/Roobert-Regular.ttf') format('truetype');
+  font-family: 'OneKeySans';
+  src: url('./fonts/brand/BrandSans-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Roobert';
-  src: url('./fonts/Roobert-Medium.ttf') format('truetype');
+  font-family: 'OneKeySans';
+  src: url('./fonts/brand/BrandSans-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Roobert';
-  src: url('./fonts/Roobert-SemiBold.ttf') format('truetype');
+  font-family: 'OneKeySans';
+  src: url('./fonts/brand/BrandSans-SemiBold.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Roobert';
-  src: url('./fonts/Roobert-Bold.ttf') format('truetype');
+  font-family: 'OneKeySans';
+  src: url('./fonts/brand/BrandSans-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;

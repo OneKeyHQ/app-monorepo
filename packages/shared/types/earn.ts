@@ -17,7 +17,9 @@ export enum EEarnProviderEnum {
   Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
+  EtherFi = 'EtherFi',
   Bitway = 'Bitway',
+  Unitas = 'Unitas',
 }
 
 export type ISupportedSymbol =
@@ -52,12 +54,16 @@ export type ISupportedSymbol =
   | 'PlasmaUSD'
   | 'wstETH'
   | 'weETH'
+  | 'eETH'
+  | 'stETH'
+  | 'eBTC'
   | 'aUSDT0'
   | 'stcUSD'
   | 'kHYPE'
   | 'U'
   | 'BTW'
-  | 'vbUSDC';
+  | 'vbUSDC'
+  | 'XAUt';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
@@ -90,11 +96,7 @@ export interface IStakingConfig {
   [networkId: string]: INetworkStakingConfig;
 }
 
-export interface IEarnPermitCache {
-  accountId: string;
-  networkId: string;
-  tokenAddress: string;
-  amount: string;
+export interface IEarnPermitCache extends IEarnPermitCacheKey {
   signature: string;
   permit2Data?: IEarnPermit2ApproveSignData;
   expiredAt: number;
@@ -103,6 +105,8 @@ export interface IEarnPermitCache {
 export interface IEarnPermitCacheKey {
   accountId: string;
   networkId: string;
+  providerName: string;
+  approveSpenderAddress: string;
   tokenAddress: string;
   amount: string;
 }
@@ -159,6 +163,12 @@ export interface IEarnAvailableAssetBadge {
 export interface IEarnAvailableAsset {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   apr: string;
   aprWithoutFee: string;
@@ -183,13 +193,22 @@ export interface IEarnAvailableAssetV2 {
   networkId: string;
   provider: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   vault?: string;
   ptAddress?: string;
   enableBatch?: boolean;
 }
 
+export type IEarnBannerTheme = 'light' | 'dark';
+
 export interface IEarnPageBannerListItem {
   bannerId: string;
+  theme: IEarnBannerTheme;
   backgroundImage: string;
   icon: string;
   title: string;

@@ -1,3 +1,5 @@
+import '@onekeyhq/shared/src/polyfills';
+
 import { getKeylessEntry } from './src/keylessDeletion/entry';
 import { messages } from './src/keylessDeletion/messages';
 

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import {
+  useNetInfo,
+  useUpdateEffect,
+  useVisibilityChange,
+} from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -16,6 +20,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EPrimeAuthSessionSource,
@@ -26,8 +32,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
+import { CloudSyncReconciliationEffect } from './CloudSyncReconciliationEffect';
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
+import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
 
 import type {
   IRevenueCatCustomerInfoNative,
@@ -106,6 +114,12 @@ function PrimeGlobalEffectAfterAuthReady() {
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
 
+  // Store-only builds never open the hosted card checkout.
+  usePrimeWebCheckoutRecovery({
+    enabled: !isPrimeStoreOnlyPayment() && !isAppLocked,
+    onekeyUserId: user?.isLoggedIn ? user.onekeyUserId : undefined,
+  });
+
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     try {
       if (user?.onekeyUserId && user?.isLoggedInOnServer) {
@@ -121,10 +135,10 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       }
     } catch (error) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: '',
-        errorCode: -1759,
-        errorMessage: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${String(
+      // Local-only: generic refresh failures are not invalid-token signals
+      // and previously polluted onekeyIdInvalidToken with synthetic -1759.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${getSanitizedErrorLogText(
           error,
         )}`,
       });
@@ -205,10 +219,8 @@ function PrimeGlobalEffectAfterAuthReady() {
           shouldSkip: () => isCancelled || isAppLockedRef.current,
         });
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${getSanitizedErrorLogText(
             error,
           )}`,
         });
@@ -235,10 +247,8 @@ function PrimeGlobalEffectAfterAuthReady() {
           }
         }
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${getSanitizedErrorLogText(
             error,
           )}`,
         });
@@ -264,32 +274,21 @@ function PrimeGlobalEffectAfterAuthReady() {
             await backgroundApiProxy.simpleDb.prime.getActiveAuthToken();
         }
 
-        if (accessToken) {
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-        } else {
-          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+        if (!accessToken) {
+          // Local-only: expected state for every never-logged-in user at
+          // startup, not an auth anomaly.
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
             reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null ${JSON.stringify(
               {
                 isSupabaseLoggedIn,
               },
             )}`,
           });
-          // Guarded bg-side clear (authStateWriteMutex + in-lock re-read):
-          // a raw clearAuthTokens here could interleave with an in-flight
-          // OAuth login commit and wipe its freshly written
-          // authSessionSource — a wiped KeylessOAuth source is never
-          // re-inferred, orphaning a still-valid keyless session.
-          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
-            {
-              callerName: 'PrimeGlobalEffect',
-            },
-          );
         }
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect: fetch user info failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect: fetch user info failed: ${getSanitizedErrorLogText(
             error,
           )}`,
         });
@@ -307,6 +306,22 @@ function PrimeGlobalEffectAfterAuthReady() {
   }, [setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
+
+  // Free trial: keep the display snapshot bound to the current user and
+  // subscription, and re-send pending usage reports of that user.
+  const freeTrialUserId = user?.isLoggedInOnServer
+    ? user?.onekeyUserId
+    : undefined;
+  useEffect(() => {
+    void backgroundApiProxy.servicePrimeFreeTrial.onPrimeUserStateChanged();
+  }, [freeTrialUserId, isActive]);
+  const { isInternetReachable } = useNetInfo();
+  useUpdateEffect(() => {
+    if (isInternetReachable) {
+      void backgroundApiProxy.servicePrimeFreeTrial.flushPendingReports();
+    }
+  }, [isInternetReachable]);
+
   useUpdateEffect(() => {
     console.log('primePersistAtom.primeSubscription?.isActive', {
       isActive,
@@ -338,6 +353,15 @@ function PrimeGlobalEffectAfterAuthReady() {
 function PrimeGlobalEffectView() {
   const { isReady } = useOneKeyAuth();
 
+  // Back in the foreground: another device may have reset the hardware Cloud
+  // key or signed this one out meanwhile. Throttled in the background.
+  const onVisibilityChange = useCallback((visible: boolean) => {
+    if (visible) {
+      void backgroundApiProxy.serviceKeylessCloudSync.checkHardwareCloudSyncSessionThrottled();
+    }
+  }, []);
+  useVisibilityChange(onVisibilityChange);
+
   useEffect(() => {
     // Main-runtime handler NEVER mutates the shared session storage: every
     // persistent session deletion is bg-owned and identity-coordinated — a main-side
@@ -355,9 +379,6 @@ function PrimeGlobalEffectView() {
           }
         | undefined,
     ) => {
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
-      });
       if (
         payload?.clearedByBackground &&
         payload.authStateGeneration !== undefined
@@ -370,12 +391,17 @@ function PrimeGlobalEffectView() {
         const currentAuthStateGeneration =
           await backgroundApiProxy.simpleDb.prime.getAuthStateGeneration();
         if (currentAuthStateGeneration !== payload.authStateGeneration) {
-          defaultLogger.prime.subscription.onekeyIdLogout({
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
             reason: `PrimeGlobalEffectView.PrimeLoginInvalidToken: skip stale event, a login committed during propagation (generation ${payload.authStateGeneration} -> ${currentAuthStateGeneration})`,
           });
           return;
         }
       }
+      // Local-only: bg already emits onekeyIdInvalidToken for the server
+      // signal. This bus handler is not a user logout.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
+      });
       // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
       // invalid-token cleanup already reset the atom in-lock before
       // emitting this event, and a new login may have committed during the
@@ -396,6 +422,7 @@ function PrimeGlobalEffectView() {
   return (
     <>
       <KYTIntroOnMount />
+      <CloudSyncReconciliationEffect />
       {isReady ? <PrimeGlobalEffectAfterAuthReady /> : null}
     </>
   );

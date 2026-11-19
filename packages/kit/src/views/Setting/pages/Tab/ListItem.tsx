@@ -1,6 +1,13 @@
-import { cloneElement, useCallback, useMemo } from 'react';
+import {
+  cloneElement,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+} from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { Badge, Icon, Stack, XStack, YStack } from '@onekeyhq/components';
 import type {
@@ -16,40 +23,57 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
+import type { ISettingsEntrySurface } from '@onekeyhq/shared/src/logger/scopes/setting';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { type ISubSettingConfig } from './config';
 import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
+import { logSettingItemClicked } from './settingsAnalytics';
 import {
   getSettingsDisplayTitle,
   getSettingsDisplayTitleKey,
 } from './settingsDisplay';
 import {
   type ISettingsSectionPresentation,
+  resolveSettingsRowHoverMaskColor,
   resolveSettingsSectionSurface,
 } from './settingsSurface';
-import { useIsTabNavigator } from './useIsTabNavigator';
+import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
 
 type ISettingsSectionProps = IStackProps & {
   presentation?: ISettingsSectionPresentation;
 };
+
+const TabSettingsRowHoverMaskContext = createContext<string | undefined>(
+  undefined,
+);
 
 export function TabSettingsSection({
   presentation = 'flat',
   ...props
 }: ISettingsSectionProps) {
   const surface = resolveSettingsSectionSurface(presentation);
+  const hoverMaskColor = Platform.select({
+    web: resolveSettingsRowHoverMaskColor(
+      props.bg ?? props.backgroundColor ?? surface.backgroundColor,
+    ),
+    default: undefined,
+  });
   return (
-    <YStack
-      backgroundColor={surface.backgroundColor}
-      overflow="hidden"
-      borderRadius={surface.borderRadius}
-      borderCurve={surface.borderCurve}
-      borderWidth={StyleSheet.hairlineWidth * surface.borderWidthScale}
-      borderColor={surface.borderColor}
-      {...(props as IYStackProps)}
-    />
+    <TabSettingsRowHoverMaskContext.Provider value={hoverMaskColor}>
+      <YStack
+        backgroundColor={surface.backgroundColor}
+        overflow="hidden"
+        borderRadius={surface.borderRadius}
+        borderCurve={surface.borderCurve}
+        borderWidth={StyleSheet.hairlineWidth * surface.borderWidthScale}
+        borderColor={surface.borderColor}
+        {...(props as IYStackProps)}
+      />
+    </TabSettingsRowHoverMaskContext.Provider>
   );
 }
 
@@ -60,10 +84,41 @@ export function MobileTabSettingsSection(props: ISettingsSectionProps) {
 export function TabSettingsListItem({
   showDot,
   children,
+  logItemClick: _logItemClick,
+  analyticsSource: _analyticsSource,
   ...props
-}: IListItemProps & IStackStyle & { showDot?: boolean }) {
+}: IListItemProps &
+  IStackStyle & {
+    showDot?: boolean;
+    logItemClick?: () => void;
+    analyticsSource?: ISettingsEntrySurface;
+  }) {
+  const { isMobileLayout } = useSettingsLayout();
+  const hoverMaskColor = useContext(TabSettingsRowHoverMaskContext);
+  // Inset dividers use the same color as the hover background but skip the
+  // icon column, so a touching divider makes the highlight look 1px taller
+  // beside the text. Paint over both neighbors with the section background.
+  // The hover color is translucent, so it cannot cover them on its own.
+  const hoverMaskProps =
+    hoverMaskColor && props.onPress && !props.disabled
+      ? {
+          hoverStyle: {
+            ...listItemPressStyle.hoverStyle,
+            zIndex: 1,
+            boxShadow: `0 0 0 ${StyleSheet.hairlineWidth}px ${hoverMaskColor}`,
+            ...props.hoverStyle,
+          },
+        }
+      : undefined;
   return (
-    <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
+    <BaseListItem
+      py="$3"
+      px={isMobileLayout ? '$4' : '$5'}
+      mx={0}
+      borderRadius={0}
+      {...props}
+      {...hoverMaskProps}
+    >
       {children}
       {showDot ? (
         <Stack width="$2" height="$2" bg="$bgAccent" borderRadius="$full" />
@@ -83,9 +138,9 @@ export function TabSettingsInsetDivider({
 }: {
   iconWidth?: IStackProps['w'];
 }) {
-  const isTabNavigator = useIsTabNavigator();
+  const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   return (
-    <XStack alignSelf="stretch" pl="$5">
+    <XStack alignSelf="stretch" pl={isMobileLayout ? '$4' : '$5'}>
       <Stack
         w={iconWidth ?? (isTabNavigator ? '$5' : '$6')}
         mr="$3"
@@ -102,12 +157,20 @@ export function TabSettingsListGrid({
   searchPath,
   useMobilePresentation = false,
   preferMobileNaming = useMobilePresentation,
+  analyticsSource,
+  analyticsCategory,
+  searchResultIndex,
+  searchQueryLength,
 }: {
-  item: ISubSettingConfig | undefined | null;
+  item: ISubSettingConfig;
   matches?: readonly IFuseResultMatch[];
   searchPath?: string;
   preferMobileNaming?: boolean;
   useMobilePresentation?: boolean;
+  analyticsSource: ISettingsEntrySurface;
+  analyticsCategory: ESettingsTabNames;
+  searchResultIndex?: number;
+  searchQueryLength?: number;
 }) {
   const isTabNavigator = useIsTabNavigator();
   const titleProps = useMemo(() => {
@@ -144,59 +207,78 @@ export function TabSettingsListGrid({
     };
   }, [isTabNavigator, useMobilePresentation]);
   const appNavigation = useAppNavigation();
-  const title = item
-    ? getSettingsDisplayTitle(item, preferMobileNaming)
-    : undefined;
-  const subtitle = searchPath ?? item?.subtitle;
+  const title = getSettingsDisplayTitle(item, preferMobileNaming);
+  const subtitle = searchPath ?? item.subtitle;
   // Highlight the match for the field the row actually displays. Naming is a
   // separate axis from the compact/mobile row styling.
   // Match indices are raw offsets into the matched string, so picking the
   // wrong key paints the highlight onto foreign characters.
   const titleMatch = matches?.find(
     (match) =>
-      match.key ===
-      (item ? getSettingsDisplayTitleKey(item, preferMobileNaming) : 'title'),
+      match.key === getSettingsDisplayTitleKey(item, preferMobileNaming),
   );
+  const itemRef = useRef(item);
+  itemRef.current = item;
+  const searchMetaRef = useRef({ searchQueryLength, searchResultIndex });
+  searchMetaRef.current = { searchQueryLength, searchResultIndex };
+  const logItemClick = useCallback(() => {
+    logSettingItemClicked({
+      item: itemRef.current,
+      category: analyticsCategory,
+      source: analyticsSource,
+      searchQueryLength: searchMetaRef.current.searchQueryLength,
+      searchResultIndex: searchMetaRef.current.searchResultIndex,
+    });
+  }, [analyticsCategory, analyticsSource]);
   const onPress = useCallback(async () => {
-    await dismissKeyboardWithDelay(100);
-    if (isTabNavigator && item?.desktopTab) {
-      // On tab-navigator layouts this item lives as its own sidebar tab, so
-      // select the tab instead of stacking the standalone page on top.
-      navigateToSettingsTabInModal(item.desktopTab);
+    if (itemRef.current.ignorePress) {
       return;
     }
-    item?.onPress?.(appNavigation);
-  }, [appNavigation, isTabNavigator, item]);
-  return item?.renderElement ? (
+    await dismissKeyboardWithDelay(100);
+    logItemClick();
+    const currentItem = itemRef.current;
+    if (isTabNavigator && currentItem.desktopTab) {
+      // On tab-navigator layouts this item lives as its own sidebar tab, so
+      // select the tab instead of stacking the standalone page on top.
+      // Programmatic tab switch bypasses SideBar.onPress, so this click is
+      // the only settings event for promoted items.
+      navigateToSettingsTabInModal(currentItem.desktopTab);
+      return;
+    }
+    currentItem.onPress?.(appNavigation);
+  }, [appNavigation, isTabNavigator, logItemClick]);
+  return item.renderElement ? (
     cloneElement(item.renderElement, {
       titleMatch,
       title,
       subtitle,
       icon: item.icon as IKeyOfIcons,
-      onPress: item?.onPress,
-      badgeProps: item?.badgeProps,
-      testID: item?.testID,
+      onPress: item.onPress,
+      badgeProps: item.badgeProps,
+      testID: item.testID,
       titleProps,
       valueTextProps,
       iconProps,
+      logItemClick,
+      analyticsSource,
     })
   ) : (
     <TabSettingsListItem
-      testID={item?.testID}
+      testID={item.testID}
       titleMatch={titleMatch}
       titleProps={titleProps}
       onPress={onPress}
-      key={item?.icon ?? title}
-      icon={item?.icon as IKeyOfIcons}
+      key={item.icon ?? title}
+      icon={item.icon as IKeyOfIcons}
       iconProps={iconProps}
       title={title}
       subtitle={subtitle}
-      drillIn={!item?.isExternalLink}
+      drillIn={!item.isExternalLink}
     >
-      {item?.isExternalLink ? (
+      {item.isExternalLink ? (
         <Icon name="ArrowTopRightOutline" size="$5" color="$iconSubdued" />
       ) : null}
-      {item?.badgeProps ? (
+      {item.badgeProps ? (
         <Badge
           badgeSize={item.badgeProps.badgeSize as IBadgeProps['badgeSize']}
         >

@@ -77,6 +77,7 @@ export function useEModeNeedActionFlow({
   accountId,
   provider,
   marketAddress,
+  providerLogoURI,
   targetEModeId,
   onAllDone,
 }: {
@@ -84,6 +85,7 @@ export function useEModeNeedActionFlow({
   accountId: string;
   provider: string;
   marketAddress: string;
+  providerLogoURI?: string;
   targetEModeId: number;
   onAllDone: () => void;
 }) {
@@ -328,9 +330,10 @@ export function useEModeNeedActionFlow({
     (action: 'repay' | 'setCollateral' | 'setEMode'): IStakingInfo => ({
       label: EEarnLabels.Borrow,
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+      protocolLogoURI: providerLogoURI,
       tags: [EEarnLabels.Borrow, buildBorrowTag({ provider, action })],
     }),
-    [provider],
+    [provider, providerLogoURI],
   );
 
   // Chain intent + re-entrancy — refs only, never drive the UI:
@@ -822,6 +825,9 @@ export function useEModeNeedActionFlow({
       : '1';
   const approval = useBorrowApproval({
     action: 'repay',
+    // Same reason as the lending action dialog: the approve step gates the
+    // one-time risk disclaimer and needs the provider to do it.
+    providerName: provider,
     amountValue: engineAmount,
     repayAll: repayApprovalScope
       ? shouldRepayAllForEModeStep(repayApprovalScope.step)
@@ -942,6 +948,11 @@ export function useEModeNeedActionFlow({
             ...callbacks,
             onCancel: disarm,
           });
+          // undefined = never started (risk disclaimer declined). onCancel
+          // already disarmed the step, so stop without touching the check state.
+          if (!latestCheck) {
+            return;
+          }
           if (!latestCheck.canSwitch) {
             applyAuthoritativeCheck({
               eModeId: targetEModeId,

@@ -5,6 +5,18 @@ import type {
   IHardwareRecordItem,
 } from '../referralCode/type';
 
+export type IReferralPageTab = 'invite' | 'benefits';
+
+// How this Perks visit was opened. Omitted on the route means a deep link
+// or a restored tab.
+export type IPerksOpenEntry = 'tabs' | 'cross_link' | 'activity_hub';
+
+export interface IInviteRewardRouteParams {
+  showRewardDistributionHistory?: boolean;
+  tab?: IReferralPageTab;
+  perksEntry?: IPerksOpenEntry;
+}
+
 export interface IBtcRewardCodeInfoParam {
   codeId: string;
   batchName: string;
@@ -15,6 +27,7 @@ export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
   InvitedByFriend = 'InvitedByFriend',
   YourReferred = 'YourReferred',
+  InviteCodes = 'InviteCodes',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
   HardwareSalesOrderDetail = 'HardwareSalesOrderDetail',
@@ -38,12 +51,18 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
     code?: string;
+    tab?: IReferralPageTab;
+    perksEntry?: IPerksOpenEntry;
   };
   [EModalReferFriendsRoutes.InvitedByFriend]: {
     code: string;
     page?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
+  [EModalReferFriendsRoutes.InviteCodes]: {
+    // New codes build their link from this template.
+    inviteUrl: string;
+  };
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
     networks: IEarnWalletHistoryNetwork[];
     items: IEarnWalletHistoryItem[];
@@ -57,11 +76,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.HardwareSalesOrderDetail]: {
     data: IHardwareRecordItem;
   };
-  [EModalReferFriendsRoutes.InviteReward]:
-    | {
-        showRewardDistributionHistory?: boolean;
-      }
-    | undefined;
+  [EModalReferFriendsRoutes.InviteReward]: IInviteRewardRouteParams | undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;

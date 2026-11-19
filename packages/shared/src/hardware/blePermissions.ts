@@ -13,10 +13,14 @@ import platformEnv from '../platformEnv';
 import bleManagerInstance from './bleManager';
 
 export async function openBLESettings() {
-  if (platformEnv.isNativeIOS) {
-    await Linking.openURL('App-Prefs:Bluetooth');
-  } else {
-    await Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS');
+  try {
+    if (platformEnv.isNativeIOS) {
+      await Linking.openURL('App-Prefs:root=Bluetooth');
+    } else if (platformEnv.isNativeAndroid) {
+      await Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS');
+    }
+  } catch {
+    await openSettings();
   }
 }
 

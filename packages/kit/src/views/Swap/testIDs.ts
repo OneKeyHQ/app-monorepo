@@ -12,6 +12,7 @@ export const SwapTestIDs = {
   fromAmountInput: 'swap-from-amount-input',
   toAmountInput: 'swap-to-amount-input',
   maxButton: 'swap-max-button',
+  balanceRefreshButton: 'swap-balance-refresh-button',
 
   // Actions
   swapButton: 'swap-action-button',
@@ -20,8 +21,7 @@ export const SwapTestIDs = {
   kLineChart: 'swap-kline-chart',
   kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
-  inviteeRewardButton: 'swap-invitee-reward-button',
-  inviteeRewardSettingsItem: 'swap-invitee-reward-settings-item',
+  activityHubSettingsItem: 'swap-activity-hub-settings-item',
 
   // Slippage
   slippageSelector: 'swap-slippage-selector',
@@ -47,9 +47,12 @@ export const SwapTestIDs = {
   stockBuyTab: 'swap-stock-buy-tab',
   stockSellTab: 'swap-stock-sell-tab',
   stockAmountInputSkeleton: 'swap-stock-amount-input-skeleton',
+  stockTradeHeaderSkeleton: 'swap-stock-trade-header-skeleton',
   stockEstimatedReceive: 'swap-stock-estimated-receive',
   stockMobileContainer: 'swap-stock-mobile-container',
   stockMarketTokenHeader: 'swap-stock-market-token-header',
+  stockMobileVariantRow: 'swap-stock-mobile-variant-row',
+  stockVariantRetry: 'swap-stock-variant-retry',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
   stockTokenDetails: 'swap-stock-token-details',

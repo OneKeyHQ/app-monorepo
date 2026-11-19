@@ -1,6 +1,6 @@
 // cspell:ignore lockdown evalTaming tamper IndexedDB XHR randomBytes isNormalized oneKey
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   Accordion,
@@ -22,8 +22,13 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getSesHardenLevelFromRuntime } from '@onekeyhq/shared/src/security/sesHarden';
+import {
+  getSesHardenLevelFromRuntime,
+  getSesHardenRuntimeState,
+} from '@onekeyhq/shared/src/security/sesHarden';
 import type {
   ISesHardenLevel,
   ISesHardenRuntime,
@@ -40,11 +45,10 @@ import type {
   ISesHardenRuntimeCheckResponse,
   ISesRuntimeCheckReport,
 } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
+import { withSesCheckDeadline } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheckDeadline';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
-type ISesHardenDevGlobal = typeof globalThis & {
-  __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
-};
+import { useSesRuntimeCheckRun } from './useSesRuntimeCheckRun';
 
 type ISesLevelMatrixRow = {
   item: string;
@@ -65,7 +69,7 @@ type IExtensionRuntimeCheckTarget = {
   unavailableMessage: string;
 };
 
-type IExtensionRuntimeCheckResult = {
+type IRuntimeCheckResult = {
   runtime: ISesHardenRuntime;
   status: ISesCheckStatus;
   report?: ISesRuntimeCheckReport;
@@ -73,7 +77,7 @@ type IExtensionRuntimeCheckResult = {
 };
 
 type IAggregatedSesRuntimeCheckReport = ISesRuntimeCheckReport & {
-  extensionRuntimeReports?: readonly IExtensionRuntimeCheckResult[];
+  additionalRuntimeReports?: readonly IRuntimeCheckResult[];
 };
 
 type ISesDimensionSummary =
@@ -210,11 +214,11 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     l1: {
       emoji: '❌',
       detail:
-        "L1 没有开启 safe error taming，当前使用 'unsafe-debug'，保留完整 stack 方便 Sentry 排查。",
+        "Web 生产和 native 使用 'unsafe' 保留可读栈及受限调试 hook；Web 开发环境保留 'unsafe-debug'。其他 runtime 按其配置。",
     },
     l2: {
       emoji: '❌',
-      detail: "L2 仍没有开启 safe error taming，继续使用 'unsafe-debug'。",
+      detail: 'L2 的错误栈策略与 L1 相同，按平台及生产/开发环境决定。',
     },
   },
   {
@@ -279,13 +283,13 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
       detail: 'L0 不启用 SES，因此没有 regExpTaming。',
     },
     l1: {
-      emoji: '❌',
+      emoji: platformEnv.isNative || platformEnv.isWeb ? '✅' : '❌',
       detail:
-        "L1 没有开启 safe RegExp taming，当前使用 'unsafe'，避免改变正则兼容行为。",
+        "Web/native 使用 'safe' 移除旧 compile 接口；其他 runtime 保持各自配置。",
     },
     l2: {
-      emoji: '❌',
-      detail: "L2 仍没有开启 safe RegExp taming，继续使用 'unsafe'。",
+      emoji: platformEnv.isNative || platformEnv.isWeb ? '✅' : '❌',
+      detail: 'L2 的 RegExp 策略与 L1 相同，按当前平台配置。',
     },
   },
   {
@@ -298,12 +302,12 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     },
     l1: {
       emoji: '❌',
-      detail: "L1 使用 'unsafe-eval'，保留原生 eval / Function 兼容性。",
+      detail:
+        "通用 L1 使用 'unsafe-eval'；Native/扩展的保护模式强制 'no-eval'。",
     },
     l2: {
       emoji: '✅',
-      detail:
-        "L2 使用 'safe-eval'，限制 Function('return this')() 拿到当前 globalThis。",
+      detail: "Web/Desktop L2 使用 'safe-eval'；Native/扩展强制 'no-eval'。",
     },
   },
   {
@@ -315,12 +319,14 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
       detail: 'L0 不启用 SES，因此没有 no-eval。',
     },
     l1: {
-      emoji: '❌',
-      detail: 'L1 不启用 no-eval。',
+      emoji: platformEnv.isNative || platformEnv.isExtension ? '✅' : '❌',
+      detail:
+        'Native/扩展保护模式启用 no-eval，拒绝动态 eval/Function；其他 runtime 按其等级。',
     },
     l2: {
-      emoji: '❌',
-      detail: 'L2 不启用 no-eval，只启用 safe-eval。',
+      emoji: platformEnv.isNative || platformEnv.isExtension ? '✅' : '❌',
+      detail:
+        'Native/扩展保护模式启用 no-eval；Web/Desktop L2 使用 safe-eval。',
     },
   },
   {
@@ -516,10 +522,6 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
   },
 ] as const;
 
-function getSesGlobal(): ISesHardenDevGlobal {
-  return globalThis as ISesHardenDevGlobal;
-}
-
 function getCheckBadgeType(status: ISesCheckStatus): IBadgeType {
   if (status === 'pass') return 'success';
   if (status === 'fail') return 'critical';
@@ -707,7 +709,7 @@ function hasReportFailures(report?: IAggregatedSesRuntimeCheckReport): boolean {
   if (report.checks.some((check) => check.status === 'fail')) return true;
 
   return (
-    report.extensionRuntimeReports?.some(
+    report.additionalRuntimeReports?.some(
       (runtimeReport) =>
         runtimeReport.status === 'fail' ||
         runtimeReport.report?.checks.some((check) => check.status === 'fail'),
@@ -756,8 +758,8 @@ function buildCopyableReport(
 ): IAggregatedSesRuntimeCheckReport & {
   runtimeSummaries: readonly IRuntimeSummaryForCopy[];
 } {
-  const extensionRuntimeSummaries =
-    report.extensionRuntimeReports?.map((runtimeReport) =>
+  const additionalRuntimeSummaries =
+    report.additionalRuntimeReports?.map((runtimeReport) =>
       runtimeReport.report
         ? buildRuntimeSummaryForCopy(runtimeReport.report, runtimeReport.status)
         : {
@@ -771,14 +773,14 @@ function buildCopyableReport(
     ...report,
     runtimeSummaries: [
       buildRuntimeSummaryForCopy(report, getRuntimeResultStatus(report)),
-      ...extensionRuntimeSummaries,
+      ...additionalRuntimeSummaries,
     ],
   };
 }
 
 async function requestExtensionRuntimeCheckReport(
   target: IExtensionRuntimeCheckTarget,
-): Promise<IExtensionRuntimeCheckResult> {
+): Promise<IRuntimeCheckResult> {
   const chromeRuntime = getChromeRuntimeForSesCheck();
 
   if (!chromeRuntime?.sendMessage) {
@@ -794,7 +796,7 @@ async function requestExtensionRuntimeCheckReport(
     const timeoutRef: {
       current?: ReturnType<typeof setTimeout>;
     } = {};
-    const finish = (result: IExtensionRuntimeCheckResult) => {
+    const finish = (result: IRuntimeCheckResult) => {
       if (settled) return;
       settled = true;
       if (timeoutRef.current) {
@@ -866,7 +868,7 @@ async function requestExtensionRuntimeCheckReport(
 
 async function collectExtensionRuntimeReports(
   currentRuntime?: ISesHardenRuntime,
-): Promise<readonly IExtensionRuntimeCheckResult[] | undefined> {
+): Promise<readonly IRuntimeCheckResult[] | undefined> {
   if (!isExtensionRuntime(currentRuntime)) {
     return undefined;
   }
@@ -911,7 +913,7 @@ function CollapsibleSection({
           <>
             <SizableText size="$headingLg">{title}</SizableText>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
             >
@@ -924,10 +926,10 @@ function CollapsibleSection({
           </>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           unstyled
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
@@ -942,8 +944,53 @@ function CollapsibleSection({
 
 export default function DevSesHardenRuntimeCheck() {
   const { copyText } = useClipboard();
-  const [report, setReport] = useState<IAggregatedSesRuntimeCheckReport>();
-  const [isRunning, setIsRunning] = useState(false);
+  const collectReports = useCallback(
+    async (signal: AbortSignal): Promise<IAggregatedSesRuntimeCheckReport> => {
+      const currentReport = await buildSesRuntimeCheckReport({ signal });
+      let additionalRuntimeReports: readonly IRuntimeCheckResult[] | undefined;
+      if (platformEnv.isNative) {
+        try {
+          const backgroundReport = await withSesCheckDeadline(
+            'SES background RPC',
+            () =>
+              backgroundApiProxy.serviceDevSetting.runSesHardenRuntimeChecks(),
+            { timeoutMs: 30_000, signal },
+          );
+          if (backgroundReport.state?.runtime !== 'mobile-background')
+            throw new OneKeyLocalError('Unexpected SES background runtime');
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: getRuntimeResultStatus(backgroundReport),
+              report: backgroundReport,
+            },
+          ];
+        } catch (cause) {
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: 'fail',
+              error: getErrorMessage(cause),
+            },
+          ];
+        }
+      } else {
+        additionalRuntimeReports = await collectExtensionRuntimeReports(
+          currentReport.state?.runtime,
+        );
+      }
+      return additionalRuntimeReports?.length
+        ? { ...currentReport, additionalRuntimeReports }
+        : currentReport;
+    },
+    [],
+  );
+  const {
+    report,
+    error: runError,
+    isRunning,
+    runChecks,
+  } = useSesRuntimeCheckRun(collectReports);
 
   const hasFailures = useMemo(() => hasReportFailures(report), [report]);
 
@@ -960,35 +1007,15 @@ export default function DevSesHardenRuntimeCheck() {
     [report],
   );
 
-  const runChecks = useCallback(async () => {
-    setIsRunning(true);
-    try {
-      const currentReport = await buildSesRuntimeCheckReport();
-      const extensionRuntimeReports = await collectExtensionRuntimeReports(
-        currentReport.state?.runtime,
-      );
-      const nextReport: IAggregatedSesRuntimeCheckReport =
-        extensionRuntimeReports?.length
-          ? {
-              ...currentReport,
-              extensionRuntimeReports,
-            }
-          : currentReport;
-      setReport(nextReport);
-      if (hasReportFailures(nextReport)) {
+  useEffect(() => {
+    if (runError)
+      Toast.error({ title: 'SES harden check failed', message: runError });
+    else if (report) {
+      if (hasReportFailures(report))
         Toast.error({ title: 'SES harden check failed' });
-      } else {
-        Toast.success({ title: 'SES harden check passed' });
-      }
-    } catch (error) {
-      Toast.error({
-        title: 'SES harden check crashed',
-        message: getErrorMessage(error),
-      });
-    } finally {
-      setIsRunning(false);
+      else Toast.success({ title: 'SES harden check passed' });
     }
-  }, []);
+  }, [report, runError]);
 
   const copyReport = useCallback(() => {
     if (!reportText) {
@@ -1018,18 +1045,6 @@ export default function DevSesHardenRuntimeCheck() {
     }
   }, []);
 
-  // Auto-run the checks once when the page mounts. The ref guard keeps it to a
-  // single run even under React StrictMode's dev double-invoke, so we don't fire
-  // two runs (and two toasts) on entry.
-  const didAutoRunRef = useRef(false);
-  useEffect(() => {
-    if (didAutoRunRef.current) {
-      return;
-    }
-    didAutoRunRef.current = true;
-    void runChecks();
-  }, [runChecks]);
-
   return (
     <Page scrollEnabled>
       <Page.Header title="SES Harden Runtime Check" />
@@ -1041,8 +1056,7 @@ export default function DevSesHardenRuntimeCheck() {
               Level: {getSesHardenLevelFromRuntime()}
             </SizableText>
             <SizableText color="$textSubdued">
-              State:{' '}
-              {JSON.stringify(getSesGlobal().__ONEKEY_SES_HARDEN_STATE__)}
+              State: {JSON.stringify(getSesHardenRuntimeState())}
             </SizableText>
           </YStack>
 
@@ -1063,6 +1077,7 @@ export default function DevSesHardenRuntimeCheck() {
                   <Button
                     testID="ses-harden-copy-report"
                     variant="secondary"
+                    disabled={!report || isRunning}
                     onPress={copyReport}
                   >
                     Copy Test Result
@@ -1079,16 +1094,25 @@ export default function DevSesHardenRuntimeCheck() {
                     </Button>
                   ) : null}
                 </XStack>
+                {runError ? (
+                  <SizableText
+                    testID="ses-harden-run-error"
+                    color="$textCritical"
+                  >
+                    {runError}
+                  </SizableText>
+                ) : null}
                 <SizableText color="$textSubdued">
-                  每张卡片同时展示测试说明和运行结果。核心硬化验证是
-                  Object/Array 原型冻结、harden 深冻结，以及 L2
-                  的动态函数逃逸限制。Tamper 测试会主动尝试 set 和
-                  defineProperty，确认 harden 后不能篡改原型、内建函数和
+                  每张卡片同时展示测试说明和运行结果。核心硬化验证是 共用
+                  intrinsic 清单内的对象、函数、访问器与原型冻结、harden
+                  深冻结，以及 L2 的动态函数逃逸限制。Tamper 测试会主动尝试 set
+                  和 defineProperty，确认 harden 后不能篡改原型、内建函数和
                   hardened object。同时会检查
                   IndexedDB、fetch、timer、crypto、desktop/ext bridge
                   等启动期关键 patch 是否仍然安装且可用。在 extension UI
                   中还会请求 background、offscreen、passkey runtime
-                  各自执行同一套检查。
+                  各自执行同一套检查。iOS/Android 会通过 RPC 请求独立 bg JS heap
+                  执行相同函数检查；原生资源仍可由两个 runtime 共享。
                 </SizableText>
 
                 {report ? (
@@ -1109,7 +1133,7 @@ export default function DevSesHardenRuntimeCheck() {
                   <DimensionSummaryBadges runtimeReport={report} />
                 ) : null}
 
-                {report?.extensionRuntimeReports?.length ? (
+                {report?.additionalRuntimeReports?.length ? (
                   <YStack
                     gap="$2"
                     p="$3"
@@ -1120,7 +1144,7 @@ export default function DevSesHardenRuntimeCheck() {
                     <XStack alignItems="center" gap="$2" flexWrap="wrap">
                       <Badge
                         badgeType={
-                          report.extensionRuntimeReports.some(
+                          report.additionalRuntimeReports.some(
                             (item) => item.status === 'fail',
                           )
                             ? 'critical'
@@ -1130,30 +1154,35 @@ export default function DevSesHardenRuntimeCheck() {
                       >
                         <Badge.Text>
                           {
-                            report.extensionRuntimeReports.filter(
+                            report.additionalRuntimeReports.filter(
                               (item) => item.status === 'pass',
                             ).length
                           }
-                          /{report.extensionRuntimeReports.length}
+                          /{report.additionalRuntimeReports.length}
                         </Badge.Text>
                       </Badge>
                       <SizableText size="$bodyLgMedium">
-                        Extension 多 Runtime 结果
+                        {platformEnv.isNative ? 'Mobile' : 'Extension'} 多
+                        Runtime 结果
                       </SizableText>
                     </XStack>
                     <LabeledLine
                       label="功能："
-                      value="从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。"
+                      value={
+                        platformEnv.isNative
+                          ? '通过 background RPC 在独立 bg JS runtime 执行同一套 SES runtime checks。'
+                          : '从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。'
+                      }
                     />
                     <LabeledLine
                       label="硬化点："
-                      value="验证每个扩展 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
+                      value="验证每个 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
                     />
                     <LabeledLine
                       label="目的："
-                      value="避免只验证 UI runtime，却漏掉 background/offscreen/passkey 这些独立 JS heap 的 harden 和关键 patch 顺序。"
+                      value="确认 UI 和 background 等独立 JS heap 的 harden 和关键 patch 顺序。"
                     />
-                    {report.extensionRuntimeReports.map((runtimeReport) => (
+                    {report.additionalRuntimeReports.map((runtimeReport) => (
                       <YStack
                         key={runtimeReport.runtime}
                         gap="$1"
@@ -1373,9 +1402,9 @@ export default function DevSesHardenRuntimeCheck() {
                 <SizableText color="$textSubdued">
                   lockdown 在当前 JS realm 内不可逆。当前等级只由
                   packages/shared/src/security/sesHarden/config.ts
-                  的同步常量控制； 修改 L0/L1/L2 后需要重新构建或 reload
-                  让入口按新常量初始化。当前实现里 L2 相比 L1 只额外把
-                  evalTaming 从 unsafe-eval 收紧到 safe-eval。
+                  的同步常量控制 Web/Desktop 等级。Native 使用构建开关
+                  ONEKEY_MOBILE_LOCKDOWN，启用时固定 no-eval；扩展保护模式也强制
+                  no-eval。修改配置需要重新构建并重启 runtime。
                 </SizableText>
                 <SizableText color="$textSubdued">
                   图例：✅ 启用或收紧；❌ 未启用或未收紧；➖

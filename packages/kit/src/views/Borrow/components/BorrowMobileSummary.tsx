@@ -69,6 +69,12 @@ function BalanceMetric({
   );
 }
 
+/** Counts what is actually in the groups: a group with no items behind it
+ * opens a claim dialog with nothing to claim. */
+function hasRewardItems(groups?: { items: unknown[] }[] | null) {
+  return Boolean(groups?.some((group) => group.items.length > 0));
+}
+
 export function BorrowMobileSummary({
   overviewData,
   showPositionTotals = true,
@@ -80,10 +86,39 @@ export function BorrowMobileSummary({
 }) {
   const intl = useIntl();
   const { reserves } = useBorrowContext();
-  const { borrowRewards, isRewardsLoading, requestRefresh } = overviewData;
+  const { borrowRewards, isRewardsLoading, isRewardsError, requestRefresh } =
+    overviewData;
 
   const supplied = reserves.data?.supplied;
   const borrowed = reserves.data?.borrowed;
+
+  const showTotals = showPositionTotals || isPositionTotalsLoading;
+  // The remaining two stand on their own data rather than on the positions
+  // above them. Rewards in particular outlive the position that earned them —
+  // withdrawing everything still leaves a claim to make, and that claim is
+  // reached through this metric — so gating them on the position list would
+  // hide a working Claim button. The bonus rides the same reserves payload as
+  // the totals, hence the shared pending flag.
+  const showBonus =
+    Boolean(reserves.data?.overview?.platformBonus) || isPositionTotalsLoading;
+  // The rewards payload still arrives when there is nothing to collect — a
+  // zero-valued object rather than an absent one — so its presence answers
+  // nothing, and neither does button.disabled: the claim dialog is built from
+  // these two lists alone and counts the items inside the groups to decide it
+  // has anything to show. A claim left enabled over an empty payload opens a
+  // dialog with nothing in it, so the lists are what the cell follows.
+  const rewardsDetail = borrowRewards?.button?.data?.rewardsDetail;
+  const showRewards =
+    hasRewardItems(rewardsDetail?.claimable) ||
+    hasRewardItems(rewardsDetail?.unclaimable) ||
+    isRewardsLoading ||
+    isRewardsError;
+
+  // Otherwise the frame below is a rule drawn across the page with nothing
+  // under it.
+  if (!showTotals && !showBonus && !showRewards) {
+    return null;
+  }
 
   return (
     <YStack
@@ -93,7 +128,7 @@ export function BorrowMobileSummary({
       borderTopColor="$borderSubdued"
     >
       <XStack flexWrap="wrap" mx="$-3" pl="$4">
-        {showPositionTotals || isPositionTotalsLoading ? (
+        {showTotals ? (
           <>
             <BalanceMetric
               label={intl.formatMessage({
@@ -113,12 +148,15 @@ export function BorrowMobileSummary({
             />
           </>
         ) : null}
-        <BorrowBonusMetric />
-        <BorrowRewardsMetric
-          borrowRewards={borrowRewards}
-          isLoading={isRewardsLoading}
-          onClaimed={requestRefresh}
-        />
+        {showBonus ? <BorrowBonusMetric /> : null}
+        {showRewards ? (
+          <BorrowRewardsMetric
+            borrowRewards={borrowRewards}
+            isError={isRewardsError}
+            isLoading={isRewardsLoading}
+            onClaimed={requestRefresh}
+          />
+        ) : null}
       </XStack>
     </YStack>
   );

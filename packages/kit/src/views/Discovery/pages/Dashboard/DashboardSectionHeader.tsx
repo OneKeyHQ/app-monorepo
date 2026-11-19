@@ -19,6 +19,7 @@ function SectionHeading({
       size="$headingLg"
       userSelect="none"
       py="$2.5"
+      $platform-native={{ py: '$2' }}
       {...(!selected && {
         opacity: 0.5,
       })}

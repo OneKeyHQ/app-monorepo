@@ -24,7 +24,7 @@ export const AddressBookSectionList: FC<IAddressBookSectionListProps> = ({
       sections={sections}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={ListEmptyComponent ?? undefined}
       keyExtractor={keyExtractor as any}
       windowSize={40}
       ListFooterComponent={<YStack h={bottom || '$3'} />}

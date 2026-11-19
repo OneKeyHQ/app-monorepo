@@ -95,6 +95,27 @@ describe.each([3, 10])(
   },
 );
 
+describe('MultipleClickStack single press callback', () => {
+  it('calls onSinglePress for every click before the threshold', () => {
+    const onSinglePress = jest.fn();
+    render(
+      <MultipleClickStack
+        testID="multiple-click-target"
+        triggerAt={3}
+        onSinglePress={onSinglePress}
+      >
+        Target
+      </MultipleClickStack>,
+    );
+
+    const target = screen.getByTestId('multiple-click-target');
+    fireEvent.click(target);
+    fireEvent.click(target);
+
+    expect(onSinglePress).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('MultipleClickStack with developer mode disabled', () => {
   beforeEach(() => {
     mockDevSettings.enabled = false;

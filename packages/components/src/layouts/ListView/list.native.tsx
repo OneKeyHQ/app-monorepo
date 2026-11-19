@@ -107,4 +107,5 @@ function BaseListView<T>(
 }
 
 // forwardRef cannot cast typescript generic
+/** @deprecated Use NativeList from @onekeyfe/react-native-native-list for supported row content. */
 export const ListView = forwardRef(BaseListView) as typeof BaseListView;

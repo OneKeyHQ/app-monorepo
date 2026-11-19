@@ -1,7 +1,3 @@
-body {
-  margin: 0;
-}
-
 #root .keyless-app-route {
   position: fixed;
   inset: 0;
@@ -12,10 +8,6 @@ body {
   box-sizing: border-box;
   flex-shrink: 0;
   margin: auto;
-}
-
-.keyless-app-main {
-  min-width: 0;
 }
 
 .keyless-visually-hidden {

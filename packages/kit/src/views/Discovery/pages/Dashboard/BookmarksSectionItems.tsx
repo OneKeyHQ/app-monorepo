@@ -29,7 +29,13 @@ export function BookmarksSectionItems({
   }, [media.gtXl, media.gt2Md, media.gtSm]);
 
   return (
-    <YStack py="$2" flexDirection="row" flexWrap="wrap" {...restProps}>
+    <YStack
+      py="$2"
+      $platform-native={{ py: '$1', rowGap: '$4' }}
+      flexDirection="row"
+      flexWrap="wrap"
+      {...restProps}
+    >
       {dataSource.slice(0, numberOfItems).map(({ logo, title, url }) => (
         <YStack
           key={title + url}
