@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
 import {
   Button,
@@ -19,6 +20,7 @@ import {
   useKeyboardHeight,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { getOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useConnectionStateAtom,
@@ -91,10 +93,17 @@ export interface IAddPositionParams {
 
 interface IAddPositionFormProps extends IAddPositionParams {
   onClose: () => void;
+  resizeOnKeyboard: boolean;
 }
 
 const AddPositionForm = memo(
-  ({ coin, isBuy, accountAddress, onClose }: IAddPositionFormProps) => {
+  ({
+    coin,
+    isBuy,
+    accountAddress,
+    onClose,
+    resizeOnKeyboard,
+  }: IAddPositionFormProps) => {
     const intl = useIntl();
     const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
@@ -104,7 +113,9 @@ const AddPositionForm = memo(
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const tpslButtonPaddingTop =
-      keyboardHeight > 0 || !platformEnv.isNative ? 0 : '$4';
+      (resizeOnKeyboard && keyboardHeight > 0) || !platformEnv.isNative
+        ? 0
+        : '$4';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -918,6 +929,10 @@ export function showAddPositionDialog({
 }: IAddPositionParams & {
   intl: IntlShape;
 }) {
+  // UIKit already moves the sheet with the keyboard. Keep its detent stable.
+  const resizeOnKeyboard =
+    !platformEnv.isNativeIOS ||
+    getOverlayWidthClass(Dimensions.get('window').width) === 'expanded';
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.add_position__title,
@@ -926,12 +941,13 @@ export function showAddPositionDialog({
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <PerpKeyboardAwareDialogContent>
+          <PerpKeyboardAwareDialogContent resizeOnKeyboard={resizeOnKeyboard}>
             <AddPositionForm
               coin={coin}
               isBuy={isBuy}
               accountAddress={accountAddress}
               onClose={() => dialogInstance.close()}
+              resizeOnKeyboard={resizeOnKeyboard}
             />
           </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>
