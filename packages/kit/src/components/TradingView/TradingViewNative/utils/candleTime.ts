@@ -35,3 +35,70 @@ export function getTradingViewNativeCandleTimestampAtOffset({
   // CoinGecko monthly candles use fixed 30-day Unix buckets.
   return timestamp + offset * candleIntervalSeconds;
 }
+
+/**
+ * The candle that `time` falls in, e.g. a time taken from a chart with another
+ * interval. Slots continue past both ends of the data, so `index` can lie
+ * outside `points`.
+ */
+export function getTradingViewNativeCandleSlotAtTime({
+  candleIntervalSeconds,
+  candleTimeMode,
+  points,
+  time,
+}: {
+  candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
+  points: readonly { t: number }[];
+  time: number;
+}): { index: number; timestamp: number } | null {
+  'worklet';
+
+  const lastIndex = points.length - 1;
+  if (lastIndex < 0 || !Number.isFinite(time) || !(candleIntervalSeconds > 0)) {
+    return null;
+  }
+  if (time < points[0].t || time >= points[lastIndex].t) {
+    const anchorIndex = time < points[0].t ? 0 : lastIndex;
+    const anchor = {
+      timestamp: points[anchorIndex].t,
+      candleIntervalSeconds,
+      candleTimeMode,
+    };
+    let offset = Math.floor((time - anchor.timestamp) / candleIntervalSeconds);
+    let timestamp = getTradingViewNativeCandleTimestampAtOffset({
+      ...anchor,
+      offset,
+    });
+    // Calendar months differ in length, so step to the slot holding the time.
+    while (timestamp > time) {
+      offset -= 1;
+      timestamp = getTradingViewNativeCandleTimestampAtOffset({
+        ...anchor,
+        offset,
+      });
+    }
+    let next = getTradingViewNativeCandleTimestampAtOffset({
+      ...anchor,
+      offset: offset + 1,
+    });
+    while (next <= time) {
+      offset += 1;
+      timestamp = next;
+      next = getTradingViewNativeCandleTimestampAtOffset({
+        ...anchor,
+        offset: offset + 1,
+      });
+    }
+    return { index: anchorIndex + offset, timestamp };
+  }
+  // A time inside a gap in the data belongs to the candle before the gap.
+  let low = 0;
+  let high = lastIndex;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (points[middle].t <= time) low = middle;
+    else high = middle;
+  }
+  return { index: low, timestamp: points[low].t };
+}

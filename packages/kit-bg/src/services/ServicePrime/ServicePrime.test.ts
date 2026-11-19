@@ -1422,6 +1422,107 @@ describe('ServicePrime.apiCancelInfiniSubscription', () => {
   });
 });
 
+describe('ServicePrime.apiGetCustomerJWT', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  it('requests the support token with the expected account session pinned', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const get = jest.fn(async () => ({ data: { data: { token: 'jwt-a' } } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toEqual({ token: 'jwt-a' });
+    expect(get).toHaveBeenCalledWith('/prime/v1/general/customer_jwt', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('rejects before requesting when another account is signed in', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Support session changed');
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('discards a token issued while the account switched in flight', async () => {
+    const { service, simpleDbPrime } = createService();
+    let currentUser = userA;
+    let authStateGeneration = 3;
+    let activeToken = 'token-a';
+    mockPrimePersistAtom.get.mockImplementation(async () => currentUser);
+    simpleDbPrime.getActiveAuthToken.mockImplementation(
+      async () => activeToken,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => authStateGeneration,
+    );
+    const requestStarted = createDeferred();
+    const response = createDeferred();
+    const get = jest.fn(async () => {
+      requestStarted.resolve();
+      await response.promise;
+      return { data: { data: { token: 'jwt-a' } } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const result = service
+      .apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    await requestStarted.promise;
+    currentUser = { isLoggedIn: true, onekeyUserId: 'user-b' };
+    authStateGeneration = 4;
+    activeToken = 'token-b';
+    response.resolve();
+
+    await expect(result).resolves.toEqual(
+      expect.objectContaining({ message: 'Support session changed' }),
+    );
+  });
+});
+
 describe('ServicePrime Prime redemption API', () => {
   const userA = {
     isLoggedIn: true,

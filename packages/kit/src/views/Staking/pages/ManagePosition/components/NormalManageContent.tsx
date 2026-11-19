@@ -6,6 +6,7 @@ import { Keyboard, TextInput } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
+  Button,
   Keyboard as DeviceKeyboard,
   Dialog,
   SizableText,
@@ -28,6 +29,7 @@ import type {
   IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
@@ -65,6 +67,8 @@ interface INormalManageContentProps {
   };
   depositDisabled: boolean;
   withdrawDisabled: boolean;
+  withdrawApprovalUnavailable?: boolean;
+  actionsBlocked?: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
@@ -81,6 +85,7 @@ interface INormalManageContentProps {
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   suppressPlatformBonus?: boolean;
   ongoingValidator?: IEarnSelectField;
@@ -101,6 +106,8 @@ export function NormalManageContent({
   earnAccount,
   depositDisabled,
   withdrawDisabled,
+  withdrawApprovalUnavailable,
+  actionsBlocked,
   stakeBeforeFooter,
   withdrawBeforeFooter,
   footerActionOverride,
@@ -117,6 +124,7 @@ export function NormalManageContent({
   appNavigation,
   showApyDetail,
   fallbackTokenImageUri,
+  utm,
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
   ongoingValidator,
@@ -904,6 +912,12 @@ export function NormalManageContent({
       </XStack>
       {selectedTabIndex === 0 ? (
         <StakeSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          onTaskRecoveryComplete={() => {
+            onIndicatorRefresh?.();
+            void onRefreshPendingRef?.current?.();
+          }}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={stakeTokenInfo}
@@ -916,6 +930,7 @@ export function NormalManageContent({
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           protocolSwitchConfig={stakeProtocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
@@ -931,8 +946,24 @@ export function NormalManageContent({
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
+      {selectedTabIndex === 1 && withdrawApprovalUnavailable ? (
+        <XStack px="$5" py="$2" ai="center" jc="space-between">
+          <SizableText size="$bodyMd" flex={1}>
+            {intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+          </SizableText>
+          <Button
+            testID="earn-withdraw-approval-retry"
+            size="small"
+            onPress={onIndicatorRefresh}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>
+      ) : null}
       {selectedTabIndex === 1 ? (
         <WithdrawSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={withdrawTokenInfo}
@@ -944,6 +975,7 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}

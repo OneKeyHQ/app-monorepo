@@ -3,6 +3,7 @@ import { normalizeToEarnProvider } from '../../types/earn/earnProvider.constants
 import { EApproveType } from '../../types/staking';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
+  EtherFiLiquidReferContract,
   MorphoBaseBundlerContract,
   MorphoBundlerContract,
   MorphoKatanaBundlerContract,
@@ -64,6 +65,7 @@ describe('earnUtils permit allowance spender', () => {
     (networkId, expected) => {
       expect(
         earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName: 'Morpho',
           networkId,
           approveType: EApproveType.Permit,
           approveSpenderAddress,
@@ -71,6 +73,195 @@ describe('earnUtils permit allowance spender', () => {
       ).toBe(expected);
     },
   );
+
+  it('keeps legacy Morpho and Spark approvals on their actual target', () => {
+    for (const providerName of ['Morpho', 'Spark']) {
+      expect(
+        earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: getNetworkIdsMap().eth,
+          approveType: EApproveType.Legacy,
+          approveSpenderAddress,
+        }),
+      ).toBe(approveSpenderAddress);
+    }
+  });
+
+  it('does not apply Morpho routing to other Permit providers', () => {
+    expect(
+      earnUtils.resolveEarnAllowanceSpenderAddress({
+        providerName: 'EtherFi',
+        networkId: getNetworkIdsMap().eth,
+        approveType: EApproveType.Permit,
+        approveSpenderAddress: EtherFiLiquidReferContract,
+      }),
+    ).toBe(EtherFiLiquidReferContract);
+    expect(
+      earnUtils.resolveEarnAllowanceSpenderAddress({
+        providerName: 'Spark',
+        networkId: getNetworkIdsMap().eth,
+        approveType: EApproveType.Permit,
+        approveSpenderAddress,
+      }),
+    ).toBe(approveSpenderAddress);
+  });
+
+  it('does not invent a missing target or a Morpho spender on another chain', () => {
+    expect(
+      earnUtils.resolveEarnAllowanceSpenderAddress({
+        providerName: 'Morpho',
+        networkId: getNetworkIdsMap().eth,
+        approveType: EApproveType.Permit,
+      }),
+    ).toBe('');
+    expect(
+      earnUtils.resolveEarnAllowanceSpenderAddress({
+        providerName: 'Morpho',
+        networkId: getNetworkIdsMap().arbitrum,
+        approveType: EApproveType.Permit,
+        approveSpenderAddress,
+      }),
+    ).toBe('');
+  });
+});
+
+describe('earnUtils EtherFi vault and Permit targets', () => {
+  const protocolVault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
+
+  it.each(['etherfi', 'EtherFi', 'ETHERFI'])(
+    'forwards the vault while keeping the deposit spender separate for %s',
+    (providerName) => {
+      expect(earnUtils.isEtherFiProvider({ providerName })).toBe(true);
+      expect(earnUtils.shouldSendEarnProtocolVault({ providerName })).toBe(
+        true,
+      );
+      expect(
+        earnUtils.resolveEarnApproveSpenderAddress({
+          providerName,
+          protocolVault,
+          backendApproveTarget: EtherFiLiquidReferContract,
+        }),
+      ).toBe(EtherFiLiquidReferContract);
+      expect(
+        earnUtils.resolveEarnApproveType({
+          providerName,
+          networkId: getNetworkIdsMap().eth,
+          approveSpenderAddress: EtherFiLiquidReferContract,
+          backendApproveType: EApproveType.Permit,
+        }),
+      ).toBe(EApproveType.Legacy);
+    },
+  );
+
+  it('retains normal approval rules for native EtherFi and other providers', () => {
+    expect(
+      earnUtils.resolveEarnApproveType({
+        providerName: 'etherfi',
+        networkId: getNetworkIdsMap().eth,
+        tokenIsNative: true,
+        approveSpenderAddress: EtherFiLiquidReferContract,
+        backendApproveType: EApproveType.Permit,
+      }),
+    ).toBeUndefined();
+    expect(
+      earnUtils.resolveEarnApproveType({
+        providerName: 'morpho',
+        networkId: getNetworkIdsMap().eth,
+        approveSpenderAddress: MorphoBundlerContract,
+        backendApproveType: EApproveType.Permit,
+      }),
+    ).toBe(EApproveType.Permit);
+  });
+
+  it('never substitutes the EtherFi receipt vault for missing approval data', () => {
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'etherfi',
+        protocolVault,
+      }),
+    ).toBe('');
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'Morpho',
+        protocolVault,
+        backendApproveTarget: MorphoBundlerContract,
+      }),
+    ).toBe(protocolVault);
+  });
+
+  it.each([
+    ['EtherFi', getNetworkIdsMap().eth, EtherFiLiquidReferContract],
+    ['Morpho', getNetworkIdsMap().eth, MorphoBundlerContract],
+    ['Morpho', getNetworkIdsMap().base, MorphoBaseBundlerContract],
+    ['Morpho', getNetworkIdsMap().katana, MorphoKatanaBundlerContract],
+  ])(
+    'resolves a known Permit spender for %s on %s',
+    (providerName, networkId, expected) => {
+      expect(
+        earnUtils.resolveEarnPermitSpenderAddress({ providerName, networkId }),
+      ).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['EtherFi', getNetworkIdsMap().base],
+    ['EtherFi', getNetworkIdsMap().katana],
+    ['Morpho', getNetworkIdsMap().arbitrum],
+    ['Spark', getNetworkIdsMap().eth],
+    ['unknown', getNetworkIdsMap().eth],
+    ['', getNetworkIdsMap().eth],
+  ])(
+    'rejects an unregistered Permit pair %s on %s',
+    (providerName, networkId) => {
+      expect(
+        earnUtils.resolveEarnPermitSpenderAddress({ providerName, networkId }),
+      ).toBeUndefined();
+    },
+  );
+});
+
+describe('earnUtils Permit cache identity', () => {
+  const keyPayload = {
+    accountId: 'account-1',
+    networkId: getNetworkIdsMap().eth,
+    providerName: 'Morpho',
+    approveSpenderAddress: MorphoBundlerContract,
+    tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    amount: '1',
+  };
+
+  it('isolates signatures for the same account, token and amount by provider', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        providerName: 'EtherFi',
+      }),
+    );
+  });
+
+  it('isolates signatures when the same provider changes its spender', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        approveSpenderAddress: EtherFiLiquidReferContract,
+      }),
+    );
+  });
+
+  it('normalizes provider and EVM spender casing for lookup and removal', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        providerName: 'MORPHO',
+        approveSpenderAddress: MorphoBundlerContract.toUpperCase(),
+      }),
+    );
+  });
+
+  it('cannot reuse a cache entry created without provider and spender identity', () => {
+    const legacyKey = `${keyPayload.accountId}_${keyPayload.networkId}_${keyPayload.tokenAddress}_${keyPayload.amount}`;
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(legacyKey);
+  });
 });
 
 describe('earnUtils Bitway provider behavior', () => {
@@ -245,5 +436,93 @@ describe('earnUtils borrow address normalization', () => {
       expect(earnUtils.matchesSymbolKeyword(undefined, 'usdc')).toBe(false);
       expect(earnUtils.matchesSymbolKeyword({}, 'usdc')).toBe(false);
     });
+  });
+});
+
+describe('earnUtils Unitas provider behavior (OK-61790)', () => {
+  it('normalizes Unitas and treats every withdraw as a queued path', () => {
+    expect(earnUtils.getEarnProviderEnumKey('unitas')).toBe('Unitas');
+    expect(earnUtils.isUnitasProvider({ providerName: 'UNITAS' })).toBe(true);
+    expect(earnUtils.isVaultBasedProvider({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'Unitas' }),
+    ).toBe(true);
+    expect(earnUtils.requiresEarnWithdrawPath({ providerName: 'unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(earnUtils.getEarnProviderName({ providerName: 'unitas' })).toBe(
+      'Unitas',
+    );
+  });
+
+  it('marks the Unitas deposit as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'lista' })).toBe(
+      false,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: '' })).toBe(false);
+  });
+
+  it('marks the Unitas redeem request as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'unitas' }),
+    ).toBe(true);
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'bitway' }),
+    ).toBe(false);
+  });
+});
+
+describe('earnUtils normalizeEarnUtmParams', () => {
+  it('reads the link spelling and the route spelling', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: 'twitter',
+        utm_medium: 'kol',
+        utm_campaign: 'unitas_launch_1103',
+      }),
+    ).toEqual({
+      utmSource: 'twitter',
+      utmMedium: 'kol',
+      utmCampaign: 'unitas_launch_1103',
+    });
+    expect(
+      earnUtils.normalizeEarnUtmParams({ utmCampaign: 'unitas_launch_1103' }),
+    ).toEqual({ utmCampaign: 'unitas_launch_1103' });
+  });
+
+  it('drops values the server would reject instead of failing the order', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: '',
+        utm_medium: 'with space',
+        utm_campaign: '活动',
+      }),
+    ).toBeUndefined();
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: ' onekey_app ',
+        utm_campaign: 'a'.repeat(101),
+      }),
+    ).toEqual({ utmSource: 'onekey_app' });
+    expect(earnUtils.normalizeEarnUtmParams(undefined)).toBeUndefined();
+    expect(earnUtils.normalizeEarnUtmParams({ vault: '0x1' })).toBeUndefined();
   });
 });

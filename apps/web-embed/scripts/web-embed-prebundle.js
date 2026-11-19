@@ -285,7 +285,12 @@ function createWebEmbedResolver(root, inputResolveOptions, snapshot) {
   const resolve = enhancedResolve.create({
     ...resolverOptions,
     conditionNames: ['browser', 'import', 'require', 'default'],
-    modules: [path.join(root, 'node_modules'), 'node_modules'],
+    // Match bundler resolution: a dependency's own installation must win over
+    // a hoisted version with the same name but different subpath exports.
+    modules: resolverOptions.modules ?? [
+      'node_modules',
+      path.join(root, 'node_modules'),
+    ],
     // Isolate filesystem memoization to this scan so new files cannot use an old negative lookup.
     fileSystem: new enhancedResolve.CachedInputFileSystem(fs, 30_000),
     useSyncFileSystemCalls: true,

@@ -1637,6 +1637,13 @@ const SwapMainLoad = ({
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     !embeddedStockTrade;
 
+  // The third-party service notice belongs to the Swap page itself, not to
+  // Swap opened in a modal or embedded in Market.
+  const showThirdPartyNotice =
+    pageType !== EPageType.modal &&
+    !embeddedStockTrade &&
+    !isMarketEmbeddedSwap;
+
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
       embeddedStockTrade &&
@@ -1698,6 +1705,7 @@ const SwapMainLoad = ({
           stockTradeConfig={stockTradeConfig}
           stockTradeHeader={stockTradeHeader}
           stockTradeToken={stockTradeToken}
+          showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             !shouldRenderDesktopSwapHeader ? (
               <SwapHeaderContainer
@@ -1735,6 +1743,7 @@ const SwapMainLoad = ({
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
           stockSpeedConfig={stockSpeedConfig}
+          showThirdPartyNotice={showThirdPartyNotice}
         />
       );
     }
@@ -1762,6 +1771,7 @@ const SwapMainLoad = ({
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
+          showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             gtLg &&
             pageType !== EPageType.modal &&
@@ -1804,9 +1814,11 @@ const SwapMainLoad = ({
         swapRecentTokenPairs={swapRecentTokenPairs}
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
         supportNetworksReady={!fetchLoading}
+        showThirdPartyNotice={showThirdPartyNotice}
       />
     );
   }, [
+    showThirdPartyNotice,
     swapTypeSwitch,
     embeddedStockTrade,
     stockSpeedConfig,

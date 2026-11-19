@@ -52,6 +52,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     PrimeDeviceLogout: 'PrimeDeviceLogout',
   },
   appEventBus: {
+    on: jest.fn(),
     emit: (...args: unknown[]) => {
       mockAppEventEmit(...args);
     },

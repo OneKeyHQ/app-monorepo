@@ -20,8 +20,8 @@ import type { IMobileIndicatorNumberField } from './mobileIndicatorSettingsUtils
 describe('mobile indicator numeric drafts', () => {
   const value = createTradingViewNativeIndicatorSettingsValue();
 
-  it('keeps all 17 indicators and their persisted options intact on an unchanged save', () => {
-    expect(value.indicators).toHaveLength(17);
+  it('keeps all 42 indicators and their persisted options intact on an unchanged save', () => {
+    expect(value.indicators).toHaveLength(42);
     const next = {
       ...value,
       indicators: value.indicators.map((indicator) =>
