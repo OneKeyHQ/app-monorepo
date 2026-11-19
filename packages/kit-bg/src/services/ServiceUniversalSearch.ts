@@ -5,6 +5,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   GOOGLE_LOGO_URL,
   SEARCH_ITEM_ID,
@@ -1515,11 +1516,18 @@ class ServiceUniversalSearch extends ServiceBase {
           },
         });
 
+        const helpCenterOrigin = uriUtils.safeParseURL(HELP_CENTER_URL)?.origin;
         const items: IUniversalSearchHelpCenterResult['items'] = (
           response?.data?.data?.items ?? []
         )
-          .filter((article): article is IUniversalSearchHelpCenterArticle =>
-            Boolean(article?.id && article?.title && article?.url),
+          .filter(
+            (article): article is IUniversalSearchHelpCenterArticle =>
+              Boolean(article?.id && article?.title && article?.url) &&
+              // Results open in the in-app browser without showing their
+              // destination, so only official help center links are kept.
+              Boolean(helpCenterOrigin) &&
+              uriUtils.safeParseURL(article.url ?? '')?.origin ===
+                helpCenterOrigin,
           )
           .map(({ id, title, summary, url }) => ({
             type: EUniversalSearchType.HelpCenter as const,

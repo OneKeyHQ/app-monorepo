@@ -55,8 +55,28 @@ describe('ServiceUniversalSearch help center search', () => {
             },
             // Rows without a link cannot be opened and are dropped.
             { id: '1', title: 'No url', summary: '', url: '' },
+            // Only links on the official help center origin are kept.
+            {
+              id: '2',
+              title: 'Off origin',
+              summary: '',
+              url: 'https://evil.example/articles/2',
+            },
+            {
+              id: '3',
+              title: 'Plain http',
+              summary: '',
+              url: 'http://help.onekey.so/articles/3',
+            },
+            {
+              id: '4',
+              title: 'Look-alike host',
+              summary: '',
+              url: 'https://help.onekey.so.evil.example/articles/4',
+            },
+            { id: '5', title: 'Not a URL', summary: '', url: 'help center' },
           ],
-          total: 3,
+          total: 7,
         },
       },
     });
