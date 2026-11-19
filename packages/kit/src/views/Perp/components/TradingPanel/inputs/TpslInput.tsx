@@ -323,6 +323,15 @@ export const TpslInput = memo(
       ],
     );
     const intl = useIntl();
+    const tpLossHint =
+      ifOnDialog && !tpError && expectedProfit?.startsWith('-')
+        ? intl.formatMessage({
+            id:
+              side === 'long'
+                ? ETranslations.perps_tp_long_loss__desc
+                : ETranslations.perps_tp_short_loss__desc,
+          })
+        : undefined;
     if (isMobile) {
       return (
         <YStack gap="$3">
@@ -370,9 +379,15 @@ export const TpslInput = memo(
                 ]}
               />
               {!hiddenTp && expectedProfit ? (
-                <XStack justifyContent="flex-start" pr="$0.5">
+                <XStack
+                  justifyContent="flex-start"
+                  alignItems="baseline"
+                  gap="$2"
+                  pr="$0.5"
+                >
                   <SizableText
                     size="$bodySm"
+                    flexShrink={tpLossHint ? 0 : 1}
                     color={
                       !expectedProfit.startsWith('-')
                         ? '$green11'
@@ -387,6 +402,15 @@ export const TpslInput = memo(
                     </SizableText>
                     {expectedProfit}
                   </SizableText>
+                  {tpLossHint ? (
+                    <SizableText
+                      size="$bodySm"
+                      color="$textCaution"
+                      flexShrink={1}
+                    >
+                      {tpLossHint}
+                    </SizableText>
+                  ) : null}
                 </XStack>
               ) : null}
             </YStack>
@@ -571,12 +595,15 @@ export const TpslInput = memo(
         {!hiddenTp && (ifOnDialog || expectedProfit || tpError) ? (
           <XStack
             justifyContent="flex-start"
+            alignItems="baseline"
+            gap="$2"
             minHeight={ifOnDialog ? feedbackMinHeight : undefined}
             pr="$0.5"
           >
             {!tpError ? (
               <SizableText
                 size={feedbackTextSize}
+                flexShrink={tpLossHint ? 0 : 1}
                 color={
                   expectedProfit && !expectedProfit.startsWith('-')
                     ? '$green11'
@@ -590,6 +617,15 @@ export const TpslInput = memo(
                   {': '}
                 </SizableText>
                 {expectedProfit ?? '--'}
+              </SizableText>
+            ) : null}
+            {tpLossHint ? (
+              <SizableText
+                size={feedbackTextSize}
+                color="$textCaution"
+                flexShrink={1}
+              >
+                {tpLossHint}
               </SizableText>
             ) : null}
             {tpError ? (
