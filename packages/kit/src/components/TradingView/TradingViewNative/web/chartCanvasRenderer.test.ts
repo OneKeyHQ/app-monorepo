@@ -122,6 +122,7 @@ describe('TradingViewNative web canvas scene renderer', () => {
             viewport: { offset: 0, zoomScale: 1 },
           },
           showLegend: true,
+          showPriceLegend: true,
           subIndicatorPanes: [],
           timeAxisFontSize: 12,
           timeAxisHeight: 28,

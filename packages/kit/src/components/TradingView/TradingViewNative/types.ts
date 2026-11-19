@@ -176,7 +176,8 @@ export interface ITradingViewNativeProps {
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /**
    * Draws the namespace's saved main-chart overlays (MA, EMA, BOLL, ...) on a
-   * compact chart. Sub-indicator panes and legends stay hidden there.
+   * compact chart, with their legend rows but no candle price row.
+   * Sub-indicator panes stay hidden there.
    */
   showCompactMainIndicators?: boolean;
   /** Limits new selections without hiding sub-indicators that are already active. */

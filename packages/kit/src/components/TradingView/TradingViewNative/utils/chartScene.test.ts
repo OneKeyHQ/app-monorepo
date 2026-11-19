@@ -1814,6 +1814,54 @@ describe('crosshair in empty chart space', () => {
     expect(rowYByLabel.get('LB')).toBe(rowYByLabel.get('DC'));
   });
 
+  it('moves the indicator legend rows to the top without the OHLC row', () => {
+    const indicatorPoints = buildLinearPoints(30);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['WMA']),
+      indicatorSettings: {},
+      points: indicatorPoints,
+    });
+    const buildScene = (showPriceLegend: boolean) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 240,
+        indicatorSeries,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: indicatorPoints,
+        showPriceLegend,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getLegendText = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) =>
+      scene.commands.flatMap((command) =>
+        command.kind === 'text' && command.font === 'legend' ? [command] : [],
+      );
+    const fullLegend = getLegendText(buildScene(true));
+    const indicatorLegend = getLegendText(buildScene(false));
+    const getY = (
+      legend: ReturnType<typeof getLegendText>,
+      text: string,
+    ): number | undefined => legend.find((command) => command.text === text)?.y;
+
+    expect(fullLegend.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['O', 'H', 'L', 'C', 'WMA5']),
+    );
+    expect(
+      indicatorLegend.filter(({ text }) => ['O', 'H', 'L', 'C'].includes(text)),
+    ).toEqual([]);
+    expect(getY(indicatorLegend, 'WMA5')).toBe(getY(fullLegend, 'O'));
+    expect(getY(fullLegend, 'WMA5')).toBeGreaterThan(
+      getY(fullLegend, 'O') ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
   it('draws a SuperTrend that flips on the latest candle as a dot', () => {
     // A steady fall, then one candle that closes far above the upper band.
     const closes = [

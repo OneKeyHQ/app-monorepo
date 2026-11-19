@@ -171,6 +171,12 @@ Both `PerpCandles` and the compact `PerpMobileChartPanel` use
 use separate Perps persistent atoms. Desktop dialogs, mobile quick settings and
 mobile settings routes retain the originating namespace.
 
+The compact chart has no indicator controls of its own. It opts in with
+`showCompactMainIndicators` and draws the main indicators (MA, EMA, BOLL, SAR
+and the other price-pane overlays) turned on in the full Perps chart, with their
+legend rows at the top and no candle price row. Sub-indicators such as VOL and
+MACD stay off for space. Other compact charts, such as Swap's, draw no indicators.
+
 Intervals use a dedicated Perps storage key.
 Drawing keys include a `perps:` prefix before the existing source.
 Indicator-pane heights and ordering are kept once for the Perps chart and once

@@ -287,6 +287,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   priceAxisWidth?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  showPriceLegend?: boolean;
   timeAxisFontSize?: number;
   timeAxisHeight?: number;
   priceRangeScale?: number;
@@ -755,6 +756,7 @@ export function buildTradingViewNativeChartScene({
   priceAxisWidth,
   priceAxisTickCount,
   showLegend = true,
+  showPriceLegend = true,
   timeAxisFontSize = AXIS_FONT_SIZE,
   timeAxisHeight = TIME_AXIS_HEIGHT,
   priceRangeScale,
@@ -1419,15 +1421,19 @@ export function buildTradingViewNativeChartScene({
     }
   };
   if (showLegend) {
-    const priceLegendLayouts = getTradingViewNativeChartLegendRowLayouts({
-      items:
-        chartSettings?.options.priceChange === false
-          ? legend.priceItems.filter((item) => item.valueColorRole !== 'trend')
-          : legend.priceItems,
-      maxX: priceAxisX,
-      measureTextWidth: measureLegendTextWidth,
-      top: PRICE_LEGEND_TOP,
-    });
+    const priceLegendLayouts = showPriceLegend
+      ? getTradingViewNativeChartLegendRowLayouts({
+          items:
+            chartSettings?.options.priceChange === false
+              ? legend.priceItems.filter(
+                  (item) => item.valueColorRole !== 'trend',
+                )
+              : legend.priceItems,
+          maxX: priceAxisX,
+          measureTextWidth: measureLegendTextWidth,
+          top: PRICE_LEGEND_TOP,
+        })
+      : [];
     appendLegendRows(priceLegendLayouts);
     let mainIndicatorLegendTop =
       PRICE_LEGEND_TOP +
