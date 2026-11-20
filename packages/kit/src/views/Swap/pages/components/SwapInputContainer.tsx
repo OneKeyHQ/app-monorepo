@@ -146,6 +146,9 @@ interface ISwapInputContainerProps {
   // Focuses the amount input each time the page gains focus with no amount
   // entered yet, so the user can type without tapping the input first.
   autoFocusOnPageFocus?: boolean;
+  // Shows the percentage stages in the card's label row, as on desktop,
+  // instead of on a bar above the keyboard.
+  percentageStageInCard?: boolean;
 }
 
 const SwapInputContainer = ({
@@ -162,6 +165,7 @@ const SwapInputContainer = ({
   balance,
   balanceLoading,
   autoFocusOnPageFocus,
+  percentageStageInCard,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
     token,
@@ -547,6 +551,7 @@ const SwapInputContainer = ({
             }
             activeAccount={activeAccount}
             showPercentageInput={showPercentageInputDebounce}
+            percentageInputOnNative={percentageStageInCard}
             showActionBuy={showActionBuy}
             actionBuyHighlighted={!isFromBalanceLoadedZero}
             onDepositClose={refreshTokenBalance}
@@ -616,10 +621,14 @@ const SwapInputContainer = ({
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
       {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
+        // The accessory view stays mounted and only its content changes, so
+        // a focused input never has its accessory swapped under the keyboard.
         <InputAccessoryView nativeID={inputAccessoryViewID}>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
+          {percentageStageInCard ? null : (
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          )}
         </InputAccessoryView>
       ) : null}
     </YStack>

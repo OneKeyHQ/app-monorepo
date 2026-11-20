@@ -256,9 +256,14 @@ const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
 // The $5 page padding beside the form, in points.
 const SWAP_FOLDABLE_PAGE_PADDING = 20;
-// Widest a tab without a second pane grows on an unfolded foldable iPhone,
-// page padding included; the same cap the limit form has on phones.
+// Widest a tab without a second pane grows on a foldable iPhone screen that
+// has room for two panes, page padding included; the same cap the limit form
+// has on phones.
 const SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH = 520;
+// Narrowest page that has room for two panes: the Stocks row and the page
+// padding beside it. Swap and Bridge split at the same width.
+const SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH =
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -1995,16 +2000,24 @@ const SwapMainLoad = ({
   // Stocks places the price chart beside the trade ticket itself.
   const foldableChartPanelTab =
     isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
-  // Whether the Stocks content is wide enough to show that chart, by the same
-  // rule the Stocks content applies to its own row. Read from the laid out
-  // wrapper rather than from the window size: while a foldable folds or
-  // unfolds the two disagree for a few frames.
-  const [foldableStockChartShown, setFoldableStockChartShown] = useState(false);
+  // Whether the page is wide enough for two panes, by the same rule the
+  // Stocks content applies to its own row, which is when it shows that chart.
+  // Read from the laid out page rather than from the window size: while a
+  // foldable folds or unfolds the two disagree for a few frames.
+  const [foldableTwoPaneWidth, setFoldableTwoPaneWidth] = useState(false);
+  // Whether the page is wider than the single-pane cap yet too narrow for two
+  // panes, as the unfolded screen is when turned upright. Such a page is laid
+  // out like a phone: the content fills it. The folded screen is narrower
+  // than the cap, so it reads false there and unfolding never passes through
+  // an uncapped frame.
+  const [foldablePhoneWidth, setFoldablePhoneWidth] = useState(false);
   const handleFoldableContentLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      setFoldableStockChartShown(
-        event.nativeEvent.layout.width >=
-          SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2,
+      const { width } = event.nativeEvent.layout;
+      const twoPaneWidth = width >= SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH;
+      setFoldableTwoPaneWidth(twoPaneWidth);
+      setFoldablePhoneWidth(
+        !twoPaneWidth && width > SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH,
       );
     },
     [],
@@ -2318,7 +2331,7 @@ const SwapMainLoad = ({
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
         // The chart button would open the chart the page already shows.
-        hideKLine={foldableChartPanelTab && foldableStockChartShown}
+        hideKLine={foldableChartPanelTab && foldableTwoPaneWidth}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         marketPresetSettings={
@@ -2423,24 +2436,33 @@ const SwapMainLoad = ({
           ) : null}
           {!shouldRenderDesktopSwapHeader && isFoldableSwapPage ? (
             // Foldable phones keep one wrapper in every posture, so folding
-            // never remounts the content. Tabs that have no second pane are
-            // capped and centered on the unfolded screen instead of
-            // stretching across it; the cap is wider than the folded screen,
-            // so nothing changes there. A plain max width needs no window
-            // size, so it is never applied a frame late.
+            // never remounts the content. The outer one always spans the
+            // page and reports its width. Tabs that have no second pane are
+            // capped and centered on a screen wide enough for two panes
+            // instead of stretching across it; the cap is wider than the
+            // folded screen, so nothing changes there, and a plain max width
+            // needs no window size, so folding never applies it a frame late.
             <YStack
               flex={1}
               minHeight={0}
               width="100%"
               onLayout={handleFoldableContentLayout}
-              alignSelf="center"
-              maxWidth={
-                foldableProviderPanelTab || foldableChartPanelTab
-                  ? undefined
-                  : SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH
-              }
             >
-              {swapContent}
+              <YStack
+                flex={1}
+                minHeight={0}
+                width="100%"
+                alignSelf="center"
+                maxWidth={
+                  foldableProviderPanelTab ||
+                  foldableChartPanelTab ||
+                  foldablePhoneWidth
+                    ? undefined
+                    : SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH
+                }
+              >
+                {swapContent}
+              </YStack>
             </YStack>
           ) : null}
           {!shouldRenderDesktopSwapHeader && !isFoldableSwapPage

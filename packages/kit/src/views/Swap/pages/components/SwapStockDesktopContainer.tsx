@@ -149,7 +149,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -205,6 +205,11 @@ const STOCK_TWO_PANE_GAP = 20;
 // Narrowest width the chart is shown at. A row without room for it beside the
 // ticket leaves the chart out.
 const STOCK_TWO_PANE_MIN_CHART_WIDTH = 340;
+// Share of a row's free space the chart column and the ticket take. Beside
+// the chart the ticket's share rounds to nothing, so it keeps its width;
+// alone on its line it takes the whole line, as it does on a phone.
+const STOCK_TWO_PANE_CHART_GROW = 100_000;
+const STOCK_TWO_PANE_TICKET_GROW = 1;
 // Height the chart pane is laid out at while it has no room and is clipped
 // away, so the chart inside never has to draw into an empty box. About the
 // height the pane has beside an idle ticket, so the chart is redrawn as little
@@ -839,10 +844,14 @@ function StockAmountInput({
   amountInputState,
   deferInitialContent,
   forceLoading,
+  percentageStageInCard,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
   deferInitialContent: boolean;
   forceLoading?: boolean;
+  // Shows the percentage stages in the card's label row, as on desktop,
+  // instead of on a bar above the keyboard.
+  percentageStageInCard?: boolean;
 }) {
   const height = useSwapStockSelection() ? 114 : 124;
   const intl = useIntl();
@@ -964,6 +973,7 @@ function StockAmountInput({
           showPercentageInput={Boolean(
             showPercentageInputDebounce && !contentLoading,
           )}
+          percentageInputOnNative={percentageStageInCard}
           percentageInputDisabled={!balanceActionsReady}
           showActionBuy={showActionBuy && !contentLoading}
           actionBuyHighlighted={!isBalanceLoadedZero}
@@ -1044,10 +1054,14 @@ function StockAmountInput({
       {platformEnv.isNativeIOSPhone &&
       balanceActionsReady &&
       !contentLoading ? (
+        // The accessory view stays mounted and only its content changes, so
+        // a focused input never has its accessory swapped under the keyboard.
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
+          {percentageStageInCard ? null : (
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          )}
         </InputAccessoryView>
       ) : null}
     </YStack>
@@ -1076,6 +1090,7 @@ function StockTradeTicket({
   stockTradeHeader,
   stockTradeIdentityLoading,
   showThirdPartyNotice,
+  percentageStageInCard,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1090,6 +1105,7 @@ function StockTradeTicket({
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
   stockTradeIdentityLoading?: boolean;
+  percentageStageInCard?: boolean;
 }) {
   const standaloneSelection = useSwapStockSelection();
   const { selectedTokenVariant, stockDetail } = useStockDetail();
@@ -1278,6 +1294,7 @@ function StockTradeTicket({
           deferInitialContent={deferInitialAmountContent}
           forceLoading={showStockTradeIdentitySkeleton}
           storeName={storeName}
+          percentageStageInCard={percentageStageInCard}
         />
         <StockEstimatedReceive
           model={receiveModel}
@@ -1597,6 +1614,15 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     showThirdPartyNotice,
     chartPanelCapable,
   } = props;
+  // Whether the row is wide enough to hold the chart beside the ticket. The
+  // layout itself never waits for this; it only moves the percentage stages,
+  // which show once the amount input is in use.
+  const [chartBesideTicket, setChartBesideTicket] = useState(false);
+  const handleTwoPaneRowLayout = useCallback((event: LayoutChangeEvent) => {
+    setChartBesideTicket(
+      event.nativeEvent.layout.width >= SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH,
+    );
+  }, []);
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   useSwapHistoryScrollToTop(scrollViewRef);
@@ -1649,6 +1675,12 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       recentTokenPairs={stockRecentTokenPairs}
       onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
       compact
+      // Beside the chart the screen is wide and short: a bar above the
+      // keyboard would stretch a few small labels across it and cover more
+      // of the ticket, so the stages sit in the pay card as on desktop.
+      percentageStageInCard={
+        !!chartPanelCapable && !embedded && chartBesideTicket
+      }
       stockTradeConfig={stockTradeConfig}
       stockTradeHeader={
         embedded ? (
@@ -1685,12 +1717,18 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           // One wrapping row decides the layout, so it is right in the very
           // frame the screen changes: a state read back from onLayout lands
           // several frames late and the ticket would jump. The two columns
-          // ask for more than the folded screen has, so the ticket wraps under
-          // the header there; unfolded they share a row, the ticket keeps its
-          // folded width at the row's end and the first column takes the rest.
-          <XStack flexWrap="wrap" columnGap={STOCK_TWO_PANE_GAP} rowGap="$3">
+          // ask for more than a narrow row has, so there the ticket wraps
+          // under the header and fills the row like on a phone. In a wide row
+          // they share a line: the ticket keeps the width it has on the folded
+          // screen at the row's end and the first column takes the rest.
+          <XStack
+            flexWrap="wrap"
+            columnGap={STOCK_TWO_PANE_GAP}
+            rowGap="$3"
+            onLayout={handleTwoPaneRowLayout}
+          >
             <YStack
-              flexGrow={1}
+              flexGrow={STOCK_TWO_PANE_CHART_GROW}
               flexShrink={1}
               flexBasis={STOCK_TWO_PANE_MIN_CHART_WIDTH}
               minWidth={0}
@@ -1714,7 +1752,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
               </YStack>
             </YStack>
             <YStack
-              flexGrow={0}
+              flexGrow={STOCK_TWO_PANE_TICKET_GROW}
               flexShrink={1}
               flexBasis={SWAP_TWO_PANE_FORM_WIDTH}
               minWidth={0}

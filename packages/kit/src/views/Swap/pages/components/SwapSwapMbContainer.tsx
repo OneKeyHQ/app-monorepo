@@ -4,6 +4,7 @@ import {
   EPageType,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  XStack,
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -44,6 +45,11 @@ const SWAP_TWO_PANE_GAP = 20;
 // Narrowest width the panel is shown at. A row without room for it beside the
 // form hides it.
 const SWAP_TWO_PANE_MIN_PANEL_WIDTH = 340;
+// Share of a row's free space the form and the panel take. Beside the panel
+// the form's share rounds to nothing, so it keeps its width; alone on its
+// line it takes the whole line, as it does on a phone.
+const SWAP_TWO_PANE_FORM_GROW = 1;
+const SWAP_TWO_PANE_PANEL_GROW = 100_000;
 
 interface ISwapSwapMbContainerProps {
   pageType: EPageType;
@@ -146,6 +152,10 @@ const SwapSwapMbContainer = ({
     <>
       <SwapQuoteInput
         autoFocusFromInput
+        // Beside the panel the screen is wide and short: a bar above the
+        // keyboard would stretch four small labels across it and cover more
+        // of the form, so the stages sit in the pay card as on desktop.
+        percentageStageInCard={showProviderPanel}
         onSelectToken={onSelectToken}
         selectLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -207,41 +217,57 @@ const SwapSwapMbContainer = ({
         }}
         pb="$5"
       >
-        <YStack onLayout={providerPanelCapable ? handleRowLayout : undefined}>
-          {/* The form is capped at one width in every posture, so it is never
-              remounted or resized when a foldable folds. */}
-          <YStack
-            width="100%"
-            maxWidth={
-              providerPanelCapable ? SWAP_TWO_PANE_FORM_WIDTH : undefined
-            }
-            gap="$5"
+        {providerPanelCapable ? (
+          // One wrapping row decides the layout, so it is right in the very
+          // frame the screen changes. The form and the panel ask for more
+          // than a narrow row has, so there the panel wraps onto a line of
+          // its own, which has no height, and the form fills the row like on
+          // a phone. In a wide row they share a line: the form keeps the
+          // width it has on the folded screen, so unfolding never resizes it,
+          // and the panel takes the rest.
+          <XStack
+            flexWrap="wrap"
+            columnGap={SWAP_TWO_PANE_GAP}
+            onLayout={handleRowLayout}
           >
-            {formContent}
-          </YStack>
-          {providerPanelCapable ? (
-            // Out of the flow, so the form alone sets the row height and the
-            // panel matches it and scrolls inside. It keeps its place and a
-            // minimum width when the row gets too narrow, running off the
-            // screen edge, and fades instead of being cut: right after a fold
-            // its edge is still on screen for a few frames. It stays mounted
-            // while hidden, so unfolding fades it in without a mount delay.
             <YStack
-              position="absolute"
-              top={0}
-              bottom={0}
-              left={SWAP_TWO_PANE_FORM_WIDTH + SWAP_TWO_PANE_GAP}
-              right={0}
-              minWidth={SWAP_TWO_PANE_MIN_PANEL_WIDTH}
-              opacity={panelBeside ? 1 : 0}
-              pointerEvents={panelBeside ? 'auto' : 'none'}
-              transition="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY}
+              flexGrow={SWAP_TWO_PANE_FORM_GROW}
+              flexShrink={1}
+              flexBasis={SWAP_TWO_PANE_FORM_WIDTH}
+              minWidth={0}
+              gap="$5"
             >
-              <SwapProviderListPanel compact refreshAction={refreshAction} />
+              {formContent}
             </YStack>
-          ) : null}
-        </YStack>
+            {/* The slot has no height of its own, so the form alone sets
+                the line height and the panel matches it and scrolls inside.
+                The panel stays mounted while hidden, so unfolding fades it
+                in without a mount delay. */}
+            <YStack
+              flexGrow={SWAP_TWO_PANE_PANEL_GROW}
+              flexShrink={1}
+              flexBasis={SWAP_TWO_PANE_MIN_PANEL_WIDTH}
+              minWidth={0}
+              overflow="hidden"
+            >
+              <YStack
+                position="absolute"
+                top={0}
+                bottom={0}
+                left={0}
+                right={0}
+                opacity={panelBeside ? 1 : 0}
+                pointerEvents={panelBeside ? 'auto' : 'none'}
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+              >
+                <SwapProviderListPanel compact refreshAction={refreshAction} />
+              </YStack>
+            </YStack>
+          </XStack>
+        ) : (
+          <YStack gap="$5">{formContent}</YStack>
+        )}
         {/* Phones hide the positions list once an amount is entered. Foldable
             phones keep it in both postures, so folding does not drop it. */}
         {platformEnv.isNative && (providerPanelCapable || !fromTokenAmountValue)

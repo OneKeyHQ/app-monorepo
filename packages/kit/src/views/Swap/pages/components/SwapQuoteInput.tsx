@@ -37,6 +37,9 @@ interface ISwapQuoteInputProps {
   onSelectPercentageStage?: (stage: number) => void;
   onBalanceMaxPress?: () => void;
   autoFocusFromInput?: boolean;
+  // Shows the pay card's percentage stages in the card instead of on the
+  // keyboard bar.
+  percentageStageInCard?: boolean;
 }
 
 const SwapQuoteInput = ({
@@ -45,6 +48,7 @@ const SwapQuoteInput = ({
   onBalanceMaxPress,
   onSelectPercentageStage,
   autoFocusFromInput,
+  percentageStageInCard,
 }: ISwapQuoteInputProps) => {
   const inputId = useId();
   // Recycled native inputs need a new accessory ID when this pair mounts.
@@ -84,6 +88,7 @@ const SwapQuoteInput = ({
       <Stack onLayout={handleFromCardLayout}>
         <SwapInputContainer
           autoFocusOnPageFocus={autoFocusFromInput}
+          percentageStageInCard={percentageStageInCard}
           inputAccessoryViewID={inputAccessoryViewID}
           token={fromToken}
           direction={ESwapDirectionType.FROM}

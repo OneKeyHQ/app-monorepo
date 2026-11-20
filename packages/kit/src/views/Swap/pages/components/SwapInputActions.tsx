@@ -24,8 +24,16 @@ import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
+const SWAP_PERCENTAGE_STAGE_TOUCH_SLOP = {
+  top: 10,
+  bottom: 10,
+  left: 2,
+  right: 2,
+} as const;
+
 const SwapInputActions = ({
   showPercentageInput,
+  percentageInputOnNative = false,
   percentageInputDisabled = false,
   showActionBuy,
   actionBuyHighlighted = true,
@@ -36,6 +44,10 @@ const SwapInputActions = ({
   activeAccount,
 }: {
   showPercentageInput: boolean;
+  // Native keeps the percentage stages on the keyboard bar; a host that has
+  // dropped that bar shows them here instead. The row also holds the top-up
+  // chip, so it takes the three desktop stages rather than the bar's four.
+  percentageInputOnNative?: boolean;
   percentageInputDisabled?: boolean;
   showActionBuy: boolean;
   // Green when the chip is the recovery action (partial balance); subdued
@@ -54,10 +66,14 @@ const SwapInputActions = ({
   const intl = useIntl();
   const { gtSm } = useMedia();
 
-  const needSwapPercentageInputStage = useMemo(
-    () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
-    [gtSm],
-  );
+  const needSwapPercentageInputStage = useMemo(() => {
+    // Native media queries keep phone breakpoints on every screen, so a host
+    // that opts in on native is trusted to have room for all three.
+    if (platformEnv.isNative || gtSm) {
+      return SwapPercentageInputStage;
+    }
+    return SwapPercentageInputStage.slice(1);
+  }, [gtSm]);
 
   const handleBuyPress = useSwapDepositEntryPress({
     token: fromToken,
@@ -109,7 +125,8 @@ const SwapInputActions = ({
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!platformEnv.isNative && showPercentageInput ? (
+        {(!platformEnv.isNative || percentageInputOnNative) &&
+        showPercentageInput ? (
           <XStack
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
@@ -130,6 +147,13 @@ const SwapInputActions = ({
                   stage={stage}
                   disabled={percentageInputDisabled}
                   onSelectStage={onSelectStage}
+                  // The badge is shorter than a finger; widen what a touch
+                  // hits without changing how it looks.
+                  hitSlop={
+                    platformEnv.isNative
+                      ? SWAP_PERCENTAGE_STAGE_TOUCH_SLOP
+                      : undefined
+                  }
                 />
               ))}
             </>
