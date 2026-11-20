@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, ScrollView } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  ScrollView,
+  type ScrollViewInstance,
+} from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
@@ -57,6 +61,7 @@ import {
   PerpMobileTopChartTicker,
 } from '../components/PerpMobileTopChartProvider';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpsRecallBanner } from '../components/PerpsRecallBanner';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { usePerpsAccountScopedActiveTwapOrders } from '../hooks/usePerpsAccountScopedActiveTwapOrders';
@@ -161,6 +166,7 @@ TabBarItem.displayName = 'TabBarItem';
 MobileHoldingsTabBarItem.displayName = 'MobileHoldingsTabBarItem';
 
 export function PerpMobileLayout() {
+  const scrollViewport = useRef<ScrollViewInstance>(null);
   const tabBarHeight = useScrollContentTabBarOffset();
   const isSplitMainActive = useIsSplitMainActive();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
@@ -403,6 +409,7 @@ export function PerpMobileLayout() {
     <YStack flex={1} position="relative" bg="$bgApp">
       <PerpMobileTopChartProvider isEnabled={shouldShowTopChart}>
         <ScrollView
+          ref={scrollViewport}
           style={{ flex: 1, backgroundColor: '$bgApp' }}
           contentContainerStyle={{
             flexGrow: 1,
@@ -453,6 +460,7 @@ export function PerpMobileLayout() {
               <PerpTradingPanel isMobile />
             </YStack>
           </XStack>
+          <PerpsRecallBanner viewportRef={scrollViewport} />
           <XStack
             bg="$bgApp"
             borderBottomWidth="$px"

@@ -1298,7 +1298,10 @@ const TradingViewNativeContent = memo(
               ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
               : undefined
           }
-          showLegend={!isCompactDisplayMode}
+          // A compact chart has no room for the candle's price row; it keeps
+          // the full chart's indicator rows.
+          showLegend={showMainIndicators}
+          showPriceLegend={!isCompactDisplayMode}
           timeAxisFontSize={
             isCompactDisplayMode
               ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE

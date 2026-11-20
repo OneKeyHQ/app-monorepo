@@ -63,12 +63,10 @@ function ImportPrivateKey() {
         id: ETranslations.form_private_key_error_invalid,
       })}
       validationParams={validationParams}
-      onConfirm={async (form) => {
-        const values = form.getValues();
+      onConfirm={async (values) => {
         if (!values.input || !values.networkId) {
           return;
         }
-        console.log('add imported account', values);
         const input =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: fixInputImportSingleChain(values.input),
@@ -80,8 +78,6 @@ function ImportPrivateKey() {
           name: values.accountName,
           shouldCheckDuplicateName: true,
         });
-        console.log(r, values);
-        // global.success
 
         const accountId = r?.accounts?.[0]?.id;
 

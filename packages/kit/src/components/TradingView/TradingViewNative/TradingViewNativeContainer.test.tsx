@@ -3124,7 +3124,9 @@ describe('TradingViewNativeContainer', () => {
       'ema-3',
     ]);
     expect(chartProps.subIndicatorPanes).toEqual([]);
-    expect(chartProps.showLegend).toBe(false);
+    // Only the indicators' legend rows, without the candle's price row.
+    expect(chartProps.showLegend).toBe(true);
+    expect(chartProps.showPriceLegend).toBe(false);
     expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(0);
     expect(
       screen.queryByTestId('trading-view-native-indicator-quick-bar'),
@@ -3150,6 +3152,7 @@ describe('TradingViewNativeContainer', () => {
         priceAxisFontSize: undefined,
         priceAxisTickCount: undefined,
         showLegend: true,
+        showPriceLegend: true,
         timeAxisFontSize: undefined,
         timeAxisHeight: 24,
         timeAxisBorderWidth: undefined,

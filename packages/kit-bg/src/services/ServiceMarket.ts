@@ -1,3 +1,5 @@
+import { AxiosError, isAxiosError } from 'axios';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -35,8 +37,18 @@ import { type IDBCloudSyncItem } from '../dbs/local/types';
 
 import ServiceBase from './ServiceBase';
 
+import type { AxiosRequestConfig } from 'axios';
+
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 const SEARCH_ASSET_RESOLUTION_TIMEOUT_MS = 2000;
+const WATCHLIST_QUOTE_RETRY_TIMEOUT_MS = 3000;
+
+type IMarketAssetDetailParams = {
+  assetId: string;
+  variantId?: string;
+  currency?: string;
+  autoHandleError?: boolean;
+};
 
 async function withSearchAssetTimeout<T>(
   promise: Promise<T>,
@@ -256,23 +268,63 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketAssetDetail({
-    assetId,
-    variantId,
-    currency = 'usd',
-    autoHandleError,
-  }: {
-    assetId: string;
-    variantId?: string;
-    currency?: string;
-    autoHandleError?: boolean;
-  }) {
+  async fetchMarketAssetDetail(params: IMarketAssetDetailParams) {
+    return this.requestMarketAssetDetail(params);
+  }
+
+  async fetchMarketAssetDetailForWatchlistQuote(assetId: string) {
+    const params = { assetId, currency: 'usd', autoHandleError: false };
+    if (!platformEnv.isNativeIOS) {
+      return this.fetchMarketAssetDetail(params);
+    }
+
+    const options = { transitional: { clarifyTimeoutError: true } };
+    try {
+      return await this.requestMarketAssetDetail(params, options);
+    } catch (error) {
+      if (
+        !isAxiosError(error) ||
+        error.code !== AxiosError.ETIMEDOUT ||
+        error.response ||
+        error.config?.signal?.aborted
+      ) {
+        throw error;
+      }
+    }
+
+    // Use one deadline across the retry's transport and any adapter fallback.
+    const controller = new AbortController();
+    const deadline = setTimeout(
+      () => controller.abort(),
+      WATCHLIST_QUOTE_RETRY_TIMEOUT_MS,
+    );
+    try {
+      return await this.requestMarketAssetDetail(params, {
+        ...options,
+        timeout: WATCHLIST_QUOTE_RETRY_TIMEOUT_MS,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(deadline);
+    }
+  }
+
+  private async requestMarketAssetDetail(
+    {
+      assetId,
+      variantId,
+      currency = 'usd',
+      autoHandleError,
+    }: IMarketAssetDetailParams,
+    options?: Pick<AxiosRequestConfig, 'signal' | 'timeout' | 'transitional'>,
+  ) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<{
         code?: number;
         data: IMarketAssetDetailData;
       }>('/utility/v1/market/asset/detail', {
+        ...options,
         params: {
           assetId,
           variantId,

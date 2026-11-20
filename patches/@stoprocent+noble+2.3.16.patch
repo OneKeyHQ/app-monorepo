@@ -1,19 +1,27 @@
 diff --git a/node_modules/@stoprocent/noble/lib/common/include/Emit.h b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
-index 1d25bb1..95a4988 100644
+index 1d25bb1..0f60fc4 100644
 --- a/node_modules/@stoprocent/noble/lib/common/include/Emit.h
 +++ b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
-@@ -16,8 +16,8 @@ public:
+@@ -1,5 +1,7 @@
+ #pragma once
+
++#include <atomic>
++#include <memory>
+ #include <napi.h>
+ #include <vector>
+ #include <string>
+@@ -16,8 +18,8 @@ public:
      void Address(const std::string& address);
      void ScanState(bool start);
      void Scan(const std::string& uuid, int rssi, const Peripheral& peripheral);
 -    void Connected(const std::string& uuid, const std::string& error = "");
 -    void Disconnected(const std::string& uuid);
-+    void Connected(const std::string& uuid, const std::string& error = "", const std::string& errorDomain = "", int errorCode = 0);
++    void Connected(const std::string& uuid, const std::string& error = "", const std::string& errorDomain = "", int errorCode = 0, std::shared_ptr<const std::atomic_bool> currentAttempt = {});
 +    void Disconnected(const std::string& uuid, const std::string& error = "", const std::string& errorDomain = "", int errorCode = 0);
      void MTU(const std::string& uuid, int mtu);
      void RSSI(const std::string& uuid, int rssi, const std::string& error = "");
      void ServicesDiscovered(const std::string& uuid, const std::vector<std::string>& serviceUuids, const std::string& error = "");
-@@ -25,7 +25,7 @@ public:
+@@ -25,7 +27,7 @@ public:
      void CharacteristicsDiscovered(const std::string& uuid, const std::string& serviceUuid, const std::vector<std::pair<std::string, std::vector<std::string>>>& characteristics, const std::string& error = "");
      void Read(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const Data& data, bool isNotification, const std::string& error = "");
      void Write(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& error = "");
@@ -22,14 +30,28 @@ index 1d25bb1..95a4988 100644
      void DescriptorsDiscovered(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::vector<std::string>& descriptorUuids, const std::string& error = "");
      void ReadValue(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& descriptorUuid, const Data& data, const std::string& error = "");
      void WriteValue(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& descriptorUuid, const std::string& error = "");
+diff --git a/node_modules/@stoprocent/noble/lib/common/include/ThreadSafeCallback.h b/node_modules/@stoprocent/noble/lib/common/include/ThreadSafeCallback.h
+index f8f9f2e..fb03532 100644
+--- a/node_modules/@stoprocent/noble/lib/common/include/ThreadSafeCallback.h
++++ b/node_modules/@stoprocent/noble/lib/common/include/ThreadSafeCallback.h
+@@ -105,6 +105,9 @@ inline void ThreadSafeCallback::callJsCallback(
+         ArgumentVector args;
+         (*argFn)(env, args);
+         delete argFn;
++        if (args.empty()) {
++            return;
++        }
+
+         // Get the receiver value and check if it's valid
+         Napi::Value receiverValue = context->Value();
 diff --git a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
-index a1caca6..2ae0a39 100644
+index a1caca6..0da9a63 100644
 --- a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
 +++ b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
 @@ -14,6 +14,18 @@ Napi::String toUuid(Napi::Env& env, const std::string& uuid)
      return _s(str);
  }
- 
+
 +Napi::Object toNativeError(Napi::Env& env, const std::string& message,
 +                           const std::string& domain, int code)
 +{
@@ -45,22 +67,28 @@ index a1caca6..2ae0a39 100644
  Napi::String toAddressType(Napi::Env& env, const AddressType& type)
  {
      if (type == PUBLIC)
-@@ -146,19 +158,25 @@ void Emit::Scan(const std::string& uuid, int rssi, const Peripheral& peripheral)
+@@ -146,19 +158,31 @@ void Emit::Scan(const std::string& uuid, int rssi, const Peripheral& peripheral)
      });
  }
- 
+
 -void Emit::Connected(const std::string& uuid, const std::string& error)
 +void Emit::Connected(const std::string& uuid, const std::string& error,
-+                     const std::string& errorDomain, int errorCode)
++                     const std::string& errorDomain, int errorCode,
++                     std::shared_ptr<const std::atomic_bool> currentAttempt)
  {
 -    mCallback->call([uuid, error](Napi::Env env, std::vector<napi_value>& args) {
-+    mCallback->call([uuid, error, errorDomain, errorCode](Napi::Env env, std::vector<napi_value>& args) {
++    mCallback->call([uuid, error, errorDomain, errorCode, currentAttempt](Napi::Env env, std::vector<napi_value>& args) {
++        // OneKey patch: a queued completion may reach JS after cancel and retry.
++        if (currentAttempt && !currentAttempt->load())
++        {
++            return;
++        }
          // emit('connect', deviceUuid) error added here
 -        args = { _s("connect"), _u(uuid), error.empty() ? env.Null() : _e(error) };
 +        args = { _s("connect"), _u(uuid), error.empty() ? env.Null() : toNativeError(env, error, errorDomain, errorCode) };
      });
  }
- 
+
 -void Emit::Disconnected(const std::string& uuid)
 +void Emit::Disconnected(const std::string& uuid, const std::string& error,
 +                        const std::string& errorDomain, int errorCode)
@@ -77,10 +105,10 @@ index a1caca6..2ae0a39 100644
 +        }
      });
  }
- 
-@@ -247,12 +265,13 @@ void Emit::Write(const std::string& uuid, const std::string& serviceUuid,
+
+@@ -247,12 +271,13 @@ void Emit::Write(const std::string& uuid, const std::string& serviceUuid,
  }
- 
+
  void Emit::Notify(const std::string& uuid, const std::string& serviceUuid,
 -                  const std::string& characteristicUuid, bool state, const std::string& error)
 +                  const std::string& characteristicUuid, bool state, const std::string& error,
@@ -94,7 +122,7 @@ index a1caca6..2ae0a39 100644
 +        args = { _s("notify"), _u(uuid), _u(serviceUuid), _u(characteristicUuid), _b(state), error.empty() ? env.Null() : toNativeError(env, error, errorDomain, errorCode) };
      });
  }
- 
+
 diff --git a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
 index b82f1e9..da93805 100644
 --- a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
@@ -182,10 +210,12 @@ index f62c39f..8bb5f03 100644
  }
  
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
-index 94b4dc7b..dce0f2cf 100644
+index 94b4dc7..dce0f2c 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js
 +++ b/node_modules/@stoprocent/noble/lib/noble.js
-@@ -384,3 +384,9 @@ class Noble extends NobleEventEmitter {
+@@ -382,7 +382,13 @@ class Noble extends NobleEventEmitter {
+     }
+
      // Proceed to initiate the connection
 -    this._bindings.connect(identifier, parameters);
 +    // OneKey patch: settle synchronous native failures through normal connection cleanup.
@@ -196,14 +226,22 @@ index 94b4dc7b..dce0f2cf 100644
 +      this._onConnect(identifier, error);
 +    }
    }
-@@ -404,2 +410,6 @@ class Noble extends NobleEventEmitter {
+   
+   async connectAsync (idOrAddress, parameters) {
+@@ -402,6 +408,10 @@ class Noble extends NobleEventEmitter {
+       // Also emit the general 'connect' event for a peripheral
+       peripheral.emit('connect', error);
      } else {
 +      // OneKey patch: a direct connect can fail before discovery creates a peripheral.
 +      if (error) {
 +        this.emit(`connect:${peripheralId}`, error);
 +      }
        this.emit('warning', `unknown peripheral ${peripheralId} connected!`);
-@@ -432,3 +442,9 @@ class Noble extends NobleEventEmitter {
+     }
+   }
+@@ -430,7 +440,13 @@ class Noble extends NobleEventEmitter {
+     const peripheral = this._peripherals.get(peripheralId);
+
      if (peripheral) {
 +      const wasConnecting = peripheral.state === 'connecting';
        peripheral.state = 'disconnected';
@@ -213,3 +251,480 @@ index 94b4dc7b..dce0f2cf 100644
 +        peripheral.emit('connect', connectError);
 +      }
        peripheral.emit('disconnect', reason);
+       this.emit(`disconnect:${peripheralId}`, reason);
+     } else {
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
+index 19d0991..d651cb9 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
++++ b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
+@@ -33,6 +33,7 @@ template <typename O, typename M, class... Types> auto bind2(O* object, M method
+ #define LOGE(message, ...) printf(__FUNCTION__ ": " message "\n", __VA_ARGS__)
+
+ #define CHECK_DEVICE()                                     \
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex); \
+     if (mDeviceMap.find(uuid) == mDeviceMap.end())         \
+     {                                                      \
+         LOGE("device with id %s not found", uuid.c_str()); \
+@@ -63,6 +64,19 @@ std::string gattStatusToString(GattCommunicationStatus status) {
+     }
+ }
+
++// OneKey patch: name the failure; callers treat "status: <n>" as abortable.
++std::string gattWriteFailureToString(const GattWriteResult& result) {
++    std::string message = "GATT write failed: " + gattStatusToString(result.Status());
++    auto protocolError = result.ProtocolError();
++    if (protocolError) {
++        char code[8];
++        snprintf(code, sizeof(code), "0x%02X", protocolError.Value());
++        message += ", ATT error ";
++        message += code;
++    }
++    return message;
++}
++
+ std::string asyncStatusToString(AsyncStatus status) {
+     switch (status) {
+         case AsyncStatus::Completed:
+@@ -163,6 +177,7 @@ void BLEManager::OnRadio(Radio& radio, const AdapterCapabilities& capabilities)
+
+ void BLEManager::Scan(const std::vector<winrt::guid>& serviceUUIDs, bool allowDuplicates)
+ {
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
+     mAdvertismentMap.clear();
+     mAllowDuplicates = allowDuplicates;
+     mScanServiceUUIDs = serviceUUIDs;
+@@ -191,6 +206,7 @@ void BLEManager::OnScanResult(BluetoothLEAdvertisementWatcher watcher,
+     auto advertismentType = args.AdvertisementType();
+     auto advertisment = args.Advertisement();
+
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
+     if (!mScanServiceUUIDs.empty()) {
+         auto found = false;
+         std::vector<winrt::guid> serviceUUIDs;
+@@ -262,6 +278,7 @@ void BLEManager::OnScanStopped(BluetoothLEAdvertisementWatcher watcher,
+
+ bool BLEManager::Connect(const std::string& uuid)
+ {
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
+     if (mDeviceMap.find(uuid) == mDeviceMap.end())
+     {
+         // Convert UUID string to MAC address format
+@@ -296,98 +313,156 @@ bool BLEManager::Connect(const std::string& uuid)
+         }
+     }
+
+-    PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-    if (!peripheral.device.has_value())
++    auto& peripheral = mDeviceMap.at(uuid);
++    if (peripheral.connectPending)
++    {
++        return true;
++    }
++    if (peripheral.gattSession && peripheral.gattSession->SessionStatus() == GattSessionStatus::Active)
++    {
++        mEmit.Connected(uuid, "", "", 0, peripheral.connectAttempt);
++        return true;
++    }
++
++    // OneKey patch: each new link owns its WinRT callbacks and queued connect result.
++    EndConnect(uuid, peripheral);
++    auto attempt = std::make_shared<std::atomic_bool>(true);
++    peripheral.connectAttempt = attempt;
++    peripheral.connectPending = true;
++    try
+     {
+-        auto completed = bind2(this, &BLEManager::OnConnected, uuid);
++        auto completed = bind2(this, &BLEManager::OnConnected, uuid, attempt);
+         BluetoothLEDevice::FromBluetoothAddressAsync(peripheral.bluetoothAddress)
+             .Completed(completed);
+     }
+-    else
++    catch (const winrt::hresult_error& e)
+     {
+-        mEmit.Connected(uuid);
++        FinishConnect(uuid, attempt, winrt::to_string(e.message()));
+     }
+     return true;
+ }
+
++void BLEManager::EndConnect(const std::string& uuid, PeripheralWinrt& peripheral)
++{
++    if (peripheral.connectAttempt)
++    {
++        peripheral.connectAttempt->store(false);
++    }
++    peripheral.connectPending = false;
++    mNotifyMap.Remove(uuid);
++    peripheral.Disconnect();
++}
++
++// OneKey patch: callers hold mConnectMutex through completion or teardown.
++void BLEManager::FinishConnect(const std::string& uuid, const ConnectAttempt& attempt,
++                               const std::string& error)
++{
++    auto& peripheral = mDeviceMap.at(uuid);
++    if (!attempt->load() || !peripheral.connectPending)
++    {
++        return;
++    }
++    peripheral.connectPending = false;
++    if (!error.empty())
++    {
++        mNotifyMap.Remove(uuid);
++        peripheral.Disconnect();
++    }
++    mEmit.Connected(uuid, error, "", 0, attempt);
++}
++
+ void BLEManager::OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncStatus status,
+-                             const std::string uuid)
++                             const std::string uuid, ConnectAttempt attempt)
+ {
+-    if (status == AsyncStatus::Completed)
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    if (!attempt->load())
+     {
+-        BluetoothLEDevice device = asyncOp.GetResults();
+-        // device can be null if the connection failed
+-        if (device)
+-        {
+-            auto onChanged = bind2(this, &BLEManager::OnConnectionStatusChanged);
+-            auto token = device.ConnectionStatusChanged(onChanged);
+-            auto uuid = formatBluetoothUuid(device.BluetoothAddress());
+-            PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-            peripheral.device = device;
+-            peripheral.connectionToken = token;
+-            mEmit.Connected(uuid);
+-            
+-            // Get GATT session to access the MTU
+-            auto completed = bind2(this, &BLEManager::OnGattSessionCreated, uuid);
+-            GattSession::FromDeviceIdAsync(device.BluetoothDeviceId()).Completed(completed);
+-        }
+-        else
++        return;
++    }
++    try
++    {
++        BluetoothLEDevice device = status == AsyncStatus::Completed ? asyncOp.GetResults() : nullptr;
++        if (!device)
+         {
+-            mEmit.Connected(uuid, "could not connect to device: result is null");
++            FinishConnect(uuid, attempt, "could not connect to device");
++            return;
+         }
++        auto& peripheral = mDeviceMap.at(uuid);
++        peripheral.device = device;
++        peripheral.connectionToken = device.ConnectionStatusChanged(
++            bind2(this, &BLEManager::OnConnectionStatusChanged, uuid, attempt));
++
++        auto completed = bind2(this, &BLEManager::OnGattSessionCreated, uuid, attempt);
++        GattSession::FromDeviceIdAsync(device.BluetoothDeviceId()).Completed(completed);
+     }
+-    else
++    catch (const winrt::hresult_error& e)
+     {
+-        mEmit.Connected(uuid, "could not connect to device");
++        FinishConnect(uuid, attempt, winrt::to_string(e.message()));
+     }
+ }
+
+-void BLEManager::OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, AsyncStatus status, const std::string uuid)
++void BLEManager::OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, AsyncStatus status,
++                                      const std::string uuid, ConnectAttempt attempt)
+ {
+-    if (status == AsyncStatus::Completed)
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    if (!attempt->load())
++    {
++        return;
++    }
++    try
+     {
+-        auto session = asyncOp.GetResults();
+-        if (session)
++        GattSession session = status == AsyncStatus::Completed ? asyncOp.GetResults() : nullptr;
++        if (!session)
+         {
+-            // MaxPduSize is equivalent to the MTU-3 (MTU minus ATT header)
+-            // MTU = MaxPduSize + 3
+-            int mtu = session.MaxPduSize();
+-            mEmit.MTU(uuid, mtu);
+-            
+-            // Subscribe to MTU changes
+-            auto onPduSizeChanged = bind2(this, &BLEManager::OnMaxPduSizeChanged, uuid);
+-            
+-            // Store both the session and the event token in the peripheral
+-            PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-            peripheral.gattSession = session;
+-            auto token = session.MaxPduSizeChanged(onPduSizeChanged);
+-            peripheral.maxPduSizeChangedToken = token;
++            FinishConnect(uuid, attempt, "could not open GATT session: " + asyncStatusToString(status));
++            return;
+         }
+-        else
++        auto& peripheral = mDeviceMap.at(uuid);
++        peripheral.gattSession = session;
++        peripheral.maxPduSizeChangedToken = session.MaxPduSizeChanged(
++            bind2(this, &BLEManager::OnMaxPduSizeChanged, uuid, attempt));
++        peripheral.sessionStatusChangedToken = session.SessionStatusChanged(
++            bind2(this, &BLEManager::OnSessionStatusChanged, uuid, attempt));
++        mEmit.MTU(uuid, session.MaxPduSize());
++
++        // A device object alone does not indicate a live GATT link.
++        session.MaintainConnection(true);
++        if (session.SessionStatus() == GattSessionStatus::Active)
+         {
+-            LOGE("Failed to get GattSession for device %s", uuid.c_str());
++            FinishConnect(uuid, attempt, "");
+         }
+     }
+-    else
++    catch (const winrt::hresult_error& e)
++    {
++        FinishConnect(uuid, attempt, "could not activate maintained GATT session: " + winrt::to_string(e.message()));
++    }
++}
++
++void BLEManager::OnSessionStatusChanged(GattSession session, GattSessionStatusChangedEventArgs args,
++                                        const std::string uuid, ConnectAttempt attempt)
++{
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    // Windows keeps retrying a closed session while MaintainConnection is set.
++    if (attempt->load() && args.Status() == GattSessionStatus::Active)
+     {
+-        LOGE("Failed to create GattSession: %s", asyncStatusToString(status).c_str());
++        FinishConnect(uuid, attempt, "");
+     }
+ }
+
+-// Add this new method to handle the MaxPduSizeChanged event
+-void BLEManager::OnMaxPduSizeChanged(GattSession session, winrt::Windows::Foundation::IInspectable object, const std::string uuid)
++void BLEManager::OnMaxPduSizeChanged(GattSession session, IInspectable object,
++                                    const std::string uuid, ConnectAttempt attempt)
+ {
+-    // Update MTU value when it changes
+-    int mtu = session.MaxPduSize();
+-    mEmit.MTU(uuid, mtu);
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    if (attempt->load() && mDeviceMap.at(uuid).gattSession)
++    {
++        mEmit.MTU(uuid, session.MaxPduSize());
++    }
+ }
+
+ bool BLEManager::Disconnect(const std::string& uuid)
+ {
+     CHECK_DEVICE();
+-    PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-    peripheral.Disconnect();
+-    mNotifyMap.Remove(uuid);
++    EndConnect(uuid, mDeviceMap.at(uuid));
+     mEmit.Disconnected(uuid);
+     return true;
+ }
+@@ -395,30 +470,31 @@ bool BLEManager::Disconnect(const std::string& uuid)
+ bool BLEManager::CancelConnect(const std::string& uuid)
+ {
+     CHECK_DEVICE();
+-    PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-    peripheral.Disconnect();
+-    mNotifyMap.Remove(uuid);
++    auto& peripheral = mDeviceMap.at(uuid);
++    // noble.js has already settled a pending connect on cancellation.
++    const bool wasLinked = !peripheral.connectPending && peripheral.gattSession.has_value();
++    EndConnect(uuid, peripheral);
++    if (wasLinked)
++    {
++        mEmit.Disconnected(uuid);
++    }
+     return true;
+ }
+
+-void BLEManager::OnConnectionStatusChanged(BluetoothLEDevice device,
+-                                           winrt::Windows::Foundation::IInspectable inspectable)
++void BLEManager::OnConnectionStatusChanged(BluetoothLEDevice device, IInspectable inspectable,
++                                            const std::string uuid, ConnectAttempt attempt)
+ {
+-    if (device.ConnectionStatus() == BluetoothConnectionStatus::Disconnected)
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    if (!attempt->load())
+     {
+-        auto uuid = formatBluetoothUuid(device.BluetoothAddress());
+-        if (mDeviceMap.find(uuid) == mDeviceMap.end())
+-        {
+-            LOGE("device with id %s not found", uuid.c_str());
+-            return;
+-        }
+-        PeripheralWinrt& peripheral = mDeviceMap[uuid];
+-        if(peripheral.device.has_value() && &(peripheral.device.value()) == &device )
+-        {
+-            peripheral.Disconnect();
+-            mNotifyMap.Remove(uuid);
+-            mEmit.Disconnected(uuid);
+-        }
++        return;
++    }
++    auto& peripheral = mDeviceMap.at(uuid);
++    if (!peripheral.connectPending && peripheral.gattSession &&
++        device.ConnectionStatus() == BluetoothConnectionStatus::Disconnected)
++    {
++        EndConnect(uuid, peripheral);
++        mEmit.Disconnected(uuid);
+     }
+ }
+
+@@ -457,7 +533,8 @@ void BLEManager::OnServicesDiscovered(IAsyncOperation<GattDeviceServicesResult>
+     };
+
+     CHECK_STATUS_AND_RESULT(status, result, emit);
+-    PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    auto& peripheral = mDeviceMap.at(uuid);
+     FOR(service, result.Services())
+     {
+         auto id = service.Uuid();
+@@ -508,7 +585,8 @@ void BLEManager::OnIncludedServicesDiscovered(IAsyncOperation<GattDeviceServices
+     };
+
+     CHECK_STATUS_AND_RESULT(status, result, emit);
+-    PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    std::lock_guard<std::recursive_mutex> lock(mConnectMutex);
++    auto& peripheral = mDeviceMap.at(uuid);
+     FOR(service, result.Services())
+     {
+         auto id = service.Uuid();
+@@ -661,6 +739,13 @@ void BLEManager::OnWrite(IAsyncOperation<GattWriteResult> asyncOp, AsyncStatus s
+ {
+     if (status == AsyncStatus::Completed)
+     {
++        // OneKey patch: a completed request can still carry a GATT failure
++        auto result = asyncOp.GetResults();
++        if (result && result.Status() != GattCommunicationStatus::Success)
++        {
++            mEmit.Write(uuid, serviceId, characteristicId, gattWriteFailureToString(result));
++            return;
++        }
+         mEmit.Write(uuid, serviceId, characteristicId);
+     }
+     else
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
+index 646c6d7..13842e5 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
++++ b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
+@@ -3,6 +3,9 @@
+ #include <winrt/Windows.Devices.Bluetooth.Advertisement.h>
+ #include <winrt/Windows.Devices.Bluetooth.GenericAttributeProfile.h>
+
++// OneKey patch: serialize WinRT connection state; completion handlers can run inline.
++#include <mutex>
++
+ #include "Emit.h"
+ #include "notify_map.h"
+ #include "peripheral_winrt.h"
+@@ -42,10 +45,14 @@ private:
+     void OnRadio(Radio& radio, const AdapterCapabilities& capabilities);
+     void OnScanResult(BluetoothLEAdvertisementWatcher watcher, const BluetoothLEAdvertisementReceivedEventArgs& args);
+     void OnScanStopped(BluetoothLEAdvertisementWatcher watcher, const BluetoothLEAdvertisementWatcherStoppedEventArgs& args);
+-    void OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncStatus status, std::string uuid);
+-    void OnConnectionStatusChanged(BluetoothLEDevice device, winrt::Windows::Foundation::IInspectable inspectable);
+-    void OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, AsyncStatus status, std::string uuid);
+-    void OnMaxPduSizeChanged(GattSession session, winrt::Windows::Foundation::IInspectable object, std::string uuid);
++    using ConnectAttempt = std::shared_ptr<std::atomic_bool>;
++    void OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncStatus status, std::string uuid, ConnectAttempt attempt);
++    void OnConnectionStatusChanged(BluetoothLEDevice device, IInspectable inspectable, std::string uuid, ConnectAttempt attempt);
++    void OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, AsyncStatus status, std::string uuid, ConnectAttempt attempt);
++    void OnMaxPduSizeChanged(GattSession session, IInspectable object, std::string uuid, ConnectAttempt attempt);
++    void OnSessionStatusChanged(GattSession session, GattSessionStatusChangedEventArgs args, std::string uuid, ConnectAttempt attempt);
++    void EndConnect(const std::string& uuid, PeripheralWinrt& peripheral);
++    void FinishConnect(const std::string& uuid, const ConnectAttempt& attempt, const std::string& error);
+     void OnServicesDiscovered(IAsyncOperation<GattDeviceServicesResult> asyncOp, AsyncStatus status, std::string uuid, std::vector<winrt::guid> serviceUUIDs);
+     void OnIncludedServicesDiscovered(IAsyncOperation<GattDeviceServicesResult> asyncOp, AsyncStatus status, std::string uuid, std::string serviceId, std::vector<winrt::guid> serviceUUIDs);
+     void OnCharacteristicsDiscovered(IAsyncOperation<GattCharacteristicsResult> asyncOp, AsyncStatus status, std::string uuid, std::string serviceId, std::vector<winrt::guid> characteristicUUIDs);
+@@ -60,6 +67,7 @@ private:
+     void OnWriteHandle(IAsyncOperation<GattWriteResult> asyncOp, AsyncStatus status, std::string uuid, int handle);
+     // clang-format on
+     
++    std::recursive_mutex mConnectMutex;
+     bool mAllowDuplicates;
+
+     Emit mEmit;
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
+index f10edb9..4564a29 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
++++ b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
+@@ -1,3 +1,5 @@
++#include <utility>
++
+ #include "peripheral_winrt.h"
+ #include "winrt_cpp.h"
+
+@@ -185,23 +187,36 @@ void PeripheralWinrt::Disconnect()
+         cachedService.second.service.Close();
+     }
+     cachedServices.clear();
+-    if (gattSession.has_value())
++    // OneKey patch: detach the handles before WinRT can dispatch teardown events inline.
++    auto session = std::exchange(gattSession, std::nullopt);
++    auto link = std::exchange(device, std::nullopt);
++    if (session)
+     {
+-        if(maxPduSizeChangedToken)
++        if (maxPduSizeChangedToken)
++        {
++            session->MaxPduSizeChanged(std::exchange(maxPduSizeChangedToken, {}));
++        }
++        if (sessionStatusChangedToken)
++        {
++            session->SessionStatusChanged(std::exchange(sessionStatusChangedToken, {}));
++        }
++        try
++        {
++            session->MaintainConnection(false);
++        }
++        catch (const winrt::hresult_error&)
+         {
+-            gattSession->MaxPduSizeChanged(maxPduSizeChangedToken);
+         }
+-        gattSession->Close();
++        session->Close();
+     }
+-    if (device.has_value())
++    if (link)
+     {
+-        if(connectionToken)
++        if (connectionToken)
+         {
+-            device->ConnectionStatusChanged(connectionToken);
++            link->ConnectionStatusChanged(std::exchange(connectionToken, {}));
+         }
+-        device->Close();
++        link->Close();
+     }
+-    device = std::nullopt;
+ }
+
+ void PeripheralWinrt::GetServiceFromDevice(
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
+index ad59d02..4d2f200 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
++++ b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
+@@ -1,5 +1,8 @@
+ #pragma once
+
++#include <atomic>
++#include <memory>
++
+ #include <napi.h>
+ #define WIN32_LEAN_AND_MEAN
+ #include <Windows.h>
+@@ -72,6 +75,10 @@ public:
+     winrt::event_token connectionToken;
+     std::optional<GattSession> gattSession;
+     winrt::event_token maxPduSizeChangedToken;
++    // OneKey patch: a connect settles once the maintained GATT session is active
++    winrt::event_token sessionStatusChangedToken;
++    std::shared_ptr<std::atomic_bool> connectAttempt;
++    bool connectPending { false };
+     std::unordered_map<winrt::guid, CachedService> cachedServices;
+     bool nameIsComplete { false }; // `name` is the Complete Local Name
+

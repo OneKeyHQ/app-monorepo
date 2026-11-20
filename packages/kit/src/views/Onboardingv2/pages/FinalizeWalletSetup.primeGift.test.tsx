@@ -4,6 +4,10 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import {
+  HardwareErrorCode,
+  createHardwareOperationId,
+} from '@onekeyfe/hwk-adapter-core';
+import {
   act,
   fireEvent,
   render,
@@ -12,6 +16,7 @@ import {
 } from '@testing-library/react';
 
 import { resetOnboardingModal } from '@onekeyhq/components';
+import type { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IDBDevice,
@@ -24,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import { enterWalletAfterOnboarding } from '../utils/enterWalletAfterOnboarding';
@@ -38,6 +44,12 @@ let mockCache: Record<string, IPrimeGiftEligibility> = {};
 let mockActiveWallet = { id: 'hw--pro', associatedDevice: 'db-pro' };
 const mockConnectDevice = jest.fn();
 const mockCreateHWWallet = jest.fn();
+const mockCreateThirdPartyWallet = jest.fn();
+const mockUpdateTrezorWallets = jest.fn();
+const mockShowDialog = jest.fn<
+  ReturnType<typeof Dialog.show>,
+  Parameters<typeof Dialog.show>
+>();
 const mockEnsureBurst = jest.fn();
 const mockEndBurst = jest.fn();
 const mockShowInviteDialog = jest.fn<
@@ -95,7 +107,10 @@ jest.mock('@onekeyhq/components', () => {
         { 'data-testid': 'prime-gift-offer-height-transition' },
         children,
       ),
-    Dialog: { show: jest.fn() },
+    Dialog: {
+      show: (...args: Parameters<typeof mockShowDialog>) =>
+        mockShowDialog(...args),
+    },
     resetOnboardingModal: jest.fn(),
     useMedia: () => ({ gtMd: mockGtMd }),
     useTheme: () => ({}),
@@ -122,7 +137,7 @@ jest.mock('react-native-reanimated', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDesktop: true, isNative: false },
+  default: { isDesktop: true, isDesktopWin: true, isNative: false },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
@@ -171,6 +186,10 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceAccount: { getWallets: jest.fn(), getWalletDevice: jest.fn() },
     servicePrime: { apiGetPrimeGiftEligibility: jest.fn() },
     serviceHardware: { clearForceTransportType: jest.fn() },
+    serviceThirdPartyHardware: {
+      connectDevice: jest.fn(),
+      releaseOperation: jest.fn(),
+    },
     serviceReferralCode: {
       getReferralCodeWalletInfo: jest.fn(),
       cacheWalletCreationRecordTimestamp: jest.fn(),
@@ -183,7 +202,12 @@ jest.mock('../../../states/jotai/contexts/accountSelector/atoms', () => ({
   useActiveAccount: () => ({ activeAccount: { wallet: mockActiveWallet } }),
 }));
 jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
-  useAccountSelectorActions: () => ({ current: {} }),
+  useAccountSelectorActions: () => ({
+    current: {
+      createHWWalletWithoutHidden: mockCreateThirdPartyWallet,
+      updateTrezorWalletsDeprecatedStatus: mockUpdateTrezorWallets,
+    },
+  }),
 }));
 jest.mock('../../../components/AccountSelector', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -321,6 +345,46 @@ function completionPage(
 
 function renderCompletion(withDiscoveryDevice = true) {
   return render(completionPage(withDiscoveryDevice));
+}
+
+function trezorCompletionPage(searchTargetId: string) {
+  return (
+    <FinalizeWalletSetup
+      navigation={
+        mockNavigation as unknown as ComponentProps<
+          typeof FinalizeWalletSetup
+        >['navigation']
+      }
+      route={{
+        key: `trezor-${searchTargetId}`,
+        name: EOnboardingPagesV2.FinalizeWalletSetup,
+        params: {
+          isFirmwareVerified: true,
+          deviceData: {
+            title: 'Trezor Safe 7',
+            src: { uri: '' },
+            vendor: EHardwareVendor.trezor,
+            device: {
+              connectId: searchTargetId,
+              deviceId: '',
+              serialNo: null,
+              uuid: '',
+              commType: 'electron-ble',
+              name: 'Trezor Safe 7',
+              deviceType: EDeviceType.Unknown,
+            },
+            searchTarget: {
+              searchTargetId,
+              vendor: EHardwareVendor.trezor,
+              connectionType: 'ble',
+              searchTargetReusePolicy: 'current-discovery',
+              kind: 'physical',
+            },
+          },
+        },
+      }}
+    />
+  );
 }
 
 const ENTER_WALLET_TEST_ID = 'onboarding-finalize-setup-enter-wallet-btn';
@@ -711,5 +775,239 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(0);
     fireEvent.click(screen.getByTestId(ENTER_WALLET_TEST_ID));
     await waitFor(() => expect(resetOnboardingModal).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('third-party Bluetooth recovery in wallet finalization', () => {
+  const hw = jest.mocked(backgroundApiProxy.serviceThirdPartyHardware);
+  const confirmGuide = async () => {
+    const guide = mockShowDialog.mock.calls.at(-1)?.[0];
+    expect(guide?.onConfirm).toBeDefined();
+    await act(async () => {
+      await guide?.onConfirm?.({
+        close: jest.fn(),
+        getForm: () => undefined,
+        isExist: () => true,
+        preventClose: jest.fn(),
+      });
+    });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListeners.clear();
+    mockCacheListeners.clear();
+    mockCache = {};
+    mockGtMd = true;
+    mockActiveWallet = {
+      id: 'previous-wallet',
+      associatedDevice: 'previous-device',
+    };
+    serviceAccount.getWallets.mockResolvedValue({ wallets: [] });
+    hw.connectDevice.mockReset();
+    hw.releaseOperation.mockResolvedValue(undefined);
+    mockCreateThirdPartyWallet.mockReset();
+    mockUpdateTrezorWallets.mockReset();
+    serviceAccount.getWalletDevice.mockResolvedValue({
+      ...dbDevice,
+      id: 'db-trezor',
+      vendor: EHardwareVendor.trezor,
+      name: 'Trezor Safe 7',
+      deviceType: EDeviceType.Unknown,
+      uuid: '',
+      deviceId: 'stable-trezor-identity',
+    });
+    servicePrime.apiGetPrimeGiftEligibility.mockResolvedValue({
+      ...offer,
+      eligible: false,
+      hasUnclaimedGift: false,
+    });
+  });
+
+  it('returns to discovery without a failure screen when Windows pairing is declined', async () => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BlePairingCancelled,
+        error: 'Pairing declined',
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    await waitFor(() => expect(mockNavigation.pop).toHaveBeenCalledTimes(1));
+    expect(mockEndBurst).toHaveBeenCalledWith({
+      error: expect.objectContaining({
+        code: HardwareErrorCode.BlePairingCancelled,
+      }),
+    });
+    expect(
+      screen.queryByText(ETranslations.failed_to_create_wallet),
+    ).toBeNull();
+    expect(mockCreateThirdPartyWallet).not.toHaveBeenCalled();
+  });
+
+  it('shows device preparation and returns to discovery without reconnecting the expired identifier', async () => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BleConnectFailed,
+        error: 'unreachable',
+        recovery: { scope: 'search-target' },
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    const retry = await screen.findByTestId(
+      'onboarding-finalize-setup-retry-btn',
+    );
+    expect(retry.textContent).toBe(
+      ETranslations.device_stage_reconnect__action,
+    );
+    fireEvent.click(retry);
+    const guide = mockShowDialog.mock.calls.at(-1)?.[0];
+    expect(guide?.description).toContain(
+      ETranslations.trezor_ble_binding_guide_unlock__desc,
+    );
+    expect(guide?.description).toContain(
+      ETranslations.trezor_ble_binding_guide_pair__desc,
+    );
+    expect(guide?.description).not.toContain(
+      ETranslations.bluetooth_pairing_invalid__desc,
+    );
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+    await confirmGuide();
+    expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+    expect(hw.connectDevice.mock.calls).toEqual([
+      [{ vendor: EHardwareVendor.trezor, searchTargetId: 'old-id' }],
+    ]);
+    expect(mockCreateThirdPartyWallet).not.toHaveBeenCalled();
+  });
+
+  it('offers system Bluetooth removal as a separate troubleshooting path', async () => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BleConnectFailed,
+        error: 'unreachable',
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    fireEvent.click(
+      await screen.findByTestId('onboarding-finalize-ble-troubleshooting'),
+    );
+    const guide = mockShowDialog.mock.calls.at(-1)?.[0];
+    expect(guide?.description).toContain(
+      ETranslations.bluetooth_pairing_invalid__desc,
+    );
+    expect(guide?.description).toContain(
+      ETranslations.trezor_ble_binding_guide_pair__desc,
+    );
+    await confirmGuide();
+    expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+    expect(hw.connectDevice.mock.calls).toHaveLength(1);
+  });
+
+  it('shows system removal directly when the SDK reports an invalid Bluetooth bond', async () => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BleBondInvalid,
+        error: 'invalid bond',
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    fireEvent.click(
+      await screen.findByTestId('onboarding-finalize-setup-retry-btn'),
+    );
+    expect(mockShowDialog.mock.calls.at(-1)?.[0].description).toContain(
+      ETranslations.bluetooth_pairing_invalid__desc,
+    );
+  });
+
+  it.each([
+    { recovery: { scope: 'not-recoverable' } },
+    { params: { operationMayHaveCompleted: true } },
+  ])('preserves the SDK stop-retry instruction %j', async (metadata) => {
+    hw.connectDevice.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.BleConnectFailed,
+        error: 'cannot retry',
+        ...metadata,
+      },
+    });
+    render(trezorCompletionPage('old-id'));
+    await screen.findByTestId('onboarding-finalize-setup-exit-btn');
+    expect(
+      screen.queryByTestId('onboarding-finalize-setup-retry-btn'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('onboarding-finalize-ble-troubleshooting'),
+    ).toBeNull();
+    expect(hw.connectDevice.mock.calls).toHaveLength(1);
+  });
+
+  it('passes the selected connection operation to wallet creation and releases it', async () => {
+    const operationId = createHardwareOperationId('trezor');
+    hw.connectDevice.mockResolvedValue({
+      success: true,
+      payload: {
+        operationId,
+        connectId: 'new-id',
+        deviceId: 'stable-trezor-identity',
+        model: 'Safe 7',
+        connectionType: 'ble',
+        features: {
+          device_id: 'stable-trezor-identity',
+          initialized: true,
+          firmware_present: true,
+        },
+      },
+    });
+    const wallet: IDBWallet = {
+      id: 'hw--trezor',
+      name: 'Trezor',
+      type: 'hw',
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: 1,
+      associatedDevice: 'db-trezor',
+    };
+    serviceAccount.getWallets
+      .mockResolvedValueOnce({ wallets: [] })
+      .mockResolvedValue({ wallets: [wallet] });
+    mockCreateThirdPartyWallet.mockImplementation(async () => {
+      mockActiveWallet = { id: wallet.id, associatedDevice: 'db-trezor' };
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.Ready,
+      });
+      return { accountCreationResult: { status: 'completed' } };
+    });
+    render(trezorCompletionPage('new-id'));
+    await screen.findByTestId(ENTER_WALLET_TEST_ID);
+    expect(hw.connectDevice.mock.calls).toEqual([
+      [{ vendor: EHardwareVendor.trezor, searchTargetId: 'new-id' }],
+    ]);
+    expect(mockCreateThirdPartyWallet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vendor: EHardwareVendor.trezor,
+        hardwareOperationContext: { operationId },
+        features: expect.objectContaining({
+          device_id: 'stable-trezor-identity',
+        }),
+      }),
+      { mode: 'onboarding' },
+    );
+    expect(mockUpdateTrezorWallets).toHaveBeenCalledWith({
+      connectId: 'new-id',
+      deviceId: 'stable-trezor-identity',
+    });
+    await waitFor(() =>
+      expect(hw.releaseOperation.mock.calls).toContainEqual([
+        expect.objectContaining({
+          vendor: EHardwareVendor.trezor,
+          operationId,
+        }),
+      ]),
+    );
   });
 });

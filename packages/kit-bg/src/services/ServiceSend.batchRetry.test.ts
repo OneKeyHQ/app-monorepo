@@ -76,6 +76,13 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: { getVault: jest.fn() },
 }));
 
+// Importing a vault pulls in the localDb singleton, whose constructor opens
+// IndexedDB at module load and crashes under jest's node environment.
+jest.mock('../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     intl: { formatMessage: ({ id }: { id: string }) => id },
@@ -102,7 +109,12 @@ import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadc
 // eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
 // eslint-disable-next-line import-js/order, import/first
-import { ESignedTxBroadcastStatus } from '../vaults/types';
+import VaultTron from '../vaults/impls/tron/Vault';
+// eslint-disable-next-line import-js/order, import/first
+import {
+  EEarlierBroadcastAttempt,
+  ESignedTxBroadcastStatus,
+} from '../vaults/types';
 // eslint-disable-next-line import-js/order, import/first
 import ServiceSend from './ServiceSend';
 
@@ -1648,5 +1660,300 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
 
     expect(first.uuid).toEqual(expect.any(String));
     expect(first.uuid).not.toBe(second.uuid);
+  });
+});
+
+// OK-67168: a TRON transfer that rents energy is built again on every submit
+// and so gets a new txID each time. With no nonce, the chain executes both.
+describe('ServiceSend retry of a TRON transfer rebuilt under a new txID', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // A rebuild moves the ref block and the expiration, hence the txID, and
+  // never the contract; an edit on the confirm page changes the contract.
+  const tronTx = (txID: string, amount = '1') =>
+    ({
+      uuid: 'u0',
+      encodedTx: {
+        txID,
+        raw_data: {
+          contract: [
+            {
+              type: 'TransferContract',
+              parameter: {
+                value: {
+                  owner_address: 'TSender',
+                  to_address: 'TRecipient',
+                  amount,
+                },
+              },
+            },
+          ],
+        },
+      },
+      transfersInfo: [{ from: 'TSender', to: 'TRecipient', amount }],
+    }) as unknown as IUnsignedTxPro;
+
+  // The vault's own rule, in the loop a confirm page retry runs through.
+  function makeTronService() {
+    const tronVault = Object.create(VaultTron.prototype) as VaultTron;
+    const made = makeService(createBroadcastRecordsStore(), {
+      isUnsignedTxConflictingWithSignedTx: (
+        params: Parameters<VaultTron['isUnsignedTxConflictingWithSignedTx']>[0],
+      ) => tronVault.isUnsignedTxConflictingWithSignedTx(params),
+    });
+    // as the TRON signer does: the txid is the txID of the tx it was given,
+    // and the payload is that tx as JSON with its signature
+    made.vault.signTransaction.mockImplementation(
+      async ({ unsignedTx }: { unsignedTx: IUnsignedTxPro }) => {
+        const encodedTx = unsignedTx.encodedTx as unknown as { txID: string };
+        return {
+          txid: encodedTx.txID,
+          rawTx: JSON.stringify({ ...encodedTx, signature: ['sig'] }),
+          encodedTx: unsignedTx.encodedTx,
+        } as ISignedTxPro;
+      },
+    );
+    return made;
+  }
+
+  it('sends the first transfer again instead of signing the rebuilt one', async () => {
+    const { service, vault } = makeTronService();
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+    await expect(batchSend(service, [tronTx('first')])).rejects.toThrow(
+      'timeout',
+    );
+    const result = await batchSend(service, [tronTx('rebuilt')]);
+
+    // one signature, and the chain is offered a single txID
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTxids(vault)).toEqual(['first', 'first']);
+    expect(result.map(({ signedTx }) => signedTx.txid)).toEqual(['first']);
+  });
+
+  it('keeps sending the first transfer however often the page rebuilds it', async () => {
+    const { service, vault } = makeTronService();
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    failBroadcastOnce(vault, 'DUP_TRANSACTION_ERROR');
+
+    await expect(batchSend(service, [tronTx('first')])).rejects.toThrow(
+      'timeout',
+    );
+    await expect(batchSend(service, [tronTx('rebuilt-1')])).rejects.toThrow(
+      'DUP_TRANSACTION_ERROR',
+    );
+    await batchSend(service, [tronTx('rebuilt-2')]);
+
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTxids(vault)).toEqual(['first', 'first', 'first']);
+  });
+
+  it('signs again when the page still holds the very tx that was signed', async () => {
+    const { service, vault } = makeTronService();
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+    await expect(batchSend(service, [tronTx('first')])).rejects.toThrow(
+      'timeout',
+    );
+    await batchSend(service, [tronTx('first')]);
+
+    // the same txID either way, so the chain still takes it once
+    expect(vault.signTransaction).toHaveBeenCalledTimes(2);
+    expect(broadcastTxids(vault)).toEqual(['first', 'first']);
+  });
+
+  it('stops when the tx was edited since, instead of sending either one', async () => {
+    const { service, vault, broadcastRecords } = makeTronService();
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+    await expect(batchSend(service, [tronTx('first', '100')])).rejects.toThrow(
+      'timeout',
+    );
+    // e.g. an approve whose allowance was lowered on the confirm page
+    await expect(batchSend(service, [tronTx('edited', '1')])).rejects.toThrow(
+      'differs from what is shown now',
+    );
+
+    // nothing new is signed or sent, and the first payload stays on record
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTxids(vault)).toEqual(['first']);
+    expect(broadcastRecords.records.get('u0')?.signedTx.txid).toBe('first');
+
+    // back to what was signed: the first payload is the one sent again
+    await batchSend(service, [tronTx('rebuilt', '100')]);
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTxids(vault)).toEqual(['first', 'first']);
+  });
+});
+
+// OK-67168: TRON rents energy for the tx before the send. Whether that step
+// runs depends on what the send does with the tx, so it asks here, with the
+// same inputs the send will get.
+describe('ServiceSend.getEarlierBroadcastAttempt', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  type IAskOptions = Partial<
+    Omit<
+      Parameters<ServiceSend['getEarlierBroadcastAttempt']>[0],
+      'accountId' | 'networkId' | 'unsignedTx'
+    >
+  >;
+
+  const ask = (
+    service: ServiceSend,
+    unsignedTx: IUnsignedTxPro,
+    options: IAskOptions = {},
+  ) =>
+    service.getEarlierBroadcastAttempt({
+      accountId,
+      networkId,
+      unsignedTx: cloneDeep(unsignedTx),
+      askChain: true,
+      ...options,
+    });
+
+  // Flows that bind their own pre-broadcast step to the payload sign again
+  // on a retry instead of sending a stored payload.
+  const flowsThatSignAgain: Array<[string, IAskOptions]> = [
+    [
+      'Prime Infini payment',
+      { beforeBroadcastAction: { type: 'primeInfiniPayment' } },
+    ],
+    ['WalletConnect Pay', { wcPayPreBroadcastRecord: { paymentId: 'pay-1' } }],
+    ['replace by nonce', { replaceTxInfo: { replaceType: 'speedUp' } }],
+  ] as unknown as Array<[string, IAskOptions]>;
+
+  it('finds nothing before the first attempt', async () => {
+    const { service, vault } = makeService();
+
+    await expect(ask(service, buildUnsignedTx('u0'))).resolves.toBe(
+      EEarlierBroadcastAttempt.None,
+    );
+    expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+  });
+
+  it('finds an attempt that left the device with no verdict', async () => {
+    const { service, vault } = makeService();
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+
+    await expect(ask(service, unsignedTx)).resolves.toBe(
+      EEarlierBroadcastAttempt.NoVerdict,
+    );
+  });
+
+  it('tells the txs of a batch apart', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+
+    // u0 went out, u1 left the device with no verdict, u2 was never signed
+    await expect(ask(service, buildUnsignedTx('u0'))).resolves.toBe(
+      EEarlierBroadcastAttempt.OnNetwork,
+    );
+    await expect(ask(service, buildUnsignedTx('u1'))).resolves.toBe(
+      EEarlierBroadcastAttempt.NoVerdict,
+    );
+    await expect(ask(service, buildUnsignedTx('u2'))).resolves.toBe(
+      EEarlierBroadcastAttempt.None,
+    );
+  });
+
+  it('finds nothing once the chain ruled the earlier payload out', async () => {
+    const store = createBroadcastRecordsStore();
+    const { service, vault } = makeService(store);
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+    answerStatusByTxid(vault, []);
+
+    // the retry signs a new tx, which the step has to pay for again
+    await expect(ask(service, unsignedTx)).resolves.toBe(
+      EEarlierBroadcastAttempt.None,
+    );
+    expect(store.records.has('u0')).toBe(false);
+  });
+
+  it('reads the record as the device has it when the chain is not asked', async () => {
+    const store = createBroadcastRecordsStore();
+    const { service, vault } = makeService(store);
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+    answerStatusByTxid(vault, []);
+    vault.checkSignedTxBroadcastStatus.mockClear();
+
+    await expect(ask(service, unsignedTx, { askChain: false })).resolves.toBe(
+      EEarlierBroadcastAttempt.NoVerdict,
+    );
+    // no request, and the record is left for the send to settle
+    expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+    expect(store.records.has('u0')).toBe(true);
+  });
+
+  it('finds nothing for a sign-only request, which never reads the records', async () => {
+    const { service, vault } = makeService();
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+    vault.checkSignedTxBroadcastStatus.mockClear();
+
+    await expect(ask(service, unsignedTx, { signOnly: true })).resolves.toBe(
+      EEarlierBroadcastAttempt.None,
+    );
+    expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+  });
+
+  it.each(flowsThatSignAgain)(
+    'finds nothing to send again for a flow that keeps signing: %s',
+    async (_name, options) => {
+      const { service, vault } = makeService();
+      const unsignedTx = buildUnsignedTx('u0');
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+
+      await expect(ask(service, unsignedTx, options)).resolves.toBe(
+        EEarlierBroadcastAttempt.None,
+      );
+    },
+  );
+
+  it.each(flowsThatSignAgain)(
+    'finds a tx a node accepted, which is replayed in every flow: %s',
+    async (_name, options) => {
+      const { service, backgroundApi } = makeService();
+      const unsignedTx = buildUnsignedTx('u0');
+      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+        new OneKeyLocalError('history db locked'),
+      );
+      await expect(batchSend(service, [unsignedTx])).rejects.toThrow(
+        'history db locked',
+      );
+
+      await expect(ask(service, unsignedTx, options)).resolves.toBe(
+        EEarlierBroadcastAttempt.OnNetwork,
+      );
+    },
+  );
+
+  it('surfaces the status lookup error, as the send itself does', async () => {
+    const { service, vault } = makeService();
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    await expect(batchSend(service, [unsignedTx])).rejects.toThrow('timeout');
+    vault.checkSignedTxBroadcastStatus.mockRejectedValueOnce(
+      new OneKeyLocalError('rpc unreachable'),
+    );
+
+    await expect(ask(service, unsignedTx)).rejects.toThrow('rpc unreachable');
   });
 });

@@ -111,6 +111,7 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
+import { useSwapHistoryTradeAgainHandler } from './SwapHistoryTradeAgainContext';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -1040,6 +1041,7 @@ export function SwapStockHeaderRightActionContainer({
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const onTradeAgain = useSwapHistoryTradeAgainHandler();
   const [
     { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
   ] = useInAppNotificationAtom();
@@ -1071,9 +1073,10 @@ export function SwapStockHeaderRightActionContainer({
       params: {
         type: EProtocolOfExchange.STOCK,
         storeName,
+        onTradeAgain,
       },
     });
-  }, [navigation, storeName]);
+  }, [navigation, onTradeAgain, storeName]);
 
   return (
     <HeaderButtonGroup gap="$4" flexShrink={0}>
@@ -1148,6 +1151,7 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const onTradeAgain = useSwapHistoryTradeAgainHandler();
   const [
     { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
   ] = useInAppNotificationAtom();
@@ -1224,9 +1228,10 @@ const SwapHeaderRightActionContainer = ({
       params: {
         type: historyProtocolType,
         storeName: swapStoreName,
+        onTradeAgain,
       },
     });
-  }, [historyProtocolType, navigation, swapStoreName]);
+  }, [historyProtocolType, navigation, onTradeAgain, swapStoreName]);
 
   const showKLineButton =
     !hideKLine &&

@@ -24,6 +24,11 @@ let mockWatchlistItems: IMarketWatchListItemV2[] = [];
 let mockResults: IUniversalSearchBatchResult = {};
 let mockStocks: IMarketStockPublicItem[] = [];
 const mockSearch = jest.fn(async () => mockResults);
+const mockUniversalSearchQuery = jest.fn<void, unknown[]>();
+const mockHelpCenterSearch = jest.fn<
+  Promise<{ items: IUniversalSearchResultItem[] }>,
+  []
+>(async () => ({ items: [] }));
 const mockFetchAssetDetail = jest.fn<
   Promise<unknown>,
   [{ assetId: string; autoHandleError: boolean }]
@@ -178,6 +183,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceUniversalSearch: {
       universalSearch: () => mockSearch(),
+      universalSearchOfHelpCenter: () => mockHelpCenterSearch(),
       universalSearchRecommend: async () => ({}),
     },
     serviceToken: { getAllAggregateTokenInfo: async () => ({}) },
@@ -272,6 +278,7 @@ jest.mock('../components/SearchResultItems', () => {
     >
       {'symbol' in item.payload ? item.payload.symbol : ''}
       {'name' in item.payload ? item.payload.name : ''}
+      {'title' in item.payload ? item.payload.title : ''}
     </span>
   );
   return {
@@ -281,6 +288,7 @@ jest.mock('../components/SearchResultItems', () => {
     UniversalSearchAccountAssetItem: Row,
     UniversalSearchDappItem: Row,
     UniversalSearchSettingsItem: Row,
+    UniversalSearchHelpCenterItem: Row,
   };
 });
 jest.mock('../components/UniversalSearchMarketResults', () => ({
@@ -362,7 +370,13 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    universalSearch: { search: { universalSearchQuery: jest.fn() } },
+    universalSearch: {
+      search: {
+        universalSearchQuery: (...args: unknown[]) => {
+          mockUniversalSearchQuery(...args);
+        },
+      },
+    },
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -413,7 +427,12 @@ beforeEach(() => {
   mockStocks = [];
   mockResults = {};
   mockSearch.mockClear();
+  mockSearch.mockImplementation(async () => mockResults);
+  mockHelpCenterSearch.mockReset();
+  mockHelpCenterSearch.mockImplementation(async () => ({ items: [] }));
+  mockUniversalSearchQuery.mockClear();
   mockFetchAssetDetail.mockReset();
+  mockStockResult.isLoading = false;
   mockStockResult.canLoadMore = false;
   mockStockResult.isLoadingMore = false;
   mockStockResult.isLoadMoreError = false;
@@ -560,6 +579,88 @@ describe.each([
       screen.queryByRole('button', { name: ETranslations.global_watchlist }),
     ).toBeNull();
   });
+});
+
+const helpCenterArticle = {
+  type: EUniversalSearchType.HelpCenter,
+  payload: {
+    id: '1',
+    title: 'Backup article',
+    summary: '',
+    url: 'https://help.onekey.so/articles/1',
+  },
+} as const;
+
+function resolveHelpCenterAfter(delayMs: number) {
+  const state = { settled: false };
+  mockHelpCenterSearch.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          state.settled = true;
+          resolve({ items: [helpCenterArticle] });
+        }, delayMs);
+      }),
+  );
+  return state;
+}
+
+function typeQuery() {
+  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
+    target: { value: 'match' },
+  });
+}
+
+it('shows help center articles within the wait budget and counts them once', async () => {
+  resolveHelpCenterAfter(200);
+  typeQuery();
+  await waitFor(() => expect(screen.getByText('Backup article')).toBeTruthy());
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
+  );
+  expect(mockUniversalSearchQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ resultCount: 1, exposedTypes: 'helpCenter:1' }),
+  );
+});
+
+it('uses help center articles that land before slower search rounds finish', async () => {
+  resolveHelpCenterAfter(1700);
+  mockSearch.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve(mockResults), 1000);
+      }),
+  );
+  typeQuery();
+  await waitFor(() => expect(screen.getByText('Backup article')).toBeTruthy(), {
+    timeout: 4000,
+  });
+  expect(screen.queryByText(ETranslations.global_no_results)).toBeNull();
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ exposedTypes: 'helpCenter:1' }),
+    ),
+  );
+});
+
+it('ends the search without help center articles slower than the budget', async () => {
+  const helpCenter = resolveHelpCenterAfter(1700);
+  typeQuery();
+  await waitFor(
+    () =>
+      expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy(),
+    { timeout: 4000 },
+  );
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
+  );
+  await waitFor(() => expect(helpCenter.settled).toBe(true), {
+    timeout: 4000,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(screen.queryByText('Backup article')).toBeNull();
+  expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1);
 });
 
 it('keeps Watchlist hidden for DApp-only searches', async () => {

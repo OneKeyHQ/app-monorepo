@@ -18,6 +18,7 @@ import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtil
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
+  prepareHardwareCloudSyncMigrationSource,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
 import {
@@ -540,7 +541,7 @@ async function localSetup() {
       phase: 'prepared',
     },
   };
-  jest
+  const updateSyncItem = jest
     .spyOn(localDb, 'updateSyncItem')
     .mockImplementation(async ({ ids, updater }) => {
       for (const item of items) {
@@ -558,8 +559,104 @@ async function localSetup() {
       source,
       target: test.target,
     });
-  return { ...test, items, backgroundApi, commit };
+  return { ...test, items, backgroundApi, commit, updateSyncItem };
 }
+
+test('uses source reconciliation to clear its pending deletion before local cutover', async () => {
+  const test = await localSetup();
+  const deletionTime = 1_750_000_001_000;
+  const original = test.items[0];
+  original.pendingPublicAccountDeletionAt = deletionTime;
+  original.pendingPublicAccountDeletionHash = 'f'.repeat(64);
+  const otherSpace = { ...original, id: 'other-space', pwdHash: 'unrelated' };
+  test.items.push(otherSpace);
+  const sync = jest.fn(async () => {
+    // The normal reconciliation path authenticates the snapshot, keeps its
+    // original deletion time and finishes syncing the source space.
+    original.dataTime = deletionTime;
+    original.isDeleted = true;
+    original.pendingPublicAccountDeletionAt = undefined;
+    original.pendingPublicAccountDeletionHash = undefined;
+    return true;
+  });
+  test.backgroundApi.servicePrimeCloudSync.startServerSyncFlow = sync;
+  await prepareHardwareCloudSyncMigrationSource({
+    backgroundApi: test.backgroundApi,
+    sourcePwdHash: test.source.pwdHash,
+    reconcile: true,
+  });
+  await test.commit();
+  expect(sync).toHaveBeenCalledTimes(1);
+  expect(original).toMatchObject({
+    pwdHash: test.target.pwdHash,
+    dataTime: deletionTime,
+    isDeleted: true,
+  });
+  expect(otherSpace).toMatchObject({
+    pwdHash: 'unrelated',
+    pendingPublicAccountDeletionAt: deletionTime,
+  });
+});
+
+test('keeps the source key and journal when a pending account deletion cannot be verified', async () => {
+  const test = await localSetup();
+  const record = test.items[0];
+  record.pendingPublicAccountDeletionAt = 1_750_000_001_000;
+  record.pendingPublicAccountDeletionHash = 'f'.repeat(64);
+  const before = { ...record };
+  test.backgroundApi.servicePrimeCloudSync.startServerSyncFlow = jest.fn(
+    async () => false,
+  );
+  await expect(
+    prepareHardwareCloudSyncMigrationSource({
+      backgroundApi: test.backgroundApi,
+      sourcePwdHash: test.source.pwdHash,
+      reconcile: true,
+    }),
+  ).rejects.toThrow('Sync pending account deletions');
+  await expect(test.commit()).rejects.toThrow('Sync pending account deletions');
+  expect(mockPersistedSelected).toBe(test.source.keylessWalletId);
+  expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('prepared');
+  expect(record).toEqual(before);
+  expect(test.updateSyncItem).not.toHaveBeenCalled();
+});
+
+test('cancels cutover when another runtime adds a pending deletion before the DB write', async () => {
+  const test = await localSetup();
+  const record = test.items[0];
+  const previousCiphertext = record.data;
+  test.updateSyncItem.mockImplementationOnce(async ({ updater }) => {
+    record.pendingPublicAccountDeletionAt = 1_750_000_001_000;
+    record.pendingPublicAccountDeletionHash = 'f'.repeat(64);
+    await updater({ ...record });
+  });
+  await expect(test.commit()).rejects.toThrow('Sync pending account deletions');
+  expect(mockPersistedSelected).toBe(test.source.keylessWalletId);
+  expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('prepared');
+  expect(record).toMatchObject({
+    pwdHash: test.source.pwdHash,
+    data: previousCiphertext,
+    pendingPublicAccountDeletionAt: 1_750_000_001_000,
+    pendingPublicAccountDeletionHash: 'f'.repeat(64),
+  });
+});
+
+test('interrupted cutover restores the source selection before retiring its key if a deletion is still pending', async () => {
+  const test = await localSetup();
+  const record = test.items[0];
+  record.pendingPublicAccountDeletionAt = 1_750_000_001_000;
+  record.pendingPublicAccountDeletionHash = 'f'.repeat(64);
+  const before = { ...record };
+  if (mockStored?.pendingHardwareKeyMigration)
+    mockStored.pendingHardwareKeyMigration.phase = 'committing';
+  mockSelected = test.target.keylessWalletId;
+  mockPersistedSelected = mockSelected;
+  await recoverHardwareCloudSyncMigration(test.backgroundApi);
+  expect(mockPersistedSelected).toBe(test.source.keylessWalletId);
+  expect(mockStored?.keylessWalletId).toBe(test.source.keylessWalletId);
+  expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('prepared');
+  expect(record).toEqual(before);
+});
 
 test('local cutover retains a durable journal until both ciphertext and selection use B', async () => {
   const test = await localSetup();
