@@ -83,6 +83,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useAllNetworkRequests } from './useAllNetwork';
 
@@ -132,6 +133,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
   const fanOutCount = { current: 0 };
   const settled: Array<[string, number]> = [];
   const published: Array<IResp[] | null | undefined> = [];
+  const onStarted = jest.fn(async () => {});
   const hook = renderHook(
     ({ accountId }: { accountId: string }) =>
       useAllNetworkRequests<IResp>({
@@ -163,6 +165,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
           fanOutCount.current += 1;
         },
         clearAllNetworkData: () => {},
+        onStarted,
         onRequestSettled: (result, generation) => {
           settled.push([result.networkId, generation]);
         },
@@ -197,6 +200,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
     published,
     pending,
     fanOutCount,
+    onStarted,
     waitForFirstFanOut: () => waitFor(() => expect(pending.length).toBe(2)),
     waitForPending: (count: number) =>
       waitFor(() => expect(pending.length).toBe(count)),
@@ -300,6 +304,47 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
       ['sui--mainnet', 2],
     ]);
   });
+
+  it.each([false, true])(
+    'reports a preparation failure and restores the loaded snapshot after a hardware refresh (queued=%s)',
+    async (queued) => {
+      const ctx = setup();
+      await ctx.waitForFirstFanOut();
+      await ctx.settleRequests();
+      if (queued) {
+        await ctx.manualRefresh();
+        await ctx.waitForPending(2);
+      }
+      const log = jest
+        .spyOn(defaultLogger.app.error, 'log')
+        .mockImplementation((errorMessage) => ({
+          errorMessage,
+          stacktrace: '',
+        }));
+      try {
+        ctx.onStarted.mockRejectedValueOnce(new Error('prepare Home failed'));
+        await act(async () => {
+          await ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+        });
+        if (queued) {
+          await ctx.settleRequests();
+        }
+        await waitFor(() => {
+          expect(log).toHaveBeenCalledWith(
+            'All Networks refresh failed: prepare Home failed',
+          );
+          expect(ctx.hook.result.current.result).toEqual([
+            { networkId: 'evm--1' },
+            { networkId: 'sui--mainnet' },
+          ]);
+        });
+        expect(log).toHaveBeenCalledTimes(1);
+        expect(ctx.requests).toHaveLength(queued ? 4 : 2);
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
 
   it('refreshes the accounts one after another and survives one failed network', async () => {
     const ctx = setup();

@@ -45,7 +45,10 @@ import {
   mergeTokenMetadataWithCustomDataSync,
   normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  getCommonTokenGroupsCurrency,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -526,21 +529,7 @@ class ServiceToken extends ServiceBase {
     );
     throwIfRequestAborted();
 
-    const homePortfolioTotalFiatCurrency = resp.reduce<string | undefined>(
-      (currency, item) =>
-        currency ||
-        item.tokens?.currency ||
-        item.smallBalanceTokens?.currency ||
-        item.riskTokens?.currency,
-      undefined,
-    );
-    const homePortfolioTotalFiat = resp
-      .reduce(
-        (total, item) =>
-          total.plus(sumTokenGroupsFiatValueIgnoringUnavailable(item)),
-        new BigNumber(0),
-      )
-      .toFixed();
+    const homePortfolioTotalFiatCurrency = getCommonTokenGroupsCurrency(resp);
 
     const {
       tokenList,
@@ -564,16 +553,23 @@ class ServiceToken extends ServiceBase {
     }
 
     const homeAccountWorth: Record<string, string> = {};
-    resp.forEach((item) => {
+    let portfolioTotal = new BigNumber(0);
+    for (const item of resp) {
+      const worth = sumTokenGroupsFiatValueIgnoringUnavailable(item);
       if (item.accountId && item.networkId) {
         const key = accountUtils.buildAccountValueKey({
           accountId: item.accountId,
           networkId: item.networkId,
         });
-        homeAccountWorth[key] =
-          sumTokenGroupsFiatValueIgnoringUnavailable(item);
+        homeAccountWorth[key] = worth;
       }
-    });
+      if (homePortfolioTotalFiatCurrency) {
+        portfolioTotal = portfolioTotal.plus(worth);
+      }
+    }
+    const homePortfolioTotalFiat = homePortfolioTotalFiatCurrency
+      ? portfolioTotal.toFixed()
+      : undefined;
 
     const hasVmIngest = Boolean(
       homeIngest &&
@@ -1280,10 +1276,7 @@ class ServiceToken extends ServiceBase {
       const singleWorth = sumTokenGroupsFiatValueIgnoringUnavailable(
         resp.data.data,
       );
-      const singleCurrency =
-        resp.data.data.tokens?.currency ||
-        resp.data.data.smallBalanceTokens?.currency ||
-        resp.data.data.riskTokens?.currency;
+      const singleCurrency = getCommonTokenGroupsCurrency([resp.data.data]);
       const homeAccountWorth = {
         [accountUtils.buildAccountValueKey({
           accountId,

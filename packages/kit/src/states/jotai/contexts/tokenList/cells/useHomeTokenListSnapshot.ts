@@ -41,7 +41,6 @@ import {
   getOwnerReplayCacheGeneration,
   getOwnerReplaySlotId,
   registerOwnerReplayCacheClearListener,
-  tryBuildHomeSnapshotFromOwnerReplay,
 } from './ownerFrameReplayCache';
 import { useHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
@@ -128,15 +127,7 @@ export function fetchHomeTokenListSnapshot(
       ownerKey,
     });
     entry.slotId = latestSlotId;
-    const fromReplay = tryBuildHomeSnapshotFromOwnerReplay({
-      storeName: EJotaiContextStoreNames.homeTokenList,
-      ownerKey,
-      generation,
-    });
-    if (fromReplay) {
-      entry.slotId = fromReplay.slotId ?? latestSlotId;
-      return fromReplay;
-    }
+    // Replay frames may omit metadata changes that matter to raw-list consumers.
     const [raw, map] = await Promise.all([
       backgroundApiProxy.serviceTokenViewModel.getRawTokenList({ ownerKey }),
       backgroundApiProxy.serviceTokenViewModel.getAllTokenListMap({ ownerKey }),

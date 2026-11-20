@@ -143,7 +143,10 @@ import {
   calculateAccountTokensValue,
   flattenAggregateTokensMap,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  getCommonTokenGroupsCurrency,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -169,7 +172,6 @@ import {
   WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
   WALLET_ASSET_STATUS_THRESHOLD_USD,
   evaluateWalletAssetStatus,
-  getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
   shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
@@ -995,7 +997,7 @@ function TokenListBlock({
 
         settledSingleLiveRequestRef.current = homeRequest;
         portfolioTotalFiatCurrency =
-          r.homePortfolioTotalFiatCurrency ?? getWalletAssetStatusCurrency([r]);
+          r.homePortfolioTotalFiatCurrency ?? getCommonTokenGroupsCurrency([r]);
         const fallbackAccountWorth =
           sumTokenGroupsFiatValueIgnoringUnavailable(r);
         portfolioTotalFiat = r.homePortfolioTotalFiat ?? fallbackAccountWorth;
@@ -2502,7 +2504,7 @@ function TokenListBlock({
           result: allNetworksResult,
         });
       const assetStatusCurrency =
-        getWalletAssetStatusCurrency(allNetworksResult);
+        getCommonTokenGroupsCurrency(allNetworksResult);
       if (isStaleOwnerRequest()) {
         return;
       }

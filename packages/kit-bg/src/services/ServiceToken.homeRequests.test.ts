@@ -9,6 +9,7 @@ import type {
   IHomeTokenRequest,
 } from '@onekeyhq/shared/types/token';
 
+import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceToken from './ServiceToken';
@@ -913,6 +914,66 @@ describe('ServiceToken native Home request lifetime', () => {
       ],
     ]);
   });
+
+  it.each(['usd', 'eur'])(
+    'only publishes a merged hardware portfolio total when both derived responses use the same currency (%s and usd)',
+    async (firstCurrency) => {
+      api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+        {
+          networkAccounts: [
+            { account: { id: 'btc-derive-1' } },
+            { account: { id: 'btc-derive-2' } },
+          ],
+        },
+      );
+      const settings = await settingsPersistAtom.get();
+      jest.mocked(settingsPersistAtom.get).mockResolvedValueOnce({
+        ...settings,
+        currencyInfo: { ...settings.currencyInfo, id: firstCurrency },
+      });
+      for (const [key, value] of [
+        ['token-one', '12'],
+        ['token-two', '28'],
+      ] as const) {
+        const data: IFetchAccountTokensResp = getEmptyTokenData();
+        data.tokens.data.push({
+          $key: key,
+          address: key,
+          name: key,
+          symbol: key,
+          decimals: 8,
+          isNative: false,
+        });
+        data.tokens.map[key] = {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: value,
+          price: Number(value),
+        };
+        fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+      }
+
+      const response = await service.fetchAccountTokens({
+        ...fetchParams(),
+        networkId: 'btc--0',
+        indexedAccountId: 'indexed-1',
+        mergeDeriveAddressData: true,
+      });
+      expect(response.tokens.data).toHaveLength(2);
+      expect(response.homePortfolioTotalFiat).toBe(
+        firstCurrency === 'usd' ? '40' : undefined,
+      );
+      expect(response.homePortfolioTotalFiatCurrency).toBe(
+        firstCurrency === 'usd' ? 'usd' : undefined,
+      );
+      expect(response.tokens.currency).toBe(
+        response.homePortfolioTotalFiatCurrency,
+      );
+      expect(response.smallBalanceTokens.currency).toBe(
+        response.homePortfolioTotalFiatCurrency,
+      );
+    },
+  );
 
   it('cancels a delayed single-network cache seed after the same request publishes live data', async () => {
     const vm = new ServiceTokenViewModel({ backgroundApi: api });

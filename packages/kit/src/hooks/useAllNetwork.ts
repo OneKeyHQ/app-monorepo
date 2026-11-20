@@ -461,6 +461,7 @@ function useAllNetworkRequests<T>(params: {
     alwaysSetState?: boolean;
     skipAccountsCache?: boolean;
     ignoreDisabled?: boolean;
+    reportErrors?: boolean;
   };
   const {
     accountId: currentAccountId,
@@ -597,6 +598,7 @@ function useAllNetworkRequests<T>(params: {
   // so the redundant-run gate can exempt every explicit refresh.
   // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
   const alwaysSetStateRef = useRef(false);
+  const reportErrorsRef = useRef(false);
   const lastRunSignatureRef = useRef<string | null>(null);
   const coldLiveFanOutGenerationRef = useRef(0);
   const pendingColdAccountRequestsRef = useRef<{
@@ -896,6 +898,8 @@ function useAllNetworkRequests<T>(params: {
       // `allNetworkDataInit` — so neither is ever skipped.
       const alwaysSetStateForThisRun = alwaysSetStateRef.current;
       alwaysSetStateRef.current = false;
+      const reportErrorsForThisRun = reportErrorsRef.current;
+      reportErrorsRef.current = false;
       const currentRunSignature = `${currentAccountId}|${currentNetworkId}|${currentWalletId}|${
         isNFTRequests ? 1 : 0
       }|${isDeFiRequests ? 1 : 0}`;
@@ -1554,6 +1558,7 @@ function useAllNetworkRequests<T>(params: {
           // result.
           return;
         }
+        let restoredResult: T[] | null | undefined;
         if (clearRetainedResultOnAcceptedRun) {
           // The accepted run cleared the retained result before fetching.
           // Restore the last-good snapshot so a failed fan-out does not pin
@@ -1572,8 +1577,19 @@ function useAllNetworkRequests<T>(params: {
             });
           lastPublishedResultRef.current = nextLastPublished;
           if (shouldRestoreResult && previousPublishedResult) {
-            applyResultRef.current?.(previousPublishedResult.result);
+            restoredResult = previousPublishedResult.result;
+            applyResultRef.current?.(restoredResult);
           }
+        }
+        if (reportErrorsForThisRun) {
+          if (!isRequestCanceledError(error)) {
+            defaultLogger.app.error.log(
+              `All Networks refresh failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
+          return restoredResult;
         }
         throw error;
       } finally {
@@ -1749,6 +1765,9 @@ function useAllNetworkRequests<T>(params: {
         if (config?.alwaysSetState) {
           alwaysSetStateRef.current = true;
         }
+        if (config?.reportErrors) {
+          reportErrorsRef.current = true;
+        }
         return;
       }
       if (isFetching.current || isDebounceWaiting) {
@@ -1765,6 +1784,8 @@ function useAllNetworkRequests<T>(params: {
           ignoreDisabled:
             !!rerunConfigRef.current?.ignoreDisabled ||
             !!config?.ignoreDisabled,
+          reportErrors:
+            !!rerunConfigRef.current?.reportErrors || !!config?.reportErrors,
         };
         return;
       }
@@ -1776,6 +1797,9 @@ function useAllNetworkRequests<T>(params: {
       }
       if (config?.ignoreDisabled) {
         ignoreDisabledRef.current = true;
+      }
+      if (config?.reportErrors) {
+        reportErrorsRef.current = true;
       }
       await run(config);
     },
@@ -1825,7 +1849,7 @@ function useAllNetworkRequests<T>(params: {
         return;
       }
       if (options?.refreshAll) {
-        await runWithQueue({ alwaysSetState: true });
+        await runWithQueue({ alwaysSetState: true, reportErrors: true });
         return;
       }
       if (!allNetworkDataInit.current) {

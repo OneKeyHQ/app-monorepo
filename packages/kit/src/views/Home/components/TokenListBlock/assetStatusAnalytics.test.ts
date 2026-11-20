@@ -1,6 +1,5 @@
 import {
   evaluateWalletAssetStatus,
-  getWalletAssetStatusCurrency,
   getWalletAssetStatusFromTotalBalanceUsd,
   isWalletAssetStatusAggregationComplete,
   shouldDeferEmptyHardwarePortfolioSync,
@@ -119,39 +118,6 @@ describe('TokenListBlock asset status analytics', () => {
         totalTokenCount: 1,
       }),
     ).toBe(false);
-  });
-
-  it('returns a currency only when every all-network result has the same currency tag', () => {
-    expect(
-      getWalletAssetStatusCurrency([
-        {
-          tokens: { currency: 'usd' },
-          smallBalanceTokens: { currency: 'usd' },
-        },
-        {
-          tokens: { currency: 'usd' },
-          smallBalanceTokens: { currency: 'usd' },
-        },
-      ]),
-    ).toBe('usd');
-
-    expect(
-      getWalletAssetStatusCurrency([
-        {
-          tokens: { currency: 'usd' },
-          smallBalanceTokens: { currency: 'eur' },
-        },
-      ]),
-    ).toBeUndefined();
-
-    expect(
-      getWalletAssetStatusCurrency([
-        {
-          tokens: {},
-          smallBalanceTokens: { currency: 'usd' },
-        },
-      ]),
-    ).toBeUndefined();
   });
 
   it('evaluates the instance as low only when all eligible account values are known and total is below 1 USD', () => {
