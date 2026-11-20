@@ -86,8 +86,6 @@ import {
   EARN_EMPTIED_HOLD_MS,
   getTypedAmountValue,
 } from '../../../Staking/utils/utils';
-import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
-import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { useEarnDesktopHomeCopy } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import { normalizeTaskAccountAddress } from '../../tasks/taskAddress';
@@ -125,6 +123,10 @@ import {
   waitForEarnSwap,
   waitForEarnSwapBalance,
 } from './earnRouterSwap';
+import {
+  createEarnSwapRecovery,
+  persistEarnSwapHistory,
+} from './earnRouterSwapHistory';
 
 import type {
   IEarnRouterPayToken,
@@ -1056,19 +1058,11 @@ export function EarnRouterSwapDepositForm({
       prepared: IEarnSwapPrepared,
       sent?: ISendTxOnSuccessData,
     ) => {
-      const swapNetworks = await backgroundApiProxy.serviceSwap
-        .fetchSwapNetworks()
-        .catch(() => []);
-      await completeBroadcastedSwapSuccess({
+      await persistEarnSwapHistory({
         txId,
         swapInfo: prepared.execution.swapInfo,
-        gasFeeFiatValue: sent?.decodedTx.totalFeeFiatValue,
-        gasFeeInNative: sent?.decodedTx.totalFeeInNative,
-        generateSwapHistoryItem: (params) =>
-          generateSwapHistoryItemForContext(params, {
-            swapNetworks,
-            currencyInfo,
-          }),
+        sent,
+        currencyInfo,
       });
     },
     [currencyInfo],
@@ -1196,6 +1190,7 @@ export function EarnRouterSwapDepositForm({
       assertCurrent();
       dispatch({ type: 'confirm' });
       let monitor: Promise<void> | undefined;
+      const swapRecovery = createEarnSwapRecovery({ prepared, currencyInfo });
       confirmationOwnsReservation = true;
       const sent = await confirmEarnSwap({
         prepared,
@@ -1204,14 +1199,11 @@ export function EarnRouterSwapDepositForm({
         isCurrent,
         signal,
         navigateToConfirm: navigationToTxConfirm,
+        swapRecovery,
         onAccepted: async (txId, accepted) => {
           // Persist history even if this view has already been abandoned.
           await recordSwap(txId, prepared, accepted).catch(() => {
-            if (isCurrent()) {
-              Toast.error({
-                title: intl.formatMessage({ id: ETranslations.global_unknown }),
-              });
-            }
+            throw new EarnSwapError('unknown');
           });
           if (!accepted || !isCurrent() || signal.aborted) return;
           dispatch({ type: 'sent' });
@@ -1319,6 +1311,7 @@ export function EarnRouterSwapDepositForm({
     account,
     amount,
     beforeSwap,
+    currencyInfo,
     navigationToTxConfirm,
     depositToken.decimals,
     depositToken.inputDecimals,

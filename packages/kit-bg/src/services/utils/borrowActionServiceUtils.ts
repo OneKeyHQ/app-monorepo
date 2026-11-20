@@ -650,14 +650,17 @@ export async function getBorrowHealthFactor(
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   },
 ) {
-  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
-  const accountAddress =
-    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
-      networkId: params.networkId,
-      accountId,
-    });
+  const { expectedAccountAddress, ...request } = params;
+  const { accountId, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(request);
+  const accountAddress = await resolveBorrowActionAccount(service, {
+    networkId: params.networkId,
+    accountId,
+    expectedAccountAddress,
+  });
   const client = await service.getClient(EServiceEndpointEnum.Earn);
   const response = await client.get<{
     data: IBorrowHealthFactor;

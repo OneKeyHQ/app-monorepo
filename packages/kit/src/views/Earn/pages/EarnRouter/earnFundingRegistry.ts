@@ -11,6 +11,7 @@ import type {
   IEarnFundingChange,
   IEarnFundingReceipt,
   IEarnFundingState,
+  IEarnSwapRecovery,
 } from '@onekeyhq/shared/types/earn/funding';
 
 type IEarnFunding = IEarnFundingState | { status: 'preparing' };
@@ -172,7 +173,7 @@ export function reserveEarnFunding(
   active.set(scope, attempt);
   notifyFundingChange();
   return {
-    markUnknown: async () => {
+    markUnknown: async (swapRecovery?: IEarnSwapRecovery) => {
       if (active.get(scope) !== attempt) {
         throw new OneKeyLocalError('Earn funding ownership changed');
       }
@@ -185,6 +186,7 @@ export function reserveEarnFunding(
         positionBefore,
         source,
         startsGroup,
+        swapRecovery,
       });
       if (!applied)
         throw new OneKeyLocalError(

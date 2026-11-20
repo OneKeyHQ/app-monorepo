@@ -1099,6 +1099,7 @@ class ServiceSend extends ServiceBase {
         /** DeviceStage confirm channel: the fee the caller already
          * resolved, shown as the confirm card's fee row (OK-59934). */
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBatchTxIds?: boolean;
       },
   ) {
     const { networkId, accountId, signOnly, stageFeeInfo } = params;
@@ -1161,6 +1162,15 @@ class ServiceSend extends ServiceBase {
       const unsignedTx = signOnly
         ? diagnosticUnsignedTx
         : await vault.refreshUnsignedTxBeforeSign(diagnosticUnsignedTx);
+      if (
+        params.preserveBatchTxIds &&
+        diagnosticUnsignedTx.uuid &&
+        unsignedTx.uuid !== diagnosticUnsignedTx.uuid
+      ) {
+        throw new OneKeyLocalError(
+          'Transaction identity changed during signing preparation',
+        );
+      }
       activeDiagnostic = unsignedTx.solanaTxDiagnostic;
       if (params.diagnosticSendState) {
         params.diagnosticSendState.context = activeDiagnostic;
@@ -1533,6 +1543,7 @@ class ServiceSend extends ServiceBase {
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBatchTxIds?: boolean;
         preserveBroadcastTxIdOnError?: boolean;
         // Set by the batch loop, which has already consulted the record.
         skipBroadcastRecordCheck?: boolean;
@@ -1599,6 +1610,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      preserveBatchTxIds,
       preserveBroadcastTxIdOnError,
       skipBroadcastRecordCheck,
       rebroadcastSignedTx,
@@ -1795,6 +1807,7 @@ class ServiceSend extends ServiceBase {
           : unsignedTx,
         signOnly, // external account should send tx here
         stageFeeInfo,
+        preserveBatchTxIds,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
       }));
 
@@ -2391,6 +2404,7 @@ class ServiceSend extends ServiceBase {
       useDefaultRpc,
       freeTrialUsage,
       progressEventId,
+      preserveBatchTxIds,
     } = params;
     // Decided before any broadcast: nothing may throw after one. Developer
     // mode "always sign only" signs without broadcasting, so it uses nothing.
@@ -2540,6 +2554,11 @@ class ServiceSend extends ServiceBase {
               isRefreshFailed = true;
             }
           }
+          if (preserveBatchTxIds && txUuid && unsignedTx.uuid !== txUuid) {
+            throw new OneKeyLocalError(
+              'Transaction identity changed during batch preparation',
+            );
+          }
           // Judged against the refreshed tx, the one a new signature would
           // cover: a refresh that re-selected inputs after the stored payload
           // reached the network no longer conflicts with it.
@@ -2589,6 +2608,7 @@ class ServiceSend extends ServiceBase {
                   transferPayload,
                   isPrivateSend,
                   useDefaultRpc,
+                  preserveBatchTxIds,
                 });
           try {
             signedTx = broadcastRecord?.signedTx ?? (await buildSignedTx());
@@ -2629,6 +2649,11 @@ class ServiceSend extends ServiceBase {
               broadcastUsage,
             );
           }
+        }
+        if (preserveBatchTxIds && txUuid && unsignedTx.uuid !== txUuid) {
+          throw new OneKeyLocalError(
+            'Transaction identity changed during batch execution',
+          );
         }
         if (!signOnly && unsignedTx.uuid) {
           // The chunk is on chain from here on. Announce it before the local

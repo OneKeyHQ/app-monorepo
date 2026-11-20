@@ -72,6 +72,7 @@ type IConfirmArgs = {
   onLateBroadcastAccepted: (txid: string) => Promise<boolean>;
   onCancelled: () => void;
   onFailed: () => void;
+  onSafePreSendFailed: () => void;
   onCompleted: () => void;
   onCallbackFailed: () => void;
 };
@@ -296,6 +297,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
                   ),
                 onFailed: () =>
                   onConfirmationFailed(sendObserved ? 'unknown' : 'beforeSend'),
+                onSafePreSendFailed: () => onConfirmationFailed('beforeSend'),
                 onCompleted: () => {
                   if (step.id === 'repay')
                     writeFact(step.id, attemptId, {

@@ -17,6 +17,7 @@ export function DeFiAssetsTab({
   focusCardRequest,
   protocols,
   isLoading,
+  isUnavailable = false,
   pendingCountByProvider,
   networkFilter,
   onManage,
@@ -27,6 +28,7 @@ export function DeFiAssetsTab({
   focusCardRequest?: { cardKeys: string[]; at: number };
   protocols: IEarnProtocolView[];
   isLoading: boolean;
+  isUnavailable?: boolean;
   pendingCountByProvider: Record<string, number>;
   /** the page's network chip; sits right under the tabs on this tab */
   networkFilter: React.ReactNode;
@@ -48,7 +50,7 @@ export function DeFiAssetsTab({
   );
 
   let placeholder: React.ReactNode = null;
-  if (protocols.length === 0) {
+  if (protocols.length === 0 && (isLoading || !isUnavailable)) {
     placeholder = isLoading ? (
       <Stack ai="center" py="$8">
         <Spinner size="large" />

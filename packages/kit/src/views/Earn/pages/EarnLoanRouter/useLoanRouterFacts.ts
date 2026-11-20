@@ -73,24 +73,27 @@ export async function getLoanNetworkAccountId({
   return earnAccount?.accountId || undefined;
 }
 
-export type ILoanRoutePosition = Pick<
-  ILoanRouteFacts,
-  | 'weightedCollateral'
-  | 'debt'
-  | 'collateralValue'
-  | 'debtValue'
-  | 'collateralSupplied'
-  | 'collateralWeighted'
-  | 'borrowableNow'
-  | 'collateralAssets'
-  | 'debtAssets'
-  | 'positionNetValue'
-  | 'positionAnnualNet'
-  | 'canBorrowHere'
-  | 'walletBalance'
-  | 'healthFactorDetail'
-  | 'hasHistory'
->;
+export type ILoanRoutePosition = Omit<
+  Pick<
+    ILoanRouteFacts,
+    | 'weightedCollateral'
+    | 'debt'
+    | 'collateralValue'
+    | 'debtValue'
+    | 'collateralSupplied'
+    | 'collateralWeighted'
+    | 'borrowableNow'
+    | 'collateralAssets'
+    | 'debtAssets'
+    | 'positionNetValue'
+    | 'positionAnnualNet'
+    | 'canBorrowHere'
+    | 'walletBalance'
+    | 'healthFactorDetail'
+    | 'hasHistory'
+  >,
+  'collateralSupplied'
+> & { collateralSupplied: string };
 
 type IMarketParams = {
   provider: string;
@@ -185,7 +188,8 @@ export async function readLoanRoutePosition({
     symbol: route.borrow.symbol,
   };
   let weightedCollateral = 0;
-  let collateralSupplied = 0;
+  let collateralSupplied = new BigNumber(0);
+  let invalidCollateralAmount = false;
   let collateralWeighted = 0;
   (reserves.supplied?.assets ?? []).forEach((asset) => {
     const value = toNumber(asset.suppliedAmount?.fiatValue);
@@ -200,12 +204,18 @@ export async function readLoanRoutePosition({
         collateralKey,
       )
     ) {
-      collateralSupplied += toNumber(
-        asset.suppliedAmount?.amount ?? asset.suppliedAmount?.number,
-      );
+      const amount =
+        asset.suppliedAmount?.amount ?? asset.suppliedAmount?.number;
+      const supplied = new BigNumber(amount ?? '');
+      if (!supplied.isFinite() || supplied.isNegative()) {
+        invalidCollateralAmount = true;
+      } else {
+        collateralSupplied = collateralSupplied.plus(supplied);
+      }
       collateralWeighted += weighted;
     }
   });
+  if (invalidCollateralAmount) return undefined;
   const borrowed = reserves.borrowed?.assets ?? [];
   const debt = borrowed.reduce(
     (sum, asset) =>
@@ -237,7 +247,7 @@ export async function readLoanRoutePosition({
     debt,
     collateralValue,
     debtValue,
-    collateralSupplied,
+    collateralSupplied: collateralSupplied.toFixed(),
     collateralWeighted,
     borrowableNow: toNumber(lent?.available?.fiatValue),
     collateralAssets,
@@ -329,7 +339,7 @@ async function readRouteFacts({
     debt: position?.debt ?? 0,
     collateralValue: position?.collateralValue ?? 0,
     debtValue: position?.debtValue ?? 0,
-    collateralSupplied: position?.collateralSupplied ?? 0,
+    collateralSupplied: toNumber(position?.collateralSupplied),
     collateralWeighted: position?.collateralWeighted ?? 0,
     borrowableNow: position?.borrowableNow ?? 0,
     collateralAssets: position?.collateralAssets ?? [],

@@ -50,12 +50,16 @@ function EarnLoansContent() {
     () => ({
       loans: accountMarkets.loans,
       isLoaded: accountMarkets.isLoaded,
+      hasError: accountMarkets.hasError,
+      onRetry: accountMarkets.refresh,
       accountScope: accountMarkets.accountScope,
       onOpenMarket: handleOpenMarket,
     }),
     [
       accountMarkets.accountScope,
       accountMarkets.isLoaded,
+      accountMarkets.hasError,
+      accountMarkets.refresh,
       accountMarkets.loans,
       handleOpenMarket,
     ],

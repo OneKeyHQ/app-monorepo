@@ -1252,6 +1252,7 @@ export function useUniversalStake({
         });
         let confirmationClosed = false;
         let sendStarted = false;
+        let failedBeforeSend = false;
         let recordedTxid: string | undefined;
         let recording: Promise<unknown> | undefined;
         const confirmation = createEarnConfirmationTaskAdapter<
@@ -1308,27 +1309,38 @@ export function useUniversalStake({
               },
               onFail: onFail
                 ? (error) => {
+                    if (confirmationClosed) return;
                     confirmationClosed = true;
                     callbacks.onFail(error);
                   }
                 : undefined,
               onConfirmationFail: (error) => {
+                if (confirmationClosed) return;
                 confirmationClosed = true;
                 callbacks.onFail(error);
               },
+              onSafePreSendFail: (error) => {
+                if (confirmationClosed) return;
+                confirmationClosed = true;
+                failedBeforeSend = true;
+                callbacks.onFail(error);
+              },
               onCancel: () => {
+                if (confirmationClosed) return;
                 confirmationClosed = true;
                 callbacks.onCancel();
               },
               onBeforeSend: async () => {
                 if (
+                  confirmationClosed ||
                   !workflowHandoff.isResultCurrent() ||
                   !(await isTaskAccountCurrent({
                     accountId,
                     networkId,
                     accountAddress,
                   })) ||
-                  !workflowHandoff.isResultCurrent()
+                  !workflowHandoff.isResultCurrent() ||
+                  confirmationClosed
                 )
                   throw new OneKeyLocalError(
                     'Task account changed before stake',
@@ -1381,7 +1393,8 @@ export function useUniversalStake({
           getTxid: (data) =>
             data[data.length - 1]?.signedTx?.txid ||
             data[data.length - 1]?.decodedTx?.txid,
-          failureCertainty: () => (sendStarted ? 'unknown' : 'beforeSend'),
+          failureCertainty: () =>
+            failedBeforeSend || !sendStarted ? 'beforeSend' : 'unknown',
           cancellationCertainty: () => (sendStarted ? 'unknown' : 'beforeSend'),
         });
         return workflowHandoff.register(
@@ -1863,6 +1876,18 @@ export function useUniversalStake({
   );
 }
 
+type IEthenaPendingSwap = {
+  accountAddress: string;
+  intent: string;
+  txid?: string;
+  txidConflict?: boolean;
+  ready?: boolean;
+  checking?: boolean;
+  inProgress?: boolean;
+  resumeActive?: boolean;
+  unstakeUnknown?: boolean;
+};
+
 export function useUniversalWithdraw({
   networkId,
   accountId,
@@ -1875,7 +1900,7 @@ export function useUniversalWithdraw({
     JSON.stringify([accountId, networkId]),
   );
   const resultAttemptRef = useRef(0);
-  const unknownEthenaSwapsRef = useRef(new Set<string>());
+  const unknownEthenaSwapsRef = useRef(new Map<string, IEthenaPendingSwap>());
   const stakefishSignatureRef = useRef<
     { scope: string; signature: string; message: string } | undefined
   >(undefined);
@@ -1951,12 +1976,6 @@ export function useUniversalWithdraw({
     }) => {
       const isOwnerCurrent = resultScope.capture();
       if (!isOwnerCurrent()) return false;
-      resultAttemptRef.current += 1;
-      const resultAttempt = resultAttemptRef.current;
-      const isResultOwnerCurrent = () =>
-        isOwnerCurrent() &&
-        resultAttemptRef.current === resultAttempt &&
-        ((isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ?? true);
       const normalizeScopeAddress = (value?: string) =>
         networkUtils.isEvmNetwork({ networkId })
           ? (value ?? '').toLowerCase()
@@ -1972,20 +1991,120 @@ export function useUniversalWithdraw({
         normalizeScopeAddress(outputTokenAddress),
         withdrawType ?? '',
       ]);
+      const ethenaIntent = JSON.stringify([amount, withdrawAll]);
       const showUnknownEthenaSwap = () =>
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
           }),
         });
-      if (
-        useEthenaCooldown &&
-        !resumeEthenaCooldownUnstake &&
-        unknownEthenaSwapsRef.current.has(ethenaScope)
-      ) {
-        showUnknownEthenaSwap();
-        return false;
+      const pendingEthenaSwap = unknownEthenaSwapsRef.current.get(ethenaScope);
+      if (useEthenaCooldown && pendingEthenaSwap) {
+        const recoveryAttempt = resultAttemptRef.current;
+        if (
+          pendingEthenaSwap.intent !== ethenaIntent ||
+          pendingEthenaSwap.checking ||
+          pendingEthenaSwap.inProgress ||
+          pendingEthenaSwap.resumeActive ||
+          pendingEthenaSwap.unstakeUnknown ||
+          pendingEthenaSwap.txidConflict ||
+          (!pendingEthenaSwap.txid && !pendingEthenaSwap.ready)
+        ) {
+          showUnknownEthenaSwap();
+          return false;
+        }
+        pendingEthenaSwap.checking = true;
+        try {
+          const accountCurrent = await isTaskAccountCurrent({
+            accountId,
+            networkId,
+            accountAddress: pendingEthenaSwap.accountAddress,
+          });
+          if (
+            !isOwnerCurrent() ||
+            resultAttemptRef.current !== recoveryAttempt ||
+            unknownEthenaSwapsRef.current.get(ethenaScope) !==
+              pendingEthenaSwap ||
+            pendingEthenaSwap.txidConflict ||
+            pendingEthenaSwap.unstakeUnknown ||
+            signal?.aborted ||
+            !(isActionCurrent?.() ?? true) ||
+            !(isResultCurrent?.() ?? true) ||
+            !(isTaskIntentCurrent?.() ?? true)
+          )
+            return false;
+          if (!accountCurrent) {
+            showUnknownEthenaSwap();
+            return false;
+          }
+          if (!pendingEthenaSwap.ready) {
+            const txid = pendingEthenaSwap.txid;
+            if (!txid) {
+              showUnknownEthenaSwap();
+              return false;
+            }
+            const status = await waitForTxFinalStatus({
+              accountId,
+              networkId,
+              txid,
+              expectedAccountAddress: pendingEthenaSwap.accountAddress,
+              signal,
+              maxAttempts: 1,
+            });
+            if (
+              unknownEthenaSwapsRef.current.get(ethenaScope) !==
+                pendingEthenaSwap ||
+              pendingEthenaSwap.txidConflict ||
+              !isOwnerCurrent() ||
+              resultAttemptRef.current !== recoveryAttempt ||
+              signal?.aborted ||
+              !(isActionCurrent?.() ?? true) ||
+              !(isResultCurrent?.() ?? true) ||
+              !(isTaskIntentCurrent?.() ?? true) ||
+              !(await isTaskAccountCurrent({
+                accountId,
+                networkId,
+                accountAddress: pendingEthenaSwap.accountAddress,
+              })) ||
+              unknownEthenaSwapsRef.current.get(ethenaScope) !==
+                pendingEthenaSwap ||
+              pendingEthenaSwap.txidConflict ||
+              pendingEthenaSwap.unstakeUnknown ||
+              !isOwnerCurrent() ||
+              resultAttemptRef.current !== recoveryAttempt ||
+              signal?.aborted ||
+              !(isActionCurrent?.() ?? true) ||
+              !(isResultCurrent?.() ?? true) ||
+              !(isTaskIntentCurrent?.() ?? true)
+            )
+              return false;
+            if (status === EOnChainHistoryTxStatus.Failed) {
+              unknownEthenaSwapsRef.current.delete(ethenaScope);
+              Toast.error({
+                title: intl.formatMessage({ id: ETranslations.global_failed }),
+              });
+              return false;
+            }
+            if (status !== EOnChainHistoryTxStatus.Success) {
+              showUnknownEthenaSwap();
+              return false;
+            }
+            pendingEthenaSwap.ready = true;
+          }
+          if (!resumeEthenaCooldownUnstake) {
+            onEthenaCooldownUnstakeReady?.();
+            return false;
+          }
+        } finally {
+          pendingEthenaSwap.checking = false;
+        }
       }
+      resultAttemptRef.current += 1;
+      const resultAttempt = resultAttemptRef.current;
+      const isResultOwnerCurrent = () =>
+        isOwnerCurrent() &&
+        resultAttemptRef.current === resultAttempt &&
+        ((isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ?? true);
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returning false lets the caller tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -3030,273 +3149,387 @@ export function useUniversalWithdraw({
       }
 
       if (withdrawProtocol.kind === 'ethena') {
-        const ethenaAccountAddress = workflowHandoff
-          ? await getTaskAccountAddress({ accountId, networkId })
-          : undefined;
-        if (
-          workflowHandoff &&
-          (signal?.aborted || !(isActionCurrent?.() ?? true))
-        )
-          return false;
-        if (
-          workflowHandoff &&
-          (!ethenaAccountAddress ||
-            !taskAccountAddress ||
+        let ethenaAttempt = pendingEthenaSwap;
+        if (pendingEthenaSwap) {
+          if (
+            !isResultOwnerCurrent() ||
+            pendingEthenaSwap.resumeActive ||
+            pendingEthenaSwap.unstakeUnknown ||
+            pendingEthenaSwap.txidConflict ||
+            unknownEthenaSwapsRef.current.get(ethenaScope) !== pendingEthenaSwap
+          ) {
+            showUnknownEthenaSwap();
+            return false;
+          }
+          pendingEthenaSwap.resumeActive = true;
+        }
+        try {
+          const ethenaAccountAddress = await getTaskAccountAddress({
+            accountId,
+            networkId,
+          });
+          if (pendingEthenaSwap && !isResultOwnerCurrent()) return false;
+          if (
+            pendingEthenaSwap &&
             !isTaskAccountAddress(
-              { accountAddress: taskAccountAddress, networkId },
+              { accountAddress: pendingEthenaSwap.accountAddress, networkId },
               ethenaAccountAddress,
-            ))
-        )
-          throw new OneKeyLocalError('Task account changed before withdrawal');
-        const ethenaIdentity = {
-          accountId,
-          networkId,
-          provider,
-          action: 'withdraw' as const,
-          ...(ethenaAccountAddress
-            ? { accountAddress: ethenaAccountAddress }
-            : undefined),
-          intent: {
-            amount,
-            symbol,
-            identity,
-            inputTokenAddress,
-            outputTokenAddress,
-            protocolVault,
-            withdrawAll,
-            slippage,
-            effectiveApy,
-            withdrawType,
-          },
-        };
-        const ethenaExpired = new OneKeyLocalError('Earn withdrawal expired');
-        const ensureEthenaActionCurrent = () => {
+            )
+          )
+            throw new OneKeyLocalError(
+              'Task account changed before withdrawal',
+            );
+          const rememberEthenaSwap = (txid?: string) => {
+            if (!ethenaAttempt) {
+              if (unknownEthenaSwapsRef.current.has(ethenaScope)) return;
+              ethenaAttempt = {
+                accountAddress: ethenaAccountAddress,
+                intent: ethenaIntent,
+                inProgress: true,
+              };
+              unknownEthenaSwapsRef.current.set(ethenaScope, ethenaAttempt);
+            }
+            if (
+              unknownEthenaSwapsRef.current.get(ethenaScope) !== ethenaAttempt
+            )
+              return;
+            if (txid?.trim()) {
+              if (ethenaAttempt.txid && ethenaAttempt.txid !== txid) {
+                ethenaAttempt.txidConflict = true;
+                ethenaAttempt.ready = false;
+              } else {
+                ethenaAttempt.txid = txid;
+              }
+            }
+          };
+          const forgetEthenaSwap = () => {
+            if (
+              unknownEthenaSwapsRef.current.get(ethenaScope) === ethenaAttempt
+            )
+              unknownEthenaSwapsRef.current.delete(ethenaScope);
+          };
           if (
             workflowHandoff &&
             (signal?.aborted || !(isActionCurrent?.() ?? true))
           )
-            throw ethenaExpired;
-        };
-        const ethenaParams = {
-          identity: ethenaIdentity,
-          resumeUnstake: resumeEthenaCooldownUnstake ?? false,
-          signal,
-          prepare: async (stage) => {
-            ensureEthenaActionCurrent();
-            const transaction =
-              await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-                amount,
-                identity,
-                networkId,
-                accountId,
-                ...(workflowHandoff && ethenaAccountAddress
-                  ? { expectedAccountAddress: ethenaAccountAddress }
-                  : undefined),
-                symbol,
-                provider,
-                inputTokenAddress,
-                outputTokenAddress,
-                protocolVault,
-                withdrawAll,
-                ...(stage === 'swap'
-                  ? { ethenaPath: true }
-                  : { useEthenaCooldown: true }),
-                slippage,
-                effectiveApy,
-                withdrawType,
-              });
-            ensureEthenaActionCurrent();
+            return false;
+          if (
+            workflowHandoff &&
+            (!ethenaAccountAddress ||
+              !taskAccountAddress ||
+              !isTaskAccountAddress(
+                { accountAddress: taskAccountAddress, networkId },
+                ethenaAccountAddress,
+              ))
+          )
+            throw new OneKeyLocalError(
+              'Task account changed before withdrawal',
+            );
+          const ethenaIdentity = {
+            accountId,
+            networkId,
+            provider,
+            action: 'withdraw' as const,
+            ...(ethenaAccountAddress
+              ? { accountAddress: ethenaAccountAddress }
+              : undefined),
+            intent: {
+              amount,
+              symbol,
+              identity,
+              inputTokenAddress,
+              outputTokenAddress,
+              protocolVault,
+              withdrawAll,
+              slippage,
+              effectiveApy,
+              withdrawType,
+            },
+          };
+          const ethenaExpired = new OneKeyLocalError('Earn withdrawal expired');
+          const ensureEthenaActionCurrent = () => {
             if (
               workflowHandoff &&
-              ethenaAccountAddress &&
-              !(await isTaskAccountCurrent({
-                accountId,
-                networkId,
-                accountAddress: ethenaAccountAddress,
-              }))
+              (signal?.aborted || !(isActionCurrent?.() ?? true))
             )
-              throw new OneKeyLocalError(
-                'Task account changed before withdrawal',
-              );
-            ensureEthenaActionCurrent();
-            const encoded =
-              await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-                networkId,
-                accountId,
-                tx: transaction.tx,
-                internalDappType: EInternalDappEnum.Staking,
-                stakingAction: EInternalStakingAction.Withdraw,
-              });
-            ensureEthenaActionCurrent();
-            if (
-              workflowHandoff &&
-              ethenaAccountAddress &&
-              ((typeof encoded === 'object' &&
-                encoded !== null &&
-                'from' in encoded &&
-                !isTaskEncodedTxOwner(
-                  { accountAddress: ethenaAccountAddress, networkId },
-                  encoded,
-                )) ||
+              throw ethenaExpired;
+          };
+          const ethenaParams = {
+            identity: ethenaIdentity,
+            resumeUnstake: resumeEthenaCooldownUnstake ?? false,
+            signal,
+            prepare: async (stage) => {
+              ensureEthenaActionCurrent();
+              const transaction =
+                await backgroundApiProxy.serviceStaking.buildUnstakeTransaction(
+                  {
+                    amount,
+                    identity,
+                    networkId,
+                    accountId,
+                    ...(workflowHandoff && ethenaAccountAddress
+                      ? { expectedAccountAddress: ethenaAccountAddress }
+                      : undefined),
+                    symbol,
+                    provider,
+                    inputTokenAddress,
+                    outputTokenAddress,
+                    protocolVault,
+                    withdrawAll,
+                    ...(stage === 'swap'
+                      ? { ethenaPath: true }
+                      : { useEthenaCooldown: true }),
+                    slippage,
+                    effectiveApy,
+                    withdrawType,
+                  },
+                );
+              ensureEthenaActionCurrent();
+              if (
+                workflowHandoff &&
+                ethenaAccountAddress &&
                 !(await isTaskAccountCurrent({
                   accountId,
                   networkId,
                   accountAddress: ethenaAccountAddress,
-                })))
-            )
-              throw new OneKeyLocalError(
-                'Task account changed before withdrawal',
-              );
-            ensureEthenaActionCurrent();
-            return {
-              encodedTx: encoded,
-              stakeInfo: createStakeInfoWithOrderId({
-                stakingInfo,
-                orderId: transaction.orderId,
-              }),
-            };
-          },
-          navigate: navigationToTxConfirm,
-          isActionCurrent,
-          isSendCurrent,
-          isExpectedCancellation: workflowHandoff
-            ? (error: unknown) => error === ethenaExpired
-            : undefined,
-          verifyBeforeSend:
-            workflowHandoff && ethenaAccountAddress
-              ? async () => {
-                  if (
-                    !(await isTaskAccountCurrent({
-                      accountId,
-                      networkId,
-                      accountAddress: ethenaAccountAddress,
-                    }))
-                  )
-                    throw new OneKeyLocalError(
-                      'Task account changed before withdrawal',
-                    );
-                }
-              : undefined,
-          onSubmitted: async (stage, data, stakeInfo) => {
-            const resultCurrent = () =>
-              !signal?.aborted &&
-              ((isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ??
-                true);
-            if (stage === 'swap')
-              unknownEthenaSwapsRef.current.add(ethenaScope);
-            if (stage === 'unstake' && resultCurrent()) onStepChange?.(3);
-            await handleStakeSuccess({
-              data,
-              stakeInfo,
-              networkId,
-            });
-            if (stage === 'unstake' && resultCurrent()) onSuccess?.(data);
-          },
-          waitForSwap: async (txid) => {
-            onStepChange?.(2);
-            if (txid) {
-              const status = await waitForTxFinalStatus({
-                accountId,
-                networkId,
-                txid,
-                signal,
-              });
-              if (signal?.aborted || !(isActionCurrent?.() ?? true)) {
-                if (status === EOnChainHistoryTxStatus.Failed) {
-                  unknownEthenaSwapsRef.current.delete(ethenaScope);
-                }
-                return false;
-              }
+                }))
+              )
+                throw new OneKeyLocalError(
+                  'Task account changed before withdrawal',
+                );
+              ensureEthenaActionCurrent();
+              const encoded =
+                await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+                  networkId,
+                  accountId,
+                  tx: transaction.tx,
+                  internalDappType: EInternalDappEnum.Staking,
+                  stakingAction: EInternalStakingAction.Withdraw,
+                });
+              ensureEthenaActionCurrent();
               if (
-                status === EOnChainHistoryTxStatus.Failed ||
-                (status === EOnChainHistoryTxStatus.Success &&
-                  !signal?.aborted &&
-                  (isActionCurrent?.() ?? true))
-              ) {
-                unknownEthenaSwapsRef.current.delete(ethenaScope);
+                workflowHandoff &&
+                ethenaAccountAddress &&
+                ((typeof encoded === 'object' &&
+                  encoded !== null &&
+                  'from' in encoded &&
+                  !isTaskEncodedTxOwner(
+                    { accountAddress: ethenaAccountAddress, networkId },
+                    encoded,
+                  )) ||
+                  !(await isTaskAccountCurrent({
+                    accountId,
+                    networkId,
+                    accountAddress: ethenaAccountAddress,
+                  })))
+              )
+                throw new OneKeyLocalError(
+                  'Task account changed before withdrawal',
+                );
+              ensureEthenaActionCurrent();
+              return {
+                encodedTx: encoded,
+                stakeInfo: createStakeInfoWithOrderId({
+                  stakingInfo,
+                  orderId: transaction.orderId,
+                }),
+              };
+            },
+            navigate: navigationToTxConfirm,
+            isActionCurrent,
+            isSendCurrent,
+            isExpectedCancellation: workflowHandoff
+              ? (error: unknown) => error === ethenaExpired
+              : undefined,
+            verifyBeforeSend: async () => {
+              if (
+                !(await isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress: ethenaAccountAddress,
+                }))
+              )
+                throw new OneKeyLocalError(
+                  'Task account changed before withdrawal',
+                );
+            },
+            onSubmitted: async (stage, data, stakeInfo) => {
+              const resultCurrent = () =>
+                !signal?.aborted &&
+                isResultOwnerCurrent() &&
+                ((isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ??
+                  true);
+              if (stage === 'swap') {
+                rememberEthenaSwap(
+                  data[0]?.signedTx?.txid || data[0]?.decodedTx?.txid,
+                );
+                if (ethenaAttempt) ethenaAttempt.inProgress = true;
+              } else if (ethenaAttempt) {
+                ethenaAttempt.unstakeUnknown = true;
               }
-              if (status !== EOnChainHistoryTxStatus.Success) {
-                if (status !== EOnChainHistoryTxStatus.Failed) {
-                  unknownEthenaSwapsRef.current.add(ethenaScope);
-                }
-                if (!signal?.aborted) {
-                  Toast.error({
-                    title: intl.formatMessage({
-                      id: ETranslations.global_failed,
-                    }),
-                  });
-                }
+              if (stage === 'unstake' && resultCurrent()) onStepChange?.(3);
+              try {
+                await handleStakeSuccess({
+                  data,
+                  stakeInfo,
+                  networkId,
+                });
+              } catch (error) {
+                if (stage === 'swap' && ethenaAttempt)
+                  ethenaAttempt.inProgress = false;
+                throw error;
+              }
+              if (stage === 'unstake') {
+                const transaction = data[data.length - 1];
+                const txid =
+                  transaction?.signedTx?.txid?.trim() ||
+                  transaction?.decodedTx?.txid?.trim();
+                if (txid) forgetEthenaSwap();
+              }
+              if (stage === 'unstake' && resultCurrent()) onSuccess?.(data);
+            },
+            waitForSwap: async (txid) => {
+              const releaseCheckOnError = (error: unknown): never => {
+                if (ethenaAttempt) ethenaAttempt.inProgress = false;
+                throw error;
+              };
+              if (!isResultOwnerCurrent()) {
+                if (ethenaAttempt) ethenaAttempt.inProgress = false;
                 return false;
               }
-            } else {
-              unknownEthenaSwapsRef.current.delete(ethenaScope);
+              onStepChange?.(2);
+              if (txid) {
+                rememberEthenaSwap(txid);
+                const status = await waitForTxFinalStatus({
+                  accountId,
+                  networkId,
+                  txid,
+                  expectedAccountAddress: ethenaAccountAddress,
+                  signal,
+                }).catch(releaseCheckOnError);
+                if (
+                  signal?.aborted ||
+                  !isResultOwnerCurrent() ||
+                  !(isActionCurrent?.() ?? true) ||
+                  !(await isTaskAccountCurrent({
+                    accountId,
+                    networkId,
+                    accountAddress: ethenaAccountAddress,
+                  }).catch(releaseCheckOnError)) ||
+                  signal?.aborted ||
+                  !isResultOwnerCurrent() ||
+                  !(isActionCurrent?.() ?? true)
+                ) {
+                  if (ethenaAttempt) ethenaAttempt.inProgress = false;
+                  return false;
+                }
+                if (ethenaAttempt?.txidConflict) {
+                  ethenaAttempt.inProgress = false;
+                  return false;
+                }
+                if (status === EOnChainHistoryTxStatus.Failed) {
+                  forgetEthenaSwap();
+                }
+                if (status !== EOnChainHistoryTxStatus.Success) {
+                  if (ethenaAttempt) ethenaAttempt.inProgress = false;
+                  if (status !== EOnChainHistoryTxStatus.Failed) {
+                    rememberEthenaSwap(txid);
+                  }
+                  if (!signal?.aborted) {
+                    Toast.error({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_failed,
+                      }),
+                    });
+                  }
+                  return false;
+                }
+              }
+              if (signal?.aborted) return false;
+              if (ethenaAttempt) {
+                ethenaAttempt.inProgress = false;
+                ethenaAttempt.ready = true;
+                ethenaAttempt.resumeActive = true;
+              }
+              onEthenaCooldownUnstakeReady?.();
+              // Allow the first confirmation modal to close before opening another.
+              await timerUtils.wait(150);
+              return !signal?.aborted && isResultOwnerCurrent();
+            },
+            onUnknownSwap: (txid) => {
+              rememberEthenaSwap(txid);
+              if (ethenaAttempt) ethenaAttempt.inProgress = false;
+            },
+            onUnknownUnstake: () => {
+              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = true;
+            },
+            onUnstakeSend: () => {
+              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = true;
+            },
+            onUnstakeSendBlocked: () => {
+              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = false;
+            },
+            onSwapSendBlocked: forgetEthenaSwap,
+            onSwapSend: () => {
+              if (unknownEthenaSwapsRef.current.has(ethenaScope)) {
+                throw new OneKeyLocalError(
+                  intl.formatMessage({
+                    id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                  }),
+                );
+              }
+              rememberEthenaSwap();
+            },
+            onFail,
+            onObserverError: () => {
+              console.error('Unable to update Earn task state');
+            },
+          } satisfies Parameters<typeof createEthenaWithdrawFragment>[0];
+          if (workflowHandoff && ethenaAccountAddress) {
+            const fragment =
+              withdrawProtocol.createFragment<IEarnWithdrawApprovalIdentity>({
+                ...ethenaParams,
+                identity: {
+                  accountId,
+                  networkId,
+                  provider,
+                  accountAddress: ethenaAccountAddress,
+                  action: 'withdraw',
+                },
+              });
+            const abortFragment = () => fragment.cancel();
+            signal?.addEventListener('abort', abortFragment, { once: true });
+            try {
+              if (signal?.aborted) {
+                abortFragment();
+                return false;
+              }
+              return await workflowHandoff.register({
+                identity: {
+                  ...ethenaParams.identity,
+                  accountAddress: ethenaAccountAddress,
+                },
+                steps: fragment.steps,
+                getAdapter: (step, context) =>
+                  mapProtocolWithdrawAdapter(
+                    fragment.getAdapter(step, context),
+                    (value) => value,
+                  ),
+                result: fragment.result,
+                cancel: fragment.cancel,
+                isExpectedCancellation: (error) => error === ethenaExpired,
+              });
+            } finally {
+              signal?.removeEventListener('abort', abortFragment);
             }
-            if (signal?.aborted) return false;
-            onEthenaCooldownUnstakeReady?.();
-            // Allow the first confirmation modal to close before opening another.
-            await timerUtils.wait(150);
-            return !signal?.aborted;
-          },
-          onUnknownSwap: () => unknownEthenaSwapsRef.current.add(ethenaScope),
-          onSwapSendBlocked: () =>
-            unknownEthenaSwapsRef.current.delete(ethenaScope),
-          onSwapSend: () => {
-            if (unknownEthenaSwapsRef.current.has(ethenaScope)) {
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
-                }),
-              );
-            }
-            unknownEthenaSwapsRef.current.add(ethenaScope);
-          },
-          onFail,
-          onObserverError: () => {
-            console.error('Unable to update Earn task state');
-          },
-        } satisfies Parameters<typeof createEthenaWithdrawFragment>[0];
-        if (workflowHandoff && ethenaAccountAddress) {
-          const fragment =
-            withdrawProtocol.createFragment<IEarnWithdrawApprovalIdentity>({
-              ...ethenaParams,
-              identity: {
-                accountId,
-                networkId,
-                provider,
-                accountAddress: ethenaAccountAddress,
-                action: 'withdraw',
-              },
-            });
-          const abortFragment = () => fragment.cancel();
-          signal?.addEventListener('abort', abortFragment, { once: true });
-          try {
-            if (signal?.aborted) {
-              abortFragment();
-              return false;
-            }
-            return await workflowHandoff.register({
-              identity: {
-                ...ethenaParams.identity,
-                accountAddress: ethenaAccountAddress,
-              },
-              steps: fragment.steps,
-              getAdapter: (step, context) =>
-                mapProtocolWithdrawAdapter(
-                  fragment.getAdapter(step, context),
-                  (value) => value,
-                ),
-              result: fragment.result,
-              cancel: fragment.cancel,
-              isExpectedCancellation: (error) => error === ethenaExpired,
-            });
-          } finally {
-            signal?.removeEventListener('abort', abortFragment);
           }
+          return await withdrawProtocol.runTask({
+            taskId: generateUUID(),
+            ...ethenaParams,
+          });
+        } finally {
+          if (ethenaAttempt) ethenaAttempt.resumeActive = false;
         }
-        return withdrawProtocol.runTask({
-          taskId: generateUUID(),
-          ...ethenaParams,
-        });
       }
       throw new OneKeyLocalError('Unsupported withdrawal workflow');
     },

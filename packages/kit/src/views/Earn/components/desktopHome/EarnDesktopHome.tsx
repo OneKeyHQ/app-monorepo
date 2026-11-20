@@ -25,6 +25,7 @@ import { EarnHomeBanner } from '../EarnHomeBanner';
 import { FAQContent } from '../FAQContent';
 import { PortfolioPendingTxsProvider } from '../PortfolioTabContent';
 
+import { EarnAccountMarketsError } from './EarnAccountMarketsError';
 import {
   EarnDesktopBorrowTab,
   useEarnDesktopOpenLoanPair,
@@ -46,7 +47,10 @@ import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
 import { useEarnDesktopOpenYourLoan } from './EarnDesktopYourLoans';
-import { publishHomeNetWorth } from './earnNetWorthStore';
+import {
+  getHomeNetWorthAccountKey,
+  publishHomeNetWorth,
+} from './earnNetWorthStore';
 import { EarnPhoneHome } from './EarnPhoneHome';
 import { useContentStable } from './useContentStable';
 import { useEarnDesktopFadeIn } from './useEarnDesktopFadeIn';
@@ -434,11 +438,13 @@ export function EarnDesktopHome({
   const showsHoldings =
     (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
   // My portfolio's total shows this figure, once it is whole
-  const netWorthAccountKey =
-    activeAccount.account?.indexedAccountId ||
-    activeAccount.indexedAccount?.id ||
-    activeAccount.account?.id ||
-    '';
+  const netWorthAccountKey = getHomeNetWorthAccountKey({
+    accountId: activeAccount.account?.id,
+    indexedAccountId:
+      activeAccount.account?.indexedAccountId ||
+      activeAccount.indexedAccount?.id,
+    accountMarketsScope: accountMarkets.accountScope,
+  });
   const { id: netWorthCurrencyId } = useCurrency();
   useEffect(() => {
     if (!isHeroLoading && !hasNoWallet && netWorthAccountKey) {
@@ -554,12 +560,16 @@ export function EarnDesktopHome({
     () => ({
       loans: accountMarkets.loans,
       isLoaded: accountMarkets.isLoaded,
+      hasError: accountMarkets.hasError,
+      onRetry: accountMarkets.refresh,
       accountScope: accountMarkets.accountScope,
       onOpenMarket: handleOpenYourLoan,
     }),
     [
       accountMarkets.accountScope,
       accountMarkets.isLoaded,
+      accountMarkets.hasError,
+      accountMarkets.refresh,
       accountMarkets.loans,
       handleOpenYourLoan,
     ],
@@ -658,6 +668,25 @@ export function EarnDesktopHome({
 
   // A phone-wide screen gets the phone's arrangement of the same data
   if (!media.gtMd) {
+    const phoneHero = accountMarkets.hasError ? (
+      <EarnAccountMarketsError onRetry={accountMarkets.refresh} />
+    ) : (
+      <EarnDesktopHero
+        totalFiatValue={totalFiatValue}
+        earnings24h={earnings24h}
+        borrowInterest24h={borrowInterest24h}
+        shares={shares}
+        readyToEarn={readyToEarn}
+        isLoading={isHeroLoading}
+        isRefreshing={isRefreshing}
+        hasPositions={hasPositions}
+        isActive={isActive}
+        onOpenPortfolio={onOpenPortfolio}
+        onRefresh={onRefresh}
+        rewards={rewardPills}
+        hidesSplit
+      />
+    );
     return (
       <PortfolioPendingTxsProvider value={pendingTxsValue}>
         <EarnPhoneHome
@@ -669,21 +698,7 @@ export function EarnDesktopHome({
                 onOpen={handleOpenGuide}
               />
             ) : (
-              <EarnDesktopHero
-                totalFiatValue={totalFiatValue}
-                earnings24h={earnings24h}
-                borrowInterest24h={borrowInterest24h}
-                shares={shares}
-                readyToEarn={readyToEarn}
-                isLoading={isHeroLoading}
-                isRefreshing={isRefreshing}
-                hasPositions={hasPositions}
-                isActive={isActive}
-                onOpenPortfolio={onOpenPortfolio}
-                onRefresh={onRefresh}
-                rewards={rewardPills}
-                hidesSplit
-              />
+              phoneHero
             )
           }
           banner={
@@ -729,6 +744,27 @@ export function EarnDesktopHome({
     );
   }
 
+  const desktopHero = accountMarkets.hasError ? (
+    <EarnAccountMarketsError onRetry={accountMarkets.refresh} />
+  ) : (
+    <EarnDesktopHero
+      totalFiatValue={totalFiatValue}
+      earnings24h={earnings24h}
+      borrowInterest24h={borrowInterest24h}
+      shares={shares}
+      readyToEarn={readyToEarn}
+      isLoading={isHeroLoading}
+      isRefreshing={isRefreshing}
+      hasPositions={hasPositions}
+      isActive={isActive}
+      minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
+      onOpenPortfolio={onOpenPortfolio}
+      onRefresh={onRefresh}
+      rewards={rewardPills}
+      onOpenProtocols={handleOpenProtocols}
+      onHeightChange={setHeroHeight}
+    />
+  );
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>
       <YStack px="$pagePadding" pt="$2" pb="$10">
@@ -747,23 +783,7 @@ export function EarnDesktopHome({
                 onHeightChange={setHeroHeight}
               />
             ) : (
-              <EarnDesktopHero
-                totalFiatValue={totalFiatValue}
-                earnings24h={earnings24h}
-                borrowInterest24h={borrowInterest24h}
-                shares={shares}
-                readyToEarn={readyToEarn}
-                isLoading={isHeroLoading}
-                isRefreshing={isRefreshing}
-                hasPositions={hasPositions}
-                isActive={isActive}
-                minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
-                onOpenPortfolio={onOpenPortfolio}
-                onRefresh={onRefresh}
-                rewards={rewardPills}
-                onOpenProtocols={handleOpenProtocols}
-                onHeightChange={setHeroHeight}
-              />
+              desktopHero
             )}
             {hasBanner ? (
               // As tall as the card only: the dots under it (several banners)

@@ -679,7 +679,7 @@ export function useLoanRouterRun({
       }
       setPhase('supplying');
       const reservation = await reserveLoanStep(plan, 'supply', {
-        positionBefore: String(before.collateralSupplied),
+        positionBefore: before.collateralSupplied,
       });
       let resp;
       let encodedTx;
@@ -732,7 +732,7 @@ export function useLoanRouterRun({
         });
         if (
           hasLoanSupplySettled({
-            before: String(before.collateralSupplied),
+            before: before.collateralSupplied,
             amount: plan.collateralAmount,
             current: position?.collateralSupplied,
           })

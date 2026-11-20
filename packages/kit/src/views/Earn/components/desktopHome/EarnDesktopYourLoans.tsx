@@ -10,6 +10,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -40,6 +41,7 @@ import {
   getListRowMotion,
 } from '../../utils/earnListMotion';
 
+import { EarnAccountMarketsError } from './EarnAccountMarketsError';
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   readLoanHealth,
@@ -272,6 +274,8 @@ export type IEarnDesktopYourLoansProps = {
   loans: IEarnDesktopAccountMarket[];
   /** The account's markets are read; until then a known count holds */
   isLoaded: boolean;
+  hasError: boolean;
+  onRetry: () => Promise<void>;
   accountScope: string;
   onOpenMarket: (market: IBorrowMarketItem) => void;
 };
@@ -279,6 +283,8 @@ export type IEarnDesktopYourLoansProps = {
 function BasicEarnDesktopYourLoans({
   loans,
   isLoaded,
+  hasError,
+  onRetry,
   accountScope,
   onOpenMarket,
 }: IEarnDesktopYourLoansProps) {
@@ -295,22 +301,20 @@ function BasicEarnDesktopYourLoans({
   }, [accountScope, isLoaded, loans.length]);
 
   const sortedLoans = useMemo(() => sortLoansByRisk(loans), [loans]);
-  const count = isLoaded
-    ? loans.length
-    : (loanCountByAccount.get(accountScope) ?? 0);
-  let cards: ReactNode[] = [];
-  if (count > 0) {
-    cards = isLoaded
-      ? sortedLoans.map((entry) => (
-          <LoanCard
-            key={buildBorrowMarketKey(entry.market)}
-            entry={entry}
-            onOpenMarket={onOpenMarket}
-          />
-        ))
-      : Array.from({ length: count }).map((_, index) => (
-          <LoanCardSkeleton key={index} />
-        ));
+  const cards: ReactNode[] = sortedLoans.map((entry) => (
+    <LoanCard
+      key={buildBorrowMarketKey(entry.market)}
+      entry={entry}
+      onOpenMarket={onOpenMarket}
+    />
+  ));
+  if (!isLoaded && !hasError && cards.length === 0) {
+    const count = Math.max(loanCountByAccount.get(accountScope) ?? 0, 1);
+    cards.push(
+      ...Array.from({ length: count }).map((_, index) => (
+        <LoanCardSkeleton key={index} />
+      )),
+    );
   }
 
   // Wide, rows of three; a short row keeps the cards a third wide
@@ -404,10 +408,14 @@ function BasicEarnDesktopYourLoans({
   return (
     // The cards come and go with the room under them, easing the list below
     <EasedSection>
-      {grid ? (
+      {grid || hasError ? (
         <YStack testID="earn-desktop-your-loans" gap="$3" pb="$8">
           <SizableText size="$headingMd">{earnCopy.yourLoans}</SizableText>
           {grid}
+          {!isLoaded && !hasError && sortedLoans.length > 0 ? (
+            <Spinner size="small" />
+          ) : null}
+          {hasError ? <EarnAccountMarketsError onRetry={onRetry} /> : null}
         </YStack>
       ) : null}
     </EasedSection>

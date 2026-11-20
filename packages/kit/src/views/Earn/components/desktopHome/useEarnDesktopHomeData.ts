@@ -9,7 +9,13 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBorrowHealthFactor,
@@ -26,6 +32,7 @@ import {
   keepFirstFrame,
   readFirstFrame,
 } from '../../pages/EarnRouter/earnFirstFrameCache';
+import { earnPortfolioAccountScope } from '../../utils/portfolioAccountScope';
 
 import { sumWalletHoldings } from './earnDesktopHome.utils';
 import { useContentStable } from './useContentStable';
@@ -115,6 +122,8 @@ export type IEarnDesktopAccountMarket = {
   accountId?: string;
   reserves?: IBorrowReserveItem;
   healthFactor?: IBorrowHealthFactor;
+  accountIdentityUnverified?: true;
+  accountDataUnavailable?: true;
 };
 
 const EMPTY_ACCOUNT_MARKETS: IEarnDesktopAccountMarket[] = [];
@@ -131,6 +140,62 @@ const INITIAL_ACCOUNT_RESULT: IAccountMarketsResult = {
 // with the home's from the first frame
 const accountMarketsMemory = new Map<string, IAccountMarketsResult>();
 
+function externalSelectionKey(account: unknown): string | undefined {
+  if (
+    !account ||
+    typeof account !== 'object' ||
+    !('connectedAddresses' in account)
+  )
+    return undefined;
+  return stableStringify([
+    account.connectedAddresses,
+    'selectedAddress' in account ? (account.selectedAddress ?? {}) : {},
+  ]);
+}
+
+function useAccountMarketScope() {
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountId = selectedAccount.othersWalletAccountId || '';
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
+  const dbAccount = activeAccount.dbAccount;
+  const networkAccount = activeAccount.account;
+  const externalDbAccount =
+    dbAccount?.id === accountId && 'connectedAddresses' in dbAccount
+      ? dbAccount
+      : undefined;
+  const externalNetworkAccount =
+    networkAccount?.id === accountId && 'connectedAddresses' in networkAccount
+      ? networkAccount
+      : undefined;
+  const externalAccount = externalDbAccount ?? externalNetworkAccount;
+  const isExternal = accountUtils.isExternalAccount({ accountId });
+  const externalSelection = isExternal
+    ? externalSelectionKey(externalAccount)
+    : undefined;
+  const isScopeReady = !isExternal || externalSelection !== undefined;
+  const isScopeUnavailable = isExternal && !isScopeReady && activeAccount.ready;
+  const scope = stableStringify([
+    accountId,
+    earnPortfolioAccountScope({
+      account: networkAccount,
+      indexedAccountId,
+    }),
+    externalSelection,
+    [dbAccount?.id, dbAccount?.impl, dbAccount?.networks],
+  ]);
+  return {
+    accountId,
+    indexedAccountId,
+    scope,
+    isScopeReady,
+    isScopeUnavailable,
+    externalSelection,
+    dbAccount,
+  };
+}
+
 /**
  * What the DeFi home last read for the selected account in one market, for a
  * page it opens (a reserve's supply page) to start from while it asks again
@@ -138,16 +203,8 @@ const accountMarketsMemory = new Map<string, IAccountMarketsResult>();
 export function useRememberedAccountMarket(
   marketKey: string,
 ): IEarnDesktopAccountMarket | undefined {
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const {
-    activeAccount: { indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const indexedAccountId =
-    selectedAccount.indexedAccountId || indexedAccount?.id;
-  // The home's scope for the account, as useEarnDesktopAccountMarkets keys it
-  const scope = `${selectedAccount.othersWalletAccountId || ''}|${
-    indexedAccountId ?? ''
-  }`;
+  const { scope, isScopeReady } = useAccountMarketScope();
+  if (!isScopeReady) return undefined;
   return accountMarketsMemory
     .get(scope)
     ?.entries.find((entry) => buildBorrowMarketKey(entry.market) === marketKey);
@@ -168,14 +225,15 @@ export function useEarnDesktopAccountMarkets({
   isListReady: boolean;
   isActive: boolean;
 }) {
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const {
-    activeAccount: { indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const accountId = selectedAccount.othersWalletAccountId || '';
-  const indexedAccountId =
-    selectedAccount.indexedAccountId || indexedAccount?.id;
-  const scope = `${accountId}|${indexedAccountId ?? ''}`;
+    accountId,
+    indexedAccountId,
+    scope,
+    isScopeReady,
+    isScopeUnavailable,
+    externalSelection,
+    dbAccount,
+  } = useAccountMarketScope();
   const marketsKey = getMarketsKey(markets);
   const requestScope = useCommittedEarnScopeGuard(
     JSON.stringify([scope, marketsKey]),
@@ -186,31 +244,64 @@ export function useEarnDesktopAccountMarkets({
   const lastGoodRef = useRef({
     scope,
     byMarket: new Map<string, IEarnDesktopAccountMarket>(
-      (remembered?.entries ?? []).map((entry) => [
-        buildBorrowMarketKey(entry.market),
-        entry,
-      ]),
+      (remembered?.entries ?? [])
+        .filter((entry) => entry.reserves)
+        .map((entry) => [buildBorrowMarketKey(entry.market), entry]),
     ),
   });
 
-  const { result = INITIAL_ACCOUNT_RESULT, run } = usePromiseResult(
+  const {
+    result = INITIAL_ACCOUNT_RESULT,
+    run,
+    isLoading,
+  } = usePromiseResult(
     async () => {
       const isCurrent = requestScope.capture();
       requestSequence.current += 1;
       const sequence = requestSequence.current;
+      if (!isScopeReady) return INITIAL_ACCOUNT_RESULT;
       if (lastGoodRef.current.scope !== scope) {
-        lastGoodRef.current = { scope, byMarket: new Map() };
+        lastGoodRef.current = {
+          scope,
+          byMarket: new Map(
+            (remembered?.entries ?? [])
+              .filter((entry) => entry.reserves)
+              .map((entry) => [buildBorrowMarketKey(entry.market), entry]),
+          ),
+        };
       }
       const { byMarket } = lastGoodRef.current;
       if (!accountId && !indexedAccountId) {
         return { scope, marketsKey, entries: EMPTY_ACCOUNT_MARKETS };
       }
+      const isExternalSelectionCurrent = async () => {
+        if (externalSelection === undefined) return true;
+        try {
+          const current = await backgroundApiProxy.serviceAccount.getDBAccount({
+            accountId,
+          });
+          return (
+            current.id === accountId &&
+            externalSelectionKey(current) === externalSelection
+          );
+        } catch {
+          return false;
+        }
+      };
       const limit = pLimit(REQUEST_CONCURRENCY);
       const entries = await Promise.all(
         markets.map((market) =>
           limit(async (): Promise<IEarnDesktopAccountMarket> => {
             const marketKey = buildBorrowMarketKey(market);
-            const lastGood = () => byMarket.get(marketKey) ?? { market };
+            const lastGood = () =>
+              byMarket.get(marketKey) ?? {
+                market,
+                accountDataUnavailable: true as const,
+              };
+            const unverified = () => ({
+              market,
+              accountIdentityUnverified: true as const,
+            });
             try {
               const earnAccount =
                 await backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -219,21 +310,69 @@ export function useEarnDesktopAccountMarkets({
                   indexedAccountId,
                 });
               if (!earnAccount?.accountId) {
-                // No account on this market's network
-                return { market };
+                if (!(await isExternalSelectionCurrent())) return unverified();
+                if (
+                  accountId &&
+                  dbAccount?.id === accountId &&
+                  !accountUtils.isAccountCompatibleWithNetwork({
+                    account: dbAccount,
+                    networkId: market.networkId,
+                  })
+                )
+                  return { market };
+                if (!accountId && indexedAccountId) {
+                  const deriveType =
+                    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                      { networkId: market.networkId },
+                    );
+                  const derivedAccountId =
+                    await backgroundApiProxy.serviceAccount.getDbAccountIdFromIndexedAccountId(
+                      {
+                        indexedAccountId,
+                        networkId: market.networkId,
+                        deriveType,
+                      },
+                    );
+                  const { accounts } =
+                    await backgroundApiProxy.serviceAccount.getAllAccounts({
+                      ids: [derivedAccountId],
+                    });
+                  if (
+                    !accounts.some((account) => account.id === derivedAccountId)
+                  )
+                    return { market };
+                }
+                return lastGood();
+              }
+              let expectedAccountAddress: string | undefined;
+              if (externalSelection !== undefined) {
+                if (
+                  earnAccount.account.id !== accountId ||
+                  externalSelectionKey(earnAccount.account) !==
+                    externalSelection
+                )
+                  return unverified();
+                expectedAccountAddress =
+                  networkUtils.isLightningNetworkByNetworkId(market.networkId)
+                    ? earnAccount.account.addressDetail.normalizedAddress
+                    : earnAccount.account.address;
+                if (!expectedAccountAddress) return unverified();
               }
               const marketParams = {
                 provider: market.provider,
                 networkId: market.networkId,
                 marketAddress: market.marketAddress,
                 accountId: earnAccount.accountId,
+                ...(expectedAccountAddress ? { expectedAccountAddress } : {}),
               };
               const reserves =
                 await backgroundApiProxy.serviceStaking.getBorrowReserves(
                   marketParams,
                 );
               if (!isBorrowReservesPayloadUsable(reserves)) {
-                return lastGood();
+                return (await isExternalSelectionCurrent())
+                  ? lastGood()
+                  : unverified();
               }
               const hasLoan = reserves.borrowed.assets.some((asset) =>
                 hasPositiveBorrowBalance(asset.borrowedAmount),
@@ -256,9 +395,13 @@ export function useEarnDesktopAccountMarkets({
                 reserves,
                 healthFactor,
               };
-              return entry;
+              return (await isExternalSelectionCurrent())
+                ? entry
+                : unverified();
             } catch {
-              return lastGood();
+              return (await isExternalSelectionCurrent())
+                ? lastGood()
+                : unverified();
             }
           }),
         ),
@@ -276,14 +419,15 @@ export function useEarnDesktopAccountMarkets({
     },
     // marketsKey stands in for the markets array, which is rebuilt on every poll
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scope, marketsKey, requestScope],
+    [scope, marketsKey, requestScope, isScopeReady],
     {
       initResult: remembered ?? INITIAL_ACCOUNT_RESULT,
       pollingInterval: isActive ? ACCOUNT_POLLING_INTERVAL : undefined,
+      watchLoading: true,
     },
   );
 
-  const isCurrentAccount = result.scope === scope;
+  const isCurrentAccount = isScopeReady && result.scope === scope;
   // Every poll answers with new objects; equal positions keep the old ones
   const entries = useContentStable(
     isCurrentAccount ? result.entries : EMPTY_ACCOUNT_MARKETS,
@@ -298,18 +442,32 @@ export function useEarnDesktopAccountMarkets({
     [entries],
   );
   // Asked after a transaction settles too, when this page may be underneath
-  const refresh = useCallback(() => run({ alwaysSetState: true }), [run]);
+  const refresh = useCallback(() => {
+    if (isScopeUnavailable) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+    return run({ alwaysSetState: true });
+  }, [isScopeUnavailable, run]);
 
+  const hasSettled =
+    isListReady && isCurrentAccount && result.marketsKey === marketsKey;
+  const isLoaded =
+    hasSettled &&
+    !entries.some(
+      (entry) =>
+        entry.accountIdentityUnverified || entry.accountDataUnavailable,
+    );
   return {
     entries,
     loans,
     // Whose markets these are, for what is remembered per account
     accountScope: scope,
-    // A changed market list keeps the answers it has while the rest load
-    isLoaded:
-      isListReady &&
-      isCurrentAccount &&
-      (result.marketsKey === marketsKey || entries.length > 0),
+    // Existing entries remain available while a changed market list loads.
+    isLoaded,
+    hasSettled,
+    hasError: Boolean(
+      isScopeUnavailable || (hasSettled && !isLoaded && !isLoading),
+    ),
     refresh,
   };
 }

@@ -894,6 +894,7 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
 
 export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
+  preserveBatchTxIds?: boolean;
   feeInfos?: ISendSelectedFeeInfo[];
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;

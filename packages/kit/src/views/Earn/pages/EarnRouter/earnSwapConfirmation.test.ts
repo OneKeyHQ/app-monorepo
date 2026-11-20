@@ -1,16 +1,28 @@
 import { isTaskAccountCurrent } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IEarnSwapRecovery } from '@onekeyhq/shared/types/earn/funding';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchSwapQuoteParams,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { getEarnFunding } from './earnFundingRegistry';
-import { confirmEarnSwap } from './earnRouterSwap';
+import { confirmEarnSwap, fetchEarnSwapQuote } from './earnRouterSwap';
 
 import type { IEarnSwapPrepared } from './earnRouterSwap';
 
+const mockFetchQuote = jest.fn<Promise<void>, [IFetchSwapQuoteParams]>();
+const mockCancelQuote = jest.fn<Promise<void>, [string]>();
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceSwap: {
+      fetchQuotesEvents: (params: IFetchSwapQuoteParams) =>
+        mockFetchQuote(params),
+      cancelFetchQuoteEvents: (id: string) => mockCancelQuote(id),
+    },
+  },
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils',
@@ -53,7 +65,10 @@ const fact = {
   uuid: 'unsigned-id',
 };
 
-function startConfirmation({ approval = false } = {}) {
+function startConfirmation({
+  approval = false,
+  swapRecovery,
+}: { approval?: boolean; swapRecovery?: IEarnSwapRecovery } = {}) {
   const buildRes = {
     result: {
       info: { provider: 'fixture', providerName: 'Fixture' },
@@ -110,6 +125,7 @@ function startConfirmation({ approval = false } = {}) {
     signal: new AbortController().signal,
     navigateToConfirm: navigate,
     onAccepted,
+    swapRecovery,
   });
   const confirm = navigate.mock.calls[0]?.[0];
   if (!confirm) throw new OneKeyLocalError('Confirmation did not open');
@@ -119,6 +135,42 @@ function startConfirmation({ approval = false } = {}) {
 beforeEach(() => {
   jest.resetAllMocks();
   jest.mocked(isTaskAccountCurrent).mockResolvedValue(true);
+  mockFetchQuote.mockResolvedValue(undefined);
+  mockCancelQuote.mockResolvedValue(undefined);
+});
+
+it('does not send when the recovery claim cannot be persisted', async () => {
+  const { confirm, reservation, result } = startConfirmation();
+  reservation.markUnknown.mockRejectedValueOnce(
+    new Error('storage unavailable'),
+  );
+  await expect(confirm.onBeforeSend?.()).rejects.toThrow('storage unavailable');
+  confirm.onSafePreSendFail?.(new Error('storage unavailable'));
+  await expect(result).rejects.toThrow('storage unavailable');
+  expect(reservation.markSubmitted).not.toHaveBeenCalled();
+});
+
+it('isolates simultaneous quote requests and cancels only their own streams', async () => {
+  const first = new AbortController();
+  const second = new AbortController();
+  const params = { fromToken, toToken, amount: '1', account: payer };
+  const firstQuote = fetchEarnSwapQuote({ ...params, signal: first.signal });
+  const secondQuote = fetchEarnSwapQuote({ ...params, signal: second.signal });
+  const [firstRequest, secondRequest] = mockFetchQuote.mock.calls.map(
+    ([request]) => request,
+  );
+  expect(firstRequest.quoteRequestId).toBeTruthy();
+  expect(firstRequest.quoteRequestId).not.toBe(secondRequest.quoteRequestId);
+  expect(firstRequest.cancelOnGlobalStop).toBe(false);
+  expect(secondRequest.cancelOnGlobalStop).toBe(false);
+  first.abort();
+  await expect(firstQuote).rejects.toThrow('cancelled');
+  expect(mockCancelQuote).toHaveBeenCalledWith(firstRequest.quoteRequestId);
+  expect(mockCancelQuote).not.toHaveBeenCalledWith(
+    secondRequest.quoteRequestId,
+  );
+  second.abort();
+  await expect(secondQuote).rejects.toThrow('cancelled');
 });
 
 it('releases a setup failure without claiming a possible broadcast', async () => {
@@ -208,4 +260,79 @@ it('keeps a late mixed batch unknown because its hash could belong to an approva
   expect(reservation.markSubmitted).not.toHaveBeenCalled();
   expect(onAccepted).not.toHaveBeenCalled();
   expect(reservation.release).not.toHaveBeenCalled();
+});
+
+it('records only the prepared swap from a late batch, never an approval', async () => {
+  const { confirm, prepared, result, reservation, onAccepted } =
+    startConfirmation({ approval: true });
+  await confirm.onBeforeSend?.([
+    {
+      encodedTx: 'approval',
+      uuid: 'approval-uuid',
+      approveInfo: prepared.approvesInfo[0],
+    },
+    {
+      encodedTx: 'swap',
+      uuid: 'swap-uuid',
+      swapInfo: prepared.execution.swapInfo,
+    },
+  ]);
+  confirm.onCancel?.();
+  await expect(result).resolves.toBeUndefined();
+  await confirm.onLateBroadcastAccepted?.({
+    ...fact,
+    uuid: 'approval-uuid',
+    txid: 'approval-tx',
+  });
+  expect(reservation.markSubmitted).not.toHaveBeenCalled();
+  await confirm.onLateBroadcastAccepted?.({ ...fact, uuid: 'swap-uuid' });
+  expect(reservation.markSubmitted).toHaveBeenCalledWith('swap-tx');
+  expect(onAccepted).toHaveBeenCalledWith('swap-tx', undefined);
+});
+
+it('retains the submitted hash if recording the accepted swap fails', async () => {
+  const { confirm, prepared, result, reservation, onAccepted } =
+    startConfirmation({ approval: true });
+  onAccepted.mockRejectedValueOnce(new Error('history unavailable'));
+  await confirm.onBeforeSend?.([
+    {
+      encodedTx: 'approval',
+      uuid: 'approval-uuid',
+      approveInfo: prepared.approvesInfo[0],
+    },
+    {
+      encodedTx: 'swap',
+      uuid: 'swap-uuid',
+      swapInfo: prepared.execution.swapInfo,
+    },
+  ]);
+  confirm.onCancel?.();
+  await expect(result).resolves.toBeUndefined();
+  await expect(
+    confirm.onLateBroadcastAccepted?.({ ...fact, uuid: 'swap-uuid' }),
+  ).rejects.toThrow('history unavailable');
+  expect(reservation.markSubmitted).toHaveBeenCalledWith('swap-tx');
+  expect(reservation.release).not.toHaveBeenCalled();
+});
+
+it('keeps a mixed batch unknown when transaction IDs are ambiguous', async () => {
+  const { confirm, prepared, result, reservation } = startConfirmation({
+    approval: true,
+  });
+  await confirm.onBeforeSend?.([
+    {
+      encodedTx: 'approval',
+      uuid: 'duplicate',
+      approveInfo: prepared.approvesInfo[0],
+    },
+    {
+      encodedTx: 'swap',
+      uuid: 'duplicate',
+      swapInfo: prepared.execution.swapInfo,
+    },
+  ]);
+  confirm.onCancel?.();
+  await expect(result).resolves.toBeUndefined();
+  await confirm.onLateBroadcastAccepted?.({ ...fact, uuid: 'duplicate' });
+  expect(reservation.markSubmitted).not.toHaveBeenCalled();
 });

@@ -46,6 +46,7 @@ import {
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
+import { createPermitStakeWorkflow } from '../earnDepositTask/permitStakeWorkflow';
 import { depositTaskRegistry } from '../earnDepositTask/registry';
 import { getDepositTaskOwnerKey } from '../earnDepositTask/useRetainedDepositTask';
 
@@ -332,6 +333,62 @@ describe('useUniversalStake deposits and wrapping', () => {
       await onSuccess?.(successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'));
     });
   });
+
+  it.each([
+    ['onSafePreSendFail', 'failed'],
+    ['onConfirmationFail', 'unknown'],
+  ] as const)(
+    'classifies a permit deposit %s without weakening unknown broadcasts',
+    async (failureCallback, expectedStatus) => {
+      const spender = EtherFiLiquidReferContract;
+      const { result } = renderHook(() => useUniversalStake(account));
+      mockNavigate.mockImplementationOnce(async (confirmation) => {
+        await confirmation.onBeforeSend?.();
+        confirmation[failureCallback]?.(new Error('confirmation failed'));
+        if (failureCallback === 'onConfirmationFail') {
+          confirmation.onSafePreSendFail?.(new Error('late safe failure'));
+        }
+        await expect(confirmation.onBeforeSend?.()).rejects.toThrow();
+      });
+      const workflow = createPermitStakeWorkflow({
+        taskId: `permit-${failureCallback}`,
+        identity: {
+          ...account,
+          accountAddress: owner,
+          provider: 'etherfi',
+          action: 'stake',
+          intent: {
+            amount: '1',
+            symbol: 'ETH',
+            inputTokenAddress: '',
+            protocolVault: vault,
+            spenderAddress: spender,
+          },
+        },
+        sign: async () => 'permit',
+        submit: async (signed, workflowHandoff) => {
+          await result.current({
+            ...params,
+            stakeType: undefined,
+            workflowHandoff,
+            workflowSpenderAddress: spender,
+            permitSignature: signed,
+          });
+        },
+        isCurrent: () => true,
+        isResultCurrent: () => true,
+        onSubmitted: jest.fn(),
+        onAsyncError: jest.fn(),
+      });
+      await workflow.run();
+      await waitFor(() =>
+        expect(workflow.getTask().steps.at(-1)?.status.type).toBe(
+          expectedStatus,
+        ),
+      );
+      expect(mockTrackOrder).not.toHaveBeenCalled();
+    },
+  );
 
   it('runs Stakefish validator signing and deposit in the same task after the fee gate', async () => {
     const steps: string[] = [];

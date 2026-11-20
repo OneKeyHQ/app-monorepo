@@ -10,6 +10,116 @@ function createFundingEntity(storage = createMemoryStorage(null)) {
 
 const scope = 'wallet-a|evm--1|wallet-a-base|evm--8453|vault-a';
 
+const swapRecovery = {
+  sender: {
+    accountId: 'wallet-a',
+    networkId: 'evm--1',
+    address: '0xa',
+    amount: '1',
+    token: {
+      networkId: 'evm--1',
+      contractAddress: '0x1',
+      symbol: 'A',
+      decimals: 18,
+    },
+  },
+  receiver: {
+    accountId: 'wallet-b',
+    networkId: 'evm--8453',
+    address: '0xb',
+    amount: '2',
+    token: {
+      networkId: 'evm--8453',
+      contractAddress: '0x2',
+      symbol: 'B',
+      decimals: 6,
+    },
+  },
+  provider: { provider: 'p', providerName: 'Provider' },
+  useOrderId: false,
+  ctx: { route: 'x' },
+  currency: { id: 'usd', symbol: '$' },
+  createdAt: 1,
+};
+
+it('persists the swap recovery context with its claim and submitted hash across restart', async () => {
+  const { entity, storage } = createFundingEntity();
+  expect(
+    (
+      await entity.changeFunding(scope, {
+        type: 'claim',
+        attemptId: 'owner',
+        intentAmount: '1',
+        swapRecovery,
+      })
+    ).applied,
+  ).toBe(true);
+  expect(
+    (
+      await entity.changeFunding(scope, {
+        type: 'submitted',
+        attemptId: 'owner',
+        txId: 'swap-tx',
+      })
+    ).applied,
+  ).toBe(true);
+  const restarted = createFundingEntity(storage).entity;
+  expect(await restarted.getFunding(scope)).toEqual(
+    expect.objectContaining({
+      status: 'submitted',
+      txId: 'swap-tx',
+      swapRecovery,
+    }),
+  );
+});
+
+it('rejects an oversized recovery claim without damaging existing records', async () => {
+  const { entity } = createFundingEntity();
+  await entity.changeFunding('existing', {
+    type: 'claim',
+    attemptId: 'existing-owner',
+  });
+  expect(
+    (
+      await entity.changeFunding(scope, {
+        type: 'claim',
+        attemptId: 'owner',
+        swapRecovery: { ...swapRecovery, ctx: 'x'.repeat(40_000) },
+      })
+    ).applied,
+  ).toBe(false);
+  expect(await entity.getFunding('existing')).toEqual(
+    expect.objectContaining({ status: 'unknown' }),
+  );
+  expect(await entity.getFunding(scope)).toBeNull();
+});
+
+it('keeps conflicting broadcasts blocked with their original recovery context', async () => {
+  const { entity } = createFundingEntity();
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'owner',
+    swapRecovery,
+  });
+  await entity.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'owner',
+    txId: 'first',
+  });
+  await entity.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'owner',
+    txId: 'second',
+  });
+  expect(await entity.getFunding(scope)).toEqual(
+    expect.objectContaining({
+      status: 'unknown',
+      txIdConflict: true,
+      swapRecovery,
+    }),
+  );
+});
+
 it('serializes distinct loan steps in one market while allowing unrelated markets', async () => {
   const { entity } = createFundingEntity();
   const group = 'lending-market-a';

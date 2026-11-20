@@ -38,6 +38,10 @@ import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  buildRecoveredEarnSwapHistory,
+  isEarnSwapRecovery,
+} from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -2518,6 +2522,118 @@ export default class ServiceSwap extends ServiceBase {
   async getSwapHistoryByTxId({ txId }: { txId: string }) {
     const histories = await this.repairSwapHistoryNetworkInfo();
     return histories.find((item) => item.txInfo.txId === txId);
+  }
+
+  @backgroundMethod()
+  async restoreEarnSwapHistory({
+    scope,
+    txId,
+  }: {
+    scope: string;
+    txId: string;
+  }): Promise<boolean> {
+    // Web tabs own separate background instances and their history mutexes are not shared.
+    if (platformEnv.isWeb) return false;
+    if (!scope || !txId || scope.length > 2048 || txId.length > 256)
+      return false;
+    let parts: unknown;
+    try {
+      parts = JSON.parse(scope);
+    } catch {
+      return false;
+    }
+    if (!Array.isArray(parts)) return false;
+    const loan = parts[0] === 'loan';
+    const offset = loan ? 1 : 0;
+    const normalized = (networkId: string, address: string) =>
+      networkUtils.isEvmNetwork({ networkId })
+        ? address.toLowerCase()
+        : address;
+    return this.swapHistoryMutationMutex.runExclusive(async () => {
+      const funding =
+        await this.backgroundApi.serviceStaking.getEarnFunding(scope);
+      if (
+        funding?.status !== 'submitted' ||
+        funding.txId !== txId ||
+        !isEarnSwapRecovery(funding.swapRecovery) ||
+        !funding.intentAmount
+      )
+        return false;
+      const recovery = funding.swapRecovery;
+      const { sender, receiver } = recovery;
+      if (
+        parts[offset] !== sender.accountId ||
+        parts[offset + 1] !== sender.networkId ||
+        parts[offset + 2] !== normalized(sender.networkId, sender.address) ||
+        parts[offset + 3] !== receiver.accountId ||
+        parts[offset + 4] !== receiver.networkId ||
+        parts[offset + 5] !==
+          normalized(receiver.networkId, receiver.address) ||
+        parts[offset + 6] !==
+          normalized(sender.networkId, sender.token.contractAddress) ||
+        parts[offset + (loan ? 8 : 7)] !==
+          normalized(receiver.networkId, receiver.token.contractAddress) ||
+        (loan &&
+          ((parts[8] !== null && typeof parts[8] !== 'boolean') ||
+            (parts[10] !== null && typeof parts[10] !== 'boolean') ||
+            Boolean(parts[8]) !== Boolean(sender.token.isNative) ||
+            Boolean(parts[10]) !== Boolean(receiver.token.isNative))) ||
+        sender.token.networkId !== sender.networkId ||
+        receiver.token.networkId !== receiver.networkId ||
+        !new BigNumber(funding.intentAmount).eq(sender.amount)
+      )
+        return false;
+      const [senderAddress, receiverAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: receiver.accountId,
+          networkId: receiver.networkId,
+        }),
+      ]);
+      if (
+        !senderAddress ||
+        !receiverAddress ||
+        normalized(sender.networkId, senderAddress) !==
+          normalized(sender.networkId, sender.address) ||
+        normalized(receiver.networkId, receiverAddress) !==
+          normalized(receiver.networkId, receiver.address)
+      )
+        return false;
+      const histories = await this.repairSwapHistoryNetworkInfo();
+      if (histories.some((item) => item.txInfo.txId === txId)) return true;
+      const current =
+        await this.backgroundApi.serviceStaking.getEarnFunding(scope);
+      if (
+        current?.status !== 'submitted' ||
+        current.txId !== txId ||
+        !isEqual(current.swapRecovery, recovery)
+      )
+        return false;
+      const history = buildRecoveredEarnSwapHistory(recovery, txId);
+      await this.retrySwapHistoryPersistence(() =>
+        this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+          history,
+        ),
+      );
+      await this.backgroundApi.simpleDb.swapHistory
+        .commitPendingSwapHistoryItem(history)
+        .catch(() => undefined);
+      await inAppNotificationAtom
+        .set((previous) => {
+          const pending = filterSwapHistoryPendingList(
+            previous.swapHistoryPendingList,
+          );
+          if (pending.some((item) => this.isSameSwapHistoryItem(item, history)))
+            return previous;
+          return { ...previous, swapHistoryPendingList: [...pending, history] };
+        })
+        .catch((error: unknown) => this.logSwapHistoryPersistError(error));
+      appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+      return true;
+    });
   }
 
   /**

@@ -63,7 +63,8 @@ type IBuildUnsignedTxParams = {
   onConfirmationFail?: (error: Error) => void;
   onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
+  preserveBatchTxIds?: boolean;
   isNavigationCurrent?: () => boolean;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
@@ -149,6 +150,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onSafePreSendFail,
         onCancel,
         onBeforeSend,
+        preserveBatchTxIds,
         isNavigationCurrent,
         broadcastDeadline,
         beforeBroadcastAction,
@@ -307,6 +309,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onSafePreSendFail,
             onCancel,
             onBeforeSend,
+            preserveBatchTxIds,
             broadcastDeadline,
             beforeBroadcastAction,
             transferPayload,
@@ -328,6 +331,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onSafePreSendFail,
               onCancel,
               onBeforeSend,
+              preserveBatchTxIds,
               broadcastDeadline,
               beforeBroadcastAction,
               transferPayload,

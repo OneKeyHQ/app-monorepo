@@ -3216,8 +3216,10 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBorrowReserves(params: IBorrowReserveRequestParams) {
-    const { accountId, ...rest } =
+  async getBorrowReserves(
+    params: IBorrowReserveRequestParams & { expectedAccountAddress?: string },
+  ) {
+    const { accountId, expectedAccountAddress, ...rest } =
       earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
@@ -3226,6 +3228,14 @@ class ServiceStaking extends ServiceBase {
           accountId,
         })
       : undefined;
+
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId: params.networkId })
+        ? accountAddress?.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Borrow account changed');
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
@@ -3535,6 +3545,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowHealthFactor(this, params),

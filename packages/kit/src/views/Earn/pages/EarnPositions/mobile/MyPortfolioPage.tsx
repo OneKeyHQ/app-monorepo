@@ -39,7 +39,11 @@ import type {
   IEarnRewardsPortfolioStage,
 } from '@onekeyhq/shared/types/staking';
 
-import { useHomeNetWorthFigures } from '../../../components/desktopHome/earnNetWorthStore';
+import { EarnAccountMarketsError } from '../../../components/desktopHome/EarnAccountMarketsError';
+import {
+  getHomeNetWorthAccountKey,
+  useHomeNetWorthFigures,
+} from '../../../components/desktopHome/earnNetWorthStore';
 import { useEarnDesktopAccountMarkets } from '../../../components/desktopHome/useEarnDesktopHomeData';
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
@@ -225,8 +229,6 @@ export function MyPortfolioPage({
     activeAccount.indexedAccount?.id ||
     activeAccount.account?.id ||
     '';
-  const homeFigures = useHomeNetWorthFigures(filterAccountKey, currencyId);
-  const homeNetWorth = homeFigures?.value;
   const [networkSelection, setNetworkSelection] = useState<{
     accountKey: string;
     networkIds: string[];
@@ -258,20 +260,38 @@ export function MyPortfolioPage({
     isListReady: lendingMarketList.length > 0 || !isBorrowMarketListLoading,
     isActive: isFocused && READS_LENDING_MARKETS,
   });
-  // Partial sums are wrong numbers: a first load, the only kind that starts
-  // from an empty page, keeps the page empty until every protocol has
-  // answered, the lending markets too, and then shows it whole, as the DeFi
-  // home's Net Worth does. Shown as each one landed, the totals counted up
-  // from $0.00 and the bar, tiles and cards reordered several times in a
-  // second. A refresh keeps the rows on screen as before
+  const homeFigures = useHomeNetWorthFigures(
+    getHomeNetWorthAccountKey({
+      accountId: activeAccount.account?.id,
+      indexedAccountId:
+        activeAccount.account?.indexedAccountId ||
+        activeAccount.indexedAccount?.id,
+      accountMarketsScope: lendingMarkets.accountScope,
+    }),
+    currencyId,
+  );
+  const homeNetWorth = homeFigures?.value;
+  // Totals wait for every market. Once all requests have settled, successful
+  // positions can still be managed while the unresolved markets retry.
   const isFirstLoad =
     isPositionsLoading || (READS_LENDING_MARKETS && !lendingMarkets.isLoaded);
+  const lendingError = READS_LENDING_MARKETS && lendingMarkets.hasError;
+  const isPositionListLoading =
+    isPositionsLoading ||
+    (READS_LENDING_MARKETS && !lendingMarkets.isLoaded && !lendingError);
+  const shouldWaitForPositions =
+    isPositionsLoading ||
+    (READS_LENDING_MARKETS &&
+      !lendingMarkets.isLoaded &&
+      !lendingMarkets.hasSettled &&
+      !lendingError &&
+      lendingMarkets.entries.length === 0);
   // The account the lending rows' windows open for, the one their markets
   // were read for
   const lendingIndexedAccountId =
     selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
   const response = useMemo(() => {
-    if (isFirstLoad) {
+    if (shouldWaitForPositions) {
       return EMPTY_POSITIONS_RESPONSE;
     }
     return READS_LENDING_MARKETS
@@ -282,7 +302,7 @@ export function MyPortfolioPage({
         })
       : loadedResponse;
   }, [
-    isFirstLoad,
+    shouldWaitForPositions,
     lendingIndexedAccountId,
     lendingMarkets.entries,
     loadedResponse,
@@ -716,7 +736,7 @@ export function MyPortfolioPage({
           figure: tableLayout ? (
             <EarnPortfolioRewardsTabFigure
               value={rewardsHeaderFiat}
-              isLoading={isFirstLoad}
+              isLoading={isRewardsLoading}
               onPress={() => handleTabChange('rewards')}
             />
           ) : undefined,
@@ -738,6 +758,27 @@ export function MyPortfolioPage({
       setIsManualRefreshing(false);
     }
   }, [refreshAll]);
+
+  const regularHeader = tableLayout ? (
+    <EarnPortfolioDesktopHeader
+      netWorth={homeNetWorth ?? String(view.totalValue)}
+      earnings24h={homeFigures?.earnings24h}
+      change24h={homeFigures?.change24h}
+      isLoading={isFirstLoad}
+      isActive={isFocused}
+      isRefreshing={isManualRefreshing}
+      onRefresh={handleRefresh}
+    />
+  ) : (
+    <PortfolioTotalsHeader
+      defiAssetsFiatValue={
+        (platformEnv.isNative ? undefined : homeNetWorth) ??
+        String(view.totalValue)
+      }
+      rewardsFiatValue={rewardsHeaderFiat}
+      isLoading={isFirstLoad}
+    />
+  );
 
   return (
     <Page>
@@ -778,25 +819,10 @@ export function MyPortfolioPage({
                 {/* DeFi Assets leaves the positions' rewards out; Rewards counts them.
                     On web the total is the home's Net Worth, the same figure
                     under the same name (demo 10-29) */}
-                {tableLayout ? (
-                  <EarnPortfolioDesktopHeader
-                    netWorth={homeNetWorth ?? String(view.totalValue)}
-                    earnings24h={homeFigures?.earnings24h}
-                    change24h={homeFigures?.change24h}
-                    isLoading={isFirstLoad}
-                    isActive={isFocused}
-                    isRefreshing={isManualRefreshing}
-                    onRefresh={handleRefresh}
-                  />
+                {lendingError ? (
+                  <EarnAccountMarketsError onRetry={refreshLendingMarkets} />
                 ) : (
-                  <PortfolioTotalsHeader
-                    defiAssetsFiatValue={
-                      (platformEnv.isNative ? undefined : homeNetWorth) ??
-                      String(view.totalValue)
-                    }
-                    rewardsFiatValue={rewardsHeaderFiat}
-                    isLoading={isFirstLoad}
-                  />
+                  regularHeader
                 )}
                 {tableLayout ? (
                   // One row for the tabs and the filter both tabs share
@@ -826,7 +852,8 @@ export function MyPortfolioPage({
                           focusRequest={focusRequest}
                           focusCardRequest={focusCardRequest}
                           protocols={visibleProtocols}
-                          isLoading={isFirstLoad}
+                          isLoading={isPositionListLoading}
+                          isUnavailable={lendingError}
                           pendingCountByProvider={pendingCountByProvider}
                           onManage={handleManage}
                           onRedeem={handleRedeem}
@@ -836,7 +863,8 @@ export function MyPortfolioPage({
                         <DeFiAssetsTab
                           focusCardRequest={focusCardRequest}
                           protocols={visibleProtocols}
-                          isLoading={isFirstLoad}
+                          isLoading={isPositionListLoading}
+                          isUnavailable={lendingError}
                           pendingCountByProvider={pendingCountByProvider}
                           networkFilter={networkFilter}
                           onManage={handleManage}

@@ -1,6 +1,35 @@
 export type IEarnFundingIntent = {
   intentAmount?: string;
   positionBefore?: string;
+  swapRecovery?: IEarnSwapRecovery;
+};
+
+export type IEarnSwapRecovery = {
+  sender: IEarnSwapRecoverySide;
+  receiver: IEarnSwapRecoverySide;
+  provider: { provider: string; providerName: string; providerLogo?: string };
+  serviceOrderId?: string;
+  orderId?: string;
+  useOrderId: boolean;
+  ctx?: unknown;
+  currency: { id: string; symbol: string };
+  createdAt: number;
+};
+
+export type IEarnSwapRecoverySide = {
+  accountId: string;
+  networkId: string;
+  address: string;
+  amount: string;
+  token: {
+    networkId: string;
+    contractAddress: string;
+    symbol: string;
+    decimals: number;
+    isNative?: boolean;
+    name?: string;
+    logoURI?: string;
+  };
 };
 
 export type IEarnFundingReceipt = { scope: string; txId: string };

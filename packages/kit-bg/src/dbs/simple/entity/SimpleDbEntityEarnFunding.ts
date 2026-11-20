@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { isEarnSwapRecovery } from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import type {
   IEarnFundingChange,
   IEarnFundingReceipt,
@@ -80,6 +81,12 @@ function isValidRecord(record: unknown): record is IFundingRecord {
     !isValidAmount(state.positionBefore, true)
   )
     return false;
+  if (
+    'swapRecovery' in state &&
+    state.swapRecovery !== undefined &&
+    !isEarnSwapRecovery(state.swapRecovery)
+  )
+    return false;
   if (!('status' in state)) return false;
   if (state.status === 'unknown') return true;
   if (!('txId' in state) || !isValidId(state.txId)) return false;
@@ -116,7 +123,9 @@ function applyChange(
       (change.intentAmount !== undefined &&
         !isValidAmount(change.intentAmount)) ||
       (change.positionBefore !== undefined &&
-        !isValidAmount(change.positionBefore, true))
+        !isValidAmount(change.positionBefore, true)) ||
+      (change.swapRecovery !== undefined &&
+        !isEarnSwapRecovery(change.swapRecovery))
     )
       return current;
     return {
@@ -127,12 +136,13 @@ function applyChange(
         status: 'unknown',
         intentAmount: change.intentAmount,
         positionBefore: change.positionBefore,
+        ...(change.swapRecovery ? { swapRecovery: change.swapRecovery } : {}),
       },
     };
   }
   if (!current) return current;
   const { attemptId, state } = current;
-  const { intentAmount, positionBefore } = state;
+  const { intentAmount, positionBefore, swapRecovery } = state;
   switch (change.type) {
     case 'submitted':
       if (attemptId !== change.attemptId || !isValidId(change.txId))
@@ -147,6 +157,7 @@ function applyChange(
                 txId: change.txId,
                 intentAmount,
                 positionBefore,
+                ...(swapRecovery ? { swapRecovery } : {}),
               },
             };
       }
@@ -159,6 +170,7 @@ function applyChange(
               txIdConflict: true,
               intentAmount,
               positionBefore,
+              ...(swapRecovery ? { swapRecovery } : {}),
             },
           };
     case 'settled':

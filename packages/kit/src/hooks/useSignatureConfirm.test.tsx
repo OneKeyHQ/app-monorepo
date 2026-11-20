@@ -80,6 +80,35 @@ describe('useSignatureConfirm', () => {
     mockFindLnurl.mockResolvedValue(null);
   });
 
+  it.each([false, true])(
+    'forwards opt-in batch identity protection through confirmation (sameModal=%s)',
+    async (sameModal) => {
+      const { result } = renderHook(() =>
+        useSignatureConfirm({ accountId: 'account-id', networkId: 'evm--1' }),
+      );
+      await act(async () => {
+        await result.current.normalizeTxConfirm({
+          unsignedTxs: [unsignedTx],
+          sameModal,
+          preserveBatchTxIds: true,
+        });
+      });
+      if (sameModal) {
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ preserveBatchTxIds: true }),
+        );
+      } else {
+        expect(mockPushModal).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            params: expect.objectContaining({ preserveBatchTxIds: true }),
+          }),
+        );
+      }
+    },
+  );
+
   it('binds the Earn return ticket when opening confirmation and releases it on send', async () => {
     const onSuccess = jest.fn();
     const onLate = jest.fn();

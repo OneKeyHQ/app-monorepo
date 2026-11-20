@@ -119,7 +119,8 @@ type IProps = {
   onFail?: (error: Error) => void;
   onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
+  preserveBatchTxIds?: boolean;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
@@ -158,6 +159,7 @@ function TxConfirmActions(props: IProps) {
     onSafePreSendFail,
     onCancel,
     onBeforeSend,
+    preserveBatchTxIds,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -644,7 +646,7 @@ function TxConfirmActions(props: IProps) {
     let checkLateBroadcastCandidates: (() => void) | undefined;
     let successCommitted = false;
     try {
-      await onBeforeSend?.();
+      await onBeforeSend?.(newUnsignedTxs);
     } catch (error) {
       if (handleInfiniFailureExit(error)) return;
       const sendError = error as Error;
@@ -785,6 +787,7 @@ function TxConfirmActions(props: IProps) {
           accountId,
           networkId,
           unsignedTxs: newUnsignedTxs,
+          preserveBatchTxIds,
           feeInfos: sendSelectedFeeInfo?.feeInfos,
           signOnly,
           sourceInfo,
@@ -1062,6 +1065,7 @@ function TxConfirmActions(props: IProps) {
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onBeforeSend,
+    preserveBatchTxIds,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,

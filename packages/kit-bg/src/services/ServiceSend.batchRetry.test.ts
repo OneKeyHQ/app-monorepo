@@ -468,7 +468,11 @@ function makeService(
 function batchSend(
   service: ServiceSend,
   unsignedTxs: IUnsignedTxPro[],
-  options: { signOnly?: boolean; sentTxsTrackingId?: string } = {},
+  options: {
+    signOnly?: boolean;
+    sentTxsTrackingId?: string;
+    preserveBatchTxIds?: boolean;
+  } = {},
 ) {
   return service.batchSignAndSendTransaction({
     accountId,
@@ -477,6 +481,7 @@ function batchSend(
     signOnly: options.signOnly ?? false,
     transferPayload: undefined,
     sentTxsTrackingId: options.sentTxsTrackingId,
+    preserveBatchTxIds: options.preserveBatchTxIds,
   });
 }
 
@@ -531,6 +536,53 @@ function failBroadcastOnce(
 describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('does not sign a refreshed batch transaction under another transaction ID', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.refreshUnsignedTxBeforeBatchSign.mockImplementationOnce(
+      async (tx: IUnsignedTxPro) => ({ ...tx, uuid: 'u0' }),
+    );
+    await expect(
+      batchSend(service, unsignedTxs, { preserveBatchTxIds: true }),
+    ).rejects.toThrow('Transaction identity changed during batch preparation');
+    expect(signedUuids(vault)).toEqual(['u0']);
+  });
+
+  it('does not sign if final signing preparation changes the transaction ID', async () => {
+    const { service, vault } = makeService();
+    vault.refreshUnsignedTxBeforeSign.mockImplementationOnce(
+      async (tx: IUnsignedTxPro) => ({ ...tx, uuid: 'other' }),
+    );
+    await expect(
+      batchSend(service, [buildUnsignedTx('u0')], { preserveBatchTxIds: true }),
+    ).rejects.toThrow(
+      'Transaction identity changed during signing preparation',
+    );
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+  });
+
+  it('retains ordinary batch behavior when ID preservation is not requested', async () => {
+    const { service, vault } = makeService();
+    vault.refreshUnsignedTxBeforeBatchSign.mockImplementationOnce(
+      async (tx: IUnsignedTxPro) => ({ ...tx, uuid: 'refreshed' }),
+    );
+    await expect(
+      batchSend(service, [buildUnsignedTx('u0'), buildUnsignedTx('u1')]),
+    ).resolves.toBeDefined();
+    expect(signedUuids(vault)).toEqual(['u0', 'refreshed']);
+  });
+
+  it('retains ordinary signing behavior when ID preservation is not requested', async () => {
+    const { service, vault } = makeService();
+    vault.refreshUnsignedTxBeforeSign.mockImplementationOnce(
+      async (tx: IUnsignedTxPro) => ({ ...tx, uuid: 'refreshed' }),
+    );
+    await expect(
+      batchSend(service, [buildUnsignedTx('u0')]),
+    ).resolves.toBeDefined();
+    expect(signedUuids(vault)).toEqual(['refreshed']);
   });
 
   it('replays a landed chunk instead of signing it again when the batch is retried', async () => {

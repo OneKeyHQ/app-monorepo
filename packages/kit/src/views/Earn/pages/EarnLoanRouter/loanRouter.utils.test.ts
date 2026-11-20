@@ -1238,26 +1238,43 @@ describe('getLoanHealthTone', () => {
 describe('confirmed supply position reconciliation', () => {
   it('requires a valid baseline and the newly supplied position delta', () => {
     expect(
-      hasLoanSupplySettled({ before: undefined, amount: '5', current: 100 }),
+      hasLoanSupplySettled({ before: undefined, amount: '5', current: '100' }),
     ).toBe(false);
     expect(
-      hasLoanSupplySettled({ before: '100', amount: '5', current: 100 }),
+      hasLoanSupplySettled({ before: '100', amount: '5', current: '100' }),
     ).toBe(false);
     expect(
-      hasLoanSupplySettled({ before: '100', amount: '5', current: 104.995 }),
+      hasLoanSupplySettled({ before: '100', amount: '5', current: '104.995' }),
     ).toBe(true);
-    expect(hasLoanSupplySettled({ before: '0', amount: '5', current: 5 })).toBe(
-      true,
-    );
     expect(
-      hasLoanSupplySettled({ before: 'NaN', amount: '5', current: 5 }),
+      hasLoanSupplySettled({ before: '0', amount: '5', current: '5' }),
+    ).toBe(true);
+    expect(
+      hasLoanSupplySettled({ before: 'NaN', amount: '5', current: '5' }),
     ).toBe(false);
-    expect(hasLoanSupplySettled({ before: '0', amount: '0', current: 5 })).toBe(
-      false,
-    );
+    expect(
+      hasLoanSupplySettled({ before: '0', amount: '0', current: '5' }),
+    ).toBe(false);
     expect(
       hasLoanSupplySettled({ before: '0', amount: '5', current: undefined }),
     ).toBe(false);
+  });
+
+  it('compares small balance deltas without number precision loss', () => {
+    expect(
+      hasLoanSupplySettled({
+        before: '100000000',
+        amount: '0.00000001',
+        current: '100000000',
+      }),
+    ).toBe(false);
+    expect(
+      hasLoanSupplySettled({
+        before: '100000000',
+        amount: '0.00000001',
+        current: '100000000.00000001',
+      }),
+    ).toBe(true);
   });
 });
 

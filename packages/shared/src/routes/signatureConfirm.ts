@@ -119,7 +119,8 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onSafePreSendFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
+    preserveBatchTxIds?: boolean;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     // WalletConnect Pay only: durable pre-broadcast txid record identity
@@ -177,7 +178,8 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onSafePreSendFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
+    preserveBatchTxIds?: boolean;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;

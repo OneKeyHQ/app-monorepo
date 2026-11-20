@@ -32,6 +32,7 @@ function BasicDeFiAssetsDesktopTab({
   focusCardRequest,
   protocols,
   isLoading,
+  isUnavailable = false,
   pendingCountByProvider,
   onManage,
   onRedeem,
@@ -43,6 +44,7 @@ function BasicDeFiAssetsDesktopTab({
   focusCardRequest?: { cardKeys: string[]; at: number };
   protocols: IEarnProtocolView[];
   isLoading: boolean;
+  isUnavailable?: boolean;
   pendingCountByProvider: Record<string, number>;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
@@ -93,7 +95,7 @@ function BasicDeFiAssetsDesktopTab({
   );
 
   let placeholder: React.ReactNode = null;
-  if (protocols.length === 0) {
+  if (protocols.length === 0 && (isLoading || !isUnavailable)) {
     placeholder = isLoading ? (
       <Stack ai="center" py="$8">
         <Spinner size="large" />
@@ -110,10 +112,12 @@ function BasicDeFiAssetsDesktopTab({
 
   return (
     <YStack gap="$8" pb="$4">
-      <EarnPortfolioOverview
-        protocols={protocols}
-        onOpenSplitProtocols={handleOpenSplitProtocols}
-      />
+      {!isLoading && !isUnavailable ? (
+        <EarnPortfolioOverview
+          protocols={protocols}
+          onOpenSplitProtocols={handleOpenSplitProtocols}
+        />
+      ) : null}
       {placeholder}
       {protocols.length > 0 ? (
         <YStack gap="$4">

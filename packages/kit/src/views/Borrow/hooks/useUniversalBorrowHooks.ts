@@ -6,7 +6,7 @@ import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import { createLateEarnOrderObserver } from '@onekeyhq/kit/src/views/Earn/tasks/lateEarnOrderRecorder';
+import { createLateEarnOrderRecorder } from '@onekeyhq/kit/src/views/Earn/tasks/lateEarnOrderRecorder';
 import {
   getTaskAccountAddress,
   isTaskAccountCurrent,
@@ -416,6 +416,7 @@ export function useUniversalBorrowRepayWithCollateral({
       signal,
       onCancelled,
       onFailed,
+      onSafePreSendFailed,
     }: {
       encodedTx?: IEncodedTx;
       stakingInfo?: IStakingInfo;
@@ -431,6 +432,7 @@ export function useUniversalBorrowRepayWithCollateral({
       signal?: AbortSignal;
       onCancelled?: () => void;
       onFailed?: () => void;
+      onSafePreSendFailed: () => void;
     }): Promise<ITxConfirmResult> =>
       new Promise((resolve, reject) => {
         let settled = false;
@@ -510,6 +512,13 @@ export function useUniversalBorrowRepayWithCollateral({
           onFail: (error) => {
             try {
               if (!settled) onFailed?.();
+            } finally {
+              rejectOnce(error);
+            }
+          },
+          onSafePreSendFail: (error) => {
+            try {
+              if (!settled) onSafePreSendFailed();
             } finally {
               rejectOnce(error);
             }
@@ -708,6 +717,7 @@ export function useUniversalBorrowRepayWithCollateral({
             onLateBroadcastAccepted,
             onCancelled,
             onFailed,
+            onSafePreSendFailed,
           }) => {
             const setupInfo = buildBorrowTrackingStakingInfo({
               stakingInfo,
@@ -721,6 +731,7 @@ export function useUniversalBorrowRepayWithCollateral({
               signal,
               onCancelled,
               onFailed,
+              onSafePreSendFailed,
               onLateBroadcastAccepted: async (fact) => {
                 if (
                   fact.accountId !== accountId ||
@@ -842,6 +853,7 @@ export function useUniversalBorrowRepayWithCollateral({
             onLateBroadcastAccepted,
             onCancelled,
             onFailed,
+            onSafePreSendFailed,
             onCompleted,
             onCallbackFailed,
           }) => {
@@ -856,12 +868,7 @@ export function useUniversalBorrowRepayWithCollateral({
               await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
               await verifyAccount();
             }
-            const observeLateOrder = createLateEarnOrderObserver({
-              accountId,
-              networkId,
-              onError: () =>
-                console.error('Unable to record late Borrow order'),
-            });
+            const recordLateOrder = createLateEarnOrderRecorder();
             const result = await waitForTxConfirmResult({
               encodedTx: parseBorrowEncodedTx(built.tx),
               stakingInfo: info,
@@ -870,8 +877,8 @@ export function useUniversalBorrowRepayWithCollateral({
               signal,
               onCancelled,
               onFailed,
+              onSafePreSendFailed,
               onLateBroadcastAccepted: async (fact) => {
-                let accepted = false;
                 if (
                   fact.accountId !== accountId ||
                   fact.networkId !== networkId ||
@@ -879,13 +886,21 @@ export function useUniversalBorrowRepayWithCollateral({
                   !fact.txid.trim()
                 )
                   return false;
-                accepted = await onLateBroadcastAccepted(fact.txid);
-                await observeLateOrder({
+                const accepted = await onLateBroadcastAccepted(fact.txid);
+                if (!accepted) return false;
+                const recording = await recordLateOrder({
                   fact,
+                  accountId,
+                  networkId,
                   stakeInfo: info,
                   orderId: built.orderId,
-                  onAccepted: () => accepted,
                 });
+                if (recording === 'synced' || recording === 'notTracked') {
+                  onCompleted();
+                } else {
+                  onCallbackFailed();
+                  console.error('Unable to record late Borrow order');
+                }
                 return accepted;
               },
               onConfirmed: async (data, wasSettled) => {
@@ -938,6 +953,16 @@ export function useUniversalBorrowRepayWithCollateral({
         if (!sameSetupRoute(task)) {
           const previous = task.getTask();
           if (previous.identity.accountId !== accountId) return pending();
+          const priorRepay = previous.steps.find((step) => step.id === 'repay');
+          const recordedLateRepay =
+            priorRepay?.status.type === 'unknown' &&
+            'txid' in priorRepay.status &&
+            Boolean(priorRepay.status.txid) &&
+            !(
+              'txidConflict' in priorRepay.status &&
+              priorRepay.status.txidConflict
+            ) &&
+            previous.facts?.repayCallback === 'completed';
           const active = previous.steps.some(
             (step) =>
               [
@@ -949,9 +974,10 @@ export function useUniversalBorrowRepayWithCollateral({
                 'executing',
                 'checking',
               ].includes(step.status.type) ||
-              (step.kind !== 'wait' && step.status.type === 'unknown'),
+              (step.kind !== 'wait' &&
+                step.status.type === 'unknown' &&
+                !(step.id === 'repay' && recordedLateRepay)),
           );
-          const priorRepay = previous.steps.find((step) => step.id === 'repay');
           if (
             active ||
             (priorRepay?.status.type === 'handedOff' &&

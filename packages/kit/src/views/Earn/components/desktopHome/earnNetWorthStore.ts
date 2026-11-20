@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 /**
  * The DeFi home's Net Worth as it last showed it, for My portfolio's total:
  * one name, one number (demo 10-29). The two pages read their totals from
@@ -29,6 +31,21 @@ const subscribe = (listener: () => void) => {
 };
 
 const getSnapshot = () => current;
+
+export function getHomeNetWorthAccountKey({
+  accountId,
+  indexedAccountId,
+  accountMarketsScope,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  accountMarketsScope: string;
+}) {
+  if (accountId && accountUtils.isExternalAccount({ accountId })) {
+    return accountMarketsScope;
+  }
+  return indexedAccountId || accountId || '';
+}
 
 export function publishHomeNetWorth(next: IHomeNetWorth) {
   if (

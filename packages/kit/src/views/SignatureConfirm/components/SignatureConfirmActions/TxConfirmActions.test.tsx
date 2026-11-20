@@ -729,6 +729,58 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
 
+  it('passes the transactions actually rebuilt for sending to the send guard', async () => {
+    const rebuilt = mockUnsignedTxs.map((tx) => ({
+      ...tx,
+      uuid: 'rebuilt-id',
+    }));
+    jest
+      .spyOn(backgroundApiProxy.serviceSend, 'updateUnSignedTxBeforeSending')
+      .mockResolvedValueOnce(rebuilt);
+    const onBeforeSend = jest.fn(() => {
+      throw new OneKeyLocalError('stop before send');
+    });
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onBeforeSend={onBeforeSend}
+        onFail={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+        'stop before send',
+      );
+    });
+    expect(onBeforeSend).toHaveBeenCalledWith(rebuilt);
+    expect(mockBatchSend).not.toHaveBeenCalled();
+  });
+
+  it('forwards opt-in batch identity protection to the background send', async () => {
+    mockBatchSend.mockRejectedValueOnce(new Error('stop after send starts'));
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        preserveBatchTxIds
+        onFail={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+        'stop after send starts',
+      );
+    });
+    expect(mockBatchSend).toHaveBeenCalledWith(
+      expect.objectContaining({ preserveBatchTxIds: true }),
+    );
+  });
+
   it.each([
     { legacyScanner: false, userCancelled: false },
     { legacyScanner: false, userCancelled: true },

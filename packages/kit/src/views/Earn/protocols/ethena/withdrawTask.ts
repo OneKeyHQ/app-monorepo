@@ -38,6 +38,9 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
   onSubmitted,
   waitForSwap,
   onUnknownSwap,
+  onUnknownUnstake,
+  onUnstakeSend,
+  onUnstakeSendBlocked,
   onSwapSend,
   onSwapSendBlocked,
   onFail,
@@ -97,6 +100,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
                   if (signal?.aborted || (isSendCurrent && !isSendCurrent()))
                     throw new OneKeyLocalError('Earn withdrawal expired');
                   if (stage === 'swap' && !sendObserved) onSwapSend();
+                  if (stage === 'unstake' && !sendObserved) onUnstakeSend?.();
                   sendObserved = true;
                   callbacks.onSendObserved();
                 }
@@ -104,6 +108,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
                   if (signal?.aborted || (isSendCurrent && !isSendCurrent()))
                     throw new OneKeyLocalError('Earn withdrawal expired');
                   if (stage === 'swap' && !sendObserved) onSwapSend();
+                  if (stage === 'unstake' && !sendObserved) onUnstakeSend?.();
                   sendObserved = true;
                   callbacks.onSendObserved();
                 },
@@ -117,6 +122,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
               sendObserved = false;
               failedBeforeSend = true;
               if (stage === 'swap') onSwapSendBlocked?.();
+              if (stage === 'unstake') onUnstakeSendBlocked?.();
               callbacks.onFail(error);
             },
             onSuccess: (data) => {
@@ -131,13 +137,13 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
                 !callbacks.onLateBroadcastAccepted(fact.txid)
               )
                 return;
-              if (stage === 'swap') onUnknownSwap();
               const recordingResult = await recordLateOrder({
                 fact,
                 accountId: identity.accountId,
                 networkId: identity.networkId,
                 stakeInfo: prepared.stakeInfo,
               });
+              if (stage === 'swap') onUnknownSwap(fact.txid);
               if (
                 recordingResult !== 'synced' &&
                 recordingResult !== 'notTracked' &&
@@ -179,6 +185,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
       },
       onFail: (error) => {
         if (stage === 'swap' && sendObserved) onUnknownSwap();
+        if (stage === 'unstake' && sendObserved) onUnknownUnstake?.();
         try {
           onFail?.(error);
         } catch (callbackError) {
@@ -189,6 +196,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
       },
       onCancel: () => {
         if (stage === 'swap' && sendObserved) onUnknownSwap();
+        if (stage === 'unstake' && sendObserved) onUnknownUnstake?.();
         resolveResult(stage === 'unstake');
       },
       onObserverError,
@@ -229,7 +237,10 @@ type IEthenaWithdrawTaskParams<TIdentity extends IEarnTaskScope> = {
     stakeInfo?: IStakingInfo,
   ) => Promise<void>;
   waitForSwap: (txid?: string) => Promise<boolean>;
-  onUnknownSwap: () => void;
+  onUnknownSwap: (txid?: string) => void;
+  onUnknownUnstake?: () => void;
+  onUnstakeSend?: () => void;
+  onUnstakeSendBlocked?: () => void;
   onSwapSend: () => void;
   onSwapSendBlocked?: () => void;
   onFail?: (error: Error) => void;
@@ -250,6 +261,9 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
   onSubmitted,
   waitForSwap,
   onUnknownSwap,
+  onUnknownUnstake,
+  onUnstakeSend,
+  onUnstakeSendBlocked,
   onSwapSend,
   onSwapSendBlocked,
   onFail,
@@ -273,6 +287,9 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
     onSubmitted,
     waitForSwap,
     onUnknownSwap,
+    onUnknownUnstake,
+    onUnstakeSend,
+    onUnstakeSendBlocked,
     onSwapSend,
     onSwapSendBlocked,
     onFail,

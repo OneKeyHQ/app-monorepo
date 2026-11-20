@@ -25,8 +25,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useCommittedEarnScopeGuard } from '../../../Staking/hooks/useCommittedEarnScopeGuard';
 import { preloadEarnPayWithTokenSelect } from '../../../Staking/router';
-import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
-import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import {
   getEarnFunding,
   refreshEarnFunding,
@@ -63,6 +61,10 @@ import {
   waitForEarnSwap,
   waitForEarnSwapBalance,
 } from '../EarnRouter/earnRouterSwap';
+import {
+  createEarnSwapRecovery,
+  persistEarnSwapHistory,
+} from '../EarnRouter/earnRouterSwapHistory';
 
 import {
   getLoanPayPath,
@@ -578,19 +580,11 @@ export function useLoanPayWith({
       prepared: IEarnSwapPrepared,
       sent?: ISendTxOnSuccessData,
     ) => {
-      const swapNetworks = await backgroundApiProxy.serviceSwap
-        .fetchSwapNetworks()
-        .catch(() => []);
-      await completeBroadcastedSwapSuccess({
+      await persistEarnSwapHistory({
         txId,
         swapInfo: prepared.execution.swapInfo,
-        gasFeeFiatValue: sent?.decodedTx.totalFeeFiatValue,
-        gasFeeInNative: sent?.decodedTx.totalFeeInNative,
-        generateSwapHistoryItem: (params) =>
-          generateSwapHistoryItemForContext(params, {
-            swapNetworks,
-            currencyInfo,
-          }),
+        sent,
+        currencyInfo,
       });
     },
     [currencyInfo],
@@ -730,6 +724,7 @@ export function useLoanPayWith({
           throw new EarnSwapError('cancelled');
         }
         setSwapPhase('confirming');
+        const swapRecovery = createEarnSwapRecovery({ prepared, currencyInfo });
         confirmationOwnsReservation = true;
         const sent = await confirmEarnSwap({
           prepared,
@@ -738,8 +733,14 @@ export function useLoanPayWith({
           isCurrent,
           signal,
           navigateToConfirm: navigationToTxConfirm,
-          onAccepted: (acceptedId, accepted) =>
-            recordSwap(acceptedId, prepared, accepted),
+          swapRecovery,
+          onAccepted: async (acceptedId, accepted) => {
+            try {
+              await recordSwap(acceptedId, prepared, accepted);
+            } catch {
+              throw new EarnSwapError('unknown');
+            }
+          },
         });
         if (!sent) {
           if (isCurrent()) setSwapPhase('idle');
@@ -819,6 +820,7 @@ export function useLoanPayWith({
     [
       account,
       collateral,
+      currencyInfo,
       fromAccount,
       fromToken,
       fundingKey,

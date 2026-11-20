@@ -1391,7 +1391,7 @@ export function hasLoanSupplySettled({
 }: {
   before?: string;
   amount?: string;
-  current?: number;
+  current?: string;
 }): boolean {
   const previous = new BigNumber(before ?? '');
   const supplied = new BigNumber(amount ?? '');
@@ -1401,8 +1401,8 @@ export function hasLoanSupplySettled({
     supplied.isFinite() &&
     supplied.gt(0) &&
     current !== undefined &&
-    Number.isFinite(current) &&
-    new BigNumber(current).gte(previous.plus(supplied.times(0.999)))
+    new BigNumber(current).isFinite() &&
+    new BigNumber(current).gte(previous.plus(supplied.times('0.999')))
   );
 }
 

@@ -10,7 +10,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import type { IEarnSwapRecovery } from '@onekeyhq/shared/types/earn/funding';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
@@ -78,7 +80,6 @@ export type IEarnSwapAccount = {
 
 const QUOTE_TIMEOUT_MS = 15_000;
 const PREPARATION_VALIDITY_MS = 60_000;
-let quoteSequence = 0;
 
 /**
  * Asks the swap service for the pair and keeps the best quote it can carry
@@ -107,8 +108,7 @@ export function fetchEarnSwapQuote({
 }): Promise<IFetchQuoteResult> {
   const isBridge = isEarnBridge({ fromToken, toToken });
   const receiver = isBridge ? toAccount : account;
-  quoteSequence += 1;
-  const quoteRequestId = `earn-swap-${quoteSequence}`;
+  const quoteRequestId = `earn-swap-${generateUUID()}`;
   return new Promise((resolve, reject) => {
     const quotes = new Map<string, IFetchQuoteResult>();
     let isDone = false;
@@ -203,6 +203,7 @@ export function fetchEarnSwapQuote({
           ? ESwapTabSwitchType.BRIDGE
           : ESwapTabSwitchType.SWAP,
         quoteRequestId,
+        cancelOnGlobalStop: false,
       })
       .catch((error: unknown) =>
         finishRef.current(
@@ -308,6 +309,7 @@ export function confirmEarnSwap({
   signal,
   navigateToConfirm,
   onAccepted,
+  swapRecovery,
 }: {
   prepared: IEarnSwapPrepared;
   reservation: NonNullable<ReturnType<typeof reserveEarnFunding>>;
@@ -318,6 +320,7 @@ export function confirmEarnSwap({
     typeof useSignatureConfirm
   >['navigationToTxConfirm'];
   onAccepted: (txId: string, sent?: ISendTxOnSuccessData) => Promise<void>;
+  swapRecovery?: IEarnSwapRecovery;
 }) {
   return new Promise<ISendTxOnSuccessData | undefined>((resolve, reject) => {
     let closed = false;
@@ -326,13 +329,14 @@ export function confirmEarnSwap({
     let claim: Promise<void> | undefined;
     let cancellation: Promise<void> | undefined;
     let accepted: { txId: string; saved: Promise<void> } | undefined;
+    let swapTxId: string | undefined;
     const canConfirm = () => !closed && !signal.aborted && isCurrent();
     const assertOpen = () => {
       if (!canConfirm() || mayHaveBroadcast)
         throw new EarnSwapError('cancelled');
     };
     const startClaim = () => {
-      claim ??= reservation.markUnknown();
+      claim ??= reservation.markUnknown(swapRecovery);
       return claim;
     };
     const release = () => {
@@ -405,13 +409,14 @@ export function confirmEarnSwap({
     signal.addEventListener('abort', abort, { once: true });
     void navigateToConfirm({
       isInternalSwap: true,
+      preserveBatchTxIds: true,
       encodedTx: prepared.execution.encodedTx,
       approvesInfo: prepared.approvesInfo.length
         ? prepared.approvesInfo
         : undefined,
       swapInfo: prepared.execution.swapInfo,
       isNavigationCurrent: canConfirm,
-      onBeforeSend: async () => {
+      onBeforeSend: async (txs) => {
         if (mayHaveBroadcast) {
           uncertain = true;
           throw new EarnSwapError('unknown');
@@ -423,6 +428,16 @@ export function confirmEarnSwap({
         assertOpen();
         await assertEarnSwapSendAllowed(prepared, signal);
         assertOpen();
+        const swapTx = txs?.at(-1);
+        const uuids = txs?.map((tx) => tx.uuid);
+        swapTxId =
+          swapTx?.swapInfo &&
+          !swapTx.approveInfo &&
+          swapTx.uuid &&
+          uuids?.every(Boolean) &&
+          new Set(uuids).size === uuids.length
+            ? swapTx.uuid
+            : undefined;
         mayHaveBroadcast = true;
       },
       onSuccess: (data) => {
@@ -449,7 +464,11 @@ export function confirmEarnSwap({
           !fact.txid.trim()
         )
           return;
-        if (prepared.approvesInfo.length === 0) await accept(fact.txid);
+        if (
+          prepared.approvesInfo.length === 0 ||
+          (swapTxId && fact.uuid === swapTxId)
+        )
+          await accept(fact.txid);
         else await retainUncertain();
       },
       onFail: failSafely,
@@ -623,7 +642,7 @@ export async function reconcileEarnSwapFunding({
     throw new EarnSwapError('unsupported');
   }
   await assertEarnSwapAccounts(account, receiver);
-  const history = await backgroundApiProxy.serviceSwap.getSwapHistoryByTxId({
+  let history = await backgroundApiProxy.serviceSwap.getSwapHistoryByTxId({
     txId: pending.txId,
   });
   const matchesToken = (expected: ISwapToken, saved: ISwapToken) =>
@@ -633,6 +652,45 @@ export async function reconcileEarnSwapFunding({
       expected.networkId,
       expected.contractAddress,
     ) === normalizeTaskAccountAddress(saved.networkId, saved.contractAddress);
+  if (!history && pending.swapRecovery) {
+    const current = await refreshEarnFunding(scope);
+    if (
+      current?.status !== 'submitted' ||
+      current.txId !== pending.txId ||
+      !current.swapRecovery
+    )
+      return current;
+    const recovery = current.swapRecovery;
+    if (
+      recovery.sender.accountId !== account.accountId ||
+      recovery.sender.networkId !== account.networkId ||
+      recovery.receiver.accountId !== receiver.accountId ||
+      recovery.receiver.networkId !== receiver.networkId ||
+      !matchesToken(fromToken, recovery.sender.token) ||
+      !matchesToken(toToken, recovery.receiver.token) ||
+      !isTaskAccountAddress(
+        { networkId: account.networkId, accountAddress: account.address },
+        recovery.sender.address,
+      ) ||
+      !isTaskAccountAddress(
+        { networkId: receiver.networkId, accountAddress: receiver.address },
+        recovery.receiver.address,
+      ) ||
+      !current.intentAmount ||
+      !new BigNumber(current.intentAmount).eq(recovery.sender.amount)
+    )
+      return current;
+    await assertEarnSwapAccounts(account, receiver);
+    const restored =
+      await backgroundApiProxy.serviceSwap.restoreEarnSwapHistory({
+        scope,
+        txId: current.txId,
+      });
+    if (!restored) return current;
+    history = await backgroundApiProxy.serviceSwap.getSwapHistoryByTxId({
+      txId: current.txId,
+    });
+  }
   if (
     !history ||
     history.accountInfo.sender.accountId !== account.accountId ||
