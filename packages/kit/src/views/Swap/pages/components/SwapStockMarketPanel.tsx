@@ -287,6 +287,7 @@ function SwapStockMarketStatus({
   status,
   showLastUpdate,
   tokenTrading,
+  loadingWidth = 220,
 }: {
   isLoading: boolean;
   isError: boolean;
@@ -294,6 +295,7 @@ function SwapStockMarketStatus({
   status: ReturnType<typeof useSwapStockPrice>['status'];
   showLastUpdate?: boolean;
   tokenTrading?: IStockTokenTradingStatus;
+  loadingWidth?: number;
 }) {
   const intl = useIntl();
   if (isLoading) {
@@ -310,7 +312,7 @@ function SwapStockMarketStatus({
         </Button>
       );
     }
-    return <Skeleton width={220} height={20} />;
+    return <Skeleton width={loadingWidth} height={20} />;
   }
   return (
     <StockMarketStatusBadge
@@ -322,7 +324,17 @@ function SwapStockMarketStatus({
   );
 }
 
-export function SwapStockMobileHeader() {
+// Width the ticker asks for in a header that puts the market status beside it.
+const SWAP_STOCK_HEADER_TICKER_BASIS = 300;
+const SWAP_STOCK_HEADER_STATUS_LOADING_WIDTH = 96;
+
+export function SwapStockMobileHeader({
+  statusBesideTicker,
+}: {
+  // Put the market status on the ticker's row when the header is wide enough
+  // for both, for hosts whose header width changes while it is mounted.
+  statusBesideTicker?: boolean;
+} = {}) {
   const { status } = useSwapStockPrice('share');
   // Mobile trade quotes the token only, so its status is always the token's.
   const tokenTrading = useSelectedStockTokenTrading(true);
@@ -343,33 +355,70 @@ export function SwapStockMobileHeader() {
   const isStatusLoading = Boolean(
     selection?.stockSelectionPending || !hasCurrentStockDetail,
   );
+  const marketStatus = (
+    <Stack
+      minHeight={20}
+      flexShrink={1}
+      testID={
+        isStatusLoading &&
+        (!isStockDetailStatusError || selection?.stockSelectionPending)
+          ? 'swap-stock-status-loading'
+          : undefined
+      }
+    >
+      <SwapStockMarketStatus
+        isLoading={isStatusLoading}
+        isError={Boolean(
+          isStockDetailStatusError && !selection?.stockSelectionPending,
+        )}
+        onRetry={retryStockDetail}
+        status={status}
+        // Mobile trade quotes the token only, so the share price's
+        // last-update note does not apply; show the token's countdown.
+        showLastUpdate={false}
+        tokenTrading={tokenTrading}
+        // Beside the ticker the placeholder is about as wide as the status
+        // it stands for, so it sits on the row the status will take and
+        // nothing moves when the status arrives.
+        loadingWidth={
+          statusBesideTicker
+            ? SWAP_STOCK_HEADER_STATUS_LOADING_WIDTH
+            : undefined
+        }
+      />
+    </Stack>
+  );
+  if (statusBesideTicker) {
+    return (
+      // The ticker's basis leaves no room for the status at the folded width,
+      // so the status wraps under the ticker there and shares its row once
+      // the header is wider. Wrapping is decided by the layout pass itself,
+      // so the header is never a frame behind the screen it is drawn on.
+      <XStack
+        flexWrap="wrap"
+        alignItems="center"
+        columnGap="$3"
+        rowGap="$2"
+        pb="$4"
+      >
+        <Stack
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={SWAP_STOCK_HEADER_TICKER_BASIS}
+          alignItems="flex-start"
+        >
+          <SwapStockTickerSelector />
+        </Stack>
+        {marketStatus}
+      </XStack>
+    );
+  }
   return (
     <YStack gap="$2" pb="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <SwapStockTickerSelector />
       </XStack>
-      <Stack
-        minHeight={20}
-        testID={
-          isStatusLoading &&
-          (!isStockDetailStatusError || selection?.stockSelectionPending)
-            ? 'swap-stock-status-loading'
-            : undefined
-        }
-      >
-        <SwapStockMarketStatus
-          isLoading={isStatusLoading}
-          isError={Boolean(
-            isStockDetailStatusError && !selection?.stockSelectionPending,
-          )}
-          onRetry={retryStockDetail}
-          status={status}
-          // Mobile trade quotes the token only, so the share price's
-          // last-update note does not apply; show the token's countdown.
-          showLastUpdate={false}
-          tokenTrading={tokenTrading}
-        />
-      </Stack>
+      {marketStatus}
     </YStack>
   );
 }
@@ -458,10 +507,10 @@ export function SwapStockVariantSelector({
   );
 }
 
-// Chart-only props: the panel sits beside the mobile trade ticket, which has
+// Chart-pane props: the panel sits beside the mobile trade ticket, which has
 // no frame of its own, so it drops the desktop card's border, padding and halo
 // and lines up with the page edge. It fills its host's height.
-const SWAP_STOCK_CHART_ONLY_PANEL_PROPS = {
+const SWAP_STOCK_CHART_PANE_PANEL_PROPS = {
   minHeight: 0,
   borderWidth: 0,
   borderRadius: '$0',
@@ -470,11 +519,12 @@ const SWAP_STOCK_CHART_ONLY_PANEL_PROPS = {
 } as const;
 
 export function SwapStockMarketPanel({
-  chartOnly,
+  chartPane,
 }: {
-  // Only the price and the chart, for hosts that already show the ticker,
-  // the market status and the positions themselves.
-  chartOnly?: boolean;
+  // Only the price and the chart, for hosts that show the ticker and the
+  // market status themselves, with the trade ticket beside the panel and the
+  // positions below it.
+  chartPane?: boolean;
 }) {
   const intl = useIntl();
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
@@ -763,15 +813,15 @@ export function SwapStockMarketPanel({
       px="$5"
       py="$5"
       gap="$7"
-      elevationAndroid={chartOnly ? undefined : '$1'}
-      $platform-web={chartOnly ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
-      style={chartOnly ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
-      {...(chartOnly ? SWAP_STOCK_CHART_ONLY_PANEL_PROPS : undefined)}
+      elevationAndroid={chartPane ? undefined : '$1'}
+      $platform-web={chartPane ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+      style={chartPane ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
+      {...(chartPane ? SWAP_STOCK_CHART_PANE_PANEL_PROPS : undefined)}
     >
-      <YStack gap="$4" {...(chartOnly ? { flex: 1, minHeight: 0 } : undefined)}>
-        {chartOnly ? null : <SwapStockTickerSelector />}
+      <YStack gap="$4" {...(chartPane ? { flex: 1, minHeight: 0 } : undefined)}>
+        {chartPane ? null : <SwapStockTickerSelector />}
         <XStack
-          mt={chartOnly ? '$0' : '$4'}
+          mt={chartPane ? '$0' : '$4'}
           alignItems="flex-start"
           justifyContent="space-between"
           gap="$2"
@@ -798,7 +848,7 @@ export function SwapStockMarketPanel({
                   : undefined
               }
             />
-            {chartOnly ? null : (
+            {chartPane ? null : (
               <Stack
                 minHeight={20}
                 testID={
@@ -847,7 +897,7 @@ export function SwapStockMarketPanel({
             ))}
           </XStack>
         </XStack>
-        {chartOnly ? (
+        {chartPane ? (
           // The desktop container is a drag-resizable box sized from the
           // viewport; here the chart takes whatever height the host leaves.
           <>
@@ -866,7 +916,7 @@ export function SwapStockMarketPanel({
           </MarketDesktopChartContainer>
         )}
       </YStack>
-      {chartOnly ? null : (
+      {chartPane ? null : (
         <>
           <SwapStockMyPosition />
           <SwapStockMarketDataGrid

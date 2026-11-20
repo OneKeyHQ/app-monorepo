@@ -218,6 +218,7 @@ import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH,
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
@@ -228,7 +229,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ISwapHistoryScrollHandle } from './SwapHistoryTradeAgainContext';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -1993,6 +1994,20 @@ const SwapMainLoad = ({
   // Stocks places the price chart beside the trade ticket itself.
   const foldableChartPanelTab =
     isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  // Whether the Stocks content is wide enough to show that chart, by the same
+  // rule the Stocks content applies to its own row. Read from the laid out
+  // wrapper rather than from the window size: while a foldable folds or
+  // unfolds the two disagree for a few frames.
+  const [foldableStockChartShown, setFoldableStockChartShown] = useState(false);
+  const handleFoldableContentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      setFoldableStockChartShown(
+        event.nativeEvent.layout.width >=
+          SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2,
+      );
+    },
+    [],
+  );
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
@@ -2301,6 +2316,8 @@ const SwapMainLoad = ({
         }
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
+        // The chart button would open the chart the page already shows.
+        hideKLine={foldableChartPanelTab && foldableStockChartShown}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         marketPresetSettings={
@@ -2414,6 +2431,7 @@ const SwapMainLoad = ({
               flex={1}
               minHeight={0}
               width="100%"
+              onLayout={handleFoldableContentLayout}
               maxWidth={
                 foldableProviderPanelTab || foldableChartPanelTab
                   ? undefined
