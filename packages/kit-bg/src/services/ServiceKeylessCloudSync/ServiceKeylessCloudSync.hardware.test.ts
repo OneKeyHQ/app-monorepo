@@ -684,6 +684,88 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
 
+  test('optional local credential reads never enter retired OneKey ID or sync-off storage paths', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.currentCloudSyncKeylessWalletId = 'hd-keyless-test';
+    await expect(
+      service.getLocalMutationSyncCredential(),
+    ).resolves.toBeUndefined();
+    mockConfig.isCloudSyncEnabled = true;
+    await expect(
+      service.getLocalMutationSyncCredential(),
+    ).resolves.toBeUndefined();
+    expect(keylessSyncCredentialStorage.getCredential).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.apiFetchPrimeUserInfo,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('discarding a late local credential read cannot affect a newly selected hardware credential', async () => {
+    const { service, backgroundApi } = setup();
+    const software: IKeylessCloudSyncCredential = {
+      ...credential,
+      source: undefined,
+      keylessWalletId: 'hd-keyless-test',
+    };
+    mockStored = software;
+    mockConfig = {
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      currentCloudSyncKeylessWalletId: software.keylessWalletId,
+    };
+    await expect(
+      service.getLocalMutationSyncCredential(),
+    ).resolves.toMatchObject({ keylessCredential: software });
+    expect(
+      service.getKeylessCloudSyncCredentialCacheSync(software.keylessWalletId),
+    ).toBeUndefined();
+
+    const entered = Promise.withResolvers<void>();
+    const delayed = Promise.withResolvers<IKeylessCloudSyncCredential | null>();
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockImplementationOnce(() => {
+        entered.resolve();
+        return delayed.promise;
+      });
+    const old = service.getLocalMutationSyncCredential();
+    await entered.promise;
+    await service.setCloudSyncEnabledKeyless(false);
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async ({ unlock }) => ({
+        source,
+        credential: await unlock({
+          credentialId: source.credentialId,
+          signAuth: async () => 'public-test-signature',
+          deriveKek: async () => 'public-test-kek',
+        }),
+      }));
+    await service.enableHardwareCloudSync({ connectId });
+    const active = mockStored;
+    expect(active?.signingPublicKey).toBe('');
+    expect(active?.hardwareSession?.dekId).toBeTruthy();
+    expect(await service.getLocalMutationSyncCredential()).toMatchObject({
+      keylessCredential: active,
+    });
+    jest
+      .mocked(backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential)
+      .mockClear();
+
+    delayed.resolve(software);
+    await expect(old).resolves.toBeUndefined();
+    expect(
+      backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential,
+    ).not.toHaveBeenCalled();
+    expect(
+      service.getKeylessCloudSyncCredentialCacheSync(source.credentialId),
+    ).toEqual(active);
+    expect(mockStored).toEqual(active);
+  });
+
   test('activates one source using the existing credential storage and cache', async () => {
     const { service, initLocalSyncItemsDB } = setup();
     await service.enableHardwareCloudSync({ connectId });

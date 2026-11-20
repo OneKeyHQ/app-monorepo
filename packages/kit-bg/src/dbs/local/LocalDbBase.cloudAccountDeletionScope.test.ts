@@ -117,6 +117,8 @@ async function fixture({
   const scoped = {
     localDb: db,
     serviceKeylessCloudSync: {
+      getLocalMutationSyncCredential: async () =>
+        missingCredential ? undefined : syncCredential,
       runWithCloudSyncKeyLock: async <T>(fn: () => Promise<T>) => {
         stages.push('key');
         if (rejectPreflight)
@@ -138,8 +140,6 @@ async function fixture({
       },
     },
     servicePrimeCloudSync: {
-      getSyncCredentialSafe: async () =>
-        missingCredential ? undefined : syncCredential,
       getCloudSyncDataTime,
       startServerSyncFlowSilently: syncLater,
       syncManagers: managers,

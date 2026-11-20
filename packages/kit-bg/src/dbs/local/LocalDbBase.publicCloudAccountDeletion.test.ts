@@ -129,11 +129,11 @@ class DeletionTestDb extends LocalDbBase {
     });
     this.setBackgroundApi({
       serviceKeylessCloudSync: {
+        getLocalMutationSyncCredential: async () => undefined,
         runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
           operation(),
       },
       servicePrimeCloudSync: {
-        getSyncCredentialSafe: async () => undefined,
         startServerSyncFlowSilently: this.syncFlow,
         syncManagers: {
           account: {
@@ -337,7 +337,8 @@ const realManagerFixtureCredential: ICloudSyncCredential = {
 
 function attachRealSnapshotManager(db: DeletionTestDb) {
   const prime = db.backgroundApi.servicePrimeCloudSync;
-  prime.getSyncCredentialSafe = async () => realManagerFixtureCredential;
+  db.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential =
+    async () => realManagerFixtureCredential;
   prime.getCloudSyncDataTime = async () => 1_750_000_000_000;
   const backgroundApi = { ...db.backgroundApi, localDb: db };
   const manager = new CloudSyncFlowManagerAccount({
@@ -516,12 +517,55 @@ describe('public account deletion tombstones', () => {
     if (!original) throw new OneKeyLocalError('Missing real manager fixture');
     const old = { ...original, serverUploaded: true };
     db.put(ELocalDBStoreNames.CloudSyncItem, old);
-    db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
-      undefined;
+    db.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential =
+      async () => undefined;
     await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
     expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
     expect(db.read(ELocalDBStoreNames.CloudSyncItem, old.id)).toEqual(old);
     await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test('retired OneKey ID lookup cannot escape a local delete and cancel later hardware reconciliation', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    db.buildTombstone.mockResolvedValue(undefined);
+    const reconciliation = new AbortController();
+    const failedPrimeLookup = Promise.withResolvers<void>();
+    const legacyLookup = jest.fn(async () => {
+      // The legacy password getter clears all reconciliation on a failed
+      // Prime lookup, even when the active key has since changed.
+      await failedPrimeLookup.promise;
+      reconciliation.abort();
+      return undefined;
+    });
+    db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = legacyLookup;
+    const readSelected = jest.spyOn(
+      db.backgroundApi.serviceKeylessCloudSync,
+      'getLocalMutationSyncCredential',
+    );
+    const removing = db.removeAccount({
+      walletId: 'hd-1',
+      accountId: record.id,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    const removedBeforeDeadline = !db.read(
+      ELocalDBStoreNames.Account,
+      record.id,
+    );
+    failedPrimeLookup.resolve();
+    await jest.advanceTimersByTimeAsync(1000);
+    await removing;
+
+    expect(removedBeforeDeadline).toBe(true);
+    expect(readSelected).toHaveBeenCalledTimes(1);
+    expect(legacyLookup).not.toHaveBeenCalled();
+    expect(reconciliation.signal.aborted).toBe(false);
     expect(db.syncFlow).not.toHaveBeenCalled();
   });
 
@@ -542,10 +586,11 @@ describe('public account deletion tombstones', () => {
       records.forEach((record) => db.addAccount(record));
       const credential = Promise.withResolvers<ICloudSyncCredential>();
       const reading = Promise.withResolvers<void>();
-      db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = () => {
-        reading.resolve();
-        return credential.promise;
-      };
+      db.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential =
+        () => {
+          reading.resolve();
+          return credential.promise;
+        };
       const txRemove = jest.spyOn(db, 'txRemoveRecords');
       try {
         const removing =
@@ -939,8 +984,8 @@ describe('public account deletion tombstones', () => {
     });
     if (!original) throw new OneKeyLocalError('Missing real manager fixture');
     db.put(ELocalDBStoreNames.CloudSyncItem, original);
-    db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
-      undefined;
+    db.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential =
+      async () => undefined;
     await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
     expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
     expect(
@@ -1130,8 +1175,8 @@ describe('public account deletion tombstones', () => {
         }
       }
       db.put(ELocalDBStoreNames.CloudSyncItem, candidate);
-      db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
-        realManagerFixtureCredential;
+      db.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential =
+        async () => realManagerFixtureCredential;
       const savedDesktop = platformEnv.isDesktop;
       const savedMas = platformEnv.isMas;
       const savedDev = platformEnv.isDev;

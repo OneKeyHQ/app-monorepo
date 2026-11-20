@@ -8301,7 +8301,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
               async () => {
                 const scope = cloudSyncItemBuilder.getPwdHash(
-                  await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe(),
+                  await this.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential(),
                 );
                 if (scope && existing.pwdHash === scope) await cleanup();
               },
@@ -11133,8 +11133,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (!supportedAccounts.length) return [];
     const syncService = this.backgroundApi.servicePrimeCloudSync;
-    const syncCredential = await syncService
-      .getSyncCredentialSafe()
+    const syncCredential = await this.backgroundApi.serviceKeylessCloudSync
+      .getLocalMutationSyncCredential()
       .catch(() => undefined);
     if (!isCurrent()) return [];
     const items: IDBCloudSyncItem[] = [];

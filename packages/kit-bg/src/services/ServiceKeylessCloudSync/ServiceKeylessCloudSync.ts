@@ -1129,6 +1129,57 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return keylessWallet ?? null;
   }
 
+  async getLocalMutationSyncCredential(): Promise<
+    ICloudSyncCredential | undefined
+  > {
+    // This optional read can outlive a local transaction's deadline. Never
+    // enter legacy password recovery, hydrate a cache, or clear sync state.
+    const generation = this.hardwareCloudKeyGeneration;
+    const config = await primeCloudSyncPersistAtom.get();
+    const source = config.hardwareCloudSyncKeySource;
+    const id = config.currentCloudSyncKeylessWalletId;
+    if (
+      config.isCloudSyncEnabled ||
+      !config.isCloudSyncEnabledKeyless ||
+      !id ||
+      (source && source.credentialId !== id)
+    )
+      return undefined;
+
+    const credential = await keylessSyncCredentialStorage.getCredential(id);
+    if (
+      !credential ||
+      credential.keylessWalletId !== id ||
+      !credential.pwdHash ||
+      !credential.encryptionKey ||
+      credential.pendingHardwareKeyMigration ||
+      credential.pendingDataKey ||
+      (source
+        ? credential.source?.type !== source.type ||
+          credential.source.credentialId !== id ||
+          credential.source.derivationVersion !== source.derivationVersion ||
+          !credential.hardwareSession?.dekId
+        : credential.source ||
+          credential.hardwareSession ||
+          !credential.signingPublicKey)
+    )
+      return undefined;
+
+    const selected = await primeCloudSyncPersistAtom.get();
+    if (
+      this.hardwareCloudKeyGeneration !== generation ||
+      selected.isCloudSyncEnabled ||
+      !selected.isCloudSyncEnabledKeyless ||
+      selected.currentCloudSyncKeylessWalletId !== id ||
+      selected.hardwareCloudSyncKeySource?.credentialId !==
+        source?.credentialId ||
+      selected.hardwareCloudSyncKeySource?.derivationVersion !==
+        source?.derivationVersion
+    )
+      return undefined;
+    return this.buildSyncCredentialWithKeylessCredential(credential);
+  }
+
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
     const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
     if (!keylessWalletId) {
