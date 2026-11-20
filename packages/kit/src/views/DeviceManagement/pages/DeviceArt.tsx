@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -27,9 +28,11 @@ const WAITS_FOR_BODY = platformEnv.isNative;
 const BODY_WAIT_LIMIT_MS = 1500;
 const FADE_IN = { duration: 150, easing: Easing.out(Easing.cubic) };
 const FILL = { flex: 1 } as const;
+const WHITE_PRO_AVATAR = `${EDeviceType.Pro}White`;
 
 // The device as drawn for its model, lit on the home screen it idles on.
-// Models without a drawing (Trezor, Ledger) keep the wallet avatar.
+// Models without a drawing (Trezor, Ledger) keep the wallet avatar, and so
+// does the white Pro: its drawing only comes in black.
 function DeviceArtView({
   deviceType,
   color,
@@ -64,7 +67,7 @@ function DeviceArtView({
   }, [opacity, reducedMotion, visible]);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  if (!aspect) {
+  if (!aspect || wallet?.avatarInfo?.img === WHITE_PRO_AVATAR) {
     return <WalletAvatar size={height} wallet={wallet} status="default" />;
   }
   const width = Math.round(height / aspect);
