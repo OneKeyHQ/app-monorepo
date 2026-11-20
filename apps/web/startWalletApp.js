@@ -29,21 +29,20 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
+import { createServiceWorkerVersionProtocol } from './src/serviceWorkerVersionProtocol';
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
-const SERVICE_WORKER_MESSAGE_TYPES = {
-  GET_VERSION_STATE: 'GET_VERSION_STATE',
-  CHECK_VERSION: 'CHECK_VERSION',
-  ACTIVATE_VERSION: 'ACTIVATE_VERSION',
-  VERSION_STATE: 'VERSION_STATE',
-  UPDATE_READY: 'UPDATE_READY',
-  VERSION_ACTIVATED: 'VERSION_ACTIVATED',
-};
-
-let pendingVersionActivation = '';
+let hasRootPageError = false;
+const CURRENT_WEB_VERSION_INFO = createCurrentWebVersionInfo();
+const versionProtocol = createServiceWorkerVersionProtocol({
+  checkIntervalMs: SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS,
+  getCurrentWebVersion,
+  isPageInErrorState,
+  showUpdateBanner,
+});
 
 function formatLocaleMessage(id, defaultMessage, values) {
   return appLocale.intl.formatMessage({ id, defaultMessage }, values);
@@ -54,6 +53,8 @@ class WebRootErrorBoundary extends React.PureComponent {
 
   componentDidCatch(error) {
     this.setState({ error });
+    hasRootPageError = true;
+    versionProtocol.requestRecoveryCheck();
     void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
       ({ captureException, initSentry }) => {
         initSentry();
@@ -139,6 +140,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 function showUpdateBanner(onRefresh) {
   const show = () => {
+    if (versionProtocol.isReloadPending()) {
+      return;
+    }
     document.getElementById('sw-update-banner')?.remove();
 
     const banner = document.createElement('div');
@@ -229,7 +233,7 @@ function showUpdateBanner(onRefresh) {
   }
 }
 
-function getCurrentWebVersionInfo() {
+function createCurrentWebVersionInfo() {
   const commit =
     process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA || '';
   const buildNumber = process.env.BUILD_NUMBER || '0';
@@ -240,6 +244,10 @@ function getCurrentWebVersionInfo() {
     commitHash: commit || 'local',
     webVersion: `${commit || 'local'}-${buildNumber}`,
   };
+}
+
+function getCurrentWebVersionInfo() {
+  return CURRENT_WEB_VERSION_INFO;
 }
 
 function getCurrentWebVersion() {
@@ -253,101 +261,8 @@ function logCurrentWebVersionInfo() {
   );
 }
 
-function postMessageToServiceWorker(type, payload = {}) {
-  navigator.serviceWorker.controller?.postMessage({
-    type,
-    payload: {
-      clientVersion: getCurrentWebVersion(),
-      ...payload,
-    },
-  });
-}
-
-function activateReadyVersion(version) {
-  if (!version) {
-    window.location.reload();
-    return;
-  }
-  pendingVersionActivation = version;
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.ACTIVATE_VERSION, {
-    version,
-  });
-  setTimeout(() => {
-    if (pendingVersionActivation === version) {
-      window.location.reload();
-    }
-  }, 3000);
-}
-
-function showReadyVersionBanner(version) {
-  if (!version || pendingVersionActivation === version) {
-    return;
-  }
-  showUpdateBanner(() => activateReadyVersion(version));
-}
-
-function showActivatedVersionBanner(version) {
-  if (!version || version === getCurrentWebVersion()) {
-    return false;
-  }
-  showUpdateBanner(() => window.location.reload());
-  return true;
-}
-
-function requestServiceWorkerVersionCheck() {
-  if (!navigator.serviceWorker.controller) {
-    return;
-  }
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.GET_VERSION_STATE);
-  postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
-}
-
-function setupServiceWorkerVersionProtocol() {
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    const type = event.data?.type;
-    const payload = event.data?.payload || {};
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.UPDATE_READY) {
-      showReadyVersionBanner(payload.version);
-    }
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE) {
-      if (
-        payload.activeVersion &&
-        showActivatedVersionBanner(payload.activeVersion)
-      ) {
-        return;
-      }
-      if (payload.readyVersion) {
-        showReadyVersionBanner(payload.readyVersion);
-      }
-    }
-
-    if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_ACTIVATED) {
-      const version = payload.version;
-      if (pendingVersionActivation === version) {
-        pendingVersionActivation = '';
-        window.location.reload();
-        return;
-      }
-      showActivatedVersionBanner(version);
-    }
-  });
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    requestServiceWorkerVersionCheck();
-  });
-
-  requestServiceWorkerVersionCheck();
-  setInterval(
-    requestServiceWorkerVersionCheck,
-    SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS,
-  );
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      requestServiceWorkerVersionCheck();
-    }
-  });
+function isPageInErrorState() {
+  return Boolean(hasRootPageError || globalThis.__onekeyWebRouteNotFound);
 }
 
 // Register service worker in production only
@@ -363,9 +278,9 @@ if (
         updateViaCache: 'none',
       })
       .then((registration) => {
-        setupServiceWorkerVersionProtocol();
+        versionProtocol.setup();
         navigator.serviceWorker.ready
-          .then(() => requestServiceWorkerVersionCheck())
+          .then(() => versionProtocol.requestVersionCheck())
           .catch(() => {});
         setInterval(() => {
           registration.update().catch(() => {});
