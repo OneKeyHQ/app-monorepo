@@ -197,7 +197,7 @@
     "@onekeyfe/extension-bridge-hosted": "2.2.78",
     "@onekeyfe/hd-ble-sdk": "1.2.11-alpha.2",
     "@onekeyfe/hd-common-connect-sdk": "1.2.11-alpha.2",
-    "@onekeyfe/hd-common-connect-sdk-extension": "npm:@onekeyfe/hd-common-connect-sdk@1.2.11-alpha.5",
+    "@onekeyfe/hd-common-connect-sdk-extension": "npm:@onekeyfe/hd-common-connect-sdk@1.2.11-alpha.6",
     "@onekeyfe/hd-core": "1.2.11-alpha.2",
     "@onekeyfe/hd-shared": "1.2.11-alpha.2",
     "@onekeyfe/hd-transport": "1.2.11-alpha.2",

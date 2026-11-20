@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-// @onekeyfe/hd-transport@1.2.11-alpha.5 builds its reflection root before
+// @onekeyfe/hd-transport@1.2.11-alpha.6 builds its reflection root before
 // installing static codecs. protobufjs 7 resolves constructors during
 // Root.fromJSON, which would trigger dynamic code generation in the extension.
 const transportParser = `function parseTransportConfigure(data) {
@@ -21,7 +21,7 @@ module.exports = function applyStaticProtobufCompatibility(source) {
   const start = source.indexOf(transportParser);
   assert.ok(
     start !== -1 && source.indexOf(transportParser, start + 1) === -1,
-    'Unexpected hd-transport@1.2.11-alpha.5 protobuf parser',
+    'Unexpected hd-transport@1.2.11-alpha.6 protobuf parser',
   );
   return source.replace(transportParser, staticTransportParser);
 };
