@@ -25,23 +25,26 @@ const CARD_SHADOW = {
 
 // React Native draws outset shadows on Android only from API 28; Android 8
 // (API 26–27) would show the card with no edge at all, so it gets a hairline.
-const DRAWS_OUTSET_SHADOW = !(
-  Platform.OS === 'android' &&
-  typeof Platform.Version === 'number' &&
-  Platform.Version < 28
-);
-const HAIRLINE_EDGE = {
-  borderWidth: StyleSheet.hairlineWidth,
-  borderColor: '$borderSubdued',
-} as const;
+// Read when rendering, not on import, so a partial react-native mock in a
+// test that only imports this module still loads it.
+function drawsOutsetShadow() {
+  return !(
+    Platform.OS === 'android' &&
+    typeof Platform.Version === 'number' &&
+    Platform.Version < 28
+  );
+}
 
 // The card's edge, to spread on its frame. Follows the theme the card renders
 // in, not the app's setting: some screens force their own (onboarding is
 // always dark).
 export function useCardEdgeProps() {
   const themeName = useThemeName();
-  if (!DRAWS_OUTSET_SHADOW) {
-    return HAIRLINE_EDGE;
+  if (!drawsOutsetShadow()) {
+    return {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: '$borderSubdued',
+    } as const;
   }
   return {
     style: {
