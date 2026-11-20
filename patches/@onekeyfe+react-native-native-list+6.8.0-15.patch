@@ -1,0 +1,94 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+index d741596..c2b6d36 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+@@ -455,6 +455,7 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-wallet-member[data-native-list-selected="true"]>.ok-native-list-wallet-row{background:var(--nl-selected)}
+ .ok-native-list-wallet-member:not([data-native-list-selected="true"]):hover>.ok-native-list-wallet-row{background:var(--nl-strong)}
+ .ok-native-list-wallet-member:not([data-native-list-selected="true"]):active>.ok-native-list-wallet-row{background:var(--nl-pressed)}
++.ok-native-list-item[data-native-list-reorderable="true"]:focus-visible>.ok-native-list-row,
+ .ok-native-list-item[data-native-list-row-press-enabled="true"]:focus-visible>.ok-native-list-row{outline:2px solid var(--nl-accent);outline-offset:-2px}
+ .ok-native-list-item[data-native-list-reorderable="true"]>.ok-native-list-row{cursor:grab}
+ :where(.ok-native-list-root[data-native-list-reorder-activation="handle"]) .ok-native-list-item[data-native-list-reorderable="true"]>.ok-native-list-row{cursor:default}
+@@ -2246,9 +2247,13 @@ export class NativeListWebEngine {
+         this.content.appendChild(element);
+       }
+       this.positionElement(element, layoutItem);
+-      setData(element, 'nativeListReorderable', this.isReorderable(row));
++      const reorderable = String(this.isReorderable(row));
+       const signature = webRowRenderSignature(row);
+-      if (element.dataset.nativeListRowKey !== row.key || element.dataset.renderSignature !== signature) {
++      if (
++        element.dataset.nativeListRowKey !== row.key ||
++        element.dataset.renderSignature !== signature ||
++        element.dataset.nativeListReorderable !== reorderable
++      ) {
+         this.renderElement(element, layoutItem.index, row);
+         element.dataset.renderSignature = signature;
+       }
+@@ -2299,14 +2304,16 @@ export class NativeListWebEngine {
+     setData(element, 'testid', row.testID);
+     // OneKey patch: deprecation dims a row without disabling its actions.
+     element.style.opacity = String((row.style?.container?.opacity ?? row.opacity ?? 1) * (row.disabled ? 0.5 : 1));
+-    setData(element, 'nativeListReorderable', this.isReorderable(row));
++    const reorderable = this.isReorderable(row);
++    setData(element, 'nativeListReorderable', reorderable);
+     setData(element, 'nativeListDragging', this.pointerReorder?.active && this.pointerReorder.sourceKey === row.key);
+     setData(element, 'separator', row.separator);
+     setData(element, 'groupPosition', row.groupPosition);
+     setData(element, 'tableAlternate', this.snapshot.layout.kind === 'table' && row.type === 'dataRow' && (row.index ?? index) % 2 === 0);
+     element.setAttribute('role', 'listitem');
+     element.setAttribute('aria-label', row.accessibilityLabel ?? this.rowLabel(row));
+-    if (isRowPressEnabled(row)) {
++    // OneKey patch: keyboard reorder needs focus even when row presses are disabled.
++    if (isRowPressEnabled(row) || reorderable) {
+       element.tabIndex = 0;
+     } else {
+       element.removeAttribute('tabindex');
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+index 1e5fc19..b6db7a1 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+@@ -853,6 +853,7 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-wallet-member[data-native-list-selected="true"]>.ok-native-list-wallet-row{background:var(--nl-selected)}
+ .ok-native-list-wallet-member:not([data-native-list-selected="true"]):hover>.ok-native-list-wallet-row{background:var(--nl-strong)}
+ .ok-native-list-wallet-member:not([data-native-list-selected="true"]):active>.ok-native-list-wallet-row{background:var(--nl-pressed)}
++.ok-native-list-item[data-native-list-reorderable="true"]:focus-visible>.ok-native-list-row,
+ .ok-native-list-item[data-native-list-row-press-enabled="true"]:focus-visible>.ok-native-list-row{outline:2px solid var(--nl-accent);outline-offset:-2px}
+ .ok-native-list-item[data-native-list-reorderable="true"]>.ok-native-list-row{cursor:grab}
+ :where(.ok-native-list-root[data-native-list-reorder-activation="handle"]) .ok-native-list-item[data-native-list-reorderable="true"]>.ok-native-list-row{cursor:default}
+@@ -3638,11 +3639,12 @@ export class NativeListWebEngine {
+         this.content.appendChild(element);
+       }
+       this.positionElement(element, layoutItem);
+-      setData(element, 'nativeListReorderable', this.isReorderable(row));
++      const reorderable = String(this.isReorderable(row));
+       const signature = webRowRenderSignature(row);
+       if (
+         element.dataset.nativeListRowKey !== row.key ||
+-        element.dataset.renderSignature !== signature
++        element.dataset.renderSignature !== signature ||
++        element.dataset.nativeListReorderable !== reorderable
+       ) {
+         this.renderElement(element, layoutItem.index, row);
+         element.dataset.renderSignature = signature;
+@@ -3721,7 +3723,8 @@ export class NativeListWebEngine {
+       (row.style?.container?.opacity ?? row.opacity ?? 1) *
+         (row.disabled ? 0.5 : 1)
+     );
+-    setData(element, 'nativeListReorderable', this.isReorderable(row));
++    const reorderable = this.isReorderable(row);
++    setData(element, 'nativeListReorderable', reorderable);
+     setData(
+       element,
+       'nativeListDragging',
+@@ -3741,7 +3744,8 @@ export class NativeListWebEngine {
+       'aria-label',
+       row.accessibilityLabel ?? this.rowLabel(row)
+     );
+-    if (isRowPressEnabled(row)) {
++    // OneKey patch: keyboard reorder needs focus even when row presses are disabled.
++    if (isRowPressEnabled(row) || reorderable) {
+       element.tabIndex = 0;
+     } else {
+       element.removeAttribute('tabindex');
