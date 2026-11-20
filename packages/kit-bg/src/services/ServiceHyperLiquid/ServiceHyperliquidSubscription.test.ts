@@ -1,5 +1,6 @@
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,6 +18,7 @@ import {
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
+import { generateSubscriptionKey } from './utils/SubscriptionConfig';
 
 import type {
   ISubscriptionSpec,
@@ -567,7 +569,9 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     priority: 2,
   };
   const allMids: ISubscriptionSpec<ESubscriptionType.ALL_MIDS> = {
-    key: 'allMids',
+    key: generateSubscriptionKey(ESubscriptionType.ALL_MIDS, {
+      dex: 'ALL_DEXS',
+    }),
     type: ESubscriptionType.ALL_MIDS,
     params: { dex: 'ALL_DEXS' },
     priority: 2,
@@ -709,6 +713,74 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     expect(unsubscribe).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      status: 'quiet for a normal interval',
+      createdMsAgo: 60_000,
+      activityMsAgo: 12_600,
+      shouldRebuild: false,
+    },
+    {
+      status: 'silent for over 30 seconds',
+      createdMsAgo: 60_000,
+      activityMsAgo: 31_000,
+      shouldRebuild: true,
+    },
+    {
+      status: 'newly acknowledged with no frame yet',
+      createdMsAgo: 200,
+      activityMsAgo: 200,
+      shouldRebuild: false,
+    },
+  ])(
+    'preserves global streams on a switch unless allMids is stale ($status)',
+    async ({ createdMsAgo, activityMsAgo, shouldRebuild }) => {
+      const {
+        service,
+        subscribe,
+        unsubscribe,
+        activeSubscriptions,
+        internals,
+      } = setupSwitch();
+      const mids = activeSubscriptions.get(allMids.key);
+      if (!mids) {
+        throw new OneKeyLocalError('Expected an active allMids subscription');
+      }
+      internals._socketOpenedAt = Date.now() - 90_000;
+      mids.createdAt = Date.now() - createdMsAgo;
+      mids.lastActivity = Date.now() - activityMsAgo;
+
+      const recovery = service.recoverSubscriptionsAfterLivenessProof({
+        disabledCount: 0,
+        switchingToCoin: 'ETH',
+      });
+      await jest.advanceTimersByTimeAsync(100);
+
+      await expect(recovery).resolves.toBe(true);
+      if (shouldRebuild) {
+        expect(unsubscribe).toHaveBeenCalledWith(
+          ESubscriptionType.ALL_MIDS,
+          allMids.params,
+        );
+        expect(subscribe).toHaveBeenCalledWith(
+          ESubscriptionType.ALL_MIDS,
+          allMids.params,
+        );
+        expect(subscribe).toHaveBeenCalledWith(
+          ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+          {},
+        );
+      } else {
+        expect(subscribe.mock.calls).toEqual([
+          [ESubscriptionType.L2, { c: 'ETH' }],
+        ]);
+        expect(unsubscribe.mock.calls).toEqual([
+          [ESubscriptionType.L2, { c: 'BTC' }],
+        ]);
+      }
+    },
+  );
+
   it.each(['missing', 'stale'] as const)(
     'rebuilds the live socket when the global critical stream is %s',
     async (globalStatus) => {
@@ -799,6 +871,121 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       dex: 'ALL_DEXS',
     });
   });
+
+  it.each(['refocused', 'disabled again', 'closed', 'already forced'] as const)(
+    'handles BBO recovery after a delayed book ACK when %s',
+    async (state) => {
+      const {
+        activeSubscriptions,
+        internals,
+        service,
+        subscribe,
+        unsubscribe,
+      } = setupSwitch();
+      const newBbo: ISubscriptionSpec<ESubscriptionType.BBO> = {
+        key: 'bbo:ETH',
+        type: ESubscriptionType.BBO,
+        params: { coin: 'ETH' },
+        priority: 2,
+      };
+      jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
+        requiredSubSpecsMap: {
+          [newBook.key]: newBook,
+          [newBbo.key]: newBbo,
+          [allDexs.key]: allDexs,
+          [allMids.key]: allMids,
+        },
+        params: { ...internals._currentState, currentSymbol: 'ETH' },
+      });
+      const receive = service as unknown as {
+        _handleSubscriptionData: (
+          type: ESubscriptionType,
+          event: CustomEvent,
+        ) => Promise<void>;
+      };
+      const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+      const bboUpdates = () =>
+        emit.mock.calls
+          .filter(([name, payload]) => {
+            return (
+              name === EAppEventBusNames.HyperliquidDataUpdate &&
+              (payload as { subType: ESubscriptionType }).subType ===
+                ESubscriptionType.BBO
+            );
+          })
+          .map(([, payload]) => (payload as { data: unknown }).data);
+
+      let acknowledgeBook: (() => void) | undefined;
+      subscribe.mockImplementation(async (type) => {
+        if (type === ESubscriptionType.L2 && !acknowledgeBook) {
+          await new Promise<void>((resolve) => {
+            acknowledgeBook = resolve;
+          });
+        }
+        if (type === ESubscriptionType.BBO) {
+          await receive._handleSubscriptionData(
+            type,
+            new CustomEvent(type, {
+              detail: {
+                coin: 'ETH',
+                time: Date.now(),
+                bbo: [
+                  { px: '1999', sz: '1', n: 1 },
+                  { px: '2000', sz: '1', n: 1 },
+                ],
+              },
+            }),
+          );
+        }
+      });
+      const recovery =
+        state === 'already forced'
+          ? service.resumeSubscriptions({ forceRebuild: true })
+          : service.recoverSubscriptionsAfterLivenessProof({
+              disabledCount: 0,
+              switchingToCoin: 'ETH',
+            });
+      await jest.advanceTimersByTimeAsync(100);
+      expect(acknowledgeBook).toBeDefined();
+      expect(activeSubscriptions.has(newBbo.key)).toBe(true);
+      expect(bboUpdates().at(-1)).toMatchObject({ coin: 'ETH' });
+
+      await service.disableSubscriptionsHandler();
+      expect(bboUpdates().at(-1)).toBeNull();
+      const refocus = service.resumeSubscriptions(
+        state === 'already forced' ? { forceRebuild: true } : undefined,
+      );
+      const secondRefocus = service.resumeSubscriptions();
+      await jest.advanceTimersByTimeAsync(0);
+      if (state === 'disabled again') {
+        await service.disableSubscriptionsHandler();
+        await service.enableSubscriptionsHandler();
+      } else if (state === 'closed') {
+        const { socket } = internals._client.transport;
+        Object.assign(socket, { readyState: WebSocket.CLOSED });
+        service.socketCloseHandler({
+          target: socket,
+        } as unknown as WebSocketEventMap['close']);
+      }
+
+      acknowledgeBook?.();
+      await jest.advanceTimersByTimeAsync(100);
+      await Promise.all([recovery, refocus, secondRefocus]);
+
+      const shouldRefresh = state === 'refocused' || state === 'already forced';
+      expect(
+        unsubscribe.mock.calls.filter(([type]) => type === newBbo.type),
+      ).toHaveLength(shouldRefresh ? 1 : 0);
+      expect(
+        unsubscribe.mock.calls.filter(([type]) => type === allMids.type),
+      ).toHaveLength(state === 'already forced' ? 1 : 0);
+      if (shouldRefresh) {
+        expect(bboUpdates().at(-1)).toMatchObject({ coin: 'ETH' });
+      } else {
+        expect(bboUpdates().at(-1)).toBeNull();
+      }
+    },
+  );
 
   it.each(['live', 'disabled again', 'closed', 'already rebuilding'] as const)(
     'handles concurrent forced resumes during a book ACK when %s',

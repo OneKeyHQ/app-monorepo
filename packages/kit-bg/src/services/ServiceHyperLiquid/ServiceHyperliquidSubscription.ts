@@ -133,6 +133,14 @@ const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
   {},
 );
 
+const ALL_MIDS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.ALL_MIDS,
+  { dex: 'ALL_DEXS' },
+);
+
+// The all-dex mids feed can go about 12 seconds between updates.
+const ALL_MIDS_SWITCH_STALE_MS = 30_000;
+
 interface IPublicTradesSubscription {
   refCount: number;
   subscriptionPromise: Promise<IPerpsSubscription>;
@@ -1170,6 +1178,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return false;
     }
 
+    const allMids = params?.switchingToCoin
+      ? this._activeSubscriptions.get(ALL_MIDS_SUBSCRIPTION_KEY)
+      : undefined;
+    const hasStaleAllMids =
+      allMids && Date.now() - allMids.lastActivity > ALL_MIDS_SWITCH_STALE_MS;
+
     return (
       this._activeSubscriptions.size > 0 &&
       (!this._hasRecentDataFlow() ||
@@ -1179,7 +1193,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           params?.requiredSubSpecsMap,
           this._socketOpenedAt !== null &&
             this._lastMessageAt !== null &&
-            this._lastMessageAt >= this._socketOpenedAt
+            this._lastMessageAt >= this._socketOpenedAt &&
+            !hasStaleAllMids
             ? params?.switchingToCoin
             : undefined,
         ).length > 0)
@@ -1293,11 +1308,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     const openedAt = this._socketOpenedAt;
+    let forceRebuild = params?.forceRebuild === true;
     while (this._resumeRecoveryPromise) {
       const rebuildSatisfied = await this._resumeRecoveryPromise;
+      if (rebuildSatisfied) {
+        forceRebuild = false;
+      }
       if (
-        !params?.forceRebuild ||
-        rebuildSatisfied ||
+        (!forceRebuild && !this._bboNeedsResubscribe) ||
         this.subscriptionsHandlerDisabled ||
         disabledCount !== this.subscriptionsHandlerDisabledCount ||
         client !== this._client ||
@@ -1306,8 +1324,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       ) {
         return;
       }
-      // A soft recovery did not fulfill this forced request. Claim the next
-      // flight so other forced callers can share the rebuild.
+      // A blur may have invalidated BBO while recovery was awaiting ACKs.
+      // Share a follow-up for the pending snapshot or an unmet forced rebuild.
     }
 
     this._resumeRecoveryPromise = (async () => {
@@ -1331,6 +1349,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (
         this._shouldRebuildOpenSocketSubscriptionsOnResume({
           ...params,
+          forceRebuild,
           requiredSubSpecsMap: requiredSubInfo?.requiredSubSpecsMap,
         })
       ) {
@@ -1348,8 +1367,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._hasInitialSubscription = true;
       await this._enqueueSubscriptionReconcile();
       return (
-        params?.forceRebuild === true ||
-        lifecycleVersion !== this._subscriptionLifecycleVersion
+        forceRebuild || lifecycleVersion !== this._subscriptionLifecycleVersion
       );
     })().finally(() => {
       this._resumeRecoveryPromise = null;
