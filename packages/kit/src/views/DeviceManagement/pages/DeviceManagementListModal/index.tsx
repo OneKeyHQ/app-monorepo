@@ -68,6 +68,7 @@ import {
   CARD_TEXT,
   CARD_WIDTH,
   DeviceListGrid,
+  DeviceListNative,
   DeviceListPageBody,
   DeviceListPlaceholder,
   SURFACE_BG,
@@ -718,7 +719,21 @@ function DeviceManagementV2ListWeb() {
     >
       {renderHeader()}
       <DeviceListPageBody>
-        {showHeader ? (
+        {showHeader && existingDevices && platformEnv.isNative ? (
+          <DeviceListNative
+            data={hwQrWalletList}
+            keyExtractor={(item) => item.wallet.id}
+            renderCard={(item) => (
+              <DeviceCard
+                item={item}
+                onPress={onWalletPressed}
+                isConnected={walletConnectionMap.get(item.wallet.id) ?? false}
+              />
+            )}
+            footer={<AddDeviceCard onPress={onAddDevice} />}
+          />
+        ) : null}
+        {showHeader && !(existingDevices && platformEnv.isNative) ? (
           <DeviceListGrid>
             {existingDevices ? (
               <>

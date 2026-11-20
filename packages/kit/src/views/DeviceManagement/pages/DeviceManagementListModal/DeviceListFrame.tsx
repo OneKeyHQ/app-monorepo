@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  ListView,
   Page,
   ScrollView,
   Skeleton,
@@ -28,12 +29,15 @@ import SectionHeader from './SectionHeader';
 // router can show them while the page's code loads. The page renders through
 // the same frame, so the hand-over is seamless.
 
-// Desktop cards share three columns of the 900px page; phones get one.
+// Desktop cards share three columns of the 900px page; phones get one. React
+// Native drops calc(), so a wide native window (an iPad) keeps one column.
 const DEVICE_GRID_MAX_WIDTH = 900;
 const DEVICE_GRID_COLUMN_GAP = 16;
 export const CARD_WIDTH = {
   mobile: '100%',
-  desktop: `calc((100% - ${DEVICE_GRID_COLUMN_GAP * 2}px) / 3)`,
+  desktop: platformEnv.isNative
+    ? '100%'
+    : `calc((100% - ${DEVICE_GRID_COLUMN_GAP * 2}px) / 3)`,
 } as const;
 // The picture area is a fixed size, so a status change never moves a card.
 export const ART_AREA_HEIGHT = { desktop: 244, mobile: 184 };
@@ -111,6 +115,57 @@ export function DeviceListGrid({ children }: { children: ReactNode }) {
           </YStack>
         </YStack>
       </ScrollView>
+    </Page.Container>
+  );
+}
+
+// The same cards on native, where the column is single: a list that only
+// mounts the cards near the screen, since each one builds its own device
+// drawing. The column and its spacing match the grid's.
+const NATIVE_CARD_ESTIMATED_HEIGHT = 300;
+const nativeItemFrame = {
+  w: '100%',
+  maxWidth: DEVICE_GRID_MAX_WIDTH,
+  alignSelf: 'center',
+} as const;
+
+export function DeviceListNative<T>({
+  data,
+  keyExtractor,
+  renderCard,
+  footer,
+}: {
+  data: T[];
+  keyExtractor: (item: T) => string;
+  renderCard: (item: T) => ReactElement;
+  footer: ReactElement;
+}) {
+  const { gtMd } = useMedia();
+  return (
+    <Page.Container flex={1} padded={false}>
+      <ListView
+        flex={1}
+        bg="$bgApp"
+        data={data}
+        keyExtractor={keyExtractor}
+        estimatedItemSize={NATIVE_CARD_ESTIMATED_HEIGHT}
+        contentContainerStyle={{
+          px: '$pagePadding',
+          pt: gtMd ? '$16' : '$2',
+          pb: gtMd ? '$16' : '$8',
+        }}
+        ListHeaderComponent={
+          <YStack {...nativeItemFrame} pb="$6">
+            <SectionHeader />
+          </YStack>
+        }
+        renderItem={({ item }) => (
+          <YStack {...nativeItemFrame} pb="$6">
+            {renderCard(item)}
+          </YStack>
+        )}
+        ListFooterComponent={<YStack {...nativeItemFrame}>{footer}</YStack>}
+      />
     </Page.Container>
   );
 }
