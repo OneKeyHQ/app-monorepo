@@ -30,7 +30,11 @@ import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeT
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
-import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type {
+  EReplaceTxType,
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '../../types/tx';
 import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 import type { IWcPayPreBroadcastRecord } from '../walletConnect/payTypes';
 
@@ -109,9 +113,17 @@ export type IModalSignatureConfirmParamList = {
     useFeeInTx?: boolean;
     feeInfoEditable?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onLateBroadcastAccepted?: (
+      fact: IBroadcastAcceptedFact,
+    ) => void | Promise<void>;
     onFail?: (error: Error) => void;
+    onSafePreSendFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (params?: {
+      preSendTx?: { txid: string; orderId?: string };
+    }) => void | Promise<void>;
+    onBeforePreActions?: () => void | Promise<void>;
+    reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     // WalletConnect Pay only: durable pre-broadcast txid record identity
@@ -163,9 +175,17 @@ export type IModalSignatureConfirmParamList = {
     useFeeInTx?: boolean;
     feeInfoEditable?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onLateBroadcastAccepted?: (
+      fact: IBroadcastAcceptedFact,
+    ) => void | Promise<void>;
     onFail?: (error: Error) => void;
+    onSafePreSendFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (params?: {
+      preSendTx?: { txid: string; orderId?: string };
+    }) => void | Promise<void>;
+    onBeforePreActions?: () => void | Promise<void>;
+    reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;

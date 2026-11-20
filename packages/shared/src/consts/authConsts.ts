@@ -140,6 +140,9 @@ export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 export const EXT_ONEKEY_ID_AUTH_FLOW_PARAM = 'oneKeyIdAuthFlow';
 export const EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM = 'oneKeyIdAuthToPageOnSuccess';
 export const EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM = 'oneKeyIdAuthProvider';
+// Analytics only: the Prime free trial that asked for the login.
+export const EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM =
+  'oneKeyIdAuthFreeTrialFeature';
 
 export enum EExtOneKeyIdAuthFlow {
   Login = 'login',
@@ -255,14 +258,6 @@ export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeyt
 //   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MTc1MzMxLCJleHAiOjE5MjY4NTUzMzF9.d0Zd8eBV8L_EcKDXiJRNTEYGw-dX6IdyDCr0nvOiLqg';
-
-// --- onekeytest
-// export const KEYLESS_SUPABASE_PROJECT_URL =
-//   'https://supabase.onekey-internal.com'; // onekeytest
-// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-
-// oxlint-disable-next-line @cspell/spellchecker
-//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 // --- local test
 // export const KEYLESS_SUPABASE_PROJECT_URL =

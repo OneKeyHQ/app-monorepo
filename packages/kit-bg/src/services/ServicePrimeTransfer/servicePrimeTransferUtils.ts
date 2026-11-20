@@ -1,4 +1,5 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { filterBackupWallets } from '@onekeyhq/shared/src/utils/walletBackupUtils';
 import type {
   IPrimeTransferData,
   IPrimeTransferPrivateData,
@@ -19,25 +20,7 @@ export function filterTransferWallets({
   wallets: IDBWallet[];
   walletIds?: string[];
 }) {
-  const allowedWalletIds =
-    walletIds && walletIds.length ? new Set(walletIds) : undefined;
-
-  return wallets.filter((wallet) => {
-    if (wallet.isKeyless) {
-      return false;
-    }
-    // OK-53569: Bot Wallets are excluded from the default "transfer all"
-    // path used by App-to-App Prime Transfer and iCloud backup. They are
-    // only kept when the caller explicitly requests them by ID, e.g. the
-    // Bot Wallet → CLI export flow.
-    if (
-      !allowedWalletIds &&
-      accountUtils.isBotWallet({ walletId: wallet.id })
-    ) {
-      return false;
-    }
-    return !allowedWalletIds || allowedWalletIds.has(wallet.id);
-  });
+  return filterBackupWallets({ wallets, walletIds });
 }
 
 export function shouldUseCliBotWalletEncryptedCredential({

@@ -192,6 +192,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    indicatorPanesStorageKey,
     loadDrawingHistory,
     enableDrawings = false,
     enableNavigationControls = true,
@@ -218,6 +219,7 @@ export const TradingViewNativeChart = memo(
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     priceAxisTickCount,
     showLegend = true,
+    showPriceLegend = true,
     timeAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     timeAxisBorderWidth,
@@ -235,7 +237,7 @@ export const TradingViewNativeChart = memo(
     const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
-      drawingStorageKey,
+      indicatorPanesStorageKey ?? drawingStorageKey,
     );
     const { panes: subIndicatorPanes } = indicatorPanes;
     const [chartSize, setChartSize] = useState<ITradingViewNativeChartSize>({
@@ -681,6 +683,7 @@ export const TradingViewNativeChart = memo(
         priceScaleMode: runtime.priceScaleMode,
         resources: resources.value,
         showLegend,
+        showPriceLegend,
         subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
           runtime.subIndicatorPanes,
           runtime.subIndicatorPriceScales,
@@ -706,6 +709,7 @@ export const TradingViewNativeChart = memo(
       resources,
       scenePalette,
       showLegend,
+      showPriceLegend,
       timeAxisFontSize,
       timeAxisHeight,
     ]);

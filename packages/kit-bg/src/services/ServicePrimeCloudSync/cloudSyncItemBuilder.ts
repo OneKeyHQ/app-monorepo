@@ -72,6 +72,7 @@ class CloudSyncItemBuilder {
     const pwdHash = this.getPwdHash(syncCredential);
 
     return (
+      !item.pendingPublicAccountDeletionAt &&
       (forceSync || !item.localSceneUpdated) &&
       (item.data || item.isDeleted) &&
       item.dataTime &&

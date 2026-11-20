@@ -332,6 +332,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountOverview', () => ({
     },
   ],
   useHomePortfolioDisplayAtom: () => [mockHomeDisplay],
+  useHomePrivacyTokenStatusAtom: () => [undefined],
   useOverviewTokenCacheStateAtom: () => [{}, mockNoop],
   useAllNetworksStateStateAtom: () => [{ visibleCount: 1 }],
 }));
@@ -852,7 +853,17 @@ describe('Home automatic Portfolio sync', () => {
         }),
     );
     render(<TokenListBlock />);
+    expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ disabled: false, loading: false }),
+    );
+
     await refresh();
+    expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: false,
+        loading: true,
+      }),
+    );
     expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
     expect(mockRefreshCategories).toHaveBeenCalledWith(
       expect.objectContaining({ force: false, sources: ['defi', 'perps'] }),
@@ -874,6 +885,12 @@ describe('Home automatic Portfolio sync', () => {
       }),
     );
     await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: false,
+        loading: false,
+      }),
+    );
     expect(mockPortfolioLoading).not.toHaveBeenCalled();
     expect(mockPortfolioError).not.toHaveBeenCalled();
     expect(mockBeginPortfolioStage).not.toHaveBeenCalled();
@@ -1177,7 +1194,12 @@ describe('Home automatic Portfolio sync', () => {
       .request as () => void;
     await act(async () => request());
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
-    expect(mockUpdateSyncUi.mock.calls.at(-1)?.[0].loading).toBe(true);
+    expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: true,
+        loading: true,
+      }),
+    );
     mockHomeDisplay = {
       ...mockHomeDisplay,
       categoryRevision: mockCategoryState.dataRequestId,

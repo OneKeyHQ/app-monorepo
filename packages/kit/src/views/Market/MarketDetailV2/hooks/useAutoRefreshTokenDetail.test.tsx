@@ -105,11 +105,10 @@ jest.mock(
   }),
 );
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketCurrentTokenLiveDataAtom: () => [
-    undefined,
-    mockSetCurrentTokenLiveData,
-  ],
+jest.mock('../components/TokenSelector/useLiveTokenOverride', () => ({
+  setCurrentTokenLiveData: (...args: unknown[]) => {
+    mockSetCurrentTokenLiveData(...args);
+  },
 }));
 
 describe('useAutoRefreshTokenDetail', () => {
@@ -576,6 +575,55 @@ describe('detail metadata refresh scheduling', () => {
     if (capturePromiseResult) {
       mockUsePromiseResult.mockImplementation(capturePromiseResult);
     }
+  });
+
+  it('keeps the upgraded page ready when the first asset request fails and updates it on retry', async () => {
+    const legacy = {
+      tokenAddress: 'native',
+      networkId: 'doge--0',
+      isNative: true,
+    };
+    const upgraded = {
+      ...legacy,
+      tokenAddress: '',
+      marketTokenId: 'doge',
+      marketVariantId: 'doge-doge--0-1',
+      marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      legacyTokenAddress: legacy.tokenAddress,
+    };
+    const assetDetail = { asset: { assetId: 'doge' } };
+    mockFetchAssetTokenDetail
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(assetDetail);
+    const { result, rerender } = renderHook(
+      ({ props }: { props: Parameters<typeof useAutoRefreshTokenDetail>[0] }) =>
+        useAutoRefreshTokenDetail(props),
+      { initialProps: { props: legacy } },
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+
+    rerender({ props: upgraded });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    expect(mockSetTokenDetail).not.toHaveBeenCalled();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.marketAssetDetail).toBeUndefined();
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(6000);
+    });
+    expect(result.current.marketAssetDetail).toEqual(assetDetail);
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledTimes(2);
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+
+    rerender({ props: input });
+    expect(mockSetTokenDetail).toHaveBeenCalledWith(undefined);
+    expect(result.current.marketAssetDetail).toBeUndefined();
   });
 
   it.each([

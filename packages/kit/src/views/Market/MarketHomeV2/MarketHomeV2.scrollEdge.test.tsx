@@ -3,7 +3,9 @@ import type { PropsWithChildren } from 'react';
 
 import { act, isInaccessible, render } from '@testing-library/react';
 
-import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { MarketHomeV2 } from './MarketHomeV2';
 
 let mockBannerLoading = true;
 let mockCategoryLoading = false;
@@ -17,14 +19,6 @@ const mockActions = { current: { refreshWatchListV2: jest.fn() } };
 let mockLayoutProps:
   | { externalTopOverlayTag?: number; externalTopOverlayHeight?: number }
   | undefined;
-let mockHeaderLayout:
-  | ((event: {
-      nativeEvent: { target: number; layout: { height: number } };
-    }) => void)
-  | undefined;
-let mockHeaderNode: HTMLDivElement | null = null;
-let mockNextTag = 200;
-const mockTags = new WeakMap<object, number>();
 let mockSearchInputProps: Record<string, unknown> | undefined;
 
 jest.mock('react-intl', () => ({
@@ -32,7 +26,7 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: object) => styles },
-  findNodeHandle: (view: object | null) => (view ? mockTags.get(view) : null),
+  findNodeHandle: () => 123,
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -59,27 +53,27 @@ jest.mock('@onekeyhq/components', () => {
     useMedia: () => ({ md: false }),
     YStack: React.forwardRef<
       HTMLDivElement,
-      PropsWithChildren<{ pt?: number; onLayout?: typeof mockHeaderLayout }>
-    >(({ children, pt, onLayout }, ref) => {
-      if (onLayout) {
-        mockHeaderLayout = onLayout;
-      }
-      const handleRef = React.useCallback(
-        (node: HTMLDivElement | null) => {
-          if (ref) {
-            mockHeaderNode = node;
-            if (node && !mockTags.has(node)) {
-              mockNextTag += 1;
-              mockTags.set(node, mockNextTag);
-            }
-          }
-          if (typeof ref === 'function') ref(node);
-          else if (ref) ref.current = node;
-        },
-        [ref],
-      );
+      PropsWithChildren<{
+        pt?: number;
+        bg?: string;
+        position?: string;
+        onLayout?: (event: {
+          nativeEvent: { target: number; layout: { height: number } };
+        }) => void;
+      }>
+    >(({ children, pt, bg, position, onLayout }, ref) => {
+      React.useLayoutEffect(() => {
+        onLayout?.({
+          nativeEvent: { target: 123, layout: { height: 108 } },
+        });
+      }, [onLayout]);
       return (
-        <div ref={handleRef} data-padding-top={pt}>
+        <div
+          ref={ref}
+          data-padding-top={pt}
+          data-background={bg}
+          data-position={position}
+        >
           {children}
         </div>
       );
@@ -87,6 +81,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  isDesktop: false,
   get isNative() {
     return mockIsNative;
   },
@@ -183,7 +178,9 @@ jest.mock('./hooks/useMarketHomeSelection', () => ({
   ],
 }));
 jest.mock('./layouts/DesktopLayout', () => ({
-  DesktopLayout: () => <span data-testid="desktop-layout" />,
+  DesktopLayout: ({ isLayoutActive }: { isLayoutActive: boolean }) => (
+    <span data-testid="desktop-layout" data-active={String(isLayoutActive)} />
+  ),
 }));
 jest.mock('./layouts/MobileLayout', () => ({
   MobileLayout: (props: typeof mockLayoutProps) => {
@@ -198,6 +195,7 @@ jest.mock('./utils', () => ({
 }));
 
 beforeEach(() => {
+  platformEnv.isDesktop = false;
   mockIsNative = true;
   mockIsFocused = true;
   mockRootRoutersLength = 1;
@@ -209,6 +207,7 @@ it.each([false, true])(
   'keeps desktop Market visible under search (mounted under a modal: %s)',
   async (mountedUnderModal) => {
     mockIsNative = false;
+    platformEnv.isDesktop = true;
     mockBannerLoading = false;
     mockCategoryLoading = false;
     mockIsFocused = !mountedUnderModal;
@@ -220,11 +219,13 @@ it.each([false, true])(
     await act(async () => screen.rerender(<MarketHomeV2 />));
     const layout = screen.getByTestId('desktop-layout');
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = false;
     mockRootRoutersLength = 2;
     await act(async () => screen.rerender(<MarketHomeV2 />));
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = true;
     mockRootRoutersLength = 1;
@@ -236,6 +237,7 @@ it.each([false, true])(
 
 it('still freezes desktop Market when navigating away and restores it on return', async () => {
   mockIsNative = false;
+  platformEnv.isDesktop = true;
   mockBannerLoading = false;
   mockCategoryLoading = false;
   const screen = render(<MarketHomeV2 />);
@@ -257,68 +259,49 @@ it('still freezes desktop Market when navigating away and restores it on return'
 });
 
 it.each(['banner', 'category'])(
-  'reserves the external header during %s loading and passes geometry to the ready layout',
+  'keeps the native search header in flow during %s loading',
   (kind) => {
     mockBannerLoading = kind === 'banner';
     mockCategoryLoading = kind === 'category';
-    const screen = render(
-      <MarketHomeWithProvider
-        externalTopOverlayTag={123}
-        externalTopOverlayHeight={96}
-        nestedPager
-      />,
-    );
+    const screen = render(<MarketHomeV2 />);
+    const header = screen.getByTestId('market-search-input').parentElement
+      ?.parentElement;
+    expect(header?.getAttribute('data-background')).toBe('$bgApp');
+    expect(header?.getAttribute('data-position')).toBeNull();
     expect(
       screen
         .getByTestId('loading')
         .parentElement?.getAttribute('data-padding-top'),
-    ).toBe('96');
+    ).toBeNull();
+
     mockBannerLoading = false;
     mockCategoryLoading = false;
-    screen.rerender(
-      <MarketHomeWithProvider
-        externalTopOverlayTag={123}
-        externalTopOverlayHeight={96}
-        nestedPager
-      />,
-    );
+    screen.rerender(<MarketHomeV2 />);
     expect(screen.queryByTestId('loading')).toBeNull();
     expect(screen.getByTestId('pager')).toBeTruthy();
-    expect(mockLayoutProps).toMatchObject({
-      externalTopOverlayTag: 123,
-      externalTopOverlayHeight: 96,
-    });
+    expect(mockLayoutProps).not.toHaveProperty('externalTopOverlayTag');
+    expect(mockLayoutProps).not.toHaveProperty('externalTopOverlayHeight');
   },
 );
 
-it('renders the standalone native Market search header and forwards its measured overlay geometry to MobileLayout', () => {
+it('keeps the native Market search header opaque and in normal layout', () => {
   mockBannerLoading = false;
   mockCategoryLoading = false;
-  mockSplitViewType = undefined;
-  mockIsSplitView = false;
   mockLayoutProps = undefined;
   mockSearchInputProps = undefined;
 
   const screen = render(<MarketHomeV2 />);
-  expect(screen.getByTestId('market-search-input')).toBeTruthy();
   expect(mockSearchInputProps).toMatchObject({
     initialTab: 'market',
     tabRoute: 'Market',
-    glass: true,
   });
-
-  const headerTag = mockTags.get(mockHeaderNode as object) as number;
-  expect(headerTag).toBeGreaterThan(200);
-  act(() => {
-    mockHeaderLayout?.({
-      nativeEvent: { target: headerTag, layout: { height: 108 } },
-    });
-  });
-
-  expect(mockLayoutProps).toMatchObject({
-    externalTopOverlayTag: headerTag,
-    externalTopOverlayHeight: 108,
-  });
+  expect(mockSearchInputProps).not.toHaveProperty('glass');
+  const header = screen.getByTestId('market-search-input').parentElement
+    ?.parentElement;
+  expect(header?.getAttribute('data-background')).toBe('$bgApp');
+  expect(header?.getAttribute('data-position')).toBeNull();
+  expect(mockLayoutProps).not.toHaveProperty('externalTopOverlayTag');
+  expect(mockLayoutProps).not.toHaveProperty('externalTopOverlayHeight');
 });
 
 it('controls tablet split-view panes across landscape entry, detail back return, and portrait/landscape rotation', () => {

@@ -2,14 +2,12 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import type { IImpressionHost } from '@onekeyhq/kit/src/hooks/useVisibleImpression';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePrimeGiftOfferImpression } from './usePrimeGiftOfferImpression';
 
-import type {
-  IPrimeGiftOfferImpressionHost,
-  IPrimeGiftOfferMeasureInWindow,
-} from './usePrimeGiftOfferImpression';
+import type { ViewInstance } from 'react-native';
 
 const mockShown = jest.fn();
 let appVisible = true;
@@ -75,8 +73,9 @@ describe('native gift offer impression', () => {
   });
 
   it('ignores a late measure after unmount and does not poll in the background', () => {
-    const measureCallbacks: IPrimeGiftOfferMeasureInWindow[] = [];
-    const node: IPrimeGiftOfferImpressionHost = {
+    const measureCallbacks: Parameters<ViewInstance['measureInWindow']>[0][] =
+      [];
+    const node: IImpressionHost = {
       measureInWindow: (callback) => {
         measureCallbacks.push(callback);
       },
@@ -134,5 +133,82 @@ describe('native gift offer impression', () => {
     });
     expect(mockShown).toHaveBeenCalledTimes(1);
     expect(mockShown).toHaveBeenCalledWith({ source: 'deviceDetails' });
+  });
+
+  it('logs one impression when deviceCount changes for the same identity', () => {
+    const measureCallbacks: Parameters<ViewInstance['measureInWindow']>[0][] =
+      [];
+    const node: IImpressionHost = {
+      measureInWindow: (callback) => {
+        measureCallbacks.push(callback);
+      },
+    };
+    const { result, rerender } = renderHook(
+      (props: { deviceCount: number }) =>
+        usePrimeGiftOfferImpression({
+          enabled: true,
+          serialNo: 'primeDashboard',
+          source: 'primeDashboard',
+          deviceCount: props.deviceCount,
+        }),
+      { initialProps: { deviceCount: 1 } },
+    );
+    act(() => {
+      result.current(node);
+    });
+    act(() => {
+      measureCallbacks.at(-1)?.(10, 10, 100, 80);
+    });
+    expect(mockShown).toHaveBeenCalledTimes(1);
+    expect(mockShown).toHaveBeenCalledWith({
+      source: 'primeDashboard',
+      deviceCount: 1,
+    });
+
+    rerender({ deviceCount: 2 });
+    act(() => {
+      jest.advanceTimersByTime(900);
+      measureCallbacks.at(-1)?.(10, 10, 100, 80);
+    });
+    expect(mockShown).toHaveBeenCalledTimes(1);
+    expect(mockShown).toHaveBeenCalledWith({
+      source: 'primeDashboard',
+      deviceCount: 1,
+    });
+  });
+
+  it('logs again for a different device serial in the same visit', () => {
+    const measureCallbacks: Parameters<ViewInstance['measureInWindow']>[0][] =
+      [];
+    const node: IImpressionHost = {
+      measureInWindow: (callback) => {
+        measureCallbacks.push(callback);
+      },
+    };
+    const { result, rerender } = renderHook(
+      (props: { serialNo: string }) =>
+        usePrimeGiftOfferImpression({
+          enabled: true,
+          serialNo: props.serialNo,
+          source: 'deviceDetails',
+        }),
+      { initialProps: { serialNo: 'DEVICE-A' } },
+    );
+    act(() => {
+      result.current(node);
+    });
+    act(() => {
+      measureCallbacks.at(-1)?.(10, 10, 100, 80);
+    });
+    expect(mockShown).toHaveBeenCalledTimes(1);
+
+    rerender({ serialNo: 'DEVICE-B' });
+    act(() => {
+      // React reattaches the callback ref when the impression identity changes.
+      result.current(node);
+      measureCallbacks.at(-1)?.(10, 10, 100, 80);
+    });
+    expect(mockShown).toHaveBeenCalledTimes(2);
+    expect(mockShown).toHaveBeenLastCalledWith({ source: 'deviceDetails' });
   });
 });

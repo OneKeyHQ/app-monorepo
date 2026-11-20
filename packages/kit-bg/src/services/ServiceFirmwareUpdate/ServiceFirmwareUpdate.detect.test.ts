@@ -5,6 +5,7 @@ import {
 } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { checkBLEState } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
@@ -3236,7 +3237,91 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       expect.objectContaining({
         status: 'failed',
         failureType: 'transfer',
+        failurePhase: 'execution',
         errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+      }),
+    );
+  });
+
+  it('reports a web-upgrade gate without copying raw error text', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+    });
+    service.recordUpdateWorkflowTransportType(
+      workflowId,
+      EHardwareTransportType.WEBUSB,
+    );
+    const secret =
+      'abandon abandon connectId SERIAL-9 https://firmware.onekey.so/fw?token=sekret';
+
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: true,
+        releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+      },
+      error: {
+        code: ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+        message: secret,
+        payload: { connectId: 'SERIAL-9', message: secret },
+      },
+    });
+
+    const payload = resultSpy.mock.calls[0]?.[0];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        failureType: 'requires_web',
+        failurePhase: 'precondition',
+        errorCode: String(
+          ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+        ),
+      }),
+    );
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain('sekret');
+    expect(serialized).not.toContain('SERIAL-9');
+    expect(serialized).not.toContain('abandon');
+  });
+
+  it('reports a replaced BLE call as an execution failure', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+    });
+    service.recordUpdateWorkflowTransportType(
+      workflowId,
+      EHardwareTransportType.WEBUSB,
+    );
+
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: true,
+        releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+      },
+      error: { code: HardwareErrorCode.BleForceCleanRunPromise },
+    });
+
+    expect(resultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        failureType: 'ble_interrupted',
+        failurePhase: 'execution',
+        errorCode: String(HardwareErrorCode.BleForceCleanRunPromise),
       }),
     );
   });
@@ -3272,7 +3357,10 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       averageTransferRateBytesPerSecond: 16_760,
       transferDurationMs: 145_620,
       lastFailureType: undefined,
+      lastFailurePhase: undefined,
       lastErrorCode: undefined,
+      lastErrorName: undefined,
+      lastErrorDetail: undefined,
     });
   });
 

@@ -2,17 +2,16 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
+import type { IToastAction } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { shouldRunOneKeyIdAuthInExtExpandTab } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimeFreeTrialAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
-  OneKeyErrorPrimeUserBanned,
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -81,7 +80,6 @@ export type IPrimeFeatureAccessExtPopupMode =
     };
 
 export type IPrimeFeatureAccessDeniedReason =
-  | 'banned'
   | 'loginCancelled'
   | 'contextChanged'
   | 'exhausted'
@@ -105,8 +103,6 @@ export function usePrimeFeatureAccess() {
   const intl = useIntl();
   const { isPrimeSubscriptionActive, isLoggedIn, user, loginOneKeyId } =
     useOneKeyAuth();
-  const userRef = useRef(user);
-  userRef.current = user;
   const [freeTrial] = usePrimeFreeTrialAtom();
   const freeTrialRef = useRef(freeTrial);
   freeTrialRef.current = freeTrial;
@@ -145,19 +141,14 @@ export function usePrimeFeatureAccess() {
       networkId?: string;
       afterPageExit?: boolean;
       freeTrialReason?: 'exhausted' | 'notOpen';
-    }) => (
-      <Button
-        testID="prime-free-trial-get-prime-btn"
-        size="small"
-        variant="tertiary"
-        color="$textSuccess"
-        onPress={() =>
-          getPrime({ featureId, networkId, afterPageExit, freeTrialReason })
-        }
-      >
-        {intl.formatMessage({ id: ETranslations.prime_get_prime })}
-      </Button>
-    ),
+    }): IToastAction => ({
+      testID: 'prime-free-trial-get-prime-btn',
+      variant: 'tertiary',
+      color: 'textSuccess',
+      label: intl.formatMessage({ id: ETranslations.prime_get_prime }),
+      onPress: () =>
+        getPrime({ featureId, networkId, afterPageExit, freeTrialReason }),
+    }),
     [getPrime, intl],
   );
 
@@ -493,25 +484,6 @@ export function usePrimeFeatureAccess() {
         onAttemptDenied?.(reason);
         await onDenied?.(reason);
       };
-      const isContextGone = async () =>
-        isContextValid ? !(await isContextValid()) : false;
-      if (user?.isOneKeyIdBanned) {
-        if (await isContextGone()) {
-          await deny('contextChanged');
-          return { granted: false };
-        }
-        await deny('banned');
-        // This is a handled denial, not an unhandled UI rejection. Reuse the
-        // error-code deduplication shared with background API failures.
-        // A page-exit continuation may have switched the OneKey ID meanwhile.
-        if (
-          userRef.current?.onekeyUserId === user.onekeyUserId &&
-          userRef.current?.isOneKeyIdBanned
-        ) {
-          errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
-        }
-        return { granted: false };
-      }
       if (isPrimeSubscriptionActive) {
         return { granted: true, entitlementSource: 'prime' };
       }
@@ -519,6 +491,8 @@ export function usePrimeFeatureAccess() {
       // gone after any wait: a stale context gets no login, no grant and no
       // denied feedback. Checked before onDenied, so a gate that leaves the
       // page itself still hands off to the dashboard.
+      const isContextGone = async () =>
+        isContextValid ? !(await isContextValid()) : false;
       const grantIfContextValid = async (
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {
@@ -579,6 +553,7 @@ export function usePrimeFeatureAccess() {
         try {
           await loginOneKeyId({
             keepFreeTrialPendingAction: extPopup?.mode === 'pendingAction',
+            freeTrialFeatureId: featureId,
           });
         } catch (error) {
           if (error instanceof PrimeLoginHandedOffToExtExpandTabError) {
@@ -672,8 +647,6 @@ export function usePrimeFeatureAccess() {
       openPrimeDashboard,
       runWithEntryLoading,
       showActiveRejectedFeedback,
-      user?.isOneKeyIdBanned,
-      user?.onekeyUserId,
     ],
   );
 

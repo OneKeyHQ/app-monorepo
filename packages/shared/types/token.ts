@@ -189,6 +189,7 @@ export type IFetchTokenDetailParams = {
   accountId: string;
   networkId: string;
   contractList: string[];
+  expectedAccountAddress?: string;
   withFrozenBalance?: boolean;
   withCheckInscription?: boolean;
 };

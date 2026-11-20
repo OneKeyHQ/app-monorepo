@@ -18,16 +18,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeUserBannedMockEnabled } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const [devSettings] = useDevSettingsPersistAtom();
   const { user, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -59,10 +55,6 @@ export default function PrimeDeleteAccount() {
   );
 
   const handleDeleteAccount = useCallback(async () => {
-    if (isPrimeUserBannedMockEnabled(devSettings, platformEnv)) {
-      Toast.message({ title: 'Local mock: no account deletion request sent.' });
-      return;
-    }
     const isPasswordSet =
       await backgroundApiProxy.servicePassword.checkPasswordSet();
     //   passcode verify if passcode is set
@@ -206,7 +198,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [devSettings, intl, navigation, sendEmailOTP]);
+  }, [intl, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 

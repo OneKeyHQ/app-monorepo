@@ -18,6 +18,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PRIVACY_CHAIN_TIP_POLL_MS,
@@ -178,6 +179,13 @@ export type ILocalWalletAccountListItem = {
   walletIsTemp: boolean;
   // Set when the chain has several derive types, so same-index accounts get distinct names.
   deriveLabel?: string;
+};
+
+// A network's accounts keeping local data, grouped as its account limit counts
+// them: accounts sharing a key (a software and a hardware wallet) share one
+// place and one scan, so one group stands for them all.
+export type ILocalWalletNetworkPlaces = {
+  groups: { accountIds: string[]; address?: string }[];
 };
 
 // Upper bound on the per-network head request inside a tick.
@@ -602,10 +610,10 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // Funds a send from a hardware account must first verify on its device, for
-  // the send page to explain before the device asks; undefined when none.
+  // Funds a send must first verify, on the device or by unlocking, for the send
+  // page to explain before either asks; undefined when none.
   @backgroundMethod()
-  async getLocalWalletDeviceVerifyAmount({
+  async getLocalWalletVerifyAmount({
     networkId,
     accountId,
   }: {
@@ -613,7 +621,10 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<string | undefined> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    if (!(await vault.localWalletHasDeviceWork())) return undefined;
+    const needsVerify =
+      (await vault.localWalletHasDeviceWork()) ||
+      (await vault.localWalletHasPasswordWork());
+    if (!needsVerify) return undefined;
     const balance = await this.getLocalWalletAccountBalance({
       networkId,
       accountId,
@@ -633,8 +644,8 @@ class ServicePrivacyChain extends ServiceBase {
     await this.confirmLocalWalletFunds(params);
   }
 
-  // Passive check on entering a send: scanning accounts only; failures are logged, never toasted.
-  // The device is not asked here: the send page explains and asks once the user sends.
+  // Passive check on entering a send: scanning accounts only, with a cached password only; failures
+  // are logged, never toasted. Nothing asks here: the send page explains and asks once the user sends.
   @backgroundMethod()
   async maybeVerifyLocalWalletOnSend(params: {
     networkId: string;
@@ -643,7 +654,13 @@ class ServicePrivacyChain extends ServiceBase {
     try {
       const state = await this.getLocalWalletAccountState(params);
       if (!state.enabled) return;
-      await this.confirmLocalWalletFunds({ ...params, withDevice: false });
+      const changed = await this.doLocalWalletPasswordWork({
+        networkId: params.networkId,
+        accountIds: [params.accountId],
+      });
+      if (changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
         networkId: params.networkId,
@@ -655,16 +672,13 @@ class ServicePrivacyChain extends ServiceBase {
   private async confirmLocalWalletFunds({
     networkId,
     accountId,
-    withDevice = true,
   }: {
     networkId: string;
     accountId: string;
-    withDevice?: boolean;
   }): Promise<void> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     // A hardware account confirms the same funds with its device instead.
     if (await vault.localWalletHasDeviceWork()) {
-      if (!withDevice) return;
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
@@ -907,10 +921,14 @@ class ServicePrivacyChain extends ServiceBase {
   // Only once read or set: the cache starts as not allowed before the stored answer is known.
   private async publishAllowCellularSync() {
     const allow = this.allowCellularSyncCache;
+    const scanAllowed = isPrivacySyncSchedulingAllowed({
+      deviceIsCellular: this.deviceIsCellular,
+      allowPrivacySyncOnCellular: allow,
+    });
     await privacyChainAtom.set((value) =>
-      value.allowCellularSync === allow
+      value.allowCellularSync === allow && value.scanAllowed === scanAllowed
         ? value
-        : { ...value, allowCellularSync: allow },
+        : { ...value, allowCellularSync: allow, scanAllowed },
     );
   }
 
@@ -1037,18 +1055,30 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     networkId: string;
     accountId: string;
-  }): Promise<void> {
-    if (isLocalWalletPrivacyDisabled(networkId)) return;
+  }): Promise<{
+    scanRequested: boolean;
+    afterSequence?: number;
+    sessionId?: string;
+  }> {
+    if (isLocalWalletPrivacyDisabled(networkId)) {
+      return { scanRequested: false };
+    }
+    if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) {
+      return { scanRequested: false };
+    }
     const capability = await this.requireAccountCapability(networkId);
     const state = await capability.getAccountState({ accountId });
-    if (!state.enabled) return;
+    if (!state.enabled || state.paused) return { scanRequested: false };
     await this.assertNotTempWalletAccount(accountId);
     // An explicit refresh keeps the account from being the next to rotate out.
     await this.backgroundApi.simpleDb.privacyChainState
       .touchAccountSyncSlot({ networkId, accountId })
       .catch(() => undefined);
     // A paused chain stays paused; the caller re-reads the stored balance.
-    if (this.boostPausedByNetwork[networkId]) return;
+    if (this.boostPausedByNetwork[networkId]) return { scanRequested: false };
+    const afterSequence =
+      this.caughtUpSequenceByAccount?.get(`${networkId}:${accountId}`) ?? 0;
+    const sessionId = this.getScanCompletionSessionId();
     // An explicit refresh checks even an unchanged tip.
     this.forgetRuntimeSyncState(networkId);
     this.clearSyncFailureBackoff(networkId);
@@ -1061,8 +1091,9 @@ class ServicePrivacyChain extends ServiceBase {
     });
     // Held by metered data: request it anyway so the light offers the data choice, unless the
     // account is synced and has nothing to wait for.
+    const scanAllowed = await this.isLocalWalletScanAllowed();
     if (
-      !(await this.isLocalWalletScanAllowed()) &&
+      !scanAllowed &&
       (await this.getLocalWalletNetworkIds()).includes(networkId)
     ) {
       const view = await this.getLocalWalletAccountSyncView({
@@ -1076,6 +1107,13 @@ class ServicePrivacyChain extends ServiceBase {
     }
     this.shortenStartupQuietWindow();
     await this.wakeLocalWalletSync();
+    return { scanRequested: scanAllowed, afterSequence, sessionId };
+  }
+
+  private scanCompletionSessionId?: string;
+
+  private getScanCompletionSessionId() {
+    return (this.scanCompletionSessionId ??= generateUUID());
   }
 
   // Per `networkId:accountId`: when a send page asked for a sync before sending.
@@ -1297,14 +1335,17 @@ class ServicePrivacyChain extends ServiceBase {
     networkId,
     accountIds,
     backfillActive,
+    change,
   }: {
     networkId: string;
     accountIds: string[];
     backfillActive: boolean;
+    change?: 'syncState';
   }): Promise<void> {
     appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
       networkId,
       accountIds,
+      ...(change ? { change } : {}),
     });
     this.clearSyncFailureBackoff(networkId);
     this.markLocalWalletOrphanCleanupDue(networkId);
@@ -1714,13 +1755,25 @@ class ServicePrivacyChain extends ServiceBase {
       const preparingAccountKeys = value.preparingAccountKeys.filter(
         (key) => !isStoppedKey(key),
       );
+      const completedScanByAccount = Object.fromEntries(
+        Object.entries(value.completedScanByAccount ?? {}).filter(
+          ([key]) => !isStoppedKey(key),
+        ),
+      );
       if (
         Object.keys(progress).length === Object.keys(value.progress).length &&
-        preparingAccountKeys.length === value.preparingAccountKeys.length
+        preparingAccountKeys.length === value.preparingAccountKeys.length &&
+        Object.keys(completedScanByAccount).length ===
+          Object.keys(value.completedScanByAccount ?? {}).length
       ) {
         return value;
       }
-      return { ...value, progress, preparingAccountKeys };
+      return {
+        ...value,
+        progress,
+        preparingAccountKeys,
+        completedScanByAccount,
+      };
     });
   }
 
@@ -1757,10 +1810,12 @@ class ServicePrivacyChain extends ServiceBase {
     }
     await privacyChainAtom.set((value) => {
       const progress = { ...value.progress };
+      const completedScanByAccount = { ...value.completedScanByAccount };
       for (const accountId of accountIds) {
         delete progress[`${networkId}:${accountId}`];
+        delete completedScanByAccount[`${networkId}:${accountId}`];
       }
-      return { ...value, progress };
+      return { ...value, progress, completedScanByAccount };
     });
   }
 
@@ -1793,6 +1848,7 @@ class ServicePrivacyChain extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
           networkId,
           accountIds,
+          ...(event === 'networkPause' ? { change: 'syncState' as const } : {}),
         });
       }
     }
@@ -2503,7 +2559,8 @@ class ServicePrivacyChain extends ServiceBase {
               result.caughtUpAccountIds ?? [],
             );
             this.syncFailureBackoff.delete(candidate.runtimeStateKey);
-            await this.publishSyncError(candidate.networkId, result.syncError);
+            // Keep completion and unchanged-tip bookkeeping atomic with respect to a refresh.
+            // Once Refresh sees this sequence, its invalidation must not be overwritten below.
             this.runtimeSyncState.set(candidate.runtimeStateKey, {
               accountSignature: candidate.accountSignature,
               lastChainTip:
@@ -2517,6 +2574,7 @@ class ServicePrivacyChain extends ServiceBase {
               this.backfillActiveByAccount[accountId] =
                 !!result.backfillRemaining;
             }
+            await this.publishSyncError(candidate.networkId, result.syncError);
           } else {
             // A pass that did not run says nothing about what is left; clearing the flag here
             // would leave the retry nothing to run until the tip moves.
@@ -2576,12 +2634,24 @@ class ServicePrivacyChain extends ServiceBase {
           }
         } catch (e) {
           retryNeeded = true;
+          // A pass can fail while publishing after its tip was recorded. Keep that tip eligible
+          // for the retry without overwriting any concurrent refresh invalidation.
+          this.runtimeSyncState.delete(candidate.runtimeStateKey);
           // The watchdog abandons the await, not the operation; the losing promise is quarantined
           // below.
           const isWatchdogTimeout = isLocalWalletRuntimeTimeoutError(e);
           if (!isWatchdogTimeout) {
             // Timeouts are held back by quarantine instead.
             this.recordSyncFailure(candidate.runtimeStateKey);
+          }
+          // Quarantine before publishing the error: a failed atom write must not leave a writer
+          // that is still running eligible for the retry.
+          if (isWatchdogTimeout) {
+            const stuckSync = syncPromise;
+            if (!stuckSync) {
+              throw e;
+            }
+            this.quarantineStuckSync(candidate, stuckSync);
           }
           this.reportFirstSyncFailure({
             networkId: candidate.networkId,
@@ -2593,13 +2663,6 @@ class ServicePrivacyChain extends ServiceBase {
             candidate.networkId,
             getLocalWalletSyncErrorKind(e),
           );
-          if (isWatchdogTimeout) {
-            const stuckSync = syncPromise;
-            if (!stuckSync) {
-              throw e;
-            }
-            this.quarantineStuckSync(candidate, stuckSync);
-          }
           // `message` is an opaque code; `operation`/`detail` name the failing call.
           console.error('[privacy-chain] background sync failed', {
             networkId: candidate.networkId,
@@ -2701,6 +2764,8 @@ class ServicePrivacyChain extends ServiceBase {
         continueDelayMs = followUpDelayMs;
       }
     } catch (e) {
+      // Keep retrying when even error/cleanup publication fails, including turns held by backoff.
+      continueDelayMs ??= timerUtils.getTimeDurationMs({ seconds: 30 });
       // Structured fields: Android logs render a thrown object as "[object Object]".
       console.error('[privacy-chain] background sync tick failed', {
         name: e instanceof Error ? e.name : typeof e,
@@ -3821,6 +3886,60 @@ class ServicePrivacyChain extends ServiceBase {
         });
       }
     }
+  }
+
+  // What a full network can delete from: only deleting local data frees a place.
+  @backgroundMethod()
+  async getLocalWalletNetworkPlaces({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<ILocalWalletNetworkPlaces> {
+    const holders =
+      await this.backgroundApi.simpleDb.privacyChainState.listNetworkDataHolders(
+        { networkId },
+      );
+    const accountIdsByIdentity = new Map<string, string[]>();
+    for (const { accountId, identity } of holders) {
+      accountIdsByIdentity.set(identity, [
+        ...(accountIdsByIdentity.get(identity) ?? []),
+        accountId,
+      ]);
+    }
+    // Same wallets the account list names: one not open now (a hidden wallet
+    // no longer kept) shows neither its accounts nor their address.
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+    });
+    const listedWalletIds = new Set(wallets.map(({ id }) => id));
+    const groups = await Promise.all(
+      Array.from(accountIdsByIdentity.values(), async (accountIds) => ({
+        accountIds,
+        address: await this.findLocalWalletGroupAddress(
+          accountIds.filter((accountId) =>
+            listedWalletIds.has(
+              accountUtils.getWalletIdFromAccountId({ accountId }),
+            ),
+          ),
+        ),
+      })),
+    );
+    return { groups };
+  }
+
+  // Accounts sharing a key share their address; the first one still in the
+  // account store gives it, as one removed but not yet cleaned up has none.
+  private async findLocalWalletGroupAddress(
+    accountIds: string[],
+  ): Promise<string | undefined> {
+    for (const accountId of accountIds) {
+      // eslint-disable-next-line no-await-in-loop
+      const account = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+      if (account?.address) return account.address;
+    }
+    return undefined;
   }
 
   // Asked before the birthday form, so a full network refuses before any input.
@@ -4974,7 +5093,16 @@ class ServicePrivacyChain extends ServiceBase {
               })
               .catch(() => undefined);
           }
-          const progress = await capability.getSyncProgress({ accountId });
+          const progress = await capability
+            .getSyncProgress({ accountId })
+            .catch((error: unknown) => {
+              console.error('[privacy-chain] progress read failed', {
+                networkId,
+                accountId,
+                ...describePrivacyChainError(error),
+              });
+              return undefined;
+            });
           return [key, progress] as const;
         }),
       );
@@ -5005,8 +5133,26 @@ class ServicePrivacyChain extends ServiceBase {
               },
         ] as const;
       });
+      const invalidCompletionKeys = new Set<string>();
+      const completedSequences = await Promise.all(
+        [...(successfulEpochs ?? [])].map(async ([accountId, epoch]) => {
+          const key = `${networkId}:${accountId}`;
+          const current =
+            epoch !== undefined &&
+            (await this.backgroundApi.simpleDb.privacyChainState.isAccountSyncCurrent(
+              { accountId, epoch },
+            ));
+          if (!current) invalidCompletionKeys.add(key);
+          return [
+            key,
+            current ? this.caughtUpSequenceByAccount?.get(key) : undefined,
+          ] as const;
+        }),
+      );
+      const sessionId = this.getScanCompletionSessionId();
       await privacyChainAtom.set((v) => {
         const progress = { ...v.progress };
+        const completedScanByAccount = { ...v.completedScanByAccount };
         const liveKeys = new Set(
           accountIds.map((accountId) => `${networkId}:${accountId}`),
         );
@@ -5019,25 +5165,50 @@ class ServicePrivacyChain extends ServiceBase {
             delete progress[key];
           }
         }
+        for (const key of Object.keys(completedScanByAccount)) {
+          if (
+            invalidCompletionKeys.has(key) ||
+            (pruneOthers &&
+              key.startsWith(`${networkId}:`) &&
+              !liveKeys.has(key))
+          ) {
+            delete completedScanByAccount[key];
+          }
+        }
+        for (const [key, sequence] of completedSequences) {
+          if (sequence !== undefined) {
+            completedScanByAccount[key] = { sessionId, sequence };
+          }
+        }
         for (const [key, value] of rated) {
-          if (value) {
+          // A display read can fail after the scan succeeds. Retain the last position while
+          // publishing that authoritative completion, so a refresh does not wait forever.
+          const next =
+            value ?? (syncedAtByKey.has(key) ? v.progress[key] : undefined);
+          if (next) {
             const lastSyncedAt =
               syncedAtByKey.get(key) ?? v.progress[key]?.lastSyncedAt;
-            progress[key] =
-              lastSyncedAt === undefined ? value : { ...value, lastSyncedAt };
+            progress[key] = {
+              ...next,
+              ...(lastSyncedAt === undefined ? {} : { lastSyncedAt }),
+            };
           }
         }
         return {
           ...v,
           progress,
+          completedScanByAccount,
           preparingAccountKeys: v.preparingAccountKeys.filter(
             (key) => !liveKeys.has(key),
           ),
         };
       });
     } catch (e) {
-      // Publishing is best-effort: a failure leaves subscribers on the last
-      // good value, which is strictly better than clearing it.
+      // Completion must reach subscribers. Let the scheduler retry an unchanged tip, even when
+      // this pass caught up no accounts. Mid-turn progress remains best-effort.
+      if (successfulEpochs !== undefined) {
+        throw e;
+      }
       console.error('[privacy-chain] publish progress failed', {
         networkId,
         error: e instanceof Error ? e.message : String(e),
@@ -5124,11 +5295,16 @@ class ServicePrivacyChain extends ServiceBase {
       (id) =>
         !this.boostPausedByNetwork[id] && this.isNetworkBoostBlockedByData(id),
     );
+    const scanAllowed = isPrivacySyncSchedulingAllowed({
+      deviceIsCellular: this.deviceIsCellular,
+      allowPrivacySyncOnCellular: this.allowCellularSyncCache,
+    });
     await privacyChainAtom.set((v) => ({
       ...v,
       boostingNetworkIds,
       dataBlockedNetworkIds,
       pausedNetworkIds,
+      scanAllowed,
     }));
   }
 

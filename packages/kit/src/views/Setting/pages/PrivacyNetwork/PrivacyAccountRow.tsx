@@ -87,7 +87,12 @@ export function PrivacyAccountRow({
             >
               {accountName}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={2}
+              minHeight="$10"
+            >
               {subtitle}
             </SizableText>
           </YStack>

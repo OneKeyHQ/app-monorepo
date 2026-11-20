@@ -35,15 +35,18 @@ const LEGACY_SCROLL_STEP = MARKET_BANNER_ITEM_WIDTH + MARKET_BANNER_ITEM_GAP;
 // Spacing follows the design's `Banner` frame: 12px above it, then 24px above
 // and 36px below the cards. Legacy cards (older API responses without token
 // previews) are filled and variable-width, so they keep the tighter gap and
-// 20px padding without dividers.
+// 20px padding without dividers. With a highlight strip above, the strip
+// slot replaces the outer 12px gap.
 export function MarketBannerDesktopScroller({
   children,
   itemCount,
   divided,
+  compactTopSpacing = false,
 }: {
   children: ReactNode;
   itemCount: number;
   divided: boolean;
+  compactTopSpacing?: boolean;
 }) {
   const scrollViewRef = useRef<any>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -94,10 +97,14 @@ export function MarketBannerDesktopScroller({
   const handleScrollRight = useCallback(() => scrollByStep(1), [scrollByStep]);
 
   return (
-    <YStack pt="$3" testID={MarketTestIDs.bannerList}>
+    <YStack
+      pt={compactTopSpacing ? '$0' : '$3'}
+      testID={MarketTestIDs.bannerList}
+    >
       <YStack position="relative">
         <ScrollView
           ref={scrollViewRef}
+          testID={MarketTestIDs.bannerScrollView}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={
@@ -110,7 +117,7 @@ export function MarketBannerDesktopScroller({
                   alignItems: 'center',
                 }
               : {
-                  pt: '$5',
+                  pt: compactTopSpacing ? '$0' : '$5',
                   pb: '$5',
                   px: '$5',
                   gap: MARKET_BANNER_ITEM_GAP,

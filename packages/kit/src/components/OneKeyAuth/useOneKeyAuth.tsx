@@ -11,7 +11,6 @@ import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -26,10 +25,10 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeUserBannedMockEnabled } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -73,15 +72,7 @@ const PrimeLoginOAuthDialog = LazyLoadPage(
 );
 
 export function useOneKeyAuthMethods() {
-  const [storedUser] = usePrimePersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
-  const user = useMemo(
-    () =>
-      isPrimeUserBannedMockEnabled(devSettings, platformEnv)
-        ? { ...storedUser, isOneKeyIdBanned: true }
-        : storedUser,
-    [devSettings, storedUser],
-  );
+  const [user] = usePrimePersistAtom();
 
   const {
     signInWithSocialLogin,
@@ -99,7 +90,6 @@ export function useOneKeyAuthMethods() {
     return {
       isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive:
-        !user?.isOneKeyIdBanned &&
         user?.isLoggedIn &&
         user?.isLoggedInOnServer &&
         user?.primeSubscription?.isActive,
@@ -148,12 +138,15 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       // Extension popup only: the caller just saved the free-trial action
       // the expand tab should continue after this login.
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only, carried to the expand tab on the popup hand-off.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -191,6 +184,7 @@ export function useOneKeyAuth() {
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
+          freeTrialFeatureId,
         });
         throw new PrimeLoginHandedOffToExtExpandTabError();
       }
@@ -270,9 +264,12 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only: the Prime free trial that asked for this login.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -305,6 +302,7 @@ export function useOneKeyAuth() {
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
         keepFreeTrialPendingAction,
+        freeTrialFeatureId,
         renderContent: ({
           onComplete,
           onLoginSuccess,
@@ -323,6 +321,7 @@ export function useOneKeyAuth() {
               localKeylessLoginPrepareErrorMessage
             }
             toOneKeyIdPageOnLoginSuccess={toOneKeyIdPageOnLoginSuccess}
+            freeTrialFeatureId={freeTrialFeatureId}
           />
         ),
       });

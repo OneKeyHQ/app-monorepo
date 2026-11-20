@@ -166,6 +166,7 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.IpTableConfigChanged]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
     isTimeErrorConfirmed: boolean;
@@ -491,6 +492,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalWalletAccountsChanged]: {
     networkId: string;
     accountIds: string[];
+    // Only pause/resume preserves the current display; absent means invalidate.
+    change?: 'syncState';
   };
   // A display read gave up and showed a saved balance; the live one is in.
   [EAppEventBusNames.LocalWalletBalanceLanded]: {
@@ -789,6 +792,15 @@ export interface IAppEventBusPayload {
     showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
+  [EAppEventBusNames.EarnServerOrderSettled]: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+    provider: string;
+    vault?: string;
+    orderId: string;
+    status: 'success' | 'failed';
+  };
   [EAppEventBusNames.SwitchEarnMode]: {
     mode: 'earn' | 'borrow';
     switchType?: 'default' | 'tap';
@@ -817,6 +829,9 @@ export interface IAppEventBusPayload {
     description: string;
     icon: string | undefined;
     remotePushMessageInfo: INotificationPushMessageInfo;
+  };
+  [EAppEventBusNames.SupportConversationUpdated]: {
+    conversationId?: string;
   };
   [EAppEventBusNames.ExecuteNotificationCommand]: {
     action: string;

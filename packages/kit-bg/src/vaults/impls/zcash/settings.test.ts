@@ -22,13 +22,25 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('enables only account types whose full flow works', () => {
-    expect(settings.importedAccountEnabled).toBe(true);
+    expect(settings.importedAccountEnabled).toBe(false);
     expect(settings.watchingAccountEnabled).toBe(true);
     // KeyringHardware: device UA/UFVK at setup, device-signed PCZT at send
     expect(settings.hardwareAccountEnabled).toBe(true);
     expect(settings.qrAccountEnabled).toBe(false);
     expect(settings.externalAccountEnabled).toBe(false);
     expect(settings.supportedThirdPartyVendors).toBeUndefined();
+  });
+
+  it('takes neither an xpub to watch nor an xprv to import', async () => {
+    const vault = Object.create(Vault.prototype) as Vault;
+    await expect(
+      vault.validateXpub(
+        'xpub6CTtvTVbDbZu89GVR6dCs7ezFPNTUXH4UmHYc75hWrmDq6npasnzm7qDiRebwHEmxAQxTX1HZvTZEmSiiNHDwbUu5thgjXWZcCRcQB3ovgP',
+      ),
+    ).resolves.toEqual({ isValid: false });
+    await expect(vault.validateXprvt('xprv-anything')).resolves.toEqual({
+      isValid: false,
+    });
   });
 
   it('offers hardware accounts only on devices whose firmware has Zcash', () => {

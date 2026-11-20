@@ -1,3 +1,5 @@
+import type { IMarketWatchListItemV2 } from './market';
+
 export interface IBtcMetadataNextHalving {
   nextHalvingBlockHeight: number;
   blocksUntilHalving: number;
@@ -64,6 +66,8 @@ export interface IMarketTokenDetail {
   // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
   detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
+  // Runtime-only: orders the displayed USD price against native widget requests.
+  priceObservedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -1067,4 +1071,29 @@ export interface IMarketStockTokenVariantsResponse {
   stockId: string;
   items: IMarketStockTokenVariant[];
   defaultTokenId?: string;
+}
+
+export type IMarketHighlightAsset = {
+  symbol: string;
+  name?: string;
+  favorite: IMarketWatchListItemV2;
+} & (
+  | {
+      type: 'token';
+      chainId: string;
+      contractAddress: string;
+      isNative?: boolean;
+    }
+  | { type: 'stock'; stockId: string }
+  | { type: 'perp'; perpsCoin: string }
+  | { type: 'asset'; assetId: string }
+);
+
+export interface IMarketHighlight {
+  highlightId: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  assets: IMarketHighlightAsset[];
+  links: { title: string; url: string }[];
 }

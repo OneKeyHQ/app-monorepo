@@ -26,7 +26,7 @@ const mockToastError = jest.fn();
 const mockShowBannedError = jest.fn<void, [unknown]>();
 const mockIsLoggedIn = jest.fn();
 const mockEnsureFeatureAccess = jest.fn();
-let mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
+let mockUser = { onekeyUserId: 'user-a' };
 let mockPrimeActive = false;
 let mockOnAccountBanned: (() => void) | undefined;
 let mockCachedAccessStatus: 'available' | 'exhausted' = 'available';
@@ -193,29 +193,10 @@ describe('usePageTranslation free-trial pause', () => {
     mockTranslatingRef.current = false;
     mockCachedAccessStatus = 'available';
     mockIsLoggedIn.mockResolvedValue(true);
-    mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
+    mockUser = { onekeyUserId: 'user-a' };
     mockPrimeActive = false;
     mockEnsureFeatureAccess.mockReset();
   });
-
-  it.each([true, false])(
-    'blocks a banned user before paid=%s or cached access',
-    async (paid) => {
-      mockPrimeActive = paid;
-      mockUser.isOneKeyIdBanned = true;
-      const { result } = renderHook(() => usePageTranslation('tab-1'));
-      await act(async () => {
-        result.current.handleTranslate();
-        await flush();
-      });
-      expect(mockStartTranslate).not.toHaveBeenCalled();
-      expect(mockIsLoggedIn).not.toHaveBeenCalled();
-      expect(mockShowBannedError).toHaveBeenCalledTimes(1);
-      expect(mockShowBannedError).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 90_012, autoToast: true }),
-      );
-    },
-  );
 
   it('clears translated UI and shows one account message when the running session stops', async () => {
     const { result } = renderHook(() => usePageTranslation('tab-1'));
@@ -239,27 +220,28 @@ describe('usePageTranslation free-trial pause', () => {
       result.current.handleTranslate();
       await flush();
     });
-    mockUser = { onekeyUserId: 'user-b', isOneKeyIdBanned: false };
+    mockUser = { onekeyUserId: 'user-b' };
     rerender();
     expect(mockRestoreOriginal).toHaveBeenCalledTimes(1);
     expect(result.current.isTranslated).toBe(false);
     expect(mockShowBannedError).not.toHaveBeenCalled();
   });
 
-  it('stops a running translation when another request discovers the ban', async () => {
+  it('stops a running translation when another request signs out the banned account', async () => {
     const { result, rerender } = renderHook(() => usePageTranslation('tab-1'));
     await act(async () => {
       result.current.handleTranslate();
       await flush();
     });
-    mockUser = { ...mockUser, isOneKeyIdBanned: true };
+    mockUser = { onekeyUserId: '' };
     rerender();
     expect(mockRestoreOriginal).toHaveBeenCalledTimes(1);
     expect(result.current.isTranslated).toBe(false);
-    expect(mockShowBannedError).toHaveBeenCalledTimes(1);
+    // The ban dialog comes from the failed request, not from this page.
+    expect(mockShowBannedError).not.toHaveBeenCalled();
   });
 
-  it('rechecks a ban discovered while the access check was pending', async () => {
+  it('drops a press whose account was signed out while the access check was pending', async () => {
     let resolve!: (loggedIn: boolean) => void;
     mockIsLoggedIn.mockReturnValueOnce(
       new Promise<boolean>((r) => {
@@ -268,18 +250,18 @@ describe('usePageTranslation free-trial pause', () => {
     );
     const { result, rerender } = renderHook(() => usePageTranslation('tab-1'));
     act(() => result.current.handleTranslate());
-    mockUser = { ...mockUser, isOneKeyIdBanned: true };
+    mockUser = { onekeyUserId: '' };
     rerender();
     await act(async () => {
       resolve(true);
       await flush();
     });
     expect(mockStartTranslate).not.toHaveBeenCalled();
-    expect(mockShowBannedError).toHaveBeenCalledTimes(1);
+    expect(mockShowBannedError).not.toHaveBeenCalled();
   });
 
   it('allows the initial login opened by the translate press to complete', async () => {
-    mockUser = { onekeyUserId: '', isOneKeyIdBanned: false };
+    mockUser = { onekeyUserId: '' };
     mockIsLoggedIn.mockResolvedValue(false);
     let finishLogin!: (access: {
       granted: true;
@@ -295,7 +277,7 @@ describe('usePageTranslation free-trial pause', () => {
       result.current.handleTranslate();
       await flush();
     });
-    mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
+    mockUser = { onekeyUserId: 'user-a' };
     rerender();
     const options = mockEnsureFeatureAccess.mock.calls[0][0] as {
       isContextValid: () => boolean;

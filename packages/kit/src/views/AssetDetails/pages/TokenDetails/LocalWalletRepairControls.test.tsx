@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   BirthdayDialogForm,
   createEnableBirthdayForm,
@@ -16,6 +18,24 @@ const ironwoodBirthday = {
   height: 3_428_143,
   timestamp: Date.UTC(2026, 6, 28),
 };
+const mockDismissKeyboard = jest.fn<void, []>();
+const mockScrollViewContext = {
+  scrollViewRef: { current: null },
+  pageOffsetRef: { current: { x: 0, y: 0 } },
+};
+const originalNative = platformEnv.isNative;
+
+jest.mock('react-native', () => {
+  const actual =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    ...actual,
+    Keyboard: {
+      dismiss: () => mockDismissKeyboard(),
+      addListener: () => ({ remove: () => {} }),
+    },
+  };
+});
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -32,6 +52,14 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   },
 }));
 jest.mock('@onekeyhq/components', () => ({
+  useScrollView: () => mockScrollViewContext,
+  HeightTransition: ({
+    children,
+    hide,
+  }: {
+    children?: ReactNode;
+    hide?: boolean;
+  }) => (hide ? null : <>{children}</>),
   Button: ({
     children,
     testID,
@@ -70,22 +98,51 @@ jest.mock('@onekeyhq/components', () => ({
     </label>
   ),
   Input: ({
-    testID,
     value,
+    testID,
     onChangeText,
+    onBlur,
+    onFocus,
+    error,
     disabled,
+    placeholder,
+    addOns,
   }: {
-    testID?: string;
     value: string;
-    onChangeText: (value: string) => void;
+    testID: string;
+    error?: boolean;
     disabled?: boolean;
+    placeholder?: string;
+    onChangeText: (value: string) => void;
+    onBlur?: () => void;
+    onFocus?: () => void;
+    addOns?: {
+      testID?: string;
+      accessibilityLabel?: string;
+      onPress?: () => void;
+    }[];
   }) => (
-    <input
-      data-testid={testID}
-      value={value}
-      disabled={disabled}
-      onChange={(event) => onChangeText(event.target.value)}
-    />
+    <>
+      <input
+        data-testid={testID}
+        value={value}
+        aria-invalid={error}
+        disabled={disabled}
+        placeholder={placeholder}
+        onBlur={onBlur}
+        onFocus={onFocus}
+        onChange={(event) => onChangeText(event.target.value)}
+      />
+      {addOns?.map((addOn) => (
+        <button
+          key={addOn.testID}
+          type="button"
+          data-testid={addOn.testID}
+          aria-label={addOn.accessibilityLabel}
+          onClick={() => addOn.onPress?.()}
+        />
+      ))}
+    </>
   ),
   DatePicker: ({
     value,
@@ -147,6 +204,7 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
     <div data-testid={testID}>{children}</div>
   ),
+  XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   SizableText: ({
     children,
     testID,
@@ -165,6 +223,57 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 
 describe('birthday date precision', () => {
+  afterEach(() => {
+    platformEnv.isNative = originalNative;
+    mockDismissKeyboard.mockClear();
+  });
+
+  it('can hide the native repair keyboard while keeping an invalid height for correction', () => {
+    platformEnv.isNative = true;
+    const formRef: { current: IBirthdayFormState } = {
+      current: { mode: 'height', date: null, height: '3500000' },
+    };
+    const page = render(
+      <BirthdayDialogForm
+        networkId="zec--0"
+        formRef={formRef}
+        earliestBirthday={ironwoodBirthday}
+      />,
+    );
+    const input = page.getByTestId(
+      'local-wallet-birthday-height-input',
+    ) as HTMLInputElement;
+    expect(
+      page.queryByTestId('local-wallet-birthday-height-input-hide-keyboard'),
+    ).toBeNull();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.blur(input);
+    expect(page.getByTestId('local-wallet-birthday-height-error')).toBeTruthy();
+    fireEvent.focus(input);
+    fireEvent.click(
+      page.getByTestId('local-wallet-birthday-height-input-hide-keyboard'),
+    );
+    expect(mockDismissKeyboard).toHaveBeenCalledTimes(1);
+    fireEvent.blur(input);
+    expect(
+      page.queryByTestId('local-wallet-birthday-height-input-hide-keyboard'),
+    ).toBeNull();
+    expect(input.value).toBe('1');
+    expect(
+      readEnableBirthday(formRef.current, ironwoodBirthday, 'zec--0'),
+    ).toBeUndefined();
+    fireEvent.change(input, {
+      target: { value: String(ironwoodBirthday.height) },
+    });
+    expect(page.queryByTestId('local-wallet-birthday-height-error')).toBeNull();
+    expect(
+      readEnableBirthday(formRef.current, ironwoodBirthday, 'zec--0'),
+    ).toEqual({
+      birthdayHeight: ironwoodBirthday.height,
+    });
+  });
+
   it.each([new Date(2024, 1, 29, 18, 30), new Date(2025, 6, 19, 9, 45)])(
     'preserves the selected local day, including leap day (%s)',
     (date) => {

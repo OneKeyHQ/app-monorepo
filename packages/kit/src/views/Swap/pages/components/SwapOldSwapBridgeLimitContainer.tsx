@@ -25,6 +25,7 @@ import type {
 
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
@@ -35,12 +36,14 @@ import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
+import type { ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
@@ -77,6 +80,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   hasExternalHeader?: boolean;
   hideSwapTips?: boolean;
   hideRecentTokenPairs?: boolean;
+  showThirdPartyNotice?: boolean;
 }
 
 const SwapOldSwapBridgeLimitContainer = ({
@@ -104,8 +108,10 @@ const SwapOldSwapBridgeLimitContainer = ({
   hasExternalHeader,
   hideSwapTips,
   hideRecentTokenPairs,
+  showThirdPartyNotice,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const desktopScrollViewRef = useRef<ScrollViewInstance>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
@@ -147,6 +153,10 @@ const SwapOldSwapBridgeLimitContainer = ({
     gtLg &&
     pageType !== EPageType.modal &&
     swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+
+  const thirdPartyNotice = showThirdPartyNotice ? (
+    <SwapThirdPartyNotice />
+  ) : null;
 
   const mainContent = (
     <YStack
@@ -206,7 +216,14 @@ const SwapOldSwapBridgeLimitContainer = ({
         pageType={pageType}
         storeName={storeName}
       />
+      {thirdPartyNotice}
     </YStack>
+  );
+
+  useSwapHistoryScrollToTop(
+    showDesktopProviderPanel || showLimitDesktopCard
+      ? desktopScrollViewRef
+      : scrollViewRef,
   );
 
   if (showDesktopProviderPanel) {
@@ -270,7 +287,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        ref={desktopScrollViewRef}
+        flex={1}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
         {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
         {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
@@ -285,8 +306,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           maxWidth={1140}
           marginHorizontal="auto"
         >
-          <YStack p="$5" flexBasis="50%">
+          <YStack p="$5" flexBasis="50%" gap="$4">
             {mainContentWithCard}
+            {thirdPartyNotice}
           </YStack>
           <YStack p="$5" flexBasis="50%">
             <SwapProviderListPanel refreshAction={refreshAction} />
@@ -298,7 +320,11 @@ const SwapOldSwapBridgeLimitContainer = ({
 
   if (showLimitDesktopCard) {
     return (
-      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        ref={desktopScrollViewRef}
+        flex={1}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
         {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
         {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
@@ -309,6 +335,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           px="$5"
           pt="$6"
           pb="$5"
+          gap="$4"
           width="100%"
           maxWidth={600}
           marginHorizontal="auto"
@@ -370,6 +397,7 @@ const SwapOldSwapBridgeLimitContainer = ({
               storeName={storeName}
             />
           </YStack>
+          {thirdPartyNotice}
         </YStack>
       </ScrollView>
     );

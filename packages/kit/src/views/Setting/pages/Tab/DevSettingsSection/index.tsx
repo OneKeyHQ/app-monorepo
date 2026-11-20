@@ -73,11 +73,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  OneKeyErrorPrimeUserBanned,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -91,11 +87,6 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
-import {
-  INTERCOM_SUPPORT_URL,
-  normalizeIntercomSupportUrl,
-  resolveIntercomSupportUrlOverride,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -103,8 +94,8 @@ import {
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1011,50 +1002,6 @@ const BaseDevSettingsSection = () => {
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
-  const intercomSupportUrlOverride =
-    resolveIntercomSupportUrlOverride(devSettings);
-  const savedIntercomSupportUrl = devSettings.settings?.intercomSupportUrl;
-  const handleOpenIntercomSupportUrlDialog = useCallback(() => {
-    Dialog.show({
-      title: '客服页面地址',
-      description: `强制替换插件 / iOS / Android 打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。设置后 iOS / Android 改用 WebView 打开客服（通知打开指定会话仍走原生），登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
-      renderContent: (
-        <Dialog.Form
-          formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
-        >
-          <Dialog.FormField
-            name="url"
-            rules={{
-              validate: (value: string | undefined) =>
-                !value?.trim() ||
-                !!normalizeIntercomSupportUrl(value) ||
-                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
-            }}
-          >
-            <Input
-              testID="dev-settings-intercom-support-url-input"
-              placeholder={INTERCOM_SUPPORT_URL}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
-      ),
-      onConfirm: async ({ getForm }) => {
-        const { url } = (getForm()?.getValues() ?? {}) as { url?: string };
-        const nextUrl = normalizeIntercomSupportUrl(url);
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'intercomSupportUrl',
-          nextUrl,
-        );
-        Toast.success({
-          title: nextUrl ? '客服页面地址已更新' : '已恢复默认客服页面地址',
-          message: nextUrl ?? INTERCOM_SUPPORT_URL,
-        });
-      },
-    });
-  }, [savedIntercomSupportUrl]);
-
   const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
     Dialog.show({
       title: '重置 Prime 免费试用次数',
@@ -1297,14 +1244,14 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery SesGallery SES lockdown harden AuthGallery KeylessWalletGallery StorageGallery CloudBackupGallery',
       },
       {
         key: 'account',
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 unknown 头像 脏数据 QA Unknown Avatar 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 移除Prime权益 remove entitlement subscription In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data OneKey ID 封禁 离线 mock banned 90012',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 unknown 头像 脏数据 QA Unknown Avatar 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 移除Prime权益 remove entitlement subscription In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2064,9 +2011,7 @@ const BaseDevSettingsSection = () => {
                         onPress={async () => {
                           try {
                             Toast.message({ title: 'Checking for updates...' });
-                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-                              true,
-                            );
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
                             Toast.error({
@@ -2297,7 +2242,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
@@ -2748,19 +2694,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      {platformEnv.isNative || platformEnv.isExtension ? (
-                        <SectionPressItem
-                          icon="HelpSupportOutline"
-                          title="客服页面地址"
-                          subtitle={
-                            intercomSupportUrlOverride ??
-                            `默认 ${INTERCOM_SUPPORT_URL}`
-                          }
-                          searchKeywords="intercom support customer service url 客服 地址 覆盖"
-                          onPress={handleOpenIntercomSupportUrlDialog}
-                          testID="dev-settings-intercom-support-url"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionFieldItem
                           icon="ArrowTopRightOutline"
@@ -2789,6 +2722,18 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="SesGallery"
+                        subtitle="SES intrinsic functions, behavior and tamper checks in main and background"
+                        testID="ses-gallery-runtime-check-menu"
+                        searchKeywords="SES lockdown harden intrinsic function runtime check"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                          );
+                        }}
+                      />
                       <SectionPressItem
                         icon="LaptopOutline"
                         title="DesktopApiProxy Test"
@@ -3003,46 +2948,6 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
-                      {platformEnv.isDev && platformEnv.isDesktop ? (
-                        <>
-                          <SectionFieldItem
-                            icon="PrimeOutline"
-                            name="mockPrimeUserBanned"
-                            title="OneKey ID banned account mock (offline)"
-                            subtitle="Turn on to show the banned-account toast without contacting a server."
-                            onValueChange={(enabled: boolean) => {
-                              if (enabled) {
-                                errorToastUtils.showToastOfError(
-                                  new OneKeyErrorPrimeUserBanned(),
-                                );
-                              }
-                            }}
-                            searchKeywords="OneKey ID 封禁 离线 mock banned 90012"
-                            testID="dev-settings-prime-banned-mock"
-                          >
-                            <Switch
-                              size={ESwitchSize.small}
-                              testID="dev-settings-prime-banned-mock-switch"
-                            />
-                          </SectionFieldItem>
-                          <SectionPressItem
-                            icon="PrimeOutline"
-                            title="Preview banned OneKey ID"
-                            subtitle="Enables the local mock and opens the actual account restriction page."
-                            searchKeywords="OneKey ID 封禁 离线 mock banned 90012"
-                            testID="dev-settings-prime-banned-preview"
-                            onPress={async () => {
-                              await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'mockPrimeUserBanned',
-                                true,
-                              );
-                              navigation.pushModal(EModalRoutes.PrimeModal, {
-                                screen: EPrimePages.OneKeyId,
-                              });
-                            }}
-                          />
-                        </>
-                      ) : null}
                       <SectionFieldItem
                         icon="PrimeOutline"
                         name="showPrimeTest"
@@ -3089,6 +2994,37 @@ const BaseDevSettingsSection = () => {
                           />
                         </SectionFieldItem>
                       ) : null}
+                      <SectionFieldItem
+                        icon="ErrorOutline"
+                        name="primeFetchPackagesFault"
+                        title="模拟 Prime 套餐加载失败"
+                        subtitle="付费页拉套餐时直接抛出所选 RevenueCat 错误码，用来检查各个失败态、文案和埋点；下次加载或点重试时生效"
+                        searchKeywords="Prime packages offerings fault simulate error RevenueCat 套餐 加载失败 模拟 错误码 失败态"
+                        testID="dev-settings-prime-fetch-packages-fault"
+                      >
+                        <Select
+                          title="模拟 Prime 套餐加载失败"
+                          items={[
+                            { label: '关闭', value: 'off' },
+                            { label: '10 网络错误', value: '10' },
+                            { label: '33 RevenueCat 被拦截', value: '33' },
+                            { label: '2 商店连接问题', value: '2' },
+                            { label: '3 不允许购买', value: '3' },
+                            { label: '5 商品不可用', value: '5' },
+                            { label: '23 商店没返回商品', value: '23' },
+                            {
+                              label: '空套餐（无错误码）',
+                              value: 'emptyOffering',
+                            },
+                            {
+                              label: '23 + 中国大陆 Apple 账户',
+                              value: 'chinaStorefront',
+                            },
+                            { label: '0 未知错误', value: '0' },
+                          ]}
+                          placement="bottom-end"
+                        />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="移除 Prime 权益"

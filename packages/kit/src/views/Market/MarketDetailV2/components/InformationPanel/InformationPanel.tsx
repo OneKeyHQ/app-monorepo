@@ -175,6 +175,8 @@ export function InformationPanel({
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  const shouldReserveConvertedPrice =
+    platformEnv.isNative && currencyInfo.id !== 'usd';
   const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
     useMarketDetailDisplayData();
   const btcMetadata = useBtcMetadataContext();
@@ -197,7 +199,13 @@ export function InformationPanel({
     return <StockMobilePriceHeader />;
   }
 
-  if (!tokenDetail && !pendingMarketAsset) return <InformationPanelSkeleton />;
+  if (!tokenDetail && !pendingMarketAsset) {
+    return (
+      <InformationPanelSkeleton
+        showConvertedPrice={shouldReserveConvertedPrice}
+      />
+    );
+  }
 
   const {
     name = pendingMarketAsset?.name ?? '',
@@ -271,14 +279,15 @@ export function InformationPanel({
               lastUpdated={tokenDetail?.lastUpdated?.toString()}
             />
           )}
-          {priceConverted ? (
+          {priceConverted || shouldReserveConvertedPrice ? (
             <NumberSizeableText
+              testID="market-detail-converted-price"
               size="$bodySm"
               color="$textSubdued"
               formatter="price"
               formatterOptions={{ currency: currencyInfo.symbol }}
             >
-              {priceConverted}
+              {priceConverted ?? '--'}
             </NumberSizeableText>
           ) : null}
           <XStack pt="$1" ai="center" gap="$1.5">

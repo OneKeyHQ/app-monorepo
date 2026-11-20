@@ -40,7 +40,7 @@ jest.mock('../storage/appStorage', () => ({
   default: { syncStorage: { getNumber: () => undefined, set: jest.fn() } },
 }));
 jest.mock('../eventBus/appEventBus', () => ({
-  appEventBus: { emit: jest.fn() },
+  appEventBus: { emit: jest.fn(), on: jest.fn() },
   EAppEventBusNames: {},
 }));
 jest.mock('../request/requestHelper', () => ({

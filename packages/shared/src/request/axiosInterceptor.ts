@@ -12,6 +12,7 @@ import {
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
+import { getServerApiErrorMessage } from '../errors/utils/serverApiErrorMessage';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
@@ -45,7 +46,10 @@ import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
-import { stashRequestAuthTokenOfError } from './requestAuthTokenErrorStash';
+import {
+  readRequestAuthTokenHeader,
+  stashRequestAuthTokenOfError,
+} from './requestAuthTokenErrorStash';
 import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
@@ -59,26 +63,18 @@ import type {
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
 
-// Keep in sync with ONEKEY_REQUEST_TOKEN_HEADER in kit-bg ServiceBase
-// (shared must not import from kit-bg).
-const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
-
 function stashRequestAuthContextOfError(
   error: OneKeyServerApiError,
   config: InternalAxiosRequestConfig,
 ) {
-  // Keep the token and captured identity private. The full config contains
-  // the request body and headers, and must never be attached to surfaced errors.
-  const headers = config.headers;
-  const requestAuthToken =
-    headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
-    headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
-    headers?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
+  // Keep the token private. The full config contains the request body and
+  // headers, and must never be attached to surfaced errors.
+  const requestAuthToken = readRequestAuthTokenHeader(config.headers);
   if (requestAuthToken) {
     stashRequestAuthTokenOfError({
       error,
-      requestAuthToken: String(requestAuthToken),
-      requestConfig: config,
+      requestAuthToken,
+      requestUrl: config.url,
     });
   }
 }
@@ -451,10 +447,7 @@ axios.interceptors.response.use(
       const serverApiError = new OneKeyServerApiError({
         autoToast,
         disableFallbackMessage: true,
-        message:
-          data?.translatedMessage ||
-          data?.message ||
-          'OneKeyServer Unknown Error',
+        message: getServerApiErrorMessage(data),
         code: data.code,
         httpStatusCode: response.status,
         data: {

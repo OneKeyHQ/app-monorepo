@@ -69,9 +69,12 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
 );
 Container.displayName = 'NativeTabsContainer';
 
+const { Tab, ...legacyTabs } = NativeTabs;
+export { Tab };
+
 /** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
-  ...NativeTabs,
+  ...legacyTabs,
   Container,
   TabBar,
   TabBarItem,
@@ -85,5 +88,4 @@ export {
   CollapsibleTabNameContext,
 } from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
-export { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 export { useFocusedTab } from './useFocusedTab';

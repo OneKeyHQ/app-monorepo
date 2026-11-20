@@ -1,3 +1,5 @@
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
@@ -7,13 +9,7 @@ export type ISupportConversationIdSource =
   | 'payload'
   | undefined;
 
-export type ISupportOpenBranch =
-  | 'native-conversation'
-  | 'native-home'
-  | 'native-webview-fallback'
-  | 'web-conversation'
-  | 'web-home'
-  | 'extension-webview';
+export type ISupportOpenBranch = 'rn-conversation' | 'rn-messages' | 'rn-home';
 
 // OK-66809: temporary support-reply notification diagnostics. Every argument is
 // an auditable routing value (ids, branch names, booleans); payload content is
@@ -81,12 +77,22 @@ export class SupportScene extends BaseScene {
   supportReplyBranch({
     conversationId,
     selectedBranch,
-    nativeSdkReady,
   }: {
     conversationId: string | undefined;
     selectedBranch: ISupportOpenBranch;
-    nativeSdkReady?: boolean;
   }) {
-    return { conversationId, selectedBranch, nativeSdkReady };
+    return { conversationId, selectedBranch };
+  }
+  // OK-67112: temporary unread-dot diagnostics. Counts and states only:
+  // no message, conversation or user identifiers, and no error text.
+  @LogToLocal({ level: 'info' })
+  supportReplyPushReceived({
+    pushSource,
+    isDuplicate,
+  }: {
+    pushSource: INotificationPushMessageInfo['pushSource'];
+    isDuplicate: boolean;
+  }) {
+    return { pushSource, isDuplicate };
   }
 }

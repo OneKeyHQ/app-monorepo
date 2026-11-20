@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { findNodeHandle } from 'react-native';
 
 import {
   DelayedFreeze,
   Page,
   YStack,
-  isLiquidGlassAvailable,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -69,7 +67,6 @@ import {
 } from './utils';
 
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
-import type { ViewInstance } from 'react-native';
 
 markMarketPerf('market-home-module-eval');
 preloadMarketHomeTokenListSeed();
@@ -365,11 +362,9 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function MarketHomeLayoutContent({
-  externalTopOverlayTag,
-  externalTopOverlayHeight,
+  isLayoutActive,
 }: {
-  externalTopOverlayTag?: number;
-  externalTopOverlayHeight?: number;
+  isLayoutActive: boolean;
 }) {
   const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
@@ -386,7 +381,7 @@ function MarketHomeLayoutContent({
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
         {md || platformEnv.isNative ? (
-          <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+          <YStack flex={1}>
             <MarketHomeLoadingFallback />
           </YStack>
         ) : null}
@@ -397,33 +392,27 @@ function MarketHomeLayoutContent({
   return (
     <LazyPageContainer eager={platformEnv.isWeb}>
       {md || platformEnv.isNative ? (
-        <MobileLayout
-          {...layoutProps}
-          isFocused={isFocused}
-          {...(platformEnv.isNativeIOS
-            ? { externalTopOverlayTag, externalTopOverlayHeight }
-            : {})}
-        />
+        <MobileLayout {...layoutProps} isFocused={isFocused} />
       ) : (
-        <DesktopLayout {...layoutProps} />
+        <DesktopLayout {...layoutProps} isLayoutActive={isLayoutActive} />
       )}
     </LazyPageContainer>
   );
 }
 
-function BaseMarketHomeLayout({
-  externalTopOverlayTag,
-  externalTopOverlayHeight,
-}: {
-  externalTopOverlayTag?: number;
-  externalTopOverlayHeight?: number;
-}) {
+function BaseMarketHomeLayout({ freeze }: { freeze: boolean }) {
+  const content = <MarketHomeLayoutContent isLayoutActive={!freeze} />;
+  if (!platformEnv.isDesktop) {
+    return (
+      <DelayedFreeze freeze={freeze}>
+        <MarketBannerProvider>{content}</MarketBannerProvider>
+      </DelayedFreeze>
+    );
+  }
+  // Keep only the small header data owner active during tab preloading.
   return (
     <MarketBannerProvider>
-      <MarketHomeLayoutContent
-        externalTopOverlayTag={externalTopOverlayTag}
-        externalTopOverlayHeight={externalTopOverlayHeight}
-      />
+      <DelayedFreeze freeze={freeze}>{content}</DelayedFreeze>
     </MarketBannerProvider>
   );
 }
@@ -448,27 +437,9 @@ function BaseMarketHome() {
   // The search row sits beside the iPadOS window controls.
   // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
   const windowControlsOffset = useWindowControlsLeadingOffset(20);
-  const searchGlassActive = isLiquidGlassAvailable();
-  const scrollEdgeHeaderEnabled = Boolean(
-    platformEnv.isNativeIOS && searchGlassActive,
-  );
-  const headerRef = useRef<ViewInstance>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [headerTag, setHeaderTag] = useState(0);
-  const handleHeaderRef = useCallback((view: ViewInstance | null) => {
-    headerRef.current = view;
-    if (view === null) {
-      setHeaderTag(0);
-      setHeaderHeight(0);
-    }
-  }, []);
-  const headerReady =
-    scrollEdgeHeaderEnabled && headerHeight > 0 && headerTag > 0;
   let searchTop = top;
   if (platformEnv.isNativeAndroid) {
     searchTop = top + 5;
-  } else if (searchGlassActive) {
-    searchTop = top + 6;
   }
   if (!top) {
     searchTop =
@@ -480,42 +451,10 @@ function BaseMarketHome() {
       {platformEnv.isNative ? (
         <>
           <Page.Header headerShown={false} />
-          <YStack
-            ref={handleHeaderRef}
-            collapsable={false}
-            onLayout={(event) => {
-              if (!scrollEdgeHeaderEnabled) return;
-              const tag = findNodeHandle(headerRef.current) ?? 0;
-              if (
-                tag <= 0 ||
-                !('target' in event.nativeEvent) ||
-                event.nativeEvent.target !== tag
-              ) {
-                return;
-              }
-              const height = event.nativeEvent.layout.height;
-              if (height > 0 && height !== headerHeight) {
-                setHeaderHeight(height);
-              }
-              if (tag > 0 && tag !== headerTag) {
-                setHeaderTag(tag);
-              }
-            }}
-            bg={headerReady ? undefined : '$bgApp'}
-            position={headerReady ? 'absolute' : undefined}
-            top={headerReady ? 0 : undefined}
-            left={headerReady ? 0 : undefined}
-            right={headerReady ? 0 : undefined}
-            zIndex={headerReady ? 10 : undefined}
-            pt={searchTop}
-            pb="$2"
-            px="$5"
-            width="100%"
-          >
+          <YStack bg="$bgApp" pt={searchTop} pb="$2" px="$5" width="100%">
             <YStack pl={windowControlsOffset}>
               <LegacyUniversalSearchInput
                 size="medium"
-                glass
                 initialTab="market"
                 tabRoute={ETabRoutes.Market}
                 containerProps={{
@@ -533,14 +472,9 @@ function BaseMarketHome() {
         />
       )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze
+        <BaseMarketHomeLayout
           freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
-        >
-          <BaseMarketHomeLayout
-            externalTopOverlayTag={headerReady ? headerTag : undefined}
-            externalTopOverlayHeight={headerReady ? headerHeight : undefined}
-          />
-        </DelayedFreeze>
+        />
       </Page.Body>
     </Page>
   );
@@ -576,14 +510,10 @@ function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
-  externalTopOverlayTag,
-  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
-  externalTopOverlayTag?: number;
-  externalTopOverlayHeight?: number;
 }) {
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
@@ -594,7 +524,7 @@ function BaseMarketHomeWithProvider({
     (platformEnv.isNative && isBannerPending)
   ) {
     return platformEnv.isNative ? (
-      <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+      <YStack flex={1}>
         <MarketHomeLoadingFallback />
       </YStack>
     ) : null;
@@ -611,9 +541,6 @@ function BaseMarketHomeWithProvider({
       isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
-      {...(platformEnv.isNativeIOS
-        ? { externalTopOverlayTag, externalTopOverlayHeight }
-        : {})}
     />
   );
 }
@@ -622,14 +549,10 @@ export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
-  externalTopOverlayTag,
-  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
-  externalTopOverlayTag?: number;
-  externalTopOverlayHeight?: number;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -648,8 +571,6 @@ export function MarketHomeWithProvider({
             isFocused={isFocused}
             tabsRef={tabsRef}
             nestedPager={nestedPager}
-            externalTopOverlayTag={externalTopOverlayTag}
-            externalTopOverlayHeight={externalTopOverlayHeight}
           />
         </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>

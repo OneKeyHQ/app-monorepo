@@ -18,9 +18,11 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -60,6 +62,7 @@ interface ISwapSwapMbContainerProps {
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
   supportNetworksReady: boolean;
+  showThirdPartyNotice?: boolean;
 }
 
 const SwapSwapMbContainer = ({
@@ -84,9 +87,11 @@ const SwapSwapMbContainer = ({
   swapRecentTokenPairs,
   supportNetworksList,
   supportNetworksReady,
+  showThirdPartyNotice,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
@@ -154,6 +159,7 @@ const SwapSwapMbContainer = ({
           tokenPairs={swapRecentTokenPairs}
           fromTokenAmount={fromTokenAmountValue}
         />
+        {showThirdPartyNotice ? <SwapThirdPartyNotice /> : null}
         {platformEnv.isNative && !fromTokenAmountValue ? (
           <SwapProTabListContainer
             onTokenPress={onTokenPressCallback}

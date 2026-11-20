@@ -68,7 +68,7 @@ function TranslateSettings({
         segmentControlItemStyleProps: {
           h: '100%',
           py: '$0',
-          px: '$5',
+          px: '$2',
           justifyContent: 'center',
         },
       } as const)
@@ -647,12 +647,13 @@ export function usePageTranslation(tabId: string) {
           }),
           actionsAlign: 'left',
           actions: [
-            <Button
-              key="switch"
-              testID={DiscoveryTestIDs.pageTranslationSwitchEngineBtn}
-              variant="primary"
-              size="small"
-              onPressIn={() => {
+            {
+              testID: DiscoveryTestIDs.pageTranslationSwitchEngineBtn,
+              variant: 'primary',
+              label: intl.formatMessage({
+                id: ETranslations.prime_ai_translate_unavailable_toast_action,
+              }),
+              onPress: () => {
                 const isOriginalPageStillActive =
                   pageContextVersionRef.current === failedPageContextVersion &&
                   activeTabIdRef.current === tabId &&
@@ -660,10 +661,6 @@ export function usePageTranslation(tabId: string) {
 
                 void toast?.close();
                 if (!isOriginalPageStillActive) {
-                  return;
-                }
-                if (userRef.current?.isOneKeyIdBanned) {
-                  showAccountBanned();
                   return;
                 }
 
@@ -683,12 +680,8 @@ export function usePageTranslation(tabId: string) {
                     url: tab?.url ?? '',
                   }),
                 });
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.prime_ai_translate_unavailable_toast_action,
-              })}
-            </Button>,
+              },
+            },
           ],
         });
       },
@@ -707,17 +700,8 @@ export function usePageTranslation(tabId: string) {
         restoreOriginal();
         setIsTranslated(false);
       }
-    } else if (user?.isOneKeyIdBanned && translatingRef.current) {
-      restoreOriginal();
-      handleAccountBanned();
     }
-  }, [
-    user?.onekeyUserId,
-    user?.isOneKeyIdBanned,
-    restoreOriginal,
-    translatingRef,
-    handleAccountBanned,
-  ]);
+  }, [user?.onekeyUserId, restoreOriginal, translatingRef]);
 
   const logToggle = useCallback(
     (action: 'enable' | 'disable') => {
@@ -742,10 +726,6 @@ export function usePageTranslation(tabId: string) {
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
   const ensureTranslateAccess = useCallback(async () => {
-    if (userRef.current?.isOneKeyIdBanned) {
-      showAccountBanned();
-      return false;
-    }
     if (isPrimeSubscriptionActive) {
       return true;
     }
@@ -765,11 +745,6 @@ export function usePageTranslation(tabId: string) {
         userIdAtPress !== userRef.current?.onekeyUserId
       ) {
         attempt.finish('contextChanged');
-        return false;
-      }
-      if (userRef.current?.isOneKeyIdBanned) {
-        attempt.finish('failed');
-        showAccountBanned();
         return false;
       }
       if (loggedIn) {

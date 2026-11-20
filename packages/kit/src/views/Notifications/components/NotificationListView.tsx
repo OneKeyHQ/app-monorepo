@@ -23,15 +23,14 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   XStack,
   YStack,
   glassBarItem,
   usePopoverContext,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
-import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import {
   useNotificationsAtom,
   useNotificationsReadedAtom,
@@ -788,7 +787,7 @@ export function NotificationListView({
               onSettingsButtonPress={handleSettingsButtonPress}
             />
           </XStack>
-          <Tabs.TabBar
+          <TabBar
             tabNames={tabTitles}
             onTabPress={handleTabPress}
             focusedTab={focusedTab}
@@ -798,7 +797,7 @@ export function NotificationListView({
         </YStack>
       )}
       {showPageHeader ? (
-        <Tabs.TabBar
+        <TabBar
           tabNames={tabTitles}
           onTabPress={handleTabPress}
           focusedTab={focusedTab}

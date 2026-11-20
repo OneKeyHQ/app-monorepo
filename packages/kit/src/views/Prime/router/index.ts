@@ -10,26 +10,19 @@ import {
 } from '@onekeyhq/shared/src/routes/prime';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { withPrimeAccountGuard } from '../components/PrimeAccountGuard';
 
-const PrimeDashboard = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeDashboard')),
+const PrimeDashboard = LazyLoadPage(() => import('../pages/PrimeDashboard'));
+const PrimeDeviceLimit = LazyLoadPage(
+  () => import('../pages/PrimeDeviceLimit'),
 );
-const PrimeDeviceLimit = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeDeviceLimit')),
+const PrimeCloudSync = LazyLoadPage(() => import('../pages/PrimeCloudSync'));
+const PrimeCloudSyncDebug = LazyLoadPage(
+  () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncDebug'),
 );
-const PrimeCloudSync = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeCloudSync')),
+const PrimeCloudSyncInfo = LazyLoadPage(
+  () => import('../pages/PrimeCloudSync/PagePrimeCloudSyncInfo'),
 );
-const PrimeCloudSyncDebug = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeCloudSync/PagePrimeCloudSyncDebug')),
-);
-const PrimeCloudSyncInfo = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeCloudSync/PagePrimeCloudSyncInfo')),
-);
-const PrimeFeatures = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeFeatures')),
-);
+const PrimeFeatures = LazyLoadPage(() => import('../pages/PrimeFeatures'));
 const PrimeDeleteAccount = LazyLoadPage(
   () => import('../pages/PrimeDeleteAccount'),
 );
@@ -38,21 +31,17 @@ const PrimeTransferPreview = LazyLoadPage(
   () => import('../pages/PagePrimeTransfer/PagePrimeTransferPreview'),
 );
 const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
-const OneKeyIdProfileEdit = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/OneKeyId/ProfileEditPage')),
+const OneKeyIdProfileEdit = LazyLoadPage(
+  () => import('../pages/OneKeyId/ProfileEditPage'),
 );
-const PrimeMyOrders = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeMyOrders')),
+const PrimeMyOrders = LazyLoadPage(() => import('../pages/PrimeMyOrders'));
+const PrimeInfiniPayment = LazyLoadPage(
+  () => import('../pages/PrimeInfiniPayment'),
 );
-const PrimeInfiniPayment = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeInfiniPayment')),
+const PrimeInfiniSubscription = LazyLoadPage(
+  () => import('../pages/PrimeInfiniSubscription'),
 );
-const PrimeInfiniSubscription = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeInfiniSubscription')),
-);
-const PrimeGift = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/PrimeGift')),
-);
+const PrimeGift = LazyLoadPage(() => import('../pages/PrimeGift'));
 
 export const PrimeGiftRouter: IModalFlowNavigatorConfig<
   EPrimeGiftPages,

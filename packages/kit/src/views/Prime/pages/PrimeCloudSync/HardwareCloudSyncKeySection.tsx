@@ -592,6 +592,7 @@ export function useHardwareCloudSyncKey() {
             callerName: 'Manual hardware Cloud sync',
             noDebounceUpload: true,
             forceSync: true,
+            bypassRetryBackoff: true,
             askPasswordOnlyIfHdXfpMissing: true,
           },
         );
@@ -603,11 +604,11 @@ export function useHardwareCloudSyncKey() {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
       void backgroundApiProxy.serviceApp.showToast({
-        method: success ? 'success' : 'error',
+        method: success ? 'success' : 'warning',
         title: intl.formatMessage({
           id: success
             ? ETranslations.global_sync_successfully
-            : ETranslations.global_sync_error,
+            : ETranslations.global_pending,
         }),
       });
     } catch (error) {

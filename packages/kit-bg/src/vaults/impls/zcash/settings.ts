@@ -131,7 +131,8 @@ const settings: IVaultSettings = {
   publicKeyExportEnabled: false,
   supportExportedSecretKeys: [],
 
-  importedAccountEnabled: true,
+  // Nothing exports a Zcash key, so nothing imports one either.
+  importedAccountEnabled: false,
   watchingAccountEnabled: true,
   hardwareAccountEnabled: true,
   // The lightwalletd the scanner reads from; transparent sends stay on the backend either way.
