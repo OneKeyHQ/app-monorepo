@@ -80,7 +80,7 @@ jest.mock('react-intl', () => {
   return { useIntl: () => intl };
 });
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
-  formatRelativeDate: () => 'Today',
+  formatRelativeDate: (date: Date) => date.toISOString().slice(0, 10),
 }));
 jest.mock('../../Home/hooks/useHomeNativeListTheme', () => {
   const theme: NativeListTheme = {
@@ -174,6 +174,8 @@ it('renders long bookmarks and uses their full URLs for press, reorder, and remo
 
   const [firstRow, secondRow] = mockList.snapshot.rows;
   expect(firstRow).toMatchObject({
+    height: 60,
+    heightRounding: 'nearest',
     title: longTitlePrefix,
     subtitle: first.url.slice(0, 4096),
   });
@@ -213,16 +215,28 @@ it('renders long recently closed entries and opens the full URL and title', asyn
     id: 'history-1',
     url: urlPrefix,
     title: longTitle,
-    createdAt: Date.now(),
+    createdAt: Date.UTC(2026, 10, 20),
   };
-  mockFetchHistoryData.mockResolvedValue([entry]);
+  mockFetchHistoryData.mockResolvedValue([
+    entry,
+    { ...entry, id: 'history-2', createdAt: Date.UTC(2026, 10, 19) },
+  ]);
   render(<HistoryListModal />);
   await waitFor(() => expect(mockList?.snapshot.rows[1]?.key).toBe(entry.id));
-  expect(mockList.snapshot.rows[1]).toMatchObject({
-    key: entry.id,
-    title: longTitlePrefix,
-    subtitle: entry.url.slice(0, 4096),
-  });
+  expect(mockList.snapshot.rows).toMatchObject([
+    { type: 'sectionHeader', height: 36, heightRounding: 'nearest' },
+    {
+      key: entry.id,
+      type: 'identity',
+      height: 60,
+      heightRounding: 'nearest',
+      title: longTitlePrefix,
+      subtitle: entry.url.slice(0, 4096),
+    },
+    { type: 'system', height: 20, heightRounding: 'nearest' },
+    { type: 'sectionHeader', height: 36, heightRounding: 'nearest' },
+    { type: 'identity', height: 60, heightRounding: 'nearest' },
+  ]);
 
   act(() => mockList.onRowAction?.({ rowKey: entry.id, actionKey: 'press' }));
   expect(mockOpenSite).toHaveBeenCalledWith(

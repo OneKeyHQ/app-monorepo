@@ -81,6 +81,8 @@ export function buildBrowserSiteRow({
     type: 'identity',
     testID: testID === undefined ? undefined : truncateNativeText(testID),
     height,
+    // Match the unscaled text and padding on narrow Android screens.
+    heightRounding: 'nearest',
     pressDisabled: editing,
     collapseEmptyTrailing: true,
     separator: false,
@@ -167,6 +169,7 @@ export function buildBrowserSectionHeaderRow({
     sectionKey,
     title,
     height: 36,
+    heightRounding: 'nearest',
     pressDisabled: true,
     separator: false,
     style: {
