@@ -20,11 +20,7 @@ import {
   useOtpInputFocus,
   useOtpResend,
 } from './otpInputState';
-import {
-  PROVIDERS,
-  UPDATED_CONFIRMATION_VERSION,
-  WARNING_CODES,
-} from './protocol';
+import { UPDATED_CONFIRMATION_VERSION, WARNING_CODES } from './protocol';
 import { SignInErrorDialog } from './SignInErrorDialog';
 import { useDeletionFlow } from './useDeletionFlow';
 
@@ -48,17 +44,15 @@ const warningMessages: Record<IWarningCode, ITextKey> = {
 };
 
 const resultTitles: Record<
-  Exclude<IResult['status'], 'processing'>,
+  Exclude<IResult['status'], 'processing' | 'completed'>,
   ITextKey
 > = {
   not_submitted: 'notSubmitted',
-  completed: 'complete',
   manual_review_required: 'manualReview',
 };
 
 const resultScopes = {
   processing: 'pendingShare',
-  completed: 'deletedShare',
   manual_review_required: 'unknownShare',
 } as const;
 
@@ -80,6 +74,7 @@ const errorMessages: Partial<Record<IFlowErrorCode, ITextKey>> = {
   SERVICE_UNAVAILABLE: 'serviceUnavailable',
   UNSUPPORTED_CONFIRMATION: 'unsupportedConfirmation',
   CONFIRMATION_REQUIRED: 'confirmationRequired',
+  CONFIRMATION_CHANGED: 'confirmationChanged',
   DELETION_DISABLED: 'deletionDisabled',
   INVALID_REQUEST: 'invalidRequest',
 };
@@ -88,6 +83,7 @@ type IActionProps = {
   'data-testid'?: string;
   variant?: 'primary' | 'secondary' | 'destructive' | 'quiet';
   disabled?: boolean;
+  loading?: boolean;
   onClick?: () => void;
   children: ReactNode;
 };
@@ -112,7 +108,9 @@ function Action({
 function SendCode({ flow }: { flow: IFlow }) {
   const intl = useIntl();
   const { screen, busy } = flow;
-  const visible = screen.step === 'email' || screen.step === 'confirm';
+  const visible =
+    screen.step === 'email' ||
+    (screen.step === 'confirm' && !screen.uncertainDeletion);
   const resend = useOtpResend({
     deadline: visible ? (screen.resendAt ?? 0) : 0,
     busy,
@@ -157,6 +155,7 @@ function ConfirmStep({
   const { screen, busy } = flow;
   const review = screen.step === 'confirm' ? screen : undefined;
   const cooldown = useCountdown(review?.deleteRetryAt ?? 0);
+  const outcomeCooldown = useCountdown(review?.outcomeCheckAfter ?? 0);
   const challenge = review?.challenge;
   const challengeId = challenge?.challengeId;
   const [codeInputState, setCodeInputState] = useState({
@@ -200,6 +199,7 @@ function ConfirmStep({
     busy,
     ready:
       !!challenge &&
+      !review?.outcomeNeedsSignIn &&
       !expired &&
       acknowledged &&
       enteredCode.length > 0 &&
@@ -372,53 +372,85 @@ function ConfirmStep({
         data-testid="submit-deletion"
         variant="destructive"
         disabled={submitButton.disabled}
+        loading={flow.submittingDelete}
         onClick={submit}
       >
         {messages.delete}
       </Action>
+      {review?.uncertainDeletion ? (
+        <YStack gap="$2" testID="uncertain-deletion">
+          <SizableText color="$textSubdued" role="status">
+            {review.uncertainDeletion === 'not_found'
+              ? messages.deleteOutcomeNotFound
+              : messages.deleteOutcomeUnknown}
+          </SizableText>
+          <Action
+            data-testid="check-delete-outcome"
+            variant="secondary"
+            disabled={busy || outcomeCooldown > 0}
+            onClick={flow.checkDeleteOutcome}
+          >
+            {outcomeCooldown > 0
+              ? messages.statusCountdown(outcomeCooldown)
+              : messages.checkDeleteOutcome}
+          </Action>
+        </YStack>
+      ) : null}
       {warnings}
     </YStack>
   );
 }
 
 function ResultStep({ flow }: { flow: IFlow }) {
-  const { locale } = useIntl();
-  const { screen, busy, error, resultCheckAfter } = flow;
+  const intl = useIntl();
+  const { locale } = intl;
+  const { screen, busy, resultCheckAfter } = flow;
   const cooldown = useCountdown(resultCheckAfter);
-  const deleteCooldown = useCountdown(
-    screen.step === 'result' ? (screen.deleteRetryAt ?? 0) : 0,
-  );
   if (screen.step !== 'result') {
     return null;
   }
-  if (screen.recoveryUnavailable) {
-    return (
-      <SizableText color="$textSubdued">
-        {messages.recoveryUnavailable}
-      </SizableText>
-    );
-  }
-  const { result, accepted, proof, canRetry } = screen;
+  const { result, accepted, proof, resultCheckFailed } = screen;
   const needsSignIn = !proof;
   const known = result && result.status !== 'not_submitted' ? result : accepted;
-  const resultUnavailable = error?.code === 'INVITATION_UNAVAILABLE';
-  let resultDetail = resultUnavailable
-    ? messages.recoveryUnavailable
+  const shareStatus =
+    result?.status === 'completed' ? result.currentShareStatus : undefined;
+  let resultDetail = resultCheckFailed
+    ? messages.resultCheckFailed
     : messages.unknownDetail;
-  if (canRetry) {
-    resultDetail = messages.retryDetail;
-  } else if (result?.status === 'not_submitted') {
+  if (!resultCheckFailed && result?.status === 'not_submitted') {
     resultDetail = messages.notSubmitted;
+  }
+  let scopeDetail: string | undefined;
+  if (known?.status === 'completed') {
+    if (shareStatus === 'absent') scopeDetail = messages.deletedShare;
+    else if (shareStatus === 'present')
+      scopeDetail = messages.currentSharePresent;
+    else if (busy) scopeDetail = messages.checkingShare;
+    else
+      scopeDetail = resultCheckFailed
+        ? messages.resultCheckFailed
+        : messages.currentShareUnknown;
+  } else if (known) {
+    scopeDetail = messages[resultScopes[known.status]];
   }
   return (
     <>
       {known ? (
         <YStack gap="$4" alignItems="center">
           <YStack gap="$2">
-            <SizableText size="$bodyLg" textAlign="center">
-              {messages[resultScopes[known.status]]}
+            <SizableText
+              size="$bodyLg"
+              textAlign="center"
+              testID="deletion-result-detail"
+            >
+              {scopeDetail}
             </SizableText>
-            {known.status === 'completed' ? (
+            {resultCheckFailed && known.status !== 'completed' ? (
+              <SizableText color="$textSubdued" textAlign="center">
+                {messages.resultCheckFailed}
+              </SizableText>
+            ) : null}
+            {shareStatus === 'absent' ? (
               <SizableText color="$textSubdued" textAlign="center">
                 {messages.retain}: {messages.retained}
               </SizableText>
@@ -461,7 +493,7 @@ function ResultStep({ flow }: { flow: IFlow }) {
           ) : null}
         </YStack>
       ) : (
-        result?.status !== 'not_submitted' && (
+        (resultCheckFailed || result?.status !== 'not_submitted') && (
           <SizableText color="$textSubdued">{resultDetail}</SizableText>
         )
       )}
@@ -476,7 +508,7 @@ function ResultStep({ flow }: { flow: IFlow }) {
             : messages.reauthenticate}
         </Action>
       ) : null}
-      {!needsSignIn && result?.status !== 'completed' ? (
+      {!needsSignIn && shareStatus !== 'absent' && shareStatus !== 'present' ? (
         <Action
           data-testid="check-status"
           disabled={busy || cooldown > 0}
@@ -484,19 +516,7 @@ function ResultStep({ flow }: { flow: IFlow }) {
         >
           {cooldown > 0
             ? messages.statusCountdown(cooldown)
-            : messages.checkStatus}
-        </Action>
-      ) : null}
-      {canRetry && !needsSignIn ? (
-        <Action
-          data-testid="retry-original"
-          variant="secondary"
-          disabled={busy || deleteCooldown > 0}
-          onClick={flow.retrySubmit}
-        >
-          {deleteCooldown > 0
-            ? messages.retryCountdown(deleteCooldown)
-            : messages.retryOriginal}
+            : intl.formatMessage({ id: ETranslations.global_refresh })}
         </Action>
       ) : null}
     </>
@@ -519,15 +539,11 @@ function Flow({
   const [selectedProvider, setSelectedProvider] = useState<IProvider>();
 
   const signInCooldown = useCountdown(
-    screen.step === 'identity' || screen.step === 'recovery-identity'
-      ? (error?.retryAt ?? 0)
-      : 0,
+    screen.step === 'identity' ? (error?.retryAt ?? 0) : 0,
   );
   const verifying = screen.step === 'email' || screen.step === 'confirm';
-  const recoveryUnavailable =
-    screen.step === 'result' && screen.recoveryUnavailable;
   let errorMessage = error?.userMessage;
-  if (error && !errorMessage && !recoveryUnavailable) {
+  if (error && !errorMessage) {
     const errorKey = errorMessages[error.code];
     errorMessage = errorKey
       ? messages[errorKey]
@@ -635,7 +651,13 @@ function Flow({
       break;
     case 'result': {
       const status = screen.result?.status ?? screen.accepted?.status;
-      if (status === 'processing') {
+      if (status === 'completed') {
+        heading =
+          screen.result?.status === 'completed' &&
+          screen.result.currentShareStatus === 'absent'
+            ? messages.complete
+            : messages.originalCompleted;
+      } else if (status === 'processing') {
         heading = intl.formatMessage({ id: ETranslations.global_processing });
       } else {
         heading = status
@@ -648,36 +670,7 @@ function Flow({
     case 'unavailable':
       heading = messages.expired;
       body = (
-        <>
-          <SizableText color="$textSubdued">{messages.requestNew}</SizableText>
-          <Action
-            data-testid="open-recovery"
-            variant="secondary"
-            onClick={flow.openRecovery}
-          >
-            {messages.openRecovery}
-          </Action>
-        </>
-      );
-      break;
-    case 'recovery-identity':
-      heading = messages.openRecovery;
-      body = (
-        <>
-          <SizableText color="$textSubdued">{messages.resume}</SizableText>
-          {PROVIDERS.map((provider) => (
-            <Action
-              key={provider}
-              data-testid={`recover-${provider}`}
-              disabled={busy || signInCooldown > 0}
-              onClick={() => flow.recoverResult(provider)}
-            >
-              {signInCooldown > 0
-                ? messages.statusCountdown(signInCooldown)
-                : providerLabel(provider)}
-            </Action>
-          ))}
-        </>
+        <SizableText color="$textSubdued">{messages.requestNew}</SizableText>
       );
       break;
     case 'policy-pending':
@@ -704,8 +697,10 @@ function Flow({
       break;
   }
   const result = screen.step === 'result' ? screen.result : undefined;
-  const isAppComplete = result?.status === 'completed';
-  const centerHeading = screen.step === 'identity' || isAppComplete;
+  const isAppComplete =
+    result?.status === 'completed' && result.currentShareStatus === 'absent';
+  const largeHeading = screen.step === 'identity' || isAppComplete;
+  const centerHeading = largeHeading || result?.status === 'completed';
   return (
     <section
       aria-labelledby={heading ? 'flow-heading' : undefined}
@@ -714,6 +709,11 @@ function Flow({
       data-status={
         screen.step === 'result'
           ? (result?.status ?? screen.accepted?.status ?? 'unknown')
+          : undefined
+      }
+      data-current-share-status={
+        result?.status === 'completed'
+          ? (result.currentShareStatus ?? 'unknown')
           : undefined
       }
       data-result-id={
@@ -738,7 +738,7 @@ function Flow({
             id="flow-heading"
             className={verifying ? 'keyless-visually-hidden' : undefined}
             aria-live="polite"
-            size={centerHeading ? '$heading2xl' : '$headingMd'}
+            size={largeHeading ? '$heading2xl' : '$headingMd'}
             textAlign={centerHeading ? 'center' : undefined}
             m="$0"
           >
