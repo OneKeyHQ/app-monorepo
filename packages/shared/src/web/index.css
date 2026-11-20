@@ -351,30 +351,38 @@ textarea {
   top: 0 !important;
 }
 
-/* Home token rows on wide desktop / web show their Swap button only while the
-   row is hovered or holds keyboard focus. A mouse press leaves focus on the
-   row, so only keyboard focus (:focus-visible) keeps it. Screens that cannot
-   hover keep it. Hidden, it also lets a touch on a hybrid screen through to
-   the row instead of pressing an invisible Swap. */
-@media (hover: hover) and (pointer: fine) {
-  .ok-native-list-item[data-testid^='home-token-item-']:not(:hover):not(:focus-visible):not(:has(:focus-visible))
-    [data-native-list-action='swap'] {
-    opacity: 0;
-    pointer-events: none;
-  }
-}
-
-/* The same rows read asset | price | holdings (NativeTokenSelectorList). The
-   price, the second cell, is in regular weight so the medium weight stays on
-   the symbol and the holdings. A data row takes one weight for every column
-   and the package sets it inline, hence !important. Remove once the package
-   takes a weight per column. */
+/* Home token rows on desktop and web read asset | price | holdings
+   (NativeTokenSelectorList). The price, the second cell, is in regular
+   weight so the medium weight stays on the symbol and the holdings. A data
+   row takes one weight for every column and the package sets it inline,
+   hence !important. Remove once the package takes a weight per column. */
 .ok-native-list-item[data-testid^='home-token-item-']
   .ok-native-list-data
   > .ok-native-list-data-cell:nth-child(2 of .ok-native-list-data-cell)
   [data-nl-slot='columns'] {
   font-weight: 400 !important;
   font-family: var(--nl-font-regular) !important;
+}
+
+/* The same rows split into four equal columns: icon and asset, price,
+   holdings, and Swap at the end of the last. NativeList takes only column
+   weights, which leave the icon and the button outside them, so price and
+   holdings (each with its 12px gap) and the Swap column take a quarter here
+   and the asset cell's weight takes the rest. The package sets the weights
+   inline, hence !important. TokenListFooterRows gives its hidden Swap the
+   same quarter. Remove once the package takes column widths. */
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell
+  + .ok-native-list-data-cell {
+  flex: 0 0 calc(25% - 12px) !important;
+}
+
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-accessories {
+  flex: 0 0 25%;
+  justify-content: flex-end;
 }
 
 /* 

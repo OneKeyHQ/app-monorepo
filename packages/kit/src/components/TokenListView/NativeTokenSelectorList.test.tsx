@@ -1121,10 +1121,10 @@ it('publishes Home cell values into separate table columns and routes the Swap a
       expect(first.style?.container?.cornerRadius).toBe(12);
       expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual(
         [
-          { key: 'asset', weight: 2 },
-          { key: 'balance', weight: 3 },
-          { key: 'price', weight: 3 },
-          { key: 'swapSpacer', weight: 2 },
+          { key: 'asset', weight: 1 },
+          { key: 'balance', weight: 1 },
+          { key: 'price', weight: 1 },
+          { key: 'swapSpacer', weight: 1 },
         ],
       );
       expect(first.columns[1].text).toBe('414');
@@ -1212,9 +1212,9 @@ it('ends the wide Web Home row on the holdings, value first', () => {
     if (first?.type === 'dataRow') {
       expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual(
         [
-          { key: 'asset', weight: 2 },
-          { key: 'price', weight: 3 },
-          { key: 'balance', weight: 3 },
+          { key: 'asset', weight: 1 },
+          { key: 'price', weight: 1 },
+          { key: 'balance', weight: 1 },
         ],
       );
       expect(first.columns[1].text).toContain('1.5');
@@ -1223,7 +1223,7 @@ it('ends the wide Web Home row on the holdings, value first', () => {
       expect(first.trailing?.[0]).toMatchObject({
         kind: 'button',
         actionKey: 'swap',
-        // The hover-only Swap takes the Send / Receive fill, and names its token.
+        // Swap takes the Send / Receive fill, and names its token.
         hoverBackgroundColor: '#E8E8E8',
         pressedBackgroundColor: '#E0E0E0',
         accessibilityLabel: expect.stringContaining(ethToken.symbol),

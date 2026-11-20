@@ -25,9 +25,6 @@ import type { AccessibilityActionEvent } from 'react-native';
 // token icons sit, the label on the symbol column).
 
 const ROW_PADDING = 12;
-// Trailing Swap button: 10px padding plus a 1px border. Table rows keep its
-// footprint so the low-value total ends on the token values' edge.
-const SWAP_BUTTON_HORIZONTAL_INSET = 11;
 const ACTIVATE_ACTIONS = [{ name: 'activate' as const }];
 
 export type ITokenListFooterRowsLayout = 'table' | 'list';
@@ -42,7 +39,8 @@ type IFooterMetrics = {
   coinGap: number;
   riskIconSize: IIconProps['size'];
   addIconSize: IIconProps['size'];
-  // Table rows hold the place of the token rows' trailing Swap button.
+  // Table rows keep the token rows' Swap column, a quarter of the row
+  // (index.css), empty so a total ends on the holdings edge.
   swapColumn: boolean;
 };
 
@@ -84,7 +82,6 @@ function FooterRow({
   trailing?: ReactNode;
   onPress: () => void;
 }) {
-  const intl = useIntl();
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -158,15 +155,7 @@ function FooterRow({
       </XStack>
       {trailing}
       {metrics.swapColumn ? (
-        <SizableText
-          size="$bodyMdMedium"
-          px={SWAP_BUTTON_HORIZONTAL_INSET}
-          opacity={0}
-          pointerEvents="none"
-          aria-hidden
-        >
-          {intl.formatMessage({ id: ETranslations.global_swap })}
-        </SizableText>
+        <Stack testID={`${testID}-swap-column`} width="25%" />
       ) : null}
     </XStack>
   );

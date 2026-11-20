@@ -4,7 +4,6 @@ import type { KeyboardEvent, ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListFooterRows } from './TokenListFooterRows';
@@ -178,8 +177,8 @@ describe('TokenListFooterRows', () => {
       <TokenListFooterRows risky={{ count: 1, onPress: jest.fn() }} />,
     );
     expect(
-      screen.getByTestId('token-list-footer-risky-btn').textContent,
-    ).toContain(ETranslations.global_swap);
+      screen.queryByTestId('token-list-footer-risky-btn-swap-column'),
+    ).not.toBeNull();
     unmount();
     render(
       <TokenListFooterRows
@@ -188,8 +187,8 @@ describe('TokenListFooterRows', () => {
       />,
     );
     expect(
-      screen.getByTestId('token-list-footer-risky-btn').textContent,
-    ).not.toContain(ETranslations.global_swap);
+      screen.queryByTestId('token-list-footer-risky-btn-swap-column'),
+    ).toBeNull();
   });
 
   it('opens each row by click, Enter or Space', () => {
