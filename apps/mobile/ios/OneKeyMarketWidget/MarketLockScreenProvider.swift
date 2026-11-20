@@ -51,38 +51,41 @@ enum MarketLockScreenTimeline {
                             store: MarketWidgetStore) -> MarketWidgetEntry {
     // The App can mask the selection or write a newer quote while other slots are loading.
     let current = snapshot(assets: initial.rows.map(\.asset), isWatchlist: initial.isWatchlist, store: store)
-    let accepted = current.configuration == initial.configuration ? fetched : [:]
+    let configurationChanged = current.configuration != initial.configuration
     let rows = current.rows.map { row in
-      let fresh = accepted[row.id]
-      return MarketWidgetRow(asset: row.asset, quote: fresh?.merging(row.quote, at: current.date) ?? row.quote,
-        failed: fresh == nil)
+      let fresh = fetched[row.id]
+      let quote = configurationChanged ? row.quote : fresh?.merging(row.quote, at: current.date) ?? row.quote
+      return MarketWidgetRow(asset: row.asset, quote: quote, failed: fresh == nil)
     }
     return MarketWidgetEntry(date: current.date, configuration: current.configuration, rows: rows,
       isWatchlist: current.isWatchlist, selectionUnavailable: current.selectionUnavailable, source: current.source)
   }
 
   private static func result(_ entry: MarketWidgetEntry, includingChart: Bool) -> Timeline<MarketWidgetEntry> {
-    func presentation(at date: Date) -> MarketWidgetEntry {
-      MarketWidgetEntry(date: date, configuration: entry.configuration,
-        rows: entry.rows.map { $0.forLockScreen(at: date) },
-        isWatchlist: entry.isWatchlist, selectionUnavailable: entry.selectionUnavailable, source: entry.source)
-    }
     var dates: Set<Date> = [entry.date]
     for row in entry.rows {
       guard let quote = row.quote else { continue }
       let staleAt = quote.fetchedAt.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
       if !row.failed, staleAt > entry.date { dates.insert(staleAt) }
-      // At midnight today's cached time becomes a calendar date, even if the next reload is delayed.
+
       let timestamp = quote.priceUpdatedAt ?? quote.fetchedAt
       if let midnight = Calendar.current.dateInterval(of: .day, for: timestamp)?.end,
-         midnight > entry.date, row.failed || midnight > staleAt { dates.insert(midnight) }
+         midnight > entry.date, row.failed || midnight > staleAt {
+        dates.insert(midnight)
+      }
       if includingChart, quote.chart != nil || quote.stockSparkline != nil {
         let chartExpiry = (quote.chartFetchedAt ?? quote.fetchedAt).addingTimeInterval(MarketWidgetQuote.chartLifetime)
         if chartExpiry > entry.date { dates.insert(chartExpiry) }
       }
     }
-    let entries = dates.sorted().map { presentation(at: $0) }
-    return Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60)))
+
+    let entries = dates.sorted().map { date in
+      MarketWidgetEntry(date: date, configuration: entry.configuration,
+        rows: entry.rows.map { $0.forLockScreen(at: date) }, isWatchlist: entry.isWatchlist,
+        selectionUnavailable: entry.selectionUnavailable, source: entry.source)
+    }
+    let reloadAt = entry.date.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
+    return Timeline(entries: entries, policy: .after(reloadAt))
   }
 
   static func preview(isWatchlist: Bool) -> MarketWidgetEntry {
@@ -99,6 +102,6 @@ enum MarketLockScreenTimeline {
       return MarketWidgetRow(asset: asset, quote: quote, failed: false)
     }
     return MarketWidgetEntry(date: date, configuration: .initial, rows: rows,
-      isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot)
+      isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot, isGalleryPreview: true)
   }
 }

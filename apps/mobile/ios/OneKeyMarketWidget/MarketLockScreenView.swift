@@ -9,9 +9,15 @@ enum MarketLockScreenStyle: String {
 struct MarketLockScreenView: View {
   let entry: MarketWidgetEntry
   let style: MarketLockScreenStyle
+  private let isMasked: Bool
+
+  init(entry: MarketWidgetEntry, style: MarketLockScreenStyle) {
+    self.entry = entry
+    self.style = style
+    self.isMasked = !entry.canDisplayOnLockScreen()
+  }
 
   private var locale: Locale { Locale(identifier: entry.configuration?.locale ?? "en-US") }
-  private var isMasked: Bool { entry.configuration == nil || entry.configuration?.privacyMasked == true }
   private var row: MarketWidgetRow? { isMasked ? nil : entry.rows.first }
 
   var body: some View {

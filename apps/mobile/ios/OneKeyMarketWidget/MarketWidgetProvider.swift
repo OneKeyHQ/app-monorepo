@@ -31,6 +31,14 @@ struct MarketWidgetEntry: TimelineEntry {
   var profileID: String? = nil
   var profileUnavailable = false
   var manualSelection = false
+  var isGalleryPreview = false
+
+  func canDisplayOnLockScreen(store: MarketWidgetStore = MarketWidgetStore()) -> Bool {
+    guard let configuration, configuration.privacyMasked != true else { return false }
+    if isGalleryPreview { return true }
+    // Travel Mode can change between producing the timeline and WidgetKit archiving its views.
+    return store.configuration().configuration.map { $0.privacyMasked != true } == true
+  }
 
   var editorURL: URL? {
     MarketWidgetEditorLink.url(profileID: nil, kind: isWatchlist ? .list : .single)
