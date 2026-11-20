@@ -682,11 +682,14 @@ function BatchCreateAccountPreviewPage({
           size: '$bodyMd',
           color: '$textDisabled',
         },
-        columnProps: {
-          flexGrow: 2,
-          flexBasis: 0,
-          minWidth: indexColumnMinWidth,
-        },
+        // Yoga sizes a growing column as its min-clamped basis plus its share
+        // of what is left, so a floor under the 20% share (the web layout)
+        // comes on top of the share on native: the column ends up wider than
+        // either one and the address next to it wraps. Native gives it
+        // exactly the width it needs instead.
+        columnProps: platformEnv.isNative
+          ? { flexGrow: 0, flexBasis: indexColumnMinWidth }
+          : { flexGrow: 2, flexBasis: 0, minWidth: indexColumnMinWidth },
         dataIndex: 'checkBox',
         columnWidth: 22,
         render: (_: any, account: IBatchCreateAccount) => {
