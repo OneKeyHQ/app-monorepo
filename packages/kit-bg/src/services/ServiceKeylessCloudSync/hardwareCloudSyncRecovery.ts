@@ -18,6 +18,24 @@ type IRecoveredItem = {
   replacement: IDBCloudSyncItem;
 };
 
+export function hasPendingDeletionFromPreviousHardwareKey({
+  items,
+  currentPwdHash,
+  previousPwdHashes,
+}: {
+  items: IDBCloudSyncItem[];
+  currentPwdHash: string;
+  previousPwdHashes: ReadonlySet<string>;
+}) {
+  return items.some(
+    (item) =>
+      item.dataType === EPrimeCloudSyncDataType.Account &&
+      !!item.pendingPublicAccountDeletionAt &&
+      item.pwdHash !== currentPwdHash &&
+      previousPwdHashes.has(item.pwdHash),
+  );
+}
+
 // Only call after authenticating and unwrapping the selected hardware source.
 // Local plaintext is sufficient to re-encrypt a business version; historical
 // envelopes are not required and must not determine which edit wins.
@@ -101,7 +119,8 @@ export async function commitHardwareCloudSyncLocalRecovery(
         record.data === item.original.data &&
         record.rawData === item.original.rawData &&
         record.dataTime === item.original.dataTime &&
-        record.isDeleted === item.original.isDeleted
+        record.isDeleted === item.original.isDeleted &&
+        !record.pendingPublicAccountDeletionAt
       ) {
         // Keep the business version, tombstone and pending scene state. A
         // concurrent edit is left untouched for the following full sync.

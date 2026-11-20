@@ -7,6 +7,7 @@ import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder'
 
 import {
   commitHardwareCloudSyncLocalRecovery,
+  hasPendingDeletionFromPreviousHardwareKey,
   prepareHardwareCloudSyncLocalRecovery,
 } from './hardwareCloudSyncRecovery';
 
@@ -48,6 +49,35 @@ function record(dataTime = 200): IDBCloudSyncItem {
     serverUploaded: false,
   };
 }
+
+test.each([
+  ['previous key known from history', 'history-key', 200, true],
+  ['only the stored credential knows the old key', 'stored-key', 200, true],
+  ['current key can still authenticate the deletion', 'current-key', 200, false],
+  ['a different space is not rewritten', 'foreign-key', 200, false],
+  [
+    'an ordinary previous-key record has no pending deletion',
+    'history-key',
+    undefined,
+    false,
+  ],
+] as const)('%s', (_scenario, pwdHash, pendingAt, expected) => {
+  const item: IDBCloudSyncItem = {
+    ...record(),
+    dataType: EPrimeCloudSyncDataType.Account,
+    pendingPublicAccountDeletionAt: pendingAt,
+    pwdHash,
+  };
+  const original = { ...item };
+  expect(
+    hasPendingDeletionFromPreviousHardwareKey({
+      items: [item],
+      currentPwdHash: 'current-key',
+      previousPwdHashes: new Set(['history-key', 'stored-key']),
+    }),
+  ).toBe(expected);
+  expect(item).toEqual(original);
+});
 
 describe('hardware re-sign recovery preserves business versions', () => {
   let local: IDBCloudSyncItem;
@@ -160,6 +190,28 @@ describe('hardware re-sign recovery preserves business versions', () => {
       dataTime: 300,
       pwdHash: 'hw-dek-no-longer-in-history',
     });
+  });
+
+  test('a pending account deletion written after recovery preparation is preserved', async () => {
+    local.dataType = EPrimeCloudSyncDataType.Account;
+    local.rawData = JSON.stringify({
+      rawKey: local.rawKey,
+      dataType: local.dataType,
+      payload: { name: 'B' },
+    });
+    const recovered = await prepareHardwareCloudSyncLocalRecovery({
+      items: [local],
+      syncCredential,
+      knownPwdHashes: new Set(),
+    });
+    expect(recovered).toHaveLength(1);
+    local.pendingPublicAccountDeletionAt = 300;
+    local.pendingPublicAccountDeletionHash = 'public-test-account-identity';
+    const before = { ...local };
+
+    await commitHardwareCloudSyncLocalRecovery(recovered);
+
+    expect(local).toEqual(before);
   });
 
   test('an edit made while encryption is waiting is compared to the original snapshot', async () => {

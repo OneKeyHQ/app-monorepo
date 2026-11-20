@@ -985,7 +985,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
 
     data.pwdHash = data?.pwdHash || pwdHash || '';
-    console.log('prime cloud sync apiDownloadItems: ', data);
+    console.log('prime cloud sync apiDownloadItems', {
+      count: data.serverData?.length,
+    });
     return data;
   }
 
@@ -1135,7 +1137,11 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     responseData.pwdHash =
       responseData.pwdHash || pwdHash || masterPasswordUUID || '';
-    console.log('prime cloud sync apiCheck: ', responseData);
+    console.log('prime cloud sync apiCheck', {
+      diffCount: responseData.diff?.length,
+      updatedCount: responseData.updated?.length,
+      deletedCount: responseData.deleted?.length,
+    });
     return responseData;
   }
 
@@ -2704,10 +2710,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         const availableItemsCount = localItems.length;
         if (availableItemsCount !== totalItemsCount && totalItemsCount > 0) {
           if (process.env.NODE_ENV !== 'production') {
-            const invalidItems = allLocalItems.filter(
-              (item) => item.pwdHash !== pwdHash,
-            );
-            console.log('invalidItems', invalidItems);
+            console.log('cloudSyncItemsWithDifferentKey', {
+              count: totalItemsCount - availableItemsCount,
+            });
           }
           const removedItems = allLocalItems.filter(
             (item) =>
@@ -4344,27 +4349,21 @@ class ServicePrimeCloudSync extends ServiceBase {
   async decryptAllLocalSyncItems() {
     const syncCredential = await this.getSyncCredentialSafe();
     const { items } = await this.getAllLocalSyncItems();
-    console.log('getAllLocalSyncItems: ', { localItems: items });
     const result: IDBCloudSyncItem[] = [];
+    let failedCount = 0;
     for (const item of items) {
       try {
         const decryptedData = await cloudSyncItemBuilder.decryptSyncItem({
           item,
           syncCredential,
         });
-        if (decryptedData && process.env.NODE_ENV !== 'production') {
-          console.log(
-            'decryptAllLocalSyncItems: ',
-            decryptedData?.rawDataJson?.payload,
-            decryptedData,
-          );
-        }
         result.push(decryptedData.dbItem || item);
-      } catch (error) {
+      } catch {
         result.push(item);
-        console.error('decryptAllLocalSyncItems error', error, item);
+        failedCount += 1;
       }
     }
+    console.log('decryptAllLocalSyncItems', { count: items.length, failedCount });
     return result.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
@@ -4487,6 +4486,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       includeDeleted,
     });
     const localItems: IDBCloudSyncItem[] = [];
+    let failedCount = 0;
     for (const item of items) {
       try {
         const localItem = await this.convertServerItemToLocalItem({
@@ -4497,14 +4497,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         });
         if (localItem) {
           localItems.push(localItem);
-          console.log(
-            'decryptAllServerSyncItems: ',
-            localItem?.rawDataJson?.payload,
-            localItem,
-          );
         }
-      } catch (error) {
-        console.error('decryptAllServerSyncItems error', error, item);
+      } catch {
+        failedCount += 1;
         const localItem = await this.convertServerItemToLocalItem({
           serverItem: item,
           shouldDecrypt: false,
@@ -4516,6 +4511,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         }
       }
     }
+    console.log('decryptAllServerSyncItems', { count: items.length, failedCount });
     return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
