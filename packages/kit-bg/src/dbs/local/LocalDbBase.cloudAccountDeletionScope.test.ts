@@ -62,12 +62,14 @@ const syncCredential: ICloudSyncCredential = {
 async function fixture({
   refuseAuthority = false,
   rejectPreflight = false,
+  beforeAuthority,
   missingCredential = false,
   beforeTime,
   foreign,
 }: {
   refuseAuthority?: boolean;
   rejectPreflight?: boolean;
+  beforeAuthority?: () => Promise<void>;
   missingCredential?: boolean;
   beforeTime?: (
     db: LocalDbIndexed,
@@ -131,6 +133,7 @@ async function fixture({
       ) => {
         stages.push('repair');
         expect(selected).toBe(hardware);
+        await beforeAuthority?.();
         return refuseAuthority ? undefined : fn();
       },
     },
@@ -351,3 +354,35 @@ it.each([
     expect(h.syncLater).not.toHaveBeenCalled();
   },
 );
+
+it('does not wait for late Desktop Cloud authorization or repeat the local commit', async () => {
+  const waiting = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const h = await fixture({
+    beforeAuthority: () => {
+      waiting.resolve();
+      return release.promise;
+    },
+  });
+  const remove = jest.spyOn(h.db, 'txRemoveRecords');
+  jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
+  try {
+    const removing = h.remove();
+    await waiting.promise;
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(removing).resolves.toBeUndefined();
+    expect(
+      await h.other.getAccountSafe({ accountId: h.account.id }),
+    ).toBeFalsy();
+    expect(remove).toHaveBeenCalledTimes(1);
+    release.resolve();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+    expect(await archived(h.other)).toEqual([]);
+    expect(h.syncLater).not.toHaveBeenCalled();
+  } finally {
+    release.resolve();
+    jest.useRealTimers();
+  }
+});

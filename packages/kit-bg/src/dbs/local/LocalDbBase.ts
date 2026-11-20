@@ -1026,6 +1026,8 @@ const WALLET_METADATA_CLOUD_WRITE_DECLINED = new Error(
   'Wallet metadata Cloud write declined',
 );
 
+const CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS = 1000;
+
 // Distinguish a declined optional Cloud write from a real local DB failure.
 const CLOUD_ACCOUNT_DELETE_WRITE_DECLINED = new Error(
   'Cloud account deletion write declined',
@@ -10992,15 +10994,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   private async getPublicAccountDeletionCandidates({
+    prepareCloud,
     accountIds,
     walletIds,
     indexedAccountIds,
   }: {
+    prepareCloud: boolean;
     accountIds?: string[];
     walletIds?: ReadonlySet<string>;
     indexedAccountIds?: ReadonlySet<string>;
   }): Promise<IDBAccount[]> {
     if (
+      !prepareCloud ||
       accountIds?.length === 0 ||
       walletIds?.size === 0 ||
       indexedAccountIds?.size === 0
@@ -11036,7 +11041,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           );
         });
       },
-      { readOnly: true },
+      { readOnly: true, skipCloudCredentialWarmup: true },
     );
   }
 
@@ -11050,7 +11055,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       timeout = setTimeout(() => {
         allowCloud = false;
         resolve(false);
-      }, 1000);
+      }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
     });
     const lockedRemoval = async () => {
       try {
@@ -11086,6 +11091,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     prepareCloud: boolean,
   ): Promise<IDBCloudSyncItem[]> {
     if (!prepareCloud) return [];
+    let isCurrent = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const elapsed = new Promise<IDBCloudSyncItem[]>((resolve) => {
+      timeout = setTimeout(() => {
+        isCurrent = false;
+        resolve([]);
+      }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
+    });
+    try {
+      // The losing work only prepares data; it has no callback that can
+      // start or repeat the local deletion transaction.
+      return await Promise.race([
+        elapsed,
+        this.collectPublicAccountDeletionSyncItems(accounts, () => isCurrent),
+      ]);
+    } finally {
+      isCurrent = false;
+      clearTimeout(timeout);
+    }
+  }
+
+  private async collectPublicAccountDeletionSyncItems(
+    accounts: IDBAccount[],
+    isCurrent: () => boolean,
+  ) {
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
@@ -11101,9 +11131,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncCredential = await syncService
       .getSyncCredentialSafe()
       .catch(() => undefined);
+    if (!isCurrent()) return [];
     const items: IDBCloudSyncItem[] = [];
     const indexedNames = new Map<string, string | undefined>();
     for (const account of supportedAccounts) {
+      if (!isCurrent()) return [];
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
@@ -11123,6 +11155,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (account.indexedAccountId &&
             indexedNames.get(account.indexedAccountId)) ||
           account.name;
+        if (!isCurrent()) return [];
         try {
           const item =
             await syncService.syncManagers.account.buildSyncItemByDBQuery({
@@ -11170,6 +11203,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
           await task(tx);
         },
+        { skipCloudCredentialWarmup: true },
       );
     const attempt = async (candidates: IDBCloudSyncItem[]) => {
       const foreign = candidates.flatMap((item) => {
@@ -11183,27 +11217,42 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       )
         return false;
       let started = false;
+      let allowCloud = true;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       const transaction = async () => {
+        if (!allowCloud) return false;
+        clearTimeout(timeout);
         started = true;
         await run(candidates);
         return true;
       };
       const keyless = this.backgroundApi.serviceKeylessCloudSync;
       try {
-        // Public removal already holds the key lock. Observe the
-        // key → import → repair order for the short scoped DB commit.
-        return first
-          ? ((await keyless.runWithCloudAccountImportLock(() =>
-              keyless.runWithVerifiedHardwareAccountArchiveSession(
+        if (!first) return await transaction();
+        const elapsed = new Promise<false>((resolve) => {
+          timeout = setTimeout(() => {
+            allowCloud = false;
+            resolve(false);
+          }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
+        });
+        // Observe key → import → repair. Only an admitted callback may
+        // enter the business transaction; late authorization is a no-op.
+        const guarded = keyless.runWithCloudAccountImportLock(() =>
+          allowCloud
+            ? keyless.runWithVerifiedHardwareAccountArchiveSession(
                 first.credential,
                 transaction,
-              ),
-            )) ?? false)
-          : await transaction();
+              )
+            : Promise.resolve(false),
+        );
+        return (await Promise.race([elapsed, guarded])) ?? false;
       } catch (error) {
         if (started && error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED)
           throw error;
         return false;
+      } finally {
+        allowCloud = false;
+        clearTimeout(timeout);
       }
     };
     if (items.length && (await attempt(items))) return true;
@@ -11376,6 +11425,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           indexedAccountIds: new Set(indexedAccounts.map((item) => item.id)),
         }),
         prepareCloud,
@@ -11439,6 +11489,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           walletIds: new Set([walletId]),
           indexedAccountIds: new Set([indexedAccountId]),
         }),
@@ -11499,6 +11550,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           accountIds: accountIdsToRemove,
         }),
         prepareCloud,
@@ -11567,9 +11619,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     prepareCloud: boolean,
   ): Promise<void> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const account = await this.getAccountSafe({
-      accountId,
-    });
+    const account = prepareCloud
+      ? await this.getAccountSafe({ accountId })
+      : undefined;
     let syncItemKey: string | undefined;
     const isPublicAccountWallet =
       (accountUtils.isHdWallet({ walletId }) ||

@@ -525,6 +525,60 @@ describe('public account deletion tombstones', () => {
     expect(db.syncFlow).not.toHaveBeenCalled();
   });
 
+  test.each(['single', 'batch'] as const)(
+    '%s local removal completes after the already-admitted credential read stalls',
+    async (kind) => {
+      const db = new DeletionTestDb();
+      const records =
+        kind === 'single'
+          ? [account('hd-1', 0)]
+          : [account('hd-1', 0), account('hd-1', 1)];
+      db.put(
+        ELocalDBStoreNames.Wallet,
+        wallet('hd-1', {
+          accounts: records.map((record) => record.id),
+        }),
+      );
+      records.forEach((record) => db.addAccount(record));
+      const credential = Promise.withResolvers<ICloudSyncCredential>();
+      const reading = Promise.withResolvers<void>();
+      db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = () => {
+        reading.resolve();
+        return credential.promise;
+      };
+      const txRemove = jest.spyOn(db, 'txRemoveRecords');
+      try {
+        const removing =
+          kind === 'single'
+            ? db.removeAccount({ walletId: 'hd-1', accountId: records[0].id })
+            : db.removeAccountsByIds({
+                ids: records.map((record) => record.id),
+              });
+        await reading.promise;
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(removing).resolves.toBeUndefined();
+        expect(txRemove).toHaveBeenCalledTimes(1);
+        for (const record of records) {
+          expect(
+            db.read(ELocalDBStoreNames.Account, record.id),
+          ).toBeUndefined();
+        }
+        expect(
+          db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
+        ).toEqual([]);
+
+        credential.resolve(realManagerFixtureCredential);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(txRemove).toHaveBeenCalledTimes(1);
+        expect(db.buildTombstone).not.toHaveBeenCalled();
+        expect(db.syncFlow).not.toHaveBeenCalled();
+      } finally {
+        credential.resolve(realManagerFixtureCredential);
+        txRemove.mockRestore();
+      }
+    },
+  );
+
   test.each([
     'single account',
     'bulk accounts',
