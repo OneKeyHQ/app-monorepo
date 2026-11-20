@@ -57,8 +57,20 @@ jobs:
           mkdir -p ci-ai
           set +e
           (
-            git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" &&
-              node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"
+            for attempt in 1 2 3; do
+              if git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"; then
+                exec node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"
+              else
+                fetch_status=$?
+              fi
+
+              if (( attempt < 3 )); then
+                delay=$((attempt * 10))
+                printf 'Base fetch attempt %d/3 failed with exit code %d. Retrying in %d seconds.\n' "$attempt" "$fetch_status" "$delay"
+                sleep "$delay"
+              fi
+            done
+            exit "$fetch_status"
           ) 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
