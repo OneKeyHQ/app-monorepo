@@ -225,11 +225,14 @@ class ProviderApiTron extends ProviderApiBase {
 
   @providerApiMethod()
   async tron_getProviderState(request: IJsBridgeMessagePayload) {
-    const [accounts, { nodes, chainId }] = await Promise.all([
+    const [accounts, nodes] = await Promise.all([
       this.tron_accounts(request),
-      this.resolveConnectedNodesAndChainId(request),
+      this.tron_nodes(request),
     ]);
-    if (request.origin && !isDefaultMainnetState(chainId, nodes)) {
+    // Only mark origins whose injected TronWeb initialized off Mainnet;
+    // unconnected pages report chainId 0x00 with Mainnet nodes and must not
+    // force a premature wallet_events_nodesChanged on first Mainnet connect.
+    if (request.origin && nodes.fullHost !== TRON_SCAN_REQUESTED_URL.main) {
       this.nonDefaultNodeOrigins.add(request.origin);
     }
     return {

@@ -745,6 +745,22 @@ describe('ProviderApiTron first-time connection node sync', () => {
     });
 
     await expect(
+      provider.tron_getProviderState({
+        origin: 'https://dapp.example',
+        scope: 'tron',
+        data: { method: 'tron_getProviderState' },
+      } as IJsBridgeMessagePayload),
+    ).resolves.toEqual({
+      accounts: [],
+      nodes: {
+        fullHost: 'https://api.trongrid.io',
+        fullNode: 'https://api.trongrid.io',
+        solidityNode: 'https://api.trongrid.io',
+        eventServer: 'https://api.trongrid.io',
+      },
+    });
+
+    await expect(
       provider.tron_requestAccounts({
         origin: 'https://dapp.example',
         scope: 'tron',
