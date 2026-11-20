@@ -111,8 +111,10 @@ export const buildAppStorageFactory = (
     });
   };
 
-  const originalPatchObjectItem = storage.patchObjectItem;
-  if (originalPatchObjectItem) {
+  // The Native AsyncStorage Proxy throws on reads of unsupported methods.
+  const originalPatchObjectItem =
+    'patchObjectItem' in storage ? storage.patchObjectItem : undefined;
+  if (typeof originalPatchObjectItem === 'function') {
     storage.patchObjectItem = async (key, patch) =>
       travelModeManager.getRuntimeEnvironmentSync().persistence.run({
         operation: () => originalPatchObjectItem.call(storage, key, patch),
