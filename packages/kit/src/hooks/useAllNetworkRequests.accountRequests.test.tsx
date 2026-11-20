@@ -202,8 +202,10 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
       waitFor(() => expect(pending.length).toBe(count)),
     // Not wrapped in `act`: the batch renders nothing itself, and a pending
     // async act scope would defer the `rerender` / `run` acts nested in it.
-    refreshAccounts: (accounts: { accountId: string; networkId: string }[]) =>
-      hook.result.current.runAccountRequests(accounts),
+    refreshAccounts: (
+      accounts: { accountId: string; networkId: string }[],
+      options?: { refreshAll?: boolean },
+    ) => hook.result.current.runAccountRequests(accounts, options),
     releaseAccounts: async () => {
       await act(async () => {
         accountsResolvers.splice(0).forEach((resolve) => resolve());
@@ -267,6 +269,36 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     ]);
     expect(ctx.fanOutCount.current).toBe(1);
     expect(ctx.published).toHaveLength(1);
+  });
+
+  it('publishes a new complete fan-out for a scoped refresh that requires a complete snapshot', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    await ctx.refreshAccounts(
+      [{ ...ctx.eth, accountId: 'unrelated-account' }],
+      { refreshAll: true },
+    );
+    expect(ctx.requests).toHaveLength(2);
+
+    let refresh: Promise<void> | undefined;
+    await act(async () => {
+      refresh = ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+    });
+    await ctx.waitForPending(2);
+    await ctx.settleRequests();
+    await refresh;
+
+    expect(ctx.fanOutCount.current).toBe(2);
+    expect(ctx.published.at(-1)).toEqual([
+      { networkId: 'evm--1' },
+      { networkId: 'sui--mainnet' },
+    ]);
+    expect(ctx.settled.slice(-2)).toEqual([
+      ['evm--1', 2],
+      ['sui--mainnet', 2],
+    ]);
   });
 
   it('refreshes the accounts one after another and survives one failed network', async () => {

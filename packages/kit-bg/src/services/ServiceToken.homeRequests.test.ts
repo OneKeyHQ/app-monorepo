@@ -914,6 +914,58 @@ describe('ServiceToken native Home request lifetime', () => {
     ]);
   });
 
+  it('cancels a delayed single-network cache seed after the same request publishes live data', async () => {
+    const vm = new ServiceTokenViewModel({ backgroundApi: api });
+    api.serviceTokenViewModel.ingestRound.mockImplementation(
+      (params: IIngestRoundParams) => vm.ingestRound(params),
+    );
+    const metadataStarted = deferred<void>();
+    const metadata = deferred<undefined>();
+    Object.assign(api.simpleDb.aggregateToken, {
+      getHomeDefaultTokenMap: jest.fn(() => {
+        metadataStarted.resolve();
+        return metadata.promise;
+      }),
+    });
+    const homeIngest = {
+      ownerKey: 'home-owner',
+      storeName: 'homeTokenList',
+      omitResponseTokenLists: true,
+    };
+    const localParams = {
+      homeRequest: token(1),
+      accountId: 'fixture-account',
+      networkId: 'evm--1',
+      accountAddress: 'fixture-address',
+      homeIngest,
+    };
+    const localSeed = service.getAccountLocalTokens(localParams);
+    await metadataStarted.promise;
+
+    await service.fetchAccountTokens({
+      ...fetchParams(),
+      homeIngest: { ...homeIngest, homeDefaultTokenMap: {} },
+    });
+    const settledFrames = await vm.getTokenListFrames({
+      ownerKey: 'home-owner',
+    });
+    expect(settledFrames.valuation?.provisional).toBe(false);
+
+    metadata.resolve(undefined);
+    await expect(localSeed).rejects.toMatchObject({
+      name: 'CanceledError',
+      message: 'Live Home tokens already published',
+    });
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledTimes(1);
+    await expect(
+      vm.getTokenListFrames({ ownerKey: 'home-owner' }),
+    ).resolves.toEqual(settledFrames);
+
+    await expect(
+      service.getAccountLocalTokens({ ...localParams, homeRequest: token(2) }),
+    ).resolves.toMatchObject({ homeIngested: true });
+  });
+
   it('ingests single-network and merge-derive local cache directly in BG on getAccountLocalTokens', async () => {
     const makeFixtureToken = (key: string) => ({
       $key: key,

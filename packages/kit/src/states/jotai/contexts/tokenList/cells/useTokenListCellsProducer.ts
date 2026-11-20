@@ -313,6 +313,50 @@ export function useTokenListCellsProducer(
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],
     getPullOwnerKey: (pulled) => pulled.ownerKey,
+    getPullSlotId: (pulled) => pulled.slotId,
+    getInitialSlotId: () => {
+      const projection = store && ensureStoreProjection(store);
+      return projection?.curOwnerKey === ownerKey
+        ? projection.appliedSlotId
+        : undefined;
+    },
+    onSlotChange: () => {
+      if (!store || !deps || !identity || !isCurrentOwner()) {
+        return;
+      }
+      const projection = ensureStoreProjection(store);
+      projection.curGeneration = -1;
+      projection.appliedSlotId = undefined;
+      projection.appliedStructureVersion = undefined;
+      projection.appliedValuationVersion = undefined;
+      projection.appliedCurrencyId = undefined;
+      projection.lastRoundProvisional = true;
+      cancelPendingSlimColdCache(store);
+      // Keep the atoms subscribed by mounted rows while dropping the old values.
+      store.set(projection.valuationUpdating, true);
+      try {
+        for (const fiatAtom of projection.cells.values()) {
+          store.set(fiatAtom, undefined);
+        }
+        for (const byNetwork of projection.aggSubCells.values()) {
+          for (const fiatAtom of byNetwork.values()) {
+            store.set(fiatAtom, undefined);
+          }
+        }
+      } finally {
+        store.set(projection.valuationUpdating, false);
+      }
+      applyRiskyFrame(
+        store,
+        {
+          riskyTokens: [],
+          riskyMap: {},
+          storeData: identity.storeData,
+          ownerKey,
+        },
+        deps,
+      );
+    },
     pull: async (opts) => {
       if (opts?.forceFull) {
         return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
@@ -368,9 +412,17 @@ export function useTokenListCellsProducer(
       if (
         !latestReplay ||
         latestReplay.currencyId !== currencyIdRef.current ||
-        (pulled.structureUnchanged && !latestReplay.structure?.structure) ||
-        (pulled.valuationUnchanged && !latestReplay.valuation?.valuation) ||
-        (pulled.riskyUnchanged && !latestReplay.risky)
+        (pulled.structureUnchanged &&
+          (latestReplay.structure?.slotId !== pulled.slotId ||
+            latestReplay.structure?.structureVersion !==
+              pulled.structureVersion)) ||
+        (pulled.valuationUnchanged &&
+          (latestReplay.valuation?.slotId !== pulled.slotId ||
+            latestReplay.valuation?.valuationVersion !==
+              pulled.valuationVersion)) ||
+        (pulled.riskyUnchanged &&
+          (latestReplay.risky?.slotId !== pulled.slotId ||
+            latestReplay.risky?.riskyVersion !== pulled.riskyVersion))
       ) {
         return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
           ownerKey,
@@ -431,6 +483,7 @@ export function useTokenListCellsProducer(
         kind: 'structure',
         eventName: EAppEventBusNames.TokenListStructureFrame,
         getOwnerKey: (p) => (p as IStructurePush).ownerKey,
+        getSlotId: (p) => (p as IStructurePush).slotId,
         getVersion: (p) => (p as IStructurePush).structureVersion,
         canApplyPush: (p, lastVersion) => {
           const push = p as IStructurePush;
@@ -470,13 +523,6 @@ export function useTokenListCellsProducer(
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
           const projection = ensureStoreProjection(store);
-          if (
-            push.slotId &&
-            projection.appliedSlotId &&
-            push.slotId !== projection.appliedSlotId
-          ) {
-            projection.curGeneration = -1;
-          }
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
@@ -508,16 +554,20 @@ export function useTokenListCellsProducer(
         kind: 'valuation',
         eventName: EAppEventBusNames.TokenListValuationFrame,
         getOwnerKey: (p) => (p as IValuationPush).ownerKey,
+        getSlotId: (p) => (p as IValuationPush).slotId,
         getVersion: (p) => (p as IValuationPush).valuationVersion,
         canApplyPush: (p, lastVersion) => {
           const push = p as IValuationPush;
-          if (!push.isDelta) {
-            return true;
-          }
           if (!store || !identity) {
             return false;
           }
           const projection = ensureStoreProjection(store);
+          if (push.slotId && projection.appliedSlotId !== push.slotId) {
+            return false;
+          }
+          if (!push.isDelta) {
+            return true;
+          }
           if (
             projection.curOwnerKey !== push.ownerKey ||
             projection.appliedCurrencyId !== currencyIdRef.current
@@ -589,6 +639,7 @@ export function useTokenListCellsProducer(
         // owner reset above; floor 0 drops unknown-owner -1 PULLs.
         gate: { floorVersion: 0 },
         getOwnerKey: (p) => (p as IRiskyPush).ownerKey,
+        getSlotId: (p) => (p as IRiskyPush).slotId,
         getVersion: (p) => (p as IRiskyPush).riskyVersion,
         apply: (p) => {
           const push = p as IRiskyPush;

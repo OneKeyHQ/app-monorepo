@@ -161,10 +161,9 @@ function useHomeMarketCategoryTokens({
       },
       [marketCategories, minLiquidity, selectedMarketCategoryId, locale],
       {
-        pollingInterval:
-          isActive && selectedMarketCategoryId
-            ? HOME_MARKET_CATEGORY_POLLING_INTERVAL
-            : undefined,
+        pollingInterval: selectedMarketCategoryId
+          ? HOME_MARKET_CATEGORY_POLLING_INTERVAL
+          : undefined,
         runImmediatelyOnPollingIntervalChange: true,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,

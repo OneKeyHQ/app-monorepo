@@ -513,7 +513,7 @@ function useAllNetworkRequests<T>(params: {
   // with that run's generation. A per-account refresh only fetches members
   // of it (`runAccountRequests`).
   const activeRunAccountKeysRef = useRef<
-    { generation: number; keys: Set<string> } | undefined
+    { ownerKey: string; generation: number; keys: Set<string> } | undefined
   >(undefined);
   // Owner key of the run that found no account on any enabled network. Keyed
   // by owner rather than a bare boolean: a boolean carried `true` across a
@@ -1151,6 +1151,7 @@ function useAllNetworkRequests<T>(params: {
           allAccounts: allAccountsInfo,
         });
         activeRunAccountKeysRef.current = {
+          ownerKey: runnerOwnerKey,
           generation: runGeneration,
           keys: new Set(
             accountsInfo.map(({ accountId, networkId }) =>
@@ -1798,7 +1799,10 @@ function useAllNetworkRequests<T>(params: {
   // dropped from the view, and publishing it would restore that network's
   // row and worth.
   const runAccountRequests = useCallback(
-    async (accounts: { accountId: string; networkId: string }[]) => {
+    async (
+      accounts: { accountId: string; networkId: string }[],
+      options?: { refreshAll?: boolean },
+    ) => {
       if (!isAllNetworks) {
         return;
       }
@@ -1807,7 +1811,21 @@ function useAllNetworkRequests<T>(params: {
       // A newer run that has not resolved its accounts yet owns the view and
       // covers the batch.
       const runAccountKeys = activeRunAccountKeysRef.current;
-      if (!runAccountKeys || runAccountKeys.generation !== generation) {
+      if (
+        runAccountKeys?.ownerKey !== ownerKey ||
+        runAccountKeys.generation !== generation ||
+        isRunCurrent?.() === false
+      ) {
+        return;
+      }
+      const memberAccounts = accounts.filter((item) =>
+        runAccountKeys.keys.has(buildRunAccountKey(item)),
+      );
+      if (!memberAccounts.length) {
+        return;
+      }
+      if (options?.refreshAll) {
+        await runWithQueue({ alwaysSetState: true });
         return;
       }
       if (!allNetworkDataInit.current) {
@@ -1823,19 +1841,14 @@ function useAllNetworkRequests<T>(params: {
           pendingColdAccountRequestsRef.current.generation === generation
             ? pendingColdAccountRequestsRef.current.accounts
             : new Map<string, { accountId: string; networkId: string }>();
-        for (const item of accounts) {
-          const key = buildRunAccountKey(item);
-          if (runAccountKeys.keys.has(key)) {
-            pendingAccounts.set(key, item);
-          }
+        for (const item of memberAccounts) {
+          pendingAccounts.set(buildRunAccountKey(item), item);
         }
-        if (pendingAccounts.size > 0) {
-          pendingColdAccountRequestsRef.current = {
-            ownerKey,
-            generation,
-            accounts: pendingAccounts,
-          };
-        }
+        pendingColdAccountRequestsRef.current = {
+          ownerKey,
+          generation,
+          accounts: pendingAccounts,
+        };
         return;
       }
       const isRequestCurrent = () =>
@@ -1843,9 +1856,6 @@ function useAllNetworkRequests<T>(params: {
         runGenerationRef.current === generation &&
         allNetworkDataInit.current &&
         (isRunCurrent?.() ?? true);
-      const memberAccounts = accounts.filter(({ accountId, networkId }) =>
-        runAccountKeys.keys.has(buildRunAccountKey({ accountId, networkId })),
-      );
       for (const { accountId, networkId } of memberAccounts) {
         if (!isRequestCurrent()) {
           return;
@@ -1877,7 +1887,13 @@ function useAllNetworkRequests<T>(params: {
         }
       }
     },
-    [allNetworkRequests, isAllNetworks, isRunCurrent, onRequestSettled],
+    [
+      allNetworkRequests,
+      isAllNetworks,
+      isRunCurrent,
+      onRequestSettled,
+      runWithQueue,
+    ],
   );
 
   applyResultRef.current = (nextResult) => setResult(nextResult);

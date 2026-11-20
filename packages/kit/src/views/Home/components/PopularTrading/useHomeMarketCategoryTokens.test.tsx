@@ -84,7 +84,7 @@ describe('useHomeMarketCategoryTokens', () => {
     });
   });
 
-  it('starts the first market request immediately after leaving Favorites', async () => {
+  it('loads the first market category immediately and refreshes it once when Portfolio regains focus', async () => {
     jest.useFakeTimers();
     const { usePromiseResult: realUsePromiseResult } = jest.requireActual<
       typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
@@ -95,22 +95,37 @@ describe('useHomeMarketCategoryTokens', () => {
       total: 1,
     });
 
+    const initialProps: { category?: string; isActive: boolean } = {
+      isActive: true,
+    };
     const { result, rerender, unmount } = renderHook(
-      ({ category }: { category?: string }) =>
+      ({ category, isActive }) =>
         useHomeMarketCategoryTokens({
           minLiquidity: 5000,
           selectedMarketCategoryId: category,
+          isActive,
         }),
-      { initialProps: {} },
+      { initialProps },
     );
     try {
       await act(async () => jest.advanceTimersByTimeAsync(1));
       expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(0);
 
-      rerender({ category: 'top_coins' });
+      rerender({ category: 'top_coins', isActive: true });
       await act(async () => jest.advanceTimersByTimeAsync(1));
       expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(1);
       expect(result.current.categoryTokens[0]?.symbol).toBe('BTC');
+
+      rerender({ category: 'top_coins', isActive: false });
+      await act(async () => jest.advanceTimersByTimeAsync(30_000));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(1);
+
+      rerender({ category: 'top_coins', isActive: true });
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(2);
+
+      await act(async () => jest.advanceTimersByTimeAsync(30_000));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(3);
     } finally {
       unmount();
       jest.useRealTimers();

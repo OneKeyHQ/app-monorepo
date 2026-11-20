@@ -2431,7 +2431,7 @@ class ServiceToken extends ServiceBase {
             ],
           });
       }
-      homeTokenRequestRegistry.assertCurrent(homeRequest);
+      homeTokenRequestRegistry.assertSingleNetworkCacheCanPublish(homeRequest);
       await this.backgroundApi.serviceTokenViewModel.ingestRound({
         homeRequest,
         ...buildHomeTokenListCacheIngestRound({
@@ -2452,6 +2452,7 @@ class ServiceToken extends ServiceBase {
             : 'singleEmptyCacheSeed',
         }),
       });
+      homeTokenRequestRegistry.assertSingleNetworkCacheCanPublish(homeRequest);
       if (homeIngest.omitResponseTokenLists) {
         return {
           ...baseResult,
@@ -2470,6 +2471,9 @@ class ServiceToken extends ServiceBase {
         homeIngested: true,
         homeAccountWorth,
       };
+    }
+    if (homeIngest) {
+      homeTokenRequestRegistry.assertSingleNetworkCacheCanPublish(homeRequest);
     }
     return {
       ...baseResult,

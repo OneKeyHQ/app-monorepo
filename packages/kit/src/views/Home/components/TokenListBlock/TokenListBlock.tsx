@@ -414,6 +414,9 @@ function TokenListBlock({
   const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
     undefined,
   );
+  const settledSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
+    undefined,
+  );
   const homeRequestEpochRef = useRef(-1);
   const getHomeRequest = useCallback(
     (newRound = false) => {
@@ -990,6 +993,7 @@ function TokenListBlock({
         )
           return;
 
+        settledSingleLiveRequestRef.current = homeRequest;
         portfolioTotalFiatCurrency =
           r.homePortfolioTotalFiatCurrency ?? getWalletAssetStatusCurrency([r]);
         const fallbackAccountWorth =
@@ -2902,6 +2906,14 @@ function TokenListBlock({
               }
             : undefined,
         });
+      if (
+        cancelled ||
+        !isAccountEpochCurrent(requestAccountEpoch) ||
+        !isHomeTokenRequestCurrent(homeRequest) ||
+        (homeRequest && settledSingleLiveRequestRef.current === homeRequest)
+      ) {
+        return;
+      }
       hasLocalTokenCache = localTokens.hasCache;
       const cachedWorthCurrency = localTokens.currency;
 
@@ -2933,16 +2945,6 @@ function TokenListBlock({
           : isEmpty(tokenList) &&
             isEmpty(smallBalanceTokenList) &&
             isEmpty(riskyTokenList);
-
-      // Owner-change or unmount happened while we were awaiting the local
-      // token cache — drop the result so we don't overwrite the new owner's
-      // freshly hydrated atoms with this stale response.
-      if (
-        cancelled ||
-        !isAccountEpochCurrent(requestAccountEpoch) ||
-        !isHomeTokenRequestCurrent(homeRequest)
-      )
-        return;
 
       if (isAccountSwitchDiagnosticsEnabled()) {
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -3904,7 +3906,11 @@ function TokenListBlock({
   // round, leaving the sent token's row stale until the next full fan-out.
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      await runAllNetworksAccountRequests(accounts);
+      // Hardware auto-sync needs the complete live snapshot and its payload.
+      await runAllNetworksAccountRequests(
+        accounts,
+        canRefreshPortfolioCategories ? { refreshAll: true } : undefined,
+      );
       if (showLpTokensOnly) {
         try {
           await runLpTokenList({ alwaysSetState: true });
@@ -3920,7 +3926,12 @@ function TokenListBlock({
         }
       }
     },
-    [runAllNetworksAccountRequests, runLpTokenList, showLpTokensOnly],
+    [
+      canRefreshPortfolioCategories,
+      runAllNetworksAccountRequests,
+      runLpTokenList,
+      showLpTokensOnly,
+    ],
   );
 
   usePromiseResult(

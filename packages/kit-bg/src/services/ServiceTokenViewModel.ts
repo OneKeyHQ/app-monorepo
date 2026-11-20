@@ -563,11 +563,15 @@ class ServiceTokenViewModel extends ServiceBase {
     // (OK-63873): the UI paints it but must not persist it as the owner's
     // last-known list. Everything else (the single-network live round, the
     // authoritative all-networks round, older call sites) is settled.
+    const singleNetworkCache =
+      source === 'singleCacheSeed' || source === 'singleEmptyCacheSeed';
+    if (singleNetworkCache) {
+      homeTokenRequestRegistry.assertSingleNetworkCacheCanPublish(
+        params.homeRequest,
+      );
+    }
     const provisional =
-      source === 'cacheSeed' ||
-      source === 'progPaint' ||
-      source === 'singleCacheSeed' ||
-      source === 'singleEmptyCacheSeed';
+      source === 'cacheSeed' || source === 'progPaint' || singleNetworkCache;
 
     // Mark MRU + ensure the owner slot exists. `ingestRound` REPLACES (not
     // concats) the owner's slices each round: `buildFrames` takes the full
@@ -830,6 +834,11 @@ class ServiceTokenViewModel extends ServiceBase {
         riskyMap,
         storeData,
       }));
+    }
+    if (source === 'single') {
+      homeTokenRequestRegistry.markSingleNetworkLivePublished(
+        params.homeRequest,
+      );
     }
   }
 

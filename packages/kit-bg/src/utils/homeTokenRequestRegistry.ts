@@ -11,7 +11,10 @@ import type {
 
 export class HomeTokenRequestRegistry {
   private current:
-    | (IHomeTokenRequestInvalidation & { ownerKey?: string })
+    | (IHomeTokenRequestInvalidation & {
+        ownerKey?: string;
+        singleNetworkLivePublished?: boolean;
+      })
     | undefined;
 
   constructor(
@@ -72,6 +75,28 @@ export class HomeTokenRequestRegistry {
       this.current.ownerKey === request.ownerKey &&
       !!request.ownerKey
     );
+  }
+
+  markSingleNetworkLivePublished(request: IHomeTokenRequest | undefined) {
+    if (
+      request &&
+      this.isEnabled() &&
+      this.current &&
+      this.isCurrent(request)
+    ) {
+      this.current.singleNetworkLivePublished = true;
+    }
+  }
+
+  assertSingleNetworkCacheCanPublish(request: IHomeTokenRequest | undefined) {
+    this.assertCurrent(request);
+    if (
+      request &&
+      this.isEnabled() &&
+      this.current?.singleNetworkLivePublished
+    ) {
+      throw new CanceledError('Live Home tokens already published');
+    }
   }
 
   assertCurrent(
