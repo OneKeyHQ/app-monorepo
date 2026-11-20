@@ -1539,7 +1539,7 @@ const SwapMainLoad = ({
     accountStatus: swapProAccount.accountStatus,
   });
   useSwapQuote({
-    isMarketEmbeddedSwap,
+    isEmbeddedSwap: Boolean(singleSwapBridgeHeader),
     storeName,
   });
 

@@ -1576,6 +1576,10 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
   it.each([
     { label: 'Tab', params: {} },
     { label: 'Home More', params: { swapSource: ESwapSource.WALLET_HOME } },
+    {
+      label: 'Home trade column',
+      params: { swapSource: ESwapSource.WALLET_HOME_TRADE_PANEL },
+    },
   ])(
     'initializes $label from the current Home selection after API configuration settles',
     async ({ params }) => {
