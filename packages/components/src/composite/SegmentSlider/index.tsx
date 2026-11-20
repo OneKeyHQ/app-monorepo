@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -20,6 +21,12 @@ const MARK_SIZE = 10;
 const MARK_HIT_AREA = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
 const HIT_AREA_HEIGHT = 24;
+// A press that travels farther than this becomes a drag instead of a tap
+// (matches the native threshold).
+const TAP_MOVE_THRESHOLD = 8;
+// After a tap the press lasts ~100ms, too short to read the bubble. Keep it
+// on screen for a beat before fading it out; drags still hide on release.
+const TAP_BUBBLE_LINGER_MS = 800;
 
 // Keep half-step marks symmetric when the slider emits integer values.
 function roundHalfToEven(value: number) {
@@ -54,9 +61,10 @@ export interface ISegmentSliderProps {
    */
   centerOrigin?: boolean;
   /**
-   * Native-only for now: when true, a tap snaps to the nearest segment mark
-   * while a drag stays free. Accepted here for cross-platform prop parity but
-   * not yet honored by the web variant, which keeps its tap-on-mark snapping.
+   * When true, a tap (a press that does not turn into a drag) snaps the value
+   * to the nearest segment mark; a drag still moves freely to any value. When
+   * false, a tap lands on the pressed position (or exactly on a mark when the
+   * press starts on one). No-op when `segments` is 0. Default true.
    */
   snapTapToSegment?: boolean;
 }
@@ -179,6 +187,7 @@ function SegmentSliderComponent({
   showBubble = true,
   alignSegmentMarksToIntegerValues = false,
   centerOrigin = false,
+  snapTapToSegment = true,
 }: ISegmentSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
@@ -193,6 +202,10 @@ function SegmentSliderComponent({
   // container's handler then reads this to know it should snap the initial
   // value to that exact step instead of using the raw clientX position.
   const markOriginRef = useRef<number | null>(null);
+  // Tap-vs-drag tracking for the current press.
+  const pressStartXRef = useRef(0);
+  const hasDraggedRef = useRef(false);
+  const bubbleHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [focusVisible, setFocusVisible] = useState(false);
 
   const theme = useTheme();
@@ -375,11 +388,54 @@ function SegmentSliderComponent({
     [alignSegmentMarksToIntegerValues, snap, onChange, applyVisual],
   );
 
-  const setBubbleVisible = useCallback((visible: boolean) => {
-    const bubble = bubbleRef.current;
-    if (!bubble) return;
-    bubble.style.opacity = visible ? '1' : '0';
+  const clearBubbleHideTimer = useCallback(() => {
+    if (bubbleHideTimerRef.current !== null) {
+      clearTimeout(bubbleHideTimerRef.current);
+      bubbleHideTimerRef.current = null;
+    }
   }, []);
+
+  const setBubbleVisible = useCallback(
+    (visible: boolean) => {
+      clearBubbleHideTimer();
+      const bubble = bubbleRef.current;
+      if (!bubble) return;
+      bubble.style.opacity = visible ? '1' : '0';
+    },
+    [clearBubbleHideTimer],
+  );
+
+  const lingerThenHideBubble = useCallback(() => {
+    setBubbleVisible(true);
+    bubbleHideTimerRef.current = setTimeout(() => {
+      bubbleHideTimerRef.current = null;
+      const bubble = bubbleRef.current;
+      if (bubble) bubble.style.opacity = '0';
+    }, TAP_BUBBLE_LINGER_MS);
+  }, [setBubbleVisible]);
+
+  useEffect(() => clearBubbleHideTimer, [clearBubbleHideTimer]);
+
+  const snapTapActive = snapTapToSegment && hasSegments;
+
+  const nearestMarkIndex = useCallback(
+    (v: number) => {
+      // Compare in track-percent space so integer-aligned marks resolve to
+      // the mark the user visually tapped closest to.
+      const pct = valueToPct(v);
+      let best = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i <= segments; i += 1) {
+        const dist = Math.abs(segmentIndexToPct(i) - pct);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = i;
+        }
+      }
+      return best;
+    },
+    [segments, segmentIndexToPct, valueToPct],
+  );
 
   const snapToStep = useCallback(
     (idx: number) => {
@@ -407,24 +463,40 @@ function SegmentSliderComponent({
         /* setPointerCapture can throw on some browsers; ignore */
       }
       onSlideStart?.();
-      setBubbleVisible(true);
-      // Mark-originated pointerdown: use the exact step value so a tap on a
-      // mark always lands precisely (no off-by-one from clientX rounding).
-      // Drag continues to work because we still set pointer capture above.
+      pressStartXRef.current = e.clientX;
+      hasDraggedRef.current = false;
       const markIdx = markOriginRef.current;
       markOriginRef.current = null;
-      if (markIdx !== null && hasSegments) {
-        snapToStep(markIdx);
+      if (snapTapActive) {
+        // Defer the commit until we know tap vs drag, so a tap never jumps to
+        // the raw press point first. The bubble also waits: showing it now
+        // would display the old value.
+        clearBubbleHideTimer();
+        if (!captured) {
+          // No pointer capture means move/up may never arrive; treat as tap.
+          snapToStep(nearestMarkIndex(valueFromClientX(e.clientX)));
+          lingerThenHideBubble();
+          onSlideComplete?.();
+          return;
+        }
       } else {
-        emit(valueFromClientX(e.clientX));
-      }
-      if (!captured) {
-        // Without pointer capture, pointermove/pointerup may never reach the
-        // container if the user drags outside, leaving draggingRef stuck.
-        // Treat this as a single tap: emit once above, then finalize.
-        setBubbleVisible(false);
-        onSlideComplete?.();
-        return;
+        setBubbleVisible(true);
+        // Mark-originated pointerdown: use the exact step value so a tap on a
+        // mark always lands precisely (no off-by-one from clientX rounding).
+        // Drag continues to work because we still set pointer capture above.
+        if (markIdx !== null && hasSegments) {
+          snapToStep(markIdx);
+        } else {
+          emit(valueFromClientX(e.clientX));
+        }
+        if (!captured) {
+          // Without pointer capture, pointermove/pointerup may never reach the
+          // container if the user drags outside, leaving draggingRef stuck.
+          // Treat this as a single tap: emit once above, then finalize.
+          lingerThenHideBubble();
+          onSlideComplete?.();
+          return;
+        }
       }
       draggingRef.current = true;
     },
@@ -432,7 +504,11 @@ function SegmentSliderComponent({
       disabled,
       onSlideStart,
       onSlideComplete,
+      snapTapActive,
+      clearBubbleHideTimer,
       setBubbleVisible,
+      lingerThenHideBubble,
+      nearestMarkIndex,
       hasSegments,
       snapToStep,
       emit,
@@ -447,14 +523,26 @@ function SegmentSliderComponent({
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      if (
+        !hasDraggedRef.current &&
+        Math.abs(e.clientX - pressStartXRef.current) > TAP_MOVE_THRESHOLD
+      ) {
+        hasDraggedRef.current = true;
+        if (snapTapActive) setBubbleVisible(true);
+      }
+      // Still a tap candidate in snap mode: keep the thumb put.
+      if (snapTapActive && !hasDraggedRef.current) return;
       emit(valueFromClientX(e.clientX));
     },
-    [emit, valueFromClientX],
+    [emit, valueFromClientX, snapTapActive, setBubbleVisible],
   );
 
   const finishDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      // Clear first: releasePointerCapture may dispatch lostpointercapture,
+      // which re-enters this handler.
+      draggingRef.current = false;
       const target = e.currentTarget;
       if (pointerIdRef.current !== null) {
         try {
@@ -464,16 +552,27 @@ function SegmentSliderComponent({
         }
       }
       pointerIdRef.current = null;
-      // No tap-snap here. Marks themselves are the click targets — taps on
-      // bare track keep whatever value the click landed at; taps on a mark
-      // also bubble to this handler, but `markOriginRef` was set by
-      // SegmentMark first and consumed inside handlePointerDown to snap to
-      // the exact step rather than the raw clientX value.
-      draggingRef.current = false;
-      setBubbleVisible(false);
+      if (hasDraggedRef.current) {
+        setBubbleVisible(false);
+      } else {
+        // Tap. In snap mode commit the nearest mark now (pointercancel and
+        // lost-capture are not taps, so they leave the value untouched).
+        if (snapTapActive && e.type === 'pointerup') {
+          snapToStep(nearestMarkIndex(valueFromClientX(e.clientX)));
+        }
+        lingerThenHideBubble();
+      }
       onSlideComplete?.();
     },
-    [onSlideComplete, setBubbleVisible],
+    [
+      onSlideComplete,
+      setBubbleVisible,
+      lingerThenHideBubble,
+      snapTapActive,
+      snapToStep,
+      nearestMarkIndex,
+      valueFromClientX,
+    ],
   );
 
   const handleKeyDown = useCallback(
