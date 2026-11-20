@@ -52,11 +52,12 @@ export const GLASS_HEADER_BAREIFY_RESET = {
 } as const;
 
 // The iOS 26 Liquid Glass nav bar is transparent (headerTransparent), so screen
-// content renders *under* it for the glass to refract it. The standard iOS
-// inline nav bar is 44pt tall below the safe-area top; the extra gap keeps
+// content renders *under* it for the glass to refract it. On iPhone the glass
+// bar is 54pt tall below the safe-area top, not the older inline bar's 44pt
+// (the native stack measures 116 under a 62pt inset); the extra gap keeps
 // content from butting right up against the glass edge.
-export const LIQUID_GLASS_HEADER_BAR_HEIGHT = 44;
-export const LIQUID_GLASS_HEADER_CONTENT_GAP = 16;
+export const LIQUID_GLASS_HEADER_BAR_HEIGHT = 54;
+export const LIQUID_GLASS_HEADER_CONTENT_GAP = 24;
 
 // Single source of truth for the top inset a screen must reserve when its
 // content extends under the iOS 26 Liquid Glass nav bar (safe-area top + bar
@@ -65,8 +66,10 @@ export const LIQUID_GLASS_HEADER_CONTENT_GAP = 16;
 // every glass screen's top spacing consistent and adjustable in one place.
 //
 // Foldable iPhones report no top safe area yet still offset the bar from the
-// top edge, so prefer the measured header height when it is taller. The context
-// is undefined outside a native stack header.
+// top edge, so prefer the measured header height when it is taller. Other
+// devices keep the fixed height: the measurement only lands after the first
+// layout and would move the content once it does. The context is undefined
+// outside a native stack header.
 export function useLiquidGlassHeaderTopInset(): number {
   const { top } = useSafeAreaInsets();
   const headerHeight = useContext(HeaderHeightContext) ?? 0;

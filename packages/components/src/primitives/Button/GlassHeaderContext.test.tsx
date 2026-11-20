@@ -39,15 +39,17 @@ function renderInset(headerHeight: number) {
 }
 
 describe('useLiquidGlassHeaderTopInset', () => {
-  it('keeps the fixed bar height on regular iPhones', () => {
+  it('clears the 54pt glass bar on regular iPhones before and after measuring', () => {
     mockTop = 62;
     mockIsFoldableIPhone = false;
-    expect(renderInset(116)).toBe(122);
+    // The native stack's default before the bar reports, then the measurement.
+    expect(renderInset(100.67)).toBe(140);
+    expect(renderInset(116)).toBe(140);
   });
 
   it('uses the taller measured header on foldable iPhones', () => {
     mockTop = 0;
     mockIsFoldableIPhone = true;
-    expect(renderInset(82)).toBe(98);
+    expect(renderInset(82)).toBe(106);
   });
 });
