@@ -972,11 +972,21 @@ async function main() {
         await search.fill('ja-JP');
         await id('select-item-ja-JP').click();
         await page.getByPlaceholder('認証コードを入力してください').waitFor();
-        assert.equal(
-          await id('otp-delivery-status').textContent(),
+        // The remaining minutes count down in real time; only the localized
+        // template and the recipient are checked here.
+        const [beforeMinutes, afterMinutes] =
           jaJP.keyless_deletion_code_sent__desc
             .replace('{email}', 'd***@example.invalid')
-            .replace('{minutes}', '10'),
+            .split('{minutes}');
+        const delivery = await id('otp-delivery-status').textContent();
+        assert.ok(delivery.startsWith(beforeMinutes), delivery);
+        assert.ok(delivery.endsWith(afterMinutes), delivery);
+        assert.match(
+          delivery.slice(
+            beforeMinutes.length,
+            -afterMinutes.length || undefined,
+          ),
+          /^\d+$/,
         );
         assert.match(await id('send-code').textContent(), /再送/);
         await page
