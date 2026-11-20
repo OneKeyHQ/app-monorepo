@@ -23,6 +23,8 @@ const mockRestoreHistory = jest.fn<
   Promise<boolean>,
   [{ scope: string; txId: string }]
 >();
+const mockRecoverFunding = jest.fn<Promise<void>, [string]>();
+const mockRelease = jest.fn<Promise<void>, [string, string]>();
 const mockFetchState = jest.fn<
   Promise<{ state: ESwapTxHistoryStatus }>,
   [unknown]
@@ -30,7 +32,7 @@ const mockFetchState = jest.fn<
 jest.mock('./earnFundingRegistry', () => ({
   refreshEarnFunding: (scope: string) => mockRefresh(scope),
   getEarnFunding: (scope: string) => mockGetFunding(scope),
-  releaseEarnFunding: jest.fn(),
+  releaseEarnFunding: (scope: string, txId: string) => mockRelease(scope, txId),
   settleEarnFunding: jest.fn(),
 }));
 jest.mock('../../tasks/taskAccount', () => ({
@@ -42,6 +44,9 @@ jest.mock('../../tasks/taskAccount', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceStaking: {
+      recoverEarnSwapFunding: (scope: string) => mockRecoverFunding(scope),
+    },
     serviceSwap: {
       getSwapHistoryByTxId: (params: { txId: string }) =>
         mockGetHistory(params),
@@ -87,6 +92,86 @@ beforeEach(() => {
   mockGetFunding.mockReturnValue(state);
   mockRestoreHistory.mockResolvedValue(true);
   mockFetchState.mockResolvedValue({ state: ESwapTxHistoryStatus.PENDING });
+});
+
+it('rechecks a persisted unknown swap before restoring its history', async () => {
+  const unknown: IEarnFundingState = {
+    status: 'unknown',
+    intentAmount: '1',
+    swapRecovery: recovery,
+    swapTxUuid: 'swap-uuid',
+  };
+  mockRefresh.mockResolvedValueOnce(unknown).mockResolvedValue(state);
+  mockGetHistory
+    .mockResolvedValueOnce(undefined)
+    .mockResolvedValueOnce(buildRecoveredEarnSwapHistory(recovery, 'swap-tx'));
+  await reconcileEarnSwapFunding({
+    scope: 'scope',
+    fromToken,
+    toToken,
+    account,
+  });
+  expect(mockRecoverFunding).toHaveBeenCalledWith('scope');
+  expect(mockRestoreHistory).toHaveBeenCalledWith({
+    scope: 'scope',
+    txId: 'swap-tx',
+  });
+});
+
+it('keeps an unverified or conflicting unknown attempt blocked', async () => {
+  const unknown: IEarnFundingState = {
+    status: 'unknown',
+    intentAmount: '1',
+    swapRecovery: recovery,
+    swapTxUuid: 'swap-uuid',
+  };
+  mockRefresh.mockResolvedValue(unknown);
+  await reconcileEarnSwapFunding({
+    scope: 'scope',
+    fromToken,
+    toToken,
+    account,
+  });
+  expect(mockRecoverFunding).toHaveBeenCalledTimes(1);
+  expect(mockRestoreHistory).not.toHaveBeenCalled();
+  mockRecoverFunding.mockClear();
+  mockRefresh.mockResolvedValue({ ...unknown, txIdConflict: true });
+  await reconcileEarnSwapFunding({
+    scope: 'scope',
+    fromToken,
+    toToken,
+    account,
+  });
+  expect(mockRecoverFunding).not.toHaveBeenCalled();
+});
+
+it('releases a proven failed source transaction only after persisting failed history', async () => {
+  const failed: IEarnFundingState = {
+    ...state,
+    status: 'submitted',
+    txId: 'swap-tx',
+    sourceTxFailed: true,
+  };
+  const existing = buildRecoveredEarnSwapHistory(recovery, 'swap-tx');
+  mockRefresh.mockResolvedValue(failed);
+  mockGetFunding.mockReturnValue(failed);
+  mockGetHistory.mockResolvedValueOnce(existing).mockResolvedValueOnce({
+    ...existing,
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  await reconcileEarnSwapFunding({
+    scope: 'scope',
+    fromToken,
+    toToken,
+    account,
+  });
+  expect(mockRestoreHistory).toHaveBeenCalledWith({
+    scope: 'scope',
+    txId: 'swap-tx',
+  });
+  expect(mockRelease).toHaveBeenCalledWith('scope', 'swap-tx');
+  expect(mockFetchState).not.toHaveBeenCalled();
 });
 
 it('recreates a missing history from the persisted same-scope submitted receipt', async () => {

@@ -4,6 +4,7 @@ import { isFunction, isNil, isString } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import type { ITravelModeAwareAsyncStorage } from '@onekeyhq/shared/src/storage/appStorageTypes';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
@@ -22,6 +23,16 @@ type ISimpleDbEntitySavedData<T> = {
   data: T;
   updatedAt: number;
 };
+
+export async function withWebEntityLock<T>(
+  entityKey: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (!platformEnv.isWeb) return operation();
+  const locks = globalThis.navigator?.locks;
+  if (!locks) return operation();
+  return locks.request(entityKey, operation);
+}
 
 function buildSimpleDbRollbackError({
   firstRestoreError,

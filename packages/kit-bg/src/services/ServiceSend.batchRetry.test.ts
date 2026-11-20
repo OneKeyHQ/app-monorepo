@@ -98,6 +98,8 @@ import {
 // eslint-disable-next-line import-js/order, import/first
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+// eslint-disable-next-line import-js/order, import/first
 import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadcastRecords';
 // eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
@@ -138,6 +140,141 @@ describe('ServiceSend confirmed broadcast fact', () => {
     expect(broadcastRecords.getRecord).toHaveBeenCalledWith('u1');
     expect(broadcastRecords.updateRecord).not.toHaveBeenCalled();
     expect(broadcastRecords.deleteRecord).not.toHaveBeenCalled();
+  });
+
+  it('recovers a chain-confirmed broadcast when the local acceptance flag was not saved', async () => {
+    const { service, broadcastRecords, backgroundApi } = makeService();
+    broadcastRecords.records.set('u1', {
+      ...storedRecord(),
+      isBroadcast: false,
+    });
+    backgroundApi.serviceHistory.fetchHistoryTxDetails.mockResolvedValueOnce({
+      data: { tx: 'sig-u1', status: EOnChainHistoryTxStatus.Failed },
+    });
+    await expect(
+      service.resolveBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({
+      status: 'accepted',
+      ...request,
+      sourceTxFailed: true,
+    });
+    expect(broadcastRecords.updateRecord).not.toHaveBeenCalled();
+  });
+
+  it('retains a later chain failure even when the node had already accepted the transaction', async () => {
+    const { service, broadcastRecords, backgroundApi } = makeService();
+    broadcastRecords.records.set('u1', storedRecord());
+    backgroundApi.serviceHistory.fetchHistoryTxDetails.mockResolvedValueOnce({
+      data: { tx: 'sig-u1', status: EOnChainHistoryTxStatus.Failed },
+    });
+    await expect(
+      service.resolveBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({
+      status: 'accepted',
+      ...request,
+      sourceTxFailed: true,
+    });
+  });
+
+  it('does not infer acceptance from a signed transaction or mismatched account', async () => {
+    const { service, broadcastRecords, backgroundApi } = makeService();
+    broadcastRecords.records.set('u1', {
+      ...storedRecord(),
+      isBroadcast: false,
+    });
+    backgroundApi.serviceHistory.fetchHistoryTxDetails.mockResolvedValueOnce({
+      data: null,
+    });
+    await expect(
+      service.resolveBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+    await expect(
+      service.resolveBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId: 'other',
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+    expect(
+      backgroundApi.serviceHistory.fetchHistoryTxDetails,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a transaction with replacement candidates unknown even if a node accepted the latest', async () => {
+    const { service, broadcastRecords, backgroundApi } = makeService();
+    broadcastRecords.records.set('u1', {
+      ...storedRecord(),
+      supersededSignedTxs: [
+        { txid: 'older', rawTx: 'older-payload', encodedTx: null },
+      ],
+    });
+    await expect(
+      service.resolveBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+    expect(
+      backgroundApi.serviceHistory.fetchHistoryTxDetails,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('ignores a chain result if the stored signed payload changed during the check', async () => {
+    const { service, broadcastRecords, backgroundApi } = makeService();
+    broadcastRecords.records.set('u1', {
+      ...storedRecord(),
+      isBroadcast: false,
+    });
+    let finishCheck:
+      | ((value: {
+          data: { tx: string; status: EOnChainHistoryTxStatus };
+        }) => void)
+      | undefined;
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    backgroundApi.serviceHistory.fetchHistoryTxDetails.mockImplementationOnce(
+      () => {
+        markStarted?.();
+        return new Promise<{
+          data: { tx: string; status: EOnChainHistoryTxStatus };
+        }>((resolve) => {
+          finishCheck = resolve;
+        });
+      },
+    );
+    const result = service.resolveBroadcastAcceptanceFactByUuid({
+      uuid: 'u1',
+      accountId,
+      networkId,
+    });
+    await started;
+    const replacement = storedRecord();
+    replacement.signedTx = {
+      txid: 'another-tx',
+      rawTx: 'different',
+      encodedTx: null,
+    };
+    broadcastRecords.records.set('u1', replacement);
+    finishCheck?.({
+      data: { tx: 'sig-u1', status: EOnChainHistoryTxStatus.Success },
+    });
+    await expect(result).resolves.toEqual({ status: 'unknown' });
+    expect(broadcastRecords.updateRecord).not.toHaveBeenCalled();
   });
 
   it('recovers an accepted transaction id by its scoped uuid without exposing its signed payload', async () => {
@@ -443,6 +580,7 @@ function makeService(
     },
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
+      fetchHistoryTxDetails: jest.fn(),
     },
     servicePrivacyChain: {
       onLocalWalletTransactionBroadcast: jest.fn().mockResolvedValue(undefined),

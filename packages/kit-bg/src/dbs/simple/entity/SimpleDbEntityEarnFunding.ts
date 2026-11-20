@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEarnSwapRecovery } from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import type {
   IEarnFundingChange,
@@ -8,7 +10,10 @@ import type {
   IEarnFundingState,
 } from '@onekeyhq/shared/types/earn/funding';
 
-import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import {
+  SimpleDbEntityBase,
+  withWebEntityLock,
+} from '../base/SimpleDbEntityBase';
 
 type IFundingRecord = {
   attemptId: string;
@@ -17,6 +22,9 @@ type IFundingRecord = {
   state: IEarnFundingState;
 };
 type IFundingRecords = Record<string, IFundingRecord>;
+type IFundingUpdate =
+  | IEarnFundingChange
+  | { type: 'recoverSwap'; uuid: string; txId: string; sourceTxFailed?: true };
 
 function isValidAmount(amount: unknown, allowZero = false): amount is string {
   return (
@@ -87,9 +95,21 @@ function isValidRecord(record: unknown): record is IFundingRecord {
     !isEarnSwapRecovery(state.swapRecovery)
   )
     return false;
+  if (
+    'swapTxUuid' in state &&
+    state.swapTxUuid !== undefined &&
+    !isValidId(state.swapTxUuid)
+  )
+    return false;
   if (!('status' in state)) return false;
   if (state.status === 'unknown') return true;
   if (!('txId' in state) || !isValidId(state.txId)) return false;
+  if (
+    'sourceTxFailed' in state &&
+    state.sourceTxFailed !== true &&
+    state.sourceTxFailed !== undefined
+  )
+    return false;
   return (
     state.status === 'submitted' ||
     (state.status === 'funded' &&
@@ -114,7 +134,7 @@ function getFundingState(record: IFundingRecord | undefined) {
 
 function applyChange(
   current: IFundingRecord | undefined,
-  change: IEarnFundingChange,
+  change: IFundingUpdate,
 ): IFundingRecord | undefined {
   if (change.type === 'claim') {
     if (
@@ -125,7 +145,8 @@ function applyChange(
       (change.positionBefore !== undefined &&
         !isValidAmount(change.positionBefore, true)) ||
       (change.swapRecovery !== undefined &&
-        !isEarnSwapRecovery(change.swapRecovery))
+        !isEarnSwapRecovery(change.swapRecovery)) ||
+      (change.swapTxUuid !== undefined && !isValidId(change.swapTxUuid))
     )
       return current;
     return {
@@ -137,13 +158,44 @@ function applyChange(
         intentAmount: change.intentAmount,
         positionBefore: change.positionBefore,
         ...(change.swapRecovery ? { swapRecovery: change.swapRecovery } : {}),
+        ...(change.swapTxUuid ? { swapTxUuid: change.swapTxUuid } : {}),
       },
     };
   }
   if (!current) return current;
   const { attemptId, state } = current;
-  const { intentAmount, positionBefore, swapRecovery } = state;
+  const { intentAmount, positionBefore, swapRecovery, swapTxUuid } = state;
   switch (change.type) {
+    case 'recoverSwap':
+      if (
+        !swapRecovery ||
+        !isValidId(change.uuid) ||
+        swapTxUuid !== change.uuid ||
+        !isValidId(change.txId)
+      )
+        return current;
+      if (state.status === 'submitted') {
+        if (
+          state.txId !== change.txId ||
+          !change.sourceTxFailed ||
+          state.sourceTxFailed
+        )
+          return current;
+        return { ...current, state: { ...state, sourceTxFailed: true } };
+      }
+      if (state.status !== 'unknown' || state.txIdConflict) return current;
+      return {
+        ...current,
+        state: {
+          status: 'submitted',
+          txId: change.txId,
+          intentAmount,
+          positionBefore,
+          swapRecovery,
+          swapTxUuid,
+          ...(change.sourceTxFailed ? { sourceTxFailed: true as const } : {}),
+        },
+      };
     case 'submitted':
       if (attemptId !== change.attemptId || !isValidId(change.txId))
         return current;
@@ -158,6 +210,7 @@ function applyChange(
                 intentAmount,
                 positionBefore,
                 ...(swapRecovery ? { swapRecovery } : {}),
+                ...(swapTxUuid ? { swapTxUuid } : {}),
               },
             };
       }
@@ -171,11 +224,13 @@ function applyChange(
               intentAmount,
               positionBefore,
               ...(swapRecovery ? { swapRecovery } : {}),
+              ...(swapTxUuid ? { swapTxUuid } : {}),
             },
           };
     case 'settled':
       if (
         state.status !== 'submitted' ||
+        state.sourceTxFailed ||
         state.txId !== change.txId ||
         !isValidAmount(change.receivedAmount)
       )
@@ -235,6 +290,23 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
 
   override enableCache = false;
 
+  @backgroundMethod()
+  override async getRawData() {
+    return withWebEntityLock(this.entityKey, () => super.getRawData());
+  }
+
+  @backgroundMethod()
+  override async setRawData(
+    data: Parameters<SimpleDbEntityBase<IFundingRecords>['setRawData']>[0],
+  ) {
+    return withWebEntityLock(this.entityKey, () => super.setRawData(data));
+  }
+
+  @backgroundMethod()
+  override async clearRawData() {
+    return withWebEntityLock(this.entityKey, () => super.clearRawData());
+  }
+
   protected override enableUnreadableRecordSelfHeal = false;
 
   protected override rejectInvalidStoredData = true;
@@ -255,6 +327,42 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
   }
 
   async changeFunding(scope: string, change: IEarnFundingChange) {
+    if (
+      !change ||
+      ![
+        'claim',
+        'submitted',
+        'settled',
+        'cancelled',
+        'clear',
+        'complete',
+      ].includes(change.type)
+    ) {
+      throw new OneKeyLocalError('Invalid Earn funding change');
+    }
+    return this.changeFundingInternal(scope, change);
+  }
+
+  async recoverSwapFunding(
+    scope: string,
+    uuid: string,
+    txId: string,
+    sourceTxFailed?: true,
+  ) {
+    return this.changeFundingInternal(scope, {
+      type: 'recoverSwap',
+      uuid,
+      txId,
+      sourceTxFailed,
+    });
+  }
+
+  private async changeFundingInternal(scope: string, change: IFundingUpdate) {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) {
+      throw new OneKeyLocalError(
+        'Earn funding requires cross-tab storage locking',
+      );
+    }
     if (!isValidId(scope, 2048) || !change || typeof change !== 'object') {
       throw new OneKeyLocalError('Invalid Earn funding scope or change');
     }
@@ -322,7 +430,6 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
 
     // Browser tabs can each own a standalone background. Serialize those
     // writers as well as the multiple windows served by one background.
-    const locks = globalThis.navigator?.locks;
-    return locks ? locks.request(this.entityKey, persist) : persist();
+    return withWebEntityLock(this.entityKey, persist);
   }
 }

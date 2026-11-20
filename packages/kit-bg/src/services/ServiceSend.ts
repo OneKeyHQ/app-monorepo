@@ -82,6 +82,7 @@ import type {
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import {
+  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
   type IAccountHistoryTx,
 } from '@onekeyhq/shared/types/history';
@@ -542,6 +543,80 @@ class ServiceSend extends ServiceBase {
       return { status: 'accepted', uuid, accountId, networkId, txid };
     } catch {
       return { status: 'unknown' };
+    }
+  }
+
+  @backgroundMethod()
+  async resolveBroadcastAcceptanceFactByUuid({
+    uuid,
+    accountId,
+    networkId,
+    expectedAccountAddress,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    expectedAccountAddress?: string;
+  }) {
+    try {
+      const record = await this.broadcastRecords.getRecord(uuid);
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.supersededSignedTxs?.length ||
+        !record.signedTx?.txid?.trim()
+      )
+        return { status: 'unknown' as const };
+      const { signedTx } = record;
+      let sourceTxFailed = false;
+      try {
+        const detail =
+          await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+            accountId,
+            networkId,
+            txid: signedTx.txid,
+            expectedAccountAddress,
+          });
+        const chainTx = detail?.data;
+        const normalize = (value: string) =>
+          networkUtils.isEvmNetwork({ networkId })
+            ? value.toLowerCase()
+            : value;
+        const isTerminalMatch = !(
+          !chainTx?.tx ||
+          normalize(chainTx.tx) !== normalize(signedTx.txid) ||
+          (chainTx.status !== EOnChainHistoryTxStatus.Success &&
+            chainTx.status !== EOnChainHistoryTxStatus.Failed)
+        );
+        if (!isTerminalMatch && !record.isBroadcast)
+          return { status: 'unknown' as const };
+        sourceTxFailed =
+          isTerminalMatch && chainTx?.status === EOnChainHistoryTxStatus.Failed;
+      } catch {
+        if (!record.isBroadcast) return { status: 'unknown' as const };
+      }
+      const latest = await this.broadcastRecords.getRecord(uuid);
+      if (
+        latest?.uuid !== uuid ||
+        latest.accountId !== accountId ||
+        latest.networkId !== networkId ||
+        latest.supersededSignedTxs?.length ||
+        latest.signedTx.rawTx !== signedTx.rawTx ||
+        latest.signedTx.txid !== signedTx.txid
+      )
+        return { status: 'unknown' as const };
+      return {
+        status: 'accepted' as const,
+        uuid,
+        accountId,
+        networkId,
+        txid: signedTx.txid,
+        ...(sourceTxFailed ? { sourceTxFailed: true as const } : {}),
+      };
+    } catch {
+      return { status: 'unknown' as const };
     }
   }
 

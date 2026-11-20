@@ -1346,7 +1346,17 @@ export function EarnRouterSwapDepositForm({
     setIsReconciling(true);
     try {
       const current = await refreshEarnFunding(fundingKey);
-      if (!isCurrent() || current?.status !== 'submitted') return;
+      if (
+        !isCurrent() ||
+        (current?.status !== 'submitted' &&
+          !(
+            current?.status === 'unknown' &&
+            !current.txIdConflict &&
+            current.swapTxUuid &&
+            current.swapRecovery
+          ))
+      )
+        return;
       await reconcileEarnSwapFunding({
         scope: fundingKey,
         fromToken,
@@ -1473,7 +1483,14 @@ export function EarnRouterSwapDepositForm({
   const listsOffersInline = useContext(EarnFormOffersInlineContext);
   const isCompact = useContext(EarnFormCompactContext);
   const canResume = retainedFunding?.status === 'funded' && !isDisabled;
-  const canReconcile = retainedFunding?.status === 'submitted';
+  const canReconcile =
+    retainedFunding?.status === 'submitted' ||
+    Boolean(
+      retainedFunding?.status === 'unknown' &&
+      !retainedFunding.txIdConflict &&
+      retainedFunding.swapTxUuid &&
+      retainedFunding.swapRecovery,
+    );
   let handlePress: () => void | Promise<void> = handleStart;
   if (canReconcile) handlePress = handleReconcile;
   if (effectiveFooterOverride) handlePress = handleOverridePress;

@@ -19,6 +19,7 @@ import {
   ESwapQuoteKind,
   ESwapTabSwitchType,
   ESwapTradeSource,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchBuildTxResponse,
@@ -336,7 +337,7 @@ export function confirmEarnSwap({
         throw new EarnSwapError('cancelled');
     };
     const startClaim = () => {
-      claim ??= reservation.markUnknown(swapRecovery);
+      claim ??= reservation.markUnknown(swapRecovery, swapTxId);
       return claim;
     };
     const release = () => {
@@ -424,10 +425,6 @@ export function confirmEarnSwap({
         assertOpen();
         await assertEarnSwapSendAllowed(prepared, signal);
         assertOpen();
-        await startClaim();
-        assertOpen();
-        await assertEarnSwapSendAllowed(prepared, signal);
-        assertOpen();
         const swapTx = txs?.at(-1);
         const uuids = txs?.map((tx) => tx.uuid);
         swapTxId =
@@ -438,6 +435,11 @@ export function confirmEarnSwap({
           new Set(uuids).size === uuids.length
             ? swapTx.uuid
             : undefined;
+        if (swapRecovery && !swapTxId) throw new EarnSwapError('unknown');
+        await startClaim();
+        assertOpen();
+        await assertEarnSwapSendAllowed(prepared, signal);
+        assertOpen();
         mayHaveBroadcast = true;
       },
       onSuccess: (data) => {
@@ -465,8 +467,8 @@ export function confirmEarnSwap({
         )
           return;
         if (
-          prepared.approvesInfo.length === 0 ||
-          (swapTxId && fact.uuid === swapTxId)
+          (swapTxId && fact.uuid === swapTxId) ||
+          (!swapRecovery && !swapTxId && prepared.approvesInfo.length === 0)
         )
           await accept(fact.txid);
         else await retainUncertain();
@@ -632,7 +634,18 @@ export async function reconcileEarnSwapFunding({
   account: IEarnSwapAccount;
   toAccount?: IEarnSwapAccount;
 }) {
-  const pending = await refreshEarnFunding(scope);
+  let pending = await refreshEarnFunding(scope);
+  if (
+    (pending?.status === 'unknown' || pending?.status === 'submitted') &&
+    !(pending.status === 'unknown' && pending.txIdConflict) &&
+    !(pending.status === 'submitted' && pending.sourceTxFailed) &&
+    pending.swapTxUuid &&
+    pending.swapRecovery
+  ) {
+    await assertEarnSwapAccounts(account, toAccount ?? account);
+    await backgroundApiProxy.serviceStaking.recoverEarnSwapFunding(scope);
+    pending = await refreshEarnFunding(scope);
+  }
   if (pending?.status !== 'submitted') return pending;
   const receiver = toAccount ?? account;
   if (
@@ -652,7 +665,7 @@ export async function reconcileEarnSwapFunding({
       expected.networkId,
       expected.contractAddress,
     ) === normalizeTaskAccountAddress(saved.networkId, saved.contractAddress);
-  if (!history && pending.swapRecovery) {
+  if ((!history || pending.sourceTxFailed) && pending.swapRecovery) {
     const current = await refreshEarnFunding(scope);
     if (
       current?.status !== 'submitted' ||
@@ -706,6 +719,20 @@ export async function reconcileEarnSwapFunding({
       history.txInfo.receiver,
     )
   ) {
+    return getEarnFunding(scope);
+  }
+  if (pending.sourceTxFailed) {
+    if (
+      history.sourceTxFailed &&
+      [
+        ESwapTxHistoryStatus.FAILED,
+        ESwapTxHistoryStatus.CANCELED,
+        ESwapTxHistoryStatus.EXPIRED,
+        ESwapTxHistoryStatus.REFUNDED,
+      ].includes(history.status)
+    ) {
+      await releaseEarnFunding(scope, pending.txId);
+    }
     return getEarnFunding(scope);
   }
   const result = await backgroundApiProxy.serviceSwap.fetchTxState({

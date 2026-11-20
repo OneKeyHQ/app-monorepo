@@ -42,6 +42,84 @@ const swapRecovery = {
   createdAt: 1,
 };
 
+it('recovers only the persisted swap UUID after a restart and rejects conflicts', async () => {
+  const { entity, storage } = createFundingEntity();
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'owner',
+    intentAmount: '1',
+    swapRecovery,
+    swapTxUuid: 'swap-uuid',
+  });
+  const restarted = createFundingEntity(storage).entity;
+  expect(
+    (await restarted.recoverSwapFunding(scope, 'other', 'tx')).applied,
+  ).toBe(false);
+  expect((await restarted.getFunding(scope))?.status).toBe('unknown');
+  expect(
+    (await restarted.recoverSwapFunding(scope, 'swap-uuid', 'tx')).applied,
+  ).toBe(true);
+  expect(await restarted.getFunding(scope)).toEqual(
+    expect.objectContaining({
+      status: 'submitted',
+      txId: 'tx',
+      swapTxUuid: 'swap-uuid',
+    }),
+  );
+  await restarted.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'owner',
+    txId: 'other-tx',
+  });
+  expect(
+    (await restarted.recoverSwapFunding(scope, 'swap-uuid', 'tx')).applied,
+  ).toBe(false);
+  expect(await restarted.getFunding(scope)).toEqual(
+    expect.objectContaining({ status: 'unknown', txIdConflict: true }),
+  );
+});
+
+it('retains a later chain failure when the same attempt was already marked submitted', async () => {
+  const { entity } = createFundingEntity();
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'owner',
+    swapRecovery,
+    swapTxUuid: 'swap-uuid',
+  });
+  await entity.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'owner',
+    txId: 'tx',
+  });
+  expect(
+    (await entity.recoverSwapFunding(scope, 'swap-uuid', 'tx', true)).applied,
+  ).toBe(true);
+  expect(await entity.getFunding(scope)).toMatchObject({
+    status: 'submitted',
+    txId: 'tx',
+    sourceTxFailed: true,
+  });
+  expect(
+    (
+      await entity.changeFunding(scope, {
+        type: 'settled',
+        txId: 'tx',
+        receivedAmount: '5',
+      })
+    ).applied,
+  ).toBe(false);
+  expect(await entity.getFunding(scope)).toMatchObject({
+    status: 'submitted',
+    txId: 'tx',
+    sourceTxFailed: true,
+  });
+  expect(
+    (await entity.recoverSwapFunding(scope, 'swap-uuid', 'other', true))
+      .applied,
+  ).toBe(false);
+});
+
 it('persists the swap recovery context with its claim and submitted hash across restart', async () => {
   const { entity, storage } = createFundingEntity();
   expect(

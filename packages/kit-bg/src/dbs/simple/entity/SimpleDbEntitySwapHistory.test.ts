@@ -121,6 +121,169 @@ const swapSuccess = createHistoryItem({
   fromToken: usdc,
   toToken: createToken('ETH'),
 });
+
+it('does not overwrite a concurrent terminal success with a stale failure snapshot', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const expected = createHistoryItem({
+    id: 'same-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  const success = { ...expected, status: ESwapTxHistoryStatus.SUCCESS };
+  let stored: ISwapTxHistoryPersistList = { histories: [success] };
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+    stored = typeof data === 'function' ? await data(stored) : data;
+    return stored;
+  });
+  await expect(
+    entity.markEarnSwapSourceFailed(expected),
+  ).resolves.toBeUndefined();
+  expect(stored.histories[0].status).toBe(ESwapTxHistoryStatus.SUCCESS);
+});
+
+it('does not let a stale provider poll replace a verified source failure', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const pending = createHistoryItem({
+    id: 'same-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  let stored: ISwapTxHistoryPersistList = {
+    histories: [
+      { ...pending, status: ESwapTxHistoryStatus.FAILED, sourceTxFailed: true },
+    ],
+  };
+  jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+    stored = typeof data === 'function' ? await data(stored) : data;
+    return stored;
+  });
+  await expect(
+    entity.updateSwapHistoryItem({
+      ...pending,
+      status: ESwapTxHistoryStatus.SUCCESS,
+    }),
+  ).resolves.toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.histories[0]).toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+});
+
+it('preserves a verified failure through stale stage, commit and outbox recovery', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const pending = createHistoryItem({
+    id: 'same-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  let stored: ISwapTxHistoryPersistList = { histories: [], pendingWrites: [] };
+  jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+    stored = typeof data === 'function' ? await data(stored) : data;
+    return stored;
+  });
+  await entity.stagePendingSwapHistoryItem(pending);
+  await entity.markEarnSwapSourceFailed(pending);
+  await entity.stagePendingSwapHistoryItem(pending);
+  await entity.commitPendingSwapHistoryItem(pending);
+  expect(stored.histories[0]).toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.pendingWrites).toEqual([]);
+
+  stored = {
+    histories: [pending],
+    pendingWrites: [
+      { ...pending, status: ESwapTxHistoryStatus.FAILED, sourceTxFailed: true },
+    ],
+  };
+  await entity.recoverPendingSwapHistoryItems();
+  expect(stored.histories[0]).toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.pendingWrites).toEqual([]);
+
+  stored = {
+    histories: [{ ...pending, status: ESwapTxHistoryStatus.SUCCESS }],
+    pendingWrites: [
+      { ...pending, status: ESwapTxHistoryStatus.FAILED, sourceTxFailed: true },
+    ],
+  };
+  await entity.recoverPendingSwapHistoryItems();
+  expect(stored.histories[0].status).toBe(ESwapTxHistoryStatus.SUCCESS);
+  expect(stored.pendingWrites?.[0]).toMatchObject({ sourceTxFailed: true });
+  await entity.stagePendingSwapHistoryItem({
+    ...pending,
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.pendingWrites?.[0]).toMatchObject({ sourceTxFailed: true });
+  await expect(
+    entity.updateSwapHistoryItem({
+      ...pending,
+      status: ESwapTxHistoryStatus.SUCCESS,
+    }),
+  ).resolves.toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.pendingWrites?.[0]).toMatchObject({ sourceTxFailed: true });
+
+  stored = {
+    histories: [pending],
+    pendingWrites: [
+      { ...pending, status: ESwapTxHistoryStatus.FAILED, sourceTxFailed: true },
+    ],
+  };
+  await entity.updateSwapHistoryItem({
+    ...pending,
+    status: ESwapTxHistoryStatus.SUCCESS,
+  });
+  expect(stored.histories[0]).toMatchObject({
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true,
+  });
+  expect(stored.pendingWrites).toEqual([]);
+});
+
+it('keeps verified failure evidence within the bounded pending outbox', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const pending = createHistoryItem({
+    id: 'new-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.FAILED,
+  });
+  const failures = Array.from({ length: 300 }, (_, index) => ({
+    ...pending,
+    txInfo: { ...pending.txInfo, txId: `tx-${index}` },
+    sourceTxFailed: true as const,
+  }));
+  const initial: ISwapTxHistoryPersistList = {
+    histories: [],
+    pendingWrites: failures,
+  };
+  jest
+    .spyOn(entity, 'setRawData')
+    .mockImplementation(async (data) =>
+      typeof data === 'function' ? data(initial) : data,
+    );
+  await expect(
+    entity.stagePendingSwapHistoryItem({ ...pending, sourceTxFailed: true }),
+  ).rejects.toThrow('Too many unresolved swap history failures');
+  await expect(
+    entity.stagePendingSwapHistoryItem({
+      ...pending,
+      status: ESwapTxHistoryStatus.PENDING,
+    }),
+  ).rejects.toThrow('Swap history outbox is full');
+  expect(initial.pendingWrites).toHaveLength(300);
+});
 // A stock token traded through a non-market channel: isStock is true, but the
 // row lives in the limit / private-send surfaces and is hidden from the stock
 // Order History list, so a stock "Clear" must not delete it.

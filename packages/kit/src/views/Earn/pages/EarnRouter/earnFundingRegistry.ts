@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IEarnFundingChange,
@@ -74,6 +75,17 @@ export function useEarnFunding(scope?: string) {
   useSyncExternalStore(subscribeEarnFunding, getEarnFundingRevision);
   useEffect(() => {
     if (!scope) return;
+    let channel: BroadcastChannel | undefined;
+    if (
+      platformEnv.isWeb &&
+      typeof globalThis.BroadcastChannel === 'function'
+    ) {
+      try {
+        channel = new BroadcastChannel('onekey-earn-funding-changed');
+      } catch {
+        // Focus refresh remains available when cross-tab notifications are unavailable.
+      }
+    }
     const refresh = () => {
       void refreshEarnFunding(scope).catch(() => {
         // The submit path rechecks storage before any transaction is sent.
@@ -84,10 +96,31 @@ export function useEarnFunding(scope?: string) {
       reads.delete(scope);
       refresh();
     };
+    const onCrossTabChange = () => {
+      reads.delete(scope);
+      refresh();
+    };
+    const onVisibility = () => {
+      if (globalThis.document?.visibilityState === 'visible')
+        onCrossTabChange();
+    };
     appEventBus.on(EAppEventBusNames.EarnFundingChanged, onChange);
+    channel?.addEventListener('message', onCrossTabChange);
+    if (platformEnv.isWeb) {
+      globalThis.addEventListener('focus', onCrossTabChange);
+      globalThis.document?.addEventListener('visibilitychange', onVisibility);
+    }
     refresh();
     return () => {
       appEventBus.off(EAppEventBusNames.EarnFundingChanged, onChange);
+      channel?.close();
+      if (platformEnv.isWeb) {
+        globalThis.removeEventListener('focus', onCrossTabChange);
+        globalThis.document?.removeEventListener(
+          'visibilitychange',
+          onVisibility,
+        );
+      }
     };
   }, [scope]);
   return scope ? getEarnFunding(scope) : undefined;
@@ -173,7 +206,10 @@ export function reserveEarnFunding(
   active.set(scope, attempt);
   notifyFundingChange();
   return {
-    markUnknown: async (swapRecovery?: IEarnSwapRecovery) => {
+    markUnknown: async (
+      swapRecovery?: IEarnSwapRecovery,
+      swapTxUuid?: string,
+    ) => {
       if (active.get(scope) !== attempt) {
         throw new OneKeyLocalError('Earn funding ownership changed');
       }
@@ -187,6 +223,7 @@ export function reserveEarnFunding(
         source,
         startsGroup,
         swapRecovery,
+        swapTxUuid,
       });
       if (!applied)
         throw new OneKeyLocalError(

@@ -1173,6 +1173,8 @@ export interface ISwapCheckSupportResponse {
 export interface ISwapTxHistory {
   protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
+  /** A verified failed source transaction cannot later be made pending by stale polling. */
+  sourceTxFailed?: true;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   stateDetail?: string;

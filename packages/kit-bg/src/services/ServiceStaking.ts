@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -200,6 +201,22 @@ class ServiceStaking extends ServiceBase {
       ),
   });
 
+  private notifyEarnFundingChanged(scope: string) {
+    appEventBus.emit(EAppEventBusNames.EarnFundingChanged, { scope });
+    if (
+      platformEnv.isWeb &&
+      typeof globalThis.BroadcastChannel === 'function'
+    ) {
+      try {
+        const channel = new BroadcastChannel('onekey-earn-funding-changed');
+        channel.postMessage('changed');
+        channel.close();
+      } catch {
+        // A later focus refresh can still read the persisted state.
+      }
+    }
+  }
+
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};
 
@@ -257,14 +274,59 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async recoverEarnSwapFunding(scope: string) {
+    const funding = await this.earnFunding.getFunding(scope);
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) return funding;
+    if (
+      (funding?.status !== 'unknown' && funding?.status !== 'submitted') ||
+      (funding.status === 'unknown' && funding.txIdConflict) ||
+      (funding.status === 'submitted' && funding.sourceTxFailed) ||
+      !funding.swapTxUuid ||
+      !funding.swapRecovery
+    )
+      return funding;
+    const { sender } = funding.swapRecovery;
+    const matchesSender = async () => {
+      const current =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+        });
+      if (!current) return false;
+      return networkUtils.isEvmNetwork({ networkId: sender.networkId })
+        ? current.toLowerCase() === sender.address.toLowerCase()
+        : current === sender.address;
+    };
+    if (!(await matchesSender())) return funding;
+    const fact =
+      await this.backgroundApi.serviceSend.resolveBroadcastAcceptanceFactByUuid(
+        {
+          uuid: funding.swapTxUuid,
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+          expectedAccountAddress: sender.address,
+        },
+      );
+    if (fact.status !== 'accepted' || !(await matchesSender())) return funding;
+    const result = await this.earnFunding.recoverSwapFunding(
+      scope,
+      funding.swapTxUuid,
+      fact.txid,
+      fact.sourceTxFailed,
+    );
+    if (result.applied) {
+      this.notifyEarnFundingChanged(scope);
+    }
+    return result.funding;
+  }
+
+  @backgroundMethod()
   async changeEarnFunding(scope: string, change: IEarnFundingChange) {
     const result = await this.earnFunding.changeFunding(scope, change);
     if (result.applied) {
-      appEventBus.emit(EAppEventBusNames.EarnFundingChanged, { scope });
+      this.notifyEarnFundingChanged(scope);
       if (result.consumedScope) {
-        appEventBus.emit(EAppEventBusNames.EarnFundingChanged, {
-          scope: result.consumedScope,
-        });
+        this.notifyEarnFundingChanged(result.consumedScope);
       }
     }
     return result;

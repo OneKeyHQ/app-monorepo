@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import ServiceStaking from './ServiceStaking';
 
 const request = {
@@ -101,4 +103,98 @@ describe('account-scoped borrow reads', () => {
       expect(get).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('recovering an Earn swap broadcast', () => {
+  const previousBackgroundScope = globalThis.$onekeyIsInBackground;
+  beforeAll(() => {
+    globalThis.$onekeyIsInBackground = true;
+  });
+  afterAll(() => {
+    globalThis.$onekeyIsInBackground = previousBackgroundScope;
+  });
+
+  it('promotes only a persisted accepted fact for the stored UUID and account', async () => {
+    const funding = {
+      status: 'unknown' as const,
+      swapTxUuid: 'swap-uuid',
+      swapRecovery: {
+        sender: { accountId: 'account', networkId: 'evm--1', address: '0xabc' },
+      },
+    };
+    const getFunding = jest.fn(async () => funding);
+    const recoverSwapFunding = jest.fn(async () => ({
+      applied: true,
+      funding: { status: 'submitted', txId: 'tx' },
+    }));
+    const resolveBroadcastAcceptanceFactByUuid = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 'unknown' })
+      .mockResolvedValueOnce({
+        status: 'accepted',
+        uuid: 'swap-uuid',
+        accountId: 'account',
+        networkId: 'evm--1',
+        txid: 'tx',
+      });
+    const service = new ServiceStaking({
+      backgroundApi: {
+        serviceSend: { resolveBroadcastAcceptanceFactByUuid },
+        serviceAccount: {
+          getAccountAddressForApi: jest.fn(async () => '0xabc'),
+        },
+      },
+    });
+    Reflect.set(service, 'earnFunding', { getFunding, recoverSwapFunding });
+    await expect(service.recoverEarnSwapFunding('scope')).resolves.toEqual(
+      funding,
+    );
+    expect(recoverSwapFunding).not.toHaveBeenCalled();
+    await service.recoverEarnSwapFunding('scope');
+    expect(resolveBroadcastAcceptanceFactByUuid).toHaveBeenCalledWith({
+      uuid: 'swap-uuid',
+      accountId: 'account',
+      networkId: 'evm--1',
+      expectedAccountAddress: '0xabc',
+    });
+    expect(recoverSwapFunding).toHaveBeenCalledWith(
+      'scope',
+      'swap-uuid',
+      'tx',
+      undefined,
+    );
+  });
+
+  it('announces persisted funding changes across Web tabs without an open Earn view', async () => {
+    const previous = globalThis.BroadcastChannel;
+    const platform = jest.replaceProperty(platformEnv, 'isWeb', true);
+    const post = jest.fn();
+    const close = jest.fn();
+    class Channel {
+      postMessage = post;
+      close = close;
+    }
+    Object.defineProperty(globalThis, 'BroadcastChannel', {
+      configurable: true,
+      value: Channel,
+    });
+    try {
+      const service = new ServiceStaking({ backgroundApi: {} });
+      Reflect.set(service, 'earnFunding', {
+        changeFunding: jest.fn(async () => ({ applied: true, funding: null })),
+      });
+      await service.changeEarnFunding('scope', {
+        type: 'claim',
+        attemptId: 'attempt',
+      });
+      expect(post).toHaveBeenCalledWith('changed');
+      expect(close).toHaveBeenCalled();
+    } finally {
+      platform.restore();
+      Object.defineProperty(globalThis, 'BroadcastChannel', {
+        configurable: true,
+        value: previous,
+      });
+    }
+  });
 });

@@ -2532,8 +2532,7 @@ export default class ServiceSwap extends ServiceBase {
     scope: string;
     txId: string;
   }): Promise<boolean> {
-    // Web tabs own separate background instances and their history mutexes are not shared.
-    if (platformEnv.isWeb) return false;
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) return false;
     if (!scope || !txId || scope.length > 2048 || txId.length > 256)
       return false;
     let parts: unknown;
@@ -2603,7 +2602,6 @@ export default class ServiceSwap extends ServiceBase {
       )
         return false;
       const histories = await this.repairSwapHistoryNetworkInfo();
-      if (histories.some((item) => item.txInfo.txId === txId)) return true;
       const current =
         await this.backgroundApi.serviceStaking.getEarnFunding(scope);
       if (
@@ -2612,7 +2610,71 @@ export default class ServiceSwap extends ServiceBase {
         !isEqual(current.swapRecovery, recovery)
       )
         return false;
+      const existing = histories.find((item) => item.txInfo.txId === txId);
+      if (existing) {
+        if (!current.sourceTxFailed) return true;
+        if (
+          existing.accountInfo.sender.accountId !== sender.accountId ||
+          existing.accountInfo.sender.networkId !== sender.networkId ||
+          existing.accountInfo.receiver.accountId !== receiver.accountId ||
+          existing.accountInfo.receiver.networkId !== receiver.networkId ||
+          existing.baseInfo.fromToken.networkId !== sender.networkId ||
+          existing.baseInfo.toToken.networkId !== receiver.networkId ||
+          normalized(
+            sender.networkId,
+            existing.baseInfo.fromToken.contractAddress,
+          ) !== normalized(sender.networkId, sender.token.contractAddress) ||
+          normalized(
+            receiver.networkId,
+            existing.baseInfo.toToken.contractAddress,
+          ) !==
+            normalized(receiver.networkId, receiver.token.contractAddress) ||
+          Boolean(existing.baseInfo.fromToken.isNative) !==
+            Boolean(sender.token.isNative) ||
+          Boolean(existing.baseInfo.toToken.isNative) !==
+            Boolean(receiver.token.isNative) ||
+          normalized(sender.networkId, existing.txInfo.sender) !==
+            normalized(sender.networkId, sender.address) ||
+          normalized(receiver.networkId, existing.txInfo.receiver) !==
+            normalized(receiver.networkId, receiver.address) ||
+          ![
+            ESwapTxHistoryStatus.PENDING,
+            ESwapTxHistoryStatus.FAILED,
+            ESwapTxHistoryStatus.CANCELED,
+            ESwapTxHistoryStatus.EXPIRED,
+            ESwapTxHistoryStatus.REFUNDED,
+          ].includes(existing.status)
+        )
+          return false;
+        const updated =
+          await this.backgroundApi.simpleDb.swapHistory.markEarnSwapSourceFailed(
+            existing,
+          );
+        if (
+          !updated ||
+          !updated.sourceTxFailed ||
+          ![
+            ESwapTxHistoryStatus.FAILED,
+            ESwapTxHistoryStatus.CANCELED,
+            ESwapTxHistoryStatus.EXPIRED,
+            ESwapTxHistoryStatus.REFUNDED,
+          ].includes(updated.status)
+        )
+          return false;
+        await inAppNotificationAtom.set((previous) => ({
+          ...previous,
+          swapHistoryPendingList: filterSwapHistoryPendingList(
+            previous.swapHistoryPendingList,
+          ).filter((item) => item.txInfo.txId !== txId),
+        }));
+        appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+        return true;
+      }
       const history = buildRecoveredEarnSwapHistory(recovery, txId);
+      if (current.sourceTxFailed) {
+        history.status = ESwapTxHistoryStatus.FAILED;
+        history.sourceTxFailed = true;
+      }
       await this.retrySwapHistoryPersistence(() =>
         this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
           history,
@@ -2626,6 +2688,14 @@ export default class ServiceSwap extends ServiceBase {
           const pending = filterSwapHistoryPendingList(
             previous.swapHistoryPendingList,
           );
+          if (current.sourceTxFailed) {
+            return {
+              ...previous,
+              swapHistoryPendingList: pending.filter(
+                (item) => item.txInfo.txId !== txId,
+              ),
+            };
+          }
           if (pending.some((item) => this.isSameSwapHistoryItem(item, history)))
             return previous;
           return { ...previous, swapHistoryPendingList: [...pending, history] };
@@ -2937,13 +3007,19 @@ export default class ServiceSwap extends ServiceBase {
         status,
       });
       await this.swapHistoryMutationMutex.runExclusive(async () => {
-        await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
+        const persisted = await this.persistSwapHistoryUpdate(
+          newHistoryItem,
+          oldTxId,
+        );
         await inAppNotificationAtom.set((pre) => {
-          const newPendingList = filterSwapHistoryPendingList(
+          const pending = filterSwapHistoryPendingList(
             pre.swapHistoryPendingList,
-          ).map((item) =>
-            item.txInfo.txId === oldTxId ? newHistoryItem : item,
           );
+          const newPendingList = persisted.sourceTxFailed
+            ? pending.filter((item) => item.txInfo.txId !== oldTxId)
+            : pending.map((item) =>
+                item.txInfo.txId === oldTxId ? persisted : item,
+              );
           return {
             ...pre,
             swapHistoryPendingList: newPendingList,
@@ -2987,7 +3063,25 @@ export default class ServiceSwap extends ServiceBase {
       item.status = ESwapTxHistoryStatus.CANCELED;
     }
     let enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    if (oldItem) {
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      enrichedItem = await this.persistSwapHistoryUpdate(
+        enrichedItem,
+        undefined,
+        options?.privateSendFeeUpdate,
+      );
+      if (oldItem) {
+        await inAppNotificationAtom.set((pre) => {
+          const newPendingList = filterSwapHistoryPendingList(
+            pre.swapHistoryPendingList,
+          ).map((i) => (matchFn(i) ? enrichedItem : i));
+          return {
+            ...pre,
+            swapHistoryPendingList: newPendingList,
+          };
+        });
+      }
+    });
+    if (oldItem && !enrichedItem.sourceTxFailed) {
       if (
         enrichedItem.txInfo.receiverTransactionId &&
         !this._crossChainReceiveTxBlockNotificationMap[
@@ -3045,24 +3139,6 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
-    await this.swapHistoryMutationMutex.runExclusive(async () => {
-      enrichedItem = await this.persistSwapHistoryUpdate(
-        enrichedItem,
-        undefined,
-        options?.privateSendFeeUpdate,
-      );
-      if (oldItem) {
-        await inAppNotificationAtom.set((pre) => {
-          const newPendingList = filterSwapHistoryPendingList(
-            pre.swapHistoryPendingList,
-          ).map((i) => (matchFn(i) ? enrichedItem : i));
-          return {
-            ...pre,
-            swapHistoryPendingList: newPendingList,
-          };
-        });
-      }
-    });
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }

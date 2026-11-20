@@ -139,6 +139,54 @@ beforeEach(() => {
   mockCancelQuote.mockResolvedValue(undefined);
 });
 
+it('persists the final swap UUID in the claim before allowing the batch to send', async () => {
+  const recovery: IEarnSwapRecovery = {
+    sender: { ...payer, token: fromToken, amount: '1' },
+    receiver: { ...payer, token: toToken, amount: '4' },
+    provider: { provider: 'fixture', providerName: 'Fixture' },
+    useOrderId: false,
+    currency: { id: 'usd', symbol: '$' },
+    createdAt: 1,
+  };
+  const { confirm, prepared, reservation, result } = startConfirmation({
+    approval: true,
+    swapRecovery: recovery,
+  });
+  await confirm.onBeforeSend?.([
+    {
+      encodedTx: 'approval',
+      uuid: 'approval-uuid',
+      approveInfo: prepared.approvesInfo[0],
+    },
+    {
+      encodedTx: 'swap',
+      uuid: 'swap-uuid',
+      swapInfo: prepared.execution.swapInfo,
+    },
+  ]);
+  expect(reservation.markUnknown).toHaveBeenCalledWith(recovery, 'swap-uuid');
+  confirm.onCancel?.();
+  await result;
+});
+
+it('does not send a recoverable swap when the final transaction identity is ambiguous', async () => {
+  const recovery: IEarnSwapRecovery = {
+    sender: { ...payer, token: fromToken, amount: '1' },
+    receiver: { ...payer, token: toToken, amount: '4' },
+    provider: { provider: 'fixture', providerName: 'Fixture' },
+    useOrderId: false,
+    currency: { id: 'usd', symbol: '$' },
+    createdAt: 1,
+  };
+  const { confirm, reservation, result } = startConfirmation({
+    swapRecovery: recovery,
+  });
+  await expect(confirm.onBeforeSend?.()).rejects.toThrow('unknown');
+  expect(reservation.markUnknown).not.toHaveBeenCalled();
+  confirm.onSafePreSendFail?.(new OneKeyLocalError('invalid identity'));
+  await expect(result).rejects.toThrow('invalid identity');
+});
+
 it('does not send when the recovery claim cannot be persisted', async () => {
   const { confirm, reservation, result } = startConfirmation();
   reservation.markUnknown.mockRejectedValueOnce(

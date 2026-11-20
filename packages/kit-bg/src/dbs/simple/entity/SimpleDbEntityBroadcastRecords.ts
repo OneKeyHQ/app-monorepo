@@ -1,8 +1,13 @@
 import { omit } from 'lodash';
 
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import {
+  SimpleDbEntityBase,
+  withWebEntityLock,
+} from '../base/SimpleDbEntityBase';
 
 // A signed transaction that left this device for the network, keyed by the
 // unsignedTx uuid the confirm page keeps across retries (OK-65147).
@@ -89,7 +94,24 @@ function trimRecords(
 export class SimpleDbEntityBroadcastRecords extends SimpleDbEntityBase<IBroadcastRecordsDb> {
   entityName = 'broadcastRecords';
 
-  override enableCache = true;
+  override enableCache = !platformEnv.isWeb;
+
+  @backgroundMethod()
+  override async getRawData() {
+    return withWebEntityLock(this.entityKey, () => super.getRawData());
+  }
+
+  @backgroundMethod()
+  override async setRawData(
+    data: Parameters<SimpleDbEntityBase<IBroadcastRecordsDb>['setRawData']>[0],
+  ) {
+    return withWebEntityLock(this.entityKey, () => super.setRawData(data));
+  }
+
+  @backgroundMethod()
+  override async clearRawData() {
+    return withWebEntityLock(this.entityKey, () => super.clearRawData());
+  }
 
   async getRecord(uuid: string): Promise<IBroadcastRecord | undefined> {
     const data = await this.getRawData();

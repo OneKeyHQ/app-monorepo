@@ -2,6 +2,7 @@ export type IEarnFundingIntent = {
   intentAmount?: string;
   positionBefore?: string;
   swapRecovery?: IEarnSwapRecovery;
+  swapTxUuid?: string;
 };
 
 export type IEarnSwapRecovery = {
@@ -36,7 +37,7 @@ export type IEarnFundingReceipt = { scope: string; txId: string };
 
 export type IEarnFundingState = (
   | { status: 'unknown'; txIdConflict?: true }
-  | { status: 'submitted'; txId: string }
+  | { status: 'submitted'; txId: string; sourceTxFailed?: true }
   | { status: 'funded'; txId: string; receivedAmount: string }
 ) &
   IEarnFundingIntent & { source?: IEarnFundingReceipt };

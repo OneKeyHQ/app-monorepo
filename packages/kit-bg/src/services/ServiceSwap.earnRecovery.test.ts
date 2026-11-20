@@ -2,12 +2,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildRecoveredEarnSwapHistory } from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import type {
   IEarnFundingState,
   IEarnSwapRecovery,
 } from '@onekeyhq/shared/types/earn/funding';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { inAppNotificationAtom } from '../states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '../states/jotai/jotaiStorage';
@@ -84,6 +86,21 @@ function setup() {
     },
   );
   const commitPendingSwapHistoryItem = jest.fn(async () => undefined);
+  const updateSwapHistoryItem = jest.fn(
+    async (history: ISwapTxHistory) => history,
+  );
+  const showToast = jest.fn();
+  const markEarnSwapSourceFailed = jest.fn(async (previous: ISwapTxHistory) => {
+    const history = {
+      ...previous,
+      status: ESwapTxHistoryStatus.FAILED,
+      sourceTxFailed: true as const,
+    };
+    histories = histories.map((item) =>
+      item.txInfo.txId === history.txInfo.txId ? history : item,
+    );
+    return history;
+  });
   const service = new ServiceSwap({
     backgroundApi: {
       serviceStaking: { getEarnFunding },
@@ -91,6 +108,7 @@ function setup() {
       serviceNetwork: {
         getNetworksByIds: jest.fn(async () => ({ networks: [] })),
       },
+      serviceApp: { showToast },
       simpleDb: {
         swapHistory: {
           recoverPendingSwapHistoryItems: jest.fn(async () => 0),
@@ -101,6 +119,8 @@ function setup() {
           })),
           stagePendingSwapHistoryItem,
           commitPendingSwapHistoryItem,
+          markEarnSwapSourceFailed,
+          updateSwapHistoryItem,
         },
       },
     },
@@ -110,6 +130,9 @@ function setup() {
     getEarnFunding,
     getAccountAddressForApi,
     stagePendingSwapHistoryItem,
+    markEarnSwapSourceFailed,
+    updateSwapHistoryItem,
+    showToast,
     setFunding: (value: IEarnFundingState | null) => {
       funding = value;
     },
@@ -140,6 +163,58 @@ describe('Earn swap history recovery', () => {
     globalThis.$onekeyIsInBackground = previous;
   });
 
+  it('does not restore on Web without a cross-tab lock', async () => {
+    const previousNavigator = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    const platform = jest.replaceProperty(platformEnv, 'isWeb', true);
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {},
+    });
+    try {
+      const { service, stagePendingSwapHistoryItem } = setup();
+      await expect(
+        service.restoreEarnSwapHistory({ scope, txId: 'tx' }),
+      ).resolves.toBe(false);
+      expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+    } finally {
+      platform.restore();
+      if (previousNavigator)
+        Object.defineProperty(globalThis, 'navigator', previousNavigator);
+      else Reflect.deleteProperty(globalThis, 'navigator');
+    }
+  });
+
+  it('restores on Web when the cross-tab lock is available', async () => {
+    const previousNavigator = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    const platform = jest.replaceProperty(platformEnv, 'isWeb', true);
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        locks: {
+          request: async (_key: string, run: () => Promise<unknown>) => run(),
+        },
+      },
+    });
+    try {
+      const { service, stagePendingSwapHistoryItem } = setup();
+      await expect(
+        service.restoreEarnSwapHistory({ scope, txId: 'tx' }),
+      ).resolves.toBe(true);
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+    } finally {
+      platform.restore();
+      if (previousNavigator)
+        Object.defineProperty(globalThis, 'navigator', previousNavigator);
+      else Reflect.deleteProperty(globalThis, 'navigator');
+    }
+  });
+
   it('restores exactly once and preserves an existing history row', async () => {
     const { service, stagePendingSwapHistoryItem } = setup();
     await expect(
@@ -154,6 +229,47 @@ describe('Earn swap history recovery', () => {
         txInfo: expect.objectContaining({ txId: 'tx' }),
       }),
     );
+  });
+
+  it('persists the chain-proven failure for an existing history before releasing funding', async () => {
+    const { service, setFunding, setHistories, markEarnSwapSourceFailed } =
+      setup();
+    setFunding({
+      ...initial,
+      status: 'submitted',
+      txId: 'tx',
+      sourceTxFailed: true,
+    });
+    setHistories([buildRecoveredEarnSwapHistory(recovery, 'tx')]);
+    await expect(
+      service.restoreEarnSwapHistory({ scope, txId: 'tx' }),
+    ).resolves.toBe(true);
+    expect(markEarnSwapSourceFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ status: ESwapTxHistoryStatus.PENDING }),
+    );
+  });
+
+  it('does not show a stale success toast when storage retains a proven source failure', async () => {
+    const { service, updateSwapHistoryItem, showToast } = setup();
+    const pending = buildRecoveredEarnSwapHistory(recovery, 'tx');
+    await inAppNotificationAtom.set((previousState) => ({
+      ...previousState,
+      swapHistoryPendingList: [pending],
+    }));
+    updateSwapHistoryItem.mockResolvedValueOnce({
+      ...pending,
+      status: ESwapTxHistoryStatus.FAILED,
+      sourceTxFailed: true,
+    });
+    const result = await service.updateSwapHistoryItem({
+      ...pending,
+      status: ESwapTxHistoryStatus.SUCCESS,
+    });
+    expect(result).toMatchObject({
+      status: ESwapTxHistoryStatus.FAILED,
+      sourceTxFailed: true,
+    });
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it('does not write after account change or a changed submitted transaction', async () => {

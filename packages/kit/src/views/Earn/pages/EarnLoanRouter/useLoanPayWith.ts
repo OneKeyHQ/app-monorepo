@@ -860,7 +860,14 @@ export function useLoanPayWith({
       retainedFunding?.status === 'funded'
         ? { scope: fundingKey, txId: retainedFunding.txId }
         : undefined,
-    canReconcileFunding: retainedFunding?.status === 'submitted',
+    canReconcileFunding:
+      retainedFunding?.status === 'submitted' ||
+      Boolean(
+        retainedFunding?.status === 'unknown' &&
+        !retainedFunding.txIdConflict &&
+        retainedFunding.swapTxUuid &&
+        retainedFunding.swapRecovery,
+      ),
     reconcileFunding,
     isRecheckingFunding,
     quoteFor,
