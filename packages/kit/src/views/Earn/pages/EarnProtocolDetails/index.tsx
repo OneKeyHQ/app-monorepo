@@ -1245,6 +1245,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isError,
     refreshData,
     refreshAccount,
+    retryDetail,
   } = useProtocolDetailData({
     accountId,
     networkId,
@@ -1817,7 +1818,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isLoading={isLoading ?? false}
             isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
-            onRefresh={refreshData}
+            onRefresh={retryDetail}
             onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}

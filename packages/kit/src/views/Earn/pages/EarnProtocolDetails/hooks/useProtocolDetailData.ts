@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -86,6 +86,7 @@ export function useProtocolDetailData({
   requestKeyRef.current = requestKey;
   const settledRequestKeyRef = useRef<string | undefined>(undefined);
   const failedRequestKeyRef = useRef<string | undefined>(undefined);
+  const requestGenerationRef = useRef(0);
 
   const {
     result: detailInfo,
@@ -93,6 +94,8 @@ export function useProtocolDetailData({
     run,
   } = usePromiseResult(
     async () => {
+      requestGenerationRef.current += 1;
+      const requestGeneration = requestGenerationRef.current;
       if (isAccountScopePending) {
         return undefined;
       }
@@ -108,20 +111,22 @@ export function useProtocolDetailData({
               ? { accountId, indexedAccountId, expectedAccountAddress }
               : {}),
           });
-        if (requestKeyRef.current === startedRequestKey) {
+        if (
+          requestKeyRef.current === startedRequestKey &&
+          requestGenerationRef.current === requestGeneration
+        ) {
           settledRequestKeyRef.current = startedRequestKey;
           failedRequestKeyRef.current = undefined;
         }
         return result;
       } catch (error) {
         const canceled = isRequestCanceledError(error);
-        if (requestKeyRef.current === startedRequestKey) {
-          settledRequestKeyRef.current = canceled
-            ? undefined
-            : startedRequestKey;
-          failedRequestKeyRef.current = canceled
-            ? undefined
-            : startedRequestKey;
+        if (
+          requestKeyRef.current === startedRequestKey &&
+          requestGenerationRef.current === requestGeneration
+        ) {
+          settledRequestKeyRef.current = startedRequestKey;
+          failedRequestKeyRef.current = startedRequestKey;
         }
         if (canceled) {
           return undefined;
@@ -162,6 +167,11 @@ export function useProtocolDetailData({
         Boolean(result?.protocol || result?.subscriptionValue?.token),
     },
   );
+
+  const retryDetail = useCallback(async () => {
+    await refreshAccount();
+    await run();
+  }, [refreshAccount, run]);
 
   // Shared with the positions card's Redeem, which reads the detail itself
   // to open the order picker.
@@ -216,5 +226,6 @@ export function useProtocolDetailData({
     isError,
     refreshData: run,
     refreshAccount,
+    retryDetail,
   };
 }

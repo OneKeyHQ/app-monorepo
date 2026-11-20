@@ -13,6 +13,7 @@ const mockLocale = { current: 'en-US' };
 const mockCurrency = { current: 'usd' };
 const mockAccount: { address?: string; loading: boolean } = { loading: false };
 let mockIsFocused = true;
+const mockRefreshAccount = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ locale: mockLocale.current }),
@@ -32,7 +33,7 @@ jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount', () => ({
     earnAccount: mockAccount.address
       ? { accountAddress: mockAccount.address }
       : undefined,
-    refreshAccount: jest.fn(),
+    refreshAccount: mockRefreshAccount,
     isLoading: mockAccount.loading,
   }),
 }));
@@ -96,6 +97,7 @@ beforeEach(() => {
   mockAccount.address = undefined;
   mockAccount.loading = false;
   mockIsFocused = true;
+  mockRefreshAccount.mockReset();
   getDetails.mockReset();
   getDetails.mockResolvedValue({});
   getWithTimestamp.mockClear();
@@ -183,7 +185,7 @@ it('drops a late response for the previous derivation', async () => {
   expect(result.current.detailInfo).toEqual(progress('2'));
 });
 
-it('drops a canceled request while the selected address catches up', async () => {
+it('exposes a retryable error when the current account detail is canceled', async () => {
   mockAccount.address = '0xA';
   getDetails
     .mockResolvedValueOnce(progress('1'))
@@ -197,13 +199,94 @@ it('drops a canceled request while the selected address catches up', async () =>
   await act(async () => result.current.refreshData());
 
   expect(result.current.detailInfo).toBeUndefined();
-  expect(result.current.isError).toBe(false);
-  expect(result.current.isLoading).toBe(true);
+  expect(result.current.isError).toBe(true);
+  expect(result.current.isLoading).toBe(false);
+
+  await act(async () => result.current.retryDetail());
+  expect(mockRefreshAccount).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(result.current.detailInfo).toEqual(progress('2')));
 
   mockAccount.address = '0xB';
   rerender(undefined);
 
+  await waitFor(() =>
+    expect(getDetails).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xB' }),
+    ),
+  );
+});
+
+it('retries with the new address after account resolution changes', async () => {
+  mockAccount.address = '0xA';
+  getDetails.mockImplementation(async ({ expectedAccountAddress }) =>
+    expectedAccountAddress === '0xB'
+      ? progress('2')
+      : Promise.reject(
+          Object.assign(new Error('Canceled'), { code: 'ERR_CANCELED' }),
+        ),
+  );
+  // The first request is canceled before the account hook catches up.
+  getDetails.mockRejectedValueOnce({ code: 'ERR_CANCELED' });
+  const { result, rerender } = renderHook(() =>
+    useProtocolDetailData(detailParams),
+  );
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  mockRefreshAccount.mockImplementation(async () => {
+    mockAccount.address = '0xB';
+    rerender(undefined);
+  });
+
+  await act(async () => result.current.retryDetail());
+
   await waitFor(() => expect(result.current.detailInfo).toEqual(progress('2')));
+  expect(getDetails).toHaveBeenLastCalledWith(
+    expect.objectContaining({ expectedAccountAddress: '0xB' }),
+  );
+});
+
+it('ignores a stale retry cancellation after the new address has loaded', async () => {
+  mockAccount.address = '0xA';
+  const oldRetry = Promise.withResolvers<IStakeEarnDetail>();
+  getDetails
+    .mockRejectedValueOnce({ code: 'ERR_CANCELED' })
+    .mockReturnValueOnce(oldRetry.promise)
+    .mockResolvedValue(progress('2'));
+  const { result, rerender } = renderHook(() =>
+    useProtocolDetailData(detailParams),
+  );
+  await waitFor(() => expect(result.current.isError).toBe(true));
+
+  let retry: Promise<void> | undefined;
+  await act(async () => {
+    retry = result.current.retryDetail();
+    await Promise.resolve();
+  });
+  await waitFor(() => expect(getDetails).toHaveBeenCalledTimes(2));
+  mockAccount.address = '0xB';
+  rerender(undefined);
+  await waitFor(() => expect(result.current.detailInfo).toEqual(progress('2')));
+  await act(async () => {
+    oldRetry.reject({ code: 'ERR_CANCELED' });
+    await retry;
+  });
+  expect(result.current.detailInfo).toEqual(progress('2'));
+  expect(result.current.isError).toBe(false);
+  expect(result.current.isLoading).toBe(false);
+});
+
+it('does not let an older canceled request override a newer failure', async () => {
+  mockAccount.address = '0xA';
+  const oldRequest = Promise.withResolvers<IStakeEarnDetail>();
+  getDetails
+    .mockReturnValueOnce(oldRequest.promise)
+    .mockRejectedValueOnce({ code: 'ERR_CANCELED' });
+  const { result } = renderHook(() => useProtocolDetailData(detailParams));
+  await waitFor(() => expect(getDetails).toHaveBeenCalledTimes(1));
+  await act(async () => result.current.refreshData());
+  expect(result.current.isError).toBe(true);
+  await act(async () => oldRequest.reject({ code: 'ERR_CANCELED' }));
+  expect(result.current.isError).toBe(true);
+  expect(result.current.isLoading).toBe(false);
 });
 
 it('loads public details when account resolution finishes without an address', async () => {
