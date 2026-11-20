@@ -539,6 +539,13 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   rawDataJson?: ICloudSyncRawDataJson;
 };
 
+export type IPendingCloudAccountHandoff = {
+  id: string;
+  kind: 'pending-account-handoff';
+  candidate: IDBCloudSyncItem;
+  expectedForeign: IDBCloudSyncItem;
+};
+
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.Context]: IDBContext;
@@ -601,7 +608,8 @@ export interface IIndexedDBSchemaMap extends DBSchema {
     key: string;
     value:
       | { id: string; record: IDBCloudSyncItem }
-      | IDesktopWalletLocalMetadata;
+      | IDesktopWalletLocalMetadata
+      | IPendingCloudAccountHandoff;
   };
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
@@ -749,6 +757,12 @@ export interface ILocalDBTransaction {
     ): Promise<IDesktopWalletLocalMetadata | undefined>;
     write(record: IDesktopWalletLocalMetadata): Promise<void>;
     remove(id: IDesktopWalletLocalMetadata['id']): Promise<void>;
+  };
+  pendingCloudAccountHandoffs?: {
+    read(id: string): Promise<IPendingCloudAccountHandoff | undefined>;
+    list(sourcePrefix: string): Promise<IPendingCloudAccountHandoff[]>;
+    write(record: IPendingCloudAccountHandoff): Promise<void>;
+    remove(record: IPendingCloudAccountHandoff): Promise<void>;
   };
   cloudAccountArchive?: {
     retain(record: IDBCloudSyncItem): Promise<void>;

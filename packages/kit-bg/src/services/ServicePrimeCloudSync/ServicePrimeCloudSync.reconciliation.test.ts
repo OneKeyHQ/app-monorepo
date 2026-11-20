@@ -1,4 +1,6 @@
 import { Semaphore } from 'async-mutex';
+import { IDBFactory } from 'fake-indexeddb';
+import 'fake-indexeddb/auto';
 import { cloneDeep } from 'lodash';
 
 import {
@@ -6,6 +8,7 @@ import {
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
@@ -13,11 +16,18 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
-import { publicAccountSnapshotToAccount } from './publicAccountSnapshot';
+import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+import {
+  getPublicAccountSnapshotId,
+  publicAccountSnapshotToAccount,
+} from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
@@ -98,6 +108,8 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getAllSyncItems: jest.fn(),
+    getPendingCloudAccountHandoffs: jest.fn(async () => []),
+    storePendingCloudAccountHandoffs: jest.fn(async () => undefined),
     getAllAccounts: jest.fn(),
     getAllDevices: jest.fn(),
     getRecordsByIds: jest.fn(),
@@ -131,6 +143,8 @@ jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
   default: {
     normalizeDataTime: (time: number | undefined) => time,
+    decryptSyncItem: jest.fn(),
+    canLocalItemSyncToScene: jest.fn(),
     setDefaultPropsOfServerToLocalItem: ({
       localItem,
     }: {
@@ -1792,6 +1806,328 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       expect(h.check).not.toHaveBeenCalled();
     },
   );
+
+  test('stores only selected-DEK authenticated canonical Desktop collision candidates', async () => {
+    const h = harness();
+    jest.replaceProperty(platformEnv, 'isDesktop', true);
+    jest.replaceProperty(platformEnv, 'isMas', false);
+    jest.replaceProperty(platformEnv, 'isDev', false);
+    const pwdHash = 'hw-dek-active';
+    const credential = {
+      masterPasswordUUID: pwdHash,
+      keylessCredential: { source: { type: 'hardware' }, hardwareSession: {} },
+    } as NonNullable<
+      Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
+    >;
+    jest
+      .spyOn(h.service, 'getSyncCredentialSafe')
+      .mockResolvedValue(credential);
+    const candidate: IDBCloudSyncItem = {
+      id: 'validated-wire-id',
+      data: 'original-opaque-ciphertext',
+      dataTime: 50,
+      dataType: EPrimeCloudSyncDataType.Account,
+      pwdHash,
+      isDeleted: false,
+      rawKey: '',
+      rawData: '',
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    const expectedForeign = {
+      ...candidate,
+      data: 'original-other-source-bytes',
+      pwdHash: 'foreign-fixture',
+      localSceneUpdated: true,
+    };
+    h.pool.set(candidate.id, expectedForeign);
+    const snapshot = publicAccountTestSnapshot();
+    const accountId = getPublicAccountSnapshotId(snapshot);
+    const rawKey = `Account >> ${accountId}`;
+    h.service.syncManagers.account.rawKeyToHashKey = jest.fn(
+      () => candidate.id,
+    );
+    const decrypt = jest
+      .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+      .mockRejectedValueOnce(new OneKeyLocalError('unreadable ciphertext'))
+      .mockImplementationOnce(async ({ item }) => ({
+        dbItem: item,
+        rawDataJson: {
+          rawKey,
+          dataType: EPrimeCloudSyncDataType.Account,
+          payload: {
+            accountId,
+            name: snapshot.account.name,
+            publicAccountSnapshot: snapshot,
+          },
+        },
+        dataType: item.dataType,
+        isDeleted: item.isDeleted,
+      }));
+    const store = jest.spyOn(localDb, 'storePendingCloudAccountHandoffs');
+    const update = () =>
+      h.service.updateLocalItemsByServer({
+        localItems: [candidate],
+        syncCredential: credential,
+        shouldSyncToScene: true,
+        allowSettledAccountHandoff: true,
+      });
+    await update();
+    expect(store).not.toHaveBeenCalled();
+    await update();
+    expect(decrypt).toHaveBeenCalledTimes(2);
+    expect(store).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidates: [candidate],
+        expectedForeignById: new Map([[candidate.id, expectedForeign]]),
+        pwdHash,
+      }),
+    );
+    expect(h.pool.get(candidate.id)).toEqual(expectedForeign);
+  });
+
+  test.each(['startup', 'unlock'] as const)(
+    'offline %s after keep-wallet commit recovers both pending sources despite a lost wallet-ready event',
+    async (reason) => {
+      jest.useRealTimers();
+      jest.replaceProperty(platformEnv, 'isDesktop', true);
+      jest.replaceProperty(platformEnv, 'isMas', false);
+      jest.replaceProperty(platformEnv, 'isDev', false);
+      jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+      const h = harness();
+      const snapshot = publicAccountTestSnapshot();
+      const walletId = 'hd-6042';
+      const source = 'hw-dek-durable-privacy-fixture';
+      const bucket = EIndexedDBBucketNames.account;
+      const localOpts = { skipCloudCredentialWarmup: true };
+      const candidate: IDBCloudSyncItem = {
+        id: 'account-handoff-restart-fixture',
+        data: 'b2'.repeat(32),
+        dataTime: 50,
+        dataType: EPrimeCloudSyncDataType.Account,
+        pwdHash: source,
+        isDeleted: false,
+        rawKey: '',
+        rawData: '',
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      const old = {
+        ...candidate,
+        data: 'a1'.repeat(32),
+        pwdHash: 'old-privacy-scope',
+        localSceneUpdated: true,
+      };
+      const activePoolPending = {
+        ...candidate,
+        id: 'existing-active-wallet-scene-fixture',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'c3'.repeat(32),
+      };
+      const writer = new LocalDbIndexed();
+      await writer.withTransaction(
+        bucket,
+        async (tx) => {
+          await writer.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [
+              {
+                id: walletId,
+                name: 'Test privacy wallet',
+                type: 'hd',
+                xfp: snapshot.wallet.xfp,
+                backuped: true,
+                walletNo: 6042,
+                accounts: [],
+                nextIds: {},
+                isTemp: true,
+              },
+            ],
+          });
+          await writer.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [{ id: walletId, credential: 'public-test-fixture' }],
+          });
+          await writer.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            records: [old, activePoolPending],
+          });
+        },
+        localOpts,
+      );
+      await writer.storePendingCloudAccountHandoffs({
+        candidates: [candidate],
+        expectedForeignById: new Map([[old.id, old]]),
+        pwdHash: source,
+        isCurrent: () => true,
+      });
+      await writer.withTransaction(
+        bucket,
+        (tx) =>
+          writer.txUpdateWallet({
+            tx,
+            walletId,
+            updater: (item) => {
+              item.isTemp = false;
+              return item;
+            },
+          }),
+        localOpts,
+      );
+      // A new connection models restart; never dispatch the original event.
+      const restarted = new LocalDbIndexed();
+      h.getPool.mockImplementation(() => restarted.getAllSyncItems());
+      const getHandoffs = jest
+        .spyOn(localDb, 'getPendingCloudAccountHandoffs')
+        .mockImplementation((pwdHash) =>
+          restarted.getPendingCloudAccountHandoffs(pwdHash),
+        );
+      jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+        masterPasswordUUID: source,
+        keylessCredential: {
+          source: { type: 'hardware' },
+          hardwareSession: {},
+        },
+      } as NonNullable<
+        Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
+      >);
+      h.patchConfig({
+        cloudSyncReconciliation: {
+          version: 1,
+          spaceId: source,
+          status: 'partial',
+          unfinished: false,
+          failures: 0,
+          requests: 1,
+          rounds: 1,
+          received: 1,
+          applied: 0,
+          uploaded: 0,
+          updatedAt: Date.now(),
+        },
+      });
+      const account = publicAccountSnapshotToAccount(snapshot, walletId);
+      h.scene.mockImplementationOnce(
+        async ({ items, foreignAccountsByWireId, isCurrent }) => {
+          expect(h.sourceMutex.isLocked()).toBe(true);
+          expect(items).toEqual([candidate]);
+          const result = await restarted.importPublicCloudAccounts({
+            walletId,
+            expectedWallet: { ...snapshot.wallet, kind: 'hd' },
+            expectedCredential: 'public-test-fixture',
+            accounts: [account],
+            sourceItemsByAccountId: new Map([[account.id, items[0]]]),
+            foreignAccountsByWireId,
+            isCurrent: isCurrent ?? (() => true),
+          });
+          expect(result.appliedAccountIds).toEqual([account.id]);
+        },
+      );
+      jest
+        .spyOn(cloudSyncItemBuilder, 'canLocalItemSyncToScene')
+        .mockImplementation(
+          ({ item }) =>
+            item.id === activePoolPending.id && !item.localSceneUpdated,
+        );
+      h.replay.mockImplementationOnce(async (params) => {
+        expect(h.sourceMutex.isLocked()).toBe(true);
+        await ServicePrimeCloudSync.prototype.syncPendingItemsToScene.call(
+          h.service,
+          params,
+        );
+      });
+      h.scene.mockImplementationOnce(
+        async ({ items, foreignAccountsByWireId }) => {
+          expect(items).toEqual([activePoolPending]);
+          expect(foreignAccountsByWireId).toBeUndefined();
+          await restarted.updateSyncItem({
+            ids: [activePoolPending.id],
+            updater: (row) => {
+              row.localSceneUpdated = true;
+              return row;
+            },
+          });
+        },
+      );
+      await h.service.setCloudSyncNetworkReachable(false);
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(getHandoffs).toHaveBeenCalledWith(source);
+      expect(h.check).not.toHaveBeenCalled();
+      expect(h.replay).toHaveBeenCalledTimes(1);
+      expect(h.scene).toHaveBeenCalledTimes(2);
+      expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
+      expect(
+        await restarted.getSyncItem({ id: activePoolPending.id }),
+      ).toMatchObject({ localSceneUpdated: true });
+      expect(await restarted.getPendingCloudAccountHandoffs(source)).toEqual(
+        [],
+      );
+      expect(await restarted.getSyncItem({ id: old.id })).toMatchObject({
+        data: candidate.data,
+        pwdHash: source,
+        localSceneUpdated: true,
+      });
+    },
+    15_000,
+  );
+
+  test('wallet-ready replays the matching Desktop pending handoff offline without adding it to the pool', async () => {
+    const h = harness();
+    jest.replaceProperty(platformEnv, 'isDesktop', true);
+    jest.replaceProperty(platformEnv, 'isMas', false);
+    jest.replaceProperty(platformEnv, 'isDev', false);
+    const server = { ...serverItem(1), pwdHash: 'hw-dek-offline-test' };
+    jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+      masterPasswordUUID: server.pwdHash,
+      keylessCredential: { source: { type: 'hardware' }, hardwareSession: {} },
+    } as NonNullable<
+      Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
+    >);
+    const candidate: IDBCloudSyncItem = {
+      id: server.key,
+      data: server.data,
+      dataTime: server.dataTimestamp,
+      dataType: server.dataType,
+      pwdHash: server.pwdHash,
+      isDeleted: false,
+      rawKey: '',
+      rawData: '',
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    const expectedForeign = {
+      ...candidate,
+      data: 'foreign-ciphertext',
+      pwdHash: 'different-space',
+    };
+    h.pool.set(expectedForeign.id, expectedForeign);
+    const getHandoffs = jest
+      .spyOn(localDb, 'getPendingCloudAccountHandoffs')
+      .mockResolvedValueOnce([
+        {
+          id: 'pending-account-handoff-fixture',
+          kind: 'pending-account-handoff',
+          candidate,
+          expectedForeign,
+        },
+      ]);
+    await h.service.setCloudSyncNetworkReachable(false);
+    await h.service.resumeCloudSyncReconciliation({ reason: 'wallet-ready' });
+    expect(getHandoffs).toHaveBeenCalledWith(server.pwdHash);
+    expect(h.scene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [candidate],
+        foreignAccountsByWireId: new Map([
+          [expectedForeign.id, expectedForeign],
+        ]),
+      }),
+    );
+    expect(h.pool.get(expectedForeign.id)).toEqual(expectedForeign);
+    expect(h.check).not.toHaveBeenCalled();
+  });
 
   test.each(['foreground', 'network', 'manual'] as const)(
     'pending push after completion is replayed on %s when dependencies recover',

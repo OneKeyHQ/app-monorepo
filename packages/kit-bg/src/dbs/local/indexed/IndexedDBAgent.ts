@@ -1,5 +1,6 @@
-import { isNil, isNumber } from 'lodash';
+import { isEqual, isNil, isNumber } from 'lodash';
 
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   LocalDBRecordNotFoundError,
@@ -65,6 +66,7 @@ import type {
   ILocalDBTxUpdateRecordsParams,
   ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
+  IPendingCloudAccountHandoff,
 } from '../types';
 
 const LEGACY_CLOUD_ACCOUNT_ARCHIVE_ID =
@@ -107,6 +109,111 @@ function isLegacyCloudAccountArchive(value: unknown): boolean {
     'isDeleted' in record &&
     record.isDeleted === false
   );
+}
+
+function isValidPendingCloudAccountArchive(
+  value: unknown,
+): value is IPendingCloudAccountHandoff {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('kind' in value) ||
+    value.kind !== 'pending-account-handoff' ||
+    Object.keys(value).length !== 4 ||
+    !('id' in value) ||
+    !('candidate' in value) ||
+    !('expectedForeign' in value)
+  )
+    return false;
+
+  const validCiphertext = (data: unknown) =>
+    typeof data === 'string' &&
+    data.length >= 32 &&
+    data.length % 2 === 0 &&
+    /^[0-9a-f]+$/i.test(data);
+  const sterileWireFields = (record: object) =>
+    Object.keys(record).every((key) =>
+      [
+        'id',
+        'data',
+        'dataTime',
+        'dataType',
+        'pwdHash',
+        'isDeleted',
+        'localSceneUpdated',
+        'serverUploaded',
+        'rawData',
+        'rawKey',
+      ].includes(key),
+    );
+  const { candidate, expectedForeign } = value;
+  if (
+    !candidate ||
+    typeof candidate !== 'object' ||
+    !('id' in candidate) ||
+    typeof candidate.id !== 'string' ||
+    !candidate.id ||
+    !('pwdHash' in candidate) ||
+    typeof candidate.pwdHash !== 'string' ||
+    !candidate.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) ||
+    !('dataType' in candidate) ||
+    candidate.dataType !== EPrimeCloudSyncDataType.Account ||
+    !('data' in candidate) ||
+    typeof candidate.data !== 'string' ||
+    candidate.data.length > 64 * 1024 ||
+    !validCiphertext(candidate.data) ||
+    !('rawData' in candidate) ||
+    candidate.rawData !== '' ||
+    !('rawKey' in candidate) ||
+    candidate.rawKey !== '' ||
+    !sterileWireFields(candidate) ||
+    !('dataTime' in candidate) ||
+    typeof candidate.dataTime !== 'number' ||
+    !Number.isSafeInteger(candidate.dataTime) ||
+    candidate.dataTime <= 0 ||
+    !('serverUploaded' in candidate) ||
+    candidate.serverUploaded !== true ||
+    !('localSceneUpdated' in candidate) ||
+    candidate.localSceneUpdated !== false ||
+    !('isDeleted' in candidate) ||
+    typeof candidate.isDeleted !== 'boolean' ||
+    !expectedForeign ||
+    typeof expectedForeign !== 'object' ||
+    !('id' in expectedForeign) ||
+    expectedForeign.id !== candidate.id ||
+    !('pwdHash' in expectedForeign) ||
+    typeof expectedForeign.pwdHash !== 'string' ||
+    !expectedForeign.pwdHash ||
+    expectedForeign.pwdHash === candidate.pwdHash ||
+    !('dataType' in expectedForeign) ||
+    expectedForeign.dataType !== EPrimeCloudSyncDataType.Account ||
+    !('data' in expectedForeign) ||
+    !validCiphertext(expectedForeign.data) ||
+    !('rawData' in expectedForeign) ||
+    expectedForeign.rawData !== '' ||
+    !('rawKey' in expectedForeign) ||
+    expectedForeign.rawKey !== '' ||
+    !sterileWireFields(expectedForeign) ||
+    ('dataTime' in expectedForeign &&
+      expectedForeign.dataTime !== undefined &&
+      (typeof expectedForeign.dataTime !== 'number' ||
+        !Number.isSafeInteger(expectedForeign.dataTime))) ||
+    !('serverUploaded' in expectedForeign) ||
+    expectedForeign.serverUploaded !== true ||
+    !('localSceneUpdated' in expectedForeign) ||
+    expectedForeign.localSceneUpdated !== true ||
+    !('isDeleted' in expectedForeign) ||
+    expectedForeign.isDeleted !== false
+  )
+    return false;
+  try {
+    return (
+      value.id ===
+      `pending-account-handoff:${encodeURIComponent(candidate.pwdHash)}:${encodeURIComponent(candidate.id)}`
+    );
+  } catch {
+    return false;
+  }
 }
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
@@ -401,6 +508,48 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
               },
             }
           : {}),
+        ...(hasCloudAccountArchive
+          ? {
+              pendingCloudAccountHandoffs: {
+                read: async (id) => {
+                  const value = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .get(id);
+                  return isValidPendingCloudAccountArchive(value)
+                    ? value
+                    : undefined;
+                },
+                list: async (prefix) => {
+                  const values = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+                  return values.filter(isValidPendingCloudAccountArchive);
+                },
+                write: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  const previous = await archive.get(record.id);
+                  if (
+                    isValidPendingCloudAccountArchive(record) &&
+                    (!previous || isValidPendingCloudAccountArchive(previous))
+                  )
+                    await archive.put(record);
+                },
+                remove: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  const current = await archive.get(record.id);
+                  if (
+                    isValidPendingCloudAccountArchive(current) &&
+                    isEqual(current, record)
+                  )
+                    await archive.delete(record.id);
+                },
+              },
+            }
+          : {}),
         ...(hasCloudAccountArchive && !readOnly
           ? {
               cloudAccountArchive: {
@@ -416,8 +565,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
                   );
                   let cursor = await archive.openCursor();
                   while (cursor) {
-                    // Never infer ownership for tagged or malformed rows.
-                    if (isLegacyCloudAccountArchive(cursor.value)) {
+                    // The archive also houses local-only and future tagged rows.
+                    if (
+                      isLegacyCloudAccountArchive(cursor.value) ||
+                      isValidPendingCloudAccountArchive(cursor.value)
+                    ) {
                       await cursor.delete();
                     }
                     cursor = await cursor.continue();

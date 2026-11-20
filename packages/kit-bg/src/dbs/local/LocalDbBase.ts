@@ -261,6 +261,7 @@ import type {
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
+  IPendingCloudAccountHandoff,
   ITrezorThpCredential,
 } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
@@ -9311,6 +9312,154 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return val ?? defaultValue;
   }
 
+  private getPendingCloudAccountHandoffPrefix(pwdHash: string): string {
+    return `pending-account-handoff:${encodeURIComponent(pwdHash)}:`;
+  }
+
+  private getPendingCloudAccountHandoffKey(
+    candidate: IDBCloudSyncItem,
+  ): string {
+    return (
+      this.getPendingCloudAccountHandoffPrefix(candidate.pwdHash) +
+      encodeURIComponent(candidate.id)
+    );
+  }
+
+  private cloudAccountHandoffWireVersion(
+    item: IDBCloudSyncItem,
+  ): IDBCloudSyncItem {
+    return {
+      id: item.id,
+      pwdHash: item.pwdHash,
+      data: item.data,
+      dataTime: item.dataTime,
+      dataType: item.dataType,
+      isDeleted: item.isDeleted,
+      localSceneUpdated: item.localSceneUpdated,
+      serverUploaded: item.serverUploaded,
+      rawKey: '',
+      rawData: '',
+    };
+  }
+
+  async getPendingCloudAccountHandoffs(pwdHash: string) {
+    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return [];
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const entries =
+          (await tx.pendingCloudAccountHandoffs?.list(
+            this.getPendingCloudAccountHandoffPrefix(pwdHash),
+          )) ?? [];
+        const records = entries.filter(
+          ({ candidate }) =>
+            candidate.pwdHash === pwdHash && !candidate.isDeleted,
+        );
+        if (!records.length) return [];
+        const foreground = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: records.map(({ candidate }) => candidate.id),
+        });
+        return records.flatMap((entry, index) => {
+          const exactForeign = foreground.records[index];
+          return exactForeign &&
+            canArchiveForeignAccountCopy(exactForeign, pwdHash) &&
+            isEqual(
+              entry.expectedForeign,
+              this.cloudAccountHandoffWireVersion(exactForeign),
+            )
+            ? [{ ...entry, expectedForeign: exactForeign }]
+            : [];
+        });
+      },
+      { readOnly: true, skipCloudCredentialWarmup: true },
+    );
+  }
+
+  async storePendingCloudAccountHandoffs({
+    candidates,
+    expectedForeignById,
+    pwdHash,
+    isCurrent,
+  }: {
+    candidates: IDBCloudSyncItem[];
+    expectedForeignById: ReadonlyMap<string, IDBCloudSyncItem>;
+    pwdHash: string;
+    isCurrent: () => boolean;
+  }) {
+    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return;
+    for (
+      let offset = 0;
+      offset < candidates.length && isCurrent();
+      offset += 50
+    ) {
+      await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          const pending = tx.pendingCloudAccountHandoffs;
+          if (!pending || !isCurrent()) return;
+          const batch = candidates.slice(offset, offset + 50);
+          const { records } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: batch.map(({ id }) => id),
+          });
+          const currentById = new Map(
+            records.filter(Boolean).map((record) => [record?.id, record]),
+          );
+          const retain = async (candidate: IDBCloudSyncItem) => {
+            if (!isCurrent()) return;
+            const expected = expectedForeignById.get(candidate.id);
+            const current = currentById.get(candidate.id);
+            if (
+              !expected ||
+              !current ||
+              !isEqual(expected, current) ||
+              !canArchiveForeignAccountCopy(current, pwdHash) ||
+              candidate.dataType !== EPrimeCloudSyncDataType.Account ||
+              candidate.pwdHash !== pwdHash ||
+              !candidate.serverUploaded ||
+              candidate.localSceneUpdated ||
+              candidate.pendingPublicAccountDeletionAt ||
+              !candidate.data ||
+              candidate.data.length > 64 * 1024 ||
+              !Number.isSafeInteger(candidate.dataTime) ||
+              (candidate.dataTime ?? 0) <= 0
+            )
+              return;
+            const id = this.getPendingCloudAccountHandoffKey(candidate);
+            const prior = await pending.read(id);
+            if (!isCurrent()) return;
+            if (
+              prior &&
+              ((prior.candidate.dataTime ?? 0) > (candidate.dataTime ?? 0) ||
+                (prior.candidate.dataTime === candidate.dataTime &&
+                  (!candidate.isDeleted || prior.candidate.isDeleted)))
+            )
+              return;
+            // The foreign plaintext cache remains solely in its original
+            // row until archival. Preserve only the exact wire versions here.
+            const entry: IPendingCloudAccountHandoff = {
+              id,
+              kind: 'pending-account-handoff',
+              candidate: this.cloudAccountHandoffWireVersion(candidate),
+              expectedForeign: this.cloudAccountHandoffWireVersion(expected),
+            };
+            await pending.write(entry);
+            if (!isCurrent())
+              throw new OneKeyLocalError({
+                message: 'Cloud account import cancelled',
+                autoToast: false,
+              });
+          };
+          for (const candidate of batch) await retain(candidate);
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+    }
+  }
+
   async importPublicCloudAccounts(params: IPublicCloudAccountApplyParams) {
     return this.applyPublicCloudAccounts({ ...params, action: 'copy' });
   }
@@ -9490,8 +9639,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
               const foreign = source && foreignAccountsByWireId?.get(source.id);
+              const staged =
+                foreign &&
+                source &&
+                (await tx.pendingCloudAccountHandoffs?.read(
+                  this.getPendingCloudAccountHandoffKey(source),
+                ));
+              const stagedMatches =
+                !staged ||
+                (!staged.candidate.isDeleted &&
+                  staged.candidate.data === source?.data &&
+                  staged.candidate.dataTime === source?.dataTime &&
+                  !!foreign &&
+                  isEqual(
+                    staged.expectedForeign,
+                    this.cloudAccountHandoffWireVersion(foreign),
+                  ));
               const sourceStillMatches = foreign
                 ? action === 'copy' &&
+                  stagedMatches &&
                   !!tx.cloudAccountArchive &&
                   !!currentSource &&
                   isEqual(currentSource, foreign) &&
@@ -9836,6 +10002,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                     localSceneUpdated: true,
                   }),
               });
+              const staged = await tx.pendingCloudAccountHandoffs?.read(
+                this.getPendingCloudAccountHandoffKey(incoming),
+              );
+              if (
+                staged &&
+                !staged.candidate.isDeleted &&
+                staged.candidate.data === incoming.data &&
+                staged.candidate.dataTime === incoming.dataTime &&
+                isEqual(
+                  staged.expectedForeign,
+                  this.cloudAccountHandoffWireVersion(foreign),
+                )
+              )
+                await tx.pendingCloudAccountHandoffs?.remove(staged);
               promoted.add(incoming.id);
               checkCurrent();
             }

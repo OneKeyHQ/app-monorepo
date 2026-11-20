@@ -651,6 +651,15 @@ class ServicePrimeCloudSync extends ServiceBase {
       config.cloudSyncReconciliation?.spaceId === spaceId
         ? config.cloudSyncReconciliation
         : undefined;
+    // Keeping a Privacy Wallet commits before the asynchronous wallet-ready
+    // event. Recover the archive locally before any offline/backoff exit.
+    const recoverArchiveOnLifecycle =
+      (reason === 'startup' || reason === 'unlock') &&
+      this.canReadPendingAccountHandoffs(credential, spaceId);
+    if (recoverArchiveOnLifecycle) {
+      await this.replayDownloadedAccounts({ items: [], credential, isCurrent });
+      if (!isCurrent()) return;
+    }
     if (reason === 'manual' && state?.nextRetryAt) {
       // Clear the persisted deadline too: the full reconciliation entry point
       // independently enforces it. Keep failure counts so a failed manual retry
@@ -683,10 +692,21 @@ class ServicePrimeCloudSync extends ServiceBase {
       const { items } = await this.getAllLocalSyncItems();
       if (!isCurrent()) return;
       if (state.status === 'complete') {
-        await this.replayDownloadedAccounts({ items, credential, isCurrent });
+        await this.replayDownloadedAccounts({
+          items,
+          credential,
+          isCurrent,
+          includeArchive: !recoverArchiveOnLifecycle,
+        });
       }
-      if (!isCurrent() || this.cloudSyncNetworkReachable === false) return;
+      const offline = this.cloudSyncNetworkReachable === false;
       if (
+        !isCurrent() ||
+        (offline && !(recoverArchiveOnLifecycle && state.status === 'partial'))
+      )
+        return;
+      if (
+        !offline &&
         items.some(
           (item) =>
             item.pwdHash === spaceId &&
@@ -774,7 +794,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       // Pending local dependencies must not hide later changes in other wallets.
       // Timer retries remain local-only; lifecycle/manual wakes compare the full
       // downloaded summary through the normal bounded, single-flight runner.
-      if (reason === 'timer' || !isCurrent()) return;
+      if (
+        reason === 'timer' ||
+        !isCurrent() ||
+        this.cloudSyncNetworkReachable === false
+      )
+        return;
       const selected = await this.getSyncCredentialSafe();
       if (!isCurrent() || cloudSyncItemBuilder.getPwdHash(selected) !== spaceId)
         return;
@@ -784,14 +809,28 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  private canReadPendingAccountHandoffs(
+    credential: ICloudSyncCredential,
+    spaceId: string,
+  ): boolean {
+    return (
+      supportsIndexedCloudAccountArchive() &&
+      credential.keylessCredential?.source?.type === 'hardware' &&
+      !!credential.keylessCredential.hardwareSession &&
+      spaceId.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+    );
+  }
+
   private async replayDownloadedAccounts({
     items,
     credential,
     isCurrent,
+    includeArchive = true,
   }: {
     items: IDBCloudSyncItem[];
     credential: ICloudSyncCredential;
     isCurrent: () => boolean;
+    includeArchive?: boolean;
   }) {
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     const pending = items.filter(
@@ -804,7 +843,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.data &&
         item.dataTime,
     );
-    if (!pending.length || !isCurrent()) return;
+    const canReadHandoffs =
+      includeArchive && this.canReadPendingAccountHandoffs(credential, spaceId);
+    if (!isCurrent() || (!pending.length && !canReadHandoffs)) return;
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
         if (!isCurrent()) return;
@@ -814,10 +855,27 @@ class ServicePrimeCloudSync extends ServiceBase {
           cloudSyncItemBuilder.getPwdHash(selected) !== spaceId
         )
           return;
+        const handoffs =
+          canReadHandoffs &&
+          selected &&
+          this.canReadPendingAccountHandoffs(selected, spaceId)
+            ? await localDb.getPendingCloudAccountHandoffs(spaceId)
+            : [];
+        if (!isCurrent() || (!pending.length && !handoffs.length)) return;
         await this.syncToSceneWithLocalSyncItems({
-          items: pending,
+          items: [...pending, ...handoffs.map((record) => record.candidate)],
           syncCredential: credential,
           isCurrent,
+          ...(handoffs.length
+            ? {
+                foreignAccountsByWireId: new Map(
+                  handoffs.map((record) => [
+                    record.candidate.id,
+                    record.expectedForeign,
+                  ]),
+                ),
+              }
+            : {}),
         });
       },
     );
@@ -1969,13 +2027,13 @@ class ServicePrimeCloudSync extends ServiceBase {
           syncCredential.keylessCredential.hardwareSession &&
           activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
         ) {
+          const handoffCredential = syncCredential;
           const candidates = localItems.filter(
             (item) =>
               item.dataType === EPrimeCloudSyncDataType.Account &&
               item.pwdHash === activePwdHash &&
               !!item.data &&
               item.serverUploaded &&
-              !item.isDeleted &&
               !item.pendingPublicAccountDeletionAt,
           );
           if (candidates.length) {
@@ -1991,11 +2049,41 @@ class ServicePrimeCloudSync extends ServiceBase {
                 foreignAccountsByWireId.set(record.id, { ...record });
               }
             }
-            collisionCandidates.push(
-              ...candidates.filter((item) =>
-                foreignAccountsByWireId.has(item.id),
-              ),
+            const collisions = candidates.filter((item) =>
+              foreignAccountsByWireId.has(item.id),
             );
+            collisionCandidates.push(
+              ...collisions.filter((item) => !item.isDeleted),
+            );
+            const verified: IDBCloudSyncItem[] = [];
+            for (const item of collisions) {
+              if (isCurrent && !isCurrent()) break;
+              if (!item.data || item.data.length > 64 * 1024) continue;
+              try {
+                const { rawDataJson } =
+                  await cloudSyncItemBuilder.decryptSyncItem({
+                    item: { ...item },
+                    syncCredential: handoffCredential,
+                  });
+                const { rawKey } =
+                  normalizePublicAccountSnapshotRecord(rawDataJson);
+                if (
+                  this.syncManagers.account.rawKeyToHashKey(rawKey) === item.id
+                )
+                  verified.push(item);
+              } catch {
+                // No durable replay candidate until the selected DEK and
+                // canonical public account wire identity are verified.
+              }
+            }
+            if (verified.length) {
+              await localDb.storePendingCloudAccountHandoffs({
+                candidates: verified,
+                expectedForeignById: foreignAccountsByWireId,
+                pwdHash: activePwdHash,
+                isCurrent: isCurrent ?? (() => true),
+              });
+            }
           }
         }
         await this.writeCloudSyncPoolInBatches({
