@@ -4306,7 +4306,7 @@
   "perp_unifold_selected_token__title": "已選代幣",
   "perp_unifold_source_network__title": "來源網絡",
   "perp_unifold_terms__action": "條款",
-  "perp_unifold_third_party_conversion_fee__title": "第三方兌換手續費",
+  "perp_unifold_third_party_conversion_fee__title": "第三方手續費",
   "perp_unifold_token_contract__title": "代幣合約",
   "perp_unifold_token_contract_warning__desc": "代幣合約地址並非你的存款地址，向該地址轉帳可能導致資產損失。請確認目前資訊與你要存入的 {token} 一致。",
   "perp_unifold_track_progress__desc": "追蹤你的存款進度",
