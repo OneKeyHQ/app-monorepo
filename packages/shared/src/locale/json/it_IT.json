@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Comprendo che un portafoglio creato in seguito con questo account sarà nuovo e non potrà accedere agli asset di questo portafoglio",
   "keyless_deletion_ack_recovery__action": "Comprendo che dopo l'eliminazione non potrò più ripristinare questo portafoglio con l'accesso Google o Apple e il mio PIN",
   "keyless_deletion_automatic_unavailable__msg": "L'eliminazione automatica non è disponibile. Contatta l'assistenza.",
-  "keyless_deletion_callback__msg": "Accesso effettuato. Torna alla finestra originale per continuare.",
+  "keyless_deletion_callback__msg": "Torna alla finestra originale per continuare.",
   "keyless_deletion_cannot_continue__desc": "Contatta l'assistenza per verificare la richiesta di eliminazione.",
   "keyless_deletion_cannot_continue__title": "Impossibile continuare l'eliminazione",
   "keyless_deletion_check_countdown__action": "Verifica tra {seconds} s",

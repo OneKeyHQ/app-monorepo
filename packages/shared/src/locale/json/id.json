@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Saya memahami bahwa dompet yang dibuat nanti dengan akun ini adalah dompet baru dan tidak dapat mengakses aset dompet ini",
   "keyless_deletion_ack_recovery__action": "Saya memahami bahwa setelah penghapusan, saya tidak dapat memulihkan dompet ini dengan login Google atau Apple dan PIN saya",
   "keyless_deletion_automatic_unavailable__msg": "Penghapusan otomatis tidak tersedia. Hubungi dukungan.",
-  "keyless_deletion_callback__msg": "Berhasil masuk. Kembali ke jendela asal untuk melanjutkan.",
+  "keyless_deletion_callback__msg": "Kembali ke jendela asal untuk melanjutkan.",
   "keyless_deletion_cannot_continue__desc": "Hubungi dukungan untuk memverifikasi permintaan penghapusan.",
   "keyless_deletion_cannot_continue__title": "Tidak dapat melanjutkan penghapusan",
   "keyless_deletion_check_countdown__action": "Periksa dalam {seconds} dtk",

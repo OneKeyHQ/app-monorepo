@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "আমি বুঝেছি যে পরে এই অ্যাকাউন্ট দিয়ে তৈরি করা ওয়ালেটটি নতুন হবে এবং এই ওয়ালেটের সম্পদে অ্যাক্সেস করতে পারবে না",
   "keyless_deletion_ack_recovery__action": "আমি বুঝেছি যে মুছে ফেলার পর Google বা Apple সাইন-ইন এবং আমার PIN দিয়ে এই ওয়ালেট পুনরুদ্ধার করা যাবে না",
   "keyless_deletion_automatic_unavailable__msg": "স্বয়ংক্রিয় মুছে ফেলা অনুপলব্ধ। সাপোর্টের সাথে যোগাযোগ করুন।",
-  "keyless_deletion_callback__msg": "সাইন ইন সম্পন্ন। চালিয়ে যেতে মূল উইন্ডোতে ফিরে যান।",
+  "keyless_deletion_callback__msg": "চালিয়ে যেতে মূল উইন্ডোতে ফিরে যান।",
   "keyless_deletion_cannot_continue__desc": "মুছে ফেলার অনুরোধ যাচাই করতে সাপোর্টের সাথে যোগাযোগ করুন।",
   "keyless_deletion_cannot_continue__title": "মুছে ফেলা চালিয়ে যাওয়া যাচ্ছে না",
   "keyless_deletion_check_countdown__action": "{seconds} সেকেন্ড পর দেখুন",
