@@ -48,10 +48,11 @@ function openLink(item: ILinkConfigItem) {
   parseNotificationPayload(item.mode, item.payload, () => {});
 }
 
-// Articles open in the app's browser, whatever open mode the server sets.
+// Articles open in the app's browser, whatever open mode the server sets. The
+// web app's dApp mode has no browser tab, so there they keep the server's mode.
 function openArticle(item: ILinkConfigItem) {
   const url = item.payload?.trim();
-  if (url && /^https?:\/\//i.test(url)) {
+  if (url && /^https?:\/\//i.test(url) && !platformEnv.isWebDappMode) {
     openUrlInDiscovery({ url, title: item.title });
     return;
   }
