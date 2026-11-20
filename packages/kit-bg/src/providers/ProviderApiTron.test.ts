@@ -912,4 +912,207 @@ describe('ProviderApiTron first-time connection node sync', () => {
       '0x2b6653dc',
     );
   });
+
+  it('waits for in-flight node sync across concurrent same-origin tabs before resolving tron_requestAccounts', async () => {
+    const originalChrome = (globalThis as { chrome?: unknown }).chrome;
+    const connectListeners: Array<(port: chrome.runtime.Port) => void> = [];
+    (globalThis as { chrome?: unknown }).chrome = {
+      runtime: {
+        onConnect: {
+          addListener: jest.fn(
+            (listener: (port: chrome.runtime.Port) => void) => {
+              connectListeners.push(listener);
+            },
+          ),
+        },
+      },
+    };
+
+    try {
+      const origin = 'https://dapp.example';
+      const address = 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3';
+      let activeNetworks: Array<
+        Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>
+      > = [];
+      let activeAccounts: Array<{ account?: { address: string } }> = [];
+      let resolveDelayedNodes!: () => void;
+      const delayedNodesPromise = new Promise<void>((resolve) => {
+        resolveDelayedNodes = resolve;
+      });
+      let networkReadCount = 0;
+
+      const backgroundApi: {
+        serviceDApp: {
+          getConnectedNetworks: jest.Mock;
+          dAppGetConnectedAccountsInfo: jest.Mock;
+          openConnectionModal: jest.Mock;
+        };
+        bridgeExtBg: JsBridgeExtBackground | null;
+      } = {
+        serviceDApp: {
+          getConnectedNetworks: jest.fn(async () => {
+            networkReadCount += 1;
+            if (networkReadCount === 1) {
+              await delayedNodesPromise;
+            }
+            return activeNetworks;
+          }),
+          dAppGetConnectedAccountsInfo: jest.fn(async () => activeAccounts),
+          openConnectionModal: jest.fn(async () => {
+            activeNetworks = [
+              {
+                id: 'tron--0xcd8690dc',
+                chainId: '0xcd8690dc',
+                isTestnet: true,
+              },
+            ];
+            activeAccounts = [{ account: { address } }];
+          }),
+        },
+        bridgeExtBg: null,
+      };
+
+      const provider = new ProviderApiTron({ backgroundApi });
+      const bridgeExtBg = new JsBridgeExtBackground({
+        receiveHandler: async (payload: IJsBridgeMessagePayload) => {
+          const rpc = payload.data as { method?: string } | undefined;
+          if (rpc?.method === 'tron_requestAccounts') {
+            return provider.tron_requestAccounts(payload);
+          }
+          throw new OneKeyLocalError(
+            `Unexpected method: ${String(rpc?.method)}`,
+          );
+        },
+      });
+      backgroundApi.bridgeExtBg = bridgeExtBg;
+
+      const createTabPort = (path: string, requestId: number) => {
+        const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
+        const events: string[] = [];
+        let hostAtResponse: string | undefined;
+        let settled = false;
+        let resolveResp!: (value: unknown) => void;
+        let rejectResp!: (reason?: unknown) => void;
+        const responsePromise = new Promise((resolve, reject) => {
+          resolveResp = (value) => {
+            settled = true;
+            resolve(value);
+          };
+          rejectResp = (reason) => {
+            settled = true;
+            reject(reason);
+          };
+        });
+
+        const port = {
+          name: consts.EXT_PORT_CS_TO_BG,
+          sender: { url: `${origin}/${path}` },
+          postMessage: (msg: IJsBridgeMessagePayload) => {
+            const data = msg.data as
+              | {
+                  method?: string;
+                  params?: { nodes?: { fullHost: string } };
+                }
+              | undefined;
+            if (
+              msg.type === IJsBridgeMessageTypes.REQUEST &&
+              data?.method === 'wallet_events_nodesChanged' &&
+              data.params?.nodes
+            ) {
+              tronWeb.setFullNode(data.params.nodes.fullHost);
+              tronWeb.setSolidityNode(data.params.nodes.fullHost);
+              tronWeb.setEventServer(data.params.nodes.fullHost);
+              events.push('nodesChanged');
+              return;
+            }
+            if (
+              msg.type === IJsBridgeMessageTypes.RESPONSE &&
+              msg.id === requestId
+            ) {
+              hostAtResponse = tronWeb.fullNode.host;
+              events.push('response');
+              if (msg.error) {
+                rejectResp(new OneKeyLocalError(JSON.stringify(msg.error)));
+              } else {
+                resolveResp(msg.data);
+              }
+            }
+          },
+          onMessage: { addListener: jest.fn(), removeListener: jest.fn() },
+          onDisconnect: { addListener: jest.fn(), removeListener: jest.fn() },
+        } as unknown as chrome.runtime.Port;
+
+        connectListeners.forEach((listener) => listener(port));
+        const entry = Object.entries(bridgeExtBg.ports).find(
+          ([, candidate]) => candidate === port,
+        );
+        if (!entry) {
+          throw new OneKeyLocalError(`Port not registered for ${path}`);
+        }
+        return {
+          portId: entry[0],
+          tronWeb,
+          events,
+          responsePromise,
+          getHostAtResponse: () => hostAtResponse,
+          isSettled: () => settled,
+        };
+      };
+
+      const tabA = createTabPort('tab-a', 1);
+      const tabB = createTabPort('tab-b', 2);
+
+      // Tab A initiates connection on Nile; getConnectedNetworks stays pending.
+      bridgeExtBg.receive(
+        {
+          id: 1,
+          type: IJsBridgeMessageTypes.REQUEST,
+          scope: 'tron',
+          remoteId: tabA.portId,
+          data: { method: 'tron_requestAccounts' },
+        },
+        { origin, internal: false },
+      );
+      for (let i = 0; i < 6; i += 1) {
+        await Promise.resolve();
+      }
+
+      // Session is saved, but Tab A's node sync is still delayed; Tab B requests accounts now.
+      expect(activeAccounts).toHaveLength(1);
+      bridgeExtBg.receive(
+        {
+          id: 2,
+          type: IJsBridgeMessageTypes.REQUEST,
+          scope: 'tron',
+          remoteId: tabB.portId,
+          data: { method: 'tron_requestAccounts' },
+        },
+        { origin, internal: false },
+      );
+      for (let i = 0; i < 6; i += 1) {
+        await Promise.resolve();
+      }
+
+      // Neither tab may resolve while node sync is still in flight.
+      expect(tabA.isSettled()).toBe(false);
+      expect(tabB.isSettled()).toBe(false);
+
+      resolveDelayedNodes();
+      await expect(tabA.responsePromise).resolves.toEqual([address]);
+      await expect(tabB.responsePromise).resolves.toEqual([address]);
+
+      expect(tabA.events).toEqual(['nodesChanged', 'response']);
+      expect(tabB.events).toEqual(['nodesChanged', 'response']);
+      expect(tabA.getHostAtResponse()).toBe('https://nile.trongrid.io');
+      expect(tabB.getHostAtResponse()).toBe('https://nile.trongrid.io');
+      expect(tabA.tronWeb.fullNode.host).toBe('https://nile.trongrid.io');
+      expect(tabB.tronWeb.fullNode.host).toBe('https://nile.trongrid.io');
+    } finally {
+      if (originalChrome === undefined) {
+        delete (globalThis as { chrome?: unknown }).chrome;
+      } else {
+        (globalThis as { chrome?: unknown }).chrome = originalChrome;
+      }
+    }
+  });
 });

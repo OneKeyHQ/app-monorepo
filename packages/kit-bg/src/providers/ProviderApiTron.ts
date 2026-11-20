@@ -106,6 +106,10 @@ class ProviderApiTron extends ProviderApiBase {
 
   private readonly nonDefaultNodeOrigins = new Set<string>();
 
+  private readonly pendingConnectionCountByOrigin = new Map<string, number>();
+
+  private readonly pendingNodeSyncs = new Map<string, Promise<void>>();
+
   private updateOriginNodeState(
     origin: string | undefined,
     chainId: string,
@@ -275,12 +279,7 @@ class ProviderApiTron extends ProviderApiBase {
     return nodes;
   }
 
-  private async syncConnectedNodes(request: IJsBridgeMessagePayload) {
-    if (!request.origin || request.isWalletConnectRequest) {
-      return;
-    }
-
-    const { origin } = request;
+  private async performNodeSync(origin: string) {
     try {
       const { nodes, chainId } = await this.resolveConnectedNodesAndChainId({
         origin,
@@ -332,23 +331,76 @@ class ProviderApiTron extends ProviderApiBase {
     }
   }
 
+  private async syncConnectedNodes(request: IJsBridgeMessagePayload) {
+    if (!request.origin || request.isWalletConnectRequest) {
+      return;
+    }
+
+    const { origin } = request;
+    const inFlight = this.pendingNodeSyncs.get(origin);
+    if (inFlight) {
+      await inFlight;
+      if (!this.unsyncedNodeOrigins.has(origin)) {
+        return;
+      }
+    }
+
+    const syncPromise = this.performNodeSync(origin);
+    this.pendingNodeSyncs.set(origin, syncPromise);
+    try {
+      await syncPromise;
+    } finally {
+      if (this.pendingNodeSyncs.get(origin) === syncPromise) {
+        this.pendingNodeSyncs.delete(origin);
+      }
+    }
+  }
+
   @providerApiMethod()
   async tron_requestAccounts(request: IJsBridgeMessagePayload) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('ProviderTron.tron_requestAccounts', request);
+    const origin =
+      request.origin && !request.isWalletConnectRequest
+        ? request.origin
+        : undefined;
     const accounts = await this.tron_accounts(request);
     if (accounts && accounts.length) {
-      if (request.origin && this.unsyncedNodeOrigins.has(request.origin)) {
+      if (
+        origin &&
+        (this.unsyncedNodeOrigins.has(origin) ||
+          this.pendingNodeSyncs.has(origin) ||
+          (this.pendingConnectionCountByOrigin.get(origin) ?? 0) > 0)
+      ) {
         await this.syncConnectedNodes(request);
       }
       return accounts;
     }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    const connectedAccounts = await this.tron_accounts(request);
-    if (connectedAccounts.length) {
-      await this.syncConnectedNodes(request);
+
+    if (origin) {
+      this.pendingConnectionCountByOrigin.set(
+        origin,
+        (this.pendingConnectionCountByOrigin.get(origin) ?? 0) + 1,
+      );
     }
-    return connectedAccounts;
+    try {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      const connectedAccounts = await this.tron_accounts(request);
+      if (connectedAccounts.length) {
+        await this.syncConnectedNodes(request);
+      }
+      return connectedAccounts;
+    } finally {
+      if (origin) {
+        const remaining =
+          (this.pendingConnectionCountByOrigin.get(origin) ?? 0) - 1;
+        if (remaining > 0) {
+          this.pendingConnectionCountByOrigin.set(origin, remaining);
+        } else {
+          this.pendingConnectionCountByOrigin.delete(origin);
+        }
+      }
+    }
   }
 
   @permissionRequired()
