@@ -29,24 +29,16 @@ jest.mock('./ProviderApiBase', () => ({
 function setup({
   networks = [],
   accountsInfo = [],
-  customRpc,
-  defaultRpcUrl,
 }: {
   networks?: Array<Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>>;
   accountsInfo?: Array<{ account?: { address: string } }>;
-  customRpc?: { enabled?: boolean; rpc?: string } | undefined;
-  defaultRpcUrl?: string;
 } = {}) {
   const serviceDApp = {
     getConnectedNetworks: jest.fn().mockResolvedValue(networks),
     dAppGetConnectedAccountsInfo: jest.fn().mockResolvedValue(accountsInfo),
   };
-  const serviceCustomRpc = {
-    getCustomRpcForNetwork: jest.fn().mockResolvedValue(customRpc),
-    resolveDefaultRpcUrl: jest.fn().mockResolvedValue(defaultRpcUrl),
-  };
   const provider = new ProviderApiTron({
-    backgroundApi: { serviceDApp, serviceCustomRpc },
+    backgroundApi: { serviceDApp },
   });
   const request = (method: string): IJsBridgeMessagePayload =>
     ({
@@ -55,7 +47,7 @@ function setup({
       data: { method },
     }) as IJsBridgeMessagePayload;
 
-  return { provider, serviceDApp, serviceCustomRpc, request };
+  return { provider, serviceDApp, request };
 }
 
 describe('ProviderApiTron network and chainId resolution', () => {
@@ -239,47 +231,54 @@ describe('ProviderApiTron network and chainId resolution', () => {
     ).resolves.toBe('0x00');
   });
 
-  it('prefers enabled custom RPC and rejects custom numeric chainId without RPC instead of serving Shasta', async () => {
-    const customNile = setup({
-      networks: [
-        {
-          id: 'tron--0xcd8690dc',
-          chainId: '0xcd8690dc',
-          isTestnet: true,
+  it('never leaks wallet custom RPC URLs to pages and rejects custom numeric chainId without public TronGrid URL', async () => {
+    const getCustomRpcForNetwork = jest.fn().mockResolvedValue({
+      enabled: true,
+      rpc: 'https://private-rpc.example/v3/secret-api-key',
+    });
+    const resolveDefaultRpcUrl = jest
+      .fn()
+      .mockResolvedValue('https://default-custom-tron.example/secret');
+    const customNileProvider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp: {
+          getConnectedNetworks: jest.fn().mockResolvedValue([
+            {
+              id: 'tron--0xcd8690dc',
+              chainId: '0xcd8690dc',
+              isTestnet: true,
+            },
+          ]),
+          dAppGetConnectedAccountsInfo: jest
+            .fn()
+            .mockResolvedValue([
+              { account: { address: 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3' } },
+            ]),
         },
-      ],
-      customRpc: { enabled: true, rpc: 'https://custom-nile.example' },
-    });
-    await expect(
-      customNile.provider.tron_nodes(customNile.request('tron_nodes')),
-    ).resolves.toEqual({
-      fullHost: 'https://custom-nile.example',
-      fullNode: 'https://custom-nile.example',
-      solidityNode: 'https://custom-nile.example',
-      eventServer: 'https://custom-nile.example',
-    });
-
-    const disabledCustomWithDefault = setup({
-      networks: [
-        {
-          id: 'tron--0x1',
-          chainId: '0x1',
-          isTestnet: true,
+        serviceCustomRpc: {
+          getCustomRpcForNetwork,
+          resolveDefaultRpcUrl,
         },
-      ],
-      customRpc: { enabled: false, rpc: 'https://disabled.example' },
-      defaultRpcUrl: 'https://default-custom-tron.example',
+      },
     });
+    const nileReq = {
+      origin: 'https://dapp.example',
+      scope: 'tron',
+      data: { method: 'tron_getProviderState' },
+    } as IJsBridgeMessagePayload;
     await expect(
-      disabledCustomWithDefault.provider.tron_nodes(
-        disabledCustomWithDefault.request('tron_nodes'),
-      ),
+      customNileProvider.tron_getProviderState(nileReq),
     ).resolves.toEqual({
-      fullHost: 'https://default-custom-tron.example',
-      fullNode: 'https://default-custom-tron.example',
-      solidityNode: 'https://default-custom-tron.example',
-      eventServer: 'https://default-custom-tron.example',
+      accounts: ['TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3'],
+      nodes: {
+        fullHost: 'https://nile.trongrid.io',
+        fullNode: 'https://nile.trongrid.io',
+        solidityNode: 'https://nile.trongrid.io',
+        eventServer: 'https://nile.trongrid.io',
+      },
     });
+    expect(getCustomRpcForNetwork).not.toHaveBeenCalled();
+    expect(resolveDefaultRpcUrl).not.toHaveBeenCalled();
 
     const missingRpcCustom = setup({
       networks: [
@@ -806,6 +805,111 @@ describe('ProviderApiTron first-time connection node sync', () => {
         params: expect.objectContaining({ chainId: '0xcd8690dc' }),
       }),
       'https://dapp.example',
+    );
+  });
+
+  it('pushes Mainnet node reset when a page connects to Nile, disconnects, and reconnects to Mainnet', async () => {
+    const origin = 'https://dapp.example';
+    const address = 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3';
+    const nile = {
+      id: 'tron--0xcd8690dc',
+      chainId: '0xcd8690dc',
+      isTestnet: true,
+    };
+    const mainnet = {
+      id: 'tron--0x2b6653dc',
+      chainId: '0x2b6653dc',
+      isTestnet: false,
+    };
+
+    let activeNetworks: Array<
+      Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>
+    > = [];
+    let activeAccounts: Array<{ account?: { address: string } }> = [];
+    let nextConnectNetwork = nile;
+
+    const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
+    const requestToAllCS = jest.fn(
+      async (
+        _scope: string,
+        payload: {
+          method?: string;
+          params?: { nodes?: { fullHost: string } };
+        },
+      ) => {
+        if (
+          payload.method === 'wallet_events_nodesChanged' &&
+          payload.params?.nodes
+        ) {
+          tronWeb.setFullNode(payload.params.nodes.fullHost);
+          tronWeb.setSolidityNode(payload.params.nodes.fullHost);
+          tronWeb.setEventServer(payload.params.nodes.fullHost);
+        }
+      },
+    );
+
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp: {
+          getConnectedNetworks: jest.fn(async () => activeNetworks),
+          dAppGetConnectedAccountsInfo: jest.fn(async () => activeAccounts),
+          openConnectionModal: jest.fn(async () => {
+            activeNetworks = [nextConnectNetwork];
+            activeAccounts = [{ account: { address } }];
+          }),
+        },
+        bridgeExtBg: { requestToAllCS },
+      },
+    });
+
+    const req = (method: string) =>
+      ({
+        origin,
+        scope: 'tron',
+        data: { method },
+      }) as IJsBridgeMessagePayload;
+
+    // 1. Connect on Nile: TronWeb moves to Nile.
+    await expect(
+      provider.tron_requestAccounts(req('tron_requestAccounts')),
+    ).resolves.toEqual([address]);
+    expect(tronWeb.fullNode.host).toBe('https://nile.trongrid.io');
+    await expect(provider.eth_chainId(req('eth_chainId'))).resolves.toBe(
+      '0xcd8690dc',
+    );
+
+    // 2. Simulate site disconnect (ServiceDApp clears session without changing page TronWeb).
+    activeNetworks = [];
+    activeAccounts = [];
+    expect(tronWeb.fullNode.host).toBe('https://nile.trongrid.io');
+
+    // 3. Reconnect on Mainnet: node reset event MUST fire so page TronWeb does not stay on Nile.
+    nextConnectNetwork = mainnet;
+    requestToAllCS.mockClear();
+    await expect(
+      provider.tron_requestAccounts(req('tron_requestAccounts')),
+    ).resolves.toEqual([address]);
+
+    expect(requestToAllCS).toHaveBeenCalledTimes(1);
+    expect(requestToAllCS).toHaveBeenCalledWith(
+      'tron',
+      {
+        method: 'wallet_events_nodesChanged',
+        params: {
+          nodes: {
+            fullHost: 'https://api.trongrid.io',
+            fullNode: 'https://api.trongrid.io',
+            solidityNode: 'https://api.trongrid.io',
+            eventServer: 'https://api.trongrid.io',
+          },
+          chainId: '0x2b6653dc',
+        },
+      },
+      origin,
+    );
+    expect(tronWeb.fullNode.host).toBe('https://api.trongrid.io');
+    await expect(provider.eth_chainId(req('eth_chainId'))).resolves.toBe(
+      '0x2b6653dc',
     );
   });
 });
