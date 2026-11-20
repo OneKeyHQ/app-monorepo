@@ -1,6 +1,6 @@
 /* global repairIntrinsics, HermesInternal */
-// Match the pinned React Native adapter's repair options and Hermes Promise
-// restoration, while retaining OneKey's locale-aware comparison and formatting.
+// Retain the adapter's Hermes Promise restoration and OneKey's native
+// evaluation, locale-aware comparison and formatting.
 // Metro executes this as a raw prelude before require or Babel helpers exist.
 (function () {
   const originalError = Error;
@@ -19,7 +19,9 @@
     unhandledRejectionTrapping: 'none',
     overrideTaming: 'severe',
     stackFiltering: 'verbose',
-    evalTaming: 'no-eval',
+    // Hardware SDK protobuf schemas compile their codecs with Function().
+    // Keep native evaluation available while SES still freezes intrinsics.
+    evalTaming: 'unsafe-eval',
     localeTaming: 'unsafe',
   });
 

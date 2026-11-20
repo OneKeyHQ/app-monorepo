@@ -133,6 +133,7 @@ function PerpMobileChartContent({
               source={chartSource}
               storageNamespace="perps"
               nativeChartDisplayMode="compact"
+              showCompactMainIndicators
               nativeControlsLayoutMode="mobile"
               onNativeChartClose={onClose}
               showNativeChartCloseControl={showCloseControl}

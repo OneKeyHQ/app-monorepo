@@ -255,7 +255,7 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       functionality:
         '验证 eval 别名与动态 Function 是否按当前 runtime 策略执行或拒绝。',
       hardening:
-        'Native/扩展 no-eval 必须拒绝动态求值；Web 保留其 L1/L2 的表达式兼容性。',
+        '扩展 no-eval 必须拒绝动态求值；移动端 L1 保留 SDK protobuf 所需的动态编译；Web 保留其 L1/L2 的表达式兼容性。',
     },
     {
       name: 'Function global escape',
@@ -264,7 +264,7 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       functionality:
         "执行 Function('return this')()，检查动态函数是否还能拿到 globalThis。",
       hardening:
-        'web/desktop L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸；扩展 runtime 强制 no-eval，任何等级下动态函数都应被阻止。',
+        'L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸；扩展 runtime 强制 no-eval，任何等级下动态函数都应被阻止。',
     },
     {
       name: 'JSON roundtrip',
@@ -747,20 +747,16 @@ function buildDimensionSummary(
   return summary;
 }
 
-// Exported for the SES self-check test suite so the native/ext no-eval policy can
-// be asserted directly without standing up a full lockdown.
+// Exported so evaluation policy can be tested without a full lockdown.
 export function runFunctionGlobalEscapeCheck(
   level: ISesHardenLevel,
   runtime?: ISesHardenRuntime,
 ): ISesRuntimeCheckItem {
-  // Extensions and protected native runtimes forbid dynamic evaluation. A
-  // blocked constructor is expected there; native L0 retains the rollback path.
-  // Web/desktop L1 keeps native eval, while L2 must prevent the global escape.
-  const evalBlockedByDesign =
-    isExtensionRuntime(runtime) ||
-    (runtime?.startsWith('mobile-') === true && level !== 'L0');
+  // Extensions forbid dynamic evaluation. L1 retains native eval for library
+  // compatibility, including mobile SDK protobuf codecs; L2 uses safe-eval.
+  const evalBlockedByDesign = isExtensionRuntime(runtime);
   const purpose =
-    '验证 L2 safe-eval 或 native/扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
+    '验证 L1 原生动态求值，以及 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
   const expectsBlocked = evalBlockedByDesign || level === 'L2';
 
   try {
@@ -809,8 +805,7 @@ function runDynamicEvaluationPolicyCheck(
       purpose,
       'L0 does not restrict dynamic evaluation',
     );
-  const noEval =
-    isExtensionRuntime(runtime) || runtime?.startsWith('mobile-') === true;
+  const noEval = isExtensionRuntime(runtime);
   const attempts: { name: string; blocked: boolean; run: () => unknown }[] = [
     {
       name: 'indirect eval',

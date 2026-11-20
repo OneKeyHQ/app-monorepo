@@ -17,6 +17,7 @@ import {
   publicAccountAllChainFixtures,
   publicAccountAllChainWallet,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.allChains.test-utils';
+import { publicAccountTestSnapshot } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
 import { rememberPublicAccountSnapshotWrite } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
 import { EDBAccountType } from './consts';
@@ -383,6 +384,74 @@ describe('wallet metadata avatar seed sync', () => {
 });
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
+  it('restores a missing index for an existing matching account', async () => {
+    const db = new PublicAccountTestDb();
+    const cloud = account(9);
+    const local = { ...cloud, name: 'Existing local account' };
+    db.put(ELocalDBStoreNames.Account, local);
+
+    expect(await db.run([cloud])).toMatchObject({
+      added: 0,
+      unchanged: 1,
+      appliedAccountIds: [cloud.id],
+    });
+    expect(db.stores.get(ELocalDBStoreNames.Account)?.get(local.id)).toEqual(
+      local,
+    );
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--9'),
+    ).toMatchObject({
+      walletId: WALLET.id,
+      index: 9,
+    });
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(10);
+  });
+
+  it('fills a hardware account from Cloud when only its index was created locally', async () => {
+    const db = new PublicAccountTestDb();
+    const snapshot = publicAccountTestSnapshot(7);
+    const wallet = publicAccountAllChainWallet('hardware', 'hw-1');
+    wallet.associatedDevice = 'local-device';
+    db.put(ELocalDBStoreNames.Wallet, wallet);
+    db.put(ELocalDBStoreNames.Device, {
+      id: 'local-device',
+      settingsRaw: '{"vendor":"onekey"}',
+    });
+    const missing = publicAccountSnapshotToAccount(snapshot, wallet.id);
+    const index = {
+      id: 'hw-1--7',
+      walletId: wallet.id,
+      index: 7,
+      name: 'Existing index name',
+    };
+    db.put(ELocalDBStoreNames.IndexedAccount, index);
+    const params = {
+      walletId: wallet.id,
+      expectedWallet: {
+        ...snapshot.wallet,
+        associatedDevice: wallet.associatedDevice,
+      },
+      accounts: [missing],
+      sourceItemsByAccountId: db.prepareSources([missing], false),
+      isCurrent: () => true,
+    };
+
+    expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+      added: 1,
+      pending: 0,
+    });
+    expect(db.stores.get(ELocalDBStoreNames.Account)?.get(missing.id)).toEqual(
+      missing,
+    );
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get(index.id),
+    ).toEqual(index);
+    expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+      added: 0,
+      unchanged: 1,
+    });
+  });
+
   it.each(['lightning', 'tlightning', 'scdo'])(
     '%s survives production Realm projection, legacy missing maps and genuine conflicts',
     async (impl) => {
@@ -834,9 +903,14 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       name: 'Keep local name',
     });
     expect(await db.run([account()])).toMatchObject({ added: 0, unchanged: 1 });
-    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
+    expect(db.writes).toEqual([
+      ELocalDBStoreNames.IndexedAccount,
+      ELocalDBStoreNames.Wallet,
+      ELocalDBStoreNames.IndexedAccount,
+    ]);
+    db.writes.length = 0;
     expect(await db.run([account()])).toMatchObject({ added: 0, unchanged: 1 });
-    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
+    expect(db.writes).toEqual([]);
     expect(
       db.stores.get(ELocalDBStoreNames.Account)?.get(account().id),
     ).toMatchObject({ name: 'Keep local name' });

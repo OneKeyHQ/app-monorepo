@@ -16,6 +16,9 @@ export const OnboardingTestIDs = {
 
   // Import wallet
   importPhrasePage: 'onboarding-import-phrase-page',
+  importPhraseTab: 'onboarding-import-phrase-tab',
+  importPrivateKeyTab: 'onboarding-import-private-key-tab',
+  importPrivateKeyInput: 'onboarding-import-private-key-input',
   phraseInput: (index: number) => `phrase-input-index${index}`, // preserve existing
   phraseLengthSelector: 'phrase-length', // preserve existing
   clearAllButton: 'clear-all', // preserve existing

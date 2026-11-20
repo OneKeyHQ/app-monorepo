@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IIconProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -11,6 +17,7 @@ export function SupportNavigation({
   onMessages,
   homeLabel,
   messagesLabel,
+  loading,
 }: {
   home: boolean;
   unread: number;
@@ -18,6 +25,7 @@ export function SupportNavigation({
   onMessages: () => void;
   homeLabel?: string;
   messagesLabel?: string;
+  loading?: boolean;
 }) {
   const intl = useIntl();
   const items: {
@@ -62,6 +70,9 @@ export function SupportNavigation({
           accessibilityState={{ selected: item.selected }}
           accessibilityLabel={`${item.label}${item.badge ? ` (${item.badge})` : ''}`}
           flex={1}
+          // Web sizes a flex item from its content; equal tabs must not move
+          // when a label loads or changes length.
+          flexBasis={0}
           minHeight={56}
           alignItems="center"
           justifyContent="center"
@@ -89,12 +100,16 @@ export function SupportNavigation({
               />
             ) : null}
           </XStack>
-          <SizableText
-            size={item.selected ? '$bodyMdMedium' : '$bodyMd'}
-            color={item.selected ? '$text' : '$textSubdued'}
-          >
-            {item.label}
-          </SizableText>
+          {loading ? (
+            <Skeleton.BodyMd w={56} />
+          ) : (
+            <SizableText
+              size={item.selected ? '$bodyMdMedium' : '$bodyMd'}
+              color={item.selected ? '$text' : '$textSubdued'}
+            >
+              {item.label}
+            </SizableText>
+          )}
         </YStack>
       ))}
     </XStack>

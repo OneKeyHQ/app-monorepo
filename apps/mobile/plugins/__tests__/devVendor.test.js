@@ -1038,7 +1038,6 @@ describe('devVendor', () => {
       '@phantom/react-native-juicebox-sdk',
       '@shopify/react-native-skia',
       '@walletconnect/react-native-compat',
-      'jcore-react-native',
       'jpush-react-native',
     ];
     const androidBaseline = computeNativeContractKey(

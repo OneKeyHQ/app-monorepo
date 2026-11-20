@@ -1,6 +1,18 @@
 /* cspell:ignore Infini */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import {
+  NavigationContext,
+  NavigationRouteContext,
+} from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil, isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -48,6 +60,9 @@ import {
 import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EGasAccountRequestStage,
@@ -81,6 +96,7 @@ import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/p
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EReplaceTxType,
+  type IBroadcastAcceptedFact,
   type IReplaceTxInfo,
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -108,9 +124,17 @@ type IProps = {
   accountId: string;
   networkId: string;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   onFail?: (error: Error) => void;
+  onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    preSendTx?: { txid: string; orderId?: string };
+  }) => void | Promise<void>;
+  onBeforePreActions?: () => void | Promise<void>;
+  reviewQuoteValidUntil?: number;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
@@ -144,9 +168,13 @@ function TxConfirmActions(props: IProps) {
     accountId,
     networkId,
     onSuccess,
+    onLateBroadcastAccepted,
     onFail,
+    onSafePreSendFail,
     onCancel,
     onBeforeSend,
+    onBeforePreActions,
+    reviewQuoteValidUntil,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -166,11 +194,31 @@ function TxConfirmActions(props: IProps) {
     securityCheckAcknowledgementKey,
   } = props;
   const intl = useIntl();
+  const route = useContext(NavigationRouteContext);
+  const routeNavigation = useContext(NavigationContext);
   const isSubmitted = useRef(false);
+  const preActionsMayHaveSideEffects = useRef(false);
   const isExitHandledRef = useRef(false);
+  const returnAfterFocusRef = useRef(false);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  useEffect(() => {
+    if (!route?.key) return;
+    return routeNavigation?.addListener('focus', () => {
+      if (
+        returnAfterFocusRef.current &&
+        rootNavigationRef.current?.getCurrentRoute()?.key === route.key
+      ) {
+        returnAfterFocusRef.current = false;
+        if (popStack) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+      }
+    });
+  }, [navigation, popStack, route?.key, routeNavigation]);
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
@@ -206,6 +254,9 @@ function TxConfirmActions(props: IProps) {
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
   const gasAccountSubmitIdRef = useRef<string | null>(null);
+  const cancelLateBroadcastObserverRef = useRef<(() => void) | undefined>(
+    undefined,
+  );
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -479,6 +530,7 @@ function TxConfirmActions(props: IProps) {
           fromAddress: accountAddress,
           toAddress,
         });
+        if (gasAccountSubmitIdRef.current !== submitId) return;
       }
       await serviceSend.precheckUnsignedTxs({
         networkId,
@@ -496,15 +548,47 @@ function TxConfirmActions(props: IProps) {
       if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'precheck');
       updateSendTxStatus({ isSubmitting: false });
-      onFail?.(e as Error);
+      (onSafePreSendFail ?? onFail)?.(e as Error);
       isSubmitted.current = false;
       gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
 
+    const handleBeforeSendAbort = (error: unknown) => {
+      if (!(error instanceof BeforeSendAbortError) || !error.onAbort()) {
+        return false;
+      }
+      updateSendTxStatus({ isSubmitting: false });
+      isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
+      isExitHandledRef.current = true;
+      if (
+        route?.key &&
+        rootNavigationRef.current?.getCurrentRoute()?.key === route.key
+      ) {
+        if (popStack) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+      } else {
+        returnAfterFocusRef.current = true;
+      }
+      return true;
+    };
+
+    let preSendTx: { txid: string; orderId?: string } | undefined;
     if (gasAccountSubmitIdRef.current !== submitId) return;
+    let hadPreSendTx = false;
     try {
+      if (onSafePreSendFail && preActionsMayHaveSideEffects.current) {
+        throw new OneKeyLocalError(
+          'The previous pre-send action may have completed; this confirmation cannot be retried.',
+        );
+      }
+      await onBeforePreActions?.();
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       const resp =
         await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
           {
@@ -512,10 +596,26 @@ function TxConfirmActions(props: IProps) {
             networkId,
             unsignedTxs,
             tronResourceRentalInfo,
+            // What the send below gets: the step pays for a tx signed next
+            // and is skipped when the send settles an earlier attempt.
+            signOnly,
+            beforeBroadcastAction,
+            wcPayPreBroadcastRecord,
+            reviewQuoteValidUntil,
           },
         );
 
+      preSendTx = resp?.preSendTx;
+
       if (gasAccountSubmitIdRef.current !== submitId) return;
+      hadPreSendTx = Boolean(resp?.preSendTx);
+      if (hadPreSendTx) preActionsMayHaveSideEffects.current = true;
+      if (resp?.reviewQuoteExpiredBeforeSubmit) {
+        await onBeforePreActions?.();
+        throw new OneKeyLocalError(
+          'Swap review quote expired before preparation',
+        );
+      }
       // DeviceStage owns its overlay lifecycle. Only the legacy QR scanner
       // needs this navigation handoff; popping the confirm page cancels sending.
       if (
@@ -528,6 +628,8 @@ function TxConfirmActions(props: IProps) {
       }
     } catch (e: any) {
       if (handleInfiniFailureExit(e)) return;
+      if (onSafePreSendFail) preActionsMayHaveSideEffects.current = true;
+      if (handleBeforeSendAbort(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -573,7 +675,7 @@ function TxConfirmActions(props: IProps) {
       if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
-      onFail?.(e as Error);
+      (hadPreSendTx ? onFail : (onSafePreSendFail ?? onFail))?.(e as Error);
       isSubmitted.current = false;
       gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
@@ -595,9 +697,11 @@ function TxConfirmActions(props: IProps) {
             sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
           encodedTx: newUnsignedTxs[0].encodedTx,
         });
+        if (gasAccountSubmitIdRef.current !== submitId) return;
 
         if (isFeeInfoOverflow) {
           const isConfirmed = await showFeeInfoOverflowConfirm();
+          if (gasAccountSubmitIdRef.current !== submitId) return;
           if (!isConfirmed) {
             isSubmitted.current = false;
             gasAccountSubmitIdRef.current = null;
@@ -613,20 +717,10 @@ function TxConfirmActions(props: IProps) {
 
     if (gasAccountSubmitIdRef.current !== submitId) return;
     let transactionSubmitted = false;
-    try {
-      await onBeforeSend?.();
-    } catch (error) {
-      if (handleInfiniFailureExit(error)) return;
-      const sendError = error as Error;
-      updateSendTxStatus({ isSubmitting: false });
-      onFail?.(sendError);
-      isSubmitted.current = false;
-      gasAccountSubmitIdRef.current = null;
-      void dappApprove.reject({ error: sendError });
-      throw error;
-    }
-
-    if (gasAccountSubmitIdRef.current !== submitId) return;
+    let beforeSendFailed = false;
+    let disposeLateBroadcastObserver: (() => void) | undefined;
+    let checkLateBroadcastCandidates: (() => void) | undefined;
+    let successCommitted = false;
     try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
@@ -640,6 +734,7 @@ function TxConfirmActions(props: IProps) {
             accountId,
             networkId,
           });
+        if (gasAccountSubmitIdRef.current !== submitId) return;
         const localPendingTxWithSameNonce = localPendingTxs.find((tx) =>
           new BigNumber(tx.decodedTx.nonce).isEqualTo(
             newUnsignedTxs[0].nonce as number,
@@ -657,6 +752,115 @@ function TxConfirmActions(props: IProps) {
         }
       }
 
+      if (gasAccountSubmitIdRef.current !== submitId) return;
+      try {
+        await onBeforeSend?.({ preSendTx });
+      } catch (error) {
+        if (handleInfiniFailureExit(error)) return;
+        const sendError = error as Error;
+        updateSendTxStatus({ isSubmitting: false });
+        if (handleBeforeSendAbort(sendError)) return;
+        (hadPreSendTx ? onFail : (onSafePreSendFail ?? onFail))?.(sendError);
+        isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
+        void dappApprove.reject({ error: sendError });
+        beforeSendFailed = true;
+        throw error;
+      }
+
+      if (gasAccountSubmitIdRef.current !== submitId) return;
+      const candidates = new Map<string, IBroadcastAcceptedFact>();
+      const verified = new Set<string>();
+      const checking = new Set<string>();
+      const txUuids = new Set(
+        newUnsignedTxs.map((tx) => tx.uuid).filter(Boolean),
+      );
+      let wasAbandoned = false;
+      const verifyCandidate = (candidate: IBroadcastAcceptedFact) => {
+        const key = JSON.stringify([candidate.uuid, candidate.txid]);
+        if (
+          !wasAbandoned ||
+          !onLateBroadcastAccepted ||
+          verified.has(key) ||
+          checking.has(key)
+        )
+          return;
+        checking.add(key);
+        void backgroundApiProxy.serviceSend
+          .getBroadcastAcceptanceFact(candidate)
+          .then(async (fact) => {
+            if (
+              fact.status !== 'accepted' ||
+              fact.uuid !== candidate.uuid ||
+              fact.accountId !== accountId ||
+              fact.networkId !== networkId ||
+              fact.txid !== candidate.txid ||
+              verified.has(key)
+            )
+              return;
+            verified.add(key);
+            try {
+              await onLateBroadcastAccepted(candidate);
+            } catch {
+              console.error('Unable to notify late broadcast observer');
+            }
+          })
+          .catch(() => undefined)
+          .finally(() => checking.delete(key));
+      };
+      const observeCandidate = (candidate: IBroadcastAcceptedFact) => {
+        if (
+          !candidate.uuid ||
+          !candidate.txid ||
+          candidate.accountId !== accountId ||
+          candidate.networkId !== networkId ||
+          !txUuids.has(candidate.uuid)
+        )
+          return;
+        const key = JSON.stringify([candidate.uuid, candidate.txid]);
+        candidates.set(key, candidate);
+        verifyCandidate(candidate);
+      };
+      const markAbandoned = () => {
+        wasAbandoned = true;
+        candidates.forEach(verifyCandidate);
+      };
+      const observeLateBroadcast = Boolean(
+        onLateBroadcastAccepted && !signOnly,
+      );
+      if (observeLateBroadcast) {
+        checkLateBroadcastCandidates = () => {
+          markAbandoned();
+          txUuids.forEach((uuid) => {
+            if (!uuid) return;
+            void backgroundApiProxy.serviceSend
+              .getBroadcastAcceptanceFactByUuid({ uuid, accountId, networkId })
+              .then((fact) => {
+                if (fact.status === 'accepted' && fact.uuid === uuid)
+                  observeCandidate({
+                    uuid: fact.uuid,
+                    accountId: fact.accountId,
+                    networkId: fact.networkId,
+                    txid: fact.txid,
+                  });
+              })
+              .catch(() => undefined);
+          });
+        };
+        cancelLateBroadcastObserverRef.current = markAbandoned;
+        appEventBus.on(
+          EAppEventBusNames.BatchSendTxBroadcasted,
+          observeCandidate,
+        );
+        disposeLateBroadcastObserver = () => {
+          appEventBus.off(
+            EAppEventBusNames.BatchSendTxBroadcasted,
+            observeCandidate,
+          );
+          if (cancelLateBroadcastObserverRef.current === markAbandoned)
+            cancelLateBroadcastObserverRef.current = undefined;
+        };
+      }
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
@@ -672,11 +876,23 @@ function TxConfirmActions(props: IProps) {
           gasAccountUiState,
           gasAccountSubmitId: submitId,
           broadcastDeadline,
+          reviewQuoteValidUntil,
           beforeBroadcastAction,
           freeTrialUsage,
           wcPayPreBroadcastRecord,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
+      if (observeLateBroadcast) {
+        result.forEach(({ signedTx }) => {
+          if (signedTx.uuid && signedTx.txid)
+            observeCandidate({
+              uuid: signedTx.uuid,
+              txid: signedTx.txid,
+              accountId,
+              networkId,
+            });
+        });
+      }
 
       // If the user clicked Cancel while `broadcastOnce` was mid-HTTP, the
       // abort signal only unblocks `abortableWait` sleeps — the in-flight
@@ -689,9 +905,6 @@ function TxConfirmActions(props: IProps) {
       // The tx may still land on chain — Prime idempotency prevents any
       // double-charge and the user will see it in their activity.
       if (gasAccountSubmitIdRef.current !== submitId) {
-        updateSendTxStatus({ isSubmitting: false });
-        setGasAccountRetryState(null);
-        isSubmitted.current = false;
         return;
       }
 
@@ -704,6 +917,7 @@ function TxConfirmActions(props: IProps) {
           accountId,
           result,
         });
+        if (gasAccountSubmitIdRef.current !== submitId) return;
       }
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
@@ -717,6 +931,7 @@ function TxConfirmActions(props: IProps) {
           .getAccountDeviceSafe({ accountId })
           .catch(() => undefined),
       ]);
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       defaultLogger.transaction.send.sendConfirm({
         walletType: wallet?.type ?? 'unknown',
         deviceType: device?.deviceType,
@@ -765,6 +980,7 @@ function TxConfirmActions(props: IProps) {
           : undefined,
       });
 
+      successCommitted = true;
       Toast.success({
         title: isFeeSponsored
           ? intl.formatMessage({
@@ -844,6 +1060,25 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      if (beforeSendFailed) throw e;
+      // Broadcasting can succeed before local transaction bookkeeping fails.
+      if (!successCommitted) checkLateBroadcastCandidates?.();
+      // An abandoned attempt must not update a newer confirmation's state.
+      if (!successCommitted && gasAccountSubmitIdRef.current !== submitId) {
+        if (isGasAccountSubmitCancelledError(e)) muteHandledErrorToast(e);
+        return;
+      }
+      if (
+        !transactionSubmitted &&
+        (Boolean(preSendTx) || unsignedTxs.length === 1) &&
+        isSwapReviewQuoteExpiredWithoutSubmission(e)
+      ) {
+        try {
+          await onBeforeSend?.({ preSendTx });
+        } catch (error) {
+          if (handleBeforeSendAbort(error)) return;
+        }
+      }
       // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
       // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
       // skip dappApprove propagation — just unwind submit state.
@@ -853,11 +1088,6 @@ function TxConfirmActions(props: IProps) {
         setGasAccountRetryState(null);
         isSubmitted.current = false;
         gasAccountSubmitIdRef.current = null;
-        return;
-      }
-      // Cancellation or another completed exit owns the UI now. A late RPC
-      // rejection must not report a second failure or close a newer screen.
-      if (!transactionSubmitted && gasAccountSubmitIdRef.current !== submitId) {
         return;
       }
       if (!transactionSubmitted) {
@@ -890,6 +1120,8 @@ function TxConfirmActions(props: IProps) {
         void dappApprove.reject(e);
       }
       throw e;
+    } finally {
+      disposeLateBroadcastObserver?.();
     }
   }, [
     sourceInfo,
@@ -907,14 +1139,18 @@ function TxConfirmActions(props: IProps) {
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onBeforeSend,
+    onBeforePreActions,
+    reviewQuoteValidUntil,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
     wcPayPreBroadcastRecord,
     onFail,
+    onSafePreSendFail,
     dappApprove,
     tronResourceRentalInfo,
     navigation,
+    route?.key,
     txAdvancedSettings.nonce,
     feeInfoEditable,
     checkFeeInfoIsOverflow,
@@ -927,6 +1163,7 @@ function TxConfirmActions(props: IProps) {
     logGasAccountSubmitFailed,
     intl,
     onSuccess,
+    onLateBroadcastAccepted,
     isQueueMode,
     unsignedTxQueue,
     popStack,
@@ -969,6 +1206,7 @@ function TxConfirmActions(props: IProps) {
     const pendingSubmitId = gasAccountSubmitIdRef.current;
     if (pendingSubmitId) {
       gasAccountSubmitIdRef.current = null;
+      cancelLateBroadcastObserverRef.current?.();
       void backgroundApiProxy.serviceSend.abortGasAccountSubmit(
         pendingSubmitId,
       );

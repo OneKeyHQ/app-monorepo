@@ -9,7 +9,7 @@ import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirror
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { HardwareStageOverlayContainer } from './HardwareStageOverlayContainer';
 import { PrivacyChainSyncEffects } from './PrivacyChainSyncEffects';
-import { ToastOverlayContainer } from './ToastOverlayContainer';
+import { ToastLinkHandler } from './ToastLinkHandler';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
 // The React hosts stay outside frozen screens. Each overlay still owns its
@@ -28,12 +28,15 @@ export function FullWindowOverlayContainer() {
       </HardwareStageOverlayContainer>
       {/* Custom toasts (Toast.show) host themselves in the native `toast`
           overlay level. */}
-      {/* The message toasts: the native `toast` level keeps them above
-          dialogs, sheets and the hardware stage on every platform. */}
-      <ToastOverlayContainer>
-        {/* E2E mode, enable tap in iOS */}
-        {platformEnv.isE2E ? <></> : <Toaster />}
-      </ToastOverlayContainer>
+      {/* The message toasts: drawn by the platform in the native `toast`
+          level, above dialogs, sheets and the hardware stage. */}
+      {/* E2E mode, enable tap in iOS */}
+      {platformEnv.isE2E ? null : (
+        <>
+          <Toaster />
+          <ToastLinkHandler />
+        </>
+      )}
       <DevOverlayWindowContainer />
       <PrivacyChainSyncEffects />
       {process.env.NODE_ENV !== 'production' &&

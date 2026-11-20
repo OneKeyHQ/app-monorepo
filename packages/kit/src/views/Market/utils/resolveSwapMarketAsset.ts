@@ -13,6 +13,8 @@ import { getMarketTopCoinsRequestType } from '../MarketHomeV2/components/MarketT
 const TIMEOUT = 10_000;
 const CONCURRENCY = 8;
 
+type ICandidateKind = 'search' | 'preferred' | 'fallback';
+
 export async function resolveSwapMarketAsset(
   token: {
     networkId: string;
@@ -21,6 +23,7 @@ export async function resolveSwapMarketAsset(
     isNative: boolean;
   },
   signal: AbortSignal,
+  options?: { searchAndSymbolOnly?: boolean },
 ) {
   const { serviceMarket, serviceMarketV2 } = backgroundApiProxy;
   const timeout = <T>(promise: Promise<T>, milliseconds = TIMEOUT) =>
@@ -73,7 +76,8 @@ export async function resolveSwapMarketAsset(
   let releasePriority: () => void = () => undefined;
   let priorityTimer: ReturnType<typeof setTimeout> | undefined;
   let priorityOpen = Boolean(
-    candidates.length || (token.isNative && token.symbol.trim()),
+    candidates.length ||
+    ((token.isNative || options?.searchAndSymbolOnly) && token.symbol.trim()),
   );
   const priority = priorityOpen
     ? new Promise<void>((resolve) => {
@@ -103,10 +107,10 @@ export async function resolveSwapMarketAsset(
         throw new OneKeyLocalError('Invalid Market list');
       return result.list;
     });
-  const matchAsset = async (assetId: string, isPreferred: boolean) => {
+  const matchAsset = async (assetId: string, kind: ICandidateKind) => {
     if (
       finished ||
-      (failed && (!isPreferred || !priorityOpen)) ||
+      (failed && (kind === 'fallback' || !priorityOpen)) ||
       signal.aborted ||
       visited.has(assetId)
     )
@@ -136,12 +140,13 @@ export async function resolveSwapMarketAsset(
         isNative: token.isNative,
       });
     } catch (error) {
-      reportFailure();
+      // A failed search hit must not cancel the independent list fallback.
+      if (kind !== 'search') reportFailure();
       throw error;
     }
     if (finished || signal.aborted || !variant) throw noMatch;
     if (!variant.variantId) {
-      reportFailure();
+      if (kind !== 'search') reportFailure();
       throw new OneKeyLocalError('Invalid Market asset variant');
     }
     return {
@@ -153,6 +158,33 @@ export async function resolveSwapMarketAsset(
       isNative: variant.isNative,
     };
   };
+  const scanItems = (
+    assets: Pick<IMarketAssetListItem, 'assetId'>[],
+    kind: ICandidateKind = 'fallback',
+  ) => {
+    let index = 0;
+    const worker = async () => {
+      while (index < assets.length) {
+        if (
+          finished ||
+          (failed && (kind === 'fallback' || !priorityOpen)) ||
+          signal.aborted
+        )
+          break;
+        const { assetId } = assets[index];
+        index += 1;
+        try {
+          return await limit(() => matchAsset(assetId, kind));
+        } catch {
+          /* Try another asset. */
+        }
+      }
+      throw noMatch;
+    };
+    return Promise.any(
+      Array.from({ length: Math.min(CONCURRENCY, assets.length) }, worker),
+    );
+  };
   const scan = async (list: Promise<IMarketAssetListItem[]>) => {
     let items: IMarketAssetListItem[];
     try {
@@ -161,44 +193,30 @@ export async function resolveSwapMarketAsset(
       reportFailure();
       throw error;
     }
-    const scanItems = (assets: IMarketAssetListItem[], isPreferred = false) => {
-      let index = 0;
-      const worker = async () => {
-        while (index < assets.length) {
-          if (
-            finished ||
-            (failed && (!isPreferred || !priorityOpen)) ||
-            signal.aborted
-          )
-            break;
-          const { assetId } = assets[index];
-          index += 1;
-          try {
-            return await limit(() => matchAsset(assetId, isPreferred));
-          } catch {
-            /* Try another asset. */
-          }
-        }
-        throw noMatch;
-      };
-      return Promise.any(
-        Array.from({ length: Math.min(CONCURRENCY, assets.length) }, worker),
-      );
-    };
     const isPriority = (item: IMarketAssetListItem) =>
       candidates.includes(item.assetId) ||
-      (token.isNative &&
+      ((token.isNative || options?.searchAndSymbolOnly) &&
+        Boolean(token.symbol.trim()) &&
         typeof item.symbol === 'string' &&
         item.symbol.trim().toUpperCase() === token.symbol.trim().toUpperCase());
     const preferred = items.filter(isPriority);
-    const remaining = items.filter((item) => !isPriority(item));
+    // Native list symbols can differ from the chain symbol; verify their variants.
+    const remaining =
+      options?.searchAndSymbolOnly && !token.isNative
+        ? []
+        : items.filter((item) => !isPriority(item));
     return Promise.any([
-      scanItems(preferred, true),
+      scanItems(preferred, 'preferred'),
       remaining.length
         ? priority.then(() => scanItems(remaining))
         : scanItems([]),
     ]);
   };
+  // Search can return a supported asset outside every category's first page.
+  const searched = scanItems(
+    candidates.map((assetId) => ({ assetId })),
+    'search',
+  );
   const top = scan(loadList(MARKET_TOP_COINS_CATEGORY_ID));
   const others = (async () => {
     let config;
@@ -233,7 +251,7 @@ export async function resolveSwapMarketAsset(
   try {
     return await timeout(
       Promise.race([
-        Promise.any([top, others]).catch(() => undefined),
+        Promise.any([searched, top, others]).catch(() => undefined),
         // Give priority candidates a bounded chance to match before fallback.
         failure.then(() => priority).then(() => undefined),
       ]),

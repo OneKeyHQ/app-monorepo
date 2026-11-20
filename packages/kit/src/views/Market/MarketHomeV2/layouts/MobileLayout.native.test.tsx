@@ -13,6 +13,7 @@ import type {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketNativeSnapshot } from '../components/MarketNativeList/marketNativeListRows';
 
@@ -22,6 +23,7 @@ import type { IMarketNativeListPresentation } from '../components/MarketNativeLi
 import type { IMarketCategoryItem, IMarketFilterBarProps } from '../types';
 import type {
   CollapsiblePagerNativeSubHeaderConfig,
+  CollapsiblePagerNativeTabBarConfig,
   CollapsiblePagerViewOnNativeSubHeaderPressEvent,
   CollapsiblePagerViewOnNativeTabPressEvent,
 } from 'react-native-pager-view';
@@ -36,6 +38,8 @@ type IMockListContainerProps = {
 
 type IMockPagerProps = {
   children?: ReactNode;
+  header?: ReactNode;
+  headerHeight: number;
   stickyHeader?: ReactNode;
   stickyHeaderHeight?: number;
   stickyHeaderHeights?: readonly number[];
@@ -48,6 +52,7 @@ type IMockPagerProps = {
   }) => void;
   nativeTabPressAnimationEnabled?: boolean;
   nativeSubHeader?: CollapsiblePagerNativeSubHeaderConfig;
+  nativeTabBar?: CollapsiblePagerNativeTabBarConfig;
   onNativeSubHeaderPress?: (
     event: CollapsiblePagerViewOnNativeSubHeaderPressEvent,
   ) => void;
@@ -64,8 +69,6 @@ type IMockCategorySelectorProps = {
   onSelectCategory: (categoryId: string) => void;
 };
 
-const mockInsetCommits: { padding: string | null | undefined; tag?: number }[] =
-  [];
 let mockStickyHeaderLayout: ((event: IMockLayoutEvent) => void) | undefined;
 let mockTrendingListContainerProps: IMockListContainerProps | undefined;
 let mockWatchlistContainerProps: IMockListContainerProps | undefined;
@@ -95,6 +98,8 @@ let mockUseRealTabsLogic = false;
 let mockPerpDisabled = false;
 const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
+let mockHighlights: IMarketHighlight[] | undefined = [];
+let mockHighlightsLoading: boolean | undefined;
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
 let mockPreferences: IMarketHomePreferences;
@@ -143,20 +148,13 @@ jest.mock('react-native-pager-view', () => {
     CollapsiblePagerView: React.forwardRef(
       (props: IMockPagerProps, ref: React.Ref<unknown>) => {
         mockPagerProps = props;
-        const hostRef = React.useRef<HTMLDivElement>(null);
-        React.useLayoutEffect(() => {
-          mockInsetCommits.push({
-            padding:
-              hostRef.current?.parentElement?.getAttribute('data-padding-top'),
-            tag: props.externalTopOverlayTag,
-          });
-        });
         React.useImperativeHandle(ref, () => ({
           setPage: mockSetPage,
           setPageWithoutAnimation: mockSetPageWithoutAnimation,
         }));
         return (
-          <div ref={hostRef}>
+          <div>
+            {props.header}
             {props.stickyHeader}
             {props.children}
           </div>
@@ -189,13 +187,19 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: ({
     children,
     pt,
+    bg,
     onLayout,
   }: PropsWithChildren<{
     pt?: number;
+    bg?: string;
     onLayout?: (event: IMockLayoutEvent) => void;
   }>) => {
     if (onLayout) mockStickyHeaderLayout = onLayout;
-    return <div data-padding-top={pt}>{children}</div>;
+    return (
+      <div data-padding-top={pt} data-background={bg}>
+        {children}
+      </div>
+    );
   },
   s: (size: number) => size,
   useScrollContentTabBarOffset: () => 0,
@@ -256,6 +260,21 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
   },
+}));
+jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
+  useMarketHighlights: () => ({
+    items: mockHighlights,
+    isLoading: mockHighlightsLoading,
+  }),
+}));
+jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 52,
+  MarketHighlightStrip: ({ highlight }: { highlight?: IMarketHighlight }) =>
+    highlight ? (
+      <div>{highlight.title}</div>
+    ) : (
+      <div>Loading market hotspot</div>
+    ),
 }));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
@@ -395,8 +414,9 @@ function renderLayout(props: IMarketFilterBarProps = filterBarProps) {
 beforeEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
-  mockInsetCommits.length = 0;
   mockPagerProps = undefined;
+  mockHighlights = [];
+  mockHighlightsLoading = false;
   mockStickyHeaderLayout = undefined;
   mockTrendingListContainerProps = undefined;
   mockWatchlistContainerProps = undefined;
@@ -651,62 +671,76 @@ describe('native market home selection restoration', () => {
   });
 });
 
-describe('external header inset ownership', () => {
-  it('reserves one header inset until native confirms support and on revocation', () => {
-    const { container, rerender } = render(
-      <MobileLayout
-        filterBarProps={filterBarProps}
-        selectedNetworkId="evm--1"
-        onTabChange={jest.fn()}
-        externalTopOverlayTag={123}
-        externalTopOverlayHeight={96}
-      />,
-    );
-    const padding = () =>
-      container.firstElementChild?.getAttribute('data-padding-top');
-    expect(padding()).toBe('96');
-    expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
-    act(() =>
-      mockPagerProps?.onScrollEdgeCapability?.({
-        nativeEvent: { available: false },
-      }),
-    );
-    expect(padding()).toBe('96');
-    rerender(
-      <MobileLayout
-        filterBarProps={filterBarProps}
-        selectedNetworkId="evm--1"
-        onTabChange={jest.fn()}
-        externalTopOverlayTag={123}
-        externalTopOverlayHeight={104}
-      />,
-    );
-    expect(padding()).toBe('104');
-    act(() =>
-      mockPagerProps?.onScrollEdgeCapability?.({
-        nativeEvent: { available: true },
-      }),
-    );
-    expect(padding()).toBe('0');
-    expect(mockPagerProps?.externalTopOverlayTag).toBe(123);
-    expect(mockPagerProps?.topScrollEdgeEffect).toBe('hard');
-    act(() =>
-      mockPagerProps?.onScrollEdgeCapability?.({
-        nativeEvent: { available: false },
-      }),
-    );
-    expect(padding()).toBe('104');
-    expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
-    expect(mockPagerProps?.topScrollEdgeEffect).toBeUndefined();
-    expect(mockInsetCommits.length).toBeGreaterThanOrEqual(4);
-    for (const commit of mockInsetCommits) {
-      expect(commit).toEqual(
-        commit.tag === 123
-          ? { padding: '0', tag: 123 }
-          : { padding: expect.stringMatching(/^(96|104)$/), tag: undefined },
-      );
-    }
-  });
+it('keeps Market tabs opaque when native scroll edge support is available', () => {
+  const { container } = renderLayout();
+  act(() =>
+    mockPagerProps?.onScrollEdgeCapability?.({
+      nativeEvent: { available: true },
+    }),
+  );
+  expect(mockPagerProps?.topScrollEdgeEffect).toBeUndefined();
+  expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
+  expect(mockPagerProps?.nativeTabBar?.style?.backgroundColor).toBe(
+    mockTheme.bgApp.val,
+  );
+  const backgrounds = Array.from(
+    container.querySelectorAll('[data-background]'),
+    (node) => node.getAttribute('data-background'),
+  );
+  expect(backgrounds.length).toBeGreaterThan(0);
+  expect(backgrounds.every((background) => background === '$bgApp')).toBe(true);
+});
+
+it('keeps the header height stable while the first hotspot loads', () => {
+  mockHighlights = undefined;
+  mockHighlightsLoading = undefined;
+  const { queryByText, getByText, rerender } = renderLayout();
+  const title = 'Market hotspot';
+  expect(queryByText(title)).toBeNull();
+  expect(getByText('Loading market hotspot')).toBeTruthy();
+  expect(mockPagerProps?.headerHeight).toBe(52);
+
+  mockHighlights = [
+    {
+      highlightId: 'highlight-1',
+      title,
+      description: 'An editorial summary',
+      publishedAt: '2026-11-04T02:00:00Z',
+      assets: [
+        {
+          type: 'asset',
+          assetId: 'bitcoin',
+          symbol: 'BTC',
+          favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+        },
+      ],
+      links: [],
+    },
+  ];
+  mockHighlightsLoading = false;
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+
+  expect(getByText(title)).toBeTruthy();
+  expect(queryByText('Loading market hotspot')).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(52);
+
+  mockHighlights = [];
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  expect(queryByText(title)).toBeNull();
+  expect(queryByText('Loading market hotspot')).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(1);
 });
 
 const mockPresentation: IMarketNativeListPresentation = {
@@ -767,7 +801,7 @@ function measureMarketViewport(height: number) {
 }
 
 describe.each([false, true])(
-  'external header empty/retry viewport (failed=%s)',
+  'Market empty/retry viewport (failed=%s)',
   (failed) => {
     const row = () => {
       const snapshot = readEmptySnapshot(failed);
@@ -791,27 +825,11 @@ describe.each([false, true])(
       expect(row()?.height).toBe(568);
     });
 
-    it('passes the corrected viewport to real noMatch/retry rows and updates memoized geometry', () => {
-      const props = {
-        filterBarProps,
-        selectedNetworkId: 'evm--1',
-        onTabChange: jest.fn(),
-        externalTopOverlayTag: 123,
-        externalTopOverlayHeight: 100,
-      };
-      const screen = render(<MobileLayout {...props} />);
+    it('updates empty/retry rows when the viewport changes without an overlay inset', () => {
+      renderLayout();
       measureMarketViewport(700);
       expect(row()).toMatchObject({
         height: 568,
-        variant: failed ? 'retry' : 'noMatch',
-      });
-      act(() =>
-        mockPagerProps?.onScrollEdgeCapability?.({
-          nativeEvent: { available: true },
-        }),
-      );
-      expect(row()).toMatchObject({
-        height: 468,
         variant: failed ? 'retry' : 'noMatch',
       });
       if (failed)
@@ -820,92 +838,19 @@ describe.each([false, true])(
           actionText: 'Retry',
         });
       const previousProps = mockTrendingListContainerProps;
-      screen.rerender(
-        <MobileLayout {...props} externalTopOverlayHeight={120} />,
-      );
+      measureMarketViewport(600);
       expect(mockTrendingListContainerProps).not.toBe(previousProps);
-      expect(row()?.height).toBe(448);
-      screen.rerender(
-        <MobileLayout {...props} externalTopOverlayTag={undefined} />,
-      );
-      expect(row()?.height).toBe(568);
-      screen.rerender(<MobileLayout {...props} />);
       expect(row()?.height).toBe(468);
-      act(() =>
-        mockPagerProps?.onScrollEdgeCapability?.({
-          nativeEvent: { available: false },
-        }),
-      );
-      expect(row()?.height).toBe(568);
-      act(() =>
-        mockPagerProps?.onScrollEdgeCapability?.({
-          nativeEvent: { available: true },
-        }),
-      );
       measureMarketViewport(80);
       expect(mockTrendingListContainerProps?.emptyContentHeight).toBe(0);
       expect(row()?.height).toBe(failed ? 120 : 88);
     });
 
-    it.each([undefined, 0, -1])(
-      'does not subtract for standalone or invalid external tag %s',
-      (tag) => {
-        render(
-          <MobileLayout
-            filterBarProps={filterBarProps}
-            selectedNetworkId="evm--1"
-            onTabChange={jest.fn()}
-            externalTopOverlayTag={tag}
-            externalTopOverlayHeight={100}
-          />,
-        );
-        measureMarketViewport(700);
-        act(() =>
-          mockPagerProps?.onScrollEdgeCapability?.({
-            nativeEvent: { available: true },
-          }),
-        );
-        expect(row()?.height).toBe(568);
-      },
-    );
-
-    it('keeps the older-iOS no-capability fallback height', () => {
-      render(
-        <MobileLayout
-          filterBarProps={filterBarProps}
-          selectedNetworkId="evm--1"
-          onTabChange={jest.fn()}
-          externalTopOverlayTag={123}
-          externalTopOverlayHeight={100}
-        />,
-      );
-      measureMarketViewport(700);
-      act(() =>
-        mockPagerProps?.onScrollEdgeCapability?.({
-          nativeEvent: { available: false },
-        }),
-      );
-      expect(row()?.height).toBe(568);
-    });
-
-    it('keeps Android geometry even when capability is reported', () => {
+    it('keeps Android empty/retry geometry', () => {
       jest.replaceProperty(platformEnv, 'isNativeIOS', false);
       jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
-      render(
-        <MobileLayout
-          filterBarProps={filterBarProps}
-          selectedNetworkId="evm--1"
-          onTabChange={jest.fn()}
-          externalTopOverlayTag={123}
-          externalTopOverlayHeight={100}
-        />,
-      );
+      renderLayout();
       measureMarketViewport(700);
-      act(() =>
-        mockPagerProps?.onScrollEdgeCapability?.({
-          nativeEvent: { available: true },
-        }),
-      );
       expect(row()?.height).toBe(616);
     });
   },

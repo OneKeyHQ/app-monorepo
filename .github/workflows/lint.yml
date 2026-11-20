@@ -45,6 +45,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
+          # Pull requests check out a test merge commit; its first parent is the
+          # base, which the spellchecker diffs against.
+          fetch-depth: 2
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -118,6 +121,9 @@ jobs:
       - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
+          # Pull requests spellcheck only the files they change (or everything
+          # when cspell inputs change); pushes always spellcheck every file.
+          ONEKEY_CSPELL_DIFF_BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
         run: |
           mkdir -p ci-ai
           set +e
@@ -151,9 +157,6 @@ jobs:
           apps/cli/esbuild.config.node-test.js
           apps/mobile/scripts/check-third-party-async-storage.node-test.js
           apps/mobile/scripts/native-storage-metro-policy.node-test.js
-
-      - name: Test JPush native SDK patchers
-        run: python3 -B apps/mobile/scripts/__tests__/patch-jpush-sdks.test.py
 
       - name: Build CLI
         run: yarn workspace @onekeyfe/cli build

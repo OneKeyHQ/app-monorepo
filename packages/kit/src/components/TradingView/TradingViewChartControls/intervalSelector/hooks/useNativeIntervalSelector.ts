@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +26,7 @@ import {
   readStoredPreferredIntervalValues,
   reconcileIntervalValues,
   saveStoredPreferredIntervalValues,
+  subscribePreferredIntervalValues,
 } from '../NativeIntervalUtils';
 
 import type { ITradingViewIntervalConfigData } from '../../types';
@@ -33,13 +41,13 @@ export function useNativeIntervalSelector({
   visiblePreferredIntervalCount: number | null;
 }) {
   const intl = useIntl();
-  const [storedPreferredIntervalValues, setStoredPreferredIntervalValues] =
-    useState<string[] | null>(() => getCachedPreferredIntervalValues() ?? null);
-  const [
-    hasLoadedStoredPreferredIntervals,
-    setHasLoadedStoredPreferredIntervals,
-  ] = useState(() => getCachedPreferredIntervalValues() !== undefined);
-  const hasUpdatedPreferredIntervalsRef = useRef(false);
+  // Subscribed rather than copied into local state, so every mounted selector
+  // follows an edit made from another chart.
+  const storedPreferredIntervalValues = useSyncExternalStore(
+    subscribePreferredIntervalValues,
+    getCachedPreferredIntervalValues,
+    getCachedPreferredIntervalValues,
+  );
   const intervalsDialogRef = useRef<IIntervalsDialogInstance | null>(null);
   const [isIntervalsPopoverOpen, setIsIntervalsPopoverOpen] = useState(false);
 
@@ -75,22 +83,8 @@ export function useNativeIntervalSelector({
   );
 
   useEffect(() => {
-    let isMounted = true;
-    void readStoredPreferredIntervalValues()
-      .then((values) => {
-        if (isMounted && !hasUpdatedPreferredIntervalsRef.current) {
-          setStoredPreferredIntervalValues(values);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setHasLoadedStoredPreferredIntervals(true);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    // Populates the shared store on first use; subscribers pick the result up.
+    void readStoredPreferredIntervalValues();
   }, []);
 
   const activeInterval = useMemo(() => {
@@ -120,23 +114,15 @@ export function useNativeIntervalSelector({
   );
 
   const allPreferredIntervalValues = useMemo(() => {
-    const storedValues = hasLoadedStoredPreferredIntervals
-      ? storedPreferredIntervalValues
-      : null;
     const reconciledStoredValues = reconcileIntervalValues(
-      storedValues,
+      storedPreferredIntervalValues,
       options,
     );
     if (!reconciledStoredValues.length) {
       return defaultPreferredIntervalValues;
     }
     return reconciledStoredValues;
-  }, [
-    defaultPreferredIntervalValues,
-    hasLoadedStoredPreferredIntervals,
-    options,
-    storedPreferredIntervalValues,
-  ]);
+  }, [defaultPreferredIntervalValues, options, storedPreferredIntervalValues]);
 
   const preferredIntervalValues = useMemo(
     () =>
@@ -179,9 +165,6 @@ export function useNativeIntervalSelector({
         maxVisibleIntervalCount: visiblePreferredIntervalCount,
         options: dialogOptions,
       });
-      hasUpdatedPreferredIntervalsRef.current = true;
-      setStoredPreferredIntervalValues(nextValues);
-      setHasLoadedStoredPreferredIntervals(true);
       void saveStoredPreferredIntervalValues(nextValues);
     },
     [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],

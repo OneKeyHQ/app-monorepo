@@ -584,6 +584,29 @@ describe('bounded Cloud reconciliation with full summaries', () => {
     expect(h.uploadObsoleted).toHaveBeenCalledTimes(1);
   });
 
+  test.each([false, true])(
+    'rechecks a partially acknowledged final upload (bounded=%s)',
+    async (bounded) => {
+      const h = harness();
+      h.check.mockResolvedValueOnce(
+        response({
+          obsoleted: ['first-upload', 'second-upload'],
+          reconciliation: bounded ? contract() : undefined,
+        }),
+      );
+      h.uploadObsoleted.mockResolvedValueOnce({ uploaded: 1 });
+
+      const result = await runCloudSyncReconciliation({ adapter: h.adapter });
+
+      expect(result).toMatchObject({
+        status: 'waiting',
+        unfinished: true,
+        uploaded: 1,
+      });
+      expect(result.nextRetryAt).toBeGreaterThan(h.adapter.now());
+    },
+  );
+
   test('the overall deadline also bounds an unresponsive local-summary adapter', async () => {
     jest.useFakeTimers();
     const h = harness();

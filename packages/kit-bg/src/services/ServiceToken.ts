@@ -9,6 +9,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -1124,6 +1125,7 @@ class ServiceToken extends ServiceBase {
       contractList,
       withCheckInscription,
       withFrozenBalance,
+      expectedAccountAddress,
     } = params;
 
     const [accountAddress, xpub] = await Promise.all([
@@ -1136,6 +1138,15 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
+
+    if (expectedAccountAddress !== undefined) {
+      if (!expectedAccountAddress || !accountAddress)
+        throw new OneKeyLocalError('Token balance account changed');
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!matches) throw new OneKeyLocalError('Token balance account changed');
+    }
 
     if (!accountAddress && !xpub) {
       console.log(

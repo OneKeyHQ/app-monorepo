@@ -12,7 +12,10 @@ import {
   disposeNobleBleSupport,
   initNobleBleSupport,
 } from '@onekeyfe/hd-transport-electron';
-import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import {
+  initThirdPartyBleSupport,
+  withThirdPartyBleIpcErrors,
+} from '@onekeyfe/hwk-desktop-noble-ble';
 import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
@@ -148,8 +151,7 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
-import { logTrezorBleFlags } from './process/trezorBleFlags';
-import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
+import { createWindowsBlePairingOptions } from './process/windowsBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -1780,15 +1782,9 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
-  logTrezorBleFlags();
   const trezorBleSupport = initThirdPartyBleSupport(browserWindow.webContents, {
-    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
-    // caches scan address, runs the WinRT pairing helper before noble connects.
-    // No-op on non-Windows / builds without the bundled helper.
-    ipcMain: createTrezorBlePairingIpcMain(
-      thirdPartyBleSenderGatedIpcMain,
-      browserWindow,
-    ),
+    ipcMain: withThirdPartyBleIpcErrors(thirdPartyBleSenderGatedIpcMain),
+    windowsPairing: createWindowsBlePairingOptions(browserWindow),
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /

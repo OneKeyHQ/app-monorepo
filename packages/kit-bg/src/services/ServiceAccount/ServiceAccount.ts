@@ -5562,6 +5562,11 @@ class ServiceAccount extends ServiceBase {
       hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    if (!isTemp) {
+      void this.backgroundApi.servicePrimeCloudSync
+        .resumeCloudSyncReconciliation({ reason: 'wallet-ready' })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    }
     void this.backgroundApi.servicePrivacyChain
       .onWalletTempStatusChanged({ walletId })
       .catch((error: unknown) => {

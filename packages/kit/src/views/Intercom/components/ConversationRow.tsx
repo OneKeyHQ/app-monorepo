@@ -1,11 +1,31 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IIntercomConversation } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { SupportAvatar } from './SupportAvatar';
+
+// Same box as a loaded row, so the list does not move when data arrives.
+export function ConversationRowSkeleton({ divider }: { divider: boolean }) {
+  return (
+    <XStack
+      px="$4"
+      py="$4"
+      gap="$3"
+      alignItems="center"
+      borderBottomWidth={divider ? 1 : 0}
+      borderBottomColor="$borderSubdued"
+    >
+      <Skeleton w={32} h={32} radius="round" flexShrink={0} />
+      <YStack flex={1} minWidth={0} gap="$1">
+        <Skeleton.BodyMd w={120} />
+        <Skeleton.BodyMd w={200} maxWidth="100%" />
+      </YStack>
+    </XStack>
+  );
+}
 
 export function ConversationRow({
   conversation,

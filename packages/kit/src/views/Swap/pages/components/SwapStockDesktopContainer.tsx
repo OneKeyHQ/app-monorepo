@@ -80,6 +80,7 @@ import {
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { getStockTokenFiatValue } from '../../hooks/swapStockFiatValueUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
@@ -109,6 +110,7 @@ import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
@@ -146,6 +148,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
+import type { ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -153,6 +156,7 @@ interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   hasExternalHeader?: boolean;
   hideSwapTips?: boolean;
+  showThirdPartyNotice?: boolean;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -1051,6 +1055,7 @@ function StockTradeTicket({
   stockTradeConfig,
   stockTradeHeader,
   stockTradeIdentityLoading,
+  showThirdPartyNotice,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1309,6 +1314,7 @@ function StockTradeTicket({
             visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
           />
         ) : null}
+        {showThirdPartyNotice ? <SwapThirdPartyNotice /> : null}
       </YStack>
       {renderActionGateOutsideTicket ? stockActionGate : null}
     </>
@@ -1363,6 +1369,7 @@ function SwapStockDesktopContent({
   headerContent,
   hasExternalHeader,
   hideSwapTips,
+  showThirdPartyNotice,
   storeName,
   onSelectToken,
   fetchLoading,
@@ -1382,6 +1389,8 @@ function SwapStockDesktopContent({
   stockTradeHeader,
   stockTradeIdentityLoading,
 }: ISwapStockDesktopContainerProps) {
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { resetQuoteAction } = useSwapActions().current;
@@ -1451,6 +1460,7 @@ function SwapStockDesktopContent({
         <SwapStockHeaderRightActionContainer storeName={storeName} />
       </XStack>
       <StockTradeTicket
+        showThirdPartyNotice={showThirdPartyNotice}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         storeName={storeName}
@@ -1489,7 +1499,11 @@ function SwapStockDesktopContent({
     </YStack>
   );
   return (
-    <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+    <ScrollView
+      ref={scrollViewRef}
+      flex={1}
+      contentContainerStyle={{ flexGrow: 1 }}
+    >
       {embedded || hideSwapTips ? null : (
         <SwapTipsContainer pageType={pageType} />
       )}
@@ -1560,9 +1574,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     supportNetworksList,
     stockTradeConfig,
     stockTradeHeader,
+    showThirdPartyNotice,
   } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
@@ -1614,6 +1630,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       >
         {embedded ? null : <SwapStockMobileHeader />}
         <StockTradeTicket
+          showThirdPartyNotice={showThirdPartyNotice}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
           storeName={storeName}

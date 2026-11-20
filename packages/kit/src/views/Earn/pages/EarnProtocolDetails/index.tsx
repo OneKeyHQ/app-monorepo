@@ -106,7 +106,10 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 import { useEarnServerOrderRefresh } from '../../hooks/useEarnServerOrderRefresh';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
-import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
+import {
+  getEtherFiManagedRedeem,
+  positionMatured,
+} from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -1266,7 +1269,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }),
     [networkId, provider, symbol, detailInfo?.protocol?.vault, vault],
   );
-  const { holding, refresh: refreshHolding } = useDetailHoldingPosition({
+  const {
+    holding,
+    actionableHolding,
+    refresh: refreshHolding,
+  } = useDetailHoldingPosition({
     identity: holdingIdentity,
     earnAccount: protocolInfo?.earnAccount,
     enabled: Boolean(isMobileLayout),
@@ -1638,10 +1645,22 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // both stay).
   const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
     const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const etherFiManagedRedeem = getEtherFiManagedRedeem({
+      provider,
+      position:
+        selectedAccount.othersWalletAccountId ||
+        selectedAccount.indexedAccountId
+          ? actionableHolding
+          : undefined,
+      actions: detailInfo?.actions,
+    });
     const showRedeem =
       isMobileLayout &&
       hasDeposit &&
-      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
+      (Boolean(redeemAction) ||
+        isPendle ||
+        redeemWithoutActions ||
+        Boolean(etherFiManagedRedeem));
     if (!showRedeem) {
       return undefined;
     }
@@ -1656,7 +1675,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       // the positions read, the same the card greys on.
       disabled: isPendle
         ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
-        : Boolean(redeemAction?.disabled),
+        : Boolean(redeemAction?.disabled ?? etherFiManagedRedeem?.disabled),
       onPress: handleOpenRedeem,
     };
   }, [
@@ -1665,7 +1684,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isMobileLayout,
     hasDeposit,
     hasPortfolio,
-    holding?.source.earn.redeem?.disabled,
+    holding,
+    actionableHolding,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.indexedAccountId,
+    detailInfo?.actions,
     redeemAction,
     redeemWithoutActions,
     isMatured,
