@@ -1,5 +1,8 @@
+import semver from 'semver';
+
 import { ENotificationPushMessageMode } from '../../types/notification';
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
+import platformEnv from '../platformEnv';
 
 export interface IFeaturedItem {
   ctaAction?: 'next';
@@ -25,13 +28,166 @@ export interface IFeaturedChangelog {
 }
 
 export function hasFeaturedChangelog(
-  featuredChangelog: IFeaturedChangelog | undefined,
+  featuredChangelog: IFeaturedChangelog | null | undefined,
 ): featuredChangelog is IFeaturedChangelog {
   return (
     !!featuredChangelog &&
     Array.isArray(featuredChangelog.features) &&
     featuredChangelog.features.length > 0
   );
+}
+
+export type IFeaturedChangelogsByVersion = Record<
+  string,
+  IFeaturedChangelog | null
+>;
+
+interface IFeaturedChangelogState {
+  featuredChangelog?: IFeaturedChangelog | null;
+  featuredChangelogs?: IFeaturedChangelogsByVersion | null;
+}
+
+function hasOwnVersion(
+  featuredChangelogs: IFeaturedChangelogsByVersion,
+  version: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(featuredChangelogs, version);
+}
+
+// An explicit `null` entry means the cards were removed and must not fall back
+// to the legacy slot.
+function lookupFeaturedChangelog(
+  state: IFeaturedChangelogState | null | undefined,
+  version: string,
+): IFeaturedChangelog | null | undefined {
+  const featuredChangelogs = state?.featuredChangelogs;
+  if (featuredChangelogs && hasOwnVersion(featuredChangelogs, version)) {
+    return featuredChangelogs[version] ?? null;
+  }
+  const legacy = state?.featuredChangelog;
+  return legacy?.version === version ? legacy : undefined;
+}
+
+export function getFeaturedChangelogForVersion(
+  state: IFeaturedChangelogState | null | undefined,
+  version: string | undefined,
+): IFeaturedChangelog | undefined {
+  if (!version) return undefined;
+  const featuredChangelog = lookupFeaturedChangelog(state, version);
+  return hasFeaturedChangelog(featuredChangelog)
+    ? featuredChangelog
+    : undefined;
+}
+
+/**
+ * Storage key of the cards for one install target. A full package is keyed by
+ * its app version; an OTA (jsBundle) target by `version+jsBundleVersion`, so an
+ * OTA of the installed app version never reads or overwrites the installed
+ * package's cards.
+ */
+export function getFeaturedChangelogKey(
+  version: string | undefined,
+  jsBundleVersion?: string,
+): string | undefined {
+  if (!version) return undefined;
+  return jsBundleVersion ? `${version}+${jsBundleVersion}` : version;
+}
+
+interface IFeaturedChangelogTargetState extends IFeaturedChangelogState {
+  latestVersion?: string;
+  jsBundleVersion?: string;
+}
+
+/**
+ * Cards for an entry point. Pre-install surfaces describe the pending update
+ * target; post-install surfaces ("What's New", post-update popup) describe the
+ * running app: its OTA bundle entry when one was stored (an explicit `null`
+ * included), otherwise the app package's entry.
+ */
+export function getFeaturedChangelogForEntry(
+  state: IFeaturedChangelogTargetState | null | undefined,
+  isPreInstall: boolean,
+): IFeaturedChangelog | undefined {
+  if (isPreInstall) {
+    return getFeaturedChangelogForVersion(
+      state,
+      getFeaturedChangelogKey(state?.latestVersion, state?.jsBundleVersion),
+    );
+  }
+  const bundleKey = getFeaturedChangelogKey(
+    platformEnv.version,
+    platformEnv.bundleVersion,
+  );
+  const featuredChangelogs = state?.featuredChangelogs;
+  if (
+    bundleKey &&
+    featuredChangelogs &&
+    hasOwnVersion(featuredChangelogs, bundleKey)
+  ) {
+    return getFeaturedChangelogForVersion(state, bundleKey);
+  }
+  return getFeaturedChangelogForVersion(state, platformEnv.version);
+}
+
+/**
+ * Keys a write must keep: the installed package, the installed OTA bundle and
+ * the update target. With MAX_FEATURED_CHANGELOG_VERSIONS = 3 they always fit.
+ */
+export function getFeaturedChangelogPriorityKeys(
+  target: { version?: string; jsBundleVersion?: string } | undefined,
+): Array<string | undefined> {
+  return [
+    getFeaturedChangelogKey(platformEnv.version),
+    getFeaturedChangelogKey(platformEnv.version, platformEnv.bundleVersion),
+    getFeaturedChangelogKey(target?.version, target?.jsBundleVersion),
+  ];
+}
+
+export const MAX_FEATURED_CHANGELOG_VERSIONS = 3;
+
+function compareVersionsDesc(a: string, b: string): number {
+  const validA = semver.valid(a);
+  const validB = semver.valid(b);
+  if (validA && validB) return semver.rcompare(validA, validB);
+  if (validA) return -1;
+  if (validB) return 1;
+  return a < b ? 1 : -1;
+}
+
+/**
+ * Builds the next `featuredChangelogs` map for a write: existing entries plus
+ * `updates`, capped at MAX_FEATURED_CHANGELOG_VERSIONS. `priorityVersions`
+ * (installed version, update target) are kept first; remaining slots go to the
+ * newest other versions. The legacy slot is migrated only when it describes a
+ * priority version, so a withdrawn release's cards are never carried over.
+ */
+export function buildFeaturedChangelogs(
+  state: IFeaturedChangelogState | null | undefined,
+  updates: IFeaturedChangelogsByVersion,
+  priorityVersions: Array<string | undefined>,
+): IFeaturedChangelogsByVersion {
+  const priority = priorityVersions.filter(
+    (version, index, list): version is string =>
+      !!version && list.indexOf(version) === index,
+  );
+  const entries: IFeaturedChangelogsByVersion = {};
+  const legacy = state?.featuredChangelog;
+  if (legacy?.version && priority.includes(legacy.version)) {
+    entries[legacy.version] = legacy;
+  }
+  Object.assign(entries, state?.featuredChangelogs, updates);
+
+  const others = Object.keys(entries)
+    .filter((version) => !priority.includes(version))
+    .toSorted(compareVersionsDesc);
+  const result: IFeaturedChangelogsByVersion = {};
+  for (const version of [...priority, ...others]) {
+    if (Object.keys(result).length >= MAX_FEATURED_CHANGELOG_VERSIONS) break;
+    if (hasOwnVersion(entries, version)) {
+      result[version] = entries[version] ?? null;
+    }
+  }
+  return result;
 }
 
 const VALID_MODE_VALUES = new Set<number>([

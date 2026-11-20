@@ -1,4 +1,22 @@
-import { normalizeFeaturedChangelog } from './featuredChangelog';
+import {
+  MAX_FEATURED_CHANGELOG_VERSIONS,
+  buildFeaturedChangelogs,
+  getFeaturedChangelogForEntry,
+  getFeaturedChangelogForVersion,
+  getFeaturedChangelogKey,
+  normalizeFeaturedChangelog,
+} from './featuredChangelog';
+
+const mockPlatformEnv: { version?: string; bundleVersion?: string } = {
+  version: '1.0.0',
+  bundleVersion: '1',
+};
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  get default() {
+    return mockPlatformEnv;
+  },
+}));
 
 const media = { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' };
 
@@ -57,5 +75,142 @@ describe('Featured Changelog action normalization', () => {
     expect(result?.features).toHaveLength(10);
     expect(result?.features[0].title).toBe('Feature 0');
     expect(result?.features[9].title).toBe('Feature 9');
+  });
+});
+
+describe('versioned Featured Changelog storage', () => {
+  const card = (version: string) => ({
+    version,
+    features: [
+      {
+        mediaUrl: `https://cdn.onekey.so/${version}.png`,
+        mediaType: 'image' as const,
+      },
+    ],
+  });
+
+  it('reads the entry for the exact version', () => {
+    const state = { featuredChangelogs: { '1.0.0': card('1.0.0') } };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toEqual(
+      card('1.0.0'),
+    );
+    expect(getFeaturedChangelogForVersion(state, '2.0.0')).toBeUndefined();
+    expect(getFeaturedChangelogForVersion(state, undefined)).toBeUndefined();
+  });
+
+  it('falls back to the legacy slot only when its version matches', () => {
+    const state = { featuredChangelog: card('1.0.0') };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toEqual(
+      card('1.0.0'),
+    );
+    expect(getFeaturedChangelogForVersion(state, '9906.15.1')).toBeUndefined();
+  });
+
+  it('treats an explicit null entry as removed, without legacy fallback', () => {
+    const state = {
+      featuredChangelog: card('1.0.0'),
+      featuredChangelogs: { '1.0.0': null },
+    };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toBeUndefined();
+  });
+
+  it('migrates the legacy slot only for a priority version', () => {
+    expect(
+      buildFeaturedChangelogs({ featuredChangelog: card('1.0.0') }, {}, [
+        '1.0.0',
+      ]),
+    ).toEqual({ '1.0.0': card('1.0.0') });
+    expect(
+      buildFeaturedChangelogs({ featuredChangelog: card('9906.15.1') }, {}, [
+        '1.0.0',
+      ]),
+    ).toEqual({});
+  });
+
+  it('applies updates, including explicit null removals', () => {
+    expect(
+      buildFeaturedChangelogs(
+        { featuredChangelogs: { '1.0.0': card('1.0.0') } },
+        { '2.0.0': null },
+        ['1.0.0', '2.0.0'],
+      ),
+    ).toEqual({ '1.0.0': card('1.0.0'), '2.0.0': null });
+  });
+
+  it(`caps the map at ${MAX_FEATURED_CHANGELOG_VERSIONS} versions, keeping priority versions first`, () => {
+    const result = buildFeaturedChangelogs(
+      {
+        featuredChangelogs: {
+          '1.0.0': card('1.0.0'),
+          '1.1.0': card('1.1.0'),
+          '1.2.0': card('1.2.0'),
+          '9906.15.1': card('9906.15.1'),
+        },
+      },
+      { '2.0.0': card('2.0.0') },
+      ['1.0.0', '2.0.0', undefined, '1.0.0'],
+    );
+    expect(Object.keys(result)).toHaveLength(MAX_FEATURED_CHANGELOG_VERSIONS);
+    // Priority versions first, then the newest remaining version.
+    expect(result).toEqual({
+      '1.0.0': card('1.0.0'),
+      '2.0.0': card('2.0.0'),
+      '9906.15.1': card('9906.15.1'),
+    });
+  });
+});
+
+describe('Featured Changelog entry keys', () => {
+  const card = (title: string) => ({
+    version: '1.0.0',
+    features: [{ title, mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' as const }],
+  });
+
+  it('keys an OTA target by app and bundle version', () => {
+    expect(getFeaturedChangelogKey('1.0.0')).toBe('1.0.0');
+    expect(getFeaturedChangelogKey('1.0.0', '5')).toBe('1.0.0+5');
+    expect(getFeaturedChangelogKey(undefined, '5')).toBeUndefined();
+  });
+
+  it('reads the OTA key for an OTA target and the version key for a package', () => {
+    const featuredChangelogs = { '1.0.0': card('package'), '1.0.0+5': null };
+    expect(
+      getFeaturedChangelogForEntry(
+        { latestVersion: '1.0.0', jsBundleVersion: '5', featuredChangelogs },
+        true,
+      ),
+    ).toBeUndefined();
+    expect(
+      getFeaturedChangelogForEntry(
+        { latestVersion: '1.0.0', featuredChangelogs },
+        true,
+      ),
+    ).toEqual(card('package'));
+  });
+
+  it("What's New prefers the running OTA bundle's entry, including null", () => {
+    expect(
+      getFeaturedChangelogForEntry(
+        {
+          featuredChangelogs: {
+            '1.0.0': card('package'),
+            '1.0.0+1': card('ota'),
+          },
+        },
+        false,
+      ),
+    ).toEqual(card('ota'));
+    expect(
+      getFeaturedChangelogForEntry(
+        { featuredChangelogs: { '1.0.0': card('package'), '1.0.0+1': null } },
+        false,
+      ),
+    ).toBeUndefined();
+    expect(
+      getFeaturedChangelogForEntry(
+        { featuredChangelogs: { '1.0.0': card('package') } },
+        false,
+      ),
+    ).toEqual(card('package'));
   });
 });

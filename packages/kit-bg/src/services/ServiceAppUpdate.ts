@@ -6,6 +6,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
   IAppUpdateInfo,
   IFeaturedChangelog,
+  IFeaturedChangelogsByVersion,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -16,6 +17,9 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  buildFeaturedChangelogs,
+  getFeaturedChangelogKey,
+  getFeaturedChangelogPriorityKeys,
   getUpdateFileType,
   isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
@@ -310,6 +314,38 @@ function normalizeOptionalNumber(value: unknown): number | undefined {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+// /app-update decides the cards of the target it selects. It is not
+// authoritative for the running app: it can select a hot release of the
+// installed version and omit cards, so the installed package's cards are only
+// refreshed through refreshCurrentFeaturedChangelog. Writing `null` for another
+// target keeps an already open post-install dialog intact, and an OTA target
+// without cards falls back to the plain update preview.
+function buildReleaseFeaturedChangelogs(
+  prev: IAppUpdateInfo,
+  releaseInfo: IResponseAppUpdateInfo,
+  targetJsBundleVersion: string | undefined,
+): IFeaturedChangelogsByVersion {
+  const priorityKeys = getFeaturedChangelogPriorityKeys(
+    releaseInfo.version
+      ? { version: releaseInfo.version, jsBundleVersion: targetJsBundleVersion }
+      : { version: prev.latestVersion, jsBundleVersion: prev.jsBundleVersion },
+  );
+  const [installedKey, installedBundleKey] = priorityKeys;
+  const targetKey = getFeaturedChangelogKey(
+    releaseInfo.version,
+    targetJsBundleVersion,
+  );
+  const updates: IFeaturedChangelogsByVersion = {};
+  if (targetKey) {
+    if (releaseInfo.featuredChangelog) {
+      updates[targetKey] = releaseInfo.featuredChangelog;
+    } else if (targetKey !== installedKey && targetKey !== installedBundleKey) {
+      updates[targetKey] = null;
+    }
+  }
+  return buildFeaturedChangelogs(prev, updates, priorityKeys);
 }
 
 @backgroundClass()
@@ -1522,7 +1558,18 @@ class ServiceAppUpdate extends ServiceBase {
       if (data.featuredChangelog && !featuredChangelog) return;
       await appUpdatePersistAtom.set((prev) =>
         prev.latestVersion === installedVersion && !prev.jsBundleVersion
-          ? { ...prev, featuredChangelog }
+          ? {
+              ...prev,
+              featuredChangelog: null,
+              featuredChangelogs: buildFeaturedChangelogs(
+                prev,
+                { [installedVersion]: featuredChangelog ?? null },
+                getFeaturedChangelogPriorityKeys({
+                  version: prev.latestVersion,
+                  jsBundleVersion: prev.jsBundleVersion,
+                }),
+              ),
+            }
           : prev,
       );
     } catch {
@@ -2808,6 +2855,9 @@ class ServiceAppUpdate extends ServiceBase {
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
       lastUpdateDialogShownAt: 0,
+      // `null`, not omitted: see IAppUpdateInfo.featuredChangelogs.
+      featuredChangelog: null,
+      featuredChangelogs: null,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -3477,6 +3527,12 @@ class ServiceAppUpdate extends ServiceBase {
             jsBundleVersion: effectiveJsBundleVersion,
             jsBundle: effectiveJsBundle,
             summary: releaseInfo?.summary || '',
+            featuredChangelog: null,
+            featuredChangelogs: buildReleaseFeaturedChangelogs(
+              prev,
+              releaseInfo,
+              effectiveJsBundleVersion,
+            ),
             latestVersion: releaseInfo.version || prev.latestVersion,
             updateAt: Date.now(),
             errorText:
