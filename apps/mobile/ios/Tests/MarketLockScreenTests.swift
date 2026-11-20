@@ -17,6 +17,7 @@ struct MarketLockScreenTests {
     try await checkPrivacyDuringRequest()
     try await checkPrivacyAfterTimelinePublished()
     try await checkWatchlistChangedDuringRefresh()
+    try checkUnstoredQuoteAfterWatchlistChange()
     try checkCacheWrittenDuringRefresh()
     try await checkSelectionWriteFailure()
     try await checkEmptySelection()
@@ -221,6 +222,30 @@ struct MarketLockScreenTests {
       "The final snapshot displays the saved BTC quote and the ETH fallback after a watchlist edit")
     expect(entry.rows.map { $0.lockScreenCacheDate(at: entry.date) } == [nil, cachedAt],
       "Only the failed ETH request shows a cache marker when the watchlist changes")
+  }
+
+  private static func checkUnstoredQuoteAfterWatchlistChange() throws {
+    let fixture = try LockScreenFixture()
+    defer { fixture.close() }
+    let bitcoin = MarketWidgetAsset.defaults[0]
+    let ethereum = MarketWidgetAsset.defaults[1]
+    let now = Date()
+    let cachedAt = now.addingTimeInterval(-360)
+    try fixture.configure([bitcoin])
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: bitcoin, price: "123.45", change24h: nil, fetchedAt: cachedAt))
+    let initial = MarketLockScreenTimeline.snapshot(assets: [bitcoin], isWatchlist: false, store: fixture.store)
+    try fixture.configure([bitcoin, ethereum])
+
+    // A request can return its quote even after the cache write fails.
+    let fetched = MarketWidgetQuote(asset: bitcoin, price: "77000", change24h: nil, fetchedAt: now.addingTimeInterval(-1))
+    let stale = MarketLockScreenTimeline.finishRefresh(initial: initial, fetched: [bitcoin.id: fetched], store: fixture.store)
+    expect(stale.rows.first?.quote?.price == "123.45" && stale.rows.first?.lockScreenCacheDate(at: stale.date) == cachedAt,
+      "An unsaved refresh must keep the cached timestamp when a configuration change selects the older shared quote")
+
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: bitcoin, price: "78000", change24h: nil, fetchedAt: now))
+    let updated = MarketLockScreenTimeline.finishRefresh(initial: initial, fetched: [bitcoin.id: fetched], store: fixture.store)
+    expect(updated.rows.first?.quote?.price == "78000" && updated.rows.first?.lockScreenCacheDate(at: updated.date) == nil,
+      "A newer quote written by the App still displays as fresh")
   }
 
   private static func checkCacheWrittenDuringRefresh() throws {

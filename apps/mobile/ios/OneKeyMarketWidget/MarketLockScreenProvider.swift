@@ -55,7 +55,9 @@ enum MarketLockScreenTimeline {
     let rows = current.rows.map { row in
       let fresh = fetched[row.id]
       let quote = configurationChanged ? row.quote : fresh?.merging(row.quote, at: current.date) ?? row.quote
-      return MarketWidgetRow(asset: row.asset, quote: quote, failed: fresh == nil)
+      // A returned quote may not have reached the shared store. Mark the price we actually show.
+      let refreshed = fresh.map { (quote?.fetchedAt ?? .distantPast) >= $0.fetchedAt } ?? false
+      return MarketWidgetRow(asset: row.asset, quote: quote, failed: !refreshed)
     }
     return MarketWidgetEntry(date: current.date, configuration: current.configuration, rows: rows,
       isWatchlist: current.isWatchlist, selectionUnavailable: current.selectionUnavailable, source: current.source)

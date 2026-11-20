@@ -22,7 +22,14 @@ struct MarketLockScreenEntityTests {
     let stock = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
       isNative: nil, symbol: "NVDA", name: "NVIDIA", stockId: "NVDA")
     let stockEntity = MarketLockScreenAssetEntity(asset: stock)
-    try store.rememberLockScreenAssets([stock])
+    let stockWatchlist = MarketWidgetConfiguration(schemaVersion: 1, assets: [stock], greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(stockWatchlist), as: UTF8.self))
+    try store.saveQuote(MarketWidgetQuote(asset: stock, price: "123.45", change24h: nil, fetchedAt: Date()))
+    expect(MarketLockScreenAssetQuery.resolve([stockEntity.id], in: store).map(\.id) == [stockEntity.id],
+      "WidgetKit restores the saved stock selection before asking for its timeline")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    expect(store.quote(for: stock)?.price == "123.45",
+      "Removing a restored stock from the App watchlist must preserve its Lock Screen quote before timeline refresh")
     let restoredStock = MarketLockScreenAssetEntity(id: stockEntity.id, store: store)
     expect(restoredStock?.asset.stockId == "NVDA" && restoredStock?.asset.kind == .stock,
       "Native configuration restores a stock identity without converting it to a token")
