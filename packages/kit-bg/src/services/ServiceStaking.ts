@@ -3375,6 +3375,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId?: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowReserveDetails(this, params),

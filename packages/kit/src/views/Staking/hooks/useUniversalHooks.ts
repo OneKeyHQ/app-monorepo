@@ -1886,6 +1886,8 @@ type IEthenaPendingSwap = {
   inProgress?: boolean;
   resumeActive?: boolean;
   unstakeUnknown?: boolean;
+  unstakeTxid?: string;
+  unstakeOwner?: object;
 };
 
 export function useUniversalWithdraw({
@@ -1935,6 +1937,7 @@ export function useUniversalWithdraw({
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      onEthenaCooldownUnstakeCompleted,
       signal,
       isActionCurrent,
       isSendCurrent,
@@ -1965,6 +1968,7 @@ export function useUniversalWithdraw({
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      onEthenaCooldownUnstakeCompleted?: () => void;
       signal?: AbortSignal;
       isActionCurrent?: () => boolean;
       // A form may reset after handoff, so send lifetime must be provided separately.
@@ -2006,7 +2010,8 @@ export function useUniversalWithdraw({
           pendingEthenaSwap.checking ||
           pendingEthenaSwap.inProgress ||
           pendingEthenaSwap.resumeActive ||
-          pendingEthenaSwap.unstakeUnknown ||
+          (pendingEthenaSwap.unstakeUnknown &&
+            !pendingEthenaSwap.unstakeTxid) ||
           pendingEthenaSwap.txidConflict ||
           (!pendingEthenaSwap.txid && !pendingEthenaSwap.ready)
         ) {
@@ -2026,7 +2031,6 @@ export function useUniversalWithdraw({
             unknownEthenaSwapsRef.current.get(ethenaScope) !==
               pendingEthenaSwap ||
             pendingEthenaSwap.txidConflict ||
-            pendingEthenaSwap.unstakeUnknown ||
             signal?.aborted ||
             !(isActionCurrent?.() ?? true) ||
             !(isResultCurrent?.() ?? true) ||
@@ -2036,6 +2040,53 @@ export function useUniversalWithdraw({
           if (!accountCurrent) {
             showUnknownEthenaSwap();
             return false;
+          }
+          if (pendingEthenaSwap.unstakeUnknown) {
+            const txid = pendingEthenaSwap.unstakeTxid;
+            if (!txid) {
+              showUnknownEthenaSwap();
+              return false;
+            }
+            const status = await waitForTxFinalStatus({
+              accountId,
+              networkId,
+              txid,
+              expectedAccountAddress: pendingEthenaSwap.accountAddress,
+              signal,
+              maxAttempts: 1,
+            });
+            const stillCurrent = () =>
+              unknownEthenaSwapsRef.current.get(ethenaScope) ===
+                pendingEthenaSwap &&
+              pendingEthenaSwap.unstakeTxid === txid &&
+              !pendingEthenaSwap.txidConflict &&
+              isOwnerCurrent() &&
+              resultAttemptRef.current === recoveryAttempt &&
+              !signal?.aborted &&
+              (isActionCurrent?.() ?? true) &&
+              (isResultCurrent?.() ?? true) &&
+              (isTaskIntentCurrent?.() ?? true);
+            if (
+              !stillCurrent() ||
+              !(await isTaskAccountCurrent({
+                accountId,
+                networkId,
+                accountAddress: pendingEthenaSwap.accountAddress,
+              })) ||
+              !stillCurrent()
+            )
+              return false;
+            if (status === EOnChainHistoryTxStatus.Success) {
+              unknownEthenaSwapsRef.current.delete(ethenaScope);
+              onEthenaCooldownUnstakeCompleted?.();
+              return false;
+            }
+            if (status !== EOnChainHistoryTxStatus.Failed) {
+              showUnknownEthenaSwap();
+              return false;
+            }
+            pendingEthenaSwap.unstakeUnknown = false;
+            pendingEthenaSwap.unstakeTxid = undefined;
           }
           if (!pendingEthenaSwap.ready) {
             const txid = pendingEthenaSwap.txid;
@@ -3164,6 +3215,8 @@ export function useUniversalWithdraw({
           pendingEthenaSwap.resumeActive = true;
         }
         try {
+          const unstakeOwner = {};
+          let acceptedUnstakeTxid: string | undefined;
           const ethenaAccountAddress = await getTaskAccountAddress({
             accountId,
             networkId,
@@ -3352,6 +3405,14 @@ export function useUniversalWithdraw({
                 throw new OneKeyLocalError(
                   'Task account changed before withdrawal',
                 );
+              if (
+                ethenaAttempt &&
+                (unknownEthenaSwapsRef.current.get(ethenaScope) !==
+                  ethenaAttempt ||
+                  ethenaAttempt.txidConflict)
+              ) {
+                throw new OneKeyLocalError('Ethena withdrawal state changed');
+              }
             },
             onSubmitted: async (stage, data, stakeInfo) => {
               const resultCurrent = () =>
@@ -3461,13 +3522,42 @@ export function useUniversalWithdraw({
               if (ethenaAttempt) ethenaAttempt.inProgress = false;
             },
             onUnknownUnstake: () => {
-              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = true;
+              if (ethenaAttempt?.unstakeOwner === unstakeOwner)
+                ethenaAttempt.unstakeUnknown = true;
+            },
+            onLateUnstakeBroadcast: (txid, accepted) => {
+              if (
+                !ethenaAttempt ||
+                unknownEthenaSwapsRef.current.get(ethenaScope) !== ethenaAttempt
+              )
+                return;
+              const normalized = txid.trim();
+              if (!normalized) return;
+              if (ethenaAttempt.unstakeOwner !== unstakeOwner) {
+                if (acceptedUnstakeTxid && acceptedUnstakeTxid !== normalized)
+                  ethenaAttempt.txidConflict = true;
+                return;
+              }
+              if (
+                ethenaAttempt.unstakeTxid &&
+                ethenaAttempt.unstakeTxid !== normalized
+              ) {
+                ethenaAttempt.txidConflict = true;
+              } else if (accepted) {
+                acceptedUnstakeTxid = normalized;
+                ethenaAttempt.unstakeTxid = normalized;
+              }
             },
             onUnstakeSend: () => {
-              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = true;
+              if (ethenaAttempt) {
+                ethenaAttempt.unstakeOwner = unstakeOwner;
+                ethenaAttempt.unstakeTxid = undefined;
+                ethenaAttempt.unstakeUnknown = true;
+              }
             },
             onUnstakeSendBlocked: () => {
-              if (ethenaAttempt) ethenaAttempt.unstakeUnknown = false;
+              if (ethenaAttempt?.unstakeOwner === unstakeOwner)
+                ethenaAttempt.unstakeUnknown = false;
             },
             onSwapSendBlocked: forgetEthenaSwap,
             onSwapSend: () => {

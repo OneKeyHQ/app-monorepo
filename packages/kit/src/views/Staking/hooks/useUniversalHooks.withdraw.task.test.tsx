@@ -1993,6 +1993,112 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    [EOnChainHistoryTxStatus.Success, false],
+    [EOnChainHistoryTxStatus.Failed, true],
+    [undefined, false],
+  ])(
+    'rechecks the late unstake hash before recovery (status %s)',
+    async (status, retries) => {
+      mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+        await onSuccess?.(submittedData());
+      });
+      mockNavigate.mockImplementationOnce(
+        async ({ onBeforeSend, onCancel }) => {
+          await onBeforeSend?.();
+          onCancel?.();
+        },
+      );
+      const completed = jest.fn();
+      const { result } = renderHook(() => useUniversalWithdraw(account));
+      const ethena = {
+        ...params,
+        provider: 'pendle',
+        useEthenaCooldown: true,
+        onEthenaCooldownUnstakeCompleted: completed,
+      };
+      await expect(result.current(ethena)).resolves.toBe(true);
+      await mockNavigate.mock.calls[1][0].onLateBroadcastAccepted?.({
+        ...account,
+        uuid: 'late-unstake',
+        txid: 'unstake-tx',
+      });
+      mockWaitFinality.mockResolvedValueOnce(status);
+      mockNavigate.mockImplementationOnce(async ({ onCancel }) => onCancel?.());
+      await result.current({ ...ethena, resumeEthenaCooldownUnstake: true });
+      expect(mockWaitFinality).toHaveBeenLastCalledWith(
+        expect.objectContaining({ txid: 'unstake-tx', maxAttempts: 1 }),
+      );
+      expect(mockNavigate).toHaveBeenCalledTimes(retries ? 3 : 2);
+      expect(completed).toHaveBeenCalledTimes(
+        status === EOnChainHistoryTxStatus.Success ? 1 : 0,
+      );
+    },
+  );
+
+  it('keeps a conflicting late Ethena unstake locked', async () => {
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
+    await result.current(ethena);
+    const confirmation = mockNavigate.mock.calls[1][0];
+    await confirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'late-1',
+      txid: 'unstake-1',
+    });
+    await confirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'late-2',
+      txid: 'unstake-2',
+    });
+    await expect(
+      result.current({ ...ethena, resumeEthenaCooldownUnstake: true }),
+    ).resolves.toBe(false);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+    expect(mockWaitFinality).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry an unstake if a conflicting hash arrives during finality lookup', async () => {
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
+    await result.current(ethena);
+    const confirmation = mockNavigate.mock.calls[1][0];
+    await confirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'late-1',
+      txid: 'unstake-1',
+    });
+    const pending = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitFinality.mockReturnValueOnce(pending.promise);
+    const retry = result.current({
+      ...ethena,
+      resumeEthenaCooldownUnstake: true,
+    });
+    await waitFor(() => expect(mockWaitFinality).toHaveBeenCalledTimes(2));
+    await confirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'late-2',
+      txid: 'unstake-2',
+    });
+    pending.resolve(EOnChainHistoryTxStatus.Failed);
+    await expect(retry).resolves.toBe(false);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+  });
+
   it('releases a normal Ethena cooldown after closing a failed precheck', async () => {
     mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
       await onSuccess?.(submittedData());

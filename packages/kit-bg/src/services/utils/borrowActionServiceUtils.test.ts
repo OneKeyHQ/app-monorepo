@@ -662,6 +662,29 @@ describe('borrowActionServiceUtils', () => {
     });
   });
 
+  it('binds reserve details to the expected account without sending the expectation to the API', async () => {
+    const request = {
+      networkId: 'evm--1',
+      provider: 'aave',
+      marketAddress: '0xmarket',
+      reserveAddress: '0xreserve',
+      accountId: 'account-1',
+      expectedAccountAddress: accountAddress.toUpperCase(),
+    };
+    get.mockResolvedValue({ data: { data: {} } });
+    await getBorrowReserveDetails(service, request);
+    expect(get.mock.calls[0][1].params).not.toHaveProperty(
+      'expectedAccountAddress',
+    );
+    await expect(
+      getBorrowReserveDetails(service, {
+        ...request,
+        expectedAccountAddress: '0xother',
+      }),
+    ).rejects.toThrow('Borrow account changed');
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     {
       call: () =>

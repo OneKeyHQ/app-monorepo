@@ -725,6 +725,7 @@ const EarnLendingDetailsPage = () => {
   } = useLendingSupplyHolding({
     market,
     accountId: earnAccount?.account?.id,
+    accountAddress: earnAccount?.account?.address,
     provider,
     networkId,
     marketAddress,

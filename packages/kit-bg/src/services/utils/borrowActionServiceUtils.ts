@@ -404,15 +404,22 @@ export async function getBorrowReserveDetails(
     marketAddress: string;
     reserveAddress: string;
     accountId?: string;
+    expectedAccountAddress?: string;
   },
 ) {
-  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
+  const { expectedAccountAddress, ...request } = params;
+  const { accountId, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(request);
   const accountAddress = accountId
-    ? await service.backgroundApi.serviceAccount.getAccountAddressForApi({
+    ? await resolveBorrowActionAccount(service, {
         networkId: params.networkId,
         accountId,
+        expectedAccountAddress,
       })
     : undefined;
+  if (!accountId && expectedAccountAddress !== undefined) {
+    throw new OneKeyLocalError('Borrow account changed');
+  }
   const client = await service.getClient(EServiceEndpointEnum.Earn);
   const response = await client.get<{
     data: IBorrowReserveDetail;

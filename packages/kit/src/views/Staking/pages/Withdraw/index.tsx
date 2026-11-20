@@ -234,6 +234,7 @@ const WithdrawPage = () => {
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      onEthenaCooldownUnstakeCompleted,
       withdrawType: confirmWithdrawType,
       isActionCurrent,
       isSendCurrent,
@@ -252,6 +253,7 @@ const WithdrawPage = () => {
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      onEthenaCooldownUnstakeCompleted?: () => void;
       withdrawType?: IEarnWithdrawType;
       isActionCurrent?: () => boolean;
       isSendCurrent?: () => boolean;
@@ -301,6 +303,7 @@ const WithdrawPage = () => {
         withdrawType: confirmWithdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
+        onEthenaCooldownUnstakeCompleted,
         signal: abortController.signal,
         isActionCurrent,
         isSendCurrent,

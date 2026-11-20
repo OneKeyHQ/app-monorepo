@@ -53,11 +53,6 @@ const RECORDABLE_ENDPOINTS = [
   {
     route: 'GET earn.onekeycn.com/earn/v1/borrow/reserves',
     query: ['marketAddress', 'networkId', 'provider'],
-    values: {
-      marketAddress: /^0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2$/,
-      networkId: /^evm--1$/,
-      provider: /^aave$/,
-    },
   },
   { route: 'GET earn.onekeycn.com/earn/v1/faq/list' },
   { route: 'GET earn.onekeycn.com/earn/v2/available-assets' },
@@ -314,10 +309,18 @@ function isApiUrl(url) {
   return API_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
 }
 
+function publicMarketKey({ marketAddress, networkId, provider }) {
+  return JSON.stringify([
+    networkId.startsWith('evm--') ? marketAddress.toLowerCase() : marketAddress,
+    networkId,
+    provider,
+  ]);
+}
+
 /**
  * Why a request to an API host may not be recorded, or null when it may.
  */
-function recordRefusal({ method, url, postData, headers }) {
+function recordRefusal({ method, url, postData, headers, publicMarkets }) {
   const credential = CREDENTIAL_HEADERS.find((name) => headers?.[name]);
   if (credential) return `carries ${credential}`;
   const route = routeKey({ method, url });
@@ -335,6 +338,22 @@ function recordRefusal({ method, url, postData, headers }) {
     }
     if (endpoint.values?.[name] && !endpoint.values[name].test(value)) {
       return 'query parameter value not allowed for this endpoint';
+    }
+  }
+  if (route === 'GET earn.onekeycn.com/earn/v1/borrow/reserves') {
+    const params = new URL(url).searchParams;
+    const names = ['marketAddress', 'networkId', 'provider'];
+    if (
+      names.some((name) => params.getAll(name).length !== 1) ||
+      !publicMarkets?.has(
+        publicMarketKey(
+          Object.fromEntries(
+            names.map((name) => [name, params.get(name) || '']),
+          ),
+        ),
+      )
+    ) {
+      return 'market not in recorded public market list';
     }
   }
   if (
@@ -484,9 +503,12 @@ function createRecorder({ fixturePath, source, fresh, log }) {
   const existing = fresh ? emptyFixtureFile() : readFixtureFile(fixturePath);
   const recorded = new Map();
   const failures = new Map();
+  const publicMarkets = new Set();
+  let publicMarketsRecorded = false;
 
   return {
     source,
+    publicMarkets,
     fail(label, reason) {
       failures.set(label, reason);
     },
@@ -514,6 +536,34 @@ function createRecorder({ fixturePath, source, fresh, log }) {
       if (problem) {
         failures.set(label, problem);
         return false;
+      }
+      if (key === 'GET earn.onekeycn.com/earn/v1/borrow/markets') {
+        const markets = json?.code === 0 && json?.data?.markets;
+        const names = ['marketAddress', 'networkId', 'provider'];
+        if (
+          !Array.isArray(markets) ||
+          markets.some((market) =>
+            names.some(
+              (name) =>
+                typeof market?.[name] !== 'string' ||
+                !/^[a-zA-Z0-9_-]{1,128}$/.test(market[name]),
+            ),
+          )
+        ) {
+          failures.set(label, 'invalid public market list');
+          return false;
+        }
+        const nextMarkets = new Set(markets.map(publicMarketKey));
+        if (
+          publicMarketsRecorded &&
+          (nextMarkets.size !== publicMarkets.size ||
+            [...nextMarkets].some((market) => !publicMarkets.has(market)))
+        ) {
+          failures.set(label, 'public market list changed during recording');
+          return false;
+        }
+        for (const market of nextMarkets) publicMarkets.add(market);
+        publicMarketsRecorded = true;
       }
       const entry = recorded.get(key) || {
         key,
@@ -668,6 +718,7 @@ async function installNetworkIsolation({
       const refusal = recordRefusal({
         ...keyInput,
         headers: await request.allHeaders(),
+        publicMarkets: recorder.publicMarkets,
       });
       if (refusal) {
         recorder.fail(label, refusal);

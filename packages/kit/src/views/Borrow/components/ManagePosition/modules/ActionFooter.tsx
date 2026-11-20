@@ -22,6 +22,10 @@ import {
   EarnFormCompactContext,
   EarnFormSwitchingContext,
 } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -85,7 +89,39 @@ export function ActionFooter({
   // (no spinner, no grey that comes and goes with each keystroke), as the
   // staking forms' does; a press in that moment goes once the check is in
   const keepsLookWhileChecking = Boolean(isEarnForm);
-  const [isPressWaitingCheck, setIsPressWaitingCheck] = useState(false);
+  const checkIntent = useMemo(
+    () => ({
+      accountId: state.accountId,
+      networkId: state.networkId,
+      providerName: state.providerName,
+      marketAddress: state.borrowMarketAddress,
+      reserveAddress: state.borrowReserveAddress,
+      action,
+      amountValue,
+      isWithdrawAll: state.isWithdrawAll,
+      isRepayAll: state.isRepayAll,
+    }),
+    [
+      state.accountId,
+      state.networkId,
+      state.providerName,
+      state.borrowMarketAddress,
+      state.borrowReserveAddress,
+      action,
+      amountValue,
+      state.isWithdrawAll,
+      state.isRepayAll,
+    ],
+  );
+  const [waitingCheckIntent, setWaitingCheckIntent] = useState<object>();
+  const isPressWaitingCheck = waitingCheckIntent === checkIntent;
+  useEffect(() => {
+    const invalidate = () => setWaitingCheckIntent(undefined);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, invalidate);
+    };
+  }, []);
 
   const businessActionLabel = useMemo(
     () =>
@@ -171,7 +207,7 @@ export function ActionFooter({
       return;
     }
     if (keepsLookWhileChecking && checkAmountLoading) {
-      setIsPressWaitingCheck(true);
+      setWaitingCheckIntent(checkIntent);
       return;
     }
     if (shouldApprove) {
@@ -186,6 +222,7 @@ export function ActionFooter({
     await handleSubmit();
   }, [
     checkAmountLoading,
+    checkIntent,
     confirmBorrowLiquidationRisk,
     handleSubmit,
     isSwitchingOffer,
@@ -199,19 +236,28 @@ export function ActionFooter({
     isBusy ||
     (keepsLookWhileChecking ? isPressWaitingCheck : checkAmountLoading);
   useEffect(() => {
-    if (!isPressWaitingCheck || checkAmountLoading) {
+    if (!waitingCheckIntent) {
       return;
     }
-    setIsPressWaitingCheck(false);
-    if (!isButtonDisabled && !isBusy) {
+    if (!isPressWaitingCheck) {
+      setWaitingCheckIntent(undefined);
+      return;
+    }
+    if (checkAmountLoading) {
+      return;
+    }
+    setWaitingCheckIntent(undefined);
+    if (checkAmountResult === true && !isButtonDisabled && !isBusy) {
       void handleConfirm();
     }
   }, [
     checkAmountLoading,
+    checkAmountResult,
     handleConfirm,
     isBusy,
     isButtonDisabled,
     isPressWaitingCheck,
+    waitingCheckIntent,
   ]);
   const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
   useEffect(() => {

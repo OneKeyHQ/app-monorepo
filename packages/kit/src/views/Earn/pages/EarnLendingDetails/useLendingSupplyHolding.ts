@@ -27,6 +27,7 @@ import type { IEarnDesktopAccountMarket } from '../../components/desktopHome/use
 export function useLendingSupplyHolding({
   market,
   accountId,
+  accountAddress,
   provider,
   networkId,
   marketAddress,
@@ -35,6 +36,7 @@ export function useLendingSupplyHolding({
   market: IBorrowMarketItem | undefined;
   // The page's account on the market's network
   accountId: string | undefined;
+  accountAddress: string | undefined;
   provider: string;
   networkId: string;
   marketAddress: string;
@@ -44,14 +46,31 @@ export function useLendingSupplyHolding({
   const remembered = useRememberedAccountMarket(
     buildBorrowMarketKey({ provider, networkId, marketAddress }),
   );
-  const rememberedHealthFactor = remembered?.healthFactor;
+  const rememberedForAccount =
+    accountId && accountAddress && remembered?.accountId === accountId
+      ? remembered
+      : undefined;
+  const rememberedHealthFactor = rememberedForAccount?.healthFactor;
+  const scope = JSON.stringify([
+    accountId,
+    accountAddress,
+    networkId,
+    provider,
+    marketAddress,
+  ]);
 
   const { result: read, run } = usePromiseResult(
     async () => {
-      if (!accountId) {
+      if (!accountId || !accountAddress) {
         return undefined;
       }
-      const params = { provider, networkId, marketAddress, accountId };
+      const params = {
+        provider,
+        networkId,
+        marketAddress,
+        accountId,
+        expectedAccountAddress: accountAddress,
+      };
       const reserves =
         await backgroundApiProxy.serviceStaking.getBorrowReserves(params);
       const hasLoan = (reserves?.borrowed?.assets ?? []).some((asset) =>
@@ -67,18 +86,23 @@ export function useLendingSupplyHolding({
             )
             .catch(() => rememberedHealthFactor)
         : undefined;
-      return { accountId, reserves, healthFactor };
+      return { accountId, scope, reserves, healthFactor };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId, marketAddress, networkId, provider],
+    [accountId, accountAddress, marketAddress, networkId, provider, scope],
     { keepResultIfError: true },
   );
 
   // The page's own read once it has one for this account; until then the
   // home's, if it was for the same account
   const entry = useMemo<IEarnDesktopAccountMarket | undefined>(() => {
-    const ownMarket = market ?? remembered?.market;
-    if (read && read.accountId === accountId && ownMarket) {
+    const ownMarket = market ?? rememberedForAccount?.market;
+    if (
+      read &&
+      read.scope === scope &&
+      read.accountId === accountId &&
+      ownMarket
+    ) {
       return {
         market: ownMarket,
         accountId: read.accountId,
@@ -86,14 +110,11 @@ export function useLendingSupplyHolding({
         healthFactor: read.healthFactor,
       };
     }
-    if (
-      remembered?.reserves &&
-      (!accountId || remembered.accountId === accountId)
-    ) {
-      return remembered;
+    if (rememberedForAccount?.reserves) {
+      return rememberedForAccount;
     }
     return undefined;
-  }, [accountId, market, read, remembered]);
+  }, [accountId, market, read, rememberedForAccount, scope]);
 
   const holding = useMemo(() => {
     if (!entry) {

@@ -209,6 +209,7 @@ type IUniversalWithdrawProps = {
     resumeEthenaCooldownUnstake,
     onStepChange,
     onEthenaCooldownUnstakeReady,
+    onEthenaCooldownUnstakeCompleted,
     withdrawType,
     isActionCurrent,
     isSendCurrent,
@@ -229,6 +230,7 @@ type IUniversalWithdrawProps = {
     // Pendle Ethena: step change callback for multi-step progress
     onStepChange?: (step: number) => void;
     onEthenaCooldownUnstakeReady?: () => void;
+    onEthenaCooldownUnstakeCompleted?: () => void;
     withdrawType?: IEarnWithdrawType;
     isActionCurrent?: () => boolean;
     isSendCurrent?: () => boolean;
@@ -1926,6 +1928,13 @@ export function UniversalWithdraw({
                 setIgnoreAllowanceCheck(true);
                 setPendingEthenaCooldownUnstake(true);
                 setWithdrawProgressStep(EStakeProgressStep.unstake);
+              }
+            : undefined,
+          onEthenaCooldownUnstakeCompleted: shouldUseEthenaCooldown
+            ? () => {
+                resetAmount();
+                setWithdrawProgressStep(EStakeProgressStep.approve);
+                onQuoteReset?.();
               }
             : undefined,
         });

@@ -1066,6 +1066,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      onEthenaCooldownUnstakeCompleted,
       withdrawType,
       isActionCurrent,
       isSendCurrent,
@@ -1081,6 +1082,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      onEthenaCooldownUnstakeCompleted?: () => void;
       withdrawType?: IEarnWithdrawType;
       isActionCurrent?: () => boolean;
       isSendCurrent?: () => boolean;
@@ -1119,6 +1121,7 @@ export const WithdrawSection = ({
         withdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
+        onEthenaCooldownUnstakeCompleted,
         signal: abortController.signal,
         isActionCurrent,
         isSendCurrent,

@@ -39,6 +39,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
   waitForSwap,
   onUnknownSwap,
   onUnknownUnstake,
+  onLateUnstakeBroadcast,
   onUnstakeSend,
   onUnstakeSendBlocked,
   onSwapSend,
@@ -133,10 +134,13 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
               if (
                 fact.accountId !== identity.accountId ||
                 fact.networkId !== identity.networkId ||
-                !fact.uuid.trim() ||
-                !callbacks.onLateBroadcastAccepted(fact.txid)
+                !fact.uuid.trim()
               )
                 return;
+              const accepted = callbacks.onLateBroadcastAccepted(fact.txid);
+              if (stage === 'unstake')
+                onLateUnstakeBroadcast?.(fact.txid, accepted);
+              if (!accepted) return;
               const recordingResult = await recordLateOrder({
                 fact,
                 accountId: identity.accountId,
@@ -239,6 +243,7 @@ type IEthenaWithdrawTaskParams<TIdentity extends IEarnTaskScope> = {
   waitForSwap: (txid?: string) => Promise<boolean>;
   onUnknownSwap: (txid?: string) => void;
   onUnknownUnstake?: () => void;
+  onLateUnstakeBroadcast?: (txid: string, accepted: boolean) => void;
   onUnstakeSend?: () => void;
   onUnstakeSendBlocked?: () => void;
   onSwapSend: () => void;
@@ -262,6 +267,7 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
   waitForSwap,
   onUnknownSwap,
   onUnknownUnstake,
+  onLateUnstakeBroadcast,
   onUnstakeSend,
   onUnstakeSendBlocked,
   onSwapSend,
@@ -288,6 +294,7 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
     waitForSwap,
     onUnknownSwap,
     onUnknownUnstake,
+    onLateUnstakeBroadcast,
     onUnstakeSend,
     onUnstakeSendBlocked,
     onSwapSend,

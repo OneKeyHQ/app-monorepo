@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowReserveTokenByAddress } from '../../../components/borrowRepayPosition.utils';
@@ -36,36 +37,61 @@ export function useBorrowReserveDetailData({
     accountId: normalizedAccountId,
     indexedAccountId,
   });
+  let accountAddress: string | undefined;
+  if (normalizedAccountId && earnAccount?.account?.id === normalizedAccountId) {
+    accountAddress = networkUtils.isLightningNetworkByNetworkId(networkId)
+      ? earnAccount.account.addressDetail.normalizedAddress
+      : earnAccount.account.address;
+  }
+  const detailScope = JSON.stringify([
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    normalizedAccountId,
+    accountAddress,
+    currencyInfo.id,
+  ]);
 
   const {
     result: detailResult,
     isLoading: isDetailLoading,
     run,
   } = usePromiseResult(
-    async () => ({
-      details: await backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        ...(normalizedAccountId ? { accountId: normalizedAccountId } : {}),
-      }),
-      currencyId: currencyInfo.id,
-    }),
+    async () => {
+      if (normalizedAccountId && !accountAddress) return undefined;
+      return {
+        details:
+          await backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
+            networkId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            ...(normalizedAccountId
+              ? {
+                  accountId: normalizedAccountId,
+                  expectedAccountAddress: accountAddress,
+                }
+              : {}),
+          }),
+        scope: detailScope,
+      };
+    },
     [
       networkId,
       provider,
       marketAddress,
       reserveAddress,
       normalizedAccountId,
-      currencyInfo.id,
+      accountAddress,
+      detailScope,
     ],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
-  const isCurrencyStale =
-    detailResult !== undefined && detailResult.currencyId !== currencyInfo.id;
-  const details = isCurrencyStale ? undefined : detailResult?.details;
+  const isDetailStale =
+    detailResult !== undefined && detailResult.scope !== detailScope;
+  const details = isDetailStale ? undefined : detailResult?.details;
 
   const reserveTokenScopeKey = resolveTokenMetadata
     ? JSON.stringify([
@@ -133,7 +159,7 @@ export function useBorrowReserveDetailData({
     isLoading:
       (normalizedAccountId || indexedAccountId ? isAccountLoading : false) ||
       isDetailLoading ||
-      isCurrencyStale,
+      isDetailStale,
     refreshData,
     refreshAccount,
   };
