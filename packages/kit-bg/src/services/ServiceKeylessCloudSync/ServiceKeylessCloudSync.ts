@@ -63,7 +63,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
-import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
+  isRetainedHardwareCloudCopy,
+  isSupportedCloudSyncDataType,
+} from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -745,6 +748,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
                   ...credential,
                   source,
                 }),
+                loadAuthoritativeItems: () =>
+                  this.backgroundApi.servicePrimeCloudSync.buildHardwareRestoreWalletAccountItems(
+                    this.buildSyncCredentialWithKeylessCredential({
+                      ...credential,
+                      source,
+                    }),
+                  ),
               })
             : [];
           const recoveredIds = new Set(
@@ -757,7 +767,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
               keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
             ) &&
             !knownPwdHashes.has(item.pwdHash) &&
-            !recoveredIds.has(item.id);
+            !recoveredIds.has(item.id) &&
+            !(
+              restoresRotatedHardwareKey &&
+              isRetainedHardwareCloudCopy(item, credential.pwdHash)
+            );
           const existingHashRecoverable =
             restoresRotatedHardwareKey &&
             existing?.pwdHash.startsWith(

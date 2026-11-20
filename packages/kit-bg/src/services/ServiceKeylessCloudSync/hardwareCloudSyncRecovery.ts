@@ -6,7 +6,10 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
-import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
+  isRetainedHardwareCloudCopy,
+  isSupportedCloudSyncDataType,
+} from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
 import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
@@ -16,6 +19,7 @@ import type { IDBCloudSyncItem } from '../../dbs/local/types';
 type IRecoveredItem = {
   original: IDBCloudSyncItem;
   replacement: IDBCloudSyncItem;
+  replaceRawData?: boolean;
 };
 
 export function hasPendingDeletionFromPreviousHardwareKey({
@@ -43,13 +47,45 @@ export async function prepareHardwareCloudSyncLocalRecovery({
   items,
   syncCredential,
   knownPwdHashes,
+  loadAuthoritativeItems,
 }: {
   items: IDBCloudSyncItem[];
   syncCredential: ICloudSyncCredential;
   knownPwdHashes: ReadonlySet<string>;
+  loadAuthoritativeItems?: () => Promise<IDBCloudSyncItem[]>;
 }): Promise<IRecoveredItem[]> {
   const currentHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
   const recovered: IRecoveredItem[] = [];
+  const isKnownOpaqueCopy = (item: IDBCloudSyncItem) =>
+    !item.rawData &&
+    !!item.rawKey &&
+    item.localSceneUpdated &&
+    knownPwdHashes.has(item.pwdHash) &&
+    isRetainedHardwareCloudCopy(item, currentHash);
+  if (loadAuthoritativeItems && items.some(isKnownOpaqueCopy)) {
+    const candidates = await loadAuthoritativeItems();
+    const byId = new Map<string, IDBCloudSyncItem | undefined>();
+    for (const candidate of candidates) {
+      byId.set(candidate.id, byId.has(candidate.id) ? undefined : candidate);
+    }
+    for (const item of items.filter(isKnownOpaqueCopy)) {
+      const replacement = byId.get(item.id);
+      if (
+        replacement?.data &&
+        replacement.rawData &&
+        replacement.rawKey === item.rawKey &&
+        replacement.dataType === item.dataType &&
+        replacement.pwdHash === currentHash &&
+        !replacement.isDeleted
+      ) {
+        recovered.push({
+          original: { ...item },
+          replacement,
+          replaceRawData: true,
+        });
+      }
+    }
+  }
   const candidates = items.filter((item) => {
     // Downloaded records can still be waiting for scene decryption. Preserve
     // their ciphertext when the authenticated history already accepts the key.
@@ -57,6 +93,17 @@ export async function prepareHardwareCloudSyncLocalRecovery({
       !item.rawData && item.data && knownPwdHashes.has(item.pwdHash);
     return (
       !canRetainCiphertext &&
+      (!item.pwdHash ||
+        knownPwdHashes.has(item.pwdHash) ||
+        // The local write path can create a plaintext-only version before
+        // a credential is available, but downloaded ciphertext is not proof
+        // that its cached rawData belongs to this source.
+        (!item.data &&
+          !!item.rawData &&
+          item.localSceneUpdated &&
+          !item.serverUploaded) ||
+        (item.dataType !== EPrimeCloudSyncDataType.Wallet &&
+          item.dataType !== EPrimeCloudSyncDataType.Account)) &&
       !item.pendingPublicAccountDeletionAt &&
       isSupportedCloudSyncDataType(item.dataType) &&
       item.dataType !== EPrimeCloudSyncDataType.Lock &&
@@ -117,7 +164,11 @@ export async function commitHardwareCloudSyncLocalRecovery(
         item &&
         record.pwdHash === item.original.pwdHash &&
         record.data === item.original.data &&
+        record.dataType === item.original.dataType &&
+        record.rawKey === item.original.rawKey &&
         record.rawData === item.original.rawData &&
+        record.serverUploaded === item.original.serverUploaded &&
+        record.localSceneUpdated === item.original.localSceneUpdated &&
         record.dataTime === item.original.dataTime &&
         record.isDeleted === item.original.isDeleted &&
         !record.pendingPublicAccountDeletionAt
@@ -125,6 +176,9 @@ export async function commitHardwareCloudSyncLocalRecovery(
         // Keep the business version, tombstone and pending scene state. A
         // concurrent edit is left untouched for the following full sync.
         record.data = item.replacement.data;
+        if (item.replaceRawData) {
+          record.rawData = item.replacement.rawData;
+        }
         record.pwdHash = item.replacement.pwdHash;
         record.serverUploaded = false;
       }

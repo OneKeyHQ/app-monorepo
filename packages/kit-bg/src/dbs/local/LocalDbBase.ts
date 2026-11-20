@@ -427,6 +427,9 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  preserveExisting?: (
+    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+  ) => boolean;
   fn?: () => Promise<void>;
 };
 
@@ -437,6 +440,9 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  preserveExisting?: (
+    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+  ) => boolean;
 };
 
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
@@ -5549,6 +5555,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUpdate,
     skipUploadToServer,
     fn,
+    preserveExisting,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
@@ -5559,6 +5566,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           items,
           skipUpdate,
           skipUploadToServer,
+          preserveExisting,
         });
 
         await fn?.();
@@ -5587,6 +5595,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items,
     skipUpdate,
     skipUploadToServer,
+    preserveExisting,
   }: ITxAddAndUpdateSyncItemsParams) {
     const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
     if (guardedItems.length) {
@@ -5631,7 +5640,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const recordToUpdate = writableItems.find(
             (item) => item.id === record.id,
           );
-          if (recordToUpdate) {
+          if (recordToUpdate && !preserveExisting?.(record)) {
             this._updateCloudSyncPoolItemFn({
               item: record,
               updateItem: recordToUpdate,

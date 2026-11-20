@@ -1440,6 +1440,54 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([EPrimeCloudSyncDataType.Wallet, EPrimeCloudSyncDataType.Account])(
+    'same-source restore skips a settled opaque %s under a different key',
+    async (dataType) => {
+      const { service, backgroundApi } = setup([
+        {
+          pwdHash: 'legacy-keyless',
+          dataType,
+          data: 'public-test-opaque-ciphertext',
+          rawData: '',
+          serverUploaded: true,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      const currentCredential = {
+        ...credential,
+        pwdHash: 'hw-dek-current',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: 'public-test-current-key',
+        dekId: 'public-test-dek',
+        pwdHash: currentCredential.pwdHash,
+        generation: 4,
+        previousPwdHashes: [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({ credential: currentCredential, source }),
+        );
+      const before = structuredClone(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      );
+
+      await service.enableHardwareCloudSync({ connectId });
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+      expect(
+        backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+      ).toHaveBeenCalled();
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      ).toEqual(before);
+    },
+  );
+
   test('rejects cancelled and failed hardware results before persisting anything', async () => {
     const { service } = setup();
     jest

@@ -1508,6 +1508,53 @@ describe('Cloud sync records from opaque server storage', () => {
     expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
   });
 
+  test('hardware flush leaves a legacy opaque copy untouched and checks only active records', async () => {
+    const service = build();
+    const active = { ...valid, pwdHash: 'hw-dek-active' };
+    const legacy = {
+      ...active,
+      id: 'legacy-account',
+      dataType: EPrimeCloudSyncDataType.Account,
+      pwdHash: 'legacy-keyless',
+      serverUploaded: true,
+    };
+    const hardwareCredential = {
+      ...credential,
+      keylessCredential: {
+        keylessWalletId: 'public-test-source',
+        encryptionKey: 'public-test-key',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        pwdHash: active.pwdHash,
+      },
+    };
+    db.getAllSyncItems.mockResolvedValue({ syncItems: [active, legacy] });
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+    });
+    jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+    jest
+      .spyOn(service, 'ensureCloudSyncIsAvailable')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'getSyncCredentialSafe')
+      .mockResolvedValue(hardwareCredential);
+    jest.spyOn(service, 'syncPendingItemsToScene').mockResolvedValue(undefined);
+    const sync = jest
+      .spyOn(service, 'startServerSyncFlowForItems')
+      .mockResolvedValue(undefined);
+    await service.startServerSyncFlowSilently({
+      isFlush: true,
+      throwError: true,
+    });
+    expect(sync).toHaveBeenCalledWith(
+      expect.objectContaining({ localItems: [active] }),
+    );
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+    expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
+  });
+
   test('key safety checks can read unsupported local records without exposing them to business sync', async () => {
     const service = build();
     expect(

@@ -1,6 +1,7 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { isInactiveHardwareWalletAccount } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import {
   isRejectedPublicAccountSnapshotWrite,
   rememberPublicAccountSnapshotWrite,
@@ -116,10 +117,17 @@ class SnapshotWriteTestDb extends LocalDbBase {
     }
   }
 
-  async run(items: IDBCloudSyncItem[]) {
+  async run(
+    items: IDBCloudSyncItem[],
+    preserveExisting?: (
+      item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+    ) => boolean,
+  ) {
     return this.txAddAndUpdateSyncItems({
       tx: {} as ILocalDBTransaction,
       items,
+      preserveExisting,
+      skipUploadToServer: !!preserveExisting,
     });
   }
 }
@@ -237,3 +245,30 @@ describe('LocalDbBase public snapshot optimistic write', () => {
     expect(db.records.get(update.id)?.data).toBe('server-future-schema');
   });
 });
+
+it.each([100, 300])(
+  'preserves a settled opaque same-id copy against an incoming version (%s), while applying an unrelated record',
+  async (dataTime) => {
+    const db = new SnapshotWriteTestDb();
+    const old = {
+      ...item(),
+      pwdHash: 'legacy-keyless',
+      serverUploaded: true,
+      dataTime: 200,
+    };
+    const incoming = {
+      ...old,
+      data: 'active-ciphertext',
+      pwdHash: 'hw-dek-current',
+      dataTime,
+    };
+    const unrelated = { ...incoming, id: 'unrelated-item' };
+    db.records.set(old.id, old);
+    await db.run([incoming, unrelated], (record) =>
+      isInactiveHardwareWalletAccount(record, incoming.pwdHash),
+    );
+    expect(db.records.get(old.id)).toEqual(old);
+    expect(db.records.get(unrelated.id)).toEqual(unrelated);
+    expect(db.apiUploadItems).not.toHaveBeenCalled();
+  },
+);

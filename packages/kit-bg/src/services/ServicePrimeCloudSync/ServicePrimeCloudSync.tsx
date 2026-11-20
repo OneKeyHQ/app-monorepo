@@ -9,6 +9,7 @@ import {
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
   CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
@@ -98,6 +99,7 @@ import ServiceBase from '../ServiceBase';
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
   buildOnlyCheckLocalDataTypes,
+  isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
@@ -1628,9 +1630,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     const customTokenItems: IDBCloudSyncItem[] = [];
     const addressBookItems: IDBCloudSyncItem[] = [];
 
+    const activePwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
     for (const item of items) {
       if (
         item.pendingPublicAccountDeletionAt ||
+        isInactiveHardwareWalletAccount(item, activePwdHash) ||
         !isSupportedCloudSyncDataType(item.dataType)
       )
         continue;
@@ -1933,6 +1937,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       isSupportedCloudSyncDataType(item.dataType),
     );
     if (!localItems.length) return;
+    const activePwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
+    const preserveExisting = (
+      item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+    ) => isInactiveHardwareWalletAccount(item, activePwdHash);
     console.log('updateLocalItemsByServer', localItems.length);
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
@@ -1943,6 +1951,9 @@ class ServicePrimeCloudSync extends ServiceBase {
           items: localItems,
           // Server data does not need to be uploaded again.
           skipUploadToServer: true,
+          ...(activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+            ? { preserveExisting }
+            : {}),
           isCurrent,
         });
       },
@@ -1951,10 +1962,13 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     if (shouldSyncToScene && syncCredential) {
       // we need to query from the database again, not use the localSyncItems above, because when updating, the timestamp may not be written if it does not match
-      const { records: items } = await localDb.getRecordsByIds({
+      const { records } = await localDb.getRecordsByIds({
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: localItems.map((item) => item.id),
       });
+      const items = records.filter(
+        (item): item is IDBCloudSyncItem => !!item && !preserveExisting(item),
+      );
       // Keep the downloaded versions before scene replay mutates decrypt/ACK
       // fields or a concurrent local restore replaces the persisted records.
       const cleanupSources = items.filter(Boolean).map((item) => ({ ...item }));
@@ -1989,11 +2003,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     items,
     skipUploadToServer,
     skipUpdate,
+    preserveExisting,
     isCurrent,
   }: {
     items: IDBCloudSyncItem[];
     skipUploadToServer: boolean;
     skipUpdate?: boolean;
+    preserveExisting?: (
+      item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+    ) => boolean;
     isCurrent?: () => boolean;
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -2008,6 +2026,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         items: items.slice(offset, offset + 50),
         skipUploadToServer,
         skipUpdate,
+        ...(preserveExisting ? { preserveExisting } : {}),
         fn: async () => guard(),
       });
       if (offset + 50 < items.length) await timerUtils.wait(0);
@@ -2718,12 +2737,14 @@ class ServicePrimeCloudSync extends ServiceBase {
             (item) =>
               !item.pendingPublicAccountDeletionAt &&
               !item.rawData &&
+              !isInactiveHardwareWalletAccount(item, pwdHash) &&
               item.pwdHash &&
               item.pwdHash !== pwdHash,
           );
           if (removedItems.length) {
             void localDb.removeCloudSyncPoolItems({
               keys: removedItems.map((item) => item.id).filter(Boolean),
+              expectedItems: removedItems,
             });
           }
         }
@@ -3732,6 +3753,31 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
+  async buildHardwareRestoreWalletAccountItems(
+    syncCredential: ICloudSyncCredential,
+  ): Promise<IDBCloudSyncItem[]> {
+    const { wallets, allDevices } =
+      await this.backgroundApi.serviceAccount.getAllWallets({});
+    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
+      {},
+    );
+    const [walletItems, accountItems] = await Promise.all([
+      this.syncManagers.wallet.buildInitSyncDBItems({
+        dbRecords: wallets,
+        allDevices,
+        syncCredential,
+        initDataTime: undefined,
+      }),
+      this.syncManagers.account.buildInitSyncDBItems({
+        dbRecords: accounts,
+        allDevices,
+        syncCredential,
+        initDataTime: undefined,
+      }),
+    ]);
+    return [...walletItems, ...accountItems];
+  }
+
   @backgroundMethod()
   async initLocalSyncItemsDB({
     syncCredential,
@@ -4021,6 +4067,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.dataType === EPrimeCloudSyncDataType.Lock &&
         keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
       ) {
+        continue;
+      }
+      if (isInactiveHardwareWalletAccount(item, currentPwdHash)) {
         continue;
       }
       if (item.pendingPublicAccountDeletionAt) {
