@@ -215,8 +215,10 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async withSpaceFreeingTransaction<T>(
     bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
+    options?: Pick<ILocalDBWithTransactionOptions, 'skipCloudCredentialWarmup'>,
   ): Promise<T> {
     return this.withTransaction(bucketName, task, {
+      ...options,
       allowWhenStorageFull: true,
     });
   }

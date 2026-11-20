@@ -5,11 +5,14 @@ import {
   IncorrectMasterPassword,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { CloudSyncFlowManagerAccount } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
+import { CloudSyncFlowManagerWallet } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
@@ -28,6 +31,7 @@ import type {
   IDBAccount,
   IDBBaseObject,
   IDBCloudSyncItem,
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
   ILocalDBGetRecordsByIdsParams,
@@ -119,7 +123,10 @@ class DeletionTestDb extends LocalDbBase {
       target,
     }: {
       target: { dbRecord: IDBBaseObject };
-    }) => ({ key: `legacy:${target.dbRecord.id}` });
+    }) => ({
+      key: `legacy:${target.dbRecord.id}`,
+      rawKey: 'Wallet >> wallet-fixture-key',
+    });
     this.setBackgroundApi({
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
@@ -137,6 +144,7 @@ class DeletionTestDb extends LocalDbBase {
           wallet: {
             buildSyncTargetByDBQuery: buildLegacyTarget,
             buildSyncKeyAndPayload: buildLegacyKey,
+            buildSyncKeyInfo: buildLegacyKey,
           },
         },
       },
@@ -179,6 +187,10 @@ class DeletionTestDb extends LocalDbBase {
     const result = this.read<IDBWallet>(ELocalDBStoreNames.Wallet, walletId);
     if (!result) throw new OneKeyLocalError('Missing test wallet');
     return cloneDeep(result);
+  }
+
+  override async getDeviceSafe(id: string) {
+    return cloneDeep(this.read<IDBDevice>(ELocalDBStoreNames.Device, id));
   }
 
   override async getAllWallets() {
@@ -975,6 +987,191 @@ describe('public account deletion tombstones', () => {
       ).toMatchObject({ isDeleted: true });
       await jest.advanceTimersByTimeAsync(1000);
       expect(db.syncFlow).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each([
+    'local live cache',
+    'local tombstone',
+    'desktop active settled',
+    'desktop foreign settled',
+    'web encrypted',
+    'concurrently replaced',
+    'empty raw key',
+    'wrong raw key',
+    'unsupported vendor',
+    'another live HD identity',
+  ] as const)(
+    'keeps wallet cleanup separate and scope-safe: %s',
+    async (mode) => {
+      const db = new DeletionTestDb();
+      const desktop = mode.startsWith('desktop');
+      const encrypted = desktop || mode === 'web encrypted';
+      const walletId = mode === 'unsupported vendor' ? 'hw-1' : 'hd-1';
+      let id = `legacy:${walletId}`;
+      const scope =
+        mode === 'desktop foreign settled'
+          ? 'foreign-scope'
+          : (realManagerFixtureCredential.keylessCredential?.pwdHash ?? '');
+      const candidate: IDBCloudSyncItem = {
+        id,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawData: encrypted ? undefined : 'local display metadata',
+        rawKey:
+          mode === 'wrong raw key'
+            ? 'Wallet >> other'
+            : 'Wallet >> wallet-fixture-key',
+        data: encrypted ? 'synthetic-encrypted-copy' : undefined,
+        dataTime: 3,
+        isDeleted: mode === 'local tombstone',
+        pwdHash: encrypted ? scope : '',
+        localSceneUpdated: true,
+        serverUploaded: encrypted,
+      };
+      const updated = { ...candidate, dataTime: 4, rawData: 'newer' };
+      if (mode === 'empty raw key') {
+        candidate.rawKey = 'Wallet >> ';
+        // An empty derived key can collide with unrelated unsupported wallets.
+        const manager =
+          db.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
+        const original = manager.buildSyncKeyInfo.bind(manager);
+        jest
+          .spyOn(manager, 'buildSyncKeyInfo')
+          .mockImplementation(async (params) => {
+            const key = await original(params);
+            return key && { ...key, rawKey: 'Wallet >> ' };
+          });
+      }
+      if (mode === 'unsupported vendor') {
+        const device = {
+          id: 'fixture-device',
+          vendor: EHardwareVendor.ledger,
+        } as IDBDevice;
+        db.put(ELocalDBStoreNames.Device, device);
+        const manager = new CloudSyncFlowManagerWallet({
+          backgroundApi: { ...db.backgroundApi, localDb: db } as IBackgroundApi,
+        });
+        db.backgroundApi.servicePrimeCloudSync.syncManagers.wallet = manager;
+        id = manager.rawKeyToHashKey('Wallet >> ');
+        candidate.id = id;
+        candidate.rawKey = 'Wallet >> ';
+        db.put(
+          ELocalDBStoreNames.Wallet,
+          wallet(walletId, { associatedDevice: device.id }),
+        );
+      } else {
+        db.put(
+          ELocalDBStoreNames.Wallet,
+          wallet(walletId, {
+            hash: 'shared-wallet-hash',
+          }),
+        );
+        if (mode === 'another live HD identity') {
+          db.put(
+            ELocalDBStoreNames.Wallet,
+            wallet('hd-peer', {
+              hash: 'shared-wallet-hash',
+            }),
+          );
+        }
+      }
+      db.put(ELocalDBStoreNames.CloudSyncItem, candidate);
+      db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
+        realManagerFixtureCredential;
+      const savedDesktop = platformEnv.isDesktop;
+      const savedMas = platformEnv.isMas;
+      const savedDev = platformEnv.isDev;
+      platformEnv.isDesktop = desktop;
+      platformEnv.isMas = false;
+      platformEnv.isDev = false;
+      let attempts = 0;
+      db.beforeTransaction = () => {
+        attempts += 1;
+        if (attempts === 2 && mode === 'concurrently replaced') {
+          db.put(ELocalDBStoreNames.CloudSyncItem, updated);
+        }
+      };
+      try {
+        await db.removeWallet({ walletId });
+        expect(db.read(ELocalDBStoreNames.Wallet, walletId)).toBeUndefined();
+        await jest.advanceTimersByTimeAsync(0);
+        const fromPool = db.read(ELocalDBStoreNames.CloudSyncItem, id);
+        if (mode === 'local live cache' || mode === 'desktop active settled') {
+          expect(fromPool).toBeUndefined();
+        } else {
+          expect(fromPool).toEqual(
+            mode === 'concurrently replaced' ? updated : candidate,
+          );
+        }
+      } finally {
+        platformEnv.isDesktop = savedDesktop;
+        platformEnv.isMas = savedMas;
+        platformEnv.isDev = savedDev;
+      }
+    },
+  );
+
+  test.each(['hw', 'qr'] as const)(
+    'preserves the cache for another live %s wallet using the real same key',
+    async (type) => {
+      const db = new DeletionTestDb();
+      const manager = new CloudSyncFlowManagerWallet({
+        backgroundApi: { ...db.backgroundApi, localDb: db } as IBackgroundApi,
+      });
+      db.backgroundApi.servicePrimeCloudSync.syncManagers.wallet = manager;
+      const old = wallet(`${type}-1`, {
+        type,
+        associatedDevice: 'local-device-a',
+      });
+      const peer = wallet(`${type}-2`, {
+        type,
+        associatedDevice: 'local-device-b',
+      });
+      const device = {
+        id: 'local-device-a',
+        deviceId: 'same-physical-device-id',
+        vendor: EHardwareVendor.onekey,
+      } as IDBDevice;
+      const peerDevice = { ...device, id: 'local-device-b' };
+      db.put(ELocalDBStoreNames.Wallet, old);
+      db.put(ELocalDBStoreNames.Wallet, peer);
+      db.put(ELocalDBStoreNames.Device, device);
+      db.put(ELocalDBStoreNames.Device, peerDevice);
+      const target = await manager.buildSyncTargetByDBQuery({
+        dbRecord: old,
+        allDevices: [device],
+      });
+      const key = await manager.buildSyncKeyInfo({ target });
+      if (!key)
+        throw new OneKeyLocalError('Missing real hardware cleanup key fixture');
+      const cached: IDBCloudSyncItem = {
+        id: key.key,
+        rawKey: key.rawKey,
+        rawData: 'hardware-cache-fixture',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        pwdHash: '',
+        data: undefined,
+        dataTime: 1,
+        isDeleted: false,
+        localSceneUpdated: true,
+        serverUploaded: false,
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, cached);
+      const actual = await manager.buildSyncKeyInfo({
+        target: await manager.buildSyncTargetByDBQuery({
+          dbRecord: peer,
+          allDevices: [peerDevice],
+        }),
+      });
+      expect(actual?.rawKey).toBe(key.rawKey);
+
+      await db.removeWallet({ walletId: old.id });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(db.read(ELocalDBStoreNames.Wallet, old.id)).toBeUndefined();
+      expect(db.read(ELocalDBStoreNames.Wallet, peer.id)).toEqual(peer);
+      expect(db.read(ELocalDBStoreNames.CloudSyncItem, key.key)).toEqual(
+        cached,
+      );
     },
   );
 

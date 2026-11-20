@@ -152,7 +152,6 @@ import type {
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
-  ICloudSyncKeyInfoWallet,
   ICloudSyncTargetIndexedAccount,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -8071,33 +8070,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountUtils.isHwWallet({
             walletId,
           }) || accountUtils.isQrWallet({ walletId });
-        const isKeyless = wallet.isKeyless;
         const isHdWallet = accountUtils.isHdWallet({ walletId });
 
         const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
           associatedDevice: wallet.associatedDevice,
         });
-        const syncManagers =
-          this.backgroundApi.servicePrimeCloudSync.syncManagers;
-
-        const target = await syncManagers.wallet.buildSyncTargetByDBQuery({
-          dbRecord: wallet,
-        });
-        // TODO buildSyncKeyAndPayloadSafe
-        let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
-        if (!isKeyless) {
-          syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
-            target,
-          });
-        }
-
         return {
           walletId,
           wallet,
           isHardware,
           isHdWallet,
           walletsInSameDevice,
-          syncKeyInfo,
+          // This optional read is independent of the business transaction.
+          cleanupDevice:
+            !wallet.isKeyless && wallet.associatedDevice
+              ? this.getDeviceSafe(wallet.associatedDevice).catch(
+                  () => undefined,
+                )
+              : undefined,
         };
       }),
     );
@@ -8219,19 +8209,154 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         }
       },
+      { skipCloudCredentialWarmup: true },
     );
 
-    for (const { walletId, syncKeyInfo } of removals) {
-      if (syncKeyInfo) {
-        await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
-      }
-
+    for (const { walletId, wallet, cleanupDevice } of removals) {
       delete this.tempWallets[walletId];
+      appEventBus.emit(EAppEventBusNames.WalletRemove, { walletId });
+      if (!wallet.isKeyless) {
+        void (async () => {
+          const manager =
+            this.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
+          const dbDevice = await cleanupDevice;
+          if (wallet.associatedDevice && !dbDevice) return;
+          const target = await manager.buildSyncTargetByDBQuery({
+            dbRecord: wallet,
+            allDevices: dbDevice ? [dbDevice] : [],
+          });
+          const info = await manager.buildSyncKeyInfo({ target });
+          const prefix = `${EPrimeCloudSyncDataType.Wallet} >> `;
+          if (!info?.key || !info.rawKey.startsWith(prefix)) return;
+          const keySuffix = info.rawKey.slice(prefix.length);
+          if (!keySuffix.trim()) return;
+          const existing = await this.getSyncItemSafe({ id: info.key });
+          if (
+            existing?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+            existing.rawKey !== info.rawKey ||
+            existing.isDeleted
+          )
+            return;
 
-      appEventBus.emit(EAppEventBusNames.WalletRemove, {
-        walletId,
-      });
+          const cleanup = () =>
+            this.withSpaceFreeingTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                const {
+                  records: [remaining],
+                } = await this.txGetRecordsByIds({
+                  tx,
+                  name: ELocalDBStoreNames.Wallet,
+                  ids: [walletId],
+                });
+                if (remaining && (!isRemoveToMocked || !remaining.isMocked))
+                  return;
+                if (
+                  await this.txHasAnotherWalletUsingCloudCache({
+                    tx,
+                    wallet,
+                    rawKey: keySuffix,
+                  })
+                )
+                  return;
+                const {
+                  records: [current],
+                } = await this.txGetRecordsByIds({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [info.key],
+                });
+                if (
+                  !current ||
+                  current.isDeleted ||
+                  current.rawKey !== info.rawKey ||
+                  !isEqual(current, existing)
+                )
+                  return;
+                await this.txRemoveRecords({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [info.key],
+                });
+              },
+            );
+
+          if (!existing.data && !existing.pwdHash) {
+            await cleanup();
+          } else if (
+            supportsIndexedCloudAccountArchive() &&
+            existing.serverUploaded &&
+            existing.data &&
+            existing.pwdHash
+          ) {
+            // Web has no durable cross-tab authority fence. Keep its encrypted
+            // copies rather than turning local unbinding into cross-space prune.
+            await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+              async () => {
+                const scope = cloudSyncItemBuilder.getPwdHash(
+                  await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe(),
+                );
+                if (scope && existing.pwdHash === scope) await cleanup();
+              },
+            );
+          }
+        })().catch(() => undefined);
+      }
     }
+  }
+
+  private async txHasAnotherWalletUsingCloudCache({
+    tx,
+    wallet,
+    rawKey,
+  }: {
+    tx: ILocalDBTransaction;
+    wallet: IDBWallet;
+    rawKey: string;
+  }) {
+    const { records } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const peers = records.filter(
+      (other) =>
+        other.id !== wallet.id &&
+        !other.isMocked &&
+        other.type === wallet.type &&
+        (other.passphraseState ?? '') === (wallet.passphraseState ?? ''),
+    );
+    if (!peers.length) return false;
+    if (accountUtils.isHdWallet({ walletId: wallet.id })) {
+      return peers.some((other) => !wallet.hash || other.hash === wallet.hash);
+    }
+    const ids = new Set(
+      peers.flatMap((other) =>
+        other.associatedDevice ? [other.associatedDevice] : [],
+      ),
+    );
+    const { records: devices } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Device,
+      ids: [...ids],
+    });
+    return peers.some((other) => {
+      const dbDevice = devices.find(
+        (device) => device?.id === other.associatedDevice,
+      );
+      if (!dbDevice) return true;
+      try {
+        return (
+          cloudSyncItemBuilder.buildWalletSyncKey({
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            wallet: { ...other, avatarInfo: other.avatarInfo },
+            dbDevice,
+            accountIndex: undefined,
+          })?.rawKey === rawKey
+        );
+      } catch (_error) {
+        return true;
+      }
+    });
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
