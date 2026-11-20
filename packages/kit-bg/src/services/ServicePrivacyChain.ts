@@ -229,7 +229,9 @@ class ServicePrivacyChain extends ServiceBase {
     // The network list changed: a delisted network pauses, a relisted one resumes.
     // The same signal carries the server's privacy switch.
     appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => {
+      this.localWalletNetworkIdsGeneration += 1;
       this.localWalletNetworkIdsCache = undefined;
+      this.localWalletNetworkIdsPending = undefined;
       void this.publishBoostingNetworks().catch(() => undefined);
       this.scheduleBackgroundSync(0);
     });
@@ -2270,6 +2272,8 @@ class ServicePrivacyChain extends ServiceBase {
 
   localWalletNetworkIdsPending: Promise<string[]> | undefined;
 
+  private localWalletNetworkIdsGeneration = 0;
+
   // The networks that scan: listed, with privacy not switched off by the server.
   @backgroundMethod()
   async getLocalWalletNetworkIds(): Promise<string[]> {
@@ -2285,7 +2289,8 @@ class ServicePrivacyChain extends ServiceBase {
       Date.now() - this.localWalletNetworkIdsCacheAt >
         timerUtils.getTimeDurationMs({ minute: 1 })
     ) {
-      this.localWalletNetworkIdsPending ??= (async () => {
+      const generation = this.localWalletNetworkIdsGeneration;
+      this.localWalletNetworkIdsPending ??= Promise.resolve().then(async () => {
         try {
           const { networks } =
             await this.backgroundApi.serviceNetwork.getAllNetworks();
@@ -2307,13 +2312,23 @@ class ServicePrivacyChain extends ServiceBase {
               // Not a candidate.
             }
           }
+          if (this.localWalletNetworkIdsGeneration !== generation) {
+            return this.getListedLocalWalletNetworkIds();
+          }
           this.localWalletNetworkIdsCache = ids;
           this.localWalletNetworkIdsCacheAt = Date.now();
           return ids;
+        } catch (error) {
+          if (this.localWalletNetworkIdsGeneration !== generation) {
+            return this.getListedLocalWalletNetworkIds();
+          }
+          throw error;
         } finally {
-          this.localWalletNetworkIdsPending = undefined;
+          if (this.localWalletNetworkIdsGeneration === generation) {
+            this.localWalletNetworkIdsPending = undefined;
+          }
         }
-      })();
+      });
       return this.localWalletNetworkIdsPending;
     }
     return this.localWalletNetworkIdsCache;
