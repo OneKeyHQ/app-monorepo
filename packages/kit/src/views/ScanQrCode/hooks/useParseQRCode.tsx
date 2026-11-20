@@ -254,7 +254,10 @@ export async function parseQRCodeWithDeps(
       {
         const account = options?.account;
         if (!account) {
-          console.error('missing the account in the useParseQRCode.start');
+          // No account to send from: hand the code back like any other that
+          // cannot be acted on, instead of leaving the scanner open.
+          await closeScanPage();
+          showCopyDialog(value);
           break;
         }
         const chainValue = result.data as IChainValue;

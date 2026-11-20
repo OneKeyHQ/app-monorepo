@@ -1,5 +1,7 @@
+import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
 
@@ -81,6 +83,32 @@ it('closes the scan page for a code that can never be accepted', async () => {
   expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
   expect(isRetryableQrParseFailure(invalid)).toBe(false);
 });
+
+it.each([
+  ['a lightning invoice', EQRCodeHandlerType.LIGHTNING_NETWORK],
+  ['a bitcoin address', EQRCodeHandlerType.BITCOIN],
+])(
+  'hands %s back when there is no account to send from',
+  async (_label, type) => {
+    const value = 'scanned payment code';
+    mockParse.mockResolvedValueOnce({
+      type,
+      data: { address: 'recipient', network: { id: 'network--0' } },
+      raw: value,
+    });
+
+    await parseQRCodeWithDeps(
+      value,
+      { popNavigation: true, autoExecuteParsedAction: true },
+      deps,
+    );
+
+    expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+    expect(Dialog.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ description: value }),
+    );
+  },
+);
 
 it('keeps a late parse failure scoped to the scanner that produced it', async () => {
   const invalid = { key: ETranslations.feedback_invalid_qr_code };
