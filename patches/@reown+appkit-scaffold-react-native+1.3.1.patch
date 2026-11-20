@@ -1,5 +1,5 @@
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-index 2afcde5..8b86a80 100644
+index 2afcde5..80a20e5 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 @@ -8,6 +8,7 @@ var _valtio = require("valtio");
@@ -31,17 +31,26 @@ index 2afcde5..8b86a80 100644
  function AppKit() {
    const {
      open,
-@@ -37,6 +52,9 @@ function AppKit() {
+@@ -37,11 +52,16 @@ function AppKit() {
    const {
      height
    } = (0, _reactNative.useWindowDimensions)();
 +  const {
++    top: safeAreaTop,
 +    bottom: safeAreaBottom
 +  } = (0, _reactNativeSafeAreaContext.useSafeAreaInsets)();
    const {
      isLandscape
    } = (0, _useCustomDimensions.useCustomDimensions)();
-@@ -119,7 +137,9 @@ function AppKit() {
+-  const portraitHeight = height - 80;
+-  const landScapeHeight = height * 0.95 - (_reactNative.StatusBar.currentHeight ?? 0);
++  const topInset = Math.max(safeAreaTop, _reactNative.StatusBar.currentHeight ?? 0);
++  const portraitHeight = Math.max(0, height - Math.max(80, topInset + 24) - safeAreaBottom);
++  const landScapeHeight = Math.max(0, height * 0.95 - topInset - safeAreaBottom);
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
+   const AuthView = authProvider?.AuthView;
+   const SocialView = authProvider?.Webview;
+@@ -119,7 +139,9 @@ function AppKit() {
      themeMode: themeMode,
      themeVariables: themeVariables
    }, /*#__PURE__*/React.createElement(_reactNativeModal.default, {
@@ -52,7 +61,7 @@ index 2afcde5..8b86a80 100644
      coverScreen: false,
      isVisible: open,
      useNativeDriver: true,
-@@ -131,7 +151,9 @@ function AppKit() {
+@@ -131,7 +153,9 @@ function AppKit() {
      onBackdropPress: _appkitCoreReactNative.ModalController.close,
      onBackButtonPress: onBackButtonPress,
      testID: "w3m-modal"
@@ -79,7 +88,7 @@ index 4408fba..a43b38c 100644
    card: {
      borderBottomLeftRadius: 0,
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-index f93d8c6..671408b 100644
+index f93d8c6..9e36e34 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 @@ -1,8 +1,9 @@
@@ -112,17 +121,26 @@ index f93d8c6..671408b 100644
  export function AppKit() {
    const {
      open,
-@@ -30,6 +42,9 @@ export function AppKit() {
+@@ -30,11 +42,16 @@ export function AppKit() {
    const {
      height
    } = useWindowDimensions();
 +  const {
++    top: safeAreaTop,
 +    bottom: safeAreaBottom
 +  } = useSafeAreaInsets();
    const {
      isLandscape
    } = useCustomDimensions();
-@@ -112,7 +127,9 @@ export function AppKit() {
+-  const portraitHeight = height - 80;
+-  const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
++  const topInset = Math.max(safeAreaTop, StatusBar.currentHeight ?? 0);
++  const portraitHeight = Math.max(0, height - Math.max(80, topInset + 24) - safeAreaBottom);
++  const landScapeHeight = Math.max(0, height * 0.95 - topInset - safeAreaBottom);
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
+   const AuthView = authProvider?.AuthView;
+   const SocialView = authProvider?.Webview;
+@@ -112,7 +129,9 @@ export function AppKit() {
      themeMode: themeMode,
      themeVariables: themeVariables
    }, /*#__PURE__*/React.createElement(Modal, {
@@ -133,7 +151,7 @@ index f93d8c6..671408b 100644
      coverScreen: false,
      isVisible: open,
      useNativeDriver: true,
-@@ -124,7 +141,9 @@ export function AppKit() {
+@@ -124,7 +143,9 @@ export function AppKit() {
      onBackdropPress: ModalController.close,
      onBackButtonPress: onBackButtonPress,
      testID: "w3m-modal"
@@ -160,7 +178,7 @@ index 08ead2c..68e8e85 100644
    card: {
      borderBottomLeftRadius: 0,
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..257de24 100644
+index 6823724..05ead11 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 @@ -1,8 +1,9 @@
@@ -175,7 +193,7 @@ index 6823724..257de24 100644
  import {
    AccountController,
    ApiController,
-@@ -25,13 +26,29 @@ import { Header } from '../../partials/w3m-header';
+@@ -25,16 +26,39 @@ import { Header } from '../../partials/w3m-header';
  import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
@@ -202,11 +220,23 @@ index 6823724..257de24 100644
    const { caipAddress, isConnected } = useSnapshot(AccountController.state);
    const { themeMode, themeVariables } = useSnapshot(ThemeController.state);
    const { height } = useWindowDimensions();
-+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
++  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
    const { isLandscape } = useCustomDimensions();
-   const portraitHeight = height - 80;
-   const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
-@@ -126,7 +143,7 @@ export function AppKit() {
+-  const portraitHeight = height - 80;
+-  const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
++  const topInset = Math.max(safeAreaTop, StatusBar.currentHeight ?? 0);
++  const portraitHeight = Math.max(
++    0,
++    height - Math.max(80, topInset + 24) - safeAreaBottom,
++  );
++  const landScapeHeight = Math.max(
++    0,
++    height * 0.95 - topInset - safeAreaBottom,
++  );
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider as AppKitFrameProvider;
+   const AuthView = authProvider?.AuthView;
+   const SocialView = authProvider?.Webview;
+@@ -126,7 +150,7 @@ export function AppKit() {
      <>
        <ThemeProvider themeMode={themeMode} themeVariables={themeVariables}>
          <Modal
@@ -215,7 +245,7 @@ index 6823724..257de24 100644
            coverScreen={false}
            isVisible={open}
            useNativeDriver
-@@ -139,8 +156,12 @@ export function AppKit() {
+@@ -139,8 +163,12 @@ export function AppKit() {
            onBackButtonPress={onBackButtonPress}
            testID="w3m-modal"
          >

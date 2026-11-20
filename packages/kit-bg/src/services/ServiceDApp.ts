@@ -377,12 +377,21 @@ class ServiceDApp extends ServiceBase {
         routeNames[1] === EModalRoutes.DAppConnectionModal &&
         routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal
       ) {
-        // Progress dismissal is best-effort. A ready navigation ref must not
-        // depend on the background relay's React effect having mounted.
+        // Progress and DApp-side modal dismissal are best-effort. A ready
+        // navigation ref must not depend on the background relay's React
+        // effect having mounted.
         void Promise.resolve()
           .then(() =>
             appEventBus.emit(
               EAppEventBusNames.WalletConnectCloseConnectionProgress,
+              undefined,
+            ),
+          )
+          .catch(() => undefined);
+        void Promise.resolve()
+          .then(() =>
+            appEventBus.emit(
+              EAppEventBusNames.WalletConnectCloseModal,
               undefined,
             ),
           )

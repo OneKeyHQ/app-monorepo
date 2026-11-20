@@ -98,6 +98,10 @@ it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
       EAppEventBusNames.WalletConnectCloseConnectionProgress,
       undefined,
     );
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.WalletConnectCloseModal,
+      undefined,
+    );
   },
 );
 
@@ -120,7 +124,7 @@ it('does not block direct approval navigation when the progress signal fails', a
   expect(emit).not.toHaveBeenCalled();
   await expect(opening).resolves.toBeUndefined();
   await Promise.resolve();
-  expect(emit).toHaveBeenCalledTimes(1);
+  expect(emit).toHaveBeenCalledTimes(2);
 });
 
 it.each([
