@@ -87,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     LinearGradient: Container,
     SizableText: Container,
+    Stack: Container,
     XStack: Container,
     YStack: Container,
     HeightTransition: ({ children }: { children?: ReactNode }) =>

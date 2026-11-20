@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/components/ListItem';
 import {
   CARD_ROW_CHEVRON_PROPS,
+  CARD_SURFACE_BG,
   CARD_SURFACE_RADIUS,
   useCardShadow,
 } from '@onekeyhq/kit/src/hooks/useCardSurface';
@@ -17,6 +18,7 @@ import {
 import {
   LIST_ITEM_GROUP_INSET,
   LIST_ITEM_GROUP_ITEM_PROPS,
+  LIST_ITEM_GROUP_TITLE_SIZE,
 } from './listItemGroupLayout';
 
 // One device pixel between rows: crisp on high-density screens.
@@ -75,7 +77,15 @@ function ListItemGroupBase({
 
   return (
     <YStack gap="$2.5" {...groupProps}>
-      {title ? <SizableText size="$headingMd">{title}</SizableText> : null}
+      {title ? (
+        <SizableText
+          size={LIST_ITEM_GROUP_TITLE_SIZE}
+          role="heading"
+          aria-level={2}
+        >
+          {title}
+        </SizableText>
+      ) : null}
       {/* The shadow sits on an outer layer: clipping on the same view would
           cut it off on iOS. The inner layer clips row hover fills to the
           rounded corners. */}
@@ -84,7 +94,7 @@ function ListItemGroupBase({
         style={{ boxShadow: cardShadow }}
       >
         <YStack
-          bg="$bgApp"
+          bg={CARD_SURFACE_BG}
           borderRadius={CARD_SURFACE_RADIUS}
           overflow="hidden"
         >

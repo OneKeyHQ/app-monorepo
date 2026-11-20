@@ -1,7 +1,11 @@
-import { useThemeVariant } from './useThemeVariant';
+import { useThemeName } from '@onekeyhq/components';
 
 // Corner radius of the raised settings cards.
 export const CARD_SURFACE_RADIUS = 12;
+
+// The cards' fill: the page's own white in light; in dark a step above the
+// page, since a ring alone leaves a lone card all but invisible there.
+export const CARD_SURFACE_BG = '$bg';
 
 // Row chevrons on these cards are a size down from ListItem's 24px default so
 // they sit quieter beside 14px text. The wider negative margin keeps the
@@ -17,7 +21,9 @@ const CARD_SHADOW = {
   dark: '0 0 0 1px rgba(255, 255, 255, 0.09)',
 } as const;
 
+// Follows the theme the card renders in, not the app's setting: some screens
+// force their own (onboarding is always dark).
 export function useCardShadow() {
-  const themeVariant = useThemeVariant();
-  return CARD_SHADOW[themeVariant === 'dark' ? 'dark' : 'light'];
+  const themeName = useThemeName();
+  return CARD_SHADOW[themeName.startsWith('dark') ? 'dark' : 'light'];
 }

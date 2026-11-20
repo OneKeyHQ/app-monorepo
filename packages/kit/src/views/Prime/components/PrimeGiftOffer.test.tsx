@@ -106,6 +106,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useCardSurface', () => ({
   CARD_ROW_CHEVRON_PROPS: { size: '$5', mx: -4.5 },
+  CARD_SURFACE_BG: '$bg',
   CARD_SURFACE_RADIUS: 12,
   useCardShadow: () => 'none',
 }));
