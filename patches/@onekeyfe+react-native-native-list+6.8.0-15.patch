@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index d741596..c2b6d36 100644
+index d741596..4c49e0f 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -455,6 +455,7 @@ export const WEB_LIST_CSS = `
@@ -45,8 +45,65 @@ index d741596..c2b6d36 100644
        element.tabIndex = 0;
      } else {
        element.removeAttribute('tabindex');
+@@ -3086,6 +3093,10 @@ export class NativeListWebEngine {
+     this.handleRowPress(sourceRow, rowElement ?? undefined, memberElement ?? rowElement ?? undefined);
+   };
+   handleKeyDown = event => {
++    if (event.key === 'Tab' && this.keyboardReorder) {
++      this.cancelKeyboardReorder(false);
++      return;
++    }
+     if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement && event.target.matches('[role="button"][data-native-list-hover-action]')) {
+       event.preventDefault();
+       if (this.actionAnchor?.actionElement !== event.target || !this.actionAnchor.open) this.emitHoverAction(event.target);
+@@ -3171,7 +3182,7 @@ export class NativeListWebEngine {
+     this.updateReorderVisualState();
+     if (reorderEvent) this.callbacks.onReorder?.(reorderEvent);
+   }
+-  cancelKeyboardReorder() {
++  cancelKeyboardReorder(restoreFocus = true) {
+     const state = this.keyboardReorder;
+     if (!state) return;
+     this.keyboardReorder = undefined;
+@@ -3181,7 +3192,7 @@ export class NativeListWebEngine {
+       rows: cancelWebReorderRows(state.originalRows)
+     }, this.selectedKeys);
+     this.updateReorderVisualState();
+-    this.focusMountedRow(state.sourceKey);
++    if (restoreFocus) this.focusMountedRow(state.sourceKey);
+   }
+   focusMountedRow(key) {
+     [...this.mounted.values()].find(element => element.dataset.nativeListRowKey === key)?.focus({
+@@ -3304,7 +3315,7 @@ export class NativeListWebEngine {
+     setData(this.refreshIndicator, 'visible', refreshing);
+   }
+   handleReorderPointerDown = event => {
+-    if (this.pointerReorder || this.keyboardReorder || event.isPrimary === false || event.pointerType === 'mouse' && event.button !== 0) {
++    if (this.pointerReorder || event.isPrimary === false || event.pointerType === 'mouse' && event.button !== 0) {
+       return;
+     }
+     const target = event.target;
+@@ -3315,11 +3326,17 @@ export class NativeListWebEngine {
+     if (handleMode && !handle) return;
+     if (control && (control !== handle || control.matches(':disabled'))) return;
+     const rowElement = target.closest('[data-native-list-row-index]');
+-    const index = Number(rowElement?.dataset.nativeListRowIndex);
++    let index = Number(rowElement?.dataset.nativeListRowIndex);
+     const row = this.rows[index];
+     if (!row || !this.isReorderable(row)) return;
+     const memberKey = target.closest('[data-native-list-group-member-key]')?.dataset.nativeListGroupMemberKey;
+     if (!canStartWebWalletGroupReorder(row, memberKey)) return;
++    if (this.keyboardReorder) {
++      // OneKey patch: cancel the preview before using the restored pointer source index.
++      this.cancelKeyboardReorder(false);
++      index = this.rows.findIndex((item) => item.key === row.key);
++      if (index < 0) return;
++    }
+     // OneKey patch: a child drag reorders its parent wallet group as one item.
+     // if (
+     // row.type === 'walletGroup' &&
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 1e5fc19..b6db7a1 100644
+index 1e5fc19..dab228b 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 @@ -853,6 +853,7 @@ export const WEB_LIST_CSS = `
@@ -92,3 +149,61 @@ index 1e5fc19..b6db7a1 100644
        element.tabIndex = 0;
      } else {
        element.removeAttribute('tabindex');
+@@ -5035,6 +5039,10 @@ export class NativeListWebEngine {
+   };
+
+   private handleKeyDown = (event: KeyboardEvent) => {
++    if (event.key === 'Tab' && this.keyboardReorder) {
++      this.cancelKeyboardReorder(false);
++      return;
++    }
+     if (
+       (event.key === 'Enter' || event.key === ' ') &&
+       event.target instanceof HTMLElement &&
+@@ -5163,7 +5171,7 @@ export class NativeListWebEngine {
+     if (reorderEvent) this.callbacks.onReorder?.(reorderEvent);
+   }
+
+-  private cancelKeyboardReorder() {
++  private cancelKeyboardReorder(restoreFocus = true) {
+     const state = this.keyboardReorder;
+     if (!state) return;
+     this.keyboardReorder = undefined;
+@@ -5173,7 +5181,7 @@ export class NativeListWebEngine {
+       this.selectedKeys
+     );
+     this.updateReorderVisualState();
+-    this.focusMountedRow(state.sourceKey);
++    if (restoreFocus) this.focusMountedRow(state.sourceKey);
+   }
+
+   private focusMountedRow(key: string) {
+@@ -5360,7 +5368,6 @@ export class NativeListWebEngine {
+   private handleReorderPointerDown = (event: PointerEvent) => {
+     if (
+       this.pointerReorder ||
+-      this.keyboardReorder ||
+       event.isPrimary === false ||
+       (event.pointerType === 'mouse' && event.button !== 0)
+     ) {
+@@ -5379,13 +5386,19 @@ export class NativeListWebEngine {
+     const rowElement = target.closest<HTMLElement>(
+       '[data-native-list-row-index]'
+     );
+-    const index = Number(rowElement?.dataset.nativeListRowIndex);
++    let index = Number(rowElement?.dataset.nativeListRowIndex);
+     const row = this.rows[index];
+     if (!row || !this.isReorderable(row)) return;
+     const memberKey = target.closest<HTMLElement>(
+       '[data-native-list-group-member-key]'
+     )?.dataset.nativeListGroupMemberKey;
+     if (!canStartWebWalletGroupReorder(row, memberKey)) return;
++    if (this.keyboardReorder) {
++      // OneKey patch: cancel the preview before using the restored pointer source index.
++      this.cancelKeyboardReorder(false);
++      index = this.rows.findIndex((item) => item.key === row.key);
++      if (index < 0) return;
++    }
+     // OneKey patch: a child drag reorders its parent wallet group as one item.
+     // if (
+     // row.type === 'walletGroup' &&

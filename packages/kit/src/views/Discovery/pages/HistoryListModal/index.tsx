@@ -44,6 +44,12 @@ import type {
   RowModel,
 } from '@onekeyfe/react-native-native-list';
 
+type IHistoryPage = {
+  page: number;
+  data: IBrowserHistory[];
+  hasMore: boolean;
+};
+
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
@@ -71,13 +77,26 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const { result, run } = usePromiseResult(async () => {
-    const history =
-      await backgroundApiProxy.serviceDiscovery.fetchHistoryData(page);
-    return { ...history, page };
-  }, [page]);
-  const dataSource = result?.data;
+  const lastSuccessfulPage = useRef<IHistoryPage | undefined>(undefined);
+  const { result, run, isLoading } = usePromiseResult(
+    async (): Promise<IHistoryPage | null> => {
+      try {
+        const history =
+          await backgroundApiProxy.serviceDiscovery.fetchHistoryData(page);
+        return { ...history, page };
+      } catch {
+        return null;
+      }
+    },
+    [page],
+    { watchLoading: true },
+  );
+  useEffect(() => {
+    if (result) lastSuccessfulPage.current = result;
+  }, [result]);
+  const dataSource = (result ?? lastSuccessfulPage.current)?.data;
   const canLoadMore = result?.page === page && result.hasMore;
+  const needsRetry = result === null;
 
   const previousDataRef = useRef<IBrowserHistory[] | undefined>(undefined);
   const cachedResultRef = useRef<{ title: string; data: IBrowserHistory[] }[]>(
@@ -279,6 +298,8 @@ function HistoryListModal() {
     [historyById, isEditing, handleWebSite, removeBrowserHistory, run, intl],
   );
 
+  const hasRows = memoizedDataSource.length > 0;
+
   return (
     <Page testID={DiscoveryTestIDs.historyListPage}>
       <Page.Header
@@ -288,7 +309,16 @@ function HistoryListModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        {memoizedDataSource.length === 0 ? (
+        {hasRows ? (
+          <NativeList
+            testID="History-SectionList"
+            style={{ flex: 1 }}
+            snapshot={snapshot}
+            onRowAction={onRowAction}
+            onEndReached={debouncedOnEndReached}
+          />
+        ) : null}
+        {!hasRows && !needsRetry ? (
           <Empty
             py="$32"
             my="$4"
@@ -297,15 +327,19 @@ function HistoryListModal() {
               id: ETranslations.browser_no_closed_tabs,
             })}
           />
-        ) : (
-          <NativeList
-            testID="History-SectionList"
-            style={{ flex: 1 }}
-            snapshot={snapshot}
-            onRowAction={onRowAction}
-            onEndReached={debouncedOnEndReached}
-          />
-        )}
+        ) : null}
+        {needsRetry ? (
+          <XStack justifyContent="center" py="$2">
+            <Button
+              testID="history-load-retry"
+              variant="tertiary"
+              loading={isLoading}
+              onPress={() => void run()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          </XStack>
+        ) : null}
       </Page.Body>
     </Page>
   );

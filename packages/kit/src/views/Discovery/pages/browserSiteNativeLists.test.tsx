@@ -62,8 +62,9 @@ jest.mock('@onekeyhq/components', () => {
     Button: ({
       children,
       onPress,
-    }: PropsWithChildren<{ onPress: () => void }>) => (
-      <button type="button" onClick={onPress}>
+      loading,
+    }: PropsWithChildren<{ onPress: () => void; loading?: boolean }>) => (
+      <button type="button" disabled={loading} onClick={onPress}>
         {children}
       </button>
     ),
@@ -129,13 +130,19 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   return {
     usePromiseResult: <T,>(fetch: () => Promise<T>, [page]: number[] = []) => {
       const [result, setResult] = useState<T>();
+      const [isLoading, setIsLoading] = useState(false);
       const fetchRef = useRef(fetch);
       fetchRef.current = fetch;
       const run = useCallback(async () => {
-        setResult(await fetchRef.current());
+        setIsLoading(true);
+        try {
+          setResult(await fetchRef.current());
+        } finally {
+          setIsLoading(false);
+        }
       }, []);
       useEffect(() => void run(), [run, page]);
-      return { result, run };
+      return { result, run, isLoading };
     },
   };
 });
@@ -333,4 +340,53 @@ it('requests one history page at the visible tail and ignores stale or finished 
     await jest.advanceTimersByTimeAsync(500);
   });
   expect(mockFetchHistoryData.mock.calls).toEqual([[1], [2]]);
+});
+
+it('keeps loaded history and retries the same page after a read fails', async () => {
+  jest.useFakeTimers();
+  const firstPage = {
+    data: [
+      {
+        id: 'first',
+        url: 'https://example.com/first',
+        title: 'First',
+        createdAt: Date.UTC(2026, 10, 20),
+      },
+    ],
+    hasMore: true,
+  };
+  const nextPage = {
+    data: [
+      ...firstPage.data,
+      { ...firstPage.data[0], id: 'second', url: 'https://example.com/second' },
+    ],
+    hasMore: false,
+  };
+  mockFetchHistoryData.mockResolvedValueOnce(firstPage);
+  mockFetchHistoryData.mockRejectedValueOnce(
+    new DOMException('Read aborted', 'AbortError'),
+  );
+  mockFetchHistoryData.mockResolvedValueOnce(nextPage);
+  render(<HistoryListModal />);
+  await waitFor(() =>
+    expect(mockList.snapshot.capabilities?.loadMore).toBe(true),
+  );
+
+  const firstRows = mockList.snapshot.rows;
+  await act(async () => {
+    mockList.onEndReached?.({ generation: mockList.snapshot.generation });
+    await jest.advanceTimersByTimeAsync(500);
+  });
+  const retry = screen.getByRole('button', { name: 'global.retry' });
+  expect(mockList.snapshot.rows).toEqual(firstRows);
+  expect(mockList.snapshot.capabilities?.loadMore).toBe(false);
+  expect(mockFetchHistoryData.mock.calls).toEqual([[1], [2]]);
+
+  fireEvent.click(retry);
+  await waitFor(() =>
+    expect(mockList.snapshot.rows.at(-1)?.key).toBe('second'),
+  );
+  expect(mockFetchHistoryData.mock.calls).toEqual([[1], [2], [2]]);
+  expect(screen.queryByRole('button', { name: 'global.retry' })).toBeNull();
+  expect(mockList.snapshot.capabilities?.loadMore).toBe(false);
 });
