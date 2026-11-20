@@ -12,7 +12,7 @@ import {
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 
 let mockSplitViewType = 'unknown';
-let mockIsNativeIOS = true;
+let mockIsNative = true;
 const mockOverlayView = jest.fn(
   ({ children }: { children?: ReactNode; [key: string]: unknown }) => children,
 );
@@ -35,8 +35,8 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
-    get isNativeIOS() {
-      return mockIsNativeIOS;
+    get isNative() {
+      return mockIsNative;
     },
   },
 }));
@@ -52,10 +52,10 @@ describe('GlobalWalletConnectModalContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSplitViewType = 'unknown';
-    mockIsNativeIOS = true;
+    mockIsNative = true;
   });
 
-  it('hosts the iOS modal inside a fullscreen OverlayView only while a pairing payload is active', async () => {
+  it('hosts the native modal inside a fullscreen OverlayView only while a pairing payload is active', async () => {
     const view = render(<GlobalWalletConnectModalContainer />);
 
     expect(mockOverlayView).not.toHaveBeenCalled();
@@ -218,13 +218,13 @@ describe('GlobalWalletConnectModalContainer', () => {
     view.unmount();
   });
 
-  it('renders directly without OverlayView on non-iOS platforms', async () => {
-    mockIsNativeIOS = false;
+  it('renders directly without OverlayView on non-native platforms', async () => {
+    mockIsNative = false;
     const view = render(<GlobalWalletConnectModalContainer />);
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
-        uri: 'wc:android-session',
+        uri: 'wc:web-session',
       });
     });
 

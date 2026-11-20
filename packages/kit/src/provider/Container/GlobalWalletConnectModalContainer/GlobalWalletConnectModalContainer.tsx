@@ -120,10 +120,11 @@ function WalletConnectModalGate() {
     </Suspense>
   );
 
-  // On iOS, host AppKit in a fullscreen native OverlayView so it renders above
-  // native-stack pageSheet modals without being clipped by sheet headers or
-  // remounted/replayed across page focus transitions.
-  if (platformEnv.isNativeIOS) {
+  // On native (iOS & Android), host AppKit in a fullscreen native OverlayView
+  // so it participates in the shared overlay level hierarchy (above native
+  // pages/pageSheets without clipping or remounting, below hardware/toast/lock).
+  // Web/Desktop/Extension render AppKit's web component outside React.
+  if (platformEnv.isNative) {
     return (
       <OverlayView
         visible
