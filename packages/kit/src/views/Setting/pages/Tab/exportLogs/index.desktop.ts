@@ -1,5 +1,5 @@
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
@@ -150,7 +150,7 @@ const uploadViaDomain = async ({
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
       ? globalThis.desktopApi.on(
-          ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+          EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
           (payload: {
             stage: ELogUploadStage;
             requestId?: string;
@@ -295,7 +295,7 @@ export const uploadLogBundle = async ({
     const removeSniProgressListener =
       requestId && typeof globalThis.desktopApi?.on === 'function'
         ? globalThis.desktopApi.on(
-            ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+            EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
             (progress: {
               stage: ELogUploadStage;
               requestId?: string;

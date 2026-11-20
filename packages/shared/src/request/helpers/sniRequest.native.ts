@@ -117,20 +117,16 @@ export async function sniUploadFile(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastBytesSent = -1;
   const progressDeadline = Date.now() + config.timeout;
-  const poll = async () => {
+  const poll = async (requestId: string) => {
     if (
       closed ||
       Date.now() >= progressDeadline ||
       typeof getUploadProgress !== 'function' ||
-      !config.requestId ||
       !options?.onUploadProgress
     )
       return;
     try {
-      const progress = await getUploadProgress.call(
-        nativeModule,
-        config.requestId,
-      );
+      const progress = await getUploadProgress.call(nativeModule, requestId);
       if (
         !closed &&
         progress &&
@@ -147,16 +143,19 @@ export async function sniUploadFile(
     }
     if (!closed && Date.now() < progressDeadline)
       timer = setTimeout(() => {
-        void poll();
+        void poll(requestId);
       }, 250);
   };
   const upload = executeSniRequestWithAbort(
     config,
     options,
-    (requestConfig) => uploadFile.call(nativeModule, requestConfig),
+    (requestConfig) => {
+      const response = uploadFile.call(nativeModule, requestConfig);
+      void poll(requestConfig.requestId);
+      return response;
+    },
     (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
-  void poll();
   try {
     return toSniResponse(await upload);
   } finally {

@@ -10,13 +10,13 @@ import AdmZip from 'adm-zip';
 import { shell } from 'electron';
 import logger from 'electron-log/main';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   getDesktopNetworkThrottleConfig,
   setDesktopNetworkThrottleConfig,
 } from '@onekeyhq/desktop/app/libs/networkThrottle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   ELogUploadStage,
@@ -274,7 +274,7 @@ class DesktopApiDev {
           globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
-            ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+            EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
             {
               stage,
               ...(params.requestId ? { requestId: params.requestId } : {}),

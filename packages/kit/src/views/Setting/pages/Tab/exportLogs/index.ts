@@ -96,7 +96,7 @@ export const exportLogs = async (
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
-  requestId: _requestId,
+  requestId,
 }: {
   uploadToken: string;
   digest: ILogDigest;
@@ -121,7 +121,7 @@ export const uploadLogBundle = async ({
   }
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
-    progressPercent: 0,
+    requestId,
   });
   let client: Awaited<ReturnType<typeof appApiClient.getClient>>;
   try {
@@ -141,19 +141,24 @@ export const uploadLogBundle = async ({
           Authorization: `Bearer ${uploadToken}`,
           'Content-Type': digest.bundle.mimeType,
         },
-        onUploadProgress: (event) => {
+        onUploadProgress: ({ loaded, total }) => {
+          const totalBytes = total && total > 0 ? total : digest.sizeBytes;
           appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
             stage: ELogUploadStage.Uploading,
-            progressPercent:
-              typeof event.total === 'number' && event.total > 0
-                ? Math.min(100, Math.round((event.loaded / event.total) * 100))
-                : undefined,
+            requestId,
+            bytesSent: loaded,
+            totalBytes,
+            progressPercent: Math.min(
+              99,
+              Math.floor((loaded / totalBytes) * 100),
+            ),
           });
         },
       },
     );
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Success,
+      requestId,
       progressPercent: 100,
     });
     return {
@@ -163,6 +168,7 @@ export const uploadLogBundle = async ({
   } catch (error) {
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
+      requestId,
       message: error instanceof Error ? error.message : String(error),
     });
     throw error;

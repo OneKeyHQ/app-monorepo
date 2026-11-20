@@ -98,9 +98,6 @@ jest.mock('electron-log/main', () => ({
     },
   },
 }));
-jest.mock('@onekeyhq/desktop/app/config', () => ({
-  ipcMessageKeys: { CLIENT_LOG_UPLOAD_PROGRESS: 'client-log-upload-progress' },
-}));
 jest.mock('@onekeyhq/desktop/app/libs/networkThrottle', () => ({
   getDesktopNetworkThrottleConfig: jest.fn(),
   setDesktopNetworkThrottleConfig: jest.fn(),

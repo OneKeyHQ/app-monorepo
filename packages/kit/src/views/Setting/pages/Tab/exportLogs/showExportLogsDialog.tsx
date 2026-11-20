@@ -113,9 +113,8 @@ function UploadLogsDialogContent({
     }) => {
       if (
         !isActiveRef.current ||
-        (!usesBrowserLogExport &&
-          (!activeRequestIdRef.current ||
-            requestId !== activeRequestIdRef.current))
+        !activeRequestIdRef.current ||
+        requestId !== activeRequestIdRef.current
       ) {
         return;
       }
@@ -123,7 +122,7 @@ function UploadLogsDialogContent({
       // Map backend stages to unified "uploading_in_progress" for UX
       // Only update progress, don't expose error states
       if (incomingStage === ELogUploadStage.Uploading) {
-        if (bytesSent === 0 && !usesBrowserLogExport) return;
+        if (bytesSent === 0) return;
         const percent =
           typeof bytesSent === 'number' &&
           typeof totalBytes === 'number' &&

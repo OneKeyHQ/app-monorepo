@@ -6,9 +6,6 @@ import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 import { uploadLogBundle } from './index.desktop';
 import { LOG_UPLOAD_TIMEOUT_MS } from './logUploadUtils';
 
-jest.mock('@onekeyhq/desktop/app/config', () => ({
-  ipcMessageKeys: { CLIENT_LOG_UPLOAD_PROGRESS: 'client-log-upload-progress' },
-}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {

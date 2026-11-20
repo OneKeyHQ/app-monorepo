@@ -95,39 +95,52 @@ describe('sniUploadFile (native)', () => {
     });
   });
 
-  test('polls real native byte counts by request id while the upload is active', async () => {
-    let completeUpload: (response: {
-      data: string;
-      status: number;
-      statusText: string;
-      headers: Record<string, string>;
-    }) => void = () => undefined;
-    const uploadFile = jest.fn(
-      () =>
-        new Promise<{
-          data: string;
-          status: number;
-          statusText: string;
-          headers: Record<string, string>;
-        }>((resolve) => {
-          completeUpload = resolve;
-        }),
-    );
-    const getUploadProgress = jest
-      .fn()
-      .mockResolvedValue({ bytesSent: 512, totalBytes: 1024 });
-    mockedTurboModuleGet.mockReturnValue({ uploadFile, getUploadProgress });
-    const onUploadProgress = jest.fn();
-    const upload = sniUploadFile(
-      { ...buildUploadConfig(), requestId: 'attempt-1' },
-      { onUploadProgress },
-    );
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(getUploadProgress).toHaveBeenCalledWith('attempt-1');
-    expect(onUploadProgress).toHaveBeenCalledWith(512, 1024);
-    completeUpload({ data: '{}', status: 200, statusText: '', headers: {} });
-    await upload;
-  });
+  test.each([
+    { label: 'supplied', requestId: 'attempt-1', expectedId: 'attempt-1' },
+    {
+      label: 'generated',
+      requestId: undefined,
+      expectedId: 'upload-request-id',
+    },
+  ])(
+    'polls real bytes with the $label request ID',
+    async ({ requestId, expectedId }) => {
+      let completeUpload: (response: {
+        data: string;
+        status: number;
+        statusText: string;
+        headers: Record<string, string>;
+      }) => void = () => undefined;
+      const uploadFile = jest.fn(
+        () =>
+          new Promise<{
+            data: string;
+            status: number;
+            statusText: string;
+            headers: Record<string, string>;
+          }>((resolve) => {
+            completeUpload = resolve;
+          }),
+      );
+      const getUploadProgress = jest
+        .fn()
+        .mockResolvedValue({ bytesSent: 512, totalBytes: 1024 });
+      mockedTurboModuleGet.mockReturnValue({ uploadFile, getUploadProgress });
+      const onUploadProgress = jest.fn();
+      const upload = sniUploadFile(
+        { ...buildUploadConfig(), requestId },
+        { onUploadProgress },
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({ requestId: expectedId }),
+      );
+      expect(getUploadProgress).toHaveBeenCalledWith(expectedId);
+      expect(onUploadProgress).toHaveBeenCalledWith(512, 1024);
+      completeUpload({ data: '{}', status: 200, statusText: '', headers: {} });
+      await upload;
+    },
+  );
 
   test('cancels the native upload when the signal aborts', async () => {
     const cancelRequest = jest.fn().mockResolvedValue({ success: true });

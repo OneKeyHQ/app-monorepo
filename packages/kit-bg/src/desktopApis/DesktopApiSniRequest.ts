@@ -4,7 +4,7 @@ import SniNodeClient from '@onekeyfe/react-native-sni-connect/node';
 import { session } from 'electron';
 import logger from 'electron-log/main';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type {
   ISniRequestConfig,
@@ -67,7 +67,7 @@ class DesktopApiSniRequest {
           globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
-            ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+            EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
             {
               stage: ELogUploadStage.Uploading,
               requestId,
