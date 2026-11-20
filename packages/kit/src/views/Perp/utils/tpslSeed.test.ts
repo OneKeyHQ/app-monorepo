@@ -7,14 +7,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { resolveTpSlTriggerPx } from './resolveTpSlTriggerPx';
-import {
-  DEFAULT_TPSL_ROE_PERCENT,
-  buildDefaultTpSlPercent,
-  shouldSeedPositionTpSlLeg,
-} from './tpslSeed';
+import { DEFAULT_TPSL_ROE_PERCENT, buildDefaultTpSlPercent } from './tpslSeed';
 
-// Mirrors TpslInput.calculatePrice: the seeded-percent display hint only reads
-// as "10" when the seeded price matches this manual percent->price conversion.
 function manualPercentToPrice({
   percent,
   entry,
@@ -198,26 +192,4 @@ describe('TP/SL default seeds', () => {
       );
     },
   );
-
-  it('seeds each position leg only before an existing value or user action', () => {
-    const base = {
-      hasExistingOrder: false,
-      hasPreset: false,
-      currentValue: '',
-      userEdited: false,
-      seeded: false,
-    };
-    expect(shouldSeedPositionTpSlLeg(base)).toBe(true);
-    expect(shouldSeedPositionTpSlLeg({ ...base, hasExistingOrder: true })).toBe(
-      false,
-    );
-    expect(shouldSeedPositionTpSlLeg({ ...base, hasPreset: true })).toBe(false);
-    expect(shouldSeedPositionTpSlLeg({ ...base, currentValue: '101' })).toBe(
-      false,
-    );
-    expect(shouldSeedPositionTpSlLeg({ ...base, userEdited: true })).toBe(
-      false,
-    );
-    expect(shouldSeedPositionTpSlLeg({ ...base, seeded: true })).toBe(false);
-  });
 });

@@ -19,17 +19,21 @@ import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
+import { OneKeyOAuthButton } from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyOAuthButton';
 import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import {
   ELocalKeylessWalletOAuthState,
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
@@ -37,9 +41,11 @@ import type {
   IIdentityExitOAuthHandoff,
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import {
   getSanitizedAuthErrorText,
+  isDeliberateOAuthCancel,
   logOneKeyIdLoginFailureReason,
   scrubSensitiveErrorMessageText,
   showOneKeyIdLoginFailedToast,
@@ -70,6 +76,8 @@ function PrimeLoginOAuthDialog(props: {
   localKeylessLoginPrepareResult?: IOneKeyIdLoginWithLocalKeylessPrepareResult;
   localKeylessLoginPrepareErrorMessage?: string;
   toOneKeyIdPageOnLoginSuccess?: boolean;
+  // Analytics only: the Prime free trial that asked for this login.
+  freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
 }) {
   const {
     onComplete,
@@ -80,6 +88,7 @@ function PrimeLoginOAuthDialog(props: {
     localKeylessLoginPrepareResult,
     localKeylessLoginPrepareErrorMessage,
     toOneKeyIdPageOnLoginSuccess,
+    freeTrialFeatureId,
   } = props;
   const intl = useIntl();
   const { run: runIdentityExit } = useIdentityExitFlow();
@@ -261,6 +270,17 @@ function PrimeLoginOAuthDialog(props: {
         }
         await onLoginSuccess?.();
       } catch (error) {
+        if (
+          !isOneKeyIdLoginCommitted &&
+          (error as IOneKeyError | undefined)?.className ===
+            EOneKeyErrorClassNames.OAuthLoginCancelError
+        ) {
+          defaultLogger.prime.subscription.onekeyIdOAuthLoginExited({
+            method: provider,
+            featureId: freeTrialFeatureId,
+            reason: isDeliberateOAuthCancel(error) ? 'cancelled' : 'unknown',
+          });
+        }
         if (!isOneKeyIdLoginCommitted) {
           showOneKeyIdLoginFailedToast({ error, intl });
         }
@@ -279,6 +299,7 @@ function PrimeLoginOAuthDialog(props: {
       }
     },
     [
+      freeTrialFeatureId,
       getFreshOAuthTokensForRegularLogin,
       getOAuthAccessToken,
       intl,
@@ -588,6 +609,10 @@ function PrimeLoginOAuthDialog(props: {
     const providerName =
       method.provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
     const handleOAuthPress = () => {
+      defaultLogger.prime.subscription.onekeyIdOAuthLoginClick({
+        method: method.provider,
+        featureId: freeTrialFeatureId,
+      });
       if (method.requiresMalformedKeylessRecovery) {
         void handleMalformedKeylessOAuth(method.provider);
         return;
@@ -599,24 +624,18 @@ function PrimeLoginOAuthDialog(props: {
       void handleSocialLogin(method.provider);
     };
     return (
-      <Button
+      <OneKeyOAuthButton
         key={method.provider}
-        size="large"
-        icon={
-          method.provider === EOAuthSocialLoginProvider.Google
-            ? 'GoogleIllus'
-            : 'AppleBrand'
-        }
+        provider={method.provider}
         testID={`prime-login-oauth-${method.provider}-btn`}
         disabled={isLoginBusy}
         loading={loggingInProvider === method.provider}
         onPress={handleOAuthPress}
-      >
-        {intl.formatMessage(
+        label={intl.formatMessage(
           { id: ETranslations.continue_with_social_platform },
           { platform: providerName },
         )}
-      </Button>
+      />
     );
   };
 

@@ -423,7 +423,7 @@ export function TopCoinsOverviewContent({
     });
   }, [earnAsset, earnProtocol, navigation]);
 
-  if (isAssetDetailLoading && !assetDetail) {
+  if (isAssetDetailLoading && !assetDetail && !tokenDetail) {
     return (
       <YStack px="$5" pt="$10" gap="$8">
         <Skeleton height={112} width="100%" />

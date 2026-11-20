@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  getWindowsBindingPath,
+  verifyWindowsBinding,
+} = require('./ensure-runtime-noble');
+
 const BRIDGE_BINARY_MODE = 0o755;
 
 // Electron fuses are configured declaratively via the `electronFuses`
@@ -69,6 +74,20 @@ exports.default = async function fileOperation(context) {
       fs.rmSync(keccakFilePath, { recursive: true });
     }
     console.log('remove file finish..');
+  }
+
+  if (electronPlatformName === 'win32') {
+    const { Arch } = require('electron-builder');
+    const architecture = Arch[context.arch];
+    const staged = getWindowsBindingPath(architecture);
+    verifyWindowsBinding(staged, architecture);
+    const packaged = path.join(
+      appOutDir,
+      'resources/app.asar.unpacked/node_modules/@stoprocent/noble/build/Release/binding.node',
+    );
+    fs.mkdirSync(path.dirname(packaged), { recursive: true });
+    fs.copyFileSync(staged, packaged);
+    verifyWindowsBinding(packaged, architecture);
   }
 
   chmodPackagedBridgeBinary(context);

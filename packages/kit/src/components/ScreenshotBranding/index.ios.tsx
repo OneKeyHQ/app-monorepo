@@ -1,9 +1,9 @@
-import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, Stack, useThemeName } from '@onekeyhq/components';
+import { isFoldableIPhone as getIsFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { useIsTradingViewNativeFullscreenActive } from '../TradingView/TradingViewNative/tradingViewNativeFullscreenState';
@@ -22,7 +22,7 @@ const DYNAMIC_ISLAND_AIR_THRESHOLD = 65; // iPhone 17 Air: insets.top >= 65
 
 // The pill sits beside a top-center notch or Dynamic Island. Foldable iPhones
 // (iPhone Duo) keep their camera in a side strip, so it would float alone.
-const isFoldableIPhone = ReactNativeDeviceUtils.isDualScreenDevice();
+const isFoldableIPhone = getIsFoldableIPhone();
 
 const getLogoTop = (insetsTop: number): number => {
   // iPhone 17 Air (insets.top >= 65)
