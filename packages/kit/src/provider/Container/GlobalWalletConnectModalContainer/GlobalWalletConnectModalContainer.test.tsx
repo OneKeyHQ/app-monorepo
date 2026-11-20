@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 
 import {
   EAppEventBusNames,
@@ -18,9 +18,11 @@ let mockIsNative = true;
 const mockOverlayView = jest.fn(
   ({ children }: { children?: ReactNode; [key: string]: unknown }) => children,
 );
-const mockWalletConnectModalContainer = jest.fn(
-  (_props: { suspended: boolean }) => null,
+const mockWalletConnectModal = jest.fn(
+  (_props: { suspended: boolean }) => <div data-testid="wallet-picker" />,
 );
+const mockOpenModal = jest.fn();
+const mockCloseModal = jest.fn();
 
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OverlayView: (props: { children?: ReactNode; [key: string]: unknown }) =>
@@ -45,13 +47,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock(
-  '../../../components/WalletConnect/WalletConnectModalContainer',
-  () => ({
-    WalletConnectModalContainer: (props: { suspended: boolean }) =>
-      mockWalletConnectModalContainer(props),
-  }),
-);
+jest.mock('../../../components/WalletConnect/WalletConnectModal', () => ({
+  __esModule: true,
+  default: {
+    useModal: (suspended: boolean) => ({
+      modal: mockWalletConnectModal({ suspended }),
+      openModal: mockOpenModal,
+      closeModal: mockCloseModal,
+    }),
+  },
+}));
 
 describe('GlobalWalletConnectModalContainer', () => {
   beforeEach(() => {
@@ -64,7 +69,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     const view = render(<GlobalWalletConnectModalContainer />);
 
     expect(mockOverlayView).not.toHaveBeenCalled();
-    expect(mockWalletConnectModalContainer).not.toHaveBeenCalled();
+    expect(mockWalletConnectModal).not.toHaveBeenCalled();
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
@@ -74,7 +79,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
     });
     expect(mockOverlayView).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -96,7 +101,7 @@ describe('GlobalWalletConnectModalContainer', () => {
       });
     });
 
-    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
 
     // Matching close clears the payload and unmounts the OverlayView.
     act(() => {
@@ -118,7 +123,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     expect(mockOverlayView).toHaveBeenCalledTimes(overlayCallsBeforeRerender);
-    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });
@@ -137,7 +142,7 @@ describe('GlobalWalletConnectModalContainer', () => {
       if (timing === 'already open') {
         act(emitPicker);
         await waitFor(() =>
-          expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+          expect(mockWalletConnectModal).toHaveBeenLastCalledWith({
             suspended: false,
           }),
         );
@@ -147,21 +152,23 @@ describe('GlobalWalletConnectModalContainer', () => {
         if (timing === 'arrives during approval') emitPicker();
       });
       await waitFor(() =>
-        expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+        expect(mockWalletConnectModal).toHaveBeenLastCalledWith({
           suspended: true,
         }),
       );
       expect(mockOverlayView).toHaveBeenLastCalledWith(
         expect.objectContaining({ visible: false, keepContentMounted: true }),
       );
+      const picker = screen.getByTestId('wallet-picker');
 
       act(endProposal);
-      expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+      expect(mockWalletConnectModal).toHaveBeenLastCalledWith({
         suspended: false,
       });
       expect(mockOverlayView).toHaveBeenLastCalledWith(
         expect.objectContaining({ visible: true }),
       );
+      expect(screen.getByTestId('wallet-picker')).toBe(picker);
 
       act(() => {
         appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, {
@@ -182,7 +189,7 @@ describe('GlobalWalletConnectModalContainer', () => {
       });
     });
     await waitFor(() =>
-      expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+      expect(mockWalletConnectModal).toHaveBeenLastCalledWith({
         suspended: true,
       }),
     );
@@ -207,7 +214,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
     });
 
     act(() => {
@@ -222,7 +229,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     expect(mockOverlayView).toHaveBeenCalledTimes(overlayCallsAfterClose);
-    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });
@@ -242,7 +249,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
     });
 
     // A second pairing lands while the first modal is still open.
@@ -254,7 +261,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(2);
     });
 
     // Stale terminal events of the superseded attempt arrive late; they must
@@ -308,7 +315,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     });
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
     });
     expect(mockOverlayView).not.toHaveBeenCalled();
 
@@ -331,13 +338,13 @@ describe('GlobalWalletConnectModalContainer', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(mockWalletConnectModalContainer).not.toHaveBeenCalled();
+    expect(mockWalletConnectModal).not.toHaveBeenCalled();
 
     mockSplitViewType = 'sub';
     view.rerender(<GlobalWalletConnectModalContainer />);
 
     await waitFor(() => {
-      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+      expect(mockWalletConnectModal).toHaveBeenCalledTimes(1);
     });
 
     act(() => {

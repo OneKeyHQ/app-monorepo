@@ -303,7 +303,7 @@ class AppKitErrorBoundary extends Component<
 
 // https://docs.walletconnect.com/advanced/walletconnectmodal/usage
 // https://github.com/WalletConnect/react-native-examples/blob/main/dapps/ModalUProvider/src/App.tsx
-function NativeModal() {
+function NativeModal({ suspended }: { suspended: boolean }) {
   // const { open: openNativeModal, isOpen: isNativeModalOpen } =
   //   useWalletConnectModal();
   const {
@@ -331,7 +331,7 @@ function NativeModal() {
 
   return (
     <AppKitErrorBoundary>
-      <AppKitModalNative />
+      <AppKitModalNative suspended={suspended} />
     </AppKitErrorBoundary>
   );
 }
@@ -339,7 +339,7 @@ function NativeModal() {
 const NativeModalMemo = memo(NativeModal);
 
 const modal: IWalletConnectModalShared = {
-  useModal() {
+  useModal(suspended) {
     const {
       openNativeModal,
       isNativeModalOpen,
@@ -522,7 +522,9 @@ const modal: IWalletConnectModalShared = {
     }, [isNativeModalOpen]);
 
     return {
-      modal: shouldRenderNativeModal ? <NativeModalMemo /> : null,
+      modal: shouldRenderNativeModal ? (
+        <NativeModalMemo suspended={suspended} />
+      ) : null,
       openModal,
       closeModal,
     };

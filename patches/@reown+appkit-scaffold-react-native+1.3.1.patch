@@ -1,5 +1,5 @@
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-index 2afcde5..80a20e5 100644
+index 2afcde5..0675f06 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 @@ -8,6 +8,7 @@ var _valtio = require("valtio");
@@ -10,10 +10,11 @@ index 2afcde5..80a20e5 100644
  var _appkitUiReactNative = require("@reown/appkit-ui-react-native");
  var _appkitCoreReactNative = require("@reown/appkit-core-react-native");
  var _appkitSiweReactNative = require("@reown/appkit-siwe-react-native");
-@@ -17,6 +18,20 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
+@@ -17,7 +18,21 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
  var _useCustomDimensions = require("../../hooks/useCustomDimensions");
  var _styles = _interopRequireDefault(require("./styles"));
  function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+-function AppKit() {
 +function ModalSafeAreaFill({ height }) {
 +  const Theme = (0, _appkitUiReactNative.useTheme)();
 +  return /*#__PURE__*/React.createElement(_reactNative.View, {
@@ -28,10 +29,11 @@ index 2afcde5..80a20e5 100644
 +    }
 +  });
 +}
- function AppKit() {
++function AppKit({ suspended = false } = {}) {
    const {
      open,
-@@ -37,11 +52,16 @@ function AppKit() {
+     loading
+@@ -37,11 +52,36 @@ function AppKit() {
    const {
      height
    } = (0, _reactNative.useWindowDimensions)();
@@ -47,23 +49,47 @@ index 2afcde5..80a20e5 100644
 +  const topInset = Math.max(safeAreaTop, _reactNative.StatusBar.currentHeight ?? 0);
 +  const portraitHeight = Math.max(0, height - Math.max(80, topInset + 24) - safeAreaBottom);
 +  const landScapeHeight = Math.max(0, height * 0.95 - topInset - safeAreaBottom);
++  const focusedInputTag = (0, _react.useRef)(undefined);
++  const inputFocusHandlers = {
++    onFocusCapture: (event) => {
++      if (!suspended) focusedInputTag.current = event.nativeEvent.target;
++    },
++    onBlurCapture: (event) => {
++      if (focusedInputTag.current === event.nativeEvent.target) focusedInputTag.current = undefined;
++    },
++  };
++
++  (0, _react.useLayoutEffect)(() => {
++    if (!suspended || focusedInputTag.current === undefined) return;
++
++    // OneKey patch: the approval may already own focus by the time the picker is hidden.
++    const input = _reactNative.TextInput.State.currentlyFocusedInput();
++    if (input && (0, _reactNative.findNodeHandle)(input) === focusedInputTag.current) {
++      _reactNative.TextInput.State.blurTextInput(input);
++    }
++    focusedInputTag.current = undefined;
++  }, [suspended]);
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
    const SocialView = authProvider?.Webview;
-@@ -119,7 +139,9 @@ function AppKit() {
+@@ -119,7 +159,10 @@ function AppKit() {
      themeMode: themeMode,
      themeVariables: themeVariables
    }, /*#__PURE__*/React.createElement(_reactNativeModal.default, {
 -    style: _styles.default.modal,
++    ...inputFocusHandlers,
 +    style: [_styles.default.modal, {
 +      paddingBottom: safeAreaBottom
 +    }],
      coverScreen: false,
      isVisible: open,
      useNativeDriver: true,
-@@ -131,7 +153,9 @@ function AppKit() {
+@@ -129,9 +172,11 @@ function AppKit() {
+     propagateSwipe: true,
+     onModalHide: handleClose,
      onBackdropPress: _appkitCoreReactNative.ModalController.close,
-     onBackButtonPress: onBackButtonPress,
+-    onBackButtonPress: onBackButtonPress,
++    onBackButtonPress: suspended ? null : onBackButtonPress,
      testID: "w3m-modal"
 -  }, /*#__PURE__*/React.createElement(_appkitUiReactNative.Card, {
 +  }, /*#__PURE__*/React.createElement(ModalSafeAreaFill, {
@@ -88,14 +114,15 @@ index 4408fba..a43b38c 100644
    card: {
      borderBottomLeftRadius: 0,
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-index f93d8c6..9e36e34 100644
+index f93d8c6..91e8e0d 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 @@ -1,8 +1,9 @@
  import { useSnapshot } from 'valtio';
- import { useCallback, useEffect } from 'react';
+-import { useCallback, useEffect } from 'react';
 -import { useWindowDimensions, StatusBar } from 'react-native';
-+import { useWindowDimensions, StatusBar, View } from 'react-native';
++import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
++import { findNodeHandle, TextInput, useWindowDimensions, StatusBar, View } from 'react-native';
  import Modal from 'react-native-modal';
 -import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
 +import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,10 +130,11 @@ index f93d8c6..9e36e34 100644
  import { AccountController, ApiController, ConnectionController, ConnectorController, CoreHelperUtil, EventsController, ModalController, OptionsController, RouterController, TransactionsController, ThemeController } from '@reown/appkit-core-react-native';
  import { SIWEController } from '@reown/appkit-siwe-react-native';
  import { AppKitRouter } from '../w3m-router';
-@@ -10,6 +11,17 @@ import { Header } from '../../partials/w3m-header';
+@@ -10,7 +11,18 @@ import { Header } from '../../partials/w3m-header';
  import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
+-export function AppKit() {
 +function ModalSafeAreaFill({ height }) {
 +  const Theme = useTheme();
 +  return <View pointerEvents="none" style={{
@@ -118,10 +146,11 @@ index f93d8c6..9e36e34 100644
 +    backgroundColor: Theme['bg-100']
 +  }} />;
 +}
- export function AppKit() {
++export function AppKit({ suspended = false } = {}) {
    const {
      open,
-@@ -30,11 +42,16 @@ export function AppKit() {
+     loading
+@@ -30,11 +42,36 @@ export function AppKit() {
    const {
      height
    } = useWindowDimensions();
@@ -137,23 +166,47 @@ index f93d8c6..9e36e34 100644
 +  const topInset = Math.max(safeAreaTop, StatusBar.currentHeight ?? 0);
 +  const portraitHeight = Math.max(0, height - Math.max(80, topInset + 24) - safeAreaBottom);
 +  const landScapeHeight = Math.max(0, height * 0.95 - topInset - safeAreaBottom);
++  const focusedInputTag = useRef(undefined);
++  const inputFocusHandlers = {
++    onFocusCapture: (event) => {
++      if (!suspended) focusedInputTag.current = event.nativeEvent.target;
++    },
++    onBlurCapture: (event) => {
++      if (focusedInputTag.current === event.nativeEvent.target) focusedInputTag.current = undefined;
++    },
++  };
++
++  useLayoutEffect(() => {
++    if (!suspended || focusedInputTag.current === undefined) return;
++
++    // OneKey patch: the approval may already own focus by the time the picker is hidden.
++    const input = TextInput.State.currentlyFocusedInput();
++    if (input && findNodeHandle(input) === focusedInputTag.current) {
++      TextInput.State.blurTextInput(input);
++    }
++    focusedInputTag.current = undefined;
++  }, [suspended]);
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
    const SocialView = authProvider?.Webview;
-@@ -112,7 +129,9 @@ export function AppKit() {
+@@ -112,7 +149,10 @@ export function AppKit() {
      themeMode: themeMode,
      themeVariables: themeVariables
    }, /*#__PURE__*/React.createElement(Modal, {
 -    style: styles.modal,
++    ...inputFocusHandlers,
 +    style: [styles.modal, {
 +      paddingBottom: safeAreaBottom
 +    }],
      coverScreen: false,
      isVisible: open,
      useNativeDriver: true,
-@@ -124,7 +143,9 @@ export function AppKit() {
+@@ -122,9 +162,11 @@ export function AppKit() {
+     propagateSwipe: true,
+     onModalHide: handleClose,
      onBackdropPress: ModalController.close,
-     onBackButtonPress: onBackButtonPress,
+-    onBackButtonPress: onBackButtonPress,
++    onBackButtonPress: suspended ? null : onBackButtonPress,
      testID: "w3m-modal"
 -  }, /*#__PURE__*/React.createElement(Card, {
 +  }, /*#__PURE__*/React.createElement(ModalSafeAreaFill, {
@@ -177,15 +230,26 @@ index 08ead2c..68e8e85 100644
    },
    card: {
      borderBottomLeftRadius: 0,
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/typescript/modal/w3m-modal/index.d.ts b/node_modules/@reown/appkit-scaffold-react-native/lib/typescript/modal/w3m-modal/index.d.ts
+index c86ec9b..4461e49 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/lib/typescript/modal/w3m-modal/index.d.ts
++++ b/node_modules/@reown/appkit-scaffold-react-native/lib/typescript/modal/w3m-modal/index.d.ts
+@@ -1,2 +1,2 @@
+-export declare function AppKit(): import("react/jsx-runtime").JSX.Element;
++export declare function AppKit(props?: { suspended?: boolean }): import("react/jsx-runtime").JSX.Element;
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..05ead11 100644
+index 6823724..fcf05a3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-@@ -1,8 +1,9 @@
+@@ -1,8 +1,10 @@
  import { useSnapshot } from 'valtio';
- import { useCallback, useEffect } from 'react';
+-import { useCallback, useEffect } from 'react';
 -import { useWindowDimensions, StatusBar } from 'react-native';
-+import { useWindowDimensions, StatusBar, View } from 'react-native';
++import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
++import { findNodeHandle, TextInput, useWindowDimensions, StatusBar, View } from 'react-native';
++import type { NativeSyntheticEvent, TargetedEvent } from 'react-native';
  import Modal from 'react-native-modal';
 -import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
 +import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -193,11 +257,12 @@ index 6823724..05ead11 100644
  import {
    AccountController,
    ApiController,
-@@ -25,16 +26,39 @@ import { Header } from '../../partials/w3m-header';
+@@ -25,16 +27,59 @@ import { Header } from '../../partials/w3m-header';
  import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
 -
+-export function AppKit() {
 +function ModalSafeAreaFill({ height }: { height: number }) {
 +  const Theme = useTheme();
 +  return (
@@ -214,7 +279,7 @@ index 6823724..05ead11 100644
 +    />
 +  );
 +}
- export function AppKit() {
++export function AppKit({ suspended = false }: { suspended?: boolean } = {}) {
    const { open, loading } = useSnapshot(ModalController.state);
    const { connectors, connectedConnector } = useSnapshot(ConnectorController.state);
    const { caipAddress, isConnected } = useSnapshot(AccountController.state);
@@ -233,10 +298,30 @@ index 6823724..05ead11 100644
 +    0,
 +    height * 0.95 - topInset - safeAreaBottom,
 +  );
++  const focusedInputTag = useRef<number | undefined>(undefined);
++  const inputFocusHandlers = {
++    onFocusCapture: (event: NativeSyntheticEvent<TargetedEvent>) => {
++      if (!suspended) focusedInputTag.current = event.nativeEvent.target;
++    },
++    onBlurCapture: (event: NativeSyntheticEvent<TargetedEvent>) => {
++      if (focusedInputTag.current === event.nativeEvent.target) focusedInputTag.current = undefined;
++    },
++  };
++
++  useLayoutEffect(() => {
++    if (!suspended || focusedInputTag.current === undefined) return;
++
++    // OneKey patch: the approval may already own focus by the time the picker is hidden.
++    const input = TextInput.State.currentlyFocusedInput();
++    if (input && findNodeHandle(input) === focusedInputTag.current) {
++      TextInput.State.blurTextInput(input);
++    }
++    focusedInputTag.current = undefined;
++  }, [suspended]);
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider as AppKitFrameProvider;
    const AuthView = authProvider?.AuthView;
    const SocialView = authProvider?.Webview;
-@@ -126,7 +150,7 @@ export function AppKit() {
+@@ -126,7 +171,7 @@ export function AppKit() {
      <>
        <ThemeProvider themeMode={themeMode} themeVariables={themeVariables}>
          <Modal
@@ -245,8 +330,14 @@ index 6823724..05ead11 100644
            coverScreen={false}
            isVisible={open}
            useNativeDriver
-@@ -139,8 +163,12 @@ export function AppKit() {
-           onBackButtonPress={onBackButtonPress}
+@@ -136,11 +181,17 @@ export function AppKit() {
+           propagateSwipe
+           onModalHide={handleClose}
+           onBackdropPress={ModalController.close}
+-          onBackButtonPress={onBackButtonPress}
++          // @ts-expect-error react-native-modal accepts null to skip Back; undefined uses its default handler.
++          onBackButtonPress={suspended ? null : onBackButtonPress}
++          {...inputFocusHandlers}
            testID="w3m-modal"
          >
 +          <ModalSafeAreaFill height={safeAreaBottom} />
