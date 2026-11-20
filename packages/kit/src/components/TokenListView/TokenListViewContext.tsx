@@ -1,5 +1,9 @@
 import { createContext, useContext } from 'react';
 
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -75,3 +79,12 @@ export const TokenListViewContext = createContext<ITokenListViewContextValue>({
 });
 
 export const useTokenListViewContext = () => useContext(TokenListViewContext);
+
+export type ITokenSwapHandoffParams =
+  IModalSwapParamList[EModalSwapRoutes.SwapMainLand];
+
+// Set by a page that shows Swap itself (the desktop home's trade column): a
+// row's Swap hands its params there instead of opening the Swap modal.
+export const TokenSwapHandoffContext = createContext<
+  ((params: ITokenSwapHandoffParams) => void) | undefined
+>(undefined);

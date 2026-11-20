@@ -203,6 +203,8 @@ interface ISwapMainLoadProps {
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
+  /** Title on the left of the single Swap & Bridge header; none by default. */
+  singleSwapBridgeTitle?: string;
   /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
   embeddedStockTrade?: boolean;
   /** Optional Market-provided config; regular Swap loads its own config. */
@@ -228,6 +230,7 @@ const SwapMainLoad = ({
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
+  singleSwapBridgeTitle,
   embeddedStockTrade,
   stockSpeedConfig,
   stockTradeConfig,
@@ -1840,6 +1843,7 @@ const SwapMainLoad = ({
         hideRightActions={showDesktopProviderPanel}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
+        singleSwapBridgeTitle={singleSwapBridgeTitle}
         marketPresetSettings={
           focusSwapPro ? swapProMarketPresetSettings : undefined
         }

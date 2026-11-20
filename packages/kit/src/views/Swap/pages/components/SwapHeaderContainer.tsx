@@ -131,6 +131,7 @@ interface ISwapHeaderContainerProps {
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
   singleSwapBridgeTab?: boolean;
+  singleSwapBridgeTitle?: string;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -146,6 +147,7 @@ const SwapHeaderContainer = ({
   showSwapPro,
   hideRightActions,
   singleSwapBridgeTab,
+  singleSwapBridgeTitle,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -475,20 +477,26 @@ const SwapHeaderContainer = ({
   );
 
   if (singleSwapBridgeTab) {
-    // This branch is only reached from the Market detail pages' embedded swap.
-    // The panel carries no "Swap & Bridge" title (OK-62956): only the right
-    // actions remain, pinned to the trailing edge. All 8px of padding sits on
-    // top: the buttons' -7px margin would otherwise lift their 34px hover
-    // background past the panel's `overflow: hidden` top edge.
+    // Embedded swaps: the Market detail pages and the desktop home's trade
+    // column. Market carries no "Swap & Bridge" title (OK-62956), so only the
+    // right actions remain, pinned to the trailing edge; the home column
+    // passes a title for the left. All 8px of padding sits on top: the
+    // buttons' -7px margin would otherwise lift their 34px hover background
+    // past the panel's `overflow: hidden` top edge.
     return (
       <XStack
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent={singleSwapBridgeTitle ? 'space-between' : 'flex-end'}
         gap="$2"
         px="$5"
         pt="$2"
         pb="$0"
       >
+        {singleSwapBridgeTitle ? (
+          <SizableText size="$headingMd" numberOfLines={1}>
+            {singleSwapBridgeTitle}
+          </SizableText>
+        ) : null}
         {!hideRightActions ? (
           // The actions match the stock trade panel sitting in the same slot:
           // the roomier icon size and spacing rather than `compact`.

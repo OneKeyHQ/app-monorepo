@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useContext, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,9 +29,13 @@ import {
   getResolvedTokenActionToken,
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
-import { useTokenListViewContext } from './TokenListViewContext';
+import {
+  TokenSwapHandoffContext,
+  useTokenListViewContext,
+} from './TokenListViewContext';
 import { useTokenBalanceMultiplier } from './useTokenFiatField';
 
+import type { ITokenSwapHandoffParams } from './TokenListViewContext';
 import type { XStackProps } from 'tamagui';
 
 // Stable module-level empty default so the non-home fallback does not hand a
@@ -167,6 +171,7 @@ function TokenActionsView(props: IProps) {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();
+  const swapHandoff = useContext(TokenSwapHandoffContext);
 
   const handleTokenOnSwap = useCallback(() => {
     if (
@@ -192,27 +197,33 @@ function TokenActionsView(props: IProps) {
       tradeType: ESwapTabSwitchType.SWAP,
       isSoftwareWalletOnlyUser,
     });
+    const swapParams: ITokenSwapHandoffParams = {
+      importNetworkId: networkId,
+      importAccountKey,
+      importFromToken,
+      // A merged Bitcoin row carries whichever derive type answered
+      // first, so it must not decide the type Swap uses (or the default).
+      importDeriveType:
+        deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+          networkId,
+        })
+          ? undefined
+          : deriveType,
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    };
+    if (swapHandoff) {
+      swapHandoff(swapParams);
+      return;
+    }
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: networkId,
-        importAccountKey,
-        importFromToken,
-        // A merged Bitcoin row carries whichever derive type answered
-        // first, so it must not decide the type Swap uses (or the default).
-        importDeriveType:
-          deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
-            networkId,
-          })
-            ? undefined
-            : deriveType,
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
-        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
-      },
+      params: swapParams,
     });
   }, [
     activeAccount,
     isSoftwareWalletOnlyUser,
+    swapHandoff,
     navigation,
     network,
     deriveType,

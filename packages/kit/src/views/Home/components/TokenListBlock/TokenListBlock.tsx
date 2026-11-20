@@ -271,20 +271,10 @@ function isSameActiveAccountTokenListRequestContext(
 
 function TokenListBlock({
   tableLayout,
-  showRecentHistory,
   nativeListFooter,
-  nativeListSidecar,
-  nativeListSidecarLayout,
 }: {
   tableLayout?: boolean;
-  showRecentHistory?: boolean;
   nativeListFooter?: ReactNode;
-  nativeListSidecar?: ReactNode;
-  nativeListSidecarLayout?: Readonly<{
-    width: number;
-    gap: number;
-    maxContentWidth: number;
-  }>;
 }) {
   const { refreshing: nativeRefreshing, onRefresh: onNativeRefresh } =
     useHomeNativeRefresh();
@@ -3983,9 +3973,6 @@ function TokenListBlock({
 
   usePromiseResult(
     async () => {
-      // refresh will be handled in RecentHistory
-      if (showRecentHistory) return;
-
       if (!account || !network) return;
 
       if (!network.isAllNetworks) return;
@@ -4006,7 +3993,6 @@ function TokenListBlock({
       allNetworkAccounts,
       handleRefreshAllNetworkDataByAccounts,
       network,
-      showRecentHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -4488,10 +4474,6 @@ function TokenListBlock({
           ) : undefined
         }
         nativeListFooter={platformEnv.isNative ? nativeListFooter : undefined}
-        nativeListSidecar={platformEnv.isNative ? nativeListSidecar : undefined}
-        nativeListSidecarLayout={
-          platformEnv.isNative ? nativeListSidecarLayout : undefined
-        }
         onRefresh={platformEnv.isNative ? onNativeRefresh : undefined}
         refreshing={platformEnv.isNative ? nativeRefreshing : undefined}
       />
@@ -4515,8 +4497,6 @@ function TokenListBlock({
     network?.isAllNetworks,
     network?.name,
     nativeListFooter,
-    nativeListSidecar,
-    nativeListSidecarLayout,
     nativeRefreshing,
     nativeTokenStatus,
     nativeTokenVerification,

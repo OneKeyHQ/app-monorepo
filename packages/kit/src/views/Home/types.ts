@@ -335,7 +335,9 @@ export type IOverviewTokenDetailListItem = {
   protocol?: IOverviewDefiRes;
 };
 
-export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 400;
+// The column docked at the home's right edge from 1280 on the web, for the
+// trade panel.
+export const HOME_TRADE_COLUMN_WIDTH = 400;
 
 export const STICKY_TOP_OFFSET = 64;
 export const LIST_END_FADE_PX = 24;

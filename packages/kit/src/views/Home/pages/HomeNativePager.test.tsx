@@ -1004,6 +1004,7 @@ describe('HomePageView complete header authority', () => {
         './HomeHeaderContainer',
         './HomeNativePager',
         '../components/HomeTokenListProvider/HomeTokenListProviderMirror',
+        '../components/HomeTradePanel',
         './homePageNoWalletContent',
         './homeTabFreeze',
         './NFTListContainer',

@@ -90,6 +90,7 @@ import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeTradeDock } from '../components/HomeTradePanel';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeMoneroAccountCreation } from '../hooks/useHomeMoneroAccountCreation';
@@ -108,6 +109,7 @@ import {
 import { HomeNativePager } from './HomeNativePager';
 import {
   HOME_PAGE_CONTENT_MAX_WIDTH,
+  HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
   homePageContentMaxWidthSx,
 } from './homePageContentMaxWidth';
 import {
@@ -311,7 +313,10 @@ function BaseHomePageView({
   const isTravelModeRuntime =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
-  const { md: isSmallScreen } = useMedia();
+  const { md: isSmallScreen, gtXl } = useMedia();
+  // From 1280 on the web the trade column docks on the right and the
+  // content beside it narrows to the docked width.
+  const dockTradeColumn = !platformEnv.isNative && gtXl;
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
     account,
@@ -1174,7 +1179,9 @@ function BaseHomePageView({
               : nativeTabsTheme.bgActive.val,
             itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
             itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
-            contentMaxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
+            contentMaxWidth: dockTradeColumn
+              ? HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH
+              : HOME_PAGE_CONTENT_MAX_WIDTH,
             // Pill tabs switch instantly, as the 6.6.4 JS pill tab bar did.
             indicatorAnimationEnabled: false,
           },
@@ -1186,6 +1193,7 @@ function BaseHomePageView({
     activeTabId,
     tabConfigs,
     tabTestIDMap,
+    dockTradeColumn,
   ]);
   const handleNativeTextTabPress = useCallback<
     NonNullable<IHomeNativePagerProps['onNativeTabPress']>
@@ -1891,23 +1899,50 @@ function BaseHomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container flex={1} padded={false}>
+          <Page.Container
+            flex={1}
+            padded={false}
+            // Docked, the page spans the window so the column can sit at
+            // its right edge; each block below keeps its own frame.
+            layout={dockTradeColumn ? 'full' : undefined}
+          >
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
             ) : null}
-            {!platformEnv.isNative ? (
-              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            ) : null}
-            {/* Native keeps the alerts inside the collapsible header (see
-                renderHeader), but that header only mounts with the wallet
-                content. Without a usable wallet fall back to the outer slot
-                so the offline and notification-permission alerts still run. */}
-            {platformEnv.isNative && !hasNoUsableWallet ? null : (
-              <Stack {...homePageContentMaxWidthSx}>
-                <HomeAlerts />
-              </Stack>
+            {dockTradeColumn ? (
+              <HomeTradeDock showPanel={!hasNoUsableWallet}>
+                <Stack {...homePageContentMaxWidthSx}>
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                  />
+                </Stack>
+                <Stack {...homePageContentMaxWidthSx}>
+                  <HomeAlerts />
+                </Stack>
+                {content}
+              </HomeTradeDock>
+            ) : (
+              <>
+                {!platformEnv.isNative ? (
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                  />
+                ) : null}
+                {/* Native keeps the alerts inside the collapsible header (see
+                    renderHeader), but that header only mounts with the wallet
+                    content. Without a usable wallet fall back to the outer
+                    slot so the offline and notification-permission alerts
+                    still run. */}
+                {platformEnv.isNative && !hasNoUsableWallet ? null : (
+                  <Stack {...homePageContentMaxWidthSx}>
+                    <HomeAlerts />
+                  </Stack>
+                )}
+                {content}
+              </>
             )}
-            {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
                 ref={handleOuterHeaderHostRef}
@@ -1941,6 +1976,7 @@ function BaseHomePageView({
     handleOuterHeaderHostRef,
     walletPageContent,
     tabBarHeight,
+    dockTradeColumn,
   ]);
 
   return useMemo(() => {
