@@ -137,7 +137,8 @@ it('uses the current saved App locale on all four requests without recreating th
   };
   await client.getLinkInfo(proof.invitationToken);
   await client.sendDeletionOtp(proof);
-  await preference.set('ja-JP');
+  const japanese = await preference.change('ja-JP');
+  await expect(japanese?.persisted).resolves.toBe(true);
   expect(updateWebAppLocalePreference).toHaveBeenCalledWith('ja-JP');
   await client.deleteShare(
     {
@@ -186,7 +187,8 @@ it('uses the current saved App locale on all four requests without recreating th
   );
   expect(await captured[3].json()).toEqual(proof);
 
-  await preference.set('system');
+  const automatic = await preference.change('system');
+  await expect(automatic?.persisted).resolves.toBe(true);
   expect(updateWebAppLocalePreference).toHaveBeenLastCalledWith('system');
   await client.getResult(proof);
   expect(captured[4].headers.get('x-onekey-request-locale')).toBe('zh-cn');
@@ -213,15 +215,63 @@ it('does not report a network failure as a successful Prime request', async () =
   expect(send).toHaveBeenCalledTimes(1);
 });
 
-it('retains the previous request locale when saving App settings fails', async () => {
+it('uses the selected locale on the same request client when saving App settings fails', async () => {
   const preference = createLocalePreference('en');
+  const send = jest
+    .fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>()
+    .mockResolvedValue(new Response());
+  const transport = createDeletionTransport(testSite, enabled, {
+    send,
+    getLocalePreference: preference.get,
+  })?.transport;
+  if (!transport) throw new TypeError('Expected test transport');
+  const request = () =>
+    new Request(`${testPrime + API_BASE}/link-info`, { method: 'POST' });
+
   jest
     .mocked(updateWebAppLocalePreference)
     .mockRejectedValueOnce(new TypeError('test settings unavailable'));
-  await expect(preference.set('ja-JP')).rejects.toThrow(
-    'test settings unavailable',
-  );
-  expect(preference.get()).toBe('en');
+  const selected = await preference.change('ja-JP');
+  await expect(selected?.persisted).resolves.toBe(false);
+  expect(preference.get()).toBe('ja-JP');
+  await transport(request());
+  expect(
+    new Headers(send.mock.calls[0]?.[1]?.headers).get(
+      'X-Onekey-Request-Locale',
+    ),
+  ).toBe('ja-jp');
+});
+
+it('applies later choices during a stalled save and persists only the latest queued language afterwards', async () => {
+  const preference = createLocalePreference('en');
+  const writes: string[] = [];
+  let finishFirstWrite = () => {};
+  const firstWrite = new Promise<void>((resolve) => {
+    finishFirstWrite = resolve;
+  });
+  const save = jest.mocked(updateWebAppLocalePreference);
+  save.mockImplementationOnce(async (locale) => {
+    await firstWrite;
+    writes.push(locale);
+  });
+  save.mockImplementationOnce(async (locale) => {
+    writes.push(locale);
+  });
+
+  const first = await preference.change('ja-JP');
+  expect(preference.get()).toBe('ja-JP');
+  const second = await preference.change('de');
+  const latest = await preference.change('system');
+  expect(preference.get()).toBe('system');
+  expect(first?.isCurrent()).toBe(false);
+  expect(second?.isCurrent()).toBe(false);
+  expect(latest?.isCurrent()).toBe(true);
+  expect(writes).toEqual([]);
+
+  finishFirstWrite();
+  await expect(latest?.persisted).resolves.toBe(true);
+  expect(writes).toEqual(['ja-JP', 'system']);
+  expect(preference.get()).toBe('system');
 });
 
 it('rejects unrecognized web origins and disables loopback in production builds', () => {

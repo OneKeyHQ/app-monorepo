@@ -381,7 +381,7 @@ async function main() {
     );
     for (const mode of ['reject', 'hang']) {
       await scenario(
-        `invitation loading continues when wallet IndexedDB reads ${mode}`,
+        `the current visit can switch language when wallet IndexedDB reads ${mode}`,
         {
           appOrigin: local,
           linkOnly: true,
@@ -397,9 +397,30 @@ async function main() {
               };
             }, mode),
         },
-        async ({ step, calls }) => {
+        async ({ page, id, step, calls, primeLocales }) => {
           await step('identity');
+          const invitationUrl = page.url();
+          const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+          await id('keyless-language-button').click();
+          await id('select-item-ja-JP').click();
+          await page.waitForFunction(
+            () => document.documentElement.lang === 'ja-JP',
+          );
+          await id('keyless-language-persistence-warning').waitFor();
+          await id('keyless-language-button').click();
+          await id('select-item-en').click();
+          await page.waitForFunction(
+            () => document.documentElement.lang === 'en',
+          );
           assert.deepEqual(calls(), ['/link-info']);
+          assert.equal(page.url(), invitationUrl);
+          assert.equal(
+            await page.evaluate(() => performance.timeOrigin),
+            timeOrigin,
+          );
+          await id('sign-in-google').click();
+          await step('confirm');
+          assert.equal(primeLocales().at(-1), 'en');
         },
       );
     }
@@ -1015,10 +1036,7 @@ async function main() {
         assert.equal(page.url(), initialUrl);
         assert.deepEqual(calls(), beforeSwitch);
         assert.equal(await page.locator('html').getAttribute('lang'), 'ja-JP');
-        assert.equal(
-          await page.evaluate(() => globalThis.walletSettingsWrites),
-          1,
-        );
+        await page.waitForFunction(() => globalThis.walletSettingsWrites === 1);
         assert.equal(
           await page.evaluate(() => performance.timeOrigin),
           beforeNavigation,

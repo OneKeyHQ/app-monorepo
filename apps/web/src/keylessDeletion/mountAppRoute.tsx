@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { createRoot } from 'react-dom/client';
 import { useIntl } from 'react-intl';
@@ -173,12 +173,15 @@ function InviteRoute({
   invitationToken,
   onLanguageChange,
   preference,
+  localePersistenceIssue,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
   onLanguageChange: (locale: ILocaleSymbol) => void;
+  localePersistenceIssue: boolean;
   preference: ILocaleSymbol;
 }) {
+  const intl = useIntl();
   return (
     <YStack
       className="keyless-app-route"
@@ -209,6 +212,19 @@ function InviteRoute({
         px="$5"
         py="$6"
       >
+        {localePersistenceIssue ? (
+          <SizableText
+            role="status"
+            color="$textSubdued"
+            testID="keyless-language-persistence-warning"
+          >
+            {intl.formatMessage({ id: ETranslations.global_language })}
+            {': '}
+            {intl.formatMessage({
+              id: ETranslations.global_close_confirm_description,
+            })}
+          </SizableText>
+        ) : null}
         {invitationToken ? (
           <DeletionPage
             key={invitationToken}
@@ -228,11 +244,13 @@ function ThemedInvite({
   invitationToken,
   preference,
   onLanguageChange,
+  localePersistenceIssue,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
   preference: ILocaleSymbol;
   onLanguageChange: (locale: ILocaleSymbol) => void;
+  localePersistenceIssue: boolean;
 }) {
   const [theme, setTheme] = useState(readAppTheme);
   const { locale } = useIntl();
@@ -273,6 +291,7 @@ function ThemedInvite({
             invitationToken={invitationToken}
             preference={preference}
             onLanguageChange={onLanguageChange}
+            localePersistenceIssue={localePersistenceIssue}
           />
         </SafeAreaProvider>
       </SettingConfigContext.Provider>
@@ -290,18 +309,29 @@ function LocalizedInvite({
   localePreference: ReturnType<typeof createLocalePreference>;
 }) {
   const [preference, setPreference] = useState(localePreference.get);
-  const save = useRef(Promise.resolve());
+  const [localePersistenceIssue, setLocalePersistenceIssue] = useState(false);
 
   function changeLanguage(locale: ILocaleSymbol) {
-    save.current = save.current
-      .then(async () => {
-        await loadLocaleMessages(resolveLocale(locale));
-        await localePreference.set(locale);
-        setPreference(locale);
-      })
-      .catch(() => {
-        // Keep the current language if loading or persisting it fails.
+    void (async () => {
+      const selection = await localePreference
+        .change(locale)
+        .catch(() => undefined);
+      if (!selection?.isCurrent()) return;
+
+      setPreference(locale);
+      setLocalePersistenceIssue(false);
+
+      const { isCurrent, persisted } = selection;
+      const saved = await createTimeoutPromise({
+        asyncFunc: () => persisted,
+        timeout: OPTIONAL_SETTINGS_TIMEOUT_MS,
+        timeoutResult: false,
       });
+      if (isCurrent()) setLocalePersistenceIssue(!saved);
+      if (!saved && (await persisted) && isCurrent()) {
+        setLocalePersistenceIssue(false);
+      }
+    })();
   }
 
   return (
@@ -311,6 +341,7 @@ function LocalizedInvite({
         invitationToken={invitationToken}
         preference={preference}
         onLanguageChange={changeLanguage}
+        localePersistenceIssue={localePersistenceIssue}
       />
     </AppIntlProvider>
   );
