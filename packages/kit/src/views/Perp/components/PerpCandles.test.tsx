@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
+import { PerpTestIDs } from '../testIDs';
 
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
@@ -51,7 +52,11 @@ const mockPriceSelect = jest.fn();
 const mockMarkAllAssetCtxsRequired = jest.fn();
 const mockMarkAllAssetCtxsNotRequired = jest.fn();
 const mockSetTradeRouteViewState = jest.fn();
-const mockText = jest.fn<null, [{ children?: ReactNode }]>(() => null);
+type IMockTokenSelectorProps = {
+  display: { label: string };
+  testID?: string;
+};
+const mockTokenSelector = jest.fn<null, [IMockTokenSelectorProps]>(() => null);
 const mockQuote = jest.fn<
   null,
   [{ coinName: string; mode: string; assetId: number; displayMode: string }]
@@ -87,7 +92,7 @@ jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
   XStack: ({ children }: { children?: ReactNode }) => children,
   YStack: ({ children }: { children?: ReactNode }) => children,
-  SizableText: (props: { children?: ReactNode }) => mockText(props),
+  SizableText: () => null,
   IconButton: () => null,
   LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
@@ -143,6 +148,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getSymbolMeta: (params: { coin: string }) => mockGetSymbolMeta(params),
     },
   },
+}));
+
+jest.mock('./TokenSelector/PerpChartTokenSelector', () => ({
+  PerpChartTokenSelector: (props: IMockTokenSelectorProps) =>
+    mockTokenSelector(props),
 }));
 
 jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
@@ -387,14 +397,22 @@ describe('split view', () => {
     expect(first?.onPriceSelect).toBeUndefined();
   });
 
-  it('names each panel token without a picker of its own', async () => {
+  it('gives each panel a token picker of its own', async () => {
     renderTradingViewCandles();
 
-    // The page's picker switches the trade instrument, which the selected
-    // panel shows; the panels only name their tokens.
+    // A pick switches the trade instrument, as from the page's picker, and
+    // the press on the picker selects its panel like any press in the panel.
     await waitFor(() =>
-      expect(mockText.mock.calls.map(([props]) => props.children)).toEqual(
-        expect.arrayContaining(['BTCUSDC', 'ETHUSDC']),
+      expect(
+        mockTokenSelector.mock.calls.map(([props]) => [
+          props.testID,
+          props.display.label,
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          [`${PerpTestIDs.NativeChartPanelToken}-main`, 'BTCUSDC'],
+          [`${PerpTestIDs.NativeChartPanelToken}-panel-2`, 'ETHUSDC'],
+        ]),
       ),
     );
   });
@@ -435,7 +453,7 @@ describe('split view', () => {
     mockMultiChartLayout = { preset: '1', panels: {} };
     renderTradingViewCandles();
 
-    expect(mockText).not.toHaveBeenCalledWith({ children: 'BTCUSDC' });
+    expect(mockTokenSelector).not.toHaveBeenCalled();
     expect(mockQuote).not.toHaveBeenCalled();
   });
 

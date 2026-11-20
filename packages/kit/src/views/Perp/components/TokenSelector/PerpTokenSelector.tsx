@@ -147,7 +147,7 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
 export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
-const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
+export const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
@@ -381,7 +381,12 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent() {
+function BasePerpTokenSelectorContent({
+  bodyHeight = DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+}: {
+  /** Height of the tabs and list below the search, e.g. to fit a popover. */
+  bodyHeight?: number;
+}) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1683,7 +1688,7 @@ function BasePerpTokenSelectorContent() {
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack height={DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT} gap="$1">
+        <YStack height={bodyHeight} gap="$1">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView

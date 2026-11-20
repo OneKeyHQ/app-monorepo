@@ -455,9 +455,11 @@ const mockShownControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
     mockPlacedControls.push(controls);
     return controls;
   },
+  drawingToolsContainer: null,
 };
 const mockHiddenControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: () => null,
+  drawingToolsContainer: null,
 };
 
 describe('TradingViewNativeContainer', () => {

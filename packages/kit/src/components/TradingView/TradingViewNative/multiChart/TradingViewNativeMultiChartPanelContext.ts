@@ -22,6 +22,11 @@ export interface ITradingViewNativeMultiChartControlsSlot {
    * the selected panel's, so the other panels leave theirs out.
    */
   renderControls: (controls: ReactNode) => ReactNode;
+  /**
+   * Where the chart's drawing tools go: one column at the left of the grid,
+   * the selected panel's. Null for the other panels, which show none.
+   */
+  drawingToolsContainer: HTMLElement | null;
 }
 
 // Set around every split-view panel, the first one included.

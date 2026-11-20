@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { XStack, YStack } from '@onekeyhq/components';
 import {
   TradingViewNative,
   TradingViewNativeMultiChart,
@@ -43,6 +42,7 @@ import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadat
 import { PerpTestIDs } from '../testIDs';
 
 import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
+import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
 import type { IPerpsChartInstrumentDisplay } from '../hooks/usePerpsChartInstrument';
 
@@ -161,9 +161,10 @@ function PerpChartPanelQuote({
  * The others show their token's candles with the account's lines and fills
  * read-only. Selecting a panel only changes these props, so no chart remounts.
  * Only the selected panel's controls are on screen, above the grid, so every
- * panel gets the page-level controls; in a split each panel names its token,
- * price and 24h change instead. No panel has a token picker of its own: the
- * page's picker switches the trade instrument, which the selected panel shows.
+ * panel gets the page-level controls; in a split each panel shows its token,
+ * price and 24h change instead. The token is a picker: a press on it selects
+ * the panel like any press in it, and a pick switches the trade instrument,
+ * which the selected panel shows, as from the page's picker.
  */
 function PerpNativeSplitPanel({
   activeDisplay,
@@ -210,24 +211,10 @@ function PerpNativeSplitPanel({
           overflow="hidden"
           testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
         >
-          <XStack
-            flexShrink={0}
-            gap="$1.5"
-            alignItems="center"
+          <PerpChartTokenSelector
+            display={tokenDisplay}
             testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
-          >
-            <Token
-              size="xs"
-              borderRadius="$full"
-              {...(tokenDisplay.tokenImageUris
-                ? { tokenImageUris: tokenDisplay.tokenImageUris }
-                : { tokenImageUri: tokenDisplay.tokenImageUri })}
-              fallbackIcon="CryptoCoinOutline"
-            />
-            <SizableText size="$bodyMdMedium" numberOfLines={1}>
-              {tokenDisplay.label}
-            </SizableText>
-          </XStack>
+          />
           <PerpChartPanelQuote
             coin={coin}
             mode={instrument.mode}

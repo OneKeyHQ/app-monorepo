@@ -31,9 +31,10 @@ under separate owners:
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
-  not select. A panel has no token picker of its own: the host's picker
-  changes the host's source, which the selected panel shows, so a panel's
-  token changes by selecting it first.
+  not select. The grid never changes a panel's token on its own: a token
+  picker the host puts in a panel (Perps has one in each header) changes the
+  host's source once the press on it has selected the panel, and the panel
+  shows the pick as it shows any source of the host.
   Enter or Space on a panel's focused chart canvas selects it the same way;
   on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
   shows the host's source in its place; the source still belongs to the hidden
@@ -50,7 +51,12 @@ under separate owners:
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
-  and the layout picker sits in that row. The first panel keeps the host's own
+  and the layout picker sits in that row. The same context gives the selected
+  chart one drawing tools column at the left of the grid
+  (`drawingToolsContainer`). The chart keeps the properties of its selected
+  drawing, its hints and its object panels on itself, and the column's menus
+  reach over the panels. A chart whose tools go off screen drops its tool,
+  unfinished drawing and selected drawings, which nothing would show any more. The first panel keeps the host's own
   interval and indicators wherever the selection is. Every extra panel is
   wrapped in
   `TradingViewNativeMultiChartPanelContext`, so a chart mounted inside keeps its
@@ -115,7 +121,8 @@ under separate owners:
   per chart. A drag ends when another chart changes a drawing it is moving, so
   its release cannot undo that change. On web a key press goes to the chart
   under the pointer, otherwise to the focused one, so one shortcut never runs
-  in two charts; a tool menu takes arrow keys only while focus is in its own
+  in two charts; a chart's tools column outside it, as in a split view,
+  counts as part of the chart. A tool menu takes arrow keys only while focus is in its own
   toolbar and closes when focus moves to another toolbar.
 - `indicatorPanes` owns the order and preferred heights of the indicator panes.
   They are kept per namespace and per split-view panel, not per token, so they

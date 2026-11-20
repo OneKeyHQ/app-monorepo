@@ -98,9 +98,17 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const controls = (
     <span data-testid={`controls-${panel.id}`}>{panel.layoutControl}</span>
   );
+  const toolsContainer = controlsSlot?.drawingToolsContainer;
   return (
     <>
       {controlsSlot ? controlsSlot.renderControls(controls) : controls}
+      {/* Stands in for the drawing tools, as the web chart places them. */}
+      {toolsContainer
+        ? createPortal(
+            <span data-testid={`tools-${panel.id}`} />,
+            toolsContainer,
+          )
+        : null}
       {/* A menu the chart opened, rendered elsewhere on the page. */}
       {createPortal(
         <button
@@ -695,6 +703,30 @@ it('shows the selected panel controls once, above the grid', async () => {
   await act(async () => press('panel-2'));
 
   expectControls('panel-2');
+  expect(mockChartUnmount).not.toHaveBeenCalled();
+});
+
+it('shows the selected panel drawing tools once, at the left of the grid', async () => {
+  renderGrid({
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  const column = screen.getByTestId('trading-view-multi-chart-drawing-tools');
+  const expectTools = (id: string) => {
+    expect(
+      screen.getAllByTestId(/^tools-/).map((node) => node.dataset.testid),
+    ).toEqual([`tools-${id}`]);
+    expect(column.contains(screen.getByTestId(`tools-${id}`))).toBe(true);
+  };
+  // The column is beside the panels, not in one.
+  expect(getPanel('main').contains(column)).toBe(false);
+  expectTools('main');
+
+  await act(async () => press('panel-2'));
+
+  expectTools('panel-2');
   expect(mockChartUnmount).not.toHaveBeenCalled();
 });
 

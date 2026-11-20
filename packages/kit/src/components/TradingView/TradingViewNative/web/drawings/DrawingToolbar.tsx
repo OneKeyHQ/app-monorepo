@@ -10,9 +10,11 @@ import type {
   InputHTMLAttributes,
   PointerEvent,
   ReactNode,
+  RefObject,
   SelectHTMLAttributes,
 } from 'react';
 
+import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
 import {
@@ -81,6 +83,8 @@ type IActionIcon =
   | 'chevron';
 
 type IPropertiesPosition = { left: number; top: number };
+
+const TOOLS_WIDTH = 48;
 
 function DrawingButton({
   active,
@@ -378,13 +382,27 @@ function LineStyleControls({
 export function DrawingToolbar({
   controller,
   mainChartBottomInset,
+  toolsContainer,
+  toolsRef,
 }: {
   controller: IChartDrawingsController;
   mainChartBottomInset: number;
+  /**
+   * Shows the tools column there instead of at the chart's left, e.g. at the
+   * left of all charts of a split view; null leaves it out. The properties of
+   * a drawing and the hints stay on the chart.
+   */
+  toolsContainer?: HTMLElement | null;
+  /** Gets the tools column's element. */
+  toolsRef?: RefObject<HTMLDivElement | null>;
 }) {
   const theme = useTheme();
   const fontSizeControlId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const ownRootRef = useRef<HTMLDivElement>(null);
+  const rootRef = toolsRef ?? ownRootRef;
+  const toolsOutside = toolsContainer !== undefined;
+  // The chart's own overlays start past the tools column it holds.
+  const overlayInset = toolsOutside ? 0 : TOOLS_WIDTH;
   const propertiesRef = useRef<HTMLDivElement>(null);
   const coordinatesRef = useRef<HTMLDivElement>(null);
   const settingsBodyRef = useRef<HTMLDivElement>(null);
@@ -395,7 +413,7 @@ export function DrawingToolbar({
     position: IPropertiesPosition;
   } | null>(null);
   const [propertiesPosition, setPropertiesPosition] =
-    useState<IPropertiesPosition>({ left: 62, top: 8 });
+    useState<IPropertiesPosition>(() => ({ left: overlayInset + 14, top: 8 }));
   const intl = useIntl();
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -424,12 +442,18 @@ export function DrawingToolbar({
     !menu && !state.hidden && Boolean(selected || state.tool !== 'cursor');
   const settingsVisible =
     propertiesVisible && Boolean(selected && state.editingCoordinates);
+  // Left edge of the chart area the overlays can use.
+  const getOverlayMinLeft = useCallback(
+    () =>
+      (toolsOutside ? 0 : (rootRef.current?.offsetWidth ?? TOOLS_WIDTH)) + 8,
+    [rootRef, toolsOutside],
+  );
   const clampPropertiesPosition = useCallback(
     (position: IPropertiesPosition): IPropertiesPosition => {
       const panel = propertiesRef.current;
       const container = panel?.offsetParent;
       if (!panel || !(container instanceof HTMLElement)) return position;
-      const minLeft = (rootRef.current?.offsetWidth ?? 48) + 8;
+      const minLeft = getOverlayMinLeft();
       return {
         left: Math.max(
           minLeft,
@@ -447,7 +471,7 @@ export function DrawingToolbar({
         ),
       };
     },
-    [],
+    [getOverlayMinLeft],
   );
   useEffect(() => {
     const panel = propertiesRef.current;
@@ -469,7 +493,7 @@ export function DrawingToolbar({
       resizeObserver.disconnect();
       propertiesDragRef.current = null;
     };
-  }, [clampPropertiesPosition, propertiesVisible]);
+  }, [clampPropertiesPosition, propertiesVisible, rootRef]);
   useLayoutEffect(() => {
     const panel = propertiesRef.current;
     const dialog = coordinatesRef.current;
@@ -483,7 +507,7 @@ export function DrawingToolbar({
       return undefined;
     const body = settingsBodyRef.current;
     const updateSettingsPosition = () => {
-      const minLeft = (rootRef.current?.offsetWidth ?? 48) + 8;
+      const minLeft = getOverlayMinLeft();
       dialog.style.maxWidth = `${Math.max(0, container.clientWidth - minLeft - 8)}px`;
       const belowTop = panel.offsetTop + panel.offsetHeight + 6;
       const spaceBelow = Math.max(0, container.clientHeight - belowTop - 8);
@@ -520,6 +544,7 @@ export function DrawingToolbar({
       resizeObserver.disconnect();
     };
   }, [
+    getOverlayMinLeft,
     positionExpanded,
     propertiesPosition,
     selected?.id,
@@ -724,8 +749,24 @@ export function DrawingToolbar({
       root?.removeEventListener('focusout', leave);
       document.removeEventListener('keydown', navigate, true);
     };
-  }, [menu]);
-  return (
+  }, [menu, rootRef]);
+  // Tools that go off screen, e.g. with the selection to another chart of a
+  // split view, leave no menu, tool, unfinished drawing or selected drawing
+  // behind: nothing would show them, and the press that brings the tools back
+  // would start a drawing.
+  const toolsShown = toolsContainer !== null;
+  const { selectTool, state: drawingState } = controller;
+  useEffect(() => {
+    if (toolsShown) return;
+    setMenu(null);
+    if (
+      drawingState.tool !== 'cursor' ||
+      drawingState.draft ||
+      drawingState.selectedIds.length > 0
+    )
+      selectTool('cursor');
+  }, [drawingState, selectTool, toolsShown]);
+  const renderTools = (children?: ReactNode) => (
     <YStack
       render={<div ref={rootRef} data-collapsed={collapsed} />}
       testID="chart-drawing-toolbar"
@@ -734,7 +775,7 @@ export function DrawingToolbar({
         id: ETranslations.market_drawing_chart_drawings__title,
       })}
       position="static"
-      width={collapsed ? 0 : 48}
+      width={collapsed ? 0 : TOOLS_WIDTH}
       flexShrink={0}
       borderRightWidth={collapsed ? 0 : 1}
       borderColor="$borderSubdued"
@@ -1059,6 +1100,11 @@ export function DrawingToolbar({
             ))}
         </ScrollView>
       ) : null}
+      {children}
+    </YStack>
+  );
+  const overlays = (
+    <>
       {propertiesVisible ? (
         <XStack
           render={<div ref={propertiesRef} />}
@@ -1451,7 +1497,7 @@ export function DrawingToolbar({
         <SizableText
           role="status"
           position="absolute"
-          left={62}
+          left={overlayInset + 14}
           bottom={32}
           paddingVertical={5}
           paddingHorizontal={9}
@@ -1469,7 +1515,7 @@ export function DrawingToolbar({
         <Button
           testID="chart-drawing-finish"
           position="absolute"
-          left={64}
+          left={overlayInset + 16}
           bottom={56}
           size="small"
           onPress={controller.finishPath}
@@ -1483,6 +1529,17 @@ export function DrawingToolbar({
           })}
         </Button>
       ) : null}
-    </YStack>
+    </>
+  );
+  if (!toolsOutside) return renderTools(overlays);
+  return (
+    <>
+      {toolsContainer ? createPortal(renderTools(), toolsContainer) : null}
+      {/* A zero-width item stacks the overlays over the chart, as the tools
+      column does when the chart holds it. */}
+      <YStack position="static" width={0} flexShrink={0} zIndex={4}>
+        {overlays}
+      </YStack>
+    </>
   );
 }

@@ -66,6 +66,7 @@ function setup(storageKey = 'ASTER', enabled = true) {
     projectionRef: { current: projection },
     redrawRef: { current: jest.fn() },
     rootRef: { current: root },
+    toolsRef: undefined as { current: HTMLDivElement } | undefined,
   };
   const hook = renderHook((props) => useChartDrawings(props), {
     initialProps: options,
@@ -732,6 +733,55 @@ it('gives a key press to the chart under the pointer, otherwise the focused one'
 
   focusedRoot.remove();
   hoveredRoot.remove();
+});
+
+it('counts drawing tools placed outside the chart as part of it for key presses', async () => {
+  const chart = setup('outside');
+  const other = setup('other');
+  await waitFor(() => expect(chart.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(other.result.current.state.ready).toBe(true));
+  // As in a split view, whose grid shows the tools at the left of all charts.
+  const tools = document.createElement('div');
+  const toolButton = document.createElement('button');
+  tools.append(toolButton);
+  chart.rerender({ ...chart.options, toolsRef: { current: tools } });
+  const chartRoot = chart.options.rootRef.current;
+  const otherRoot = other.options.rootRef.current;
+  document.body.append(chartRoot, otherRoot, tools);
+  for (const hook of [chart, other]) {
+    act(() => {
+      hook.result.current.onPointerMove(hook.event('pointermove', 200, 180));
+    });
+  }
+  const press = () =>
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'j',
+          code: 'KeyJ',
+          altKey: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+  // Focus in the tools, after picking one: the key is their chart's.
+  act(() => toolButton.focus());
+  press();
+  expect(chart.result.current.state.history.present).toHaveLength(1);
+  expect(other.result.current.state.history.present).toHaveLength(0);
+
+  // So it is with the pointer over the tools.
+  act(() => toolButton.blur());
+  const isHovered = jest.spyOn(tools, 'matches').mockReturnValue(true);
+  press();
+  expect(chart.result.current.state.history.present).toHaveLength(2);
+  expect(other.result.current.state.history.present).toHaveLength(0);
+
+  isHovered.mockRestore();
+  chartRoot.remove();
+  otherRoot.remove();
+  tools.remove();
 });
 
 it('locks restored drawings against edit and delete while allowing unlock', async () => {

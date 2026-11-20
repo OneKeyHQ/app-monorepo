@@ -71,6 +71,7 @@ function isOnPanel(panel: Element, target: EventTarget): target is Element {
 
 const NO_CONTROLS_SLOT: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: () => null,
+  drawingToolsContainer: null,
 };
 
 // Gives the chart inside an extra panel its own indicator settings, stored in
@@ -633,14 +634,18 @@ export function TradingViewNativeMultiChart({
     [handlePresetChange, handleSyncChange, preset, sync],
   );
 
-  // One controls row for the whole grid: the selected panel's.
+  // One controls row and one drawing tools column for the whole grid: the
+  // selected panel's.
   const [controlsBar, setControlsBar] = useState<HTMLDivElement | null>(null);
+  const [drawingToolsColumn, setDrawingToolsColumn] =
+    useState<HTMLDivElement | null>(null);
   const activeControlsSlot = useMemo<ITradingViewNativeMultiChartControlsSlot>(
     () => ({
       renderControls: (controls) =>
         controlsBar ? createPortal(controls, controlsBar) : null,
+      drawingToolsContainer: drawingToolsColumn,
     }),
-    [controlsBar],
+    [controlsBar, drawingToolsColumn],
   );
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
@@ -747,125 +752,141 @@ export function TradingViewNativeMultiChart({
         data-testid={`${testID}-controls`}
         style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}
       />
+      {/* The tools' menus and toggle are placed against this row, so they
+      reach over the panels. */}
       <Stack
         flex={1}
         width="100%"
         minHeight={0}
+        flexDirection="row"
         position="relative"
-        onLayout={handleGridLayout}
       >
-        {panelIds.map((id, index) => {
-          const rect = rects[index];
-          const state = layout.panels[id];
-          const isActive = id === activePanelId;
-          // With the token synced, a panel keeps its own for when that ends.
-          const source =
-            isActive || isSymbolSynced ? shownActiveSource : state?.source;
-          return (
-            // Panels keep their tree position, so neither a preset change nor a
-            // selection remounts a chart.
-            <Stack
-              key={id}
-              position="absolute"
-              left={`${rect.left * 100}%`}
-              top={`${rect.top * 100}%`}
-              width={`${rect.width * 100}%`}
-              height={`${rect.height * 100}%`}
-              minHeight={0}
-              overflow="hidden"
-              testID={`${testID}-panel-${id}`}
-              data-selected={isSplit && isActive ? 'true' : undefined}
-            >
-              <div
-                style={{ display: 'contents' }}
-                // Capture: a press anywhere in the panel, also on a control of
-                // its chart, selects it before the chart handles the press.
-                onPointerDownCapture={
-                  isActive
-                    ? undefined
-                    : (event) => {
-                        if (
-                          event.button === 0 &&
-                          isOnPanel(event.currentTarget, event.target)
-                        ) {
+        <div
+          ref={setDrawingToolsColumn}
+          data-testid={`${testID}-drawing-tools`}
+          // Above the panels' outline and dividers, so a tool menu stays on top.
+          style={{ display: 'flex', flexShrink: 0, zIndex: 6 }}
+        />
+        <Stack
+          flex={1}
+          minWidth={0}
+          minHeight={0}
+          position="relative"
+          onLayout={handleGridLayout}
+        >
+          {panelIds.map((id, index) => {
+            const rect = rects[index];
+            const state = layout.panels[id];
+            const isActive = id === activePanelId;
+            // With the token synced, a panel keeps its own for when that ends.
+            const source =
+              isActive || isSymbolSynced ? shownActiveSource : state?.source;
+            return (
+              // Panels keep their tree position, so neither a preset change nor a
+              // selection remounts a chart.
+              <Stack
+                key={id}
+                position="absolute"
+                left={`${rect.left * 100}%`}
+                top={`${rect.top * 100}%`}
+                width={`${rect.width * 100}%`}
+                height={`${rect.height * 100}%`}
+                minHeight={0}
+                overflow="hidden"
+                testID={`${testID}-panel-${id}`}
+                data-selected={isSplit && isActive ? 'true' : undefined}
+              >
+                <div
+                  style={{ display: 'contents' }}
+                  // Capture: a press anywhere in the panel, also on a control of
+                  // its chart, selects it before the chart handles the press.
+                  onPointerDownCapture={
+                    isActive
+                      ? undefined
+                      : (event) => {
+                          if (
+                            event.button === 0 &&
+                            isOnPanel(event.currentTarget, event.target)
+                          ) {
+                            handleSelectPanel(id);
+                          }
+                        }
+                  }
+                  // From the keyboard: Enter or Space on the focused chart.
+                  // The panel's controls, e.g. a drawing tool's style list, use
+                  // these keys themselves and leave the selection alone.
+                  onKeyDownCapture={
+                    isActive
+                      ? undefined
+                      : (event) => {
+                          const { target } = event;
+                          if (
+                            (event.key !== 'Enter' && event.key !== ' ') ||
+                            event.altKey ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            !(target instanceof HTMLCanvasElement) ||
+                            !isOnPanel(event.currentTarget, target)
+                          ) {
+                            return;
+                          }
+                          // Space would scroll the page.
+                          event.preventDefault();
                           handleSelectPanel(id);
                         }
-                      }
-                }
-                // From the keyboard: Enter or Space on the focused chart.
-                // The panel's controls, e.g. a drawing tool's style list, use
-                // these keys themselves and leave the selection alone.
-                onKeyDownCapture={
-                  isActive
-                    ? undefined
-                    : (event) => {
-                        const { target } = event;
-                        if (
-                          (event.key !== 'Enter' && event.key !== ' ') ||
-                          event.altKey ||
-                          event.ctrlKey ||
-                          event.metaKey ||
-                          !(target instanceof HTMLCanvasElement) ||
-                          !isOnPanel(event.currentTarget, target)
-                        ) {
-                          return;
-                        }
-                        // Space would scroll the page.
-                        event.preventDefault();
-                        handleSelectPanel(id);
-                      }
-                }
-              >
-                <TradingViewNativeMultiChartControlsContext.Provider
-                  value={isActive ? activeControlsSlot : NO_CONTROLS_SLOT}
+                  }
                 >
-                  {source ? (
-                    <Panel
-                      id={id}
-                      index={index}
-                      isActive={isActive}
-                      isSplit={isSplit}
-                      isSymbolSynced={isSymbolSynced}
-                      source={source}
-                      sync={panelSync}
-                      indicatorSettings={
-                        state?.indicatorSettings ?? defaultIndicatorSettings
-                      }
-                      layoutControl={layoutControl}
-                      onLayoutChange={onLayoutChange}
-                      renderPanel={renderPanel}
-                    />
-                  ) : null}
-                </TradingViewNativeMultiChartControlsContext.Provider>
-              </div>
-              {isSplit && isActive ? (
-                <Stack
-                  position="absolute"
-                  top={0}
-                  right={0}
-                  bottom={0}
-                  left={0}
-                  // Above the chart's toolbars and the dividers on its edges; it
-                  // never takes a press.
-                  zIndex={5}
-                  pointerEvents="none"
-                  borderWidth={1}
-                  borderColor="$borderActive"
-                />
-              ) : null}
-            </Stack>
-          );
-        })}
-        {dividers.map((divider) => (
-          <TradingViewNativeMultiChartDivider
-            key={`${divider.axis}:${divider.index}`}
-            divider={divider}
-            label={dividerLabel}
-            onStart={handleResizeStart}
-            onMove={handleResizeMove}
-            onEnd={handleResizeEnd}
-          />
-        ))}
+                  <TradingViewNativeMultiChartControlsContext.Provider
+                    value={isActive ? activeControlsSlot : NO_CONTROLS_SLOT}
+                  >
+                    {source ? (
+                      <Panel
+                        id={id}
+                        index={index}
+                        isActive={isActive}
+                        isSplit={isSplit}
+                        isSymbolSynced={isSymbolSynced}
+                        source={source}
+                        sync={panelSync}
+                        indicatorSettings={
+                          state?.indicatorSettings ?? defaultIndicatorSettings
+                        }
+                        layoutControl={layoutControl}
+                        onLayoutChange={onLayoutChange}
+                        renderPanel={renderPanel}
+                      />
+                    ) : null}
+                  </TradingViewNativeMultiChartControlsContext.Provider>
+                </div>
+                {isSplit && isActive ? (
+                  <Stack
+                    position="absolute"
+                    top={0}
+                    right={0}
+                    bottom={0}
+                    left={0}
+                    // Above the chart's toolbars and the dividers on its edges; it
+                    // never takes a press.
+                    zIndex={5}
+                    pointerEvents="none"
+                    borderWidth={1}
+                    borderColor="$borderActive"
+                  />
+                ) : null}
+              </Stack>
+            );
+          })}
+          {dividers.map((divider) => (
+            <TradingViewNativeMultiChartDivider
+              key={`${divider.axis}:${divider.index}`}
+              divider={divider}
+              label={dividerLabel}
+              onStart={handleResizeStart}
+              onMove={handleResizeMove}
+              onEnd={handleResizeEnd}
+            />
+          ))}
+        </Stack>
       </Stack>
     </Stack>
   );

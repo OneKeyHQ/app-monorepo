@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -27,6 +28,7 @@ import {
 import { useDrawingCanvasText } from '../drawings/useDrawingCanvasText';
 import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
+import { TradingViewNativeMultiChartControlsContext } from '../multiChart/TradingViewNativeMultiChartPanelContext';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import {
   type ITradingViewNativeSubIndicator,
@@ -233,6 +235,10 @@ export const TradingViewNativeChart = memo(
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const drawingRootRef = useRef<HTMLDivElement>(null);
+    // In a split view the grid shows the selected chart's drawing tools at the
+    // left of all charts, outside this chart's root.
+    const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
+    const drawingToolsRef = useRef<HTMLDivElement>(null);
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
@@ -270,6 +276,7 @@ export const TradingViewNativeChart = memo(
       loadHistory: loadDrawingHistory,
       historyContext: { points, interval: candleIntervalSeconds },
       rootRef: drawingRootRef,
+      toolsRef: drawingToolsRef,
     });
     const {
       draw: drawDrawings,
@@ -1719,7 +1726,13 @@ export const TradingViewNativeChart = memo(
         {drawingsEnabled ? (
           <DrawingToolbar
             controller={drawingController}
-            mainChartBottomInset={measuredMainChartBottomInset}
+            // The grid's column runs past this chart's panes, down to the
+            // time axis of the bottom panels.
+            mainChartBottomInset={
+              controlsSlot ? timeAxisHeight : measuredMainChartBottomInset
+            }
+            toolsContainer={controlsSlot?.drawingToolsContainer}
+            toolsRef={drawingToolsRef}
           />
         ) : null}
         <Stack
