@@ -26,6 +26,15 @@ const TEXT_OFFSET_Y = platformEnv.isNativeIOS ? -PX : 0;
 const ICON_SIZE = 40;
 // DiscoveryIcon borderRadius "$2".
 const ICON_RADIUS = 8;
+const MAX_NATIVE_TEXT_LENGTH = 4096;
+
+function truncateNativeText(text: string) {
+  if (text.length <= MAX_NATIVE_TEXT_LENGTH) return text;
+  const end = /[\uD800-\uDBFF]/.test(text[MAX_NATIVE_TEXT_LENGTH - 1])
+    ? MAX_NATIVE_TEXT_LENGTH - 1
+    : MAX_NATIVE_TEXT_LENGTH;
+  return text.slice(0, end);
+}
 
 function decodeLogo(logo: string | undefined) {
   if (!logo) return undefined;
@@ -70,7 +79,7 @@ export function buildBrowserSiteRow({
   return {
     key,
     type: 'identity',
-    testID,
+    testID: testID === undefined ? undefined : truncateNativeText(testID),
     height,
     pressDisabled: editing,
     collapseEmptyTrailing: true,
@@ -99,9 +108,9 @@ export function buildBrowserSiteRow({
       borderWidth: StyleSheet.hairlineWidth,
     },
     leadingAction: editing ? leadingAction : undefined,
-    title: title || url,
+    title: truncateNativeText(title || url),
     titleLines: 1,
-    subtitle: url,
+    subtitle: truncateNativeText(url),
     subtitleLines: 1,
     trailing: editing ? trailing : undefined,
     style: {

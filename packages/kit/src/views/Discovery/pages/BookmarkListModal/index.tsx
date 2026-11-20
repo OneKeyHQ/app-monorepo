@@ -40,6 +40,8 @@ import type {
   RowModel,
 } from '@onekeyfe/react-native-native-list';
 
+type IBookmarkRow = { key: string; bookmark: IBrowserBookmark };
+
 function BookmarkListModal() {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -47,14 +49,23 @@ function BookmarkListModal() {
     useBrowserBookmarkAction().current;
   const handleWebSite = useWebSiteHandler();
 
-  const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
+  const [dataSource, setDataSource] = useState<IBookmarkRow[]>([]);
+  const bookmarkKeys = useRef(new Map<string, string>());
   const { run: refreshLocalData, result } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
           generateIcon: true,
         });
-      setDataSource(bookmarks || []);
+      // Keep NativeList keys short and stable across reorders and refreshes.
+      const keys = bookmarkKeys.current;
+      setDataSource(
+        (bookmarks || []).map((bookmark) => {
+          const key = keys.get(bookmark.url) ?? `bookmark:${keys.size}`;
+          keys.set(bookmark.url, key);
+          return { key, bookmark };
+        }),
+      );
       return bookmarks || [];
     },
     [],
@@ -160,7 +171,7 @@ function BookmarkListModal() {
 
   const onReorder = useCallback(
     async (event: ReorderEvent) => {
-      const fromIndex = dataSource.findIndex((item) => item.url === event.key);
+      const fromIndex = dataSource.findIndex((item) => item.key === event.key);
       if (fromIndex < 0) return;
       const data = [...dataSource];
       const [dragItem] = data.splice(fromIndex, 1);
@@ -168,9 +179,9 @@ function BookmarkListModal() {
       data.splice(toIndex, 0, dragItem);
       setDataSource(data);
       await sortBrowserBookmark({
-        target: dragItem,
-        prev: data[toIndex - 1],
-        next: data[toIndex + 1],
+        target: dragItem.bookmark,
+        prev: data[toIndex - 1]?.bookmark,
+        next: data[toIndex + 1]?.bookmark,
       });
     },
     [dataSource, sortBrowserBookmark],
@@ -217,9 +228,9 @@ function BookmarkListModal() {
   const generationRef = useRef(0);
   const snapshot = useMemo<NativeListSnapshot>(() => {
     generationRef.current += 1;
-    const rows: RowModel[] = dataSource.map((item) =>
+    const rows: RowModel[] = dataSource.map(({ key, bookmark: item }) =>
       buildBrowserSiteRow({
-        key: item.url,
+        key,
         title: item.title,
         url: item.url,
         logo: item.logo,
@@ -268,7 +279,7 @@ function BookmarkListModal() {
 
   const onRowAction = useCallback(
     (event: RowActionEvent) => {
-      const item = dataSource.find((bookmark) => bookmark.url === event.rowKey);
+      const item = dataSource.find(({ key }) => key === event.rowKey)?.bookmark;
       if (!item) return;
       if (event.actionKey === 'press') {
         if (!isEditing) handleItemPress(item);
