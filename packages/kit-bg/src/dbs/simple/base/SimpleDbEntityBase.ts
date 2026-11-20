@@ -276,6 +276,18 @@ abstract class SimpleDbEntityBase<T> {
             const rawData = await this.getRawDataInner();
             assertCanCommit?.();
             data = await dataOrBuilder(rawData);
+            if (
+              rawData !== null &&
+              rawData !== undefined &&
+              Object.is(data, rawData)
+            ) {
+              if (this.enableCache) {
+                this.cachedRawData = data;
+              }
+              this.cachedRawDataPromise = null;
+              onCommitted?.(data);
+              return data;
+            }
           } else {
             data = dataOrBuilder;
           }

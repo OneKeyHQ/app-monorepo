@@ -2210,10 +2210,12 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       if (data.coin && data.leverage?.value) {
         const lastUsedLeverage = await perpsLastUsedLeverageAtom.get();
-        await perpsLastUsedLeverageAtom.set({
-          ...lastUsedLeverage,
-          [data.coin]: data.leverage.value,
-        });
+        if (lastUsedLeverage?.[data.coin] !== data.leverage.value) {
+          await perpsLastUsedLeverageAtom.set({
+            ...lastUsedLeverage,
+            [data.coin]: data.leverage.value,
+          });
+        }
       }
     } else {
       const activeAssetData = await perpsActiveAssetDataAtom.get();

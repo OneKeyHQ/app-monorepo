@@ -34,6 +34,12 @@ import {
 } from '@onekeyhq/shared/src/travelMode';
 
 import {
+  PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+  perpSnapshotCache,
+} from '../../dbs/simple/base/simpleDbSnapshotCacheUtils';
+
+import { EAtomNames } from './atomNames';
+import {
   CURRENCY_REFERENCE_STORAGE_KEY,
   MANUAL_LOCK_CONTROL_STORAGE_KEY,
   MMKV_MIGRATION_COMPLETE_KEY,
@@ -49,6 +55,7 @@ const JOTAI_LEGACY_RETENTION_POLICY_KEY = '__mmkv_legacy_retention_v1__';
 const JOTAI_LEGACY_RETENTION_POLICY_RETAINED = 'retained-v1';
 const JOTAI_MIGRATION_REPORT_KEY = '__mmkv_migration_report_v1__';
 const JOTAI_STORAGE_KEY_PREFIX = 'g_states_v5:';
+const PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY = `${JOTAI_STORAGE_KEY_PREFIX}${EAtomNames.perpsAccountDisplaySnapshotAtom}`;
 const APP_STORAGE_KEY_PREFIX = 'app:';
 const JOTAI_MIGRATION_CHUNK_SIZE = 100;
 
@@ -427,6 +434,9 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   private async finishInterruptedReset(retainLegacy = false): Promise<void> {
     if (!retainLegacy) await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
+    if (perpSnapshotCache.get(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY) !== undefined) {
+      perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
+    }
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
     const legacyStateKey = retainLegacy
       ? JOTAI_LEGACY_RETENTION_POLICY_KEY
@@ -454,6 +464,17 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const read = async () => {
       this.assertMigrated();
+      if (key === PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) {
+        const snapshot = perpSnapshotCache.get(
+          PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+        )?.data;
+        if (snapshot !== undefined && snapshot !== null) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return snapshot;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return initialValue;
+      }
       const raw = this.mmkv.getString(key);
       if (raw !== undefined) {
         try {
@@ -480,10 +501,29 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const write = async () => {
       this.assertMigrated();
+      if (key === PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) {
+        if (newValue === undefined || newValue === null) {
+          if (
+            perpSnapshotCache.get(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY) !== undefined
+          ) {
+            perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
+          }
+        } else {
+          perpSnapshotCache.set(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY, newValue);
+        }
+        return;
+      }
       if (newValue === undefined || newValue === null) {
+        if (this.mmkv.getString(key) === undefined) {
+          return;
+        }
         void this.store.delete(key);
       } else {
-        void this.store.set(key, JSON.stringify(newValue));
+        const serialized = JSON.stringify(newValue);
+        if (this.mmkv.getString(key) === serialized) {
+          return;
+        }
+        void this.store.set(key, serialized);
       }
       await syncNativeStorageMMKV('onekey-jotai-states');
     };
@@ -497,6 +537,17 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const remove = async () => {
       this.assertMigrated();
+      if (key === PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) {
+        if (
+          perpSnapshotCache.get(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY) !== undefined
+        ) {
+          perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
+        }
+        return;
+      }
+      if (this.mmkv.getString(key) === undefined) {
+        return;
+      }
       void this.store.delete(key);
       await syncNativeStorageMMKV('onekey-jotai-states');
     };
@@ -886,14 +937,27 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         const map = new Map<string, any>();
         const keys = this.getBusinessKeys();
         for (const key of keys) {
-          const raw = this.mmkv.getString(key);
-          if (raw !== undefined) {
-            try {
-              map.set(key, JSON.parse(raw));
-            } catch {
-              map.set(key, undefined);
+          if (key === PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) {
+            // Ignored from onekey-jotai-states; loaded from perpSnapshotCache below.
+          } else {
+            const raw = this.mmkv.getString(key);
+            if (raw !== undefined) {
+              try {
+                map.set(key, JSON.parse(raw));
+              } catch {
+                map.set(key, undefined);
+              }
             }
           }
+        }
+        const perpDisplaySnapshot = perpSnapshotCache.get(
+          PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+        )?.data;
+        if (perpDisplaySnapshot !== undefined && perpDisplaySnapshot !== null) {
+          map.set(
+            PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY,
+            perpDisplaySnapshot,
+          );
         }
         return map;
       },

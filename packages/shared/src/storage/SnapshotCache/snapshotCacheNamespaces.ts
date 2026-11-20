@@ -32,6 +32,12 @@ export const FEATURE_SNAPSHOT_CACHE_NAMESPACES = [
   'tokenlist-owner-slim',
   'tokenlist-owner-worth',
   'home-header-layout',
+  'perp-cache',
+  'sdb-local-tokens',
+  'sdb-local-nfts',
+  'sdb-account-value',
+  'sdb-aggregate-token',
+  'sdb-defi',
 ] as const;
 
 export type ISnapshotCacheNamespace =
