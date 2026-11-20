@@ -4,6 +4,11 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
+import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 
 import { uploadLogBundle } from './index.native';
 import { LOG_UPLOAD_TIMEOUT_MS } from './logUploadUtils';
@@ -50,6 +55,11 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
 }));
+jest.mock('@onekeyhq/shared/src/request/availabilityMetrics', () => ({
+  createApiAvailabilityTiming: jest.fn(),
+  reportApiAvailabilityError: jest.fn(),
+  reportApiAvailabilityResponse: jest.fn(),
+}));
 jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   withCustomUAHeaders: jest.fn(async (_url: string, headers: unknown) => ({
     ...(headers as Record<string, string>),
@@ -77,6 +87,11 @@ const mockedLogUpload = defaultLogger.setting.logUpload as unknown as {
   uploadFailed: jest.Mock;
 };
 
+const AVAILABILITY_TIMING = {
+  startedAt: 0,
+  service: 'wallet',
+  routeGroup: '/wallet/v1/client/log',
+};
 const SUCCESS_BODY = JSON.stringify({
   code: 0,
   data: { objectKey: 'logs/key', uploadedBytes: 1024, durationMs: 1 },
@@ -98,6 +113,9 @@ function nativeDigest(): ILogDigest {
 describe('native log upload transport', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest
+      .mocked(createApiAvailabilityTiming)
+      .mockReturnValue(AVAILABILITY_TIMING);
   });
 
   test('uploads over the SNI route without touching the domain route', async () => {
@@ -229,6 +247,15 @@ describe('native log upload transport', () => {
         }),
       ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
       expect(request.send).toHaveBeenCalledTimes(1);
+      expect(createApiAvailabilityTiming).toHaveBeenCalledWith({
+        url: 'https://wallet.example.com/wallet/v1/client/log',
+      });
+      expect(reportApiAvailabilityResponse).toHaveBeenCalledTimes(1);
+      expect(reportApiAvailabilityResponse).toHaveBeenCalledWith({
+        timing: AVAILABILITY_TIMING,
+        httpStatus: 200,
+      });
+      expect(reportApiAvailabilityError).not.toHaveBeenCalled();
       expect(appEventBus.emit).toHaveBeenCalledWith(
         EAppEventBusNames.ClientLogUploadProgress,
         {
@@ -245,6 +272,73 @@ describe('native log upload transport', () => {
       globalThis.XMLHttpRequest = previousRequest;
     }
   });
+
+  test.each([
+    {
+      event: 'error',
+      reason: 'network',
+      error: { message: 'Network request failed' },
+    },
+    { event: 'abort', reason: 'network', error: { name: 'AbortError' } },
+    { event: 'timeout', reason: 'timeout', error: { name: 'TimeoutError' } },
+  ])(
+    'reports XHR $event through the availability classifier once',
+    async ({ event, reason, error }) => {
+      if (event === 'timeout') jest.useFakeTimers();
+      mockedUploadViaIpTable.mockResolvedValue({
+        route: 'skipped',
+        reason: 'sni_unsupported',
+      });
+      mockedCreateUploadTask.mockReturnValueOnce({
+        uploadAsync: jest.fn().mockRejectedValue(new Error('Task unavailable')),
+        cancelAsync: jest.fn(),
+      });
+      const request = {
+        open: jest.fn(),
+        setRequestHeader: jest.fn(),
+        upload: { onprogress: null },
+        onerror: null as (() => void) | null,
+        onabort: null as (() => void) | null,
+        send: jest.fn<void, []>(),
+        abort: jest.fn<void, []>(),
+      };
+      request.send.mockImplementation(() => {
+        if (event === 'error') request.onerror?.();
+        if (event === 'abort') request.onabort?.();
+      });
+      request.abort.mockImplementation(() => {
+        request.onabort?.();
+      });
+      const previousRequest = globalThis.XMLHttpRequest;
+      globalThis.XMLHttpRequest = jest.fn(
+        () => request,
+      ) as unknown as typeof XMLHttpRequest;
+      const append = jest
+        .spyOn(FormData.prototype, 'append')
+        .mockImplementation(() => undefined);
+      try {
+        const settled = uploadLogBundle({
+          uploadToken: 'token',
+          digest: nativeDigest(),
+        }).catch((failure: unknown) => failure);
+        if (event === 'timeout') {
+          await jest.advanceTimersByTimeAsync(LOG_UPLOAD_TIMEOUT_MS);
+          expect(request.abort).toHaveBeenCalledTimes(1);
+        }
+        await expect(settled).resolves.toMatchObject({ reason });
+        expect(reportApiAvailabilityError).toHaveBeenCalledTimes(1);
+        expect(reportApiAvailabilityError).toHaveBeenCalledWith(
+          AVAILABILITY_TIMING,
+          expect.objectContaining(error),
+        );
+        expect(reportApiAvailabilityResponse).not.toHaveBeenCalled();
+      } finally {
+        append.mockRestore();
+        globalThis.XMLHttpRequest = previousRequest;
+        if (event === 'timeout') jest.useRealTimers();
+      }
+    },
+  );
 
   test('does not retry the slow domain route after an SNI timeout or ambiguous post-write failure', async () => {
     mockedUploadViaIpTable.mockResolvedValue({

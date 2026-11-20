@@ -221,27 +221,30 @@ describe('desktop log upload transport', () => {
     );
   });
 
-  test('falls back to the domain upload after a pre-write SNI failure', async () => {
-    mockedUploadViaIpTable.mockResolvedValue({
-      route: 'failed',
-      errorCode: 'SNI_CONNECTION_REFUSED',
-      errorMessage: 'connection refused',
-    });
-    mockedUploadLoggerBundle.mockResolvedValue(SUCCESS_PAYLOAD);
+  test.each(['SNI_CONNECTION_REFUSED', 'SNI_SECURITY_POLICY_FAILED'])(
+    'falls back to the domain upload after pre-write %s',
+    async (errorCode) => {
+      mockedUploadViaIpTable.mockResolvedValue({
+        route: 'failed',
+        errorCode,
+        errorMessage: 'Request rejected before sending the archive',
+      });
+      mockedUploadLoggerBundle.mockResolvedValue(SUCCESS_PAYLOAD);
 
-    await expect(
-      uploadLogBundle({ uploadToken: 'token', digest: desktopDigest() }),
-    ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
-    expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: 'domain',
-        skipReason: 'sni_failed:SNI_CONNECTION_REFUSED',
-      }),
-    );
-    expect(mockedLogUpload.uploadSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'domain', httpStatus: 200 }),
-    );
-  });
+      await expect(
+        uploadLogBundle({ uploadToken: 'token', digest: desktopDigest() }),
+      ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
+      expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'domain',
+          skipReason: `sni_failed:${errorCode}`,
+        }),
+      );
+      expect(mockedLogUpload.uploadSucceeded).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'domain', httpStatus: 200 }),
+      );
+    },
+  );
 
   test('does not retry the slow domain route after an SNI timeout or ambiguous post-write failure', async () => {
     mockedUploadViaIpTable.mockResolvedValue({
@@ -262,7 +265,7 @@ describe('desktop log upload transport', () => {
     mockedUploadViaIpTable.mockResolvedValue({
       route: 'failed',
       errorCode: 'SNI_RESPONSE_FAILED',
-      errorMessage: 'Socket closed after write to 93.184.216.34',
+      errorMessage: 'SNI_RESPONSE_FAILED: Protocol upgrades are not supported',
     });
 
     await expect(
@@ -273,7 +276,8 @@ describe('desktop log upload transport', () => {
       expect.objectContaining({
         path: 'sni',
         errorCode: 'network',
-        errorMessage: 'Socket closed after write to <ip>',
+        errorMessage:
+          'SNI_RESPONSE_FAILED: Protocol upgrades are not supported',
       }),
     );
 

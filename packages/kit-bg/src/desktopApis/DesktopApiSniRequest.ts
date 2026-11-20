@@ -1,8 +1,11 @@
 import * as nodePath from 'path';
 
-import SniNodeClient from '@onekeyfe/react-native-sni-connect/node';
+import SniNodeClient, {
+  SniRequestError,
+} from '@onekeyfe/react-native-sni-connect/node';
 import { session } from 'electron';
 import logger from 'electron-log/main';
+import ipaddr from 'ipaddr.js';
 
 import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -43,6 +46,15 @@ function getUploadValidationOptions(
       typeof desktopApi?.dev?._isCollectedLoggerArchive !== 'function' ||
       desktopApi.dev._isCollectedLoggerArchive(realPath, sizeBytes),
   };
+}
+
+function rejectSpecialPurposeIpv6(ip: string): void {
+  if (typeof ip !== 'string' || !ipaddr.IPv6.isValid(ip)) return;
+  const address = ipaddr.IPv6.parse(ip);
+  // Preserve Electron's original range policy while the SDK handles mapped IPv4.
+  if (!address.isIPv4MappedAddress() && address.range() !== 'unicast') {
+    throw new SniRequestError('SNI_INVALID_CONFIG', 'Forbidden IP range', true);
+  }
 }
 
 class DesktopApiSniRequest {
@@ -90,6 +102,7 @@ class DesktopApiSniRequest {
   }
 
   async request(config: ISniRequestConfig): Promise<ISniResponse> {
+    rejectSpecialPurposeIpv6(config.ip);
     if (
       config.body === null &&
       typeof config.method === 'string' &&
@@ -105,7 +118,25 @@ class DesktopApiSniRequest {
    * same pinned destination, admission, timeout and cancel rules as request().
    */
   async uploadFile(config: ISniUploadFileConfig): Promise<ISniResponse> {
-    return this.client.uploadFile(config);
+    rejectSpecialPurposeIpv6(config.ip);
+    try {
+      return await this.client.uploadFile(config);
+    } catch (error) {
+      // SDK 6.8.0-16 uses a policy error even when a response has arrived.
+      if (
+        error instanceof SniRequestError &&
+        error.code === 'SNI_SECURITY_POLICY_FAILED' &&
+        error.message ===
+          'SNI_SECURITY_POLICY_FAILED: Protocol upgrades are not supported'
+      ) {
+        throw new SniRequestError(
+          'SNI_RESPONSE_FAILED',
+          'Protocol upgrades are not supported',
+          true,
+        );
+      }
+      throw error;
+    }
   }
 
   async cancelRequest(requestId: string): Promise<{ success: boolean }> {
@@ -119,6 +150,7 @@ class DesktopApiSniRequest {
     ISniRequestConfig,
     'hostname' | 'ip'
   >): Promise<ISniRequestDebugSnapshot> {
+    rejectSpecialPurposeIpv6(ip);
     return this.client.getDebugSnapshot({ hostname, ip });
   }
 

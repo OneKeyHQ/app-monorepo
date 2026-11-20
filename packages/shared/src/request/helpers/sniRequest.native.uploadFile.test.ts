@@ -56,14 +56,21 @@ describe('sniUploadFile (native)', () => {
     await expect(sniUploadFile(buildUploadConfig())).resolves.toBeNull();
   });
 
-  test('skips pinned upload when an older binary cannot report requested progress', async () => {
-    const uploadFile = jest.fn();
+  test('uses pinned upload on older binaries without progress snapshots', async () => {
+    const uploadFile = jest.fn().mockResolvedValue({
+      data: '{"code":0}',
+      status: 200,
+      statusText: '',
+      headers: {},
+    });
+    const onUploadProgress = jest.fn();
     mockedTurboModuleGet.mockReturnValue({ uploadFile });
 
     await expect(
-      sniUploadFile(buildUploadConfig(), { onUploadProgress: jest.fn() }),
-    ).resolves.toBeNull();
-    expect(uploadFile).not.toHaveBeenCalled();
+      sniUploadFile(buildUploadConfig(), { onUploadProgress }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    expect(uploadFile).toHaveBeenCalledTimes(1);
+    expect(onUploadProgress).not.toHaveBeenCalled();
   });
 
   test('forwards the upload with a request id and normalizes the response', async () => {

@@ -89,8 +89,8 @@ export async function sniRequest(
 
 /**
  * Upload a local file over the pinned-IP/SNI transport.
- * Older binaries fall back to the domain route if they lack file upload or
- * the progress snapshots requested by the caller.
+ * Older binaries can still upload files without reporting progress snapshots.
+ * Return null only when native file upload is unavailable.
  */
 export async function sniUploadFile(
   config: ISniUploadFileConfig,
@@ -99,11 +99,7 @@ export async function sniUploadFile(
   const nativeModule = getSniConnectNativeModule();
   const uploadFile = nativeModule?.uploadFile;
   const getUploadProgress = nativeModule?.getUploadProgress;
-  if (
-    !nativeModule ||
-    typeof uploadFile !== 'function' ||
-    (options?.onUploadProgress && typeof getUploadProgress !== 'function')
-  ) {
+  if (!nativeModule || typeof uploadFile !== 'function') {
     logAdapterCapability('warn', {
       adapter: 'native',
       capability: 'upload_file',

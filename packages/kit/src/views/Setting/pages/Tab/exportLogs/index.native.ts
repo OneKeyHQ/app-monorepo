@@ -17,6 +17,11 @@ import {
 import utils from '@onekeyhq/shared/src/logger/utils';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -292,6 +297,7 @@ const uploadViaUploadTask = async ({
   delete fallbackHeaders['Content-Type'];
 
   const request = new XMLHttpRequest();
+  const availabilityTiming = createApiAvailabilityTiming({ url: uploadUrl });
   let fallbackSentBytes = 0;
   try {
     const upload = new Promise<ILogUploadHttpResult>((resolve, reject) => {
@@ -315,15 +321,29 @@ const uploadViaUploadTask = async ({
       };
       request.onerror = () =>
         reject(new OneKeyLocalError('Network request failed'));
-      request.onabort = () => reject(new OneKeyLocalError('Upload cancelled'));
+      request.onabort = () => {
+        const error = new Error('Upload cancelled');
+        error.name = 'AbortError';
+        reject(error);
+      };
       request.send(form);
     });
-    return await withLogUploadTimeout(upload, timeoutMs);
+    const result = await withLogUploadTimeout(upload, timeoutMs);
+    reportApiAvailabilityResponse({
+      timing: availabilityTiming,
+      httpStatus: result.httpStatus,
+    });
+    return result;
   } catch (error) {
-    if (error instanceof LogUploadError) {
+    if (error instanceof LogUploadError && error.reason === 'timeout') {
+      reportApiAvailabilityError(availabilityTiming, {
+        name: 'TimeoutError',
+        message: error.message,
+      });
       request.abort();
       throw error;
     }
+    reportApiAvailabilityError(availabilityTiming, error);
     throw new LogUploadError({
       reason: 'network',
       message: getErrorMessage(error),
