@@ -44,6 +44,59 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+it.each([
+  { wsRows: 30, immediately: 30, afterDeadline: 30 },
+  { wsRows: 1, immediately: 0, afterDeadline: 11 },
+])(
+  'groups an initial 10-row snapshot with a $wsRows-row replay without delaying later trades',
+  async ({ wsRows, immediately, afterDeadline }) => {
+    snapshot.mockResolvedValueOnce(trades(21, 10));
+    const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
+    const feed = watch.mock.calls[0][0];
+    await act(async () => {
+      feed.onStatus?.('connected');
+    });
+    expect(result.current.trades).toHaveLength(0);
+    expect(result.current.isLoading).toBe(true);
+    act(() => {
+      jest.advanceTimersByTime(400);
+      feed.onTrades(trades(1, wsRows));
+    });
+    expect(result.current.trades).toHaveLength(immediately);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(result.current.trades).toHaveLength(afterDeadline);
+    expect(result.current.trades[0].tid).toBe(30);
+    act(() => feed.onTrades(trades(80, 1)));
+    expect(result.current.trades).toHaveLength(afterDeadline + 1);
+  },
+);
+
+it('keeps a late successful fallback after the acknowledged backfill fails', async () => {
+  let resolveFallback: (value: IRecentTrade[]) => void = () => undefined;
+  snapshot
+    .mockReturnValueOnce(
+      new Promise<IRecentTrade[]>((resolve) => {
+        resolveFallback = resolve;
+      }),
+    )
+    .mockRejectedValueOnce(new Error('backfill failed'));
+  const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+  await act(async () => {
+    watch.mock.calls[0][0].onStatus?.('connected');
+  });
+  await act(async () => {
+    resolveFallback(trades(1, 10));
+  });
+  expect(result.current.trades).toHaveLength(10);
+  expect(result.current.isError).toBe(true);
+  expect(result.current.isLoading).toBe(false);
+});
+
 it('fills the gap between a slow subscription and the first replay without refetching on duplicate acknowledgements', async () => {
   snapshot
     .mockResolvedValueOnce(trades(1, 50))

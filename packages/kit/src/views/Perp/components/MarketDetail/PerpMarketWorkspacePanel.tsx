@@ -1,16 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  XStack,
-  YStack,
-  getCurrentVisibilityState,
-  useMedia,
-  useVisibilityChange,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -21,7 +13,10 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpCandles } from '../PerpCandles';
 import { PerpOrderBook } from '../PerpOrderBook';
-import { PerpRecentTrades } from '../PerpRecentTrades';
+import {
+  PerpRecentTrades,
+  useRecentTradesForeground,
+} from '../PerpRecentTrades';
 
 import { PerpFundingChart } from './PerpFundingChart';
 import {
@@ -73,6 +68,7 @@ function WorkspaceTabButton({
       aria-selected={active}
       focusable
       width={fullWidth ? '50%' : undefined}
+      flexShrink={0}
       h="100%"
       p="$0"
       bg="transparent"
@@ -102,14 +98,15 @@ function WorkspaceTabButton({
 
 const TRADES_TAB_GRACE_MS = 30_000;
 
+function supportsDesktopRecentTrades(mode: 'perp' | 'spot') {
+  return mode === 'perp' && !!(platformEnv.isWeb || platformEnv.isDesktop);
+}
+
 function DesktopRecentTrades({ selected }: { selected: boolean }) {
   const [phase, setPhase] = useState<'unopened' | 'warm' | 'paused'>(
     'unopened',
   );
-  const isFocused = useIsFocused();
-  const [isVisible, setIsVisible] = useState(getCurrentVisibilityState);
-  useVisibilityChange(setIsVisible);
-  const foreground = isFocused && isVisible;
+  const foreground = useRecentTradesForeground();
   useEffect(() => {
     if (foreground && selected) {
       setPhase('warm');
@@ -141,7 +138,7 @@ export function PerpDesktopOrderBookPanel({
   const { mode, coin } = useActiveTradeDisplay();
   const [activeTab, setActiveTab] =
     useState<(typeof MARKET_BOOK_TABS)[number]['key']>('orderBook');
-  const showTabs = mode === 'perp';
+  const showTabs = supportsDesktopRecentTrades(mode);
   const showTrades = showTabs && activeTab === 'trades';
   return (
     <>
@@ -193,7 +190,7 @@ export function PerpMarketWorkspacePanel({
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
-  const showTradesTab = showOrderBookTab && mode === 'perp';
+  const showTradesTab = showOrderBookTab && supportsDesktopRecentTrades(mode);
   const visibleActiveView =
     (mode !== 'perp' && activeView === 'funding') ||
     (!showTradesTab && activeView === 'trades') ||
@@ -287,6 +284,7 @@ export function PerpMarketWorkspacePanel({
     <YStack flex={1} minHeight={0}>
       <XStack
         h={PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight}
+        $platform-web={{ overflowX: 'auto', overflowY: 'hidden' }}
         px="$5"
         gap="$6"
         alignItems="stretch"

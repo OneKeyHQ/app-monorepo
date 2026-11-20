@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -14,8 +14,8 @@ import {
   XStack,
   YStack,
   getCurrentVisibilityState,
+  onVisibilityStateChange,
   useTheme,
-  useVisibilityChange,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
@@ -23,10 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  getHlPriceTick,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHlPriceTick } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
@@ -223,21 +220,20 @@ function RecentTradesList({
   const intl = useIntl();
   const { trades, isLoading, isError, isDisconnected, retry } =
     usePerpPublicTrades(coin, active);
-  const priceDecimals = useMemo(
-    () =>
-      trades.reduce((decimals, trade) => {
-        const price = new BigNumber(trade.px);
-        const tick =
-          szDecimals === undefined ? null : getHlPriceTick(price, szDecimals);
-        // Share precision across rows without rounding trades at price magnitude boundaries.
-        return Math.max(
-          decimals,
-          price.decimalPlaces() ?? 0,
-          tick?.decimalPlaces() ?? 0,
-        );
-      }, 0),
-    [trades, szDecimals],
-  );
+  const priceDecimals = useMemo(() => {
+    if (!visible) return 0;
+    return trades.reduce((decimals, trade) => {
+      const price = new BigNumber(trade.px);
+      const tick =
+        szDecimals === undefined ? null : getHlPriceTick(price, szDecimals);
+      // Share precision across rows without rounding trades at price magnitude boundaries.
+      return Math.max(
+        decimals,
+        price.decimalPlaces() ?? 0,
+        tick?.decimalPlaces() ?? 0,
+      );
+    }, 0);
+  }, [trades, szDecimals, visible]);
   if (!visible) return null;
   const hasStatus = isError || isDisconnected;
   const showInitialLoading =
@@ -276,7 +272,7 @@ function RecentTradesList({
       <TradeLine
         inline={inline}
         price={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-        size={`${intl.formatMessage({ id: ETranslations.perp_orderbook_size })} (${parseDexCoin(coin).displayName})`}
+        size={intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
@@ -322,6 +318,28 @@ function RecentTradesList({
   );
 }
 
+// A visible Electron window still shows market data when another app has focus.
+function getTradesVisibility() {
+  return platformEnv.isDesktop && typeof document !== 'undefined'
+    ? !document.hidden
+    : getCurrentVisibilityState();
+}
+
+export function useRecentTradesForeground() {
+  const isFocused = useIsFocused();
+  const [visible, setVisible] = useState(getTradesVisibility);
+  useEffect(() => {
+    if (platformEnv.isDesktop && typeof document !== 'undefined') {
+      const onChange = () => setVisible(!document.hidden);
+      document.addEventListener('visibilitychange', onChange);
+      onChange();
+      return () => document.removeEventListener('visibilitychange', onChange);
+    }
+    return onVisibilityStateChange(setVisible);
+  }, []);
+  return isFocused && visible;
+}
+
 export function PerpRecentTrades({
   inline = false,
   active = true,
@@ -334,16 +352,14 @@ export function PerpRecentTrades({
   loadingMinHeight?: number;
 }) {
   const [instrument] = useActiveTradeInstrumentAtom();
-  const isFocused = useIsFocused();
-  const [isVisible, setIsVisible] = useState(getCurrentVisibilityState);
-  useVisibilityChange(setIsVisible);
+  const foreground = useRecentTradesForeground();
   return instrument.mode === 'perp' && instrument.coin ? (
     <RecentTradesList
       key={instrument.coin}
       coin={instrument.coin}
       szDecimals={instrument.universe?.szDecimals}
       inline={inline}
-      active={active && isVisible && isFocused}
+      active={active && foreground}
       visible={visible}
       loadingMinHeight={loadingMinHeight}
     />

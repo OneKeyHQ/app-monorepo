@@ -23,6 +23,8 @@ const initialState: ITradesState = {
 };
 
 const SNAPSHOT_FALLBACK_DELAY_MS = 1000;
+const INITIAL_BATCH_ROWS = 20;
+const INITIAL_BATCH_WAIT_MS = 600;
 
 function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
@@ -39,6 +41,7 @@ function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
 export function usePerpPublicTrades(coin: string, active: boolean) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState(initialState);
+  const [releasedSmallBatch, setReleasedSmallBatch] = useState(false);
   const retry = useCallback(() => setAttempt((previous) => previous + 1), []);
 
   useEffect(() => {
@@ -61,12 +64,13 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           await backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({
             coin,
           });
-        if (disposed || id !== snapshotId) return;
+        if (disposed) return;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
           ...previous,
           trades: latestTrades(incoming, previous.trades),
-          isLoading: false,
+          // An earlier fallback can still supply trades while a newer backfill owns the status.
+          isLoading: id === snapshotId ? false : previous.isLoading,
         }));
       } catch {
         if (disposed || id !== snapshotId) return;
@@ -123,5 +127,28 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     };
   }, [coin, active, attempt]);
 
-  return { ...state, retry };
+  const smallBatch =
+    state.trades.length > 0 && state.trades.length < INITIAL_BATCH_ROWS;
+  const hasStatus = state.isError || state.isDisconnected;
+  useEffect(() => {
+    if (!smallBatch || releasedSmallBatch) return;
+    if (hasStatus) {
+      setReleasedSmallBatch(true);
+      return;
+    }
+    // Give the other source a chance to fill the first screen on a cold entry.
+    const timer = setTimeout(
+      () => setReleasedSmallBatch(true),
+      INITIAL_BATCH_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [smallBatch, releasedSmallBatch, hasStatus]);
+
+  const holdFirstBatch = smallBatch && !releasedSmallBatch && !hasStatus;
+  return {
+    ...state,
+    trades: holdFirstBatch ? initialState.trades : state.trades,
+    isLoading: state.isLoading || holdFirstBatch,
+    retry,
+  };
 }
