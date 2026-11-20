@@ -238,7 +238,22 @@ export const TradingViewNativeChart = memo(
     // In a split view the grid shows the selected chart's drawing tools at the
     // left of all charts, outside this chart's root.
     const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
+    const sharedDrawingTools = controlsSlot?.drawingTools;
     const drawingToolsRef = useRef<HTMLDivElement>(null);
+    const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
+    // Where the plot's reference width starts: the chart's root, which holds a
+    // single chart's tools, and in a split view also the share of the tools
+    // column that collapsing would give the chart. Revealing candles then
+    // never rescales the plot.
+    const getReferenceLeft = useCallback(
+      (fallbackLeft: number) => {
+        const root = drawingRootRef.current;
+        if (!root) return fallbackLeft;
+        const rect = root.getBoundingClientRect();
+        return rect.left - (getDrawingToolsCollapseGain?.(rect.width) ?? 0);
+      },
+      [getDrawingToolsCollapseGain],
+    );
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
@@ -277,6 +292,9 @@ export const TradingViewNativeChart = memo(
       historyContext: { points, interval: candleIntervalSeconds },
       rootRef: drawingRootRef,
       toolsRef: drawingToolsRef,
+      // Only the chart whose tools are on screen takes drawing shortcuts, so
+      // none arms a tool out of sight in another chart of a split view.
+      takesKeys: !sharedDrawingTools || sharedDrawingTools.container !== null,
     });
     const {
       draw: drawDrawings,
@@ -539,9 +557,7 @@ export const TradingViewNativeChart = memo(
         );
         // Include the toolbar width so revealing candles does not rescale the plot.
         const canvasRect = canvas.getBoundingClientRect();
-        const chartLeft =
-          drawingRootRef.current?.getBoundingClientRect().left ??
-          canvasRect.left;
+        const chartLeft = getReferenceLeft(canvasRect.left);
         const autoScalePointRange =
           getTradingViewNativeChartRuntimeVisiblePointRange({
             chartWidth: getTradingViewNativeChartWidth(
@@ -704,6 +720,7 @@ export const TradingViewNativeChart = memo(
         drawDrawings,
         drawingsEnabled,
         drawingText,
+        getReferenceLeft,
         updateData,
         extendTimeAxisBorderToCanvasEdge,
         grid,
@@ -986,9 +1003,7 @@ export const TradingViewNativeChart = memo(
           },
         );
         const rightOffset = measuredRuntimeState.viewport.initialRightOffset;
-        const chartLeft =
-          drawingRootRef.current?.getBoundingClientRect().left ??
-          canvasRect.left;
+        const chartLeft = getReferenceLeft(canvasRect.left);
         const referenceWidth = getTradingViewNativeChartWidth(
           canvasRect.right - chartLeft,
           nextPriceAxisWidth,
@@ -1031,6 +1046,7 @@ export const TradingViewNativeChart = memo(
         );
       },
       [
+        getReferenceLeft,
         priceAxisFontSize,
         priceAxisLabels,
         renderChart,
@@ -1729,10 +1745,12 @@ export const TradingViewNativeChart = memo(
             // The grid's column runs past this chart's panes, down to the
             // time axis of the bottom panels.
             mainChartBottomInset={
-              controlsSlot ? timeAxisHeight : measuredMainChartBottomInset
+              sharedDrawingTools ? timeAxisHeight : measuredMainChartBottomInset
             }
-            toolsContainer={controlsSlot?.drawingToolsContainer}
+            toolsContainer={sharedDrawingTools?.container}
             toolsRef={drawingToolsRef}
+            isCollapsed={sharedDrawingTools?.isCollapsed}
+            onCollapsedChange={sharedDrawingTools?.onCollapsedChange}
           />
         ) : null}
         <Stack

@@ -17,7 +17,11 @@ interface IMockPopoverProps {
 
 let mockPopover: IMockPopoverProps | undefined;
 let mockLayout: ((event: LayoutChangeEvent) => void) | undefined;
-const mockContent = jest.fn<null, [{ bodyHeight?: number }]>(() => null);
+const mockContent = jest.fn<
+  null,
+  [{ bodyHeight?: number; onSelectToken?: (selection: unknown) => void }]
+>(() => null);
+const mockSelectToken = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -86,8 +90,10 @@ jest.mock('../../hooks', () => ({
 jest.mock('./PerpTokenSelector', () => ({
   DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT: 440,
   DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH: 800,
-  PerpTokenSelectorContent: (props: { bodyHeight?: number }) =>
-    mockContent(props),
+  PerpTokenSelectorContent: (props: {
+    bodyHeight?: number;
+    onSelectToken?: (selection: unknown) => void;
+  }) => mockContent(props),
 }));
 
 // What the popover holds besides the list: search, tabs and key hints. A bit
@@ -112,6 +118,7 @@ function openAt(rect: { top: number; bottom: number }, windowHeight: number) {
   const view = render(
     <PerpChartTokenSelector
       display={{ label: 'ETHUSDC', tokenImageUri: 'eth.png' }}
+      onSelectToken={mockSelectToken}
       testID="picker"
     />,
   );
@@ -160,5 +167,9 @@ it.each([
     layOut();
 
     expect(getBodyHeight()).toBe(expected);
+    // A pick goes to the panel, which selects itself with it.
+    expect(mockContent.mock.calls.at(-1)?.[0].onSelectToken).toBe(
+      mockSelectToken,
+    );
   },
 );

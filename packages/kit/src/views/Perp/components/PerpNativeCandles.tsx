@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { XStack, YStack } from '@onekeyhq/components';
 import {
@@ -44,6 +44,7 @@ import { PerpTestIDs } from '../testIDs';
 import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
 import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
+import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
 import type {
   IPerpsChartInstrument,
   IPerpsChartInstrumentDisplay,
@@ -166,8 +167,8 @@ function PerpChartPanelQuote({
  * Only the selected panel's controls are on screen, above the grid, so every
  * panel gets the page-level controls; in a split each panel shows its token,
  * price and 24h change instead. The token is a picker: a press on it selects
- * the panel like any press in it, and a pick switches the trade instrument,
- * which the selected panel shows, as from the page's picker.
+ * the panel like any press in it, and a pick selects the panel with the
+ * picked token, so one switch of the trade instrument decides both.
  */
 function PerpNativeSplitPanel({
   activeDisplay,
@@ -175,14 +176,18 @@ function PerpNativeSplitPanel({
   hostProps,
   isVisible,
   panel,
+  switchingCoin,
 }: {
   activeDisplay: IPerpsChartInstrumentDisplay;
   enableTradingUi: boolean;
   hostProps: Omit<ITradingViewNativeProps, 'source'>;
   isVisible: boolean;
   panel: ITradingViewNativeMultiChartPanel;
+  /** The token of a panel switch still on its way. */
+  switchingCoin?: string;
 }) {
-  const { id, isActive, isMain, isSplit, layoutControl, source } = panel;
+  const { id, isActive, isMain, isSplit, layoutControl, selectSource, source } =
+    panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
   const activeInstrument = useActivePerpsChartInstrument();
   const { display, instrument: panelInstrument } =
@@ -206,7 +211,14 @@ function PerpNativeSplitPanel({
         : panelInstrument,
     [activeInstrument, isTrading, panelInstrument],
   );
-  const canTrade = isTrading && enableTradingUi;
+  // Orders wait for the switch to land: until then the trade instrument
+  // shows the token without its metadata, trade mode and form. The panel's
+  // own metadata above is for display only.
+  const isTradeReady =
+    isTrading &&
+    switchingCoin !== coin &&
+    activeInstrument.szDecimals !== undefined;
+  const canTrade = isTradeReady && enableTradingUi;
   const { chartComponents: lines, onReferenceLineAction } =
     usePerpsNativeChartLines(canTrade, instrument);
   const marks = usePerpsNativeChartMarks(instrument);
@@ -214,6 +226,11 @@ function PerpNativeSplitPanel({
   const orderMenu = usePerpsChartOrderMenu(canTrade);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
   const tokenDisplay = coin === activeInstrument.coin ? activeDisplay : display;
+  const handleSelectToken = useCallback(
+    (selection: IPerpTokenSelection) =>
+      selectSource(getHyperliquidSource(selection.coin)),
+    [selectSource],
+  );
   const { onInteractionChange, testID, ...pageProps } = hostProps;
   return (
     // The header slot is always there, so a preset change never remounts the
@@ -231,6 +248,7 @@ function PerpNativeSplitPanel({
         >
           <PerpChartTokenSelector
             display={tokenDisplay}
+            onSelectToken={handleSelectToken}
             testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
           />
           <PerpChartPanelQuote
@@ -285,14 +303,24 @@ export function PerpNativeSplitCandles({
           },
     [baseName, coin, displayName, mode],
   );
+  // The panel switch on its way, whose chart stays read-only until it lands.
+  const [switchingCoin, setSwitchingCoin] = useState<string>();
+  const switchSeq = useRef(0);
   const handleSelectPanel = useCallback(
     async (panelSource: ITradingViewNativeSource) => {
       if (panelSource.kind !== 'hyperliquid') return false;
-      const switched = await actions.current.switchTradeInstrument({
-        mode: isSpotInstrument(panelSource.coin) ? 'spot' : 'perp',
-        coin: panelSource.coin,
-      });
-      return switched !== false;
+      switchSeq.current += 1;
+      const seq = switchSeq.current;
+      setSwitchingCoin(panelSource.coin);
+      try {
+        const switched = await actions.current.switchTradeInstrument({
+          mode: isSpotInstrument(panelSource.coin) ? 'spot' : 'perp',
+          coin: panelSource.coin,
+        });
+        return switched !== false;
+      } finally {
+        if (switchSeq.current === seq) setSwitchingCoin(undefined);
+      }
     },
     [actions],
   );
@@ -332,12 +360,14 @@ export function PerpNativeSplitCandles({
       enableTradingUi={enableTradingUi}
       hostProps={hostProps}
       isVisible={isVisible}
+      switchingCoin={switchingCoin}
     />
   );
   return (
     <TradingViewNativeMultiChart
       testID={PerpTestIDs.NativeChartSplitView}
       layout={layout}
+      layoutKey="perps"
       onLayoutChange={setLayout}
       activeSource={source}
       onSelectPanel={handleSelectPanel}

@@ -1688,6 +1688,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
+      const previousMode = (await tradingModeAtom.get()) ?? 'perp';
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
       await tradingModeAtom.set('perp');
@@ -1698,10 +1699,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      const nextActiveAsset =
-        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin,
-        });
+      let nextActiveAsset: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.changeActiveAsset
+        >
+      >;
+      try {
+        nextActiveAsset =
+          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin,
+          });
+      } catch (error) {
+        // The service rolls its active asset back. The trade mode and the
+        // instrument published early go back with it, unless a newer switch
+        // owns them by now, so the page never stays on a token the switch did
+        // not reach.
+        if (this.isLatestActiveInstrumentChange(requestId)) {
+          await tradingModeAtom.set(previousMode);
+          const restored = await this._buildActiveTradeInstrument(previousMode);
+          if (this.isLatestActiveInstrumentChange(requestId)) {
+            set(activeTradeInstrumentAtom(), restored);
+          }
+        }
+        throw error;
+      }
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }

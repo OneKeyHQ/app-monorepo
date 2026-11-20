@@ -92,10 +92,14 @@ jest.mock('@onekeyhq/components', () => {
 function Toolbar({
   coin,
   enabled = false,
+  isCollapsed,
+  onCollapsedChange,
   toolsContainer,
 }: {
   coin: string;
   enabled?: boolean;
+  isCollapsed?: boolean;
+  onCollapsedChange?: (isCollapsed: boolean) => void;
   toolsContainer?: HTMLElement | null;
 }) {
   const controller = useChartDrawings({
@@ -110,6 +114,8 @@ function Toolbar({
       controller={controller}
       mainChartBottomInset={0}
       toolsContainer={toolsContainer}
+      isCollapsed={isCollapsed}
+      onCollapsedChange={onCollapsedChange}
     />
   );
 }
@@ -144,6 +150,32 @@ it('restores the collapsed toolbar before rendering a different symbol or interv
   expect(
     screen.getByTestId('chart-drawing-toolbar').getAttribute('data-collapsed'),
   ).toBe('false');
+});
+
+it('follows a collapse state its owner keeps and leaves the preference to it', () => {
+  const onCollapsedChange = jest.fn();
+  const { rerender } = render(
+    <Toolbar coin="BTC" isCollapsed onCollapsedChange={onCollapsedChange} />,
+  );
+  const collapsed = () =>
+    screen.getByTestId('chart-drawing-toolbar').getAttribute('data-collapsed');
+  expect(collapsed()).toBe('true');
+
+  fireEvent.click(screen.getByTestId('chart-drawing-toolbar-toggle'));
+
+  // A split view keeps one state for its column, whichever chart's tools it
+  // shows, and stores the preference itself.
+  expect(onCollapsedChange).toHaveBeenCalledWith(false);
+  expect(collapsed()).toBe('true');
+  expect(mockPreferences.size).toBe(0);
+  rerender(
+    <Toolbar
+      coin="BTC"
+      isCollapsed={false}
+      onCollapsedChange={onCollapsedChange}
+    />,
+  );
+  expect(collapsed()).toBe('false');
 });
 
 it('keeps drawing tool icons at full opacity while another coin restores its drawings', async () => {

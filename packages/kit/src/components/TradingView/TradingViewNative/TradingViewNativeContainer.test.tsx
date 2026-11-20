@@ -450,16 +450,23 @@ const mockPanelScope: ITradingViewNativeMultiChartPanelScope = {
   ],
 };
 const mockPlacedControls: ReactNode[] = [];
+const mockDrawingTools: ITradingViewNativeMultiChartControlsSlot['drawingTools'] =
+  {
+    container: null,
+    isCollapsed: false,
+    onCollapsedChange: () => {},
+    getCollapseGain: () => 0,
+  };
 const mockShownControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: (controls) => {
     mockPlacedControls.push(controls);
     return controls;
   },
-  drawingToolsContainer: null,
+  drawingTools: mockDrawingTools,
 };
 const mockHiddenControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: () => null,
-  drawingToolsContainer: null,
+  drawingTools: mockDrawingTools,
 };
 
 describe('TradingViewNativeContainer', () => {

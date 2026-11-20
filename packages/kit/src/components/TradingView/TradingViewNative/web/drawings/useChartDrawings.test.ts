@@ -67,6 +67,7 @@ function setup(storageKey = 'ASTER', enabled = true) {
     redrawRef: { current: jest.fn() },
     rootRef: { current: root },
     toolsRef: undefined as { current: HTMLDivElement } | undefined,
+    takesKeys: undefined as boolean | undefined,
   };
   const hook = renderHook((props) => useChartDrawings(props), {
     initialProps: options,
@@ -782,6 +783,48 @@ it('counts drawing tools placed outside the chart as part of it for key presses'
   chartRoot.remove();
   otherRoot.remove();
   tools.remove();
+});
+
+it('leaves keys to the chart whose drawing tools are on screen', async () => {
+  const shown = setup('shown');
+  const hidden = setup('hidden');
+  await waitFor(() => expect(shown.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(hidden.result.current.state.ready).toBe(true));
+  // A chart of a split view that is not selected, under the pointer, while
+  // the selected one has focus.
+  hidden.rerender({ ...hidden.options, takesKeys: false });
+  const shownRoot = shown.options.rootRef.current;
+  const hiddenRoot = hidden.options.rootRef.current;
+  document.body.append(shownRoot, hiddenRoot);
+  const canvas = shownRoot.querySelector('canvas');
+  if (!canvas) throw new OneKeyLocalError('Missing chart canvas');
+  canvas.tabIndex = 0;
+  canvas.focus();
+  const isHovered = jest.spyOn(hiddenRoot, 'matches').mockReturnValue(true);
+  for (const chart of [shown, hidden]) {
+    act(() => {
+      chart.result.current.onPointerMove(chart.event('pointermove', 200, 180));
+    });
+  }
+
+  act(() => {
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'j',
+        code: 'KeyJ',
+        altKey: true,
+        cancelable: true,
+      }),
+    );
+  });
+
+  // No tool is armed out of sight: the key is the selected chart's.
+  expect(hidden.result.current.state.history.present).toHaveLength(0);
+  expect(shown.result.current.state.history.present).toHaveLength(1);
+
+  isHovered.mockRestore();
+  shownRoot.remove();
+  hiddenRoot.remove();
 });
 
 it('locks restored drawings against edit and delete while allowing unlock', async () => {

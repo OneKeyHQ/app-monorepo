@@ -54,9 +54,11 @@ const mockMarkAllAssetCtxsNotRequired = jest.fn();
 const mockSetTradeRouteViewState = jest.fn();
 type IMockTokenSelectorProps = {
   display: { label: string };
+  onSelectToken: (selection: { mode: 'perp' | 'spot'; coin: string }) => void;
   testID?: string;
 };
 const mockTokenSelector = jest.fn<null, [IMockTokenSelectorProps]>(() => null);
+const mockSelectSource = jest.fn<void, [string, ITradingViewNativeSource]>();
 const mockQuote = jest.fn<
   null,
   [{ coinName: string; mode: string; assetId: number; displayMode: string }]
@@ -220,6 +222,8 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
             isSymbolSynced,
             source,
             layoutControl: null,
+            selectSource: (picked: ITradingViewNativeSource) =>
+              mockSelectSource(id, picked),
           })}
         </Fragment>
       ) : null;
@@ -421,8 +425,7 @@ describe('split view', () => {
     mockQuote.mockClear();
     view.rerender(<PerpCandles />);
 
-    const trading = getChartProps('ETH');
-    expect(trading?.onReferenceLineAction).toBe(mockReferenceLineAction);
+    let trading = getChartProps('ETH');
     // No loading mask over the candles the panel already shows.
     expect(trading?.isPricePrecisionLoading).toBe(false);
     expect(trading?.priceDecimalPlaces).toBe(3);
@@ -430,6 +433,76 @@ describe('split view', () => {
     expect(mockQuote).toHaveBeenCalledWith(
       expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
     );
+    // That metadata is for display only: orders wait for the trade
+    // instrument's own, which comes with the switch.
+    expect(trading?.onReferenceLineAction).toBeUndefined();
+    expect(trading?.onPriceSelect).toBeUndefined();
+
+    mockSzDecimals = 3;
+    view.rerender(<PerpCandles />);
+    trading = getChartProps('ETH');
+    expect(trading?.onReferenceLineAction).toBe(mockReferenceLineAction);
+    expect(trading?.onPriceSelect).toBe(mockPriceSelect);
+  });
+
+  it('keeps a selected panel read-only until the switch to its token lands', async () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      panels: {
+        main: { source: btcSource },
+        'panel-2': { source: ethSource },
+      },
+    };
+    let finish: (switched: boolean) => void = () => {};
+    mockSwitchTradeInstrument.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = renderTradingViewCandles();
+    let answer: Promise<boolean> | undefined;
+    act(() => {
+      answer = mockMultiChartProps?.onSelectPanel(ethSource);
+    });
+
+    // The trade instrument shows the token, with its precision as a spot
+    // switch publishes it, while the switch is still settling.
+    mockCoin = 'ETH';
+    mockMultiChartLayout = {
+      ...mockMultiChartLayout,
+      activePanelId: 'panel-2',
+    };
+    view.rerender(<PerpCandles />);
+    expect(getChartProps('ETH')?.onReferenceLineAction).toBeUndefined();
+    expect(getChartProps('ETH')?.onPriceSelect).toBeUndefined();
+
+    await act(async () => {
+      finish(true);
+      await answer;
+    });
+    expect(getChartProps('ETH')?.onReferenceLineAction).toBe(
+      mockReferenceLineAction,
+    );
+    expect(getChartProps('ETH')?.onPriceSelect).toBe(mockPriceSelect);
+  });
+
+  it('selects a panel with the token picked in its header', async () => {
+    renderTradingViewCandles();
+    const picker = mockTokenSelector.mock.calls.findLast(
+      ([props]) =>
+        props.testID === `${PerpTestIDs.NativeChartPanelToken}-panel-2`,
+    )?.[0];
+
+    act(() => picker?.onSelectToken({ mode: 'perp', coin: 'SOL' }));
+
+    // The grid decides the selection and the switch together.
+    expect(mockSelectSource).toHaveBeenCalledWith('panel-2', {
+      kind: 'hyperliquid',
+      coin: 'SOL',
+      environment: 'mainnet',
+    });
+    expect(mockSwitchTradeInstrument).not.toHaveBeenCalled();
   });
 
   it('gives each panel a token picker of its own', async () => {

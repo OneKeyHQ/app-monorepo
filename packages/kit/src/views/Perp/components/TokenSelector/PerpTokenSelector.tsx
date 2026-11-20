@@ -381,11 +381,22 @@ function TokenListHeader({
   );
 }
 
+export interface IPerpTokenSelection {
+  mode: 'perp' | 'spot';
+  coin: string;
+}
+
 function BasePerpTokenSelectorContent({
   bodyHeight = DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+  onSelectToken,
 }: {
   /** Height of the tabs and list below the search, e.g. to fit a popover. */
   bodyHeight?: number;
+  /**
+   * Takes the pick instead of switching the trade instrument, e.g. for a
+   * split-view chart, whose selection decides the switch.
+   */
+  onSelectToken?: (selection: IPerpTokenSelection) => void;
 }) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -602,7 +613,9 @@ function BasePerpTokenSelectorContent({
         if (isSpotToken && !spotUniverse) {
           return;
         }
-        if (spotUniverse) {
+        if (onSelectToken) {
+          onSelectToken({ mode: isSpotToken ? 'spot' : 'perp', coin: symbol });
+        } else if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
             coin: symbol,
@@ -624,6 +637,7 @@ function BasePerpTokenSelectorContent({
       closePopover,
       actions,
       displayActiveTab,
+      onSelectToken,
       selectorConfig,
       spotUniverses,
     ],

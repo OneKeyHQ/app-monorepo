@@ -6,6 +6,7 @@ import type { ITradingViewNativeMultiChartProps } from './TradingViewNativeMulti
 // single chart and ignore any layout saved by another platform.
 export function TradingViewNativeMultiChart({
   activeSource,
+  onSelectPanel,
   renderPanel,
 }: ITradingViewNativeMultiChartProps) {
   return renderPanel({
@@ -17,5 +18,10 @@ export function TradingViewNativeMultiChart({
     isSymbolSynced: false,
     source: activeSource,
     layoutControl: null,
+    // The only chart shows the host's source, so a token picked in it is the
+    // host's to switch to.
+    selectSource: (source) => {
+      void onSelectPanel(source).catch(() => false);
+    },
   });
 }

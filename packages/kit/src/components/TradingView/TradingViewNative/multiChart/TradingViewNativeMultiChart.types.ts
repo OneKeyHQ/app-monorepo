@@ -26,11 +26,25 @@ export interface ITradingViewNativeMultiChartPanel {
   source: ITradingViewNativeSource;
   /** Layout picker for the selected panel's controls; null for the others. */
   layoutControl: ReactNode;
+  /**
+   * Selects the panel with another token, e.g. one picked in its header: the
+   * host switches to it once, and that switch decides the selection like a
+   * press on the panel would.
+   */
+  selectSource: (source: ITradingViewNativeSource) => void;
 }
 
 export interface ITradingViewNativeMultiChartProps {
   /** Persisted by the host, so each module keeps its own split view. */
   layout: ITradingViewNativeMultiChartLayout;
+  /**
+   * Names the saved layout. Grids of one key, e.g. one unmounted and the next
+   * mounted, share the writes it has not caught up with yet, so a late write
+   * of a grid that is gone, such as a selection the host answers then, builds
+   * on them and on the writes of a grid mounted since. Without a key, a grid
+   * gone writes from the latest saved layout.
+   */
+  layoutKey?: string;
   onLayoutChange: (
     update: (
       current: ITradingViewNativeMultiChartLayout,

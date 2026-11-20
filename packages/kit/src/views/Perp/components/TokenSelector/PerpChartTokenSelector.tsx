@@ -25,6 +25,7 @@ import {
   PerpTokenSelectorContent,
 } from './PerpTokenSelector';
 
+import type { IPerpTokenSelection } from './PerpTokenSelector';
 import type { IPerpsChartInstrumentDisplay } from '../../hooks/usePerpsChartInstrument';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -45,7 +46,13 @@ function fitBodyHeight(height: number) {
 }
 
 // The list sized so the whole popover fits `space`.
-function PerpChartTokenSelectorContent({ space }: { space: number }) {
+function PerpChartTokenSelectorContent({
+  onSelectToken,
+  space,
+}: {
+  onSelectToken: (selection: IPerpTokenSelection) => void;
+  space: number;
+}) {
   const [bodyHeight, setBodyHeight] = useState(() =>
     fitBodyHeight(space - ESTIMATED_CHROME_HEIGHT),
   );
@@ -59,24 +66,29 @@ function PerpChartTokenSelectorContent({ space }: { space: number }) {
   );
   return (
     <YStack onLayout={handleLayout}>
-      <PerpTokenSelectorContent bodyHeight={bodyHeight} />
+      <PerpTokenSelectorContent
+        bodyHeight={bodyHeight}
+        onSelectToken={onSelectToken}
+      />
     </YStack>
   );
 }
 
 /**
  * Token picker in a split-view panel's header. A press on it selects the
- * panel, like any press in the panel, and a pick switches the trade
- * instrument, which the selected panel shows. The list fits the roomier side
- * of the header, so a panel low on the page gets a shorter list rather than a
+ * panel, like any press in the panel, and a pick goes to `onSelectToken`,
+ * which selects the panel with that token. The list fits the roomier side of
+ * the header, so a panel low on the page gets a shorter list rather than a
  * cut-off one.
  */
 export const PerpChartTokenSelector = memo(
   ({
     display,
+    onSelectToken,
     testID,
   }: {
     display: IPerpsChartInstrumentDisplay;
+    onSelectToken: (selection: IPerpTokenSelection) => void;
     testID?: string;
   }) => {
     const intl = useIntl();
@@ -169,6 +181,7 @@ export const PerpChartTokenSelector = memo(
         renderContent={
           <PerpChartTokenSelectorContent
             key={contentGeneration}
+            onSelectToken={onSelectToken}
             space={space}
           />
         }

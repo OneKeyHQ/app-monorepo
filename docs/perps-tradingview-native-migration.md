@@ -207,7 +207,12 @@ keep the single chart.
   the panel stays read-only, and a switch that fails returns the selection.
   The switch publishes the trade instrument before its metadata has loaded;
   the panel keeps its own metadata of the same token meanwhile, so its chart
-  never flashes the loading mask and its quote stays.
+  never flashes the loading mask and its quote stays. That metadata is for
+  display only: the order menu and the cancel and drag of order lines wait
+  until the panel's switch has landed and the trade instrument has its own
+  precision. A perp switch the background fails puts the trade mode and
+  instrument back to what it holds, unless a newer switch owns them, so the
+  selection returns and the page does not stay on the failed token.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
@@ -226,8 +231,10 @@ keep the single chart.
 - Instead of its own controls, each chart in a split has a header with its
   token, its live price and 24h change, from the same asset contexts as the
   favorites bar. The token is a picker (`PerpChartTokenSelector`): a press on
-  it selects the panel like any press in it, and a pick switches the trade
-  instrument, as from the page's picker, so the panel takes the picked token.
+  it selects the panel like any press in it, and a pick selects the panel
+  with the picked token through the grid, so one switch of the trade
+  instrument decides both; a pick before a spot panel's metadata has loaded,
+  e.g. of the token already traded, still lands in that panel.
   Its list fits the roomier side of the header, so a panel low on the page
   gets a shorter list instead of a cut-off one (OK-67552). Each header holds
   one quote, subscribed to its own token
@@ -247,8 +254,12 @@ keep the single chart.
 - The drawing tools in the column at the left are the selected chart's; the
   properties of its selected drawing and its hints stay on that chart. A
   chart that loses the selection drops its tool, unfinished drawing and
-  selected drawings, so nothing is left armed out of sight and the press that
-  selects it again never starts a drawing. Drawings are saved per token, not
+  selected drawings, and takes no drawing shortcuts while it is not selected,
+  so nothing is left armed out of sight and the press that selects it again
+  never starts a drawing. The column has one collapse state, and collapsing
+  it never rescales a chart's candles. The split view passes
+  `layoutKey="perps"`, so a selection the trade instrument answers after the
+  view is gone lands on the layout changes still on their way. Drawings are saved per token, not
   per panel: panels showing the same token share them live, including undo,
   and a token keeps its drawings when it moves between panels.
 - A new panel starts on a liquid token that is not on screen yet and copies the

@@ -86,6 +86,32 @@ type IPropertiesPosition = { left: number; top: number };
 
 const TOOLS_WIDTH = 48;
 
+/** Whether the user collapsed the drawing tools, shared by every chart. */
+export function readDrawingToolsCollapsed() {
+  try {
+    return (
+      appStorage.syncStorage.getBoolean(
+        EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+      ) === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function saveDrawingToolsCollapsed(isCollapsed: boolean) {
+  try {
+    void Promise.resolve(
+      appStorage.syncStorage.set(
+        EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+        isCollapsed,
+      ),
+    ).catch(() => undefined);
+  } catch {
+    // Keep the toolbar usable when preference storage is unavailable.
+  }
+}
+
 function DrawingButton({
   active,
   disabled,
@@ -381,11 +407,20 @@ function LineStyleControls({
 
 export function DrawingToolbar({
   controller,
+  isCollapsed: isCollapsedProp,
   mainChartBottomInset,
+  onCollapsedChange,
   toolsContainer,
   toolsRef,
 }: {
   controller: IChartDrawingsController;
+  /**
+   * Collapse state kept by the owner of the tools column, e.g. a split view
+   * whose one column shows the tools of whichever chart is selected. Without
+   * it the toolbar keeps the preference itself.
+   */
+  isCollapsed?: boolean;
+  onCollapsedChange?: (isCollapsed: boolean) => void;
   mainChartBottomInset: number;
   /**
    * Shows the tools column there instead of at the chart's left, e.g. at the
@@ -415,17 +450,8 @@ export function DrawingToolbar({
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>(() => ({ left: overlayInset + 14, top: 8 }));
   const intl = useIntl();
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return (
-        appStorage.syncStorage.getBoolean(
-          EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
-        ) === true
-      );
-    } catch {
-      return false;
-    }
-  });
+  const [ownCollapsed, setOwnCollapsed] = useState(readDrawingToolsCollapsed);
+  const collapsed = isCollapsedProp ?? ownCollapsed;
   const toggleToolbarLabel = intl.formatMessage({
     id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
   });
@@ -995,16 +1021,11 @@ export function DrawingToolbar({
           hoverStyle={{ backgroundColor: '$bgHover' }}
           pressStyle={{ backgroundColor: '$bgActive' }}
           onPress={() => {
-            setCollapsed(!collapsed);
-            try {
-              void Promise.resolve(
-                appStorage.syncStorage.set(
-                  EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
-                  !collapsed,
-                ),
-              ).catch(() => undefined);
-            } catch {
-              // Keep the toolbar usable when preference storage is unavailable.
+            if (onCollapsedChange) {
+              onCollapsedChange(!collapsed);
+            } else {
+              setOwnCollapsed(!collapsed);
+              saveDrawingToolsCollapsed(!collapsed);
             }
             setMenu(null);
           }}

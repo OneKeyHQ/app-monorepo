@@ -52,6 +52,12 @@ export function useChartDrawings(
      * column a split view shows at the left of all its charts.
      */
     toolsRef?: RefObject<HTMLDivElement | null>;
+    /**
+     * False while the chart's tools are off screen, e.g. in a chart of a split
+     * view that is not selected. Its root then takes no key and does not hold
+     * a key back from the chart that has its tools on screen.
+     */
+    takesKeys?: boolean;
   },
 ) {
   const controller = useSharedChartDrawings(options);
@@ -83,9 +89,9 @@ export function useChartDrawings(
       onDoubleClick(drawingEvent(event)),
     [onDoubleClick],
   );
-  const { enabled, rootRef, toolsRef } = options;
+  const { enabled, rootRef, takesKeys = true, toolsRef } = options;
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!enabled || !takesKeys) return undefined;
     const roots: IChartRoots = toolsRef ? [rootRef, toolsRef] : [rootRef];
     chartRoots.add(roots);
     const handle = (event: KeyboardEvent) => {
@@ -112,7 +118,7 @@ export function useChartDrawings(
       chartRoots.delete(roots);
       document.removeEventListener('keydown', handle);
     };
-  }, [enabled, onKeyDown, rootRef, toolsRef]);
+  }, [enabled, onKeyDown, rootRef, takesKeys, toolsRef]);
   const draw = useCallback(
     (
       context: CanvasRenderingContext2D,

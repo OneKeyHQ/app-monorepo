@@ -25,16 +25,18 @@ under separate owners:
   For the same reason every write of the grid (a selection, a panel's token or
   indicators, the preset, sync options, sizes) starts from the layout the grid
   wrote last until the saved layout has caught up with it, so it cannot undo
-  another write that has not come back yet. Once the grid is unmounted, a
-  late write, e.g. a selection the host answers then, starts from the latest
-  saved layout, which a grid mounted since may have changed.
+  another write that has not come back yet. Grids of one `layoutKey`, e.g.
+  one unmounted and the next mounted, share those writes: a late write of a
+  grid that is gone, e.g. a selection the host answers then, builds on the
+  writes still on their way and on those of a grid mounted since. Without a
+  key it starts from the latest saved layout.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
-  not select. The grid never changes a panel's token on its own: a token
-  picker the host puts in a panel (Perps has one in each header) changes the
-  host's source once the press on it has selected the panel, and the panel
-  shows the pick as it shows any source of the host.
+  not select. A token picked in a panel, e.g. from the picker Perps puts in
+  each header, selects the panel with that token (`selectSource`): the host
+  is asked for it once, that answer decides the selection like a press, and
+  it drops a switch the press on the picker started.
   Enter or Space on a panel's focused chart canvas selects it the same way;
   on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
   shows the host's source in its place; the source still belongs to the hidden
@@ -52,11 +54,15 @@ under separate owners:
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
   and the layout picker sits in that row. The same context gives the selected
-  chart one drawing tools column at the left of the grid
-  (`drawingToolsContainer`). The chart keeps the properties of its selected
-  drawing, its hints and its object panels on itself, and the column's menus
-  reach over the panels. A chart whose tools go off screen drops its tool,
-  unfinished drawing and selected drawings, which nothing would show any more. The first panel keeps the host's own
+  chart one drawing tools column at the left of the grid (`drawingTools`).
+  The chart keeps the properties of its selected drawing, its hints and its
+  object panels on itself, and the column's menus reach over the panels. The
+  grid keeps one collapse state for the column. Collapsing it widens every
+  panel by its share of the column; a chart's price scale counts that share
+  in, as a single chart counts its own tools in, so the candles it reveals
+  never rescale the plot. A chart whose tools go off screen drops its tool,
+  unfinished drawing and selected drawings, which nothing would show any more,
+  and takes no drawing shortcuts until they are back. The first panel keeps the host's own
   interval and indicators wherever the selection is. Every extra panel is
   wrapped in
   `TradingViewNativeMultiChartPanelContext`, so a chart mounted inside keeps its
@@ -72,11 +78,13 @@ under separate owners:
   off is null there, and the provider stays mounted, so changing an option
   never remounts a chart.
   - Symbol: the grid renders the selected panel's source, the host's, in
-    every panel and sets `isSymbolSynced` on the panels. Only the host's own
-    picker changes that source, and selecting another panel changes neither
-    the host's source nor any saved token. A panel keeps its
-    saved token for when the option is turned off; turning the option on
-    saves the selected panel's, which it showed without storing.
+    every panel and sets `isSymbolSynced` on the panels. Only a picker, the
+    host's or one in a panel, changes that source, and selecting another
+    panel changes neither the host's source nor any saved token. A panel
+    keeps its saved token for when the option is turned off; turning the
+    option on saves the selected panel's, which it showed without storing,
+    and a selection still on its way then keeps no older token for that
+    panel to write back.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first
     panel sets it when syncing starts, a pick in any panel changes it, and
     every other chart takes it through `useMultiChartIntervalSync`; a chart
@@ -122,7 +130,8 @@ under separate owners:
   its release cannot undo that change. On web a key press goes to the chart
   under the pointer, otherwise to the focused one, so one shortcut never runs
   in two charts; a chart's tools column outside it, as in a split view,
-  counts as part of the chart. A tool menu takes arrow keys only while focus is in its own
+  counts as part of the chart, and a chart whose tools are off screen takes
+  none. A tool menu takes arrow keys only while focus is in its own
   toolbar and closes when focus moves to another toolbar.
 - `indicatorPanes` owns the order and preferred heights of the indicator panes.
   They are kept per namespace and per split-view panel, not per token, so they
