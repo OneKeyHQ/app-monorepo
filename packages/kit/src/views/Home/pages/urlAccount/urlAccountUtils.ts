@@ -1,4 +1,5 @@
 import { CommonActions, StackActions } from '@react-navigation/native';
+import { Platform } from 'react-native';
 
 import {
   navigateFromOverlayToTab,
@@ -343,9 +344,13 @@ export const urlAccountNavigation = {
       await timerUtils.wait(0);
     }
 
+    // Keep Home beneath the first mobile address page so Back can pop it.
+    const shouldPush =
+      Platform.select({ ios: true, android: true, default: false }) &&
+      !isCurrentlyInUrlAccountPage();
     defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
     defaultLogger.app.router.pushRoute({
-      action: 'replaceUrlAccountPage',
+      action: shouldPush ? 'pushUrlAccountPage' : 'replaceUrlAccountPage',
       address: params.address,
       routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
     });
@@ -355,7 +360,12 @@ export const urlAccountNavigation = {
       networkId: networkSegment,
     };
     rootNavigationRef.current?.dispatch(
-      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+      shouldPush
+        ? StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams)
+        : StackActions.replace(
+            ETabHomeRoutes.TabHomeUrlAccountPage,
+            routeParams,
+          ),
     );
   },
   pushUrlAccountPageLanding(

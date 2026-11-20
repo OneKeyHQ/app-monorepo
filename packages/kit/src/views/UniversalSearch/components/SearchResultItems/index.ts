@@ -4,3 +4,4 @@ export * from './UniversalSearchV2MarketTokenItem';
 export * from './UniversalSearchAddressItem';
 export * from './UniversalSearchPerpItem';
 export * from './UniversalSearchSettingsItem';
+export * from './UniversalSearchHelpCenterItem';
