@@ -636,7 +636,11 @@ it('invalidates pending progress through the close-only signal without a navigat
   expect(mockDialogs).toHaveLength(1);
 });
 
-it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
+it.each([
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
+])(
   'navigates to a proposal in %s immediately while loading closes asynchronously',
   async (root) => {
     const pairing = deferred();

@@ -27,7 +27,9 @@ export default function useListenTabFocusState(
       ({ name }) => name === ERootRoutes.Modal,
     )?.key;
     const fullModalRoutes = state?.routes.find(
-      ({ name }) => name === ERootRoutes.iOSFullScreen,
+      ({ name }) =>
+        name === ERootRoutes.iOSFullScreen ||
+        name === ERootRoutes.WalletConnectApproval,
     )?.key;
     const fullScreenPushRoutes = state?.routes.find(
       ({ name }) => name === ERootRoutes.FullScreenPush,

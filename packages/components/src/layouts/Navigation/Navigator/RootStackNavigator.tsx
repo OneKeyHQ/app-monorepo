@@ -25,6 +25,7 @@ type IRootStackType =
   | 'modal'
   | 'fullScreen'
   | 'iOSFullScreen'
+  | 'iOSFullScreenModal'
   | 'fullScreenPush'
   | 'onboarding'
   | 'webView';
@@ -36,9 +37,6 @@ export interface IRootStackNavigatorConfig<
   initialRoute?: boolean;
   type?: IRootStackType;
   disable?: boolean;
-  shouldPresentFullScreenModal?: (
-    optionsInfo: IScreenOptionsInfo<RouteName>,
-  ) => boolean;
 }
 
 interface IRootStackNavigatorProps<
@@ -103,7 +101,6 @@ export function RootStackNavigator<
     (
       type: IRootStackType | undefined,
       optionsInfo: IScreenOptionsInfo<any>,
-      presentFullScreenModal?: boolean,
     ) => {
       switch (type) {
         case 'modal':
@@ -112,8 +109,10 @@ export function RootStackNavigator<
           return makeFullScreenOptions();
         case 'iOSFullScreen':
           return platformEnv.isNative
-            ? makeFullScreenOptions(presentFullScreenModal)
+            ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'iOSFullScreenModal':
+          return makeFullScreenOptions(true);
         case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
@@ -130,39 +129,25 @@ export function RootStackNavigator<
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(
-          ({
-            name,
-            component,
-            type,
-            options,
-            shouldPresentFullScreenModal,
-          }) => {
-            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-            const routeScreenOptions = (
-              optionsInfo: IScreenOptionsInfo<any>,
-            ) => {
-              return {
-                ...(typeof options === 'function'
-                  ? options(optionsInfo as any)
-                  : options),
-                ...getOptionsWithType(
-                  type,
-                  optionsInfo,
-                  shouldPresentFullScreenModal?.(optionsInfo),
-                ),
-              };
-            };
-            return (
-              <RootStack.Screen
-                key={name}
-                name={name}
-                component={component}
-                options={routeScreenOptions}
-              />
-            );
-          },
-        ),
+        .map(({ name, component, type, options }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+          const routeScreenOptions = (
+            optionsInfo: IScreenOptionsInfo<any>,
+          ) => ({
+            ...(typeof options === 'function'
+              ? options(optionsInfo as any)
+              : options),
+            ...getOptionsWithType(type, optionsInfo),
+          });
+          return (
+            <RootStack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={routeScreenOptions}
+            />
+          );
+        }),
     [config, getOptionsWithType],
   );
 

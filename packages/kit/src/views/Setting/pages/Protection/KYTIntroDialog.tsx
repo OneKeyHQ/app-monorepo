@@ -51,6 +51,7 @@ type IKytIntroPendingPurchase = {
 const KYT_BLOCKING_ROOT_ROUTE_NAMES = new Set<string>([
   ERootRoutes.Modal,
   ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
   ERootRoutes.FullScreenPush,
   ERootRoutes.WebView,
   ERootRoutes.Onboarding,

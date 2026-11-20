@@ -22,6 +22,7 @@ const REFERRAL_BIND_BLOCKED_TOAST_DURATION = 60 * 60 * 1000;
 const REFERRAL_BLOCKING_ROOT_ROUTE_NAMES = new Set<string>([
   ERootRoutes.Modal,
   ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
   ERootRoutes.FullScreenPush,
   ERootRoutes.WebView,
   ERootRoutes.Onboarding,

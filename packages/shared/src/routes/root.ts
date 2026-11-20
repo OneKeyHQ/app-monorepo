@@ -5,6 +5,8 @@ export enum ERootRoutes {
 
   iOSFullScreen = 'iOSFullScreen',
 
+  WalletConnectApproval = 'WalletConnectApproval',
+
   FullScreenPush = 'fullScreenPush',
 
   TradingViewNativeFullscreen = 'TradingViewNativeFullscreen',

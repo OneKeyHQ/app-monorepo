@@ -58,17 +58,12 @@ afterEach(() => {
 });
 
 it.each([
-  { root: ERootRoutes.Modal, ios: true, rootMarker: {} },
-  { root: ERootRoutes.iOSFullScreen, ios: false, rootMarker: {} },
-  {
-    root: ERootRoutes.iOSFullScreen,
-    ios: true,
-    rootMarker: { walletConnectApproval: true },
-  },
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
 ])(
-  'delivers a proposal directly in $root with iOS=$ios before the navigation relay listener mounts',
-  async ({ root, ios, rootMarker }) => {
-    mockPlatform.isNativeIOS = ios;
+  'delivers a proposal directly in %s before the navigation relay listener mounts',
+  async (root) => {
     const { default: ServiceDApp } = await import('./ServiceDApp');
     const service = new ServiceDApp({ backgroundApi: {} });
     const emit = jest.spyOn(appEventBus, 'emit');
@@ -98,10 +93,7 @@ it.each([
       routeParams: { query: 'proposal' },
     });
     expect(mockNavigate).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledWith(root, {
-      ...modalParams.params,
-      ...rootMarker,
-    });
+    expect(mockNavigate).toHaveBeenCalledWith(root, modalParams.params);
     await opening;
     expect(emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.NavigateModalFromBackgroundThread,
@@ -195,16 +187,15 @@ it.each([
   },
 );
 
-it.each([false, true])(
-  'relays a proposal from the background with iOS=%s',
-  async (ios) => {
-    mockPlatform.isNativeIOS = ios;
+it.each([ERootRoutes.iOSFullScreen, ERootRoutes.WalletConnectApproval])(
+  'relays a proposal from the background to %s',
+  async (root) => {
     const { default: ServiceDApp } = await import('./ServiceDApp');
     const service = new ServiceDApp({ backgroundApi: {} });
     mockNavigation.ready = false;
     const emit = jest.spyOn(appEventBus, 'emit');
     const modalParams = {
-      screen: ERootRoutes.iOSFullScreen,
+      screen: root,
       params: {
         screen: EModalRoutes.DAppConnectionModal,
         params: {
@@ -216,7 +207,7 @@ it.each([false, true])(
     await service._doOpenModalByRouteParams({
       modalParams,
       routeNames: [
-        ERootRoutes.iOSFullScreen,
+        root,
         EModalRoutes.DAppConnectionModal,
         EDAppConnectionModal.WalletConnectSessionProposalModal,
       ],
@@ -226,12 +217,64 @@ it.each([false, true])(
     expect(emit).toHaveBeenCalledTimes(1);
     expect(emit).toHaveBeenCalledWith(
       EAppEventBusNames.NavigateModalFromBackgroundThread,
-      {
-        screen: modalParams.screen,
-        params: ios
-          ? { ...modalParams.params, walletConnectApproval: true }
-          : modalParams.params,
-      },
+      modalParams,
     );
   },
 );
+
+it.each([
+  {
+    ios: true,
+    page: EDAppConnectionModal.WalletConnectSessionProposalModal,
+    root: ERootRoutes.WalletConnectApproval,
+  },
+  {
+    ios: false,
+    page: EDAppConnectionModal.WalletConnectSessionProposalModal,
+    root: ERootRoutes.iOSFullScreen,
+  },
+  {
+    ios: true,
+    page: EDAppConnectionModal.SignMessageModal,
+    root: ERootRoutes.iOSFullScreen,
+  },
+])('opens $page on $root with iOS=$ios', async ({ ios, page, root }) => {
+  mockPlatform.isNativeIOS = ios;
+  const { default: ServiceDApp } = await import('./ServiceDApp');
+  let complete = () => {};
+  const service = new ServiceDApp({
+    backgroundApi: {
+      servicePromise: {
+        createCallback: ({ resolve }: { resolve: () => void }) => {
+          complete = resolve;
+          return 'request-id';
+        },
+      },
+    },
+  });
+  const dispatch = jest
+    .spyOn(service, '_openModalByRouteParamsDebounced')
+    .mockImplementation(() => {
+      complete();
+      return Promise.resolve();
+    });
+
+  await service.openModal({
+    request: { origin: 'https://example.com', scope: '$walletConnect' },
+    screens: [EModalRoutes.DAppConnectionModal, page],
+    fullScreen: true,
+  });
+
+  expect(dispatch).toHaveBeenCalledWith(
+    expect.objectContaining({
+      routeNames: [root, EModalRoutes.DAppConnectionModal, page],
+      modalParams: {
+        screen: root,
+        params: {
+          screen: EModalRoutes.DAppConnectionModal,
+          params: { screen: page, params: { query: expect.any(String) } },
+        },
+      },
+    }),
+  );
+});
