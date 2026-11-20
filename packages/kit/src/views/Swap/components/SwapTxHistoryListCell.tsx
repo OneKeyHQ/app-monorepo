@@ -248,6 +248,7 @@ const SwapTxHistoryListCell = ({
   return (
     <XStack flex={1} px="$3">
       <XStack
+        testID="swap-history-item"
         px="$2"
         py="$2.5"
         flex={1}

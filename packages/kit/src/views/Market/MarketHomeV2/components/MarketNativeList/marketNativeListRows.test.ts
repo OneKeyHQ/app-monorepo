@@ -88,6 +88,19 @@ const perp: IMarketPerpsToken = {
 };
 
 describe('market native list rows', () => {
+  it('shows a placeholder for a missing watchlist price', () => {
+    const row = buildTokenMarketRow({
+      item: { ...token, assetId: 'aave', price: NaN },
+      presentation,
+      watchlist: true,
+      responsive: true,
+    });
+    expect(row.price).toBe('--');
+    expect(row.metrics?.find((metric) => metric.key === 'price')?.text).toBe(
+      '--',
+    );
+  });
+
   it('keeps token identity independent of whitespace in display metadata', () => {
     const row = buildTokenMarketRow({
       item: { ...token, id: 'token-id ', symbol: 'TINY ' },

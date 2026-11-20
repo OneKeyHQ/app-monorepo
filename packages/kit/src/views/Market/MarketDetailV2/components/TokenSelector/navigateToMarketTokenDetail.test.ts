@@ -44,6 +44,10 @@ const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
 const prepareTokenDetailPreviewMock = jest.fn();
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: [], isMounted: true }],
+}));
+
 const tokenDetailActions = {
   current: {
     clearTokenDetail: clearTokenDetailMock,

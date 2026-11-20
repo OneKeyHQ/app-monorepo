@@ -229,7 +229,9 @@ describe('VaultTron.preActionsBeforeSending', () => {
         unsignedTxs: [unsignedTxOf('aa11')],
         tronResourceRentalInfo: rentalInfo(),
       }),
-    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+    ).resolves.toEqual({
+      preSendTx: { txid: 'rental-pay', orderId: 'order-1' },
+    });
 
     expect(orderedUrls()).toEqual(rentalFlow);
     expect(signTransaction).toHaveBeenCalledTimes(1);
@@ -267,7 +269,9 @@ describe('VaultTron.preActionsBeforeSending', () => {
         unsignedTxs: [unsignedTxOf('aa11')],
         tronResourceRentalInfo: rentalInfo(),
       }),
-    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+    ).resolves.toEqual({
+      preSendTx: { txid: 'rental-pay', orderId: 'order-1' },
+    });
 
     expect(orderedUrls()).toEqual(rentalFlow);
     // paid only once the chain did not show the earlier payload
@@ -306,7 +310,9 @@ describe('VaultTron.preActionsBeforeSending', () => {
         unsignedTxs: [unsignedTxOf('aa11')],
         tronResourceRentalInfo: rentalInfo(),
       }),
-    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+    ).resolves.toEqual({
+      preSendTx: { txid: 'rental-pay', orderId: 'order-1' },
+    });
 
     expect(orderedUrls()).toEqual(rentalFlow);
   });
@@ -326,7 +332,9 @@ describe('VaultTron.preActionsBeforeSending', () => {
         ],
         tronResourceRentalInfo: rentalInfo(),
       }),
-    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+    ).resolves.toEqual({
+      preSendTx: { txid: 'rental-pay', orderId: 'order-1' },
+    });
 
     expect(orderedUrls()).toEqual(rentalFlow);
     expect([...rentalOrders]).toEqual(['u1', 'u2']);
@@ -366,7 +374,9 @@ describe('VaultTron.preActionsBeforeSending', () => {
         unsignedTxs: [unsignedTxOf('aa11')],
         tronResourceRentalInfo: rentalInfo(),
       }),
-    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+    ).resolves.toEqual({
+      preSendTx: { txid: 'rental-pay', orderId: 'order-1' },
+    });
   });
 
   it('tells the record lookup what kind of send follows', async () => {

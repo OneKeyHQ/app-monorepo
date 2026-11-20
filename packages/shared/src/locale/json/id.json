@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "Beli Spot {token}",
   "perps_spot_deposit_to_usdc__desc": "Deposit aset on-chain ke akun Anda",
   "perps_spot_deposit_to_usdc__title": "Setor ke USDC",
+  "perps_tp_long_loss__desc": "Harga pemicu berada di bawah harga masuk. Penutupan posisi diperkirakan tetap menghasilkan kerugian.",
+  "perps_tp_short_loss__desc": "Harga pemicu berada di atas harga masuk. Penutupan posisi diperkirakan tetap menghasilkan kerugian.",
   "perps_trading_page_chart__title": "Grafik candlestick halaman trading",
   "perps_trigger_price_equal_current": "Harga trigger harus berbeda dari harga saat ini",
   "photo_library_access_denied__desc": "OneKey memerlukan akses ke perpustakaan foto untuk menyimpan gambar. Silakan buka Pengaturan dan aktifkan izin perpustakaan foto.",
