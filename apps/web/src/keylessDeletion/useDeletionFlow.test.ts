@@ -29,6 +29,14 @@ const receipt = {
   supportReference: 'CASE-FIXTURE',
 };
 
+const historicalReceipt: ICompleted = {
+  ...receipt,
+  status: 'completed',
+  completedAt: serverTime,
+  deletedScope: [DELETION_SCOPE],
+  retainedScope: [...RETAINED_SCOPE],
+};
+
 function createClientFixture(
   status: 'ready' | 'used' = 'ready',
 ): jest.Mocked<IDeletionClient> {
@@ -238,14 +246,6 @@ it.each([
   expect(client.getResult).not.toHaveBeenCalled();
 });
 
-const historicalReceipt: ICompleted = {
-  ...receipt,
-  status: 'completed',
-  completedAt: serverTime,
-  deletedScope: [DELETION_SCOPE],
-  retainedScope: [...RETAINED_SCOPE],
-};
-
 function renderFlow(client: jest.Mocked<IDeletionClient>) {
   const authenticate = jest
     .fn<
@@ -403,5 +403,38 @@ it('clears stale current share certainty on a failed read and keeps the original
   });
   await act(async () => result.current.checkStatus());
   expect(client.getResult).toHaveBeenCalledTimes(2);
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it('distinguishes a failed result request from a successful unknown result', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockRejectedValueOnce(new TypeError('Network unavailable'))
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'unknown',
+    })
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(history.get(token)).toMatchObject({ resultCheckFailed: true });
+  expect(result.current.error).toMatchObject({ usesSharedToast: true });
+
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)).toMatchObject({
+    resultCheckFailed: false,
+    result: { ...historicalReceipt, currentShareStatus: 'unknown' },
+  });
+  expect(result.current.error).toBeUndefined();
+
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)).toMatchObject({
+    resultCheckFailed: false,
+    result: { ...historicalReceipt, currentShareStatus: 'absent' },
+  });
   expect(client.deleteShare).not.toHaveBeenCalled();
 });
