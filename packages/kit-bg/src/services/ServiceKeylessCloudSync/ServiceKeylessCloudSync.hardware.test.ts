@@ -270,6 +270,7 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
       })),
     },
     servicePrimeCloudSync: {
+      invalidateOneKeyIdCloudSyncToggle: jest.fn(),
       cancelPublicAccountSnapshotImport: jest.fn(async () => undefined),
       setCloudSyncEnabledWithKeyLock: jest.fn(async (enabled: boolean) => {
         mockConfig.isCloudSyncEnabled = enabled;
@@ -1196,6 +1197,9 @@ describe('hardware Cloud key source lifecycle', () => {
     mockConfig.isCloudSyncEnabledKeyless = true;
     mockStored = credential;
     await service.setCloudSyncEnabledKeyless(false);
+    expect(
+      backgroundApi.servicePrimeCloudSync.invalidateOneKeyIdCloudSyncToggle,
+    ).toHaveBeenCalledTimes(1);
     expect(mockStored).toBeUndefined();
     await service.enableHardwareCloudSync({ connectId });
     expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledTimes(1);

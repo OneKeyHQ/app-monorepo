@@ -3324,6 +3324,30 @@ class ServicePrimeCloudSync extends ServiceBase {
     this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
   }
 
+  private oneKeyIdCloudSyncToggleRequest = Symbol('OneKey ID sync request');
+
+  private oneKeyIdCloudSyncToggleOperation = Symbol('OneKey ID sync settings');
+
+  private oneKeyIdCloudSyncEnablePromise: Promise<void> | undefined;
+
+  private claimOneKeyIdCloudSyncSettingsOperation() {
+    this.oneKeyIdCloudSyncToggleOperation = Symbol('OneKey ID sync settings');
+    return this.oneKeyIdCloudSyncToggleOperation;
+  }
+
+  invalidateOneKeyIdCloudSyncToggle() {
+    this.oneKeyIdCloudSyncEnablePromise = undefined;
+    this.oneKeyIdCloudSyncToggleRequest = Symbol('OneKey ID sync request');
+    return this.claimOneKeyIdCloudSyncSettingsOperation();
+  }
+
+  private runWithCloudSyncSettingsLocks<T>(operation: () => Promise<T>) {
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    return keyless.runWithCloudSyncKeyLock(() =>
+      keyless.runWithCloudAccountImportLock(operation),
+    );
+  }
+
   @backgroundMethod()
   async setCloudSyncEnabled(
     enabled: boolean,
@@ -3333,51 +3357,92 @@ class ServicePrimeCloudSync extends ServiceBase {
       skipClearLocalMasterPassword?: boolean;
     } = {},
   ) {
+    // Credential cleanup may run during prepareCloudSync for an existing
+    // remote key; it invalidates the current setting, not that pending prompt.
+    const operation =
+      enabled || !skipClearLocalMasterPassword
+        ? this.invalidateOneKeyIdCloudSyncToggle()
+        : this.claimOneKeyIdCloudSyncSettingsOperation();
+    const apply = () =>
+      this.setCloudSyncEnabledWithKeyLock(enabled, {
+        skipClearLocalMasterPassword,
+        operation,
+      });
     // Legacy credential-error cleanup can run inside a Cloud key locked section.
     // Disabling preserves the selected source and its credential storage.
-    if (!enabled) {
-      return this.setCloudSyncEnabledWithKeyLock(false, {
-        skipClearLocalMasterPassword,
-      });
-    }
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () =>
-        this.backgroundApi.serviceKeylessCloudSync.runWithCloudAccountImportLock(
-          () =>
-            this.setCloudSyncEnabledWithKeyLock(enabled, {
-              skipClearLocalMasterPassword,
-            }),
-        ),
-    );
+    if (enabled) await this.runWithCloudSyncSettingsLocks(apply);
+    else await apply();
   }
 
   async setCloudSyncEnabledWithKeyLock(
     enabled: boolean,
     {
       skipClearLocalMasterPassword,
-    }: { skipClearLocalMasterPassword?: boolean } = {},
-  ) {
-    if (
-      enabled &&
-      (await primeCloudSyncPersistAtom.get()).hardwareCloudSyncKeySource
-    ) {
-      throw new OneKeyError(
-        'Changing an existing hardware Cloud key requires an explicit migration.',
-      );
-    }
+      operation = this.claimOneKeyIdCloudSyncSettingsOperation(),
+    }: { skipClearLocalMasterPassword?: boolean; operation?: symbol } = {},
+  ): Promise<IPrimeCloudSyncPersistAtomData | undefined> {
+    if (operation !== this.oneKeyIdCloudSyncToggleOperation) return undefined;
     if (!enabled && !skipClearLocalMasterPassword) {
       await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword({
         skipDisableCloudSync: true,
       });
     }
-    await primeCloudSyncPersistAtom.set((v) => ({
-      ...v,
-      isCloudSyncEnabled: enabled,
-      hasEverEnabledOneKeyIdSync:
-        enabled || v.hasEverEnabledOneKeyIdSync || v.isCloudSyncEnabled,
-      isCloudSyncEnabledKeyless: enabled ? false : v.isCloudSyncEnabledKeyless,
-    }));
-    await this.clearCachedSyncCredential();
+    let previous: IPrimeCloudSyncPersistAtomData | undefined;
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (operation !== this.oneKeyIdCloudSyncToggleOperation) return v;
+      if (enabled && v.hardwareCloudSyncKeySource) {
+        throw new OneKeyError(
+          'Changing an existing hardware Cloud key requires an explicit migration.',
+        );
+      }
+      previous = v;
+      return {
+        ...v,
+        isCloudSyncEnabled: enabled,
+        hasEverEnabledOneKeyIdSync:
+          enabled || v.hasEverEnabledOneKeyIdSync || v.isCloudSyncEnabled,
+        isCloudSyncEnabledKeyless: enabled
+          ? false
+          : v.isCloudSyncEnabledKeyless,
+      };
+    });
+    if (previous) await this.clearCachedSyncCredential();
+    return previous;
+  }
+
+  private async rollbackSkippedOneKeyIdCloudSyncInitialization({
+    operation,
+    previous,
+  }: {
+    operation: symbol;
+    previous: IPrimeCloudSyncPersistAtomData;
+  }): Promise<boolean> {
+    if (previous.isCloudSyncEnabled) return false;
+    return this.runWithCloudSyncSettingsLocks(async () => {
+      let restored = false;
+      await primeCloudSyncPersistAtom.set((value) => {
+        if (
+          operation !== this.oneKeyIdCloudSyncToggleOperation ||
+          !value.isCloudSyncEnabled ||
+          value.isCloudSyncEnabledKeyless ||
+          value.hardwareCloudSyncKeySource ||
+          value.currentCloudSyncKeylessWalletId !==
+            previous.currentCloudSyncKeylessWalletId
+        ) {
+          return value;
+        }
+        restored = true;
+        return {
+          ...value,
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: previous.isCloudSyncEnabledKeyless,
+          hasEverEnabledOneKeyIdSync: previous.hasEverEnabledOneKeyIdSync,
+        };
+      });
+      // Persisted credentials, data and unrelated settings belong to the user.
+      if (restored) await this.clearCachedSyncCredential();
+      return restored;
+    });
   }
 
   @backgroundMethod()
@@ -3420,9 +3485,36 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async toggleCloudSync({ enabled }: { enabled: boolean }) {
+    if (!enabled) {
+      this.oneKeyIdCloudSyncEnablePromise = undefined;
+      return this.applyOneKeyIdCloudSyncToggle(false);
+    }
+    // Two callers enabling the same mode share one prompt and initial flush.
+    // A duplicate cannot mistake the first caller's provisional on for a
+    // previously-completed enable. An explicit mode change may supersede it.
+    if (this.oneKeyIdCloudSyncEnablePromise) {
+      return this.oneKeyIdCloudSyncEnablePromise;
+    }
+    const pending = this.applyOneKeyIdCloudSyncToggle(true);
+    this.oneKeyIdCloudSyncEnablePromise = pending;
+    try {
+      await pending;
+    } finally {
+      if (this.oneKeyIdCloudSyncEnablePromise === pending) {
+        this.oneKeyIdCloudSyncEnablePromise = undefined;
+      }
+    }
+  }
+
+  @toastIfError()
+  private async applyOneKeyIdCloudSyncToggle(enabled: boolean) {
     const shouldTrackEnableFlow = enabled;
+    const request = Symbol('OneKey ID sync request');
+    this.oneKeyIdCloudSyncToggleRequest = request;
+    let operation = this.claimOneKeyIdCloudSyncSettingsOperation();
+    let prepared = false;
+    let skippedInitialFlush = false;
     if (shouldTrackEnableFlow) {
       oneKeyIdCloudSyncEnableFlowCount += 1;
     }
@@ -3434,35 +3526,76 @@ class ServicePrimeCloudSync extends ServiceBase {
           serverDiffItems,
           encryptedSecurityPasswordR1ForServer,
         } = await this.prepareCloudSync();
-        await this.setCloudSyncEnabled(success);
+        if (request !== this.oneKeyIdCloudSyncToggleRequest) return;
+        operation = this.claimOneKeyIdCloudSyncSettingsOperation();
+        prepared = true;
+        const apply = () =>
+          this.setCloudSyncEnabledWithKeyLock(success, { operation });
+        const previous = success
+          ? await this.runWithCloudSyncSettingsLocks(apply)
+          : await apply();
+        if (operation !== this.oneKeyIdCloudSyncToggleOperation) return;
         if (serverDiffItems?.length) {
           console.log('serverDiffItems>>>', serverDiffItems);
           return;
         }
-        if (success) {
+        if (success && previous) {
           await timerUtils.wait(0);
+          if (operation !== this.oneKeyIdCloudSyncToggleOperation) return;
           await this.showDialogLoading({
             title: appLocale.intl.formatMessage({
               id: ETranslations.global_syncing,
             }),
           });
           try {
-            await this.startServerSyncFlow({
-              isFlush: !isServerMasterPasswordSet, // flush if server master password is not set
+            if (operation !== this.oneKeyIdCloudSyncToggleOperation) return;
+            const isFlush = !isServerMasterPasswordSet;
+            const completed = await this.startServerSyncFlow({
+              isFlush,
               setUndefinedTimeToNow: true,
               callerName: 'Enable Cloud Sync',
               encryptedSecurityPasswordR1ForServer,
             });
+            // False/undefined from a flush mean it was skipped before the
+            // remote phase. A network failure throws; never infer whether it
+            // committed, and never roll back ordinary reconciliation here.
+            if (isFlush && completed !== true) {
+              skippedInitialFlush = true;
+              if (
+                await this.rollbackSkippedOneKeyIdCloudSyncInitialization({
+                  operation,
+                  previous,
+                })
+              ) {
+                throw new OneKeyError(
+                  appLocale.intl.formatMessage({
+                    id: ETranslations.global_unknown_error_retry_message,
+                  }),
+                );
+              }
+            }
           } finally {
             await timerUtils.wait(1000);
             await this.hideDialogLoading();
           }
         }
       } else {
-        await this.setCloudSyncEnabled(false);
+        await this.setCloudSyncEnabledWithKeyLock(false, { operation });
       }
     } catch (error) {
-      await this.setCloudSyncEnabled(false);
+      if (
+        request !== this.oneKeyIdCloudSyncToggleRequest ||
+        (prepared && operation !== this.oneKeyIdCloudSyncToggleOperation)
+      ) {
+        return;
+      }
+      if (!skippedInitialFlush) {
+        await this.setCloudSyncEnabledWithKeyLock(false, {
+          operation: prepared
+            ? operation
+            : this.oneKeyIdCloudSyncToggleOperation,
+        });
+      }
       throw error;
     } finally {
       if (shouldTrackEnableFlow) {

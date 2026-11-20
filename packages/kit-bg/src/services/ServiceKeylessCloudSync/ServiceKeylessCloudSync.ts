@@ -2724,6 +2724,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
     }
 
+    // A newer explicit Keyless setting must not be restored over by an
+    // earlier OneKey ID initialization, even when both are temporarily off.
+    this.backgroundApi.servicePrimeCloudSync.invalidateOneKeyIdCloudSyncToggle();
     const endingHardwareSession = !shouldEnableKeyless && !!hardwareSource;
     if (endingHardwareSession) this.hardwareSessionEnding = true;
     try {
