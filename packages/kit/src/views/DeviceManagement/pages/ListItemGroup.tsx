@@ -12,7 +12,7 @@ import {
   CARD_ROW_CHEVRON_PROPS,
   CARD_SURFACE_BG,
   CARD_SURFACE_RADIUS,
-  useCardShadow,
+  useCardEdgeProps,
 } from '@onekeyhq/kit/src/hooks/useCardSurface';
 
 import {
@@ -39,7 +39,7 @@ function ListItemGroupBase({
   withSeparator = false,
   groupProps,
 }: IListItemGroupProps) {
-  const cardShadow = useCardShadow();
+  const cardEdgeProps = useCardEdgeProps();
   const normalizedChildren = useMemo(() => {
     const arr = Children.toArray(children);
     const res: ReactNode[] = [];
@@ -89,10 +89,7 @@ function ListItemGroupBase({
       {/* The shadow sits on an outer layer: clipping on the same view would
           cut it off on iOS. The inner layer clips row hover fills to the
           rounded corners. */}
-      <YStack
-        borderRadius={CARD_SURFACE_RADIUS}
-        style={{ boxShadow: cardShadow }}
-      >
+      <YStack borderRadius={CARD_SURFACE_RADIUS} {...cardEdgeProps}>
         <YStack
           bg={CARD_SURFACE_BG}
           borderRadius={CARD_SURFACE_RADIUS}

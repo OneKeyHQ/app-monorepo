@@ -1,3 +1,5 @@
+import { Platform, StyleSheet } from 'react-native';
+
 import { useThemeName } from '@onekeyhq/components';
 
 // Corner radius of the raised settings cards.
@@ -21,9 +23,29 @@ const CARD_SHADOW = {
   dark: '0 0 0 1px rgba(255, 255, 255, 0.09)',
 } as const;
 
-// Follows the theme the card renders in, not the app's setting: some screens
-// force their own (onboarding is always dark).
-export function useCardShadow() {
+// React Native draws outset shadows on Android only from API 28; Android 8
+// (API 26–27) would show the card with no edge at all, so it gets a hairline.
+const DRAWS_OUTSET_SHADOW = !(
+  Platform.OS === 'android' &&
+  typeof Platform.Version === 'number' &&
+  Platform.Version < 28
+);
+const HAIRLINE_EDGE = {
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: '$borderSubdued',
+} as const;
+
+// The card's edge, to spread on its frame. Follows the theme the card renders
+// in, not the app's setting: some screens force their own (onboarding is
+// always dark).
+export function useCardEdgeProps() {
   const themeName = useThemeName();
-  return CARD_SHADOW[themeName.startsWith('dark') ? 'dark' : 'light'];
+  if (!DRAWS_OUTSET_SHADOW) {
+    return HAIRLINE_EDGE;
+  }
+  return {
+    style: {
+      boxShadow: CARD_SHADOW[themeName.startsWith('dark') ? 'dark' : 'light'],
+    },
+  };
 }

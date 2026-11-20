@@ -18,7 +18,7 @@ import {
   CARD_ROW_CHEVRON_PROPS,
   CARD_SURFACE_BG,
   CARD_SURFACE_RADIUS,
-  useCardShadow,
+  useCardEdgeProps,
 } from '@onekeyhq/kit/src/hooks/useCardSurface';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
@@ -71,7 +71,7 @@ export function PrimeGiftOffer({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const theme = useThemeName();
-  const cardShadow = useCardShadow();
+  const cardEdgeProps = useCardEdgeProps();
   const serialNo = deviceUtils.getDeviceSerialNoFromDbDevice(device);
   const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
   const eligibility = serialNo ? eligibilityBySerialNo[serialNo] : undefined;
@@ -146,7 +146,7 @@ export function PrimeGiftOffer({
       py="$3"
       bg={CARD_SURFACE_BG}
       borderRadius={CARD_SURFACE_RADIUS}
-      style={{ boxShadow: cardShadow }}
+      {...cardEdgeProps}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       onPress={() => {
