@@ -392,15 +392,27 @@ export function TradingViewNativeMultiChart({
   useEffect(() => {
     if (!selection || selection !== selectionRef.current) return;
     const hostMoved = selection.activeSourceKey !== activeSourceKey;
-    if (selection.isRejected) {
-      if (hostMoved) {
-        // The host went to another token and the selected panel follows it.
+    if (!selection.isSaved && hostMoved) {
+      // The host went to another token before following the selection: to
+      // the selected panel's own, or, for a newer trade action, to one the
+      // panel showing the host's source takes. Decided now, while the panel on
+      // screen for that action is known: a panel the preset hides showed none,
+      // so its own token stays and the new one goes to the panel it belonged
+      // to before.
+      if (
+        activeSourceKey === getTradingViewNativeSourceKey(selection.source) ||
+        selection.panelId === activePanelId
+      ) {
         saveSelection(selection);
         setSelection({ ...selection, isRejected: false, isSaved: true });
       } else {
-        // The host kept its source, so the selection returns.
         setSelection(selection.fallback);
       }
+      return;
+    }
+    if (selection.isRejected) {
+      // The host kept its source, so the selection returns.
+      setSelection(selection.fallback);
       return;
     }
     if (
@@ -411,6 +423,7 @@ export function TradingViewNativeMultiChart({
       setSelection(null);
     }
   }, [
+    activePanelId,
     activeSourceKey,
     layout,
     saveSelection,
@@ -464,7 +477,11 @@ export function TradingViewNativeMultiChart({
         state.isSymbolSynced &&
         Boolean(state.layout.panels[keptPanelId]?.source);
       const keptSources: IKeptSources = { ...state.selection?.keptSources };
-      if (!keepsOwnToken) keptSources[keptPanelId] = state.activeSource;
+      // A selection the host has not followed holds that panel's token
+      // already: the host's, or one picked for the panel since, which is newer.
+      if (!keepsOwnToken && !keptSources[keptPanelId]) {
+        keptSources[keptPanelId] = state.activeSource;
+      }
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
       const waitsForHost =
@@ -502,8 +519,9 @@ export function TradingViewNativeMultiChart({
         .then((switched) => {
           pendingSwitches.current -= 1;
           const current = selectionRef.current;
-          // Only while no newer selection replaced this one.
-          if (current?.seq !== seq) return;
+          // Only while no newer selection replaced this one, and the host's
+          // move to another token has not settled it already.
+          if (current?.seq !== seq || current.isSaved) return;
           // Saved from here, so it also lands once the grid is unmounted.
           if (switched) saveSelection(current);
           setSelection({

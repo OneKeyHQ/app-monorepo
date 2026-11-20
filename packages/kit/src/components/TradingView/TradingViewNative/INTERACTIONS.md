@@ -21,6 +21,8 @@ under separate owners:
   the saved layout has it, the grid keeps the tokens of the panels selected
   before and writes them all with every selection: a split runtime evaluates a
   write against the snapshot bg sent last, which can miss the selection before.
+  A token picked for one of those panels meanwhile replaces the one kept for
+  it, also when another panel is selected before the host has followed.
   For the same reason every other write of the grid (a panel's token or
   indicators, the preset, sync options, sizes) starts from the selection saved
   last, so it cannot undo a selection that has not come back yet.
@@ -35,7 +37,10 @@ under separate owners:
   panel (`getTradingViewNativeMultiChartSourceOwnerPanelId`), so a selection
   made then saves it there and never over the first panel's own token. A
   selection whose panel the preset hides before the host has followed is
-  saved all the same and returns with the preset. The
+  saved all the same and returns with the preset. If the host goes to another
+  token before following, e.g. from the first panel's picker, the selected
+  panel takes it only while on screen; a hidden one keeps its own token and the
+  new one stays with the panel it belonged to. The
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,

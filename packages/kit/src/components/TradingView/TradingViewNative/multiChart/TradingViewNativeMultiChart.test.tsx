@@ -626,6 +626,45 @@ it('keeps a token picked for the previous panel while the host is switching', as
   });
 });
 
+it('keeps a token picked for the previous panel when another panel is pressed mid-switch', async () => {
+  const finishes: ((switched: boolean) => void)[] = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '3',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+      },
+    },
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finishes.push(resolve);
+      }),
+  });
+  const charts = { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': 'SOL' };
+
+  // The host is still switching to ETH when the first panel gets DOGE from
+  // its picker and a third chart is pressed.
+  act(() => press('panel-2'));
+  act(() => {
+    fireEvent.click(screen.getByTestId('pick-main'));
+  });
+  act(() => press('panel-3'));
+  // Not the BTC the host was still trading.
+  expectScreen(charts, 'panel-3');
+
+  await act(async () => {
+    finishes[0](false);
+    harness.setActiveSource(coin('SOL'));
+    finishes[1](true);
+  });
+  expectScreen(charts, 'panel-3');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-3',
+    panels: { main: { source: coin('DOGE') } },
+  });
+});
+
 it('follows the host in the selected panel only', () => {
   const harness = renderGrid({
     layout: {
@@ -985,6 +1024,54 @@ it('leaves a hidden panel its token when the host never followed to it', async (
     'panel-2',
   );
 });
+
+it.each([
+  ['before', true],
+  ['after', false],
+])(
+  'leaves a hidden panel its token when the host goes elsewhere, answered %s the layout grows back',
+  async (_order, growsFirst) => {
+    const finishes: ((switched: boolean) => void)[] = [];
+    const harness = renderGrid({
+      layout: {
+        preset: '4',
+        panels: {
+          'panel-2': { source: coin('ETH'), indicatorSettings },
+          'panel-3': { source: coin('SOL'), indicatorSettings },
+          'panel-4': { source: coin('HYPE'), indicatorSettings },
+        },
+      },
+      onSelectPanel: () =>
+        new Promise((resolve) => {
+          finishes.push(resolve);
+        }),
+    });
+    const setPreset = (preset: '2h' | '4') => {
+      act(() => {
+        fireEvent.click(screen.getByTestId(`preset-${preset}`));
+      });
+    };
+
+    // The host is still switching to HYPE when the layout shrinks and the
+    // first panel's picker, the host's one on screen, trades DOGE instead.
+    act(() => press('panel-4'));
+    setPreset('2h');
+    act(() => harness.setActiveSource(coin('DOGE')));
+    expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'main');
+
+    // The host drops the HYPE switch.
+    if (growsFirst) setPreset('4');
+    await act(async () => finishes[0](false));
+    if (!growsFirst) setPreset('4');
+
+    // DOGE stays with the first panel, and the fourth keeps its HYPE.
+    expectScreen(
+      { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
+      'main',
+    );
+    expect(harness.layout.activePanelId).toBeUndefined();
+  },
+);
 
 it('saves the host token with its own panel when the tokens are synced mid-switch', async () => {
   const harness = renderGrid({
