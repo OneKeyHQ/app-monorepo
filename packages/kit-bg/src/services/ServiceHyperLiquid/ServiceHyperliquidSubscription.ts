@@ -261,7 +261,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _reconcileInFlight = false;
 
-  private _resumeRecoveryPromise: Promise<void> | null = null;
+  private _resumeRecoveryPromise: Promise<boolean> | null = null;
 
   private _subscriptionUpdateRecoveryPromise: Promise<void> | null = null;
 
@@ -1107,6 +1107,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _getMissingCriticalOpenSubscriptionTypes(
     requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>,
+    switchingToCoin?: string,
   ): ESubscriptionType[] {
     if (!requiredSubSpecsMap) {
       return [];
@@ -1123,7 +1124,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         criticalTypes.has(spec.type) &&
         !this._activeSubscriptions.has(spec.key)
       ) {
-        missingTypes.add(spec.type);
+        // A new book only becomes active after its subscribe ACK. Let the
+        // normal coin transition finish while the other critical feeds are healthy.
+        const isSwitchingBook =
+          switchingToCoin &&
+          (spec.type === ESubscriptionType.L2 ||
+            spec.type === ESubscriptionType.L2_BOOK) &&
+          getOrderBookSubscriptionCoin(spec) === switchingToCoin &&
+          ((this._reconcileInFlight && this._isSubscriptionSpecPending(spec)) ||
+            Array.from(this._activeSubscriptions.values()).some(
+              (sub) =>
+                sub.type === spec.type &&
+                getOrderBookSubscriptionCoin(sub.spec) !== switchingToCoin,
+            ));
+        if (!isSwitchingBook) {
+          missingTypes.add(spec.type);
+        }
       }
     }
     return Array.from(missingTypes);
@@ -1144,6 +1160,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _shouldRebuildOpenSocketSubscriptionsOnResume(params?: {
     forceRebuild?: boolean;
     requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>;
+    switchingToCoin?: string;
   }): boolean {
     if (params?.forceRebuild) {
       return this._activeSubscriptions.size > 0;
@@ -1160,6 +1177,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           .length > 0 ||
         this._getMissingCriticalOpenSubscriptionTypes(
           params?.requiredSubSpecsMap,
+          this._socketOpenedAt !== null &&
+            this._lastMessageAt !== null &&
+            this._lastMessageAt >= this._socketOpenedAt
+            ? params?.switchingToCoin
+            : undefined,
         ).length > 0)
     );
   }
@@ -1259,7 +1281,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _reconcileOpenSocketSubscriptionsOnResume(params?: {
     forceRebuild?: boolean;
     reason?: string;
+    switchingToCoin?: string;
   }): Promise<void> {
+    const disabledCount = this.subscriptionsHandlerDisabledCount;
     const client = await this.getWebSocketClient();
     if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
       await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
@@ -1268,12 +1292,26 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       return;
     }
-    if (this._resumeRecoveryPromise) {
-      await this._resumeRecoveryPromise;
-      return;
+    const openedAt = this._socketOpenedAt;
+    while (this._resumeRecoveryPromise) {
+      const rebuildSatisfied = await this._resumeRecoveryPromise;
+      if (
+        !params?.forceRebuild ||
+        rebuildSatisfied ||
+        this.subscriptionsHandlerDisabled ||
+        disabledCount !== this.subscriptionsHandlerDisabledCount ||
+        client !== this._client ||
+        client.transport.socket.readyState !== WebSocket.OPEN ||
+        openedAt !== this._socketOpenedAt
+      ) {
+        return;
+      }
+      // A soft recovery did not fulfill this forced request. Claim the next
+      // flight so other forced callers can share the rebuild.
     }
 
     this._resumeRecoveryPromise = (async () => {
+      const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (this._bboNeedsResubscribe) {
         this._bboNeedsResubscribe = false;
         this._hasInitialSubscription = false;
@@ -1285,7 +1323,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             !(await this._destroySubscription(spec))
           ) {
             await this._forceReconnectTransport();
-            return;
+            return true;
           }
         }
       }
@@ -1309,6 +1347,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       // Keep socket recovery outside this single-flight to avoid re-entering it.
       this._hasInitialSubscription = true;
       await this._enqueueSubscriptionReconcile();
+      return (
+        params?.forceRebuild === true ||
+        lifecycleVersion !== this._subscriptionLifecycleVersion
+      );
     })().finally(() => {
       this._resumeRecoveryPromise = null;
     });
@@ -1518,14 +1560,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async recoverSubscriptionsAfterLivenessProof(params: {
     disabledCount: number;
+    switchingToCoin?: string;
   }): Promise<boolean> {
     if (this.subscriptionsHandlerDisabledCount > params.disabledCount) {
       return false;
     }
+    const switchingToCoin =
+      this.subscriptionsHandlerDisabled || this._bboNeedsResubscribe
+        ? undefined
+        : params.switchingToCoin;
     await this.enableSubscriptionsHandler({
       ifDisabledCountAtMost: params.disabledCount,
     });
-    if (this.subscriptionsHandlerDisabled) {
+    if (
+      this.subscriptionsHandlerDisabled ||
+      this.subscriptionsHandlerDisabledCount > params.disabledCount
+    ) {
       return false;
     }
     // AutoPause in the UI runtime still reads a stale blur; announce so it
@@ -1534,7 +1584,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
     // before the reconcile (OK-53014 ordering).
     this._watchSubscriptionAtoms();
-    await this._reconcileOpenSocketSubscriptionsOnResume();
+    await this._reconcileOpenSocketSubscriptionsOnResume({ switchingToCoin });
     return true;
   }
 

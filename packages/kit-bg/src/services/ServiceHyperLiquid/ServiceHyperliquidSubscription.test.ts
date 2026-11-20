@@ -4,6 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -17,7 +18,10 @@ import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage'
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
-import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
+import type {
+  ISubscriptionSpec,
+  ISubscriptionState,
+} from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 jest.mock('@nktkas/hyperliquid', () => ({
@@ -111,7 +115,7 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
       _updateSubscriptionsCore: () => Promise<void>;
       _markNetworkStatusSocketOpen: () => Promise<void>;
       _startPingLoop: () => void;
-      _resumeRecoveryPromise: Promise<void> | null;
+      _resumeRecoveryPromise: Promise<boolean> | null;
       _subscriptionUpdateRecoveryPromise: Promise<void> | null;
       _destroySubscription: (
         s: ISubscriptionSpec<ESubscriptionType>,
@@ -540,6 +544,363 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     ).resolves.toBe(true);
     expect(service.subscriptionsHandlerDisabled).toBe(false);
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
+  const oldBook: ISubscriptionSpec<ESubscriptionType.L2> = {
+    key: 'l2:BTC',
+    type: ESubscriptionType.L2,
+    params: { c: 'BTC' },
+    priority: 1,
+  };
+  const newBook: ISubscriptionSpec<ESubscriptionType.L2> = {
+    key: 'l2:ETH',
+    type: ESubscriptionType.L2,
+    params: { c: 'ETH' },
+    priority: 1,
+  };
+  const allDexs: ISubscriptionSpec<ESubscriptionType.ALL_DEXS_ASSET_CTXS> = {
+    key: 'allDexsAssetCtxs',
+    type: ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+    params: {},
+    priority: 2,
+  };
+  const allMids: ISubscriptionSpec<ESubscriptionType.ALL_MIDS> = {
+    key: 'allMids',
+    type: ESubscriptionType.ALL_MIDS,
+    params: { dex: 'ALL_DEXS' },
+    priority: 2,
+  };
+
+  function setupSwitch({
+    activeSpecs = [oldBook, allDexs, allMids],
+  }: {
+    activeSpecs?: ISubscriptionSpec<ESubscriptionType>[];
+  } = {}) {
+    const service = createService();
+    const subscribe = jest
+      .fn<Promise<void>, [ESubscriptionType, unknown]>()
+      .mockResolvedValue(undefined);
+    const unsubscribe = jest
+      .fn<Promise<void>, [ESubscriptionType, unknown]>()
+      .mockResolvedValue(undefined);
+    const client = {
+      clientId: 'test-connection',
+      transport: { socket: { readyState: WebSocket.OPEN } },
+      subscribe,
+      unsubscribe,
+    };
+    const activeSubscriptions = new Map(
+      activeSpecs.map((spec) => [
+        spec.key,
+        {
+          spec,
+          key: spec.key,
+          type: spec.type,
+          isActive: true,
+          createdAt: Date.now() - 20_000,
+          lastActivity: Date.now(),
+        },
+      ]),
+    );
+    const internals = service as unknown as {
+      _activeSubscriptions: typeof activeSubscriptions;
+      _client: typeof client;
+      _currentState: ISubscriptionState;
+      _lastFrameAt: number | null;
+      _lastMessageAt: number | null;
+      _socketOpenedAt: number;
+      _watchSubscriptionAtoms: () => void;
+    };
+    internals._activeSubscriptions = activeSubscriptions;
+    internals._client = client;
+    internals._currentState = {
+      currentUser: null,
+      currentSymbol: 'BTC',
+      isConnected: true,
+      l2BookOptions: { nSigFigs: null, mantissa: null },
+      orderBookTransport: 'l2',
+      tradingMode: 'perp',
+    };
+    internals._lastFrameAt = Date.now();
+    internals._lastMessageAt = Date.now();
+    internals._socketOpenedAt = Date.now() - 30_000;
+    service.allSubSpecsMap = Object.fromEntries(
+      activeSpecs.map((spec) => [spec.key, spec]),
+    );
+    service.pendingSubSpecsMap = { ...service.allSubSpecsMap };
+    jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
+      requiredSubSpecsMap: {
+        [newBook.key]: newBook,
+        [allDexs.key]: allDexs,
+        [allMids.key]: allMids,
+      },
+      params: {
+        ...internals._currentState,
+        currentSymbol: 'ETH',
+      },
+    });
+    return { service, subscribe, unsubscribe, activeSubscriptions, internals };
+  }
+
+  beforeAll(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', true);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('keeps global streams during a live switch to a different book', async () => {
+    const { service, subscribe, unsubscribe } = setupSwitch();
+    const proof = { disabledCount: 0, switchingToCoin: 'ETH' };
+
+    const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(recovery).resolves.toBe(true);
+    expect(subscribe.mock.calls).toEqual([
+      [ESubscriptionType.L2, { c: 'ETH' }],
+    ]);
+    expect(unsubscribe.mock.calls).toEqual([
+      [ESubscriptionType.L2, { c: 'BTC' }],
+    ]);
+    expect(subscribe.mock.invocationCallOrder[0]).toBeLessThan(
+      unsubscribe.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('keeps global streams while the target book subscribe awaits its ack', async () => {
+    const { service, subscribe, unsubscribe } = setupSwitch({
+      activeSpecs: [allDexs, allMids],
+    });
+    let acknowledgeBook: (() => void) | undefined;
+    subscribe.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          acknowledgeBook = resolve;
+        }),
+    );
+    const update = service.updateSubscriptions();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(subscribe).toHaveBeenCalledWith(ESubscriptionType.L2, {
+      c: 'ETH',
+    });
+    const proof = { disabledCount: 0, switchingToCoin: 'ETH' };
+    const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+    await jest.advanceTimersByTimeAsync(0);
+    acknowledgeBook?.();
+    await jest.advanceTimersByTimeAsync(100);
+
+    await update;
+    await expect(recovery).resolves.toBe(true);
+    expect(subscribe.mock.calls).toEqual([
+      [ESubscriptionType.L2, { c: 'ETH' }],
+    ]);
+    expect(unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it.each(['missing', 'stale'] as const)(
+    'rebuilds the live socket when the global critical stream is %s',
+    async (globalStatus) => {
+      const { service, subscribe, unsubscribe, activeSubscriptions } =
+        setupSwitch({
+          activeSpecs:
+            globalStatus === 'missing'
+              ? [oldBook, allMids]
+              : [oldBook, allMids, allDexs],
+        });
+      const dexSubscription = activeSubscriptions.get(allDexs.key);
+      if (dexSubscription) {
+        dexSubscription.lastActivity = Date.now() - 20_000;
+      }
+      const proof = { disabledCount: 0, switchingToCoin: 'ETH' };
+
+      const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+      await jest.advanceTimersByTimeAsync(100);
+
+      await expect(recovery).resolves.toBe(true);
+      expect(unsubscribe).toHaveBeenCalledWith(ESubscriptionType.ALL_MIDS, {
+        dex: 'ALL_DEXS',
+      });
+      expect(subscribe).toHaveBeenCalledWith(
+        ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+        {},
+      );
+    },
+  );
+
+  it.each(['muted', 'enabled with stale BBO'] as const)(
+    'keeps full recovery for a previously muted handler that is %s',
+    async (handlerStatus) => {
+      const bbo: ISubscriptionSpec<ESubscriptionType.BBO> = {
+        key: 'bbo:BTC',
+        type: ESubscriptionType.BBO,
+        params: { coin: 'BTC' },
+        priority: 2,
+      };
+      const { service, unsubscribe } = setupSwitch({
+        activeSpecs: [oldBook, allDexs, allMids, bbo],
+      });
+      await service.disableSubscriptionsHandler();
+      if (handlerStatus === 'enabled with stale BBO') {
+        await service.enableSubscriptionsHandler();
+      }
+      const disabledCount =
+        await service.getSubscriptionsHandlerDisabledCount();
+      const proof = { disabledCount, switchingToCoin: 'ETH' };
+
+      const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+      await jest.advanceTimersByTimeAsync(100);
+
+      await expect(recovery).resolves.toBe(true);
+      expect(unsubscribe).toHaveBeenCalledWith(ESubscriptionType.BBO, {
+        coin: 'BTC',
+      });
+      expect(unsubscribe).toHaveBeenCalledWith(ESubscriptionType.ALL_MIDS, {
+        dex: 'ALL_DEXS',
+      });
+    },
+  );
+
+  it('keeps full recovery when recent frames belong to the previous connection', async () => {
+    const { service, unsubscribe, internals } = setupSwitch();
+    internals._lastMessageAt = Date.now() - 100;
+    internals._lastFrameAt = Date.now() - 100;
+    internals._socketOpenedAt = Date.now() - 10;
+    const proof = { disabledCount: 0, switchingToCoin: 'ETH' };
+
+    const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(recovery).resolves.toBe(true);
+    expect(unsubscribe).toHaveBeenCalledWith(ESubscriptionType.ALL_MIDS, {
+      dex: 'ALL_DEXS',
+    });
+  });
+
+  it('keeps full recovery for ordinary resume', async () => {
+    const { service, unsubscribe } = setupSwitch();
+
+    const recovery = service.resumeSubscriptions();
+    await jest.advanceTimersByTimeAsync(100);
+
+    await recovery;
+    expect(unsubscribe).toHaveBeenCalledWith(ESubscriptionType.ALL_MIDS, {
+      dex: 'ALL_DEXS',
+    });
+  });
+
+  it.each(['live', 'disabled again', 'closed', 'already rebuilding'] as const)(
+    'handles concurrent forced resumes during a book ACK when %s',
+    async (state) => {
+      const {
+        activeSubscriptions,
+        internals,
+        service,
+        subscribe,
+        unsubscribe,
+      } = setupSwitch();
+      const ctx = activeSubscriptions.get(allDexs.key);
+      if (state === 'already rebuilding' && ctx) {
+        ctx.lastActivity = Date.now() - 20_000;
+      }
+
+      let acknowledgeBook: (() => void) | undefined;
+      subscribe.mockImplementation((type) => {
+        if (type !== ESubscriptionType.L2 || acknowledgeBook) {
+          return Promise.resolve();
+        }
+        return new Promise<void>((resolve) => {
+          acknowledgeBook = resolve;
+        });
+      });
+      const recovery = service.recoverSubscriptionsAfterLivenessProof({
+        disabledCount: 0,
+        switchingToCoin: 'ETH',
+      });
+      await jest.advanceTimersByTimeAsync(100);
+      expect(acknowledgeBook).toBeDefined();
+
+      const force = service.resumeSubscriptions({ forceRebuild: true });
+      const secondForce = service.resumeSubscriptions({ forceRebuild: true });
+      await jest.advanceTimersByTimeAsync(0);
+
+      if (state === 'disabled again') {
+        await service.disableSubscriptionsHandler();
+        await service.enableSubscriptionsHandler();
+      } else if (state === 'closed') {
+        const { socket } = internals._client.transport;
+        Object.assign(socket, { readyState: WebSocket.CLOSED });
+        service.socketCloseHandler({
+          target: socket,
+        } as unknown as WebSocketEventMap['close']);
+      }
+
+      const latestBook = { ...newBook, key: 'l2:SOL', params: { c: 'SOL' } };
+      jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
+        requiredSubSpecsMap: {
+          [latestBook.key]: latestBook,
+          [allDexs.key]: allDexs,
+          [allMids.key]: allMids,
+        },
+        params: { ...internals._currentState, currentSymbol: 'SOL' },
+      });
+      acknowledgeBook?.();
+      await jest.advanceTimersByTimeAsync(100);
+      await Promise.all([recovery, force, secondForce]);
+
+      expect(
+        unsubscribe.mock.calls.filter(([type]) => type === allMids.type),
+      ).toHaveLength(
+        state === 'live' || state === 'already rebuilding' ? 1 : 0,
+      );
+      expect(
+        subscribe.mock.calls.filter(([type]) => type === ESubscriptionType.L2),
+      ).toEqual(
+        state === 'live'
+          ? [
+              [ESubscriptionType.L2, { c: 'ETH' }],
+              [ESubscriptionType.L2, { c: 'SOL' }],
+            ]
+          : [[ESubscriptionType.L2, { c: 'ETH' }]],
+      );
+    },
+  );
+
+  it('rejects a proof invalidated during enable even after a newer enable', async () => {
+    const { service, subscribe, unsubscribe } = setupSwitch();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const enable = service.enableSubscriptionsHandler.bind(service);
+    jest
+      .spyOn(service, 'enableSubscriptionsHandler')
+      .mockImplementationOnce(async (options) => {
+        await enable(options);
+        await service.disableSubscriptionsHandler();
+        await enable();
+      });
+    const proof = { disabledCount: 0, switchingToCoin: 'ETH' };
+
+    const recovery = service.recoverSubscriptionsAfterLivenessProof(proof);
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(recovery).resolves.toBe(false);
+    expect(service.subscriptionsHandlerDisabled).toBe(false);
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.PerpsSubscriptionsRecovered,
+      undefined,
+    );
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(unsubscribe).not.toHaveBeenCalled();
   });
 });
 
