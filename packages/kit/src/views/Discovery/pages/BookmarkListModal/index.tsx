@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -40,7 +41,9 @@ import type {
   RowModel,
 } from '@onekeyfe/react-native-native-list';
 
-type IBookmarkRow = { key: string; bookmark: IBrowserBookmark };
+type IBookmarkRow = Pick<IBrowserBookmark, 'url' | 'title' | 'logo'> & {
+  key: string;
+};
 
 function BookmarkListModal() {
   const navigation = useAppNavigation();
@@ -51,28 +54,29 @@ function BookmarkListModal() {
 
   const [dataSource, setDataSource] = useState<IBookmarkRow[]>([]);
   const bookmarkKeys = useRef(new Map<string, string>());
+  const bookmarksByUrl = useRef(new Map<string, IBrowserBookmark>());
   const { run: refreshLocalData, result } = usePromiseResult(
-    async () => {
-      const bookmarks =
-        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
-          generateIcon: true,
-        });
-      // Keep NativeList keys short and stable across reorders and refreshes.
-      const keys = bookmarkKeys.current;
-      setDataSource(
-        (bookmarks || []).map((bookmark) => {
-          const key = keys.get(bookmark.url) ?? `bookmark:${keys.size}`;
-          keys.set(bookmark.url, key);
-          return { key, bookmark };
-        }),
-      );
-      return bookmarks || [];
-    },
+    () =>
+      backgroundApiProxy.serviceDiscovery.getBookmarkData({
+        generateIcon: true,
+      }),
     [],
-    {
-      watchLoading: true,
-    },
   );
+
+  useEffect(() => {
+    if (!result) return;
+    bookmarksByUrl.current = new Map(
+      result.map((bookmark) => [bookmark.url, bookmark]),
+    );
+    const keys = bookmarkKeys.current;
+    const rows = result.map(({ url, title, logo }) => {
+      const key = keys.get(url) ?? `bookmark:${keys.size}`;
+      keys.set(url, key);
+      return { key, url, title, logo };
+    });
+    // A metadata-only save response must keep the current drag snapshot.
+    setDataSource((current) => (isEqual(current, rows) ? current : rows));
+  }, [result]);
 
   useEffect(() => {
     const refreshBookmarkHandler = () => {
@@ -176,12 +180,17 @@ function BookmarkListModal() {
       const data = [...dataSource];
       const [dragItem] = data.splice(fromIndex, 1);
       const toIndex = Math.max(0, Math.min(event.toIndex, data.length));
+      const bookmarks = bookmarksByUrl.current;
+      const target = bookmarks.get(dragItem.url);
+      if (!target) return;
       data.splice(toIndex, 0, dragItem);
+      const prev = data[toIndex - 1];
+      const next = data[toIndex + 1];
       setDataSource(data);
       await sortBrowserBookmark({
-        target: dragItem.bookmark,
-        prev: data[toIndex - 1]?.bookmark,
-        next: data[toIndex + 1]?.bookmark,
+        target,
+        prev: prev ? bookmarks.get(prev.url) : undefined,
+        next: next ? bookmarks.get(next.url) : undefined,
       });
     },
     [dataSource, sortBrowserBookmark],
@@ -224,24 +233,26 @@ function BookmarkListModal() {
   );
 
   const theme = useHomeNativeListTheme();
-  const colors = useTheme();
+  const { borderSubdued, iconCritical } = useTheme();
+  const borderColor = borderSubdued.val;
+  const removeIconColor = iconCritical.val;
   const generationRef = useRef(0);
   const snapshot = useMemo<NativeListSnapshot>(() => {
     generationRef.current += 1;
-    const rows: RowModel[] = dataSource.map(({ key, bookmark: item }) =>
+    const rows: RowModel[] = dataSource.map(({ key, url, title, logo }) =>
       buildBrowserSiteRow({
         key,
-        title: item.title,
-        url: item.url,
-        logo: item.logo,
+        title,
+        url,
+        logo,
         theme,
-        borderColor: colors.borderSubdued.val,
+        borderColor,
         editing: isEditing,
-        testID: `search-modal-${item.url.toLowerCase()}`,
+        testID: `search-modal-${url.toLowerCase()}`,
         leadingAction: {
           kind: 'icon',
           name: 'MinusCircleSolid',
-          tintColor: colors.iconCritical.val,
+          tintColor: removeIconColor,
           buttonStyle: 'tertiary',
           actionKey: 'remove',
           accessibilityLabel: intl.formatMessage({
@@ -275,11 +286,12 @@ function BookmarkListModal() {
       theme,
       rows,
     };
-  }, [dataSource, isEditing, theme, colors, intl]);
+  }, [dataSource, isEditing, theme, borderColor, removeIconColor, intl]);
 
   const onRowAction = useCallback(
     (event: RowActionEvent) => {
-      const item = dataSource.find(({ key }) => key === event.rowKey)?.bookmark;
+      const row = dataSource.find(({ key }) => key === event.rowKey);
+      const item = row && bookmarksByUrl.current.get(row.url);
       if (!item) return;
       if (event.actionKey === 'press') {
         if (!isEditing) handleItemPress(item);
@@ -306,7 +318,7 @@ function BookmarkListModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        {result && dataSource.length === 0 ? (
+        {result?.length === 0 && dataSource.length === 0 ? (
           <Empty
             py="$32"
             my="$4"

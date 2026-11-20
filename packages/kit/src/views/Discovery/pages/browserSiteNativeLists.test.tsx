@@ -10,6 +10,11 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import BookmarkListModal from './BookmarkListModal';
 import HistoryListModal from './HistoryListModal';
 
@@ -122,14 +127,14 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const { useCallback, useEffect, useRef, useState } =
     jest.requireActual<typeof import('react')>('react');
   return {
-    usePromiseResult: <T,>(fetch: () => Promise<T>) => {
+    usePromiseResult: <T,>(fetch: () => Promise<T>, [page]: number[] = []) => {
       const [result, setResult] = useState<T>();
       const fetchRef = useRef(fetch);
       fetchRef.current = fetch;
       const run = useCallback(async () => {
         setResult(await fetchRef.current());
       }, []);
-      useEffect(() => void run(), [run]);
+      useEffect(() => void run(), [run, page]);
       return { result, run };
     },
   };
@@ -158,6 +163,10 @@ const longTitle = `${longTitlePrefix}😀`;
 
 beforeEach(() => {
   jest.clearAllMocks();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 it('renders long bookmarks and uses their full URLs for press, reorder, and remove', async () => {
@@ -217,10 +226,13 @@ it('renders long recently closed entries and opens the full URL and title', asyn
     title: longTitle,
     createdAt: Date.UTC(2026, 10, 20),
   };
-  mockFetchHistoryData.mockResolvedValue([
-    entry,
-    { ...entry, id: 'history-2', createdAt: Date.UTC(2026, 10, 19) },
-  ]);
+  mockFetchHistoryData.mockResolvedValue({
+    data: [
+      entry,
+      { ...entry, id: 'history-2', createdAt: Date.UTC(2026, 10, 19) },
+    ],
+    hasMore: false,
+  });
   render(<HistoryListModal />);
   await waitFor(() => expect(mockList?.snapshot.rows[1]?.key).toBe(entry.id));
   expect(mockList.snapshot.rows).toMatchObject([
@@ -244,4 +256,81 @@ it('renders long recently closed entries and opens the full URL and title', asyn
       webSite: expect.objectContaining({ url: entry.url, title: longTitle }),
     }),
   );
+});
+
+it('keeps the same bookmark snapshot when a reorder is read back with new metadata', async () => {
+  jest.useFakeTimers();
+  const first = {
+    url: 'https://example.com/first',
+    title: 'First',
+    sortIndex: 1,
+  };
+  const second = {
+    url: 'https://example.com/second',
+    title: 'Second',
+    sortIndex: 2,
+  };
+  const persistedSecond = { ...second, sortIndex: 0 };
+  mockGetBookmarkData.mockResolvedValueOnce([first, second]);
+  mockGetBookmarkData.mockResolvedValueOnce([persistedSecond, first]);
+  render(<BookmarkListModal />);
+  await waitFor(() => expect(mockList.snapshot.rows).toHaveLength(2));
+  fireEvent.click(screen.getByRole('button'));
+
+  const [firstRow, secondRow] = mockList.snapshot.rows;
+  act(() =>
+    mockList.onReorder?.({ key: secondRow.key, fromIndex: 1, toIndex: 0 }),
+  );
+  const reorderedSnapshot = mockList.snapshot;
+  await act(async () => {
+    appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    await jest.advanceTimersByTimeAsync(200);
+  });
+
+  expect(mockGetBookmarkData).toHaveBeenCalledTimes(2);
+  expect(mockList.snapshot).toBe(reorderedSnapshot);
+  act(() =>
+    mockList.onReorder?.({ key: firstRow.key, fromIndex: 1, toIndex: 0 }),
+  );
+  expect(mockSortBookmark).toHaveBeenLastCalledWith({
+    target: first,
+    prev: undefined,
+    next: persistedSecond,
+  });
+});
+
+it('requests one history page at the visible tail and ignores stale or finished pagination', async () => {
+  jest.useFakeTimers();
+  const entries = Array.from({ length: 30 }, (_, index) => ({
+    id: `history-${index}`,
+    url: `https://example.com/${index}`,
+    title: `Entry ${index}`,
+    createdAt: Date.UTC(2026, 10, 20),
+  }));
+  mockFetchHistoryData.mockResolvedValueOnce({
+    data: entries.slice(0, 15),
+    hasMore: true,
+  });
+  mockFetchHistoryData.mockResolvedValueOnce({ data: entries, hasMore: false });
+  render(<HistoryListModal />);
+  await waitFor(() => expect(mockList.snapshot.rows).toHaveLength(16));
+  expect(mockList.snapshot.capabilities).toEqual({
+    endReachedThreshold: 0,
+    loadMore: true,
+  });
+
+  const previousGeneration = mockList.snapshot.generation;
+  await act(async () => {
+    mockList.onEndReached?.({ generation: previousGeneration });
+    mockList.onEndReached?.({ generation: previousGeneration });
+    await jest.advanceTimersByTimeAsync(500);
+  });
+  await waitFor(() => expect(mockList.snapshot.rows).toHaveLength(31));
+  expect(mockList.snapshot.capabilities?.loadMore).toBe(false);
+  await act(async () => {
+    mockList.onEndReached?.({ generation: previousGeneration });
+    mockList.onEndReached?.({ generation: mockList.snapshot.generation });
+    await jest.advanceTimersByTimeAsync(500);
+  });
+  expect(mockFetchHistoryData.mock.calls).toEqual([[1], [2]]);
 });

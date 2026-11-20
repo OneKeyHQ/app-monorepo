@@ -38,6 +38,7 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
 import type {
+  EndReachedEvent,
   NativeListSnapshot,
   RowActionEvent,
   RowModel,
@@ -70,12 +71,13 @@ function HistoryListModal() {
   const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const { result: dataSource = [], run } = usePromiseResult(async () => {
-    const data =
+  const { result, run } = usePromiseResult(async () => {
+    const history =
       await backgroundApiProxy.serviceDiscovery.fetchHistoryData(page);
-
-    return data;
+    return { ...history, page };
   }, [page]);
+  const dataSource = result?.data;
+  const canLoadMore = result?.page === page && result.hasMore;
 
   const previousDataRef = useRef<IBrowserHistory[] | undefined>(undefined);
   const cachedResultRef = useRef<{ title: string; data: IBrowserHistory[] }[]>(
@@ -169,12 +171,8 @@ function HistoryListModal() {
     [handleDeleteAll, isEditing, intl],
   );
 
-  const debouncedOnEndReached = useDebouncedCallback(() => {
-    setPage((prev) => prev + 1);
-  }, 500);
-
   const theme = useHomeNativeListTheme();
-  const colors = useTheme();
+  const borderColor = useTheme().borderSubdued.val;
   const generationRef = useRef(0);
   const historyById = useMemo(
     () => new Map((dataSource ?? []).map((item) => [item.id, item])),
@@ -206,7 +204,7 @@ function HistoryListModal() {
             url: item.url,
             logo: item.logo,
             theme,
-            borderColor: colors.borderSubdued.val,
+            borderColor,
             editing: isEditing,
             testID: `search-modal-${item.url.toLowerCase()}`,
             height: BROWSER_SITE_AUTO_ROW_HEIGHT,
@@ -234,11 +232,21 @@ function HistoryListModal() {
         stickyHeaders: false,
         contentPaddingHorizontal: 8,
       },
-      capabilities: { loadMore: true, endReachedThreshold: 0.2 },
+      // A zero ratio makes NativeList wait until the last row is visible.
+      capabilities: { loadMore: canLoadMore, endReachedThreshold: 0 },
       theme,
       rows,
     };
-  }, [memoizedDataSource, isEditing, theme, colors, intl]);
+  }, [memoizedDataSource, isEditing, theme, borderColor, intl, canLoadMore]);
+
+  const debouncedOnEndReached = useDebouncedCallback(
+    (event: EndReachedEvent) => {
+      if (canLoadMore && event.generation === snapshot.generation) {
+        setPage((current) => (current === page ? current + 1 : current));
+      }
+    },
+    500,
+  );
 
   const onRowAction = useCallback(
     (event: RowActionEvent) => {
