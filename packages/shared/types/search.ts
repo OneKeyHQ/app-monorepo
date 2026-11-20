@@ -23,6 +23,7 @@ export enum EUniversalSearchType {
   Dapp = 'Dapp',
   Perp = 'Perp',
   Settings = 'Settings',
+  HelpCenter = 'HelpCenter',
 }
 
 export enum EUniversalSearchSource {
@@ -144,6 +145,18 @@ export type IUniversalSearchSettings = {
   };
 };
 
+export type IUniversalSearchHelpCenterArticle = {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+};
+
+export type IUniversalSearchHelpCenter = {
+  type: EUniversalSearchType.HelpCenter;
+  payload: IUniversalSearchHelpCenterArticle;
+};
+
 export type IUniversalSearchResultItem =
   | IUniversalSearchAddress
   | IUniversalSearchMarketToken
@@ -152,7 +165,8 @@ export type IUniversalSearchResultItem =
   | IUniversalSearchAccountAssets
   | IUniversalSearchDapp
   | IUniversalSearchPerp
-  | IUniversalSearchSettings;
+  | IUniversalSearchSettings
+  | IUniversalSearchHelpCenter;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
@@ -182,6 +196,10 @@ export type IUniversalSearchSettingsResult = {
   items: IUniversalSearchSettings[];
 };
 
+export type IUniversalSearchHelpCenterResult = {
+  items: IUniversalSearchHelpCenter[];
+};
+
 export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
@@ -191,6 +209,7 @@ export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Dapp]?: IUniversalSearchDappResult;
   [EUniversalSearchType.Perp]?: IUniversalSearchPerpResult;
   [EUniversalSearchType.Settings]?: IUniversalSearchSettingsResult;
+  [EUniversalSearchType.HelpCenter]?: IUniversalSearchHelpCenterResult;
 };
 
 export interface IIUniversalRecentSearchItem {

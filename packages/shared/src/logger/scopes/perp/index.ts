@@ -5,6 +5,7 @@ import { AgentLifeCycleScene } from './scenes/agentLifeCycle';
 import { CommonScene } from './scenes/common';
 import { PerpDepositScene } from './scenes/deposit';
 import { HyperLiquidScene } from './scenes/hyperliquid';
+import { PerpRecallScene } from './scenes/recall';
 import { PerpTokenSelectorScene } from './scenes/tokenSelector';
 
 export class PerpScope extends BaseScope {
@@ -17,6 +18,8 @@ export class PerpScope extends BaseScope {
   agentLifeCycle = this.createScene('agentLifeCycle', AgentLifeCycleScene);
 
   deposit = this.createScene('deposit', PerpDepositScene);
+
+  recall = this.createScene('recall', PerpRecallScene);
 
   tokenSelector = this.createScene('tokenSelector', PerpTokenSelectorScene);
 }

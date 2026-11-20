@@ -2,12 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  Toast,
-  globalNetInfo,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Dialog, Toast, useClipboard } from '@onekeyhq/components';
 import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -26,34 +21,8 @@ import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storag
 
 import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
+import { shouldSuppressErrorToast, showErrorToast } from './ErrorToastListener';
 import { getErrorAction } from './ErrorToasts';
-import {
-  getEffectiveHttpStatusCode,
-  getNetworkErrorToastSuppressReason,
-} from './offlineNetworkToastGuard';
-
-// Get deduplication ID for HTTP status codes to prevent toast spam
-// @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
-const getDeduplicationId = (
-  httpStatusCode?: number,
-): { id: string | undefined; forceDeduplicate: boolean } => {
-  if (!httpStatusCode) return { id: undefined, forceDeduplicate: false };
-
-  // Forbidden - force deduplicate
-  if (httpStatusCode === 403)
-    return { id: 'error_403', forceDeduplicate: true };
-
-  // Rate limiting - force deduplicate to avoid spam
-  if (httpStatusCode === 429)
-    return { id: 'error_429', forceDeduplicate: true };
-
-  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
-  if (httpStatusCode >= 500 && httpStatusCode < 600) {
-    return { id: 'error_5xx', forceDeduplicate: true };
-  }
-
-  return { id: undefined, forceDeduplicate: false };
-};
 
 // This container is on the web startup graph. isKnownTranslationKey imports
 // the translations enum, so a hardware key counts only when the active catalog
@@ -130,15 +99,7 @@ export function ErrorToastContainer() {
       if (!p.title && !isPrimeUserBanned) {
         return;
       }
-      const isInternetReachable =
-        globalNetInfo.currentState().isInternetReachable;
-      const suppressReason = getNetworkErrorToastSuppressReason({
-        isInternetReachable,
-        payload: p,
-      });
-      const shouldSuppress = suppressReason !== null;
-      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
-      if (shouldSuppress) {
+      if (shouldSuppressErrorToast(p)) {
         return;
       }
 
@@ -185,17 +146,6 @@ export function ErrorToastContainer() {
         return;
       }
 
-      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
-      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
-      // Otherwise, respect custom toastId from caller
-      const toastId = deduplication.forceDeduplicate
-        ? deduplication.id
-        : p.toastId ||
-          deduplication.id ||
-          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
-          p.title ||
-          p.requestId;
-
       const actions = getErrorAction(
         {
           errorCode: p.errorCode,
@@ -230,17 +180,7 @@ export function ErrorToastContainer() {
           )
         : p.title;
 
-      Toast[p.method]({
-        title,
-        message: p.message,
-        // icon is string in event bus (shared can't import IKeyOfIcons from components)
-        icon: p.icon as any,
-        toastId,
-        actions,
-        duration: p.duration,
-        nativeStorageRecoveryTestSessionId:
-          p.nativeStorageRecoveryTestSessionId,
-      });
+      showErrorToast(p, { title, actions });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
     return () => {

@@ -20,8 +20,10 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 const LimitOrderListModal = ({
   storeName,
+  onTradeAgain,
 }: {
   storeName: EJotaiContextStoreNames;
+  onTradeAgain?: IModalSwapParamList[EModalSwapRoutes.LimitOrderDetail]['onTradeAgain'];
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -36,9 +38,10 @@ const LimitOrderListModal = ({
         orderId: item.orderId,
         orderItem: item,
         storeName,
+        onTradeAgain,
       });
     },
-    [navigation, storeName],
+    [navigation, onTradeAgain, storeName],
   );
   const intl = useIntl();
   return (
@@ -71,18 +74,22 @@ const LimitOrderListModal = ({
 
 const LimitOrderListModalWithSwapProvider = ({
   storeName,
+  onTradeAgain,
 }: {
   storeName: EJotaiContextStoreNames;
+  onTradeAgain?: IModalSwapParamList[EModalSwapRoutes.LimitOrderDetail]['onTradeAgain'];
 }) => (
   <SwapProviderMirror storeName={storeName}>
-    <LimitOrderListModal storeName={storeName} />
+    <LimitOrderListModal storeName={storeName} onTradeAgain={onTradeAgain} />
   </SwapProviderMirror>
 );
 
 export default function LimitOrderListModalWithAllProvider({
   storeName,
+  onTradeAgain,
 }: {
   storeName: EJotaiContextStoreNames;
+  onTradeAgain?: IModalSwapParamList[EModalSwapRoutes.LimitOrderDetail]['onTradeAgain'];
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -91,7 +98,10 @@ export default function LimitOrderListModalWithAllProvider({
       }}
       enabledNum={[0, 1]}
     >
-      <LimitOrderListModalWithSwapProvider storeName={storeName} />
+      <LimitOrderListModalWithSwapProvider
+        storeName={storeName}
+        onTradeAgain={onTradeAgain}
+      />
     </AccountSelectorProviderMirror>
   );
 }

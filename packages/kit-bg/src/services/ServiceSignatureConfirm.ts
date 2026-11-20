@@ -981,6 +981,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       signOnly,
       beforeBroadcastAction,
       wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
     } = params;
     const vault = await vaultFactory.getVault({
       networkId,
@@ -992,6 +993,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       signOnly,
       beforeBroadcastAction,
       wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
     });
   }
 

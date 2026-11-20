@@ -6,6 +6,7 @@ const {
   DEFAULT_FIXTURE_PATH,
   createFixtureStore,
   createRecorder,
+  installNetworkIsolation,
   isolatedChromiumArgs,
   readFixtureFile,
   recordRefusal,
@@ -25,6 +26,126 @@ function tempFixturePath() {
 }
 
 describe('web cold network fixtures', () => {
+  test('covers the homepage highlight quote prefetch with recordable fixtures', () => {
+    const file = readFixtureFile(
+      path.join(__dirname, '..', 'fixtures', 'web-cold-api.json'),
+    );
+    const store = createFixtureStore(file);
+    const highlights = store.lookup({
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v1/market/highlight',
+    }).entry.json.data.data;
+    const assets = [
+      ...new Map(
+        highlights
+          .flatMap((item) => item.assets.slice(0, 3))
+          .map((asset) => [JSON.stringify(asset), asset]),
+      ).values(),
+    ];
+    const requests = [
+      {
+        path: '/utility/v2/market/token/list/batch',
+        body: {
+          currency: 'usd',
+          tokenAddressList: assets
+            .filter((asset) => asset.type === 'token')
+            .map(({ chainId, contractAddress, isNative }) => ({
+              chainId,
+              contractAddress,
+              isNative: isNative ?? contractAddress === '',
+            })),
+        },
+      },
+      {
+        path: '/utility/v1/stocks/batch',
+        body: {
+          stockIds: [
+            ...new Set(
+              assets
+                .filter((asset) => asset.type === 'stock')
+                .map((asset) => asset.stockId),
+            ),
+          ],
+        },
+      },
+    ];
+    for (const { path: endpoint, body } of requests) {
+      const request = {
+        method: 'POST',
+        url: `https://utility.onekeycn.com${endpoint}`,
+        postData: JSON.stringify(body),
+      };
+      expect(recordRefusal(request)).toBeNull();
+      expect(store.lookup(request).entry?.json.code).toBe(0);
+      expect(
+        recordRefusal({
+          ...request,
+          postData: JSON.stringify({ ...body, accountId: 'private' }),
+        }),
+      ).toBe('request body not allowed for this endpoint');
+    }
+    const listingRequest = {
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v1/market/asset/detail?assetId=btc&currency=usd',
+    };
+    expect(recordRefusal(listingRequest)).toBeNull();
+    expect(store.lookup(listingRequest).entry?.json.code).toBe(0);
+    const perpsRequest = {
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v2/market/perps/token-list?assetTypeVersion=3&category=all',
+    };
+    expect(recordRefusal(perpsRequest)).toBeNull();
+    expect(store.lookup(perpsRequest).entry?.json.code).toBe(0);
+  });
+  test.each(['fixtures', 'record'])(
+    '%s mode keeps device recall data out of recordings',
+    async (mode) => {
+      let handleRoute;
+      const context = {
+        routeWebSocket: jest.fn(),
+        route: jest.fn(async (_matches, handler) => {
+          handleRoute = handler;
+        }),
+        on: jest.fn(),
+      };
+      const stats = await installNetworkIsolation({
+        context,
+        mode,
+        localOrigin: 'http://127.0.0.1:3000',
+        fixtureStore: createFixtureStore({ entries: [] }),
+        recorder: createRecorder({ fixturePath: tempFixturePath() }),
+        scenarioName: 'perps',
+      });
+      const request = {
+        method: () => 'GET',
+        url: () =>
+          'https://rebate.onekeycn.com/rebate/v1/recall/progress?instanceId=test-device',
+        postData: () => null,
+        resourceType: () => 'xhr',
+      };
+      const route = {
+        request: () => request,
+        fulfill: jest.fn(),
+        abort: jest.fn(),
+      };
+      await handleRoute(route);
+      expect(route.fulfill).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 204, body: '' }),
+      );
+      expect(route.abort).not.toHaveBeenCalled();
+      expect(stats.stubbed).toEqual({ 'recall-ineligible': 1 });
+      expect(stats.recorded).toEqual({});
+      expect(stats.blocked).toEqual([]);
+      expect(
+        recordRefusal({
+          method: request.method(),
+          url: request.url(),
+          headers: {},
+        }),
+      ).toBe('endpoint not in RECORDABLE_ENDPOINTS');
+    },
+  );
+
   test.each([
     ['stock Banner', '/utility/v1/stocks/batch', { stockIds: ['NVDA'] }],
     [
