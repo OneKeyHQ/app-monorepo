@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,6 +17,7 @@ import {
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useDeviceDetailsActions } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { HELP_CENTER_HARDWARE_FAQ_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +29,7 @@ import type {
   ILinkConfigSlot,
 } from '@onekeyhq/shared/types/linkConfig';
 
+import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
 
 // Hover and press tint only the background, eased by CSS on the web; native
@@ -340,26 +343,42 @@ function GuidesSection({ guides }: { guides: ILinkConfigItem[] | undefined }) {
   );
 }
 
+// The router's placeholder has no device to troubleshoot yet; its row only
+// holds the place.
+function noop() {}
+
 // The panel as drawn. Lists not given yet show as loading, which is also how
 // the router draws it while the page's code loads.
 export function DeviceHelpPanelView({
   faqs,
   guides,
+  onPressTroubleshooting = noop,
 }: {
   faqs?: ILinkConfigItem[];
   guides?: ILinkConfigItem[];
+  onPressTroubleshooting?: () => void;
 }) {
   const intl = useIntl();
   return (
     <YStack gap="$5">
       <FaqsSection faqs={faqs} />
       <GuidesSection guides={guides} />
+      {/* The actions, marked with icons: they open the troubleshooting guide
+          and a chat, not articles. With this column beside the settings, the
+          guide lives here instead of in the Support card. */}
       <YStack gap="$2">
         <Stack px={BLEED}>
           <Stack h={HAIRLINE} bg="$neutral4" />
         </Stack>
         <LinkRow
-          // The one action here: it opens a chat, not an article.
+          icon="ToolboxOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_hardware_troubleshooting,
+          })}
+          testID={DeviceManagementTestIDs.troubleshootingItem}
+          onPress={onPressTroubleshooting}
+        />
+        <LinkRow
           icon="HelpSupportOutline"
           title={intl.formatMessage({
             id: ETranslations.global_hardware_troubleshooting_contact,
@@ -375,5 +394,18 @@ export function DeviceHelpPanelView({
 export function DeviceHelpPanel() {
   const faqs = useLinks('hardware_faqs');
   const guides = useLinks('hardware_getstarteds');
-  return <DeviceHelpPanelView faqs={faqs} guides={guides} />;
+  const actions = useDeviceDetailsActions();
+  const { pushToTroubleshooting } = useDeviceManagerNavigation();
+  const onPressTroubleshooting = useCallback(async () => {
+    const walletWithDevice = await actions.getWalletWithDevice();
+    if (!walletWithDevice) return;
+    pushToTroubleshooting({ walletWithDevice });
+  }, [actions, pushToTroubleshooting]);
+  return (
+    <DeviceHelpPanelView
+      faqs={faqs}
+      guides={guides}
+      onPressTroubleshooting={() => void onPressTroubleshooting()}
+    />
+  );
 }
