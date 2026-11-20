@@ -83,6 +83,75 @@ it.each([
   },
 );
 
+it.each([
+  { feeMultiplier: '3', displayAmount: '3', displayMultiplier: '3' },
+  { feeMultiplier: '1', displayAmount: '1', displayMultiplier: undefined },
+  {
+    feeMultiplier: undefined,
+    displayAmount: '1',
+    displayMultiplier: undefined,
+  },
+])(
+  'decodes a separate swap fee for display (multiplier: $feeMultiplier)',
+  async ({ feeMultiplier, displayAmount, displayMultiplier }) => {
+    const { vault } = createVault();
+    const display = jest
+      .spyOn(vault, 'buildTxTransferAssetAction')
+      .mockResolvedValue({ type: EDecodedTxActionType.ASSET_TRANSFER });
+    const fromToken = {
+      networkId: 'evm--56',
+      symbol: 'PAY',
+      contractAddress: '0xpay',
+      decimals: 6,
+    };
+    const toToken = { ...fromToken, symbol: 'OUT', contractAddress: '0xout' };
+    const feeToken = {
+      ...fromToken,
+      symbol: 'FEE',
+      contractAddress: '0xfee',
+      price: '2',
+      balanceMultiplier: feeMultiplier,
+    };
+    const fee = { token: feeToken, amount: '1' };
+    const swapInfo: ISwapTxInfo = {
+      protocol: EProtocolOfExchange.SWAP,
+      accountAddress: '0xaccount',
+      receivingAddress: '0xaccount',
+      sender: {
+        amount: '10',
+        token: fromToken,
+        accountInfo: { networkId: fromToken.networkId },
+      },
+      receiver: {
+        amount: '7',
+        token: toToken,
+        accountInfo: { networkId: toToken.networkId },
+      },
+      swapBuildResData: {
+        result: {
+          info: { provider: 'SwapOKX', providerName: 'OKX' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+          fee: { percentageFee: 0, otherFeeInfos: [fee] },
+        },
+      },
+    };
+
+    await vault.buildInternalSwapAction({ swapInfo });
+
+    const { transfers } = display.mock.calls[0][0];
+    expect(transfers).toMatchObject([
+      { symbol: 'FEE', amount: displayAmount },
+      { symbol: 'PAY', amount: '10' },
+      { symbol: 'OUT', amount: '7' },
+    ]);
+    expect(transfers[0].balanceMultiplier).toBe(displayMultiplier);
+    expect(fee.amount).toBe('1');
+    expect(swapInfo.sender.amount).toBe('10');
+    expect(swapInfo.receiver.amount).toBe('7');
+  },
+);
+
 it('keeps the wallet I/O display flag and the pool tab internal', async () => {
   const { vault, post } = createVault();
   await vault.fetchAccountHistoryDetailByApi({
