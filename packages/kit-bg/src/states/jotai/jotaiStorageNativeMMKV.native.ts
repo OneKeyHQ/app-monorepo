@@ -101,6 +101,8 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   /** Business access opens only after both migration markers are reconciled. */
   private migrationReady = false;
 
+  private hasUnsyncedMmkvMutation = false;
+
   private migrationPromise: Promise<void> | undefined;
 
   constructor() {
@@ -456,6 +458,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       );
     }
     await syncNativeStorageMMKV('onekey-jotai-states');
+    this.hasUnsyncedMmkvMutation = false;
     await setNativeStorageMigrationLedgerComplete(JOTAI_MIGRATION_LEDGER_KEY);
     this.migrationReady = true;
   }
@@ -511,21 +514,39 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         } else {
           perpSnapshotCache.set(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY, newValue);
         }
+        if (
+          this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
+          undefined
+        ) {
+          this.hasUnsyncedMmkvMutation = true;
+          void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
+          await syncNativeStorageMMKV('onekey-jotai-states');
+          this.hasUnsyncedMmkvMutation = false;
+        }
         return;
       }
       if (newValue === undefined || newValue === null) {
-        if (this.mmkv.getString(key) === undefined) {
+        if (
+          !this.hasUnsyncedMmkvMutation &&
+          this.mmkv.getString(key) === undefined
+        ) {
           return;
         }
+        this.hasUnsyncedMmkvMutation = true;
         void this.store.delete(key);
       } else {
         const serialized = JSON.stringify(newValue);
-        if (this.mmkv.getString(key) === serialized) {
+        if (
+          !this.hasUnsyncedMmkvMutation &&
+          this.mmkv.getString(key) === serialized
+        ) {
           return;
         }
+        this.hasUnsyncedMmkvMutation = true;
         void this.store.set(key, serialized);
       }
       await syncNativeStorageMMKV('onekey-jotai-states');
+      this.hasUnsyncedMmkvMutation = false;
     };
     return environment.persistence.run({
       operation: write,
@@ -543,13 +564,27 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ) {
           perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
         }
+        if (
+          this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
+          undefined
+        ) {
+          this.hasUnsyncedMmkvMutation = true;
+          void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
+          await syncNativeStorageMMKV('onekey-jotai-states');
+          this.hasUnsyncedMmkvMutation = false;
+        }
         return;
       }
-      if (this.mmkv.getString(key) === undefined) {
+      if (
+        !this.hasUnsyncedMmkvMutation &&
+        this.mmkv.getString(key) === undefined
+      ) {
         return;
       }
+      this.hasUnsyncedMmkvMutation = true;
       void this.store.delete(key);
       await syncNativeStorageMMKV('onekey-jotai-states');
+      this.hasUnsyncedMmkvMutation = false;
     };
     return environment.persistence.run({
       operation: remove,

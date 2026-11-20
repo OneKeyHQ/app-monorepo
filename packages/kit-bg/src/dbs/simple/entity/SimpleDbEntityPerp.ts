@@ -258,6 +258,8 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   override enableCache = true;
 
+  protected override readonly enableReferenceEqualityWriteSkip = true;
+
   private isDefaultAppStorage(): boolean {
     return this.appStorage === DEFAULT_APP_STORAGE;
   }
@@ -273,6 +275,28 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     );
   }
 
+  private _trimShardedPrefixEntries(prefix: string, maxEntries: number): void {
+    const matchingKeys = perpSnapshotCache
+      .keys()
+      .filter((key) => key.startsWith(prefix));
+    if (matchingKeys.length <= maxEntries) {
+      return;
+    }
+    const getSortTimestamp = (encodedKey: string): number => {
+      const entry = perpSnapshotCache.get(encodedKey);
+      const data = entry?.data as
+        | { fetchedAt?: number; updatedAt?: number }
+        | undefined;
+      return data?.fetchedAt ?? data?.updatedAt ?? entry?.updatedAt ?? 0;
+    };
+    matchingKeys
+      .toSorted((a, b) => getSortTimestamp(b) - getSortTimestamp(a))
+      .slice(maxEntries)
+      .forEach((keyToRemove) => {
+        perpSnapshotCache.remove(keyToRemove);
+      });
+  }
+
   private readAllShardedPortfolioSnapshots(): Record<
     string,
     IHyperliquidPortfolioSnapshot
@@ -280,7 +304,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     const result: Record<string, IHyperliquidPortfolioSnapshot> = {};
     perpSnapshotCache.keys().forEach((encodedKey) => {
       const address = decodeSnapshotSubKey(PERP_PORTFOLIO_PREFIX, encodedKey);
-      if (!address) {
+      if (address === undefined) {
         return;
       }
       const entry = perpSnapshotCache.get(encodedKey)?.data as
@@ -303,7 +327,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     assertCanCommit?: () => void,
     onCommitted?: (data: ISimpleDbPerpData) => void,
   ): Promise<ISimpleDbPerpData | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.canUseDirectShardedAccess()) {
       return super.setRawDataWithCommitGuard(
         dataOrBuilder,
         assertCanCommit,
@@ -428,15 +452,18 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   @backgroundMethod()
   async getPerpData(): Promise<ISimpleDbPerpData> {
     const config = await this.getRawData();
-    const base: ISimpleDbPerpData = config
-      ? { ...omit(config, SPLIT_PERP_CACHE_FIELDS) }
-      : {
-          tradingUniverse: [],
-        };
-    if (
-      this.isDefaultAppStorage() &&
-      (await isSimpleDbSnapshotPersistenceAllowed())
-    ) {
+    const useSharded = this.canUseDirectShardedAccess();
+    let base: ISimpleDbPerpData;
+    if (!config) {
+      base = {
+        tradingUniverse: [],
+      };
+    } else if (useSharded) {
+      base = { ...omit(config, SPLIT_PERP_CACHE_FIELDS) };
+    } else {
+      base = { ...config };
+    }
+    if (useSharded && (await isSimpleDbSnapshotPersistenceAllowed())) {
       await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
       const portfolioSnapshots = this.readAllShardedPortfolioSnapshots();
       if (Object.keys(portfolioSnapshots).length > 0) {
@@ -598,6 +625,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         encodeSnapshotSubKey(PERP_ACTIVE_CTX_PREFIX, data.coin),
         entry,
       );
+      this._trimShardedPrefixEntries(
+        PERP_ACTIVE_CTX_PREFIX,
+        PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+      );
       return;
     }
 
@@ -711,6 +742,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         },
       );
       perpSnapshotCache.setMany(entries);
+      this._trimShardedPrefixEntries(
+        PERP_L2_BOOK_PREFIX,
+        PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+      );
       return;
     }
 
@@ -1173,6 +1208,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         next.accountAddress = key;
         next.updatedAt = Date.now();
         perpSnapshotCache.set(encodedKey, next);
+        this._trimShardedPrefixEntries(
+          PERP_ACCOUNT_DISPLAY_PREFIX,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+        );
       });
       return;
     }
@@ -1346,6 +1385,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           return;
         }
         perpSnapshotCache.set(encodedKey, { ...snapshot, address: key });
+        this._trimShardedPrefixEntries(
+          PERP_PORTFOLIO_PREFIX,
+          PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES,
+        );
       });
       return;
     }
@@ -1484,6 +1527,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       perpSnapshotCache.set(
         encodeSnapshotSubKey(PERP_DEPOSIT_TOKENS_PREFIX, cacheKey),
         entry,
+      );
+      this._trimShardedPrefixEntries(
+        PERP_DEPOSIT_TOKENS_PREFIX,
+        PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
       );
       return;
     }

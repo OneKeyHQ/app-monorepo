@@ -155,7 +155,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         ACCOUNT_VALUE_SINGLE_PREFIX,
         encodedKey,
       );
-      if (singleKey) {
+      if (singleKey !== undefined) {
         const entry = accountValueSnapshotCache.get(encodedKey)?.data as
           | IAccountValueEntry
           | undefined;
@@ -166,7 +166,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         return;
       }
       const allKey = decodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, encodedKey);
-      if (allKey) {
+      if (allKey !== undefined) {
         const entry = accountValueSnapshotCache.get(encodedKey)?.data as
           | IAllNetworkAccountValueEntry
           | undefined;
@@ -295,15 +295,15 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       await super.clearRawData();
       return;
     }
-    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
-      return;
+    if (await isSimpleDbSnapshotPersistenceAllowed()) {
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        accountValueSnapshotCache.clear();
+      });
     }
-    await ensureSimpleDbSnapshotNamespaceReady(
-      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
-    );
-    await this.mutex.runExclusive(async () => {
-      accountValueSnapshotCache.clear();
-    });
+    await super.clearRawData().catch(() => undefined);
   }
 
   private buildSingleKey({
@@ -633,6 +633,9 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }: {
     serviceAccount: ServiceAccount;
   }) {
+    if (this.canUseDirectShardedAccess()) {
+      return;
+    }
     const raw = (await this.getRawData()) as
       | (IAccountValueDb & {
           data?: Record<string, { value: string; currency: string }>;
@@ -825,6 +828,37 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
   @backgroundMethod()
   async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+      );
+      const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+      await this.mutex.runExclusive(async () => {
+        accountValueSnapshotCache.keys().forEach((encodedKey) => {
+          const singleKey = decodeSnapshotSubKey(
+            ACCOUNT_VALUE_SINGLE_PREFIX,
+            encodedKey,
+          );
+          const rawKey =
+            singleKey !== undefined
+              ? singleKey
+              : decodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, encodedKey);
+          if (
+            rawKey !== undefined &&
+            !accountUtils.isLocalAssetsKeyOwnedBy({
+              key: rawKey,
+              validOwners: validOwnerSet,
+            })
+          ) {
+            accountValueSnapshotCache.remove(encodedKey);
+          }
+        });
+      });
+      return;
+    }
     const existing = await this.getRawData();
     if (!existing) {
       return;

@@ -520,6 +520,7 @@ function getIsolatedSimpleDbMMKV(entityName: string): IMMKVInstance {
 }
 
 let cachedIsolatedEntityNames: Set<string> | undefined;
+let hasUnsyncedIsolatedRegistryMutation = false;
 
 function readRegisteredIsolatedSimpleDbEntities(
   mainMmkv: IMMKVInstance,
@@ -553,14 +554,34 @@ function registerIsolatedSimpleDbEntity(
 ): boolean {
   const registered = readRegisteredIsolatedSimpleDbEntities(mainMmkv);
   if (registered.has(entityName)) {
-    return false;
+    return hasUnsyncedIsolatedRegistryMutation;
   }
-  registered.add(entityName);
-  mainMmkv.set(
-    APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
-    JSON.stringify([...registered]),
-  );
+  const nextRegistered = [...registered, entityName];
+  try {
+    mainMmkv.set(
+      APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+      JSON.stringify(nextRegistered),
+    );
+    registered.add(entityName);
+    hasUnsyncedIsolatedRegistryMutation = true;
+  } catch (error) {
+    cachedIsolatedEntityNames = undefined;
+    throw error;
+  }
   return true;
+}
+
+async function flushIsolatedRegistryIfNeeded() {
+  if (!hasUnsyncedIsolatedRegistryMutation) {
+    return;
+  }
+  try {
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    hasUnsyncedIsolatedRegistryMutation = false;
+  } catch (error) {
+    cachedIsolatedEntityNames = undefined;
+    throw error;
+  }
 }
 
 function getAllKnownIsolatedSimpleDbMMKVs(
@@ -569,11 +590,7 @@ function getAllKnownIsolatedSimpleDbMMKVs(
   const registered = readRegisteredIsolatedSimpleDbEntities(mainMmkv);
   const instances = new Set<IMMKVInstance>();
   registered.forEach((entityName) => {
-    try {
-      instances.add(getIsolatedSimpleDbMMKV(entityName));
-    } catch {
-      // Ignore individual store open failures during enumeration/clear.
-    }
+    instances.add(getIsolatedSimpleDbMMKV(entityName));
   });
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -589,18 +606,25 @@ function getAllKnownIsolatedSimpleDbMMKVs(
 }
 
 function clearIsolatedSimpleDbStores(mainMmkv: IMMKVInstance) {
-  getAllKnownIsolatedSimpleDbMMKVs(mainMmkv).forEach((isolatedMmkv) => {
-    try {
-      for (const key of isolatedMmkv.getAllKeys()) {
-        if (key.startsWith(APP_STORAGE_KEY_PREFIX)) {
-          isolatedMmkv.remove(key);
-        }
+  const isolatedStores = getAllKnownIsolatedSimpleDbMMKVs(mainMmkv);
+  isolatedStores.forEach((isolatedMmkv) => {
+    for (const key of isolatedMmkv.getAllKeys()) {
+      if (key.startsWith(APP_STORAGE_KEY_PREFIX)) {
+        isolatedMmkv.remove(key);
       }
-    } catch {
-      // Best-effort clear on isolated entity stores.
+    }
+    if (
+      isolatedMmkv
+        .getAllKeys()
+        .some((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+    ) {
+      throw new OneKeyLocalError(
+        'Explicit app-storage clear left isolated SimpleDb records behind',
+      );
     }
   });
   cachedIsolatedEntityNames = undefined;
+  hasUnsyncedIsolatedRegistryMutation = false;
   mainMmkv.remove(APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY);
 }
 
@@ -2196,20 +2220,45 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
       }
       const target = resolveAppStorageMMKVForKey(mmkv, request.key);
       if (target.isolated) {
-        const registeredNewEntity = registerIsolatedSimpleDbEntity(
+        const previousIsolatedValue = target.mmkv.getString(target.targetKey);
+        const previousRegistry = mmkv.getString(
+          APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+        );
+        const hadUnsyncedRegistry = hasUnsyncedIsolatedRegistryMutation;
+        const needsRegistrySync = registerIsolatedSimpleDbEntity(
           mmkv,
           target.entityName,
         );
-        if (target.mmkv.getString(target.targetKey) !== request.value) {
-          target.mmkv.set(target.targetKey, request.value);
-        }
-        if (registeredNewEntity) {
-          await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        try {
+          if (previousIsolatedValue !== request.value) {
+            target.mmkv.set(target.targetKey, request.value);
+          }
+          if (needsRegistrySync) {
+            await flushIsolatedRegistryIfNeeded();
+          }
+        } catch (error) {
+          if (previousIsolatedValue === undefined) {
+            target.mmkv.remove(target.targetKey);
+          } else {
+            target.mmkv.set(target.targetKey, previousIsolatedValue);
+          }
+          if (previousRegistry === undefined) {
+            mmkv.remove(APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY);
+          } else {
+            mmkv.set(
+              APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+              previousRegistry,
+            );
+          }
+          cachedIsolatedEntityNames = undefined;
+          hasUnsyncedIsolatedRegistryMutation = hadUnsyncedRegistry;
+          throw error;
         }
         return undefined;
       }
       mmkv.set(target.targetKey, request.value);
       await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      hasUnsyncedIsolatedRegistryMutation = false;
       return undefined;
     }
     case 'removeItem': {
@@ -2217,30 +2266,61 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
       target.mmkv.remove(target.targetKey);
       if (!target.isolated) {
         await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        hasUnsyncedIsolatedRegistryMutation = false;
+      } else if (mmkv.getString(target.targetKey) !== undefined) {
+        // Also remove any pre-upgrade legacy record left in onekey-app-storage-v1.
+        mmkv.remove(target.targetKey);
+        await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        hasUnsyncedIsolatedRegistryMutation = false;
       }
       return undefined;
     }
     case 'mergeItem': {
       const target = resolveAppStorageMMKVForKey(mmkv, request.key);
+      const previousIsolatedValue = target.mmkv.getString(target.targetKey);
       const mergedValue = mergeAppStorageValue(
-        target.mmkv.getString(target.targetKey),
+        previousIsolatedValue,
         request.value,
       );
       if (target.isolated) {
-        const registeredNewEntity = registerIsolatedSimpleDbEntity(
+        const previousRegistry = mmkv.getString(
+          APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+        );
+        const hadUnsyncedRegistry = hasUnsyncedIsolatedRegistryMutation;
+        const needsRegistrySync = registerIsolatedSimpleDbEntity(
           mmkv,
           target.entityName,
         );
-        if (target.mmkv.getString(target.targetKey) !== mergedValue) {
-          target.mmkv.set(target.targetKey, mergedValue);
-        }
-        if (registeredNewEntity) {
-          await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        try {
+          if (previousIsolatedValue !== mergedValue) {
+            target.mmkv.set(target.targetKey, mergedValue);
+          }
+          if (needsRegistrySync) {
+            await flushIsolatedRegistryIfNeeded();
+          }
+        } catch (error) {
+          if (previousIsolatedValue === undefined) {
+            target.mmkv.remove(target.targetKey);
+          } else {
+            target.mmkv.set(target.targetKey, previousIsolatedValue);
+          }
+          if (previousRegistry === undefined) {
+            mmkv.remove(APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY);
+          } else {
+            mmkv.set(
+              APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+              previousRegistry,
+            );
+          }
+          cachedIsolatedEntityNames = undefined;
+          hasUnsyncedIsolatedRegistryMutation = hadUnsyncedRegistry;
+          throw error;
         }
         return undefined;
       }
       mmkv.set(target.targetKey, mergedValue);
       await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      hasUnsyncedIsolatedRegistryMutation = false;
       return undefined;
     }
     case 'clear':
@@ -2275,71 +2355,228 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
       });
     case 'multiSet': {
       const mainChanges: Array<{ key: string; value?: string }> = [];
-      let registeredAnyIsolated = false;
+      const isolatedChanges: Array<{
+        entityName: string;
+        key: string;
+        mmkv: IMMKVInstance;
+        value: string;
+      }> = [];
+      // Validate all entries before mutating any MMKV store.
       request.entries.forEach(([key, value]) => {
         if (typeof value !== 'string') {
           throw new OneKeyLocalError('AsyncStorage value must be a string');
         }
         const target = resolveAppStorageMMKVForKey(mmkv, key);
         if (target.isolated) {
-          if (registerIsolatedSimpleDbEntity(mmkv, target.entityName)) {
-            registeredAnyIsolated = true;
-          }
-          if (target.mmkv.getString(target.targetKey) !== value) {
-            target.mmkv.set(target.targetKey, value);
-          }
+          isolatedChanges.push({
+            entityName: target.entityName,
+            key: target.targetKey,
+            mmkv: target.mmkv,
+            value,
+          });
         } else {
           mainChanges.push({ key: target.targetKey, value });
         }
       });
-      if (mainChanges.length > 0) {
-        await applyAppStorageChanges(mmkv, mainChanges);
-      } else if (registeredAnyIsolated) {
-        await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      const isolatedRollback: Array<{
+        key: string;
+        mmkv: IMMKVInstance;
+        previousValue: string | undefined;
+      }> = [];
+      const seenIsolatedKeys = new Set<string>();
+      const previousRegistry = mmkv.getString(
+        APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+      );
+      const hadUnsyncedRegistry = hasUnsyncedIsolatedRegistryMutation;
+      let needsRegistrySync = false;
+      try {
+        isolatedChanges.forEach(
+          ({ entityName, key, mmkv: targetMmkv, value }) => {
+            const rollbackId = `${entityName}:${key}`;
+            if (!seenIsolatedKeys.has(rollbackId)) {
+              seenIsolatedKeys.add(rollbackId);
+              isolatedRollback.push({
+                key,
+                mmkv: targetMmkv,
+                previousValue: targetMmkv.getString(key),
+              });
+            }
+            if (registerIsolatedSimpleDbEntity(mmkv, entityName)) {
+              needsRegistrySync = true;
+            }
+            if (targetMmkv.getString(key) !== value) {
+              targetMmkv.set(key, value);
+            }
+          },
+        );
+        if (mainChanges.length > 0) {
+          await applyAppStorageChanges(mmkv, mainChanges);
+          hasUnsyncedIsolatedRegistryMutation = false;
+        } else if (needsRegistrySync) {
+          await flushIsolatedRegistryIfNeeded();
+        }
+      } catch (error) {
+        isolatedRollback.forEach(({ key, mmkv: targetMmkv, previousValue }) => {
+          if (previousValue === undefined) {
+            targetMmkv.remove(key);
+          } else {
+            targetMmkv.set(key, previousValue);
+          }
+        });
+        if (previousRegistry === undefined) {
+          mmkv.remove(APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY);
+        } else {
+          mmkv.set(
+            APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+            previousRegistry,
+          );
+        }
+        cachedIsolatedEntityNames = undefined;
+        hasUnsyncedIsolatedRegistryMutation = hadUnsyncedRegistry;
+        throw error;
       }
       return undefined;
     }
     case 'multiRemove': {
       const mainChanges: Array<{ key: string; value?: string }> = [];
+      const isolatedRemovals: Array<{
+        entityName: string;
+        key: string;
+        mmkv: IMMKVInstance;
+      }> = [];
       request.keys.forEach((key) => {
         const target = resolveAppStorageMMKVForKey(mmkv, key);
         if (target.isolated) {
-          target.mmkv.remove(target.targetKey);
+          isolatedRemovals.push({
+            entityName: target.entityName,
+            key: target.targetKey,
+            mmkv: target.mmkv,
+          });
+          if (mmkv.getString(target.targetKey) !== undefined) {
+            mainChanges.push({ key: target.targetKey });
+          }
         } else {
           mainChanges.push({ key: target.targetKey });
         }
       });
-      if (mainChanges.length > 0) {
-        await applyAppStorageChanges(mmkv, mainChanges);
+      const isolatedRollback: Array<{
+        key: string;
+        mmkv: IMMKVInstance;
+        previousValue: string | undefined;
+      }> = [];
+      const seenIsolatedKeys = new Set<string>();
+      try {
+        isolatedRemovals.forEach(({ entityName, key, mmkv: targetMmkv }) => {
+          const rollbackId = `${entityName}:${key}`;
+          if (!seenIsolatedKeys.has(rollbackId)) {
+            seenIsolatedKeys.add(rollbackId);
+            isolatedRollback.push({
+              key,
+              mmkv: targetMmkv,
+              previousValue: targetMmkv.getString(key),
+            });
+          }
+          targetMmkv.remove(key);
+        });
+        if (mainChanges.length > 0) {
+          await applyAppStorageChanges(mmkv, mainChanges);
+          hasUnsyncedIsolatedRegistryMutation = false;
+        }
+      } catch (error) {
+        isolatedRollback.forEach(({ key, mmkv: targetMmkv, previousValue }) => {
+          if (previousValue !== undefined) {
+            targetMmkv.set(key, previousValue);
+          }
+        });
+        throw error;
       }
       return undefined;
     }
     case 'multiMerge': {
       const pendingValues = new Map<string, string | undefined>();
       const mainChanges: Array<{ key: string; value?: string }> = [];
-      let registeredAnyIsolated = false;
+      const isolatedChanges: Array<{
+        entityName: string;
+        key: string;
+        mmkv: IMMKVInstance;
+        value: string;
+      }> = [];
+      // Validate and compute all merged values before mutating any MMKV store.
       request.entries.forEach(([entryKey, value]) => {
         const target = resolveAppStorageMMKVForKey(mmkv, entryKey);
-        const current = pendingValues.has(target.targetKey)
-          ? pendingValues.get(target.targetKey)
+        const pendingId = `${target.isolated ? target.entityName : ''}:${target.targetKey}`;
+        const current = pendingValues.has(pendingId)
+          ? pendingValues.get(pendingId)
           : target.mmkv.getString(target.targetKey);
         const merged = mergeAppStorageValue(current, value);
-        pendingValues.set(target.targetKey, merged);
+        pendingValues.set(pendingId, merged);
         if (target.isolated) {
-          if (registerIsolatedSimpleDbEntity(mmkv, target.entityName)) {
-            registeredAnyIsolated = true;
-          }
-          if (target.mmkv.getString(target.targetKey) !== merged) {
-            target.mmkv.set(target.targetKey, merged);
-          }
+          isolatedChanges.push({
+            entityName: target.entityName,
+            key: target.targetKey,
+            mmkv: target.mmkv,
+            value: merged,
+          });
         } else {
           mainChanges.push({ key: target.targetKey, value: merged });
         }
       });
-      if (mainChanges.length > 0) {
-        await applyAppStorageChanges(mmkv, mainChanges);
-      } else if (registeredAnyIsolated) {
-        await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      const isolatedRollback: Array<{
+        key: string;
+        mmkv: IMMKVInstance;
+        previousValue: string | undefined;
+      }> = [];
+      const seenIsolatedKeys = new Set<string>();
+      const previousRegistry = mmkv.getString(
+        APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+      );
+      const hadUnsyncedRegistry = hasUnsyncedIsolatedRegistryMutation;
+      let needsRegistrySync = false;
+      try {
+        isolatedChanges.forEach(
+          ({ entityName, key, mmkv: targetMmkv, value }) => {
+            const rollbackId = `${entityName}:${key}`;
+            if (!seenIsolatedKeys.has(rollbackId)) {
+              seenIsolatedKeys.add(rollbackId);
+              isolatedRollback.push({
+                key,
+                mmkv: targetMmkv,
+                previousValue: targetMmkv.getString(key),
+              });
+            }
+            if (registerIsolatedSimpleDbEntity(mmkv, entityName)) {
+              needsRegistrySync = true;
+            }
+            if (targetMmkv.getString(key) !== value) {
+              targetMmkv.set(key, value);
+            }
+          },
+        );
+        if (mainChanges.length > 0) {
+          await applyAppStorageChanges(mmkv, mainChanges);
+          hasUnsyncedIsolatedRegistryMutation = false;
+        } else if (needsRegistrySync) {
+          await flushIsolatedRegistryIfNeeded();
+        }
+      } catch (error) {
+        isolatedRollback.forEach(({ key, mmkv: targetMmkv, previousValue }) => {
+          if (previousValue === undefined) {
+            targetMmkv.remove(key);
+          } else {
+            targetMmkv.set(key, previousValue);
+          }
+        });
+        if (previousRegistry === undefined) {
+          mmkv.remove(APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY);
+        } else {
+          mmkv.set(
+            APP_STORAGE_ISOLATED_SIMPLE_DB_REGISTRY_KEY,
+            previousRegistry,
+          );
+        }
+        cachedIsolatedEntityNames = undefined;
+        hasUnsyncedIsolatedRegistryMutation = hadUnsyncedRegistry;
+        throw error;
       }
       return undefined;
     }

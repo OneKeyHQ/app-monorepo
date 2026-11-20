@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
-import { isEqual, isNil, omit } from 'lodash';
+import { isEqual, isNil, isUndefined, omit, omitBy } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
@@ -919,8 +919,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
-          tradingUniverse: prev?.tradingUniverse,
-          marginTablesMap: prev?.marginTablesMap,
           ...prev,
           hyperliquidBuilderAddress:
             referrerConfig?.referrerAddress || prev?.hyperliquidBuilderAddress,
@@ -942,10 +940,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           tokenSelectorTabs: tokenSelectorTabs ?? prev?.tokenSelectorTabs,
           perpsAssetMetaMap: perpsAssetMetaMap || prev?.perpsAssetMetaMap,
         };
-        if (isEqual(newConfig, prev)) {
-          return (
-            prev || { tradingUniverse: undefined, marginTablesMap: undefined }
-          );
+        if (
+          prev &&
+          isEqual(omitBy(newConfig, isUndefined), omitBy(prev, isUndefined))
+        ) {
+          return prev;
         }
         shouldNotifyToDapp = true;
         return newConfig;

@@ -1,4 +1,4 @@
-import { isFunction, omit } from 'lodash';
+import { isEqual, isFunction, omit } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
@@ -56,6 +56,8 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
 
   override enableCache = false;
 
+  protected override readonly enableReferenceEqualityWriteSkip = true;
+
   private isDefaultAppStorage(): boolean {
     return this.appStorage === DEFAULT_APP_STORAGE;
   }
@@ -73,7 +75,7 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
     const result: Record<string, IDeFiAccountOverviewMap> = {};
     defiSnapshotCache.keys().forEach((encodedKey) => {
       const rawKey = decodeSnapshotSubKey(DEFI_OVERVIEW_PREFIX, encodedKey);
-      if (!rawKey) {
+      if (rawKey === undefined) {
         return;
       }
       const entry = defiSnapshotCache.get(encodedKey)?.data;
@@ -87,7 +89,7 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
   @backgroundMethod()
   override async getRawData(): Promise<IDeFiDBStruct | undefined | null> {
     const persistent = await super.getRawData();
-    if (!this.isDefaultAppStorage()) {
+    if (!this.canUseDirectShardedAccess()) {
       return persistent;
     }
     if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
@@ -113,7 +115,7 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
     assertCanCommit?: () => void,
     onCommitted?: (data: IDeFiDBStruct) => void,
   ): Promise<IDeFiDBStruct | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.canUseDirectShardedAccess()) {
       return super.setRawDataWithCommitGuard(
         dataOrBuilder,
         assertCanCommit,
@@ -124,6 +126,7 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
     // so historical large overview payloads are naturally pruned on preference/quota writes.
     return super.setRawDataWithCommitGuard(
       async (rawData) => {
+        const hadSplitResidue = Boolean(rawData && 'overview' in rawData);
         const strippedRawData = rawData
           ? (omit(rawData, ['overview']) as IDeFiDBStruct)
           : rawData;
@@ -131,11 +134,14 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
           ? await dataOrBuilder(strippedRawData)
           : dataOrBuilder;
         if (
+          !hadSplitResidue &&
           strippedRawData !== null &&
           strippedRawData !== undefined &&
+          rawData !== null &&
+          rawData !== undefined &&
           Object.is(built, strippedRawData)
         ) {
-          return strippedRawData;
+          return rawData;
         }
         return omit(built, ['overview']) as IDeFiDBStruct;
       },
@@ -172,6 +178,12 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
             ...enabledNetworksMap,
           }
         : enabledNetworksMap;
+      if (
+        rawData &&
+        isEqual(originalEnabledNetworksMap, finalEnabledNetworksMap)
+      ) {
+        return rawData;
+      }
       return { ...rawData, enabledNetworksMap: finalEnabledNetworksMap };
     });
   }

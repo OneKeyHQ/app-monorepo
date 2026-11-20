@@ -1009,6 +1009,29 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     ).resolves.toEqual({ entries: {} });
     __resetWebUiSnapshotStoreForTests();
   });
+
+  it('re-runs syncNativeStorageMMKV on identical retry after a previous sync failure', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new OneKeyLocalError('disk full on sync'),
+    );
+    await expect(storage.setItem('g_states_v5:aAtom', 'value')).rejects.toThrow(
+      'disk full on sync',
+    );
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+
+    // Retrying with the same value must still call syncNativeStorageMMKV.
+    await storage.setItem('g_states_v5:aAtom', 'value');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(2);
+
+    // Once synced, another identical setItem is skipped.
+    await storage.setItem('g_states_v5:aAtom', 'value');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('mergeStoredValue', () => {

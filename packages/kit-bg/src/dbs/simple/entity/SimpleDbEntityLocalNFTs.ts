@@ -67,7 +67,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
     let hasAny = false;
     keys.forEach((encodedKey) => {
       const rawKey = decodeSnapshotSubKey(LOCAL_NFTS_KEY_PREFIX, encodedKey);
-      if (!rawKey) {
+      if (rawKey === undefined) {
         return;
       }
       const entry = localNftsSnapshotCache.get(encodedKey);
@@ -175,13 +175,13 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
       await super.clearRawData();
       return;
     }
-    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
-      return;
+    if (await isSimpleDbSnapshotPersistenceAllowed()) {
+      await ensureSimpleDbSnapshotNamespaceReady(LOCAL_NFTS_SNAPSHOT_NAMESPACE);
+      await this.mutex.runExclusive(async () => {
+        localNftsSnapshotCache.clear();
+      });
     }
-    await ensureSimpleDbSnapshotNamespaceReady(LOCAL_NFTS_SNAPSHOT_NAMESPACE);
-    await this.mutex.runExclusive(async () => {
-      localNftsSnapshotCache.clear();
-    });
+    await super.clearRawData().catch(() => undefined);
   }
 
   @backgroundMethod()
@@ -299,6 +299,41 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
   // accounts. Pure-cache cleanup. See ServiceAppCleanup.cleanupOrphanedAssetCaches.
   @backgroundMethod()
   async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(LOCAL_NFTS_SNAPSHOT_NAMESPACE);
+      const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+      await this.mutex.runExclusive(async () => {
+        localNftsSnapshotCache.keys().forEach((encodedKey) => {
+          const rawKey = decodeSnapshotSubKey(
+            LOCAL_NFTS_KEY_PREFIX,
+            encodedKey,
+          );
+          if (rawKey === undefined) {
+            return;
+          }
+          if (
+            !accountUtils.isLocalAssetsKeyOwnedBy({
+              key: rawKey,
+              validOwners: validOwnerSet,
+            })
+          ) {
+            localNftsSnapshotCache.remove(encodedKey);
+            return;
+          }
+          const current = localNftsSnapshotCache.get(encodedKey)?.data;
+          if (current && current.length > LOCAL_NFTS_MAX_PER_ACCOUNT) {
+            localNftsSnapshotCache.set(
+              encodedKey,
+              current.slice(0, LOCAL_NFTS_MAX_PER_ACCOUNT),
+            );
+          }
+        });
+      });
+      return;
+    }
     const existing = await this.getRawData();
     if (!existing) {
       return;

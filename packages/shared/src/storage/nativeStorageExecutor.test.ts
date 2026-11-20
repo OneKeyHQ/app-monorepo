@@ -3770,4 +3770,44 @@ describe('nativeStorageExecutor', () => {
       }),
     ).resolves.toBeNull();
   });
+
+  it('rolls back isolated store writes and registry cache when a mixed-store batch or sync fails', async () => {
+    markAppStorageMigrated();
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    // Seed an existing isolated value so we can verify rollback restores it.
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'setItem',
+      key: 'simple_db_v5:newFeatureEntity:acct-1',
+      value: '{"data":{"balance":"10"},"updatedAt":1}',
+    });
+
+    // Fail the main-store sync during a mixed multiSet batch.
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new Error('main store sync failed'),
+    );
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'multiSet',
+        entries: [
+          [
+            'simple_db_v5:newFeatureEntity:acct-1',
+            '{"data":{"balance":"999"},"updatedAt":2}',
+          ],
+          ['simple_db_v5:addressBookItems', '{"data":{"items":["x"]}}'],
+        ],
+      }),
+    ).rejects.toThrow('main store sync failed');
+
+    // The isolated key must roll back to its previous value.
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'simple_db_v5:newFeatureEntity:acct-1',
+      }),
+    ).resolves.toBe('{"data":{"balance":"10"},"updatedAt":1}');
+  });
 });

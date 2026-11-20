@@ -99,6 +99,8 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
 
   override enableCache = false;
 
+  protected override readonly enableReferenceEqualityWriteSkip = true;
+
   private isDefaultAppStorage(): boolean {
     return this.appStorage === DEFAULT_APP_STORAGE;
   }
@@ -124,7 +126,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     assertCanCommit?: () => void,
     onCommitted?: (data: ISimpleDBAggregateToken) => void,
   ): Promise<ISimpleDBAggregateToken | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.canUseDirectShardedAccess()) {
       return super.setRawDataWithCommitGuard(
         dataOrBuilder,
         assertCanCommit,
@@ -133,6 +135,10 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     }
     return super.setRawDataWithCommitGuard(
       async (rawData) => {
+        const hadSplitResidue = Boolean(
+          rawData &&
+          SPLIT_AGGREGATE_CACHE_FIELDS.some((field) => field in rawData),
+        );
         const strippedRawData = rawData
           ? (omit(
               rawData,
@@ -143,11 +149,14 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
           ? await dataOrBuilder(strippedRawData)
           : dataOrBuilder;
         if (
+          !hadSplitResidue &&
           strippedRawData !== null &&
           strippedRawData !== undefined &&
+          rawData !== null &&
+          rawData !== undefined &&
           Object.is(built, strippedRawData)
         ) {
-          return strippedRawData;
+          return rawData;
         }
         return omit(
           built,
@@ -473,19 +482,21 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         await ensureSimpleDbSnapshotNamespaceReady(
           AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
         );
-        aggregateTokenSnapshotCache.keys().forEach((encodedKey) => {
-          const rawKey =
-            decodeSnapshotSubKey(AGGREGATE_TOKEN_LIST_PREFIX, encodedKey) ??
-            decodeSnapshotSubKey(AGGREGATE_TOKEN_MAP_PREFIX, encodedKey);
-          if (
-            rawKey &&
-            !accountUtils.isLocalAssetsKeyOwnedBy({
-              key: rawKey,
-              validOwners: validIdSet,
-            })
-          ) {
-            aggregateTokenSnapshotCache.remove(encodedKey);
-          }
+        await this.mutex.runExclusive(async () => {
+          aggregateTokenSnapshotCache.keys().forEach((encodedKey) => {
+            const rawKey =
+              decodeSnapshotSubKey(AGGREGATE_TOKEN_LIST_PREFIX, encodedKey) ??
+              decodeSnapshotSubKey(AGGREGATE_TOKEN_MAP_PREFIX, encodedKey);
+            if (
+              rawKey !== undefined &&
+              !accountUtils.isLocalAssetsKeyOwnedBy({
+                key: rawKey,
+                validOwners: validIdSet,
+              })
+            ) {
+              aggregateTokenSnapshotCache.remove(encodedKey);
+            }
+          });
         });
       }
       const existing = await super.getRawData();
@@ -498,13 +509,9 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         }
         const currentTokenDetails = rawData.tokenDetails ?? {};
         const filteredTokenDetails = filterById(currentTokenDetails);
-        const hasSplitResidue = SPLIT_AGGREGATE_CACHE_FIELDS.some(
-          (field) => field in rawData,
-        );
         if (
-          !hasSplitResidue &&
           Object.keys(currentTokenDetails).length ===
-            Object.keys(filteredTokenDetails).length
+          Object.keys(filteredTokenDetails).length
         ) {
           return rawData;
         }

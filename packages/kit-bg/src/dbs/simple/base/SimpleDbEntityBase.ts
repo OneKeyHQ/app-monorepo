@@ -68,6 +68,8 @@ abstract class SimpleDbEntityBase<T> {
 
   protected readonly rejectInvalidStoredData: boolean = false;
 
+  protected readonly enableReferenceEqualityWriteSkip: boolean = false;
+
   protected validateStoredData(_data: unknown): void {}
 
   get entityKey() {
@@ -277,6 +279,7 @@ abstract class SimpleDbEntityBase<T> {
             assertCanCommit?.();
             data = await dataOrBuilder(rawData);
             if (
+              this.enableReferenceEqualityWriteSkip &&
               rawData !== null &&
               rawData !== undefined &&
               Object.is(data, rawData)

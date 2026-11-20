@@ -155,7 +155,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         return;
       }
       const rawKey = decodeSnapshotSubKey(LOCAL_TOKENS_ACCT_PREFIX, encodedKey);
-      if (!rawKey) {
+      if (rawKey === undefined) {
         return;
       }
       const record = localTokensSnapshotCache.get(encodedKey)?.data as
@@ -330,13 +330,15 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       await super.clearRawData();
       return;
     }
-    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
-      return;
+    if (await isSimpleDbSnapshotPersistenceAllowed()) {
+      await ensureSimpleDbSnapshotNamespaceReady(
+        LOCAL_TOKENS_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        localTokensSnapshotCache.clear();
+      });
     }
-    await ensureSimpleDbSnapshotNamespaceReady(LOCAL_TOKENS_SNAPSHOT_NAMESPACE);
-    await this.mutex.runExclusive(async () => {
-      localTokensSnapshotCache.clear();
-    });
+    await super.clearRawData().catch(() => undefined);
   }
 
   // The order is taken synchronously when called, before the caller awaits.
@@ -623,6 +625,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
               encodeSnapshotSubKey(LOCAL_TOKENS_ACCT_PREFIX, key),
               record,
             );
+            localTokensSnapshotCache.touch(LOCAL_TOKENS_META_KEY);
             if (writeOrder !== undefined) {
               this.recordAccountTokenListWriteOrder(key, writeOrder);
             }
@@ -739,6 +742,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         });
         if (entriesToWrite.length > 0) {
           localTokensSnapshotCache.setMany(entriesToWrite);
+          localTokensSnapshotCache.touch(LOCAL_TOKENS_META_KEY);
         }
         Object.entries(tokenListCache.tokenListWriteOrder ?? {}).forEach(
           ([key, writeOrder]) =>
@@ -976,6 +980,46 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   // re-fetches on the next refresh. See ServiceAppCleanup.cleanupOrphanedAssetCaches.
   @backgroundMethod()
   async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        LOCAL_TOKENS_SNAPSHOT_NAMESPACE,
+      );
+      const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+      await this.mutex.runExclusive(async () => {
+        localTokensSnapshotCache.keys().forEach((encodedKey) => {
+          if (encodedKey === LOCAL_TOKENS_META_KEY) {
+            const currentMeta = this.readShardedTokenMeta();
+            if (
+              Object.keys(currentMeta).length >
+              LOCAL_TOKENS_METADATA_MAX_ENTRIES
+            ) {
+              localTokensSnapshotCache.set(
+                LOCAL_TOKENS_META_KEY,
+                this.capTokenMetadata(currentMeta),
+              );
+            }
+            return;
+          }
+          const rawKey = decodeSnapshotSubKey(
+            LOCAL_TOKENS_ACCT_PREFIX,
+            encodedKey,
+          );
+          if (
+            rawKey !== undefined &&
+            !accountUtils.isLocalAssetsKeyOwnedBy({
+              key: rawKey,
+              validOwners: validOwnerSet,
+            })
+          ) {
+            localTokensSnapshotCache.remove(encodedKey);
+          }
+        });
+      });
+      return;
+    }
     const existing = await this.getRawData();
     if (!existing) {
       return;

@@ -33,8 +33,8 @@ function digestSubKey(value: string): string {
  */
 export function encodeSnapshotSubKey(prefix: string, rawKey: string): string {
   const escaped = rawKey.replace(
-    /[^A-Za-z0-9._:/]/g,
-    (ch) => `-x${ch.charCodeAt(0).toString(16)}-`,
+    /[^A-Za-z0-9.:/-]/g,
+    (ch) => `_x${ch.charCodeAt(0).toString(16)}_`,
   );
   const candidate = `${prefix}${escaped}`;
   if (
@@ -62,7 +62,7 @@ export function decodeSnapshotSubKey(
   if (rest.startsWith(DIGEST_MARKER)) {
     return undefined;
   }
-  return rest.replace(/-x([0-9a-fA-F]+)-/g, (_, hex: string) =>
+  return rest.replace(/_x([0-9a-fA-F]+)_/g, (_, hex: string) =>
     String.fromCharCode(parseInt(hex, 16)),
   );
 }

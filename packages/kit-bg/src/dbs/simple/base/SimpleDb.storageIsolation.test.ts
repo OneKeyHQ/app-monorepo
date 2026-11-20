@@ -11,6 +11,7 @@ import {
   resolveSimpleDbStorageTarget,
 } from '@onekeyhq/shared/src/storage/simpleDbStorageIsolation';
 
+import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
 import { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
@@ -19,6 +20,7 @@ import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 
 import { SimpleDbKeyedEntityBase } from './SimpleDbKeyedEntityBase';
+import { encodeSnapshotSubKey } from './simpleDbSnapshotCacheUtils';
 
 const defaultStorage = storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
@@ -347,5 +349,65 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
         },
       },
     ]);
+  });
+
+  it('persists in-place mutating legacy entities while skipping no-op writes on DeFi', async () => {
+    await defaultStorage.clear();
+    const accountSelector = new SimpleDbEntityAccountSelector();
+    await accountSelector.saveGlobalDeriveType({
+      networkId: 'evm--1',
+      deriveType: 'default',
+    });
+
+    const setItemSpy = jest.spyOn(defaultStorage, 'setItem');
+    await accountSelector.saveGlobalDeriveType({
+      networkId: 'evm--1',
+      deriveType: 'BIP44' as any,
+    });
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    // Reload from a fresh instance (bypassing cachedRawData) to verify persistence.
+    const freshAccountSelector = new SimpleDbEntityAccountSelector();
+    await expect(
+      freshAccountSelector.getGlobalDeriveType({
+        networkId: 'evm--1',
+      }),
+    ).resolves.toBe('BIP44');
+
+    // Verify DeFi no-op writes do not trigger appStorage.setItem.
+    const deFi = new SimpleDbEntityDeFi();
+    await deFi.updateEnabledNetworksMap({
+      enabledNetworksMap: { 'evm--1': true },
+    });
+    const firstQuota = await deFi.consumeManualForceRefreshQuota({
+      dayKey: '2026-11-20',
+      now: 100_000,
+      dailyLimit: 5,
+      minIntervalMs: 60_000,
+    });
+    expect(firstQuota.allowed).toBe(true);
+
+    setItemSpy.mockClear();
+    // Repeated update with identical enabledNetworksMap should be skipped.
+    await deFi.updateEnabledNetworksMap({
+      enabledNetworksMap: { 'evm--1': true },
+    });
+    // Rejected manual force refresh within interval should be skipped.
+    const rejectedQuota = await deFi.consumeManualForceRefreshQuota({
+      dayKey: '2026-11-20',
+      now: 100_005,
+      dailyLimit: 5,
+      minIntervalMs: 60_000,
+    });
+    expect(rejectedQuota.allowed).toBe(false);
+    expect(setItemSpy).not.toHaveBeenCalled();
+
+    // Preserves hyphens literally in encoded snapshot sub-keys.
+    const encoded = encodeSnapshotSubKey(
+      'acct:',
+      "evm--1_hd-1--m/44'/60'/0'/0/0",
+    );
+    expect(encoded).toContain('evm--1_');
+    expect(encoded).not.toContain('-x2d-');
   });
 });
