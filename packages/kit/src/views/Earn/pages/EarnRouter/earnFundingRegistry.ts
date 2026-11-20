@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IEarnFundingChange,
   IEarnFundingReceipt,
@@ -242,7 +243,14 @@ export function reserveEarnFunding(
         attemptId,
         txId,
       });
-      if (!funding || !('txId' in funding) || funding.txId !== txId) {
+      const networkId = funding?.swapRecovery?.sender.networkId;
+      const matches =
+        funding &&
+        'txId' in funding &&
+        (networkId && networkUtils.isEvmNetwork({ networkId })
+          ? funding.txId.toLowerCase() === txId.toLowerCase()
+          : funding.txId === txId);
+      if (!matches) {
         throw new OneKeyLocalError(
           'Unable to associate the Earn funding transaction',
         );

@@ -1098,6 +1098,17 @@ export const WithdrawSection = ({
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
+      const notifySuccess = () => {
+        onSuccess?.({
+          amount,
+          logoURI: token?.logoURI,
+          isQueued: Boolean(useEthenaCooldown) || withdrawType === 'queued',
+        });
+        defaultLogger.staking.page.unstaking({
+          token,
+          stakingProtocol: providerName,
+        });
+      };
 
       return handleWithdraw({
         amount,
@@ -1121,7 +1132,10 @@ export const WithdrawSection = ({
         withdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
-        onEthenaCooldownUnstakeCompleted,
+        onEthenaCooldownUnstakeCompleted: () => {
+          onEthenaCooldownUnstakeCompleted?.();
+          notifySuccess();
+        },
         signal: abortController.signal,
         isActionCurrent,
         isSendCurrent,
@@ -1150,18 +1164,7 @@ export const WithdrawSection = ({
         },
         withdrawAll,
         isTaskIntentCurrent,
-        onSuccess: () => {
-          onSuccess?.({
-            amount,
-            logoURI: token?.logoURI,
-            // A cooldown or a withdrawal queue: the tokens come later
-            isQueued: Boolean(useEthenaCooldown) || withdrawType === 'queued',
-          });
-          defaultLogger.staking.page.unstaking({
-            token,
-            stakingProtocol: providerName,
-          });
-        },
+        onSuccess: notifySuccess,
       });
     },
     [

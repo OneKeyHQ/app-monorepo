@@ -185,6 +185,10 @@ const ReserveDetailsPage = () => {
   // whether the reserve lends
   const position = useReserveAccountPosition({
     accountId,
+    accountAddress:
+      earnAccount?.account?.id === accountId
+        ? earnAccount.account.address
+        : undefined,
     networkId,
     provider,
     marketAddress,

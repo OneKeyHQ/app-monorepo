@@ -4,6 +4,7 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEarnSwapRecovery } from '@onekeyhq/shared/src/utils/earnSwapRecovery';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IEarnFundingChange,
   IEarnFundingReceipt,
@@ -20,6 +21,8 @@ type IFundingRecord = {
   group?: string;
   source?: IEarnFundingReceipt;
   state: IEarnFundingState;
+  externalAcceptedTxId?: string;
+  externalAcceptanceConflict?: true;
 };
 type IFundingRecords = Record<string, IFundingRecord>;
 type IFundingUpdate =
@@ -65,6 +68,18 @@ function isValidRecord(record: unknown): record is IFundingRecord {
     return false;
   }
   const { state } = record;
+  if (
+    'externalAcceptedTxId' in record &&
+    record.externalAcceptedTxId !== undefined &&
+    !isValidId(record.externalAcceptedTxId)
+  )
+    return false;
+  if (
+    'externalAcceptanceConflict' in record &&
+    record.externalAcceptanceConflict !== undefined &&
+    record.externalAcceptanceConflict !== true
+  )
+    return false;
   if (
     'group' in record &&
     record.group !== undefined &&
@@ -165,6 +180,44 @@ function applyChange(
   if (!current) return current;
   const { attemptId, state } = current;
   const { intentAmount, positionBefore, swapRecovery, swapTxUuid } = state;
+  const sameTxId = (first: string, second: string) =>
+    swapRecovery &&
+    networkUtils.isEvmNetwork({ networkId: swapRecovery.sender.networkId })
+      ? first.toLowerCase() === second.toLowerCase()
+      : first === second;
+  if (change.type === 'submitted' || change.type === 'recoverSwap') {
+    if (change.type === 'submitted' && attemptId !== change.attemptId)
+      return current;
+    if (
+      change.type === 'recoverSwap' &&
+      (!swapRecovery || swapTxUuid !== change.uuid)
+    )
+      return current;
+    const normalize = (value: string) =>
+      swapRecovery &&
+      networkUtils.isEvmNetwork({ networkId: swapRecovery.sender.networkId })
+        ? value.toLowerCase()
+        : value;
+    if (
+      current.externalAcceptanceConflict ||
+      (current.externalAcceptedTxId &&
+        normalize(current.externalAcceptedTxId) !== normalize(change.txId))
+    ) {
+      if (state.status === 'funded') return current;
+      return {
+        ...current,
+        externalAcceptanceConflict: true,
+        state: {
+          status: 'unknown',
+          txIdConflict: true,
+          intentAmount,
+          positionBefore,
+          ...(swapRecovery ? { swapRecovery } : {}),
+          ...(swapTxUuid ? { swapTxUuid } : {}),
+        },
+      };
+    }
+  }
   switch (change.type) {
     case 'recoverSwap':
       if (
@@ -176,7 +229,7 @@ function applyChange(
         return current;
       if (state.status === 'submitted') {
         if (
-          state.txId !== change.txId ||
+          !sameTxId(state.txId, change.txId) ||
           !change.sourceTxFailed ||
           state.sourceTxFailed
         )
@@ -214,7 +267,7 @@ function applyChange(
               },
             };
       }
-      return state.txId === change.txId
+      return sameTxId(state.txId, change.txId)
         ? current
         : {
             ...current,
@@ -248,7 +301,9 @@ function applyChange(
     case 'cancelled':
       return attemptId === change.attemptId &&
         state.status === 'unknown' &&
-        !state.txIdConflict
+        !state.txIdConflict &&
+        !current.externalAcceptedTxId &&
+        !current.externalAcceptanceConflict
         ? undefined
         : current;
     case 'clear':
@@ -324,6 +379,151 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
 
   async getFunding(scope: string) {
     return getFundingState(readRecord(await this.getRawData(), scope));
+  }
+
+  private matchingExternalSwap(
+    records: IFundingRecords | null | undefined,
+    params: {
+      uuid: string;
+      accountId: string;
+      networkId: string;
+      senderAddress: string;
+    },
+  ) {
+    const matches = Object.entries(records ?? {}).filter(
+      ([, record]) =>
+        (record.state.status === 'unknown' ||
+          record.state.status === 'submitted') &&
+        record.state.swapTxUuid === params.uuid,
+    );
+    if (matches.length !== 1) return undefined;
+    const match = matches[0];
+    const recovery = match[1].state.swapRecovery;
+    if (
+      !recovery ||
+      recovery.sender.accountId !== params.accountId ||
+      recovery.sender.networkId !== params.networkId ||
+      !params.senderAddress
+    )
+      return undefined;
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId: params.networkId })
+        ? value.toLowerCase()
+        : value;
+    return normalize(recovery.sender.address) ===
+      normalize(params.senderAddress)
+      ? match
+      : undefined;
+  }
+
+  async getExternalSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+  }) {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) return undefined;
+    const match = this.matchingExternalSwap(await this.getRawData(), params);
+    if (
+      !match ||
+      match[1].externalAcceptanceConflict ||
+      !match[1].externalAcceptedTxId ||
+      (match[1].state.status === 'unknown' && match[1].state.txIdConflict)
+    )
+      return undefined;
+    const record = match[1];
+    const txid = record.externalAcceptedTxId;
+    if (!txid) return undefined;
+    if (record.state.status === 'submitted') {
+      const normalize = (value: string) =>
+        networkUtils.isEvmNetwork({ networkId: params.networkId })
+          ? value.toLowerCase()
+          : value;
+      if (normalize(record.state.txId) !== normalize(txid)) return undefined;
+    }
+    return {
+      txid,
+      attemptId: record.attemptId,
+      scope: match[0],
+    };
+  }
+
+  async recordExternalSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+    txid: string;
+  }) {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks)
+      throw new OneKeyLocalError(
+        'Earn funding requires cross-tab storage locking',
+      );
+    if (
+      !isValidId(params.uuid) ||
+      !isValidId(params.txid) ||
+      !params.accountId ||
+      !params.networkId ||
+      !params.senderAddress
+    )
+      return { recorded: false };
+    const txid = params.txid;
+    let recorded = false;
+    let changedScope: string | undefined;
+    await withWebEntityLock(this.entityKey, async () => {
+      await this.setRawDataTransaction({
+        shouldCommit: () => true,
+        build: (records) => {
+          const match = this.matchingExternalSwap(records, params);
+          if (!match) return undefined;
+          const [scope, record] = match;
+          if (record.state.status === 'unknown' && record.state.txIdConflict)
+            return undefined;
+          const normalize = (value: string) =>
+            networkUtils.isEvmNetwork({ networkId: params.networkId })
+              ? value.toLowerCase()
+              : value;
+          const conflict =
+            record.externalAcceptanceConflict ||
+            (record.externalAcceptedTxId &&
+              normalize(record.externalAcceptedTxId) !== normalize(txid)) ||
+            (record.state.status === 'submitted' &&
+              normalize(record.state.txId) !== normalize(txid));
+          if (conflict) {
+            changedScope = scope;
+            const state = {
+              status: 'unknown' as const,
+              txIdConflict: true as const,
+              intentAmount: record.state.intentAmount,
+              positionBefore: record.state.positionBefore,
+              swapRecovery: record.state.swapRecovery,
+              swapTxUuid: record.state.swapTxUuid,
+            };
+            return {
+              data: {
+                ...records,
+                [scope]: {
+                  ...record,
+                  state: state ?? record.state,
+                  externalAcceptanceConflict: true as const,
+                },
+              },
+            };
+          }
+          recorded = true;
+          return {
+            data: {
+              ...records,
+              [scope]: {
+                ...record,
+                externalAcceptedTxId: record.externalAcceptedTxId ?? txid,
+              },
+            },
+          };
+        },
+      });
+    });
+    return { recorded, changedScope };
   }
 
   async changeFunding(scope: string, change: IEarnFundingChange) {

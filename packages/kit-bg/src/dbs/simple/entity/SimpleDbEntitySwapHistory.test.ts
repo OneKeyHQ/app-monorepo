@@ -141,6 +141,72 @@ it('does not overwrite a concurrent terminal success with a stale failure snapsh
   expect(stored.histories[0].status).toBe(ESwapTxHistoryStatus.SUCCESS);
 });
 
+it('marks a matching history despite different token metadata and clears its outbox entry', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const expected = createHistoryItem({
+    id: 'same-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  const quoted = {
+    ...expected,
+    baseInfo: {
+      ...expected.baseInfo,
+      fromToken: {
+        ...expected.baseInfo.fromToken,
+        contractAddress:
+          expected.baseInfo.fromToken.contractAddress.toLowerCase(),
+        price: '42',
+      },
+    },
+  };
+  let stored: ISwapTxHistoryPersistList = {
+    histories: [quoted],
+    pendingWrites: [expected],
+  };
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+    stored = typeof data === 'function' ? await data(stored) : data;
+    return stored;
+  });
+  await entity.markEarnSwapSourceFailed(expected);
+  expect(stored.histories[0]).toMatchObject({
+    sourceTxFailed: true,
+    baseInfo: { fromToken: { price: '42' } },
+  });
+  expect(stored.pendingWrites).toEqual([]);
+});
+
+it('does not merge failed history for a different token or native flag', async () => {
+  for (const token of [
+    { ...usdc, contractAddress: '0xother' },
+    { ...usdc, isNative: true },
+  ]) {
+    const entity = new SimpleDbEntitySwapHistory();
+    const expected = createHistoryItem({
+      id: 'same-tx',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    const other = {
+      ...expected,
+      baseInfo: { ...expected.baseInfo, fromToken: token },
+    };
+    let stored: ISwapTxHistoryPersistList = {
+      histories: [other],
+      pendingWrites: [expected],
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+      stored = typeof data === 'function' ? await data(stored) : data;
+      return stored;
+    });
+    await expect(
+      entity.markEarnSwapSourceFailed(expected),
+    ).resolves.toBeUndefined();
+    expect(stored.histories[0].sourceTxFailed).toBeUndefined();
+    expect(stored.pendingWrites).toHaveLength(1);
+  }
+});
+
 it('does not let a stale provider poll replace a verified source failure', async () => {
   const entity = new SimpleDbEntitySwapHistory();
   const pending = createHistoryItem({

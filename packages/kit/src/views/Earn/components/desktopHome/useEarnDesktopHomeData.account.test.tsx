@@ -534,7 +534,7 @@ it('uses the default external address when the legacy selection field is missing
   );
 });
 
-it('does not apply the external-account guard to an imported account', async () => {
+it('does not use external selection for an imported account and binds its market address', async () => {
   mockAccountId = 'imported--evm--account';
   mockGetBorrowReserves.mockResolvedValue(loan('1'));
   const view = renderHook(() =>
@@ -547,7 +547,7 @@ it('does not apply the external-account guard to an imported account', async () 
   await waitFor(() => expect(view.result.current.loans).toHaveLength(1));
   expect(mockGetDBAccount).not.toHaveBeenCalled();
   expect(mockGetBorrowReserves).toHaveBeenCalledWith(
-    expect.not.objectContaining({ expectedAccountAddress: expect.anything() }),
+    expect.objectContaining({ expectedAccountAddress: '0xaaa' }),
   );
 });
 

@@ -265,6 +265,14 @@ const WithdrawPage = () => {
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
+      const notifySuccess = () => {
+        appNavigation.pop();
+        defaultLogger.staking.page.unstaking({
+          token,
+          stakingProtocol: providerName,
+        });
+        onSuccess?.();
+      };
 
       return handleWithdraw({
         amount,
@@ -303,7 +311,10 @@ const WithdrawPage = () => {
         withdrawType: confirmWithdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
-        onEthenaCooldownUnstakeCompleted,
+        onEthenaCooldownUnstakeCompleted: () => {
+          onEthenaCooldownUnstakeCompleted?.();
+          notifySuccess();
+        },
         signal: abortController.signal,
         isActionCurrent,
         isSendCurrent,
@@ -315,14 +326,7 @@ const WithdrawPage = () => {
             ? protocolInfo.earnAccount.accountAddress
             : undefined),
         workflowHandoff,
-        onSuccess: () => {
-          appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
-            token,
-            stakingProtocol: providerName,
-          });
-          onSuccess?.();
-        },
+        onSuccess: notifySuccess,
       });
     },
     [

@@ -79,6 +79,7 @@ jest.mock('../vaults/factory', () => ({
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     intl: { formatMessage: ({ id }: { id: string }) => id },
+    getLocale: () => 'en-US',
     onLocaleChange: () => undefined,
   },
 }));
@@ -101,6 +102,10 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 // eslint-disable-next-line import-js/order, import/first
 import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadcastRecords';
+// eslint-disable-next-line import-js/order, import/first
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+// eslint-disable-next-line import-js/order, import/first
+import { SimpleDbEntityEarnFunding } from '../dbs/simple/entity/SimpleDbEntityEarnFunding';
 // eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
 // eslint-disable-next-line import-js/order, import/first
@@ -503,6 +508,8 @@ function makeService(
   broadcastRecords = createBroadcastRecordsStore(),
   vaultOverrides: Record<string, unknown> = {},
 ) {
+  const earnFunding = { getExternalSwapAcceptance: jest.fn() };
+  const recordExternalEarnSwapAcceptance = jest.fn().mockResolvedValue(true);
   const vault = {
     getTxDiagnosticContext: jest.fn(
       (tx: IUnsignedTxPro) => tx.solanaTxDiagnostic,
@@ -582,11 +589,16 @@ function makeService(
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
       fetchHistoryTxDetails: jest.fn(),
     },
+    serviceStaking: {
+      recordExternalEarnSwapAcceptance,
+      getExternalEarnSwapAcceptance: earnFunding.getExternalSwapAcceptance,
+    },
     servicePrivacyChain: {
       onLocalWalletTransactionBroadcast: jest.fn().mockResolvedValue(undefined),
     },
     simpleDb: {
       broadcastRecords,
+      earnFunding,
     },
   };
   const Ctor = ServiceSend as unknown as new (args: {
@@ -597,8 +609,180 @@ function makeService(
     vault,
     backgroundApi,
     broadcastRecords,
+    earnFunding,
+    recordExternalEarnSwapAcceptance,
   };
 }
+
+it('records an Earn external swap hash before post-sign bookkeeping without rebroadcasting', async () => {
+  const { service, vault, backgroundApi, recordExternalEarnSwapAcceptance } =
+    makeService();
+  const account = 'external--wc--topic123--evm';
+  const network = 'evm--1';
+  backgroundApi.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+    '0xaaa',
+  );
+  const unsignedTx = {
+    ...buildUnsignedTx('swap-uuid'),
+    encodedTx: { from: '0xaaa' },
+    swapInfo: { accountAddress: '0xaaa' } as IUnsignedTxPro['swapInfo'],
+  } as IUnsignedTxPro;
+  backgroundApi.serviceDevSetting.getDevSetting.mockRejectedValueOnce(
+    new Error('bookkeeping failed'),
+  );
+  await expect(
+    service.signAndSendTransaction({
+      accountId: account,
+      networkId: network,
+      unsignedTx,
+      signOnly: false,
+      preserveBatchTxIds: true,
+    }),
+  ).rejects.toThrow('bookkeeping failed');
+  expect(recordExternalEarnSwapAcceptance).toHaveBeenCalledWith(
+    expect.objectContaining({
+      uuid: 'swap-uuid',
+      senderAddress: '0xaaa',
+      accountId: account,
+      networkId: network,
+    }),
+  );
+  expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+});
+
+it('recovers an externally broadcast Earn swap from real funding storage after bookkeeping fails', async () => {
+  const {
+    service,
+    vault,
+    backgroundApi,
+    earnFunding,
+    recordExternalEarnSwapAcceptance,
+  } = makeService();
+  const account = 'external--wc--topic123--evm';
+  const network = 'evm--1';
+  const entity = new SimpleDbEntityEarnFunding();
+  Reflect.set(entity, 'appStorage', createMemoryStorage(null));
+  const token = {
+    networkId: network,
+    contractAddress: '0xtoken',
+    symbol: 'T',
+    decimals: 18,
+  };
+  const sender = {
+    accountId: account,
+    networkId: network,
+    address: '0xaaa',
+    token,
+    amount: '1',
+  };
+  await entity.changeFunding('scope', {
+    type: 'claim',
+    attemptId: 'attempt',
+    swapTxUuid: 'swap-uuid',
+    swapRecovery: {
+      sender,
+      receiver: sender,
+      provider: { provider: 'p', providerName: 'P' },
+      useOrderId: false,
+      currency: { id: 'usd', symbol: '$' },
+      createdAt: 1,
+    },
+  });
+  recordExternalEarnSwapAcceptance.mockImplementation(
+    (params: Parameters<typeof entity.recordExternalSwapAcceptance>[0]) =>
+      entity.recordExternalSwapAcceptance(params),
+  );
+  earnFunding.getExternalSwapAcceptance.mockImplementation(
+    (params: Parameters<typeof entity.getExternalSwapAcceptance>[0]) =>
+      entity.getExternalSwapAcceptance(params),
+  );
+  backgroundApi.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+    '0xaaa',
+  );
+  backgroundApi.serviceDevSetting.getDevSetting.mockRejectedValueOnce(
+    new Error('bookkeeping failed'),
+  );
+  const unsignedTx = {
+    ...buildUnsignedTx('swap-uuid'),
+    encodedTx: { from: '0xaaa' },
+    swapInfo: { accountAddress: '0xaaa' } as IUnsignedTxPro['swapInfo'],
+  } as IUnsignedTxPro;
+  await expect(
+    service.signAndSendTransaction({
+      accountId: account,
+      networkId: network,
+      unsignedTx,
+      signOnly: false,
+      preserveBatchTxIds: true,
+    }),
+  ).rejects.toThrow('bookkeeping failed');
+  const txid = signatureOf('swap-uuid');
+  await expect(
+    service.getBroadcastAcceptanceFactByUuid({
+      uuid: 'swap-uuid',
+      accountId: account,
+      networkId: network,
+    }),
+  ).resolves.toMatchObject({ status: 'accepted', txid });
+  backgroundApi.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+    '0xbbb',
+  );
+  await expect(
+    service.getBroadcastAcceptanceFactByUuid({
+      uuid: 'swap-uuid',
+      accountId: account,
+      networkId: network,
+    }),
+  ).resolves.toEqual({ status: 'unknown' });
+  expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+});
+
+it('returns a recovered external acceptance only for the matching current account', async () => {
+  const { service, backgroundApi, earnFunding } = makeService();
+  const account = 'external--wc--topic123--evm';
+  const network = 'evm--1';
+  backgroundApi.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+    '0xaaa',
+  );
+  earnFunding.getExternalSwapAcceptance.mockResolvedValue({
+    txid: '0xabc',
+    scope: 'scope-a',
+    attemptId: 'attempt-a',
+  });
+  await expect(
+    service.getBroadcastAcceptanceFact({
+      uuid: 'u',
+      accountId: account,
+      networkId: network,
+      txid: '0xabc',
+    }),
+  ).resolves.toMatchObject({ status: 'accepted' });
+  backgroundApi.serviceHistory.fetchHistoryTxDetails.mockResolvedValue({
+    data: { tx: '0xAbC', status: EOnChainHistoryTxStatus.Failed },
+  });
+  await expect(
+    service.resolveBroadcastAcceptanceFactByUuid({
+      uuid: 'u',
+      accountId: account,
+      networkId: network,
+      expectedAccountAddress: '0xAaA',
+    }),
+  ).resolves.toMatchObject({
+    status: 'accepted',
+    txid: '0xabc',
+    sourceTxFailed: true,
+  });
+  backgroundApi.serviceAccount.getAccountAddressForApi
+    .mockResolvedValueOnce('0xaaa')
+    .mockResolvedValueOnce('0xbbb');
+  await expect(
+    service.getBroadcastAcceptanceFactByUuid({
+      uuid: 'u',
+      accountId: account,
+      networkId: network,
+    }),
+  ).resolves.toEqual({ status: 'unknown' });
+});
 
 // Every call clones its inputs the way the UI → background bridge does on
 // extension and native dual-runtime builds: the background never sees the

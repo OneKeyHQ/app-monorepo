@@ -1993,6 +1993,41 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
   });
 
+  it('retains the submitted unstake hash when recording its order fails', async () => {
+    mockAddEarnOrder
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('order storage failed'));
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onSuccess }) => {
+      await onBeforeSend?.();
+      const data = submittedData();
+      data[0].signedTx.txid = 'unstake-tx';
+      data[0].decodedTx.txid = 'unstake-tx';
+      await onSuccess?.(data);
+    });
+    const completed = jest.fn();
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = {
+      ...params,
+      provider: 'pendle',
+      useEthenaCooldown: true,
+      onEthenaCooldownUnstakeCompleted: completed,
+    };
+    await expect(result.current(ethena)).rejects.toThrow(
+      'order storage failed',
+    );
+    await expect(
+      result.current({ ...ethena, resumeEthenaCooldownUnstake: true }),
+    ).resolves.toBe(false);
+    expect(mockWaitFinality).toHaveBeenLastCalledWith(
+      expect.objectContaining({ txid: 'unstake-tx', maxAttempts: 1 }),
+    );
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     [EOnChainHistoryTxStatus.Success, false],
     [EOnChainHistoryTxStatus.Failed, true],

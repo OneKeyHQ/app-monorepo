@@ -46,6 +46,12 @@ export function useReserveFormSide({
   );
 
   const checkedScopeRef = useRef<string | undefined>(undefined);
+  let effectiveSide = side;
+  if (checkedScopeRef.current && checkedScopeRef.current !== scopeKey) {
+    effectiveSide = isReady
+      ? resolveReserveFormSide({ requested: side, sides: applicable })
+      : 'supply';
+  }
   useEffect(() => {
     if (!isReady || checkedScopeRef.current === scopeKey) {
       return;
@@ -58,8 +64,12 @@ export function useReserveFormSide({
 
   // Before the read only Supply is known to apply
   const sides = useMemo(
-    () => withSideInUse({ sides: isReady ? applicable : ['supply'], side }),
-    [applicable, isReady, side],
+    () =>
+      withSideInUse({
+        sides: isReady ? applicable : ['supply'],
+        side: effectiveSide,
+      }),
+    [applicable, isReady, effectiveSide],
   );
 
   const selectSide = useCallback((next: IBorrowReserveFormTab) => {
@@ -68,10 +78,10 @@ export function useReserveFormSide({
   }, []);
 
   const startAmount = getReserveSideStartAmount({
-    side,
+    side: effectiveSide,
     requested: amountSide,
     amount,
   });
 
-  return { side, sides, selectSide, startAmount };
+  return { side: effectiveSide, sides, selectSide, startAmount };
 }

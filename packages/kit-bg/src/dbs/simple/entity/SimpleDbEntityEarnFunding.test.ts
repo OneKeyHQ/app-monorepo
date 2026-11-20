@@ -42,6 +42,95 @@ const swapRecovery = {
   createdAt: 1,
 };
 
+it('retains an external swap acceptance for its unique account and attempt across restart', async () => {
+  const { entity, storage } = createFundingEntity();
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'owner',
+    swapRecovery,
+    swapTxUuid: 'swap-uuid',
+  });
+  const identity = {
+    uuid: 'swap-uuid',
+    accountId: 'wallet-a',
+    networkId: 'evm--1',
+    senderAddress: '0xA',
+  };
+  expect(
+    await entity.recordExternalSwapAcceptance({ ...identity, txid: '0xABC' }),
+  ).toMatchObject({ recorded: true });
+  expect(
+    await createFundingEntity(storage).entity.getExternalSwapAcceptance(
+      identity,
+    ),
+  ).toEqual(
+    expect.objectContaining({ txid: '0xABC', scope, attemptId: 'owner' }),
+  );
+  expect(
+    await entity.recordExternalSwapAcceptance({ ...identity, txid: '0xabc' }),
+  ).toMatchObject({ recorded: true });
+  expect(await entity.getExternalSwapAcceptance(identity)).toMatchObject({
+    txid: '0xABC',
+  });
+  expect(
+    await entity.getExternalSwapAcceptance({
+      ...identity,
+      senderAddress: '0xother',
+    }),
+  ).toBeUndefined();
+  await entity.changeFunding(scope, { type: 'cancelled', attemptId: 'owner' });
+  expect((await entity.getFunding(scope))?.status).toBe('unknown');
+  await entity.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'stale-owner',
+    txId: '0xother',
+  });
+  await entity.recoverSwapFunding(scope, 'old-uuid', '0xother');
+  expect(await entity.getExternalSwapAcceptance(identity)).toBeDefined();
+  await entity.changeFunding(scope, {
+    type: 'submitted',
+    attemptId: 'owner',
+    txId: '0xabc',
+  });
+  expect((await entity.getFunding(scope))?.status).toBe('submitted');
+  expect(
+    await entity.recordExternalSwapAcceptance({ ...identity, txid: '0xdef' }),
+  ).toMatchObject({ recorded: false, changedScope: scope });
+  expect(await entity.getFunding(scope)).toMatchObject({
+    status: 'unknown',
+    txIdConflict: true,
+  });
+  expect(await entity.getExternalSwapAcceptance(identity)).toBeUndefined();
+});
+
+it('refuses an external acceptance if active funding scopes share a UUID', async () => {
+  const { entity } = createFundingEntity();
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'a',
+    swapRecovery,
+    swapTxUuid: 'same-uuid',
+  });
+  await entity.changeFunding('another', {
+    type: 'claim',
+    attemptId: 'b',
+    swapRecovery: {
+      ...swapRecovery,
+      sender: { ...swapRecovery.sender, accountId: 'wallet-b' },
+    },
+    swapTxUuid: 'same-uuid',
+  });
+  expect(
+    await entity.recordExternalSwapAcceptance({
+      uuid: 'same-uuid',
+      accountId: 'wallet-a',
+      networkId: 'evm--1',
+      senderAddress: '0xa',
+      txid: '0xtx',
+    }),
+  ).toMatchObject({ recorded: false });
+});
+
 it('recovers only the persisted swap UUID after a restart and rejects conflicts', async () => {
   const { entity, storage } = createFundingEntity();
   await entity.changeFunding(scope, {

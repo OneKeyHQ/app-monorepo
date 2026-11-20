@@ -449,6 +449,58 @@ class ServiceSend extends ServiceBase {
     return this.backgroundApi.simpleDb.broadcastRecords;
   }
 
+  private async getExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    expectedAccountAddress?: string;
+  }) {
+    const { uuid, accountId, networkId, expectedAccountAddress } = params;
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId }) ? value.toLowerCase() : value;
+    const address =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    if (
+      !address ||
+      (expectedAccountAddress !== undefined &&
+        normalize(address) !== normalize(expectedAccountAddress))
+    )
+      return undefined;
+    const fact =
+      await this.backgroundApi.serviceStaking.getExternalEarnSwapAcceptance({
+        uuid,
+        accountId,
+        networkId,
+        senderAddress: address,
+      });
+    if (!fact) return undefined;
+    const latestAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    if (!latestAddress || normalize(address) !== normalize(latestAddress))
+      return undefined;
+    const latest =
+      await this.backgroundApi.serviceStaking.getExternalEarnSwapAcceptance({
+        uuid,
+        accountId,
+        networkId,
+        senderAddress: latestAddress,
+      });
+    if (
+      !latest ||
+      latest.scope !== fact.scope ||
+      latest.attemptId !== fact.attemptId ||
+      latest.txid !== fact.txid
+    )
+      return undefined;
+    return { ...fact, senderAddress: address };
+  }
+
   // Confirms broadcast acceptance only; it does not imply on-chain finality.
   @backgroundMethod()
   async getBroadcastAcceptanceFact({
@@ -483,6 +535,21 @@ class ServiceSend extends ServiceBase {
     )
       return { status: 'unknown' };
     try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+        });
+        const same =
+          fact &&
+          (networkUtils.isEvmNetwork({ networkId })
+            ? fact.txid.toLowerCase() === txid.toLowerCase()
+            : fact.txid === txid);
+        return same
+          ? { status: 'accepted', uuid, accountId, networkId, txid }
+          : { status: 'unknown' };
+      }
       const record = await this.broadcastRecords.getRecord(uuid);
       if (
         !record ||
@@ -528,6 +595,16 @@ class ServiceSend extends ServiceBase {
     )
       return { status: 'unknown' };
     try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+        });
+        return fact
+          ? { status: 'accepted', uuid, accountId, networkId, txid: fact.txid }
+          : { status: 'unknown' };
+      }
       const record = await this.broadcastRecords.getRecord(uuid);
       const txid = record?.signedTx?.txid;
       if (
@@ -559,6 +636,57 @@ class ServiceSend extends ServiceBase {
     expectedAccountAddress?: string;
   }) {
     try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+          expectedAccountAddress,
+        });
+        if (!fact) return { status: 'unknown' as const };
+        let sourceTxFailed = false;
+        try {
+          const detail =
+            await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+              accountId,
+              networkId,
+              txid: fact.txid,
+              expectedAccountAddress: fact.senderAddress,
+            });
+          const normalize = (value: string) =>
+            networkUtils.isEvmNetwork({ networkId })
+              ? value.toLowerCase()
+              : value;
+          sourceTxFailed = Boolean(
+            detail?.data?.tx &&
+            normalize(detail.data.tx) === normalize(fact.txid) &&
+            detail.data.status === EOnChainHistoryTxStatus.Failed,
+          );
+        } catch {
+          // An unavailable finality lookup does not invalidate acceptance.
+        }
+        const latest = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+          expectedAccountAddress,
+        });
+        if (
+          !latest ||
+          latest.scope !== fact.scope ||
+          latest.attemptId !== fact.attemptId ||
+          latest.txid !== fact.txid
+        )
+          return { status: 'unknown' as const };
+        return {
+          status: 'accepted' as const,
+          uuid,
+          accountId,
+          networkId,
+          txid: fact.txid,
+          ...(sourceTxFailed ? { sourceTxFailed: true as const } : {}),
+        };
+      }
       const record = await this.broadcastRecords.getRecord(uuid);
       if (
         !record ||
@@ -1885,6 +2013,29 @@ class ServiceSend extends ServiceBase {
         preserveBatchTxIds,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
       }));
+
+    if (
+      isExternalAccount &&
+      !signOnly &&
+      preserveBatchTxIds &&
+      networkUtils.isEvmNetwork({ networkId }) &&
+      unsignedTx.uuid &&
+      unsignedTx.swapInfo &&
+      !unsignedTx.approveInfo &&
+      signedTx.txid?.trim() &&
+      signedTx.encodedTx &&
+      typeof signedTx.encodedTx === 'object' &&
+      'from' in signedTx.encodedTx &&
+      typeof signedTx.encodedTx.from === 'string'
+    ) {
+      await this.backgroundApi.serviceStaking.recordExternalEarnSwapAcceptance({
+        uuid: unsignedTx.uuid,
+        accountId,
+        networkId,
+        senderAddress: signedTx.encodedTx.from,
+        txid: signedTx.txid.trim(),
+      });
+    }
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
     await checkReservedNonce(signedTx.encodedTx, unsignedTx.nonce);

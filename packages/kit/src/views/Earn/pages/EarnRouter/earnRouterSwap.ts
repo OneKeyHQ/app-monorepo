@@ -11,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IEarnSwapRecovery } from '@onekeyhq/shared/types/earn/funding';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -358,9 +359,13 @@ export function confirmEarnSwap({
       uncertain = true;
       return startClaim();
     };
+    const sameSwapTxId = (first: string, second: string) =>
+      networkUtils.isEvmNetwork({ networkId: prepared.payer.networkId })
+        ? first.toLowerCase() === second.toLowerCase()
+        : first === second;
     const accept = (txId: string, sent?: ISendTxOnSuccessData) => {
       if (closed) return Promise.reject(new EarnSwapError('cancelled'));
-      if (accepted?.txId === txId) return accepted.saved;
+      if (accepted && sameSwapTxId(accepted.txId, txId)) return accepted.saved;
       const previous = accepted;
       mayHaveBroadcast = true;
       const saved = (async () => {
@@ -373,8 +378,9 @@ export function confirmEarnSwap({
         }
         await reservation.markSubmitted(txId);
         const pending = getEarnFunding(fundingKey);
-        if (pending?.status !== 'submitted' || pending.txId !== txId)
-          throw new EarnSwapError('unknown');
+        const sameTx =
+          pending?.status === 'submitted' && sameSwapTxId(pending.txId, txId);
+        if (!sameTx) throw new EarnSwapError('unknown');
         await onAccepted(txId, uncertain ? undefined : sent);
       })();
       accepted = { txId, saved };

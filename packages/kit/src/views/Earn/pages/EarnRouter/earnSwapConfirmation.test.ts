@@ -6,6 +6,7 @@ import type {
   IFetchSwapQuoteParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { getEarnFunding } from './earnFundingRegistry';
 import { confirmEarnSwap, fetchEarnSwapQuote } from './earnRouterSwap';
@@ -137,6 +138,24 @@ beforeEach(() => {
   jest.mocked(isTaskAccountCurrent).mockResolvedValue(true);
   mockFetchQuote.mockResolvedValue(undefined);
   mockCancelQuote.mockResolvedValue(undefined);
+});
+
+it('accepts the same EVM funding hash with different casing', async () => {
+  const { confirm, reservation, onAccepted, result } = startConfirmation();
+  reservation.markSubmitted.mockImplementation(async () => {
+    jest
+      .mocked(getEarnFunding)
+      .mockReturnValue({ status: 'submitted', txId: '0xabc' });
+  });
+  await confirm.onLateBroadcastAccepted?.({ ...fact, txid: '0xabc' });
+  const sent = {
+    signedTx: { txid: '0xAbC', rawTx: '', encodedTx: null },
+    decodedTx: {},
+  } as ISendTxOnSuccessData;
+  confirm.onSuccess?.([sent]);
+  await expect(result).resolves.toEqual(sent);
+  expect(reservation.markSubmitted).toHaveBeenCalledTimes(1);
+  expect(onAccepted).toHaveBeenCalledTimes(1);
 });
 
 it('persists the final swap UUID in the claim before allowing the batch to send', async () => {

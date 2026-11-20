@@ -3427,6 +3427,20 @@ export function useUniversalWithdraw({
                 if (ethenaAttempt) ethenaAttempt.inProgress = true;
               } else if (ethenaAttempt) {
                 ethenaAttempt.unstakeUnknown = true;
+                const transaction = data[data.length - 1];
+                const txid =
+                  transaction?.signedTx?.txid?.trim() ||
+                  transaction?.decodedTx?.txid?.trim();
+                if (txid) {
+                  if (
+                    ethenaAttempt.unstakeTxid &&
+                    ethenaAttempt.unstakeTxid !== txid
+                  ) {
+                    ethenaAttempt.txidConflict = true;
+                  } else {
+                    ethenaAttempt.unstakeTxid = txid;
+                  }
+                }
               }
               if (stage === 'unstake' && resultCurrent()) onStepChange?.(3);
               try {
@@ -3445,9 +3459,14 @@ export function useUniversalWithdraw({
                 const txid =
                   transaction?.signedTx?.txid?.trim() ||
                   transaction?.decodedTx?.txid?.trim();
-                if (txid) forgetEthenaSwap();
+                if (txid && !ethenaAttempt?.txidConflict) forgetEthenaSwap();
               }
-              if (stage === 'unstake' && resultCurrent()) onSuccess?.(data);
+              if (
+                stage === 'unstake' &&
+                !ethenaAttempt?.txidConflict &&
+                resultCurrent()
+              )
+                onSuccess?.(data);
             },
             waitForSwap: async (txid) => {
               const releaseCheckOnError = (error: unknown): never => {

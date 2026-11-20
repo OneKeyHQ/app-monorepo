@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
@@ -47,7 +48,12 @@ export function useLendingSupplyHolding({
     buildBorrowMarketKey({ provider, networkId, marketAddress }),
   );
   const rememberedForAccount =
-    accountId && accountAddress && remembered?.accountId === accountId
+    accountId &&
+    accountAddress &&
+    remembered?.accountId === accountId &&
+    remembered.accountAddress &&
+    normalizeTaskAccountAddress(networkId, remembered.accountAddress) ===
+      normalizeTaskAccountAddress(networkId, accountAddress)
       ? remembered
       : undefined;
   const rememberedHealthFactor = rememberedForAccount?.healthFactor;

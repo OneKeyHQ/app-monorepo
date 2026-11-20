@@ -2,6 +2,7 @@ import { isEqual } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
 import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
@@ -143,14 +144,33 @@ function mergePrivateSendHistoryFees(
 }
 
 function hasSameSourceIdentity(first: ISwapTxHistory, second: ISwapTxHistory) {
+  const sameAddress = (networkId: string, a: string, b: string) =>
+    networkUtils.isEvmNetwork({ networkId })
+      ? a.toLowerCase() === b.toLowerCase()
+      : a === b;
+  const sameToken = (
+    a: ISwapTxHistory['baseInfo']['fromToken'],
+    b: ISwapTxHistory['baseInfo']['fromToken'],
+  ) =>
+    a.networkId === b.networkId &&
+    Boolean(a.isNative) === Boolean(b.isNative) &&
+    sameAddress(a.networkId, a.contractAddress, b.contractAddress);
   return (
     Boolean(first.txInfo.txId) &&
     first.txInfo.txId === second.txInfo.txId &&
     isEqual(first.accountInfo, second.accountInfo) &&
-    isEqual(first.baseInfo.fromToken, second.baseInfo.fromToken) &&
-    isEqual(first.baseInfo.toToken, second.baseInfo.toToken) &&
-    first.txInfo.sender === second.txInfo.sender &&
-    first.txInfo.receiver === second.txInfo.receiver
+    sameToken(first.baseInfo.fromToken, second.baseInfo.fromToken) &&
+    sameToken(first.baseInfo.toToken, second.baseInfo.toToken) &&
+    sameAddress(
+      first.accountInfo.sender.networkId,
+      first.txInfo.sender,
+      second.txInfo.sender,
+    ) &&
+    sameAddress(
+      first.accountInfo.receiver.networkId,
+      first.txInfo.receiver,
+      second.txInfo.receiver,
+    )
   );
 }
 
@@ -445,11 +465,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         candidates.some(
           (item) =>
             !safeStatuses.has(item.status) ||
-            !isEqual(item.accountInfo, expected.accountInfo) ||
-            !isEqual(item.baseInfo.fromToken, expected.baseInfo.fromToken) ||
-            !isEqual(item.baseInfo.toToken, expected.baseInfo.toToken) ||
-            item.txInfo.sender !== expected.txInfo.sender ||
-            item.txInfo.receiver !== expected.txInfo.receiver,
+            !hasSameSourceIdentity(item, expected),
         )
       )
         return data ?? { histories: [] };
@@ -466,10 +482,20 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         result = next;
         return next;
       };
+      const histories = (data?.histories ?? []).map(update);
       return {
         ...data,
-        histories: (data?.histories ?? []).map(update),
-        pendingWrites: (data?.pendingWrites ?? []).map(update),
+        histories,
+        pendingWrites: (data?.pendingWrites ?? [])
+          .map(update)
+          .filter(
+            (item) =>
+              !histories.some(
+                (history) =>
+                  history.txInfo.txId === item.txInfo.txId &&
+                  hasSameSourceIdentity(history, item),
+              ),
+          ),
       };
     });
     return result;

@@ -273,6 +273,27 @@ class ServiceStaking extends ServiceBase {
     return this.earnFunding.getFunding(scope);
   }
 
+  async getExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+  }) {
+    return this.earnFunding.getExternalSwapAcceptance(params);
+  }
+
+  async recordExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+    txid: string;
+  }) {
+    const result = await this.earnFunding.recordExternalSwapAcceptance(params);
+    if (result.changedScope) this.notifyEarnFundingChanged(result.changedScope);
+    return result.recorded;
+  }
+
   @backgroundMethod()
   async recoverEarnSwapFunding(scope: string) {
     const funding = await this.earnFunding.getFunding(scope);

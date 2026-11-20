@@ -120,6 +120,7 @@ export function useEarnDesktopMarkets({ isActive }: { isActive: boolean }) {
 export type IEarnDesktopAccountMarket = {
   market: IBorrowMarketItem;
   accountId?: string;
+  accountAddress?: string;
   reserves?: IBorrowReserveItem;
   healthFactor?: IBorrowHealthFactor;
   accountIdentityUnverified?: true;
@@ -344,7 +345,11 @@ export function useEarnDesktopAccountMarkets({
                 }
                 return lastGood();
               }
-              let expectedAccountAddress: string | undefined;
+              const expectedAccountAddress =
+                networkUtils.isLightningNetworkByNetworkId(market.networkId)
+                  ? earnAccount.account.addressDetail.normalizedAddress
+                  : earnAccount.account.address;
+              if (!expectedAccountAddress) return unverified();
               if (externalSelection !== undefined) {
                 if (
                   earnAccount.account.id !== accountId ||
@@ -352,18 +357,13 @@ export function useEarnDesktopAccountMarkets({
                     externalSelection
                 )
                   return unverified();
-                expectedAccountAddress =
-                  networkUtils.isLightningNetworkByNetworkId(market.networkId)
-                    ? earnAccount.account.addressDetail.normalizedAddress
-                    : earnAccount.account.address;
-                if (!expectedAccountAddress) return unverified();
               }
               const marketParams = {
                 provider: market.provider,
                 networkId: market.networkId,
                 marketAddress: market.marketAddress,
                 accountId: earnAccount.accountId,
-                ...(expectedAccountAddress ? { expectedAccountAddress } : {}),
+                expectedAccountAddress,
               };
               const reserves =
                 await backgroundApiProxy.serviceStaking.getBorrowReserves(
@@ -392,6 +392,7 @@ export function useEarnDesktopAccountMarkets({
               const entry = {
                 market,
                 accountId: earnAccount.accountId,
+                accountAddress: expectedAccountAddress,
                 reserves,
                 healthFactor,
               };
