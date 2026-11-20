@@ -83,6 +83,7 @@ type IActionProps = {
   'data-testid'?: string;
   variant?: 'primary' | 'secondary' | 'destructive' | 'quiet';
   disabled?: boolean;
+  loading?: boolean;
   onClick?: () => void;
   children: ReactNode;
 };
@@ -371,6 +372,7 @@ function ConfirmStep({
         data-testid="submit-deletion"
         variant="destructive"
         disabled={submitButton.disabled}
+        loading={flow.submittingDelete}
         onClick={submit}
       >
         {messages.delete}
@@ -400,7 +402,8 @@ function ConfirmStep({
 }
 
 function ResultStep({ flow }: { flow: IFlow }) {
-  const { locale } = useIntl();
+  const intl = useIntl();
+  const { locale } = intl;
   const { screen, busy, resultCheckAfter } = flow;
   const cooldown = useCountdown(resultCheckAfter);
   if (screen.step !== 'result') {
@@ -417,10 +420,6 @@ function ResultStep({ flow }: { flow: IFlow }) {
   if (!resultCheckFailed && result?.status === 'not_submitted') {
     resultDetail = messages.notSubmitted;
   }
-  let checkLabel: string = messages.checkStatus;
-  if (resultCheckFailed) checkLabel = messages.retryResultCheck;
-  else if (known?.status === 'completed')
-    checkLabel = messages.checkCurrentShare;
   let scopeDetail: string | undefined;
   if (known?.status === 'completed') {
     if (shareStatus === 'absent') scopeDetail = messages.deletedShare;
@@ -509,13 +508,15 @@ function ResultStep({ flow }: { flow: IFlow }) {
             : messages.reauthenticate}
         </Action>
       ) : null}
-      {!needsSignIn && shareStatus !== 'absent' ? (
+      {!needsSignIn && shareStatus !== 'absent' && shareStatus !== 'present' ? (
         <Action
           data-testid="check-status"
           disabled={busy || cooldown > 0}
           onClick={flow.checkStatus}
         >
-          {cooldown > 0 ? messages.statusCountdown(cooldown) : checkLabel}
+          {cooldown > 0
+            ? messages.statusCountdown(cooldown)
+            : intl.formatMessage({ id: ETranslations.global_refresh })}
         </Action>
       ) : null}
     </>
@@ -616,10 +617,7 @@ function Flow({
       );
       break;
     case 'identity': {
-      heading =
-        screen.info.status === 'used'
-          ? messages.checkCurrentShare
-          : messages.appSignInTitle;
+      heading = messages.appSignInTitle;
       const { allowedProvider } = screen.info;
       const checking = busy && selectedProvider === allowedProvider;
       body = (

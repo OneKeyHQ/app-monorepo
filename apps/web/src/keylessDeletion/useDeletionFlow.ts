@@ -153,7 +153,8 @@ export function useDeletionFlow(
 ) {
   const [screen, setScreen] = useState<IScreen>({ step: 'loading' });
   const [error, setError] = useState<IFlowError>();
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<'request' | 'delete'>();
+  const busy = busyAction !== undefined;
   const resultCheckAfter =
     screen.step === 'result' ? (screen.checkAfter ?? 0) : 0;
   const request = useRef<symbol | undefined>(undefined);
@@ -182,7 +183,7 @@ export function useDeletionFlow(
     history.delete(token);
     setScreen({ step: 'unavailable' });
     setError(undefined);
-    setBusy(false);
+    setBusyAction(undefined);
   }, [history, invalidate, token]);
 
   const setInvitationDeadline = useCallback(
@@ -296,7 +297,7 @@ export function useDeletionFlow(
   const run = useCallback(
     (
       work: (isCurrent: () => boolean) => Promise<void>,
-      onError = handleError,
+      action: 'request' | 'delete' = 'request',
     ) => {
       if (request.current) {
         return;
@@ -305,17 +306,17 @@ export function useDeletionFlow(
       request.current = id;
       const isCurrent = () => request.current === id;
       setError(undefined);
-      setBusy(true);
+      setBusyAction(action);
       void work(isCurrent)
         .catch((cause: unknown) => {
           if (isCurrent()) {
-            onError(cause);
+            handleError(cause);
           }
         })
         .finally(() => {
           if (isCurrent()) {
             request.current = undefined;
-            setBusy(false);
+            setBusyAction(undefined);
           }
         });
     },
@@ -404,8 +405,9 @@ export function useDeletionFlow(
           provider,
           proof,
         } as const;
-        remember(previous);
-        await loadResult(client, previous, proof, isCurrent);
+        await loadResult(client, previous, proof, isCurrent, () => {
+          setScreen({ step: 'identity', info });
+        });
       } else {
         await requestOtp(client, { step: 'email', info, proof }, isCurrent);
       }
@@ -527,6 +529,7 @@ export function useDeletionFlow(
     previous: IResultScreen,
     proof: IProof,
     isCurrent: () => boolean,
+    onIdentityMismatch?: () => void,
   ) {
     if (!hasActiveInvitation()) return;
     try {
@@ -551,6 +554,15 @@ export function useDeletionFlow(
           cause.response.code === 'INVITATION_UNAVAILABLE'
         ) {
           endInvitation();
+          return;
+        }
+        if (
+          onIdentityMismatch &&
+          cause instanceof DeletionError &&
+          cause.response.code === 'IDENTITY_MISMATCH'
+        ) {
+          onIdentityMismatch();
+          showError(cause);
           return;
         }
         const retryAfterSeconds =
@@ -682,9 +694,10 @@ export function useDeletionFlow(
             proof,
             accepted,
           };
-          remember(acknowledged);
           if (accepted.status === 'processing') {
             await loadResult(client, acknowledged, proof, isCurrent);
+          } else {
+            remember(acknowledged);
           }
           return;
         }
@@ -715,10 +728,9 @@ export function useDeletionFlow(
           proof,
           result,
         };
-        remember(completed);
         await loadResult(client, completed, proof, isCurrent);
       }
-    });
+    }, 'delete');
   }
 
   function submit(code: string, acknowledgements: IWarningCode[]) {
@@ -863,6 +875,7 @@ export function useDeletionFlow(
     screen,
     error,
     busy,
+    submittingDelete: busyAction === 'delete',
     resultCheckAfter,
     open,
     signIn,

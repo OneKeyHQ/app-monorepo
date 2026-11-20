@@ -274,6 +274,42 @@ function renderFlow(client: jest.Mocked<IDeletionClient>) {
   };
 }
 
+it('keeps a used invitation on sign-in after a mismatch and retries read-only with the correct account', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockRejectedValueOnce(new DeletionError({ code: 'IDENTITY_MISMATCH' }))
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { authenticate, result, history } = renderFlow(client);
+  authenticate
+    .mockResolvedValueOnce('wrong-account-proof')
+    .mockResolvedValueOnce('correct-account-proof');
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(result.current).toMatchObject({
+    screen: { step: 'identity', info: { status: 'used' } },
+    error: { code: 'IDENTITY_MISMATCH' },
+    busy: false,
+  });
+  expect(history.has(token)).toBe(false);
+
+  await act(async () => result.current.signIn('google'));
+  expect(result.current).toMatchObject({
+    screen: { step: 'result', result: { currentShareStatus: 'absent' } },
+  });
+  expect(result.current.error).toBeUndefined();
+  expect(
+    client.getResult.mock.calls.map(([proof]) => proof.supabaseAccessToken),
+  ).toEqual(['wrong-account-proof', 'correct-account-proof']);
+  expect(history.get(token)?.proof?.supabaseAccessToken).toBe(
+    'correct-account-proof',
+  );
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
 it.each(['ready', 'used'] as const)(
   'stops an expired %s invitation before OAuth or any downstream endpoint',
   async (status) => {
@@ -359,9 +395,14 @@ it('keeps a valid used invitation read-only when the share goes from present to 
   expect(client.deleteShare).not.toHaveBeenCalled();
 });
 
-it('checks current share state immediately after a delete receipt with the same proof', async () => {
+it('keeps confirmation loading until delete and automatic status lookup finish', async () => {
   const client = createClientFixture();
-  client.deleteShare.mockResolvedValueOnce(historicalReceipt);
+  let resolveDelete: ((value: ICompleted) => void) | undefined;
+  client.deleteShare.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveDelete = resolve;
+    }),
+  );
   let resolveResult:
     | ((value: Awaited<ReturnType<IDeletionClient['getResult']>>) => void)
     | undefined;
@@ -374,8 +415,19 @@ it('checks current share state immediately after a delete receipt with the same 
   await waitFor(() => expect(result.current.screen.step).toBe('identity'));
   await act(async () => result.current.signIn('google'));
   await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
-  expect(history.get(token)?.result).toEqual(historicalReceipt);
-  expect(result.current.busy).toBe(true);
+  expect(result.current).toMatchObject({
+    screen: { step: 'confirm' },
+    busy: true,
+    submittingDelete: true,
+  });
+  expect(client.getResult).not.toHaveBeenCalled();
+  await act(async () => resolveDelete?.(historicalReceipt));
+  expect(result.current).toMatchObject({
+    screen: { step: 'confirm' },
+    busy: true,
+    submittingDelete: true,
+  });
+  expect(history.get(token)?.result).toBeUndefined();
   expect(client.getResult).toHaveBeenCalledWith({
     invitationToken: token,
     provider: 'google',
@@ -387,7 +439,35 @@ it('checks current share state immediately after a delete receipt with the same 
   expect(history.get(token)?.result).toMatchObject({
     currentShareStatus: 'absent',
   });
+  expect(result.current).toMatchObject({
+    screen: { step: 'result' },
+    busy: false,
+    submittingDelete: false,
+  });
   expect(client.deleteShare).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the delete receipt without showing success when automatic status lookup fails', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockResolvedValueOnce(historicalReceipt);
+  client.getResult.mockRejectedValueOnce(new TypeError('Network unavailable'));
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(result.current).toMatchObject({
+    screen: {
+      step: 'result',
+      result: { ...historicalReceipt, currentShareStatus: 'unknown' },
+      resultCheckFailed: true,
+    },
+    busy: false,
+    submittingDelete: false,
+  });
+  expect(history.get(token)?.result).toEqual({
+    ...historicalReceipt,
+    currentShareStatus: 'unknown',
+  });
 });
 
 it('clears stale current share certainty on a failed read and keeps the original result', async () => {
