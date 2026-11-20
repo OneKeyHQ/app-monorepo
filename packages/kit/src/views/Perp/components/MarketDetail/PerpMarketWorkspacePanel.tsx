@@ -80,17 +80,22 @@ function WorkspaceTabButton({
       justifyContent="center"
       borderWidth={0}
       borderStyle="solid"
-      borderBottomWidth={fullWidth ? '$px' : '$0.5'}
-      borderBottomColor={active ? '$borderActive' : 'transparent'}
       onPress={onPress}
       cursor="pointer"
     >
-      <SizableText
-        size={fullWidth ? '$bodySmMedium' : '$bodyMdMedium'}
-        color={active ? '$text' : '$textSubdued'}
+      <XStack
+        h="100%"
+        alignItems="center"
+        borderBottomWidth="$0.5"
+        borderBottomColor={active ? '$borderActive' : 'transparent'}
       >
-        {label}
-      </SizableText>
+        <SizableText
+          size={fullWidth ? '$bodySmMedium' : '$bodyMdMedium'}
+          color={active ? '$text' : '$textSubdued'}
+        >
+          {label}
+        </SizableText>
+      </XStack>
     </XStack>
   );
 }
@@ -136,7 +141,7 @@ export function PerpDesktopOrderBookPanel({
   const { mode, coin } = useActiveTradeDisplay();
   const [activeTab, setActiveTab] =
     useState<(typeof MARKET_BOOK_TABS)[number]['key']>('orderBook');
-  const showTabs = Boolean(platformEnv.isWeb) && mode === 'perp';
+  const showTabs = mode === 'perp';
   const showTrades = showTabs && activeTab === 'trades';
   return (
     <>
@@ -188,8 +193,7 @@ export function PerpMarketWorkspacePanel({
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
-  const showTradesTab =
-    platformEnv.isWeb && showOrderBookTab && mode === 'perp';
+  const showTradesTab = showOrderBookTab && mode === 'perp';
   const visibleActiveView =
     (mode !== 'perp' && activeView === 'funding') ||
     (!showTradesTab && activeView === 'trades') ||

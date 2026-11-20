@@ -604,49 +604,88 @@ describe('PerpCandles account switch', () => {
   });
 });
 
-it('keeps the desktop trade feed warm for 30 seconds and drops it on a hidden market change', () => {
-  jest.useFakeTimers();
-  const web = jest.replaceProperty(platformEnv, 'isWeb', true);
-  const view = render(
-    <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />,
-  );
-  const select = (label: ETranslations) => {
-    act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
-  };
-  try {
-    expect(mockRecentTrades).not.toHaveBeenCalled();
-    select(ETranslations.swap_page_recent_trade);
-    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
-      active: true,
-      visible: true,
-    });
-    select(ETranslations.perps_order_book);
-    act(() => {
-      jest.advanceTimersByTime(29_999);
-    });
-    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
-      active: true,
-      visible: false,
-    });
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
-    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
-      active: false,
-      visible: false,
-    });
-    select(ETranslations.swap_page_recent_trade);
-    select(ETranslations.perps_order_book);
-    mockRecentTrades.mockClear();
-    mockCoin = 'BTC';
-    view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
-    expect(mockRecentTrades).not.toHaveBeenCalled();
-  } finally {
-    view.unmount();
-    web.restore();
-    jest.useRealTimers();
-  }
-});
+it.each(['web', 'desktop'] as const)(
+  'keeps the %s trade feed warm for 30 seconds and drops it on a hidden market change',
+  (platform) => {
+    jest.useFakeTimers();
+    const web = jest.replaceProperty(platformEnv, 'isWeb', platform === 'web');
+    const desktop = jest.replaceProperty(
+      platformEnv,
+      'isDesktop',
+      platform === 'desktop',
+    );
+    const view = render(
+      <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />,
+    );
+    const select = (label: ETranslations) => {
+      act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
+    };
+    try {
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+      select(ETranslations.swap_page_recent_trade);
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: true,
+      });
+      select(ETranslations.perps_order_book);
+      act(() => {
+        jest.advanceTimersByTime(29_999);
+      });
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: false,
+      });
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: false,
+        visible: false,
+      });
+      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_order_book);
+      mockRecentTrades.mockClear();
+      mockCoin = 'BTC';
+      view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      web.restore();
+      desktop.restore();
+      jest.useRealTimers();
+    }
+  },
+);
+
+it.each(['web', 'desktop'] as const)(
+  'opens recent trades from the narrow %s workspace',
+  (platform) => {
+    const web = jest.replaceProperty(platformEnv, 'isWeb', platform === 'web');
+    const desktop = jest.replaceProperty(
+      platformEnv,
+      'isDesktop',
+      platform === 'desktop',
+    );
+    const native = jest.replaceProperty(platformEnv, 'isNative', false);
+    const view = render(<PerpMarketWorkspacePanel />);
+    try {
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+      act(
+        view.UNSAFE_getByProps({ label: ETranslations.swap_page_recent_trade })
+          .props.onPress as () => void,
+      );
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: true,
+      });
+    } finally {
+      view.unmount();
+      native.restore();
+      desktop.restore();
+      web.restore();
+    }
+  },
+);
 
 describe.each([
   ['standalone chart', PerpCandles],
