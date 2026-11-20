@@ -58,7 +58,8 @@ function SelectorTrigger({
     <XStack
       testID={testID}
       role="button"
-      height="$10"
+      minHeight="$10"
+      py="$2"
       px="$2.5"
       alignItems="center"
       gap="$2"
@@ -94,18 +95,17 @@ function SelectorTrigger({
       ) : (
         <>
           <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
-          <SizableText
-            size="$bodySm"
-            color="$text"
-            numberOfLines={1}
-            flex={1}
-            minWidth={0}
-          >
+          <SizableText size="$bodySm" color="$text" flex={1} minWidth={0}>
             {label}
           </SizableText>
         </>
       )}
-      <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$4"
+        color="$icon"
+        flexShrink={0}
+      />
     </XStack>
   );
 }
@@ -144,11 +144,11 @@ function OptionRow({
     >
       <Token size="md" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
       <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$0.5">
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        <SizableText size="$bodyMdMedium" color="$text">
           {label}
         </SizableText>
         {description ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
             {description}
           </SizableText>
         ) : null}
@@ -262,25 +262,20 @@ function SelectedTokenLabel({
   });
   if (!selection?.chain.token_address?.trim()) {
     return (
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        numberOfLines={1}
-        flexShrink={1}
-      >
+      <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
         {label}
       </SizableText>
     );
   }
   const trigger = (
     <DashText
+      multiline
       testID="perps-unifold-selected-token-contract"
       size="$bodySm"
       color="$textSubdued"
       dashColor="$textDisabled"
       dashThickness={0.5}
       dashOverlay
-      numberOfLines={1}
       cursor="pointer"
     >
       {label}
@@ -388,13 +383,17 @@ export function UnifoldSourceSelector({
       <YStack flex={1} flexBasis={0} minWidth={0}>
         <XStack
           width="100%"
+          flex={1}
+          minWidth={0}
           mb="$1.5"
           pb={SELECTOR_LABEL_BOTTOM_PADDING}
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
         >
-          <SelectedTokenLabel selection={selection} />
+          <YStack flex={1} minWidth={0}>
+            <SelectedTokenLabel selection={selection} />
+          </YStack>
         </XStack>
         {onOpenMobileTokenSelector ? (
           tokenTrigger
@@ -441,13 +440,20 @@ export function UnifoldSourceSelector({
       <YStack flex={1} flexBasis={0} minWidth={0}>
         <XStack
           width="100%"
+          flex={1}
+          minWidth={0}
           mb="$1.5"
           pb={SELECTOR_LABEL_BOTTOM_PADDING}
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
         >
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            flex={1}
+            minWidth={0}
+          >
             {intl.formatMessage({
               id: ETranslations.perp_unifold_selected_chain__title,
             })}

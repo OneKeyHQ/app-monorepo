@@ -99,36 +99,36 @@ function DetailRow({
       justifyContent="space-between"
       gap="$3"
     >
-      {tooltip ? (
-        <DashText
-          size={compact ? '$bodySm' : '$bodyMd'}
-          color="$textSubdued"
-          dashColor="$textDisabled"
-          dashThickness={0.5}
-          dashOverlay
-          flexShrink={0}
-          tooltip={tooltip}
-          tooltipTitle={label}
-          tooltipPlacement="bottom-start"
-        >
-          {label}
-        </DashText>
-      ) : (
-        <SizableText
-          size={compact ? '$bodySm' : '$bodyMd'}
-          color="$textSubdued"
-          flexShrink={0}
-        >
-          {label}
-        </SizableText>
-      )}
+      <YStack flex={1} minWidth={0} maxWidth="60%">
+        {tooltip ? (
+          <DashText
+            multiline
+            size={compact ? '$bodySm' : '$bodyMd'}
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            dashOverlay
+            tooltip={tooltip}
+            tooltipTitle={label}
+            tooltipPlacement="bottom-start"
+          >
+            {label}
+          </DashText>
+        ) : (
+          <SizableText
+            size={compact ? '$bodySm' : '$bodyMd'}
+            color="$textSubdued"
+          >
+            {label}
+          </SizableText>
+        )}
+      </YStack>
       <SizableText
         size={compact ? '$bodySmMedium' : '$bodyMdMedium'}
         color="$text"
-        flex={1}
-        minWidth={0}
+        flexShrink={0}
+        maxWidth="50%"
         textAlign="right"
-        numberOfLines={1}
       >
         {value}
       </SizableText>
@@ -175,47 +175,85 @@ function DepositRouteRow({
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
+      flexWrap="wrap"
     >
-      <DashText
-        size="$bodySm"
-        color="$textSubdued"
-        dashColor="$textDisabled"
-        dashThickness={0.5}
-        dashOverlay
-        flexShrink={0}
-        tooltip={intl.formatMessage(
-          {
-            id: ETranslations.perp_unifold_conversion_route_tokens__desc,
-          },
-          {
-            sourceToken: sourceTokenDescription,
-            receiveToken: receiveTokenDescription,
-          },
-        )}
-        tooltipTitle={title}
-        tooltipPlacement="bottom-start"
+      <YStack flexGrow={1} flexShrink={1} flexBasis={120} minWidth={0}>
+        <DashText
+          multiline
+          size="$bodySm"
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          dashOverlay
+          tooltip={intl.formatMessage(
+            {
+              id: ETranslations.perp_unifold_conversion_route_tokens__desc,
+            },
+            {
+              sourceToken: sourceTokenDescription,
+              receiveToken: receiveTokenDescription,
+            },
+          )}
+          tooltipTitle={title}
+          tooltipPlacement="bottom-start"
+        >
+          {title}
+        </DashText>
+      </YStack>
+      <XStack
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$2.5"
+        maxWidth="100%"
+        flexShrink={1}
+        flexWrap="wrap"
+        ml="auto"
       >
-        {title}
-      </DashText>
-      <XStack alignItems="center" justifyContent="flex-end" gap="$2.5">
-        <XStack alignItems="center" gap="$1.5">
+        <XStack
+          alignItems="center"
+          gap="$1.5"
+          minWidth={0}
+          maxWidth="100%"
+          flexShrink={1}
+        >
           <Token
             size="xxs"
             tokenImageUri={normalizeUnifoldIconUrl(sourceTokenIconUri)}
             networkImageUri={normalizeUnifoldIconUrl(sourceNetworkIconUri)}
           />
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            flexShrink={1}
+            minWidth={0}
+          >
             {sourceTokenSymbol}
           </SizableText>
         </XStack>
-        <Icon name="ArrowRightOutline" size="$4" color="$iconSubdued" />
-        <XStack alignItems="center" gap="$1.5">
+        <Icon
+          name="ArrowRightOutline"
+          size="$4"
+          color="$iconSubdued"
+          flexShrink={0}
+        />
+        <XStack
+          alignItems="center"
+          gap="$1.5"
+          minWidth={0}
+          maxWidth="100%"
+          flexShrink={1}
+        >
           <Token
             size="xxs"
             tokenImageUri={normalizeUnifoldIconUrl(receiveTokenIconUri)}
             networkImageUri={normalizeUnifoldIconUrl(receiveNetworkIconUri)}
           />
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            flexShrink={1}
+            minWidth={0}
+          >
             {receiveTokenSymbol}
           </SizableText>
         </XStack>

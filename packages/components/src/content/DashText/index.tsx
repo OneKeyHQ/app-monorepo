@@ -32,6 +32,8 @@ export interface IDashTextProps extends ISizableTextProps {
    * centred row then lifts the dashed text above the rest.
    */
   dashOverlay?: boolean;
+  /** Draw an underline for each wrapped line instead of the whole text box. */
+  multiline?: boolean;
   // Widened from `string` so a formatted value (a price, a percentage) can
   // carry the same dashes as a plain label. Every existing caller passes a
   // string, which is still a ReactNode.
@@ -63,7 +65,9 @@ function DashTextCore({
   dashSpacing = 1,
   dashColor = '$borderStrong',
   dashOverlay = false,
+  multiline = false,
   length = 200,
+  onTextLayout,
   ...textProps
 }: Omit<
   IDashTextProps,
@@ -74,6 +78,20 @@ function DashTextCore({
   | 'tooltipTriggerAsChild'
 >) {
   const [textWidth, setTextWidth] = useState(0);
+  const [textLines, setTextLines] = useState<
+    { x: number; y: number; width: number; height: number }[]
+  >([]);
+  const handleTextLayout = useCallback<
+    Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
+  >(
+    (event) => {
+      setTextLines(event.nativeEvent.lines);
+      if (typeof onTextLayout === 'function') {
+        onTextLayout(event);
+      }
+    },
+    [onTextLayout],
+  );
   const resolvedDashThickness = platformEnv.isNative
     ? dashThickness
     : Math.max(1, dashThickness);
@@ -87,8 +105,9 @@ function DashTextCore({
         : {
             display: 'inline-flex',
             width: 'fit-content',
+            ...(multiline ? { maxWidth: '100%' } : undefined),
           },
-    [],
+    [multiline],
   );
   const webDashLineStyle = useMemo<CSSProperties | undefined>(
     () =>
@@ -126,10 +145,22 @@ function DashTextCore({
   if (!platformEnv.isNative) {
     return (
       <YStack alignItems="flex-start" style={webDashWrapperStyle}>
-        <SizableText {...textProps} paddingBottom={dashOverlay ? 0 : '$0.2'}>
+        <SizableText
+          {...textProps}
+          onTextLayout={onTextLayout}
+          paddingBottom={dashOverlay ? 0 : '$0.2'}
+          {...(multiline && length > 0
+            ? {
+                maxWidth: '100%',
+                textDecorationLine: 'underline',
+                textDecorationStyle: 'dashed',
+                textDecorationColor: dashColor,
+              }
+            : undefined)}
+        >
           {children}
         </SizableText>
-        {length > 0 ? (
+        {length > 0 && !multiline ? (
           <YStack
             width="100%"
             mt={dashOverlay ? 0 : dashSpacing}
@@ -144,10 +175,66 @@ function DashTextCore({
     );
   }
 
+  if (multiline) {
+    return (
+      <YStack
+        maxWidth="100%"
+        paddingBottom={
+          dashOverlay || length <= 0 ? 0 : dashSpacing + dashThickness
+        }
+      >
+        <SizableText {...textProps} onTextLayout={handleTextLayout}>
+          {children}
+        </SizableText>
+        {length > 0
+          ? textLines.map((line, lineIndex) => (
+              <XStack
+                key={lineIndex}
+                position="absolute"
+                left={line.x}
+                top={
+                  line.y +
+                  line.height +
+                  (dashOverlay ? -dashThickness : dashSpacing)
+                }
+                width={line.width}
+                height={dashThickness}
+                gap={dashGap}
+                overflow="hidden"
+                pointerEvents="none"
+              >
+                {Array.from(
+                  {
+                    length: Math.min(
+                      length,
+                      Math.ceil(line.width / Math.max(1, dashLength + dashGap)),
+                    ),
+                  },
+                  (_, i) => (
+                    <YStack
+                      key={i}
+                      width={dashLength}
+                      height={dashThickness}
+                      bg={dashColor}
+                      flexShrink={0}
+                    />
+                  ),
+                )}
+              </XStack>
+            ))
+          : null}
+      </YStack>
+    );
+  }
+
   return (
     <YStack alignItems="flex-start">
       <YStack onLayout={handleLayout}>
-        <SizableText {...textProps} paddingBottom={dashOverlay ? 0 : '$0.2'}>
+        <SizableText
+          {...textProps}
+          onTextLayout={onTextLayout}
+          paddingBottom={dashOverlay ? 0 : '$0.2'}
+        >
           {children}
         </SizableText>
       </YStack>
