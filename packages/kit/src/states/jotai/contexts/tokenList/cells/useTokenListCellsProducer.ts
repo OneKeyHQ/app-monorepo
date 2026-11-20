@@ -568,9 +568,13 @@ export function useTokenListCellsProducer(
           if (!push.isDelta) {
             return true;
           }
+          // A delta cannot fill cells until its structure has been applied.
           if (
             projection.curOwnerKey !== push.ownerKey ||
-            projection.appliedCurrencyId !== currencyIdRef.current
+            projection.appliedCurrencyId !== currencyIdRef.current ||
+            projection.appliedStructureVersion === undefined ||
+            projection.appliedStructureVersion !==
+              push.valuation.structureGeneration
           ) {
             return false;
           }
