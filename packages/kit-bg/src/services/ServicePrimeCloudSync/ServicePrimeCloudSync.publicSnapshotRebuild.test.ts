@@ -124,6 +124,9 @@ jest.mock('./botWalletCloudSyncUtils', () => ({
 }));
 
 jest.mock('./cloudSyncCheckUtils', () => ({
+  ...jest.requireActual<typeof import('./cloudSyncCheckUtils')>(
+    './cloudSyncCheckUtils',
+  ),
   buildOnlyCheckLocalDataTypes: jest.fn(),
 }));
 
