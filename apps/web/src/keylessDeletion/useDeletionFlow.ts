@@ -5,6 +5,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getServerApiErrorMessage } from '@onekeyhq/shared/src/errors/utils/serverApiErrorMessage';
 
 import { DeletionBusinessError } from './deletionBusinessError';
+import { OAuthCancelledError } from './oauthCancelledError';
 import { otpCooldownDeadline } from './otpInputState';
 import { PopupBlockedError } from './popupBlockedError';
 import {
@@ -382,12 +383,17 @@ export function useDeletionFlow(
   async function authenticate(
     provider: IProvider,
     signal: AbortSignal,
-  ): Promise<IProof> {
-    return {
-      invitationToken: token,
-      provider,
-      supabaseAccessToken: await business.authenticate(provider, signal),
-    };
+  ): Promise<IProof | undefined> {
+    try {
+      return {
+        invitationToken: token,
+        provider,
+        supabaseAccessToken: await business.authenticate(provider, signal),
+      };
+    } catch (cause) {
+      if (cause instanceof OAuthCancelledError) return undefined;
+      throw cause;
+    }
   }
 
   function signIn(provider: IProvider) {
@@ -404,7 +410,7 @@ export function useDeletionFlow(
     const { client, signal } = channel.current;
     run(async (isCurrent) => {
       const proof = await authenticate(provider, signal);
-      if (!isCurrent() || !hasActiveInvitation()) return;
+      if (!proof || !isCurrent() || !hasActiveInvitation()) return;
       if (info.status === 'used') {
         const previous = {
           step: 'result',
@@ -784,7 +790,7 @@ export function useDeletionFlow(
         const proof = previous.outcomeNeedsSignIn
           ? await authenticate(previous.proof.provider, signal)
           : previous.proof;
-        if (!isCurrent() || !hasActiveInvitation()) return;
+        if (!proof || !isCurrent() || !hasActiveInvitation()) return;
         const result = await client.getResult(proof);
         if (!isCurrent() || !hasActiveInvitation()) return;
         if (result.status === 'not_submitted') {
@@ -864,7 +870,7 @@ export function useDeletionFlow(
       const previous = screen;
       run(async (isCurrent) => {
         const proof = await authenticate(previous.provider, signal);
-        if (isCurrent()) {
+        if (proof && isCurrent()) {
           await loadResult(client, previous, proof, isCurrent);
         }
       });
