@@ -328,7 +328,15 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       );
       return;
     }
-    void this.lookUpDeviceWarranty(serialNo, { recheckUnknown: true });
+    // Nothing waits on this lookup, so its failure ends here; a page opened
+    // meanwhile shares it and handles the failure itself.
+    this.lookUpDeviceWarranty(serialNo, { recheckUnknown: true }).catch(
+      (error: unknown) => {
+        defaultLogger.hardware.sdkLog.log(
+          `Device warranty lookup failed: ${getErrorCode(error)}`,
+        );
+      },
+    );
   }
 
   private deviceWarrantyLookups = new Map<
@@ -360,14 +368,14 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     { recheckUnknown = false }: { recheckUnknown?: boolean } = {},
   ): Promise<IDeviceWarrantyState> {
     const db = this.backgroundApi.simpleDb.deviceWarranty;
-    let record: IDeviceWarrantyRecord | undefined;
-    // Never rejects: the lookup a check starts has no one waiting on it.
+    // A read that fails rejects: a page keeps what it showed instead of
+    // taking the device for one without a certificate.
+    let record = await db.getRecord(serialNo);
+    const cert = record?.cert;
+    if (!cert) {
+      return toWarrantyState(record);
+    }
     try {
-      record = await db.getRecord(serialNo);
-      const cert = record?.cert;
-      if (!cert) {
-        return toWarrantyState(record);
-      }
       let info = await this.fetchDeviceWarranty(cert);
       // The check that just ran may not have reached the server's records.
       if (recheckUnknown && info?.status === 'unknown') {

@@ -354,12 +354,19 @@ describe('device warranty', () => {
       expect(second).toEqual(first);
     });
 
-    it('settles when the kept record cannot be read', async () => {
-      getRecord.mockRejectedValue(new Error('storage unavailable'));
+    it('keeps a failed read apart from a missing certificate', async () => {
+      const storageError = new Error('storage unavailable');
+      getRecord.mockRejectedValue(storageError);
+      // The check still passes, and the lookup it starts ends quietly.
       const result = await manager.firmwareAuthenticate({ device });
       expect(result.verified).toBe(true);
-      // The check kept the certificate; the lookup it started reads it back.
       expect(updateRecord).toHaveBeenCalledTimes(1);
+      // A page sees the failure, so it keeps what it showed.
+      await expect(
+        manager.refreshDeviceWarranty({ serialNo: 'PR123' }),
+      ).rejects.toBe(storageError);
+      // Only a read that finds no certificate says so.
+      getRecord.mockResolvedValue(undefined);
       await expect(
         manager.refreshDeviceWarranty({ serialNo: 'PR123' }),
       ).resolves.toEqual({ hasCert: false, info: undefined });
