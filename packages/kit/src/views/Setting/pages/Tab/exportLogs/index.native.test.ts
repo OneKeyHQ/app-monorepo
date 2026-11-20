@@ -1,6 +1,8 @@
 import { createUploadTask } from 'expo-file-system/legacy';
 
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 
 import { uploadLogBundle } from './index.native';
@@ -65,6 +67,9 @@ const mockedUploadViaIpTable = (
     default: { serviceLogger: { uploadLogFileViaIpTable: jest.Mock } };
   }
 ).default.serviceLogger.uploadLogFileViaIpTable;
+const { appEventBus } = jest.requireMock(
+  '@onekeyhq/shared/src/eventBus/appEventBus',
+) as { appEventBus: { emit: jest.Mock } };
 const mockedCreateUploadTask = createUploadTask as jest.Mock;
 const mockedLogUpload = defaultLogger.setting.logUpload as unknown as {
   uploadStart: jest.Mock;
@@ -125,18 +130,27 @@ describe('native log upload transport', () => {
     );
   });
 
-  test('falls back to the domain upload task when SNI is skipped', async () => {
+  test('reports byte progress from the domain upload task when SNI is disabled', async () => {
     mockedUploadViaIpTable.mockResolvedValue({
       route: 'skipped',
-      reason: 'no_selected_ip',
+      reason: 'sni_unsupported',
     });
-    mockedCreateUploadTask.mockReturnValue({
-      uploadAsync: jest.fn(async () => ({ status: 200, body: SUCCESS_BODY })),
-      cancelAsync: jest.fn(),
-    });
+    mockedCreateUploadTask.mockImplementationOnce(
+      (...args: Parameters<typeof createUploadTask>) => ({
+        uploadAsync: jest.fn(async () => {
+          args[3]?.({ totalBytesSent: 512, totalBytesExpectedToSend: 1024 });
+          return { status: 200, body: SUCCESS_BODY };
+        }),
+        cancelAsync: jest.fn(),
+      }),
+    );
 
     await expect(
-      uploadLogBundle({ uploadToken: 'token', digest: nativeDigest() }),
+      uploadLogBundle({
+        uploadToken: 'token',
+        digest: nativeDigest(),
+        requestId: 'domain-upload',
+      }),
     ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
 
     expect(mockedCreateUploadTask).toHaveBeenCalledWith(
@@ -154,12 +168,82 @@ describe('native log upload transport', () => {
     expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
       expect.objectContaining({
         path: 'upload_task',
-        skipReason: 'no_selected_ip',
+        skipReason: 'sni_unsupported',
       }),
+    );
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ClientLogUploadProgress,
+      {
+        stage: ELogUploadStage.Uploading,
+        requestId: 'domain-upload',
+        bytesSent: 512,
+        totalBytes: 1024,
+        progressPercent: 50,
+      },
     );
     expect(mockedLogUpload.uploadSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'upload_task' }),
     );
+  });
+
+  test('reports multipart upload bytes when the native upload task fails before sending', async () => {
+    mockedUploadViaIpTable.mockResolvedValue({
+      route: 'skipped',
+      reason: 'sni_unsupported',
+    });
+    mockedCreateUploadTask.mockReturnValueOnce({
+      uploadAsync: jest.fn().mockRejectedValue(new Error('Task unavailable')),
+      cancelAsync: jest.fn(),
+    });
+    const request = {
+      open: jest.fn(),
+      setRequestHeader: jest.fn(),
+      upload: {
+        onprogress: null as ((event: Partial<ProgressEvent>) => void) | null,
+      },
+      onload: null as (() => void) | null,
+      status: 200,
+      responseText: SUCCESS_BODY,
+      send: jest.fn(() => {
+        request.upload.onprogress?.({
+          lengthComputable: true,
+          loaded: 600,
+          total: 1200,
+        });
+        request.onload?.();
+      }),
+    };
+    const previousRequest = globalThis.XMLHttpRequest;
+    globalThis.XMLHttpRequest = jest.fn(
+      () => request,
+    ) as unknown as typeof XMLHttpRequest;
+    const append = jest
+      .spyOn(FormData.prototype, 'append')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        uploadLogBundle({
+          uploadToken: 'token',
+          digest: nativeDigest(),
+          requestId: 'multipart-upload',
+        }),
+      ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
+      expect(request.send).toHaveBeenCalledTimes(1);
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        {
+          stage: ELogUploadStage.Uploading,
+          requestId: 'multipart-upload',
+          bytesSent: 600,
+          totalBytes: 1200,
+          progressPercent: 50,
+        },
+      );
+      expect(request.upload.onprogress).toBeNull();
+    } finally {
+      append.mockRestore();
+      globalThis.XMLHttpRequest = previousRequest;
+    }
   });
 
   test('does not retry the slow domain route after an SNI timeout or ambiguous post-write failure', async () => {

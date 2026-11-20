@@ -170,18 +170,40 @@ describe('desktop log upload transport', () => {
     );
   });
 
-  test('falls back to the domain upload with a timeout when SNI is skipped', async () => {
+  test('forwards domain upload progress when SNI is disabled', async () => {
     mockedUploadViaIpTable.mockResolvedValue({
       route: 'skipped',
-      reason: 'no_selected_ip',
+      reason: 'sni_unsupported',
     });
-    mockedUploadLoggerBundle.mockResolvedValue(SUCCESS_PAYLOAD);
+    const progress = {
+      stage: ELogUploadStage.Uploading,
+      requestId: 'domain-attempt',
+      bytesSent: 512,
+      totalBytes: 1024,
+      progressPercent: 50,
+    };
+    mockedUploadLoggerBundle.mockImplementationOnce(async () => {
+      const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
+        -1,
+      )?.[1] as (event: unknown) => void;
+      listener(progress);
+      return SUCCESS_PAYLOAD;
+    });
 
     await expect(
-      uploadLogBundle({ uploadToken: 'token', digest: desktopDigest() }),
+      uploadLogBundle({
+        uploadToken: 'token',
+        digest: desktopDigest(),
+        requestId: 'domain-attempt',
+      }),
     ).resolves.toMatchObject({ result: { objectKey: 'logs/key' } });
 
+    expect(mockedEventBus.appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ClientLogUploadProgress,
+      progress,
+    );
     expect(mockedUploadLoggerBundle).toHaveBeenCalledWith({
+      requestId: 'domain-attempt',
       uploadUrl: 'https://wallet.example.com/wallet/v1/client/log',
       filePath: ARCHIVE_PATH,
       headers: expect.objectContaining({
@@ -192,7 +214,10 @@ describe('desktop log upload transport', () => {
       timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
     });
     expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'domain', skipReason: 'no_selected_ip' }),
+      expect.objectContaining({
+        path: 'domain',
+        skipReason: 'sni_unsupported',
+      }),
     );
     expect(mockedLogUpload.uploadSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'domain' }),

@@ -89,8 +89,8 @@ export async function sniRequest(
 
 /**
  * Upload a local file over the pinned-IP/SNI transport.
- * Returns null when the installed native binary predates `uploadFile`, so OTA
- * JS can keep the domain upload path on older apps.
+ * Older binaries fall back to the domain route if they lack file upload or
+ * the progress snapshots requested by the caller.
  */
 export async function sniUploadFile(
   config: ISniUploadFileConfig,
@@ -98,7 +98,12 @@ export async function sniUploadFile(
 ): Promise<ISniResponse | null> {
   const nativeModule = getSniConnectNativeModule();
   const uploadFile = nativeModule?.uploadFile;
-  if (!nativeModule || typeof uploadFile !== 'function') {
+  const getUploadProgress = nativeModule?.getUploadProgress;
+  if (
+    !nativeModule ||
+    typeof uploadFile !== 'function' ||
+    (options?.onUploadProgress && typeof getUploadProgress !== 'function')
+  ) {
     logAdapterCapability('warn', {
       adapter: 'native',
       capability: 'upload_file',
@@ -116,12 +121,16 @@ export async function sniUploadFile(
     if (
       closed ||
       Date.now() >= progressDeadline ||
+      typeof getUploadProgress !== 'function' ||
       !config.requestId ||
       !options?.onUploadProgress
     )
       return;
     try {
-      const progress = await nativeModule.getUploadProgress(config.requestId);
+      const progress = await getUploadProgress.call(
+        nativeModule,
+        config.requestId,
+      );
       if (
         !closed &&
         progress &&
@@ -183,10 +192,8 @@ type SniConnectNativeModule = {
   // Added in @onekeyfe/react-native-sni-connect with file upload support;
   // older native binaries do not expose it.
   uploadFile?: (config: ISniUploadFileConfig) => Promise<SniConnectResponse>;
-  getUploadProgress: (requestId: string) => Promise<{
-    bytesSent: number;
-    totalBytes: number;
-  } | null>;
+  // Older native binaries can upload files without exposing a progress snapshot.
+  getUploadProgress?: typeof import('@onekeyfe/react-native-sni-connect').getUploadProgress;
 };
 
 function getSniConnectNativeModule(): SniConnectNativeModule | null {

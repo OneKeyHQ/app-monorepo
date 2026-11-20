@@ -369,7 +369,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(request.receivedBytes).toBe(ARCHIVE_SIZE);
     expect(request.completed).toBe(true);
 
-    // Progress reports archive bytes consumed by the upload body.
+    // Progress reports archive bytes written to the socket.
     expect(events[0]).toMatchObject({
       stage: ELogUploadStage.Uploading,
       requestId: 'domain-progress-test',
@@ -377,7 +377,8 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       totalBytes: ARCHIVE_SIZE,
     });
     const uploading = uploadingEvents(events);
-    expect(uploading.length).toBeGreaterThan(0);
+    expect(uploading[0].bytesSent).toBeLessThan(ARCHIVE_SIZE);
+    expect(uploading.length).toBeGreaterThan(1);
     for (let i = 1; i < uploading.length; i += 1) {
       expect(uploading[i].bytesSent).toBeGreaterThanOrEqual(
         uploading[i - 1].bytesSent ?? 0,

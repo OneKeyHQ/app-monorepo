@@ -270,9 +270,9 @@ const uploadViaUploadTask = async ({
   }
 
   onSentBytes(0);
-  onPathChange?.('fetch_fallback');
+  onPathChange?.('xhr_fallback');
   defaultLogger.setting.logUpload.uploadStart({
-    path: 'fetch_fallback',
+    path: 'xhr_fallback',
     hostname: getHostnameForLog(uploadUrl),
     sizeBytes: digest.sizeBytes,
     timeoutMs,
@@ -286,38 +286,51 @@ const uploadViaUploadTask = async ({
     uri: filePath,
     name: digest.bundle.fileName,
     type: mimeType,
-  } as any);
+  } as unknown as Blob);
   const fallbackHeaders = { ...headers };
   delete fallbackHeaders['content-type'];
   delete fallbackHeaders['Content-Type'];
 
-  const abortController = new AbortController();
+  const request = new XMLHttpRequest();
+  let fallbackSentBytes = 0;
   try {
-    return await withLogUploadTimeout(
-      (async () => {
-        const response = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: fallbackHeaders,
-          body: form,
-          signal: abortController.signal,
+    const upload = new Promise<ILogUploadHttpResult>((resolve, reject) => {
+      request.open('POST', uploadUrl);
+      for (const [name, value] of Object.entries(fallbackHeaders)) {
+        request.setRequestHeader(name, value);
+      }
+      request.upload.onprogress = ({ loaded, total, lengthComputable }) => {
+        fallbackSentBytes = Math.max(fallbackSentBytes, loaded);
+        onSentBytes(fallbackSentBytes);
+        if (lengthComputable) {
+          emitUploadProgress(loaded, total, requestId);
+        }
+      };
+      request.onload = () => {
+        resolve({
+          path: 'xhr_fallback',
+          httpStatus: request.status,
+          text: request.responseText,
         });
-        return {
-          path: 'fetch_fallback' as const,
-          httpStatus: response.status,
-          text: await response.text(),
-        };
-      })(),
-      timeoutMs,
-      () => abortController.abort(),
-    );
+      };
+      request.onerror = () =>
+        reject(new OneKeyLocalError('Network request failed'));
+      request.onabort = () => reject(new OneKeyLocalError('Upload cancelled'));
+      request.send(form);
+    });
+    return await withLogUploadTimeout(upload, timeoutMs);
   } catch (error) {
     if (error instanceof LogUploadError) {
+      request.abort();
       throw error;
     }
     throw new LogUploadError({
       reason: 'network',
       message: getErrorMessage(error),
+      ...(fallbackSentBytes > 0 ? { retryable: false } : {}),
     });
+  } finally {
+    request.upload.onprogress = null;
   }
 };
 

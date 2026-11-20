@@ -5,11 +5,11 @@ import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
+import { isSniFailClosedError } from '@onekeyfe/react-native-sni-connect/node';
+
 import type { ISniUploadFileConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 
-import DesktopApiSniRequest, {
-  isSniFailClosedError,
-} from './DesktopApiSniRequest';
+import DesktopApiSniRequest from './DesktopApiSniRequest';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 import type { IncomingMessage } from 'http';
@@ -439,8 +439,7 @@ describe('DesktopApiSniRequest.uploadFile', () => {
       );
 
     expect((error as { code?: string }).code).toBe('SNI_TIMEOUT');
-    expect(requests[0].destroyedWith).toBe(error);
-    expect(requests[0].destroy).toHaveBeenCalled();
+    expect(requests[0].destroy).toHaveBeenCalledTimes(1);
     expect(streamSpy).toHaveBeenCalled();
   });
 

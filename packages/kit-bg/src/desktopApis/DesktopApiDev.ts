@@ -1,4 +1,6 @@
+import { AsyncLocalStorage } from 'async_hooks';
 import { createHash } from 'crypto';
+import { channel } from 'diagnostics_channel';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
@@ -36,6 +38,13 @@ export const LOGGER_UPLOAD_ORIGINS = Object.freeze([
 // Covers connect, body upload and response read, so a stalled route fails
 // over to manual export instead of hanging.
 export const LOGGER_UPLOAD_TIMEOUT_MS = 90_000;
+
+const uploadContext = new AsyncLocalStorage<symbol>();
+const requestCreated = channel('undici:request:create');
+const uploadChunkSent = channel('undici:request:bodyChunkSent');
+
+type IUndiciRequestEvent = { request: { method: string; path: string } };
+type IUndiciUploadEvent = IUndiciRequestEvent & { chunk: Uint8Array | string };
 
 class DesktopApiDev {
   private loggerArchives = new Map<
@@ -280,39 +289,50 @@ class DesktopApiDev {
       }
     };
 
-    // Node's built-in fetch (undici) pulls a streaming body lazily, only once
-    // the connection is up. Listening for 'data' on the file stream before
-    // fetch() would switch it to flowing mode and drain the whole archive in
-    // the meantime, so fetch would send an empty body and reject with
-    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Hand fetch a pull-based
-    // generator instead: the archive is opened and counted only as fetch
-    // consumes it, so progress never runs ahead of the connection and a
-    // failed connect never touches the file.
-    let uploadedBytes = 0;
-    let lastProgressAt = 0;
+    // Keep the archive lazy so a failed connection never opens the file.
     const archive: { stream?: fs.ReadStream } = {};
     const readArchive = async function* (): AsyncGenerator<Buffer> {
       archive.stream = fs.createReadStream(filePath);
-      for await (const chunk of archive.stream as AsyncIterable<Buffer>) {
-        uploadedBytes += chunk.length;
-        if (
-          totalBytes > 0 &&
-          (Date.now() - lastProgressAt >= 100 || uploadedBytes >= totalBytes)
-        ) {
-          lastProgressAt = Date.now();
-          sendProgress({
-            stage: ELogUploadStage.Uploading,
-            bytesSent: uploadedBytes,
-            progressPercent: Math.min(
-              99,
-              Math.floor((uploadedBytes / totalBytes) * 100),
-            ),
-          });
-        }
-        yield chunk;
-      }
+      yield* archive.stream as AsyncIterable<Buffer>;
     };
     const body = readArchive();
+
+    // Undici publishes after each socket write. Scope the process-wide
+    // events to this fetch, even when requests share the same endpoint.
+    const upload = Symbol('log upload');
+    const uploadPath = parsedUploadUrl.pathname + parsedUploadUrl.search;
+    let uploadRequest: IUndiciRequestEvent['request'] | undefined;
+    let uploadedBytes = 0;
+    let lastProgressAt = 0;
+    const onRequestCreated = (message: unknown) => {
+      const { request } = message as IUndiciRequestEvent;
+      if (
+        !uploadRequest &&
+        uploadContext.getStore() === upload &&
+        request.method === 'POST' &&
+        request.path === uploadPath
+      ) {
+        uploadRequest = request;
+      }
+    };
+    const onUploadChunk = (message: unknown) => {
+      const { request, chunk } = message as IUndiciUploadEvent;
+      if (request !== uploadRequest || totalBytes <= 0) return;
+      uploadedBytes +=
+        typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.byteLength;
+      const now = Date.now();
+      if (now - lastProgressAt >= 100 || uploadedBytes >= totalBytes) {
+        lastProgressAt = now;
+        sendProgress({
+          stage: ELogUploadStage.Uploading,
+          bytesSent: uploadedBytes,
+          progressPercent: Math.min(
+            99,
+            Math.floor((uploadedBytes / totalBytes) * 100),
+          ),
+        });
+      }
+    };
     const abortController = new AbortController();
     const startedAt = Date.now();
     let timedOut = false;
@@ -354,7 +374,11 @@ class DesktopApiDev {
         signal: abortController.signal,
         redirect: 'error',
       };
-      const response = await fetch(uploadUrl, requestInit);
+      requestCreated.subscribe(onRequestCreated);
+      uploadChunkSent.subscribe(onUploadChunk);
+      const response = await uploadContext.run(upload, () =>
+        fetch(uploadUrl, requestInit),
+      );
       const text = await response.text();
       // Log only safe metadata. The response body is intentionally NOT
       // written here — for non-2xx the upstream is often a Cloudflare HTML
@@ -462,6 +486,8 @@ class DesktopApiDev {
       // server replied before reading the body, error thrown before fetch).
       // Release the transport and the archive ourselves instead of leaving
       // an open fd and a stalled socket behind until the process exits.
+      requestCreated.unsubscribe(onRequestCreated);
+      uploadChunkSent.unsubscribe(onUploadChunk);
       clearTimeout(timeoutId);
       abortController.abort();
       archive.stream?.destroy();
