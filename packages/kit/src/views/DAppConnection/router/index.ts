@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { createElement, useLayoutEffect } from 'react';
 
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,7 +29,7 @@ function WalletConnectSessionProposalModal() {
     }
   }, []);
 
-  return <WalletConnectSessionProposalPage />;
+  return createElement(WalletConnectSessionProposalPage);
 }
 
 // For Extension Only
