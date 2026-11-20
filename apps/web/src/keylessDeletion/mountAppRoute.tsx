@@ -43,6 +43,7 @@ import { DeletionPage, SupportContact } from './DeletionPage';
 import { getKeylessEntry, getKeylessSite } from './entry';
 import {
   OPTIONAL_SETTINGS_TIMEOUT_MS,
+  createLocalePreference,
   getPreferredLocale,
   readLocalePreference,
   resolveLocale,
@@ -282,23 +283,24 @@ function ThemedInvite({
 function LocalizedInvite({
   business,
   invitationToken,
-  initialPreference,
+  localePreference,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
-  initialPreference: ILocaleSymbol;
+  localePreference: ReturnType<typeof createLocalePreference>;
 }) {
-  const [preference, setPreference] = useState(initialPreference);
+  const [preference, setPreference] = useState(localePreference.get);
   const save = useRef(Promise.resolve());
 
   function changeLanguage(locale: ILocaleSymbol) {
     save.current = save.current
       .then(async () => {
         await loadLocaleMessages(resolveLocale(locale));
+        await localePreference.set(locale);
         setPreference(locale);
       })
       .catch(() => {
-        // Keep the current language if the App locale catalogue could not load.
+        // Keep the current language if loading or persisting it fails.
       });
   }
 
@@ -333,12 +335,17 @@ export async function mount(container: HTMLElement) {
       : defaults,
     readLocalePreference(),
   ]);
-  const connection = createDeletionTransport(page, {
-    enabled: devSettings?.enabled === true,
-    settings: {
-      enableTestEndpoint: devSettings?.settings?.enableTestEndpoint === true,
+  const localePreference = createLocalePreference(initialPreference);
+  const connection = createDeletionTransport(
+    page,
+    {
+      enabled: devSettings?.enabled === true,
+      settings: {
+        enableTestEndpoint: devSettings?.settings?.enableTestEndpoint === true,
+      },
     },
-  });
+    { getLocalePreference: localePreference.get },
+  );
   if (!connection) {
     const locale = resolveLocale(initialPreference);
     const [notice, contact] = await Promise.all([
@@ -359,7 +366,7 @@ export async function mount(container: HTMLElement) {
       <LocalizedInvite
         business={business}
         invitationToken={token}
-        initialPreference={initialPreference}
+        localePreference={localePreference}
       />,
     );
   };

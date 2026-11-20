@@ -1,4 +1,5 @@
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import { travelModeManager } from '../travelMode';
 import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
 import resetUtils from '../utils/resetUtils';
@@ -109,6 +110,17 @@ export const buildAppStorageFactory = (
       onBlocked: () => callback?.(null),
     });
   };
+
+  const originalPatchObjectItem = storage.patchObjectItem;
+  if (originalPatchObjectItem) {
+    storage.patchObjectItem = async (key, patch) =>
+      travelModeManager.getRuntimeEnvironmentSync().persistence.run({
+        operation: () => originalPatchObjectItem.call(storage, key, patch),
+        onBlocked: () => {
+          throw new OneKeyLocalError('Settings storage is not available.');
+        },
+      });
+  }
 
   storage.setItem = setItem;
   storage.getItem = getItem;
