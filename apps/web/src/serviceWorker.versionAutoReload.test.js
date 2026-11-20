@@ -1678,6 +1678,84 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(client.reloadMock).toHaveBeenCalledTimes(1);
   });
 
+  test('reports the first page error when a pending manual update is withdrawn before any recovery instruction', async () => {
+    const activeBundle = await createV670Bundle();
+    const manualBundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: activeBundle });
+    await testBed.sendFromClient(
+      createLegacyV664Client({ url: UNITAS_EMAIL_URL }),
+      {
+        type: 'CHECK_VERSION',
+        payload: { clientVersion: V_OLD },
+      },
+    );
+    const criticalCache = await testBed.cacheStorage.open(
+      `onekey-web-critical:${V_NEW}`,
+    );
+    expect(await criticalCache.match(activeBundle.scriptUrl)).toBeDefined();
+
+    const client = createModernWebClientWithRealIndexJs({
+      testBed,
+      url: `${ORIGIN}/typo-route`,
+      version: V_OLD,
+      holdActivationRequests: true,
+    });
+    const reportedHealthy = {
+      clientVersion: V_OLD,
+      clientAutoReloadCapable: true,
+      hasPageError: false,
+    };
+    await client.bootServiceWorkerProtocol();
+    testBed.setServerBundle(manualBundle);
+    const checkVersionWhileHealthy = () =>
+      testBed.sendFromClient(client.clientHandle, {
+        type: 'CHECK_VERSION',
+        payload: reportedHealthy,
+      });
+    await checkVersionWhileHealthy();
+    client.clickRefresh();
+    expect(client.sentMessages).toHaveBeenCalledWith({
+      type: 'ACTIVATE_VERSION',
+      payload: expect.objectContaining({ version: V_NEXT }),
+    });
+    client.sentMessages.mockClear();
+    client.receivedWorkerMessages.length = 0;
+
+    const manifestResponse = Promise.withResolvers();
+    globalThis.fetch.mockImplementationOnce(() => manifestResponse.promise);
+    const withdrawal = checkVersionWhileHealthy();
+    const verifiedRecovery = {
+      type: 'VERSION_ACTIVATED',
+      payload: { version: V_NEW, autoReload: true },
+    };
+    try {
+      await client.triggerRouteNotFound();
+      expect(client.sentMessages).not.toHaveBeenCalled();
+      expect(client.receivedWorkerMessages).not.toContainEqual(
+        verifiedRecovery,
+      );
+    } finally {
+      testBed.setServerBundle(activeBundle);
+      manifestResponse.resolve(
+        new Response(JSON.stringify(activeBundle.manifest)),
+      );
+      await withdrawal;
+      await client.flushSwMessages();
+    }
+
+    expect(client.sentMessages).toHaveBeenCalledTimes(1);
+    expect(client.sentMessages).toHaveBeenCalledWith({
+      type: 'CHECK_VERSION',
+      payload: { ...reportedHealthy, hasPageError: true },
+    });
+    expect(client.receivedWorkerMessages).toContainEqual(verifiedRecovery);
+    jest.advanceTimersByTime(3000);
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(client.storageMap.get('__onekey_sw_error_auto_reload__')).toBe(
+      `${V_NEW}:/typo-route`,
+    );
+  });
+
   test('an unrelated failure and route recovery preserve a retried manual activation', async () => {
     const bundle = await createV670Bundle();
     const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
@@ -1702,6 +1780,7 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
       },
     };
     client.clientHandle.postMessage(failure);
+    await client.flushSwMessages();
     expect(client.clientHandle.getBannerElement()).toBeNull();
 
     jest.advanceTimersByTime(1000);

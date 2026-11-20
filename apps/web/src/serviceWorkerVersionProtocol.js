@@ -119,10 +119,13 @@ export function createServiceWorkerVersionProtocol({
     pendingActivation = undefined;
     const version = deferredAutoReloadVersion;
     deferredAutoReloadVersion = '';
-    if (!isAutoReloading && canAutoReload(version)) {
-      postMessage(MESSAGE_TYPES.CHECK_VERSION, {
-        retryAutoReloadVersion: version,
-      });
+    if (!isAutoReloading && isPageInErrorState()) {
+      postMessage(
+        MESSAGE_TYPES.CHECK_VERSION,
+        canAutoReload(version)
+          ? { retryAutoReloadVersion: version }
+          : undefined,
+      );
     }
   }
 
