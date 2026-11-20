@@ -222,9 +222,7 @@ import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
-import SwapSwapMbContainer, {
-  SWAP_TWO_PANE_FORM_WIDTH,
-} from './SwapSwapMbContainer';
+import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
@@ -258,6 +256,9 @@ const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
 // The $5 page padding beside the form, in points.
 const SWAP_FOLDABLE_PAGE_PADDING = 20;
+// Widest a tab without a second pane grows on an unfolded foldable iPhone,
+// page padding included; the same cap the limit form has on phones.
+const SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH = 520;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -2422,20 +2423,21 @@ const SwapMainLoad = ({
           ) : null}
           {!shouldRenderDesktopSwapHeader && isFoldableSwapPage ? (
             // Foldable phones keep one wrapper in every posture, so folding
-            // never remounts the content. Tabs that have no second pane yet
-            // are capped at the width they have on the folded screen: the
-            // content stays where Swap and Bridge put the form and does not
-            // resize when the device unfolds. A plain max width needs no
-            // window size, so it is never applied a frame late.
+            // never remounts the content. Tabs that have no second pane are
+            // capped and centered on the unfolded screen instead of
+            // stretching across it; the cap is wider than the folded screen,
+            // so nothing changes there. A plain max width needs no window
+            // size, so it is never applied a frame late.
             <YStack
               flex={1}
               minHeight={0}
               width="100%"
               onLayout={handleFoldableContentLayout}
+              alignSelf="center"
               maxWidth={
                 foldableProviderPanelTab || foldableChartPanelTab
                   ? undefined
-                  : SWAP_TWO_PANE_FORM_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2
+                  : SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH
               }
             >
               {swapContent}
