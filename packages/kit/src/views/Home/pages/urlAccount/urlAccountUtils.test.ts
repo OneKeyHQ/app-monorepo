@@ -70,7 +70,11 @@ function returnToHome(
   }
   return {
     action: backAction,
-    state: router.getStateForAction(state, backAction, routerOptions),
+    state: router.getStateForAction(
+      state,
+      backAction as Parameters<typeof router.getStateForAction>[1],
+      routerOptions,
+    ),
   };
 }
 
