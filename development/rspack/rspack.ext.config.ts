@@ -40,7 +40,6 @@ const hardwareSDKAliases = Object.fromEntries(
     '@onekeyfe/hd-transport-emulator',
     '@onekeyfe/hd-transport-http',
     '@onekeyfe/hd-transport-lowlevel',
-    '@onekeyfe/hd-transport-usb',
     '@onekeyfe/hd-transport-web-device',
   ].map((name) => [`${name}$`, requireExtensionSDK.resolve(name)]),
 );
