@@ -167,6 +167,7 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   deskChannel: string;
   processStartAt: number;
   supportsShareImageFile: boolean;
+  embeddedAccountDbCompatibilityVersion?: number;
 };
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
@@ -210,6 +211,8 @@ const desktopApi = {
     }
   },
   supportsShareImageFile: platformInfo.supportsShareImageFile,
+  embeddedAccountDbCompatibilityVersion:
+    platformInfo.embeddedAccountDbCompatibilityVersion,
   supportsCustomUserAgent: true,
   isDev,
   channel: platformInfo.channel,

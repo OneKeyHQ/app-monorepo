@@ -5,6 +5,11 @@ import path from 'path';
 import { rspack } from '@rspack/core';
 import { merge } from 'webpack-merge';
 
+import {
+  DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
+  DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE,
+} from '../../apps/desktop/app/libs/desktopAccountDbCompatibility';
+
 import { nodeEnv } from './constant';
 import { createBaseConfig } from './rspack.base.config';
 import { createDevelopmentConfig } from './rspack.development.config';
@@ -35,10 +40,32 @@ function copyRecursiveSync(src: string, dest: string): void {
   }
 }
 
-class FileHashMetadataPlugin implements RspackPluginInstance {
+class DesktopRendererMetadataPlugin implements RspackPluginInstance {
+  constructor(private readonly isBundleUpdate: boolean) {}
+
   apply(compiler: Compiler): void {
+    compiler.hooks.thisCompilation.tap(
+      'DesktopRendererMetadataPlugin',
+      (compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'DesktopRendererMetadataPlugin',
+            stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+          },
+          () => {
+            compilation.emitAsset(
+              DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE,
+              new rspack.sources.RawSource(
+                DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (!this.isBundleUpdate) return;
     compiler.hooks.afterEmit.tapAsync(
-      'FileHashMetadataPlugin',
+      'DesktopRendererMetadataPlugin',
       (compilation, callback) => {
         const outputPath = compilation.outputOptions.path;
         if (!outputPath) {
@@ -176,7 +203,7 @@ export function createDesktopConfig({
               htmlPlugin: 'html-webpack-plugin',
               enabled: 'auto',
             }),
-            BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
+            new DesktopRendererMetadataPlugin(BUILD_BUNDLE_UPDATE),
           ].filter(Boolean),
         },
       );

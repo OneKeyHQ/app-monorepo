@@ -7,34 +7,34 @@ on:
   workflow_call:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: string
         default: 'false'
       build_number:
-        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        description: 'Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided.'
         required: false
         type: string
         default: ''
       build_bundle_version:
-        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
         type: string
         default: ''
       source_ref_name:
-        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        description: 'Original source ref name to use for build metadata when running from a temporary CI tag.'
         required: false
         type: string
         default: ''
     outputs:
       build_number:
-        description: "Build number generated during renderer build"
+        description: 'Build number generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_number }}
       build_bundle_version:
-        description: "Bundle version generated during renderer build"
+        description: 'Bundle version generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_bundle_version }}
       build_app_version:
-        description: "App version from package.json"
+        description: 'App version from package.json'
         value: ${{ jobs.build-renderer.outputs.build_app_version }}
     secrets:
       PRIVATE_FONTS_TOKEN:
@@ -102,7 +102,7 @@ jobs:
 
       # Restore the private brand font fetched by the trusted `private-fonts` job
       # (no App key here; the artifact key only decrypts fonts). fonts:sync
-# verifies the result against this checkout's brand.lock.json.
+      # verifies the result against this checkout's brand.lock.json.
       - name: Restore private fonts
         if: needs.private-fonts.outputs.artifact != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -220,6 +220,10 @@ jobs:
           yarn exec cross-env NODE_ENV=production yarn clean:build
           yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
 
+      - name: Verify Desktop renderer compatibility before uploads
+        id: verify_desktop_renderer_schema
+        run: node ./apps/desktop/scripts/check-account-db-compatibility.js ./apps/desktop/web-build embedded
+
       # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
       # build without mutating emitted JS files. Sentry failures should not block
       # renderer artifact creation; failed uploads are archived separately before
@@ -251,7 +255,7 @@ jobs:
           fi
 
       - name: Upload Desktop Sourcemap Diagnostic Artifact
-        if: always() && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
+        if: always() && steps.verify_desktop_renderer_schema.outcome == 'success' && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -270,6 +274,9 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
+
+      - name: Verify built-in Desktop account database compatibility
+        run: node ./apps/desktop/scripts/check-account-db-compatibility.js ./apps/desktop/app/build embedded
 
       - name: Export build metadata
         id: export-metadata

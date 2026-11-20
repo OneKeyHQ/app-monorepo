@@ -1180,9 +1180,14 @@ describe('public account deletion tombstones', () => {
       const savedDesktop = platformEnv.isDesktop;
       const savedMas = platformEnv.isMas;
       const savedDev = platformEnv.isDev;
+      const savedEmbeddedDb =
+        platformEnv.desktopEmbeddedAccountDbCompatibilityVersion;
       platformEnv.isDesktop = desktop;
       platformEnv.isMas = false;
       platformEnv.isDev = false;
+      platformEnv.desktopEmbeddedAccountDbCompatibilityVersion = desktop
+        ? 22
+        : undefined;
       let attempts = 0;
       db.beforeTransaction = () => {
         attempts += 1;
@@ -1206,6 +1211,8 @@ describe('public account deletion tombstones', () => {
         platformEnv.isDesktop = savedDesktop;
         platformEnv.isMas = savedMas;
         platformEnv.isDev = savedDev;
+        platformEnv.desktopEmbeddedAccountDbCompatibilityVersion =
+          savedEmbeddedDb;
       }
     },
   );

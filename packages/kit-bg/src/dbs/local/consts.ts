@@ -19,8 +19,8 @@ export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
   `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
 export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
 export const INDEXED_DB_VERSION = LOCAL_DB_COMPATIBILITY_VERSION;
-// Web tabs still lack a shared Cloud authority transaction. Only production
-// Desktop builds with the Electron preload use the account archive.
+// Web tabs still lack a shared Cloud authority transaction. Desktop hot
+// updates can only enable the archive when the native fallback can open it.
 export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION = LOCAL_DB_VERSION;
 export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE = 'CloudSyncAccountArchive';
 
@@ -28,6 +28,8 @@ export function supportsIndexedCloudAccountArchive(): boolean {
   return (
     !!platformEnv.isDesktop &&
     typeof platformEnv.isMas === 'boolean' &&
+    platformEnv.desktopEmbeddedAccountDbCompatibilityVersion ===
+      INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION &&
     !platformEnv.isDev
   );
 }

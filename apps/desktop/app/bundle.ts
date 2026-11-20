@@ -13,6 +13,11 @@ import { PUBLIC_KEY } from './constant/gpg';
 import { ElectronTranslations } from './i18n';
 import { assertSafeBundleVersion, resolveBundlePath } from './libs/bundlePaths';
 import {
+  getEmbeddedDesktopAccountDbCompatibility,
+  hasCompatibleDesktopAccountDbBundle,
+  readDesktopAccountDbCompatibility,
+} from './libs/desktopAccountDbCompatibility';
+import {
   clearUpdateBundleData,
   getDevSettingsEnabled,
   getNativeBuildNumber,
@@ -307,7 +312,17 @@ export const getBundleIndexHtmlPath = ({
   if (!fs.existsSync(extractDir)) {
     return undefined;
   }
-  const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+  const rendererDirectory = path.join(extractDir, 'build');
+  if (
+    getEmbeddedDesktopAccountDbCompatibility(app.isPackaged) !== undefined &&
+    readDesktopAccountDbCompatibility(rendererDirectory) === undefined
+  ) {
+    // Do not boot an older download on a shell that can have upgraded local
+    // data. The built-in renderer is the safe fallback, not a database reset.
+    clearUpdateBundleData();
+    return undefined;
+  }
+  const indexHtmlPath = path.join(rendererDirectory, 'index.html');
   logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
@@ -376,21 +391,51 @@ export const getMetadata = async ({
   signature: string;
 }): Promise<Record<string, string>> => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
+  const requiresAccountDbProof =
+    getEmbeddedDesktopAccountDbCompatibility(app.isPackaged) !== undefined;
   const allowSkipGPG =
+    !requiresAccountDbProof &&
     String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true' &&
     Boolean(getDevSettingsEnabled?.() && getSkipGPGVerification?.());
-  if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({
-      appVersion,
-      expectedAppVersion: app.getVersion(),
+  let metadataBytes: Buffer;
+  if (requiresAccountDbProof) {
+    // On a v22-capable shell, compatibility is a property of signed bytes,
+    // not a flag a developer setting can disable. Parse that exact snapshot.
+    const signedHash = await readMetadataFileSha256(signature, {
+      appVersion: app.getVersion(),
       bundleVersion,
-      signature,
     });
+    if (!signedHash) throw new OneKeyLocalError('Invalid asc file');
+    metadataBytes = fs.readFileSync(metadataPath);
+    if (
+      crypto.createHash('sha256').update(metadataBytes).digest('hex') !==
+      signedHash
+    ) {
+      throw new OneKeyLocalError('Invalid asc file');
+    }
+  } else {
+    if (!allowSkipGPG) {
+      await verifyMetadataFileSha256({
+        appVersion,
+        expectedAppVersion: app.getVersion(),
+        bundleVersion,
+        signature,
+      });
+    }
+    metadataBytes = fs.readFileSync(metadataPath);
   }
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
+  const metadata = JSON.parse(metadataBytes.toString('utf8')) as Record<
     string,
     string
   >;
+  if (
+    requiresAccountDbProof &&
+    !hasCompatibleDesktopAccountDbBundle(bundleDir, metadata)
+  ) {
+    throw new OneKeyLocalError(
+      'Desktop bundle cannot open the account database',
+    );
+  }
   return metadata;
 };
 

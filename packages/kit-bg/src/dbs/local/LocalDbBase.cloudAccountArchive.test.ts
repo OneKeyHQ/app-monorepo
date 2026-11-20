@@ -136,6 +136,11 @@ beforeEach(() => {
   jest.replaceProperty(platformEnv, 'isDesktop', true);
   jest.replaceProperty(platformEnv, 'isMas', false);
   jest.replaceProperty(platformEnv, 'isDev', false);
+  jest.replaceProperty(
+    platformEnv,
+    'desktopEmbeddedAccountDbCompatibilityVersion',
+    22,
+  );
 });
 
 afterEach(() => jest.restoreAllMocks());
@@ -328,6 +333,82 @@ it('changes only the account IndexedDB version on the supported platforms', () =
     getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.backupAccount),
   ).toBe(21);
 });
+
+it.each([false, true])(
+  'old packaged v21 → candidate OTA → v21 rollback preserves the same database (MAS=%s)',
+  async (mas) => {
+    platformEnv.isMas = mas;
+    platformEnv.desktopEmbeddedAccountDbCompatibilityVersion = undefined;
+    const fixture = new IDBFactory();
+    jest.replaceProperty(globalThis, 'indexedDB', fixture);
+    const oldRenderer = new LocalDbIndexed();
+    const { old, current } = rows(81);
+    await retainFixture(oldRenderer, wallet(81), old);
+    const oldAgent = await oldRenderer.readyDb;
+    if (!(oldAgent instanceof IndexedDBAgent))
+      throw new OneKeyLocalError('Expected test IndexedDB agent');
+    const oldAccount = await oldAgent
+      .getIndexedByBucketName(EIndexedDBBucketNames.account)
+      .open();
+    const versionChanged = jest.fn();
+    oldAccount.addEventListener('versionchange', versionChanged);
+    expect(oldAccount.version).toBe(21);
+
+    // An OTA changes the renderer only. The old shell never supplies the
+    // compatibility field, even though the new renderer knows how to use v22.
+    const candidate = new LocalDbIndexed();
+    const candidateAgent = await candidate.readyDb;
+    if (!(candidateAgent instanceof IndexedDBAgent))
+      throw new OneKeyLocalError('Expected test IndexedDB agent');
+    const candidateAccount = await candidateAgent
+      .getIndexedByBucketName(EIndexedDBBucketNames.account)
+      .open();
+    expect(candidateAccount.version).toBe(21);
+    expect(
+      candidateAccount.objectStoreNames.contains(
+        INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+      ),
+    ).toBe(false);
+    await expect(candidate.getSyncItem({ id: old.id })).resolves.toEqual(old);
+    await retainFixture(candidate, wallet(82), {
+      ...current,
+      id: 'new-local-test-row',
+    });
+    expect(versionChanged).not.toHaveBeenCalled();
+    oldAccount.close();
+    candidateAccount.close();
+
+    // Model an embedded v21 renderer independently of candidate's version logic.
+    const fallback = await new Promise<IDBDatabase>((resolve, reject) => {
+      const reopen = fixture.open(
+        INDEXED_DB_NAME(EIndexedDBBucketNames.account),
+        21,
+      );
+      reopen.onsuccess = () => resolve(reopen.result);
+      reopen.onerror = () => reject(reopen.error);
+    });
+    try {
+      expect(fallback.version).toBe(21);
+      expect(
+        fallback.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
+      ).toBe(false);
+      const persisted = await new Promise<unknown>((resolve, reject) => {
+        const request = fallback
+          .transaction(ELocalDBStoreNames.CloudSyncItem, 'readonly')
+          .objectStore(ELocalDBStoreNames.CloudSyncItem)
+          .get('new-local-test-row');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      expect(persisted).toMatchObject({
+        id: 'new-local-test-row',
+        data: current.data,
+      });
+    } finally {
+      fallback.close();
+    }
+  },
+);
 
 it.each([false, true])('upgrades account DB only (MAS=%s)', async (mas) => {
   platformEnv.isMas = mas;

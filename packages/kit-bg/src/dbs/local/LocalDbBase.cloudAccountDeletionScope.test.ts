@@ -226,6 +226,11 @@ beforeEach(() => {
   jest.replaceProperty(platformEnv, 'isDesktop', true);
   jest.replaceProperty(platformEnv, 'isMas', false);
   jest.replaceProperty(platformEnv, 'isDev', false);
+  jest.replaceProperty(
+    platformEnv,
+    'desktopEmbeddedAccountDbCompatibilityVersion',
+    22,
+  );
 });
 
 afterEach(() => jest.restoreAllMocks());

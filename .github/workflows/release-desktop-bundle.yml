@@ -124,7 +124,7 @@ jobs:
 
       # Restore the private brand font fetched by the trusted `private-fonts` job
       # (no App key here; the artifact key only decrypts fonts). fonts:sync
-# verifies the result against this checkout's brand.lock.json.
+      # verifies the result against this checkout's brand.lock.json.
       - name: Restore private fonts
         if: needs.private-fonts.outputs.artifact != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -306,6 +306,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'cd apps/desktop && yarn build:JsBundle'
 
+      - name: Verify Desktop OTA account database compatibility
+        id: verify_desktop_bundle_schema
+        shell: bash
+        run: |
+          if [ -f ./apps/desktop/scripts/check-account-db-compatibility.js ]; then
+            node ./apps/desktop/scripts/check-account-db-compatibility.js ./apps/desktop/web-build ota
+          else
+            # A reusable workflow can check out a genuinely old v21 source.
+            # Never waive the check for a ref that can upgrade the database.
+            node -e '
+              const source = require("fs").readFileSync("packages/kit-bg/src/dbs/local/consts.ts", "utf8");
+              const version = /^const LOCAL_DB_VERSION = (\d+);$/m.exec(source)?.[1];
+              if (!version || Number(version) > 21) throw new Error("Desktop OTA schema compatibility check is missing");
+            '
+          fi
+
       - name: Upload Desktop Bundle Sourcemaps to Sentry
         id: upload_desktop_bundle_sourcemaps
         continue-on-error: true
@@ -336,7 +352,7 @@ jobs:
           fi
 
       - name: Upload Desktop Bundle Sourcemap Diagnostic Artifact
-        if: always() && steps.upload_desktop_bundle_sourcemaps.outputs.uploaded != 'true'
+        if: always() && steps.verify_desktop_bundle_schema.outcome == 'success' && steps.upload_desktop_bundle_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -478,7 +494,7 @@ jobs:
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-build-source: "${{ inputs.build_source || 'daily-build' }}"
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
 
