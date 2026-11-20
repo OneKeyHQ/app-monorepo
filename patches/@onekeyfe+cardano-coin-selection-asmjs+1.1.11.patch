@@ -1,0 +1,472 @@
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/dapp.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/dapp.js
+index 4cc2bf1..335eb2c 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/dapp.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/dapp.js
+@@ -89,21 +89,34 @@ const getUtxos = async (address, utxos, amount) => {
+ };
+ const convertCborTxToEncodeTx = async ({ txHex, utxos, addresses, changeAddress, isSignOnly, }) => {
+     var _a, _b, _c, _d;
+-    let body;
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // let body;
++    // let rawTxHex;
++    // try {
++    //     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
++    //     body = tx.body();
++    //     rawTxHex = txHex;
++    // }
++    // catch (_e) {
++    //     // Input is TransactionBody only (e.g., from staking providers like stakefish)
++    //     // Build a complete Transaction with empty witness set
++    //     body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
++    //     const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
++    //     const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
++    //     rawTxHex = Buffer.from(tx.to_bytes(), 'hex').toString('hex');
++    // }
++    let tx;
+     let rawTxHex;
+     try {
+-        const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
+-        body = tx.body();
++        tx = CardanoWasm.FixedTransaction.from_hex(txHex);
+         rawTxHex = txHex;
+     }
+     catch (_e) {
+-        // Input is TransactionBody only (e.g., from staking providers like stakefish)
+-        // Build a complete Transaction with empty witness set
+-        body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+-        const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+-        const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
+-        rawTxHex = Buffer.from(tx.to_bytes(), 'hex').toString('hex');
++        // Staking providers may supply only a transaction body.
++        tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txHex, 'hex'));
++        rawTxHex = tx.to_hex();
+     }
++    const body = tx.body();
+     // Fee
+     const fee = body.fee().to_str();
+     const totalFeeInNative = new bignumber_js_1.default(fee).shiftedBy(-1 * 6).toFixed();
+@@ -265,10 +278,13 @@ const convertCborTxToEncodeTx = async ({ txHex, utxos, addresses, changeAddress,
+             token,
+         },
+         tx: {
+-            body: body.to_hex(),
+-            hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
+-                .transaction_hash()
+-                .to_hex(),
++            // OneKey patch: preserve the original CBOR signing bytes.
++            // body: body.to_hex(),
++            // hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
++            //     .transaction_hash()
++            //     .to_hex(),
++            body: Buffer.from(tx.raw_body()).toString('hex'),
++            hash: tx.transaction_hash().to_hex(),
+             size: 0,
+             rawTxHex,
+         },
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/hasSetTag.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/hasSetTag.js
+index 06561f1..bf72eea 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/hasSetTag.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/hasSetTag.js
+@@ -26,9 +26,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.hasSetTagWithBody = void 0;
+ const CardanoWasm = __importStar(require("@emurgo/cardano-serialization-lib-asmjs"));
+ const hasSetTagWithBody = (txBodyHex) => {
+-    const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
+-    const witnesses = CardanoWasm.TransactionWitnessSet.new();
+-    const tx = CardanoWasm.Transaction.new(txBody, witnesses);
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    // const witnesses = CardanoWasm.TransactionWitnessSet.new();
++    // const tx = CardanoWasm.Transaction.new(txBody, witnesses);
++    const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     let tagCborSets = false;
+     try {
+         const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/signTx.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/signTx.js
+index 0181410..9bd956c 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/signTx.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/signTx.js
+@@ -32,8 +32,10 @@ const signTransaction = async (txBodyHex, address, accountIndex, utxos, xprv, si
+     if (!serializedUtxos || serializedUtxos === null) {
+         throw new Error('no utxos');
+     }
+-    const transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+-    const rawTx = CardanoWasm.Transaction.new(CardanoWasm.TransactionBody.from_hex(txBodyHex), CardanoWasm.TransactionWitnessSet.from_bytes(transactionWitnessSet.to_bytes()));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new();
++    // const rawTx = CardanoWasm.Transaction.new(CardanoWasm.TransactionBody.from_hex(txBodyHex), CardanoWasm.TransactionWitnessSet.from_bytes(transactionWitnessSet.to_bytes()));
++    const rawTx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     const keyHashes = await getKeyHashes(rawTx, serializedUtxos, { paymentAddr: address });
+     const witnessSet = await (0, exports.signTx)({ paymentKey, stakeKey, accountKey }, Buffer.from(rawTx.to_bytes(), 'utf8').toString('hex'), keyHashes.key, partialSign);
+     if (signOnly) {
+@@ -42,11 +44,15 @@ const signTransaction = async (txBodyHex, address, accountIndex, utxos, xprv, si
+             txid: '',
+         };
+     }
+-    const transaction = CardanoWasm.Transaction.new(rawTx.body(), witnessSet, rawTx.auxiliary_data());
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transaction = CardanoWasm.Transaction.new(rawTx.body(), witnessSet, rawTx.auxiliary_data());
++    const transaction = CardanoWasm.FixedTransaction.new(rawTx.raw_body(), witnessSet.to_bytes(), rawTx.is_valid());
+     const signedTx = Buffer.from(transaction.to_bytes(), 'hex').toString('hex');
+-    const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(transaction.body().to_bytes())
+-        .transaction_hash()
+-        .to_hex();
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(transaction.body().to_bytes())
++    //     .transaction_hash()
++    //     .to_hex();
++    const hash = transaction.transaction_hash().to_hex();
+     return {
+         signedTx,
+         txid: hash,
+@@ -64,10 +70,14 @@ const signTx = async (keys, tx, keyHashes, partialSign = false) => {
+     const { paymentKey, stakeKey } = keys;
+     const paymentKeyHash = Buffer.from(paymentKey === null || paymentKey === void 0 ? void 0 : paymentKey.to_public().hash().to_bytes(), 'hex').toString('hex');
+     const stakeKeyHash = Buffer.from(stakeKey.to_public().hash().to_bytes(), 'hex').toString('hex');
+-    const rawTx = CardanoWasm.Transaction.from_bytes(Buffer.from(tx, 'hex'));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const rawTx = CardanoWasm.Transaction.from_bytes(Buffer.from(tx, 'hex'));
++    const rawTx = CardanoWasm.FixedTransaction.from_hex(tx);
+     const txWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+     const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
+-    const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(rawTx.body().to_bytes()).transaction_hash();
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(rawTx.body().to_bytes()).transaction_hash();
++    const txHash = rawTx.transaction_hash();
+     keyHashes.forEach(keyHash => {
+         let signingKey;
+         if (keyHash === paymentKeyHash)
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/txToOneKey.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/txToOneKey.js
+index 21ca20a..1ce983d 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/txToOneKey.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/onekey/txToOneKey.js
+@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.txToOneKey = exports.CardanoPoolRelayType = exports.CardanoDRepType = exports.CardanoCertificateType = exports.CardanoTxSigningMode = exports.CardanoAddressType = void 0;
+ // @ts-nocheck
+ const CardanoWasm = __importStar(require("@emurgo/cardano-serialization-lib-asmjs"));
++const hasSetTag_1 = require("./hasSetTag");
+ var CardanoAddressType;
+ (function (CardanoAddressType) {
+     CardanoAddressType[CardanoAddressType["BASE"] = 0] = "BASE";
+@@ -186,9 +187,13 @@ const outputsToOneKey = (outputs, changeAddress) => {
+         const outputRes = Object.assign({ amount: output.amount().coin().to_str(), tokenBundle,
+             datumHash, 
+             // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+-            format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
+-                ? 1
+-                : 0, inlineDatum,
++            // OneKey patch: preserve the original CBOR signing bytes.
++            // format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
++            //     ? 1
++            //     : 0, inlineDatum,
++            format: output.serialization_format() !== undefined
++                ? output.serialization_format()
++                : (Buffer.from(output.to_bytes()).toString('hex').startsWith('a') ? 1 : 0), inlineDatum,
+             referenceScript }, destination);
+         if (!tokenBundle)
+             delete outputRes.tokenBundle;
+@@ -209,7 +214,9 @@ const outputsToOneKey = (outputs, changeAddress) => {
+ const txToOneKey = async (rawTx, network, initKeys, xpub, changeAddress) => {
+     var _a, _b, _c, _d;
+     const keys = generateKeys(initKeys, xpub);
+-    const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
++    const tx = CardanoWasm.FixedTransaction.from_hex(rawTx);
+     let signingMode = CardanoTxSigningMode.ORDINARY_TRANSACTION;
+     const outputs = tx.body().outputs();
+     const onekeyOutputs = outputsToOneKey(outputs, changeAddress);
+@@ -541,10 +548,12 @@ const txToOneKey = async (rawTx, network, initKeys, xpub, changeAddress) => {
+     const includeNetworkId = !!tx.body().network_id();
+     let tagCborSets = false;
+     try {
+-        const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
+-        tagCborSets =
+-            tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
+-                tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
++        // OneKey patch: preserve the original CBOR signing bytes.
++        // const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
++        // tagCborSets =
++        //     tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
++        //         tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
++        tagCborSets = await (0, hasSetTag_1.hasSetTagWithBody)(Buffer.from(tx.raw_body()).toString('hex'));
+     }
+     catch (error) {
+         // ignore
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/trezor/sign.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/trezor/sign.js
+index a1c50e0..bd2d30e 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/trezor/sign.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/cjs/utils/trezor/sign.js
+@@ -27,10 +27,13 @@ exports.signTransaction = void 0;
+ const CardanoWasm = __importStar(require("@emurgo/cardano-serialization-lib-asmjs"));
+ const trezor_1 = require("../../types/trezor");
+ const common_1 = require("../common");
++const error_1 = require("../onekey/error");
+ const signTransaction = (txBodyHex, 
+ // txMetadata: CardanoWasm.AuxiliaryData,
+ signedWitnesses, options) => {
+-    const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     const witnesses = CardanoWasm.TransactionWitnessSet.new();
+     const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
+     const bootstrapWitnesses = CardanoWasm.BootstrapWitnesses.new();
+@@ -38,6 +41,10 @@ signedWitnesses, options) => {
+         const vKey = CardanoWasm.Vkey.new(CardanoWasm.PublicKey.from_bytes(Buffer.from(w.pubKey, 'hex')));
+         const signature = CardanoWasm.Ed25519Signature.from_bytes(Buffer.from(w.signature, 'hex'));
+         if (w.type === trezor_1.CardanoTxWitnessType.SHELLEY_WITNESS) {
++            // OneKey patch: reject hardware signatures over a re-encoded body.
++            if (!vKey.public_key().verify(tx.transaction_hash().to_bytes(), signature)) {
++                throw error_1.TxSignError.ProofGeneration;
++            }
+             // Shelley witness
+             const vKeyWitness = CardanoWasm.Vkeywitness.new(vKey, signature);
+             vkeyWitnesses.add(vKeyWitness);
+@@ -62,7 +69,9 @@ signedWitnesses, options) => {
+     if (options === null || options === void 0 ? void 0 : options.signOnly) {
+         return Promise.resolve(Buffer.from(witnesses.to_bytes(), 'utf8').toString('hex'));
+     }
+-    const transaction = CardanoWasm.Transaction.new(txBody, witnesses);
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transaction = CardanoWasm.Transaction.new(txBody, witnesses);
++    const transaction = CardanoWasm.FixedTransaction.new(tx.raw_body(), witnesses.to_bytes(), tx.is_valid());
+     const serializedTx = Buffer.from(transaction.to_bytes()).toString('hex');
+     return Promise.resolve(serializedTx);
+ };
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/dapp.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/dapp.js
+index 0cf3bf7..151ece8 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/dapp.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/dapp.js
+@@ -59,21 +59,34 @@ const getUtxos = async (address, utxos, amount) => {
+ };
+ const convertCborTxToEncodeTx = async ({ txHex, utxos, addresses, changeAddress, isSignOnly, }) => {
+     var _a, _b, _c, _d;
+-    let body;
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // let body;
++    // let rawTxHex;
++    // try {
++    //     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
++    //     body = tx.body();
++    //     rawTxHex = txHex;
++    // }
++    // catch (_e) {
++    //     // Input is TransactionBody only (e.g., from staking providers like stakefish)
++    //     // Build a complete Transaction with empty witness set
++    //     body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
++    //     const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
++    //     const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
++    //     rawTxHex = Buffer.from(tx.to_bytes(), 'hex').toString('hex');
++    // }
++    let tx;
+     let rawTxHex;
+     try {
+-        const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
+-        body = tx.body();
++        tx = CardanoWasm.FixedTransaction.from_hex(txHex);
+         rawTxHex = txHex;
+     }
+     catch (_e) {
+-        // Input is TransactionBody only (e.g., from staking providers like stakefish)
+-        // Build a complete Transaction with empty witness set
+-        body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+-        const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+-        const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
+-        rawTxHex = Buffer.from(tx.to_bytes(), 'hex').toString('hex');
++        // Staking providers may supply only a transaction body.
++        tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txHex, 'hex'));
++        rawTxHex = tx.to_hex();
+     }
++    const body = tx.body();
+     // Fee
+     const fee = body.fee().to_str();
+     const totalFeeInNative = new BigNumber(fee).shiftedBy(-1 * 6).toFixed();
+@@ -235,10 +248,13 @@ const convertCborTxToEncodeTx = async ({ txHex, utxos, addresses, changeAddress,
+             token,
+         },
+         tx: {
+-            body: body.to_hex(),
+-            hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
+-                .transaction_hash()
+-                .to_hex(),
++            // OneKey patch: preserve the original CBOR signing bytes.
++            // body: body.to_hex(),
++            // hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
++            //     .transaction_hash()
++            //     .to_hex(),
++            body: Buffer.from(tx.raw_body()).toString('hex'),
++            hash: tx.transaction_hash().to_hex(),
+             size: 0,
+             rawTxHex,
+         },
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/hasSetTag.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/hasSetTag.js
+index f769946..f3073a6 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/hasSetTag.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/hasSetTag.js
+@@ -1,8 +1,10 @@
+ import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
+ export const hasSetTagWithBody = (txBodyHex) => {
+-    const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
+-    const witnesses = CardanoWasm.TransactionWitnessSet.new();
+-    const tx = CardanoWasm.Transaction.new(txBody, witnesses);
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    // const witnesses = CardanoWasm.TransactionWitnessSet.new();
++    // const tx = CardanoWasm.Transaction.new(txBody, witnesses);
++    const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     let tagCborSets = false;
+     try {
+         const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/signTx.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/signTx.js
+index b5f269f..7bd3357 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/signTx.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/signTx.js
+@@ -6,8 +6,10 @@ export const signTransaction = async (txBodyHex, address, accountIndex, utxos, x
+     if (!serializedUtxos || serializedUtxos === null) {
+         throw new Error('no utxos');
+     }
+-    const transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+-    const rawTx = CardanoWasm.Transaction.new(CardanoWasm.TransactionBody.from_hex(txBodyHex), CardanoWasm.TransactionWitnessSet.from_bytes(transactionWitnessSet.to_bytes()));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new();
++    // const rawTx = CardanoWasm.Transaction.new(CardanoWasm.TransactionBody.from_hex(txBodyHex), CardanoWasm.TransactionWitnessSet.from_bytes(transactionWitnessSet.to_bytes()));
++    const rawTx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     const keyHashes = await getKeyHashes(rawTx, serializedUtxos, { paymentAddr: address });
+     const witnessSet = await signTx({ paymentKey, stakeKey, accountKey }, Buffer.from(rawTx.to_bytes(), 'utf8').toString('hex'), keyHashes.key, partialSign);
+     if (signOnly) {
+@@ -16,11 +18,15 @@ export const signTransaction = async (txBodyHex, address, accountIndex, utxos, x
+             txid: '',
+         };
+     }
+-    const transaction = CardanoWasm.Transaction.new(rawTx.body(), witnessSet, rawTx.auxiliary_data());
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transaction = CardanoWasm.Transaction.new(rawTx.body(), witnessSet, rawTx.auxiliary_data());
++    const transaction = CardanoWasm.FixedTransaction.new(rawTx.raw_body(), witnessSet.to_bytes(), rawTx.is_valid());
+     const signedTx = Buffer.from(transaction.to_bytes(), 'hex').toString('hex');
+-    const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(transaction.body().to_bytes())
+-        .transaction_hash()
+-        .to_hex();
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(transaction.body().to_bytes())
++    //     .transaction_hash()
++    //     .to_hex();
++    const hash = transaction.transaction_hash().to_hex();
+     return {
+         signedTx,
+         txid: hash,
+@@ -37,10 +43,14 @@ export const signTx = async (keys, tx, keyHashes, partialSign = false) => {
+     const { paymentKey, stakeKey } = keys;
+     const paymentKeyHash = Buffer.from(paymentKey === null || paymentKey === void 0 ? void 0 : paymentKey.to_public().hash().to_bytes(), 'hex').toString('hex');
+     const stakeKeyHash = Buffer.from(stakeKey.to_public().hash().to_bytes(), 'hex').toString('hex');
+-    const rawTx = CardanoWasm.Transaction.from_bytes(Buffer.from(tx, 'hex'));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const rawTx = CardanoWasm.Transaction.from_bytes(Buffer.from(tx, 'hex'));
++    const rawTx = CardanoWasm.FixedTransaction.from_hex(tx);
+     const txWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+     const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
+-    const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(rawTx.body().to_bytes()).transaction_hash();
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(rawTx.body().to_bytes()).transaction_hash();
++    const txHash = rawTx.transaction_hash();
+     keyHashes.forEach(keyHash => {
+         let signingKey;
+         if (keyHash === paymentKeyHash)
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/txToOneKey.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/txToOneKey.js
+index ab5ef2a..50cc6bc 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/txToOneKey.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/onekey/txToOneKey.js
+@@ -1,5 +1,6 @@
+ // @ts-nocheck
+ import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
++import { hasSetTagWithBody } from './hasSetTag';
+ export var CardanoAddressType;
+ (function (CardanoAddressType) {
+     CardanoAddressType[CardanoAddressType["BASE"] = 0] = "BASE";
+@@ -160,9 +161,13 @@ const outputsToOneKey = (outputs, changeAddress) => {
+         const outputRes = Object.assign({ amount: output.amount().coin().to_str(), tokenBundle,
+             datumHash, 
+             // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+-            format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
+-                ? 1
+-                : 0, inlineDatum,
++            // OneKey patch: preserve the original CBOR signing bytes.
++            // format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
++            //     ? 1
++            //     : 0, inlineDatum,
++            format: output.serialization_format() !== undefined
++                ? output.serialization_format()
++                : (Buffer.from(output.to_bytes()).toString('hex').startsWith('a') ? 1 : 0), inlineDatum,
+             referenceScript }, destination);
+         if (!tokenBundle)
+             delete outputRes.tokenBundle;
+@@ -183,7 +188,9 @@ const outputsToOneKey = (outputs, changeAddress) => {
+ export const txToOneKey = async (rawTx, network, initKeys, xpub, changeAddress) => {
+     var _a, _b, _c, _d;
+     const keys = generateKeys(initKeys, xpub);
+-    const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
++    const tx = CardanoWasm.FixedTransaction.from_hex(rawTx);
+     let signingMode = CardanoTxSigningMode.ORDINARY_TRANSACTION;
+     const outputs = tx.body().outputs();
+     const onekeyOutputs = outputsToOneKey(outputs, changeAddress);
+@@ -515,10 +522,12 @@ export const txToOneKey = async (rawTx, network, initKeys, xpub, changeAddress)
+     const includeNetworkId = !!tx.body().network_id();
+     let tagCborSets = false;
+     try {
+-        const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
+-        tagCborSets =
+-            tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
+-                tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
++        // OneKey patch: preserve the original CBOR signing bytes.
++        // const tagCBOR = CardanoWasm.has_transaction_set_tag(tx.to_bytes()).valueOf();
++        // tagCborSets =
++        //     tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
++        //         tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
++        tagCborSets = await hasSetTagWithBody(Buffer.from(tx.raw_body()).toString('hex'));
+     }
+     catch (error) {
+         // ignore
+diff --git a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/trezor/sign.js b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/trezor/sign.js
+index 653a7f3..1ab2386 100644
+--- a/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/trezor/sign.js
++++ b/node_modules/@onekeyfe/cardano-coin-selection-asmjs/lib/esm/utils/trezor/sign.js
+@@ -1,10 +1,13 @@
+ import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
+ import { CardanoTxWitnessType, } from '../../types/trezor';
+ import { getProtocolMagic } from '../common';
++import { TxSignError } from '../onekey/error';
+ export const signTransaction = (txBodyHex, 
+ // txMetadata: CardanoWasm.AuxiliaryData,
+ signedWitnesses, options) => {
+-    const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const txBody = CardanoWasm.TransactionBody.from_bytes(Uint8Array.from(Buffer.from(txBodyHex, 'hex')));
++    const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(Buffer.from(txBodyHex, 'hex'));
+     const witnesses = CardanoWasm.TransactionWitnessSet.new();
+     const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
+     const bootstrapWitnesses = CardanoWasm.BootstrapWitnesses.new();
+@@ -12,6 +15,10 @@ signedWitnesses, options) => {
+         const vKey = CardanoWasm.Vkey.new(CardanoWasm.PublicKey.from_bytes(Buffer.from(w.pubKey, 'hex')));
+         const signature = CardanoWasm.Ed25519Signature.from_bytes(Buffer.from(w.signature, 'hex'));
+         if (w.type === CardanoTxWitnessType.SHELLEY_WITNESS) {
++            // OneKey patch: reject hardware signatures over a re-encoded body.
++            if (!vKey.public_key().verify(tx.transaction_hash().to_bytes(), signature)) {
++                throw TxSignError.ProofGeneration;
++            }
+             // Shelley witness
+             const vKeyWitness = CardanoWasm.Vkeywitness.new(vKey, signature);
+             vkeyWitnesses.add(vKeyWitness);
+@@ -36,7 +43,9 @@ signedWitnesses, options) => {
+     if (options === null || options === void 0 ? void 0 : options.signOnly) {
+         return Promise.resolve(Buffer.from(witnesses.to_bytes(), 'utf8').toString('hex'));
+     }
+-    const transaction = CardanoWasm.Transaction.new(txBody, witnesses);
++    // OneKey patch: preserve the original CBOR signing bytes.
++    // const transaction = CardanoWasm.Transaction.new(txBody, witnesses);
++    const transaction = CardanoWasm.FixedTransaction.new(tx.raw_body(), witnesses.to_bytes(), tx.is_valid());
+     const serializedTx = Buffer.from(transaction.to_bytes()).toString('hex');
+     return Promise.resolve(serializedTx);
+ };
