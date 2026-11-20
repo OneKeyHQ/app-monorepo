@@ -137,7 +137,9 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-it('gets to the next real reconciliation page only after atomic account apply and archival', async () => {
+it.each([false, true])('pages after atomic apply (MAS=%s)', async (mas) => {
+  platformEnv.isMas = mas;
+  jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
   const writer = new LocalDbIndexed();
   const secondConnection = new LocalDbIndexed();
   const target = wallet(1);
@@ -322,7 +324,8 @@ it('changes only the account IndexedDB version on the supported platforms', () =
   ).toBe(21);
 });
 
-it('upgrades only the disposable account Database and rejects an old reopen without destroying data', async () => {
+it.each([false, true])('upgrades account DB only (MAS=%s)', async (mas) => {
+  platformEnv.isMas = mas;
   jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
   platformEnv.isDesktop = false;
   const legacy = new LocalDbIndexed();
@@ -378,12 +381,17 @@ it('upgrades only the disposable account Database and rejects an old reopen with
 });
 
 it.each([
-  { desktop: false, mas: false, dev: false },
-  { desktop: true, mas: true, dev: false },
-  { desktop: true, mas: undefined, dev: false },
-  { desktop: true, mas: false, dev: true },
+  { platform: 'Web', desktop: false, mas: false, dev: false },
+  { platform: 'native', desktop: false, mas: false, dev: false },
+  {
+    platform: 'missing Desktop preload',
+    desktop: true,
+    mas: undefined,
+    dev: false,
+  },
+  { platform: 'development Desktop', desktop: true, mas: false, dev: true },
 ])(
-  'does not upgrade a platform without proven single-session authority: %o',
+  'keeps the baseline account schema on $platform',
   ({ desktop, mas, dev }) => {
     platformEnv.isDesktop = desktop;
     platformEnv.isMas = mas;

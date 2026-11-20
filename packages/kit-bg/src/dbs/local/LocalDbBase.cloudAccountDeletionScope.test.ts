@@ -220,7 +220,8 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-it('stores the actual current encrypted tombstone plus old foreign archive in the local deletion commit', async () => {
+it.each([false, true])('archives on local delete (MAS=%s)', async (mas) => {
+  platformEnv.isMas = mas;
   const h = await fixture();
   await h.remove();
   expect(h.stages).toEqual(['key', 'import', 'repair']);
