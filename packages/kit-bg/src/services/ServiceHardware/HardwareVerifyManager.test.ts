@@ -354,6 +354,17 @@ describe('device warranty', () => {
       expect(second).toEqual(first);
     });
 
+    it('settles when the kept record cannot be read', async () => {
+      getRecord.mockRejectedValue(new Error('storage unavailable'));
+      const result = await manager.firmwareAuthenticate({ device });
+      expect(result.verified).toBe(true);
+      // The check kept the certificate; the lookup it started reads it back.
+      expect(updateRecord).toHaveBeenCalledTimes(1);
+      await expect(
+        manager.refreshDeviceWarranty({ serialNo: 'PR123' }),
+      ).resolves.toEqual({ hasCert: false, info: undefined });
+    });
+
     it('keeps the last result when the lookup fails', async () => {
       getRecord.mockResolvedValue({
         cert: 'mock-cert',

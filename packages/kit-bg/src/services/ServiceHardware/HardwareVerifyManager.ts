@@ -360,12 +360,14 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     { recheckUnknown = false }: { recheckUnknown?: boolean } = {},
   ): Promise<IDeviceWarrantyState> {
     const db = this.backgroundApi.simpleDb.deviceWarranty;
-    let record = await db.getRecord(serialNo);
-    const cert = record?.cert;
-    if (!cert) {
-      return toWarrantyState(record);
-    }
+    let record: IDeviceWarrantyRecord | undefined;
+    // Never rejects: the lookup a check starts has no one waiting on it.
     try {
+      record = await db.getRecord(serialNo);
+      const cert = record?.cert;
+      if (!cert) {
+        return toWarrantyState(record);
+      }
       let info = await this.fetchDeviceWarranty(cert);
       // The check that just ran may not have reached the server's records.
       if (recheckUnknown && info?.status === 'unknown') {

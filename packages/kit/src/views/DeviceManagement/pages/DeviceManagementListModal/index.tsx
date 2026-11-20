@@ -724,7 +724,10 @@ function DeviceManagementV2ListWeb() {
             data={hwQrWalletList}
             keyExtractor={(item) => item.wallet.id}
             renderCard={(item) => (
+              // A recycled cell remounts the card for its new wallet, so a
+              // chip or connection dot never carries over from the last one.
               <DeviceCard
+                key={item.wallet.id}
                 item={item}
                 onPress={onWalletPressed}
                 isConnected={walletConnectionMap.get(item.wallet.id) ?? false}
