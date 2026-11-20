@@ -18,7 +18,6 @@ import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
-import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IFetchQuoteResult,
   ISwapQuoteEventData,
@@ -37,11 +36,10 @@ import { DustSweepError } from './DustSweepError';
 
 export class DustSweepSkip extends DustSweepError {}
 
-// Unwrap quotes use the native wrapper contract instead of a DEX provider.
-export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
+function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
   return (
-    quote.info?.provider === DUST_SWEEP_PROVIDER ||
-    quote.info?.provider === 'wrapped'
+    typeof quote.info?.provider === 'string' &&
+    quote.info.provider.trim().length > 0
   );
 }
 
@@ -352,7 +350,7 @@ export function fetchDustSweepQuote(
     void backgroundApiProxy.serviceSwap
       .fetchQuotesEvents({
         source: ESwapQuoteSource.SWEEP,
-        denySingleSwapProvider: snapshot.denySingleSwapProvider,
+        skipSingleSwapProviderDenyList: true,
         fromToken: token,
         toToken: snapshot.nativeToken,
         fromTokenAmount: token.amount,

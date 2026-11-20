@@ -25,6 +25,7 @@ import {
   useMarketSimpleChartRangePriceChange,
 } from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
+import { useSelectedStockTokenTrading } from '../../hooks/useSelectedStockTokenTrading';
 import { useStockPriceSource } from '../../hooks/useStockPriceSource';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
@@ -180,6 +181,7 @@ export function StockMobilePriceHeader() {
         selectedTokenVariant?.tradingHours?.isPaused,
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
+  const tokenTrading = useSelectedStockTokenTrading(!isSharePrice);
   const changeValueText = priceChangeValue?.toFixed();
   const tokenName = stockDetail?.name ?? tokenDetail?.name ?? '';
   const tokenSymbol =
@@ -288,6 +290,7 @@ export function StockMobilePriceHeader() {
             variant="inline"
             inlineSize="sm"
             showLastUpdate={isSharePrice}
+            tokenTrading={tokenTrading}
           />
         ) : null}
       </Stack>

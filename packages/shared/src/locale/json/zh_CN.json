@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "买入 {token} 现货",
   "perps_spot_deposit_to_usdc__desc": "从链上资产充值到个人账户",
   "perps_spot_deposit_to_usdc__title": "充值到账 USDC",
+  "perps_tp_long_loss__desc": "触发价低于开仓价，平仓后预计仍有亏损。",
+  "perps_tp_short_loss__desc": "触发价高于开仓价，平仓后预计仍有亏损。",
   "perps_trading_page_chart__title": "交易页 K 线",
   "perps_trigger_price_equal_current": "触发价不能等于当前价格",
   "photo_library_access_denied__desc": "OneKey 需要访问照片库才能保存图片。请前往「设置」并启用照片库权限。",

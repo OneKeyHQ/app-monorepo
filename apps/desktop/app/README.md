@@ -62,3 +62,9 @@ Security scanner caveat:
 Root-level dependency scanners may still report versions from the monorepo root
 `yarn.lock`. That does not by itself describe the dependencies installed into
 the packaged desktop app from this app directory.
+
+## Third-party Bluetooth pairing
+
+See [native helper ownership and SDK integration](../docs/third-party-ble.md).
+The App maintains the Rust helper, native binaries, dialog, and executable path;
+the SDK coordinates the pairing lifecycle through that host-provided helper.

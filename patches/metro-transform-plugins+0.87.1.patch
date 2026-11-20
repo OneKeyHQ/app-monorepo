@@ -1,0 +1,34 @@
+diff --git a/node_modules/metro-transform-plugins/src/constant-folding-plugin.js b/node_modules/metro-transform-plugins/src/constant-folding-plugin.js
+index e9876b4..8c53dd8 100644
+--- a/node_modules/metro-transform-plugins/src/constant-folding-plugin.js
++++ b/node_modules/metro-transform-plugins/src/constant-folding-plugin.js
+@@ -58,7 +58,13 @@ function constantFoldingPlugin(context) {
+     exit(path, state) {
+       const binding =
+         path.node.id != null && path.scope.parent.getBinding(path.node.id.name);
+-      if (binding && !binding.referenced) {
++      if (
++        binding &&
++        !binding.referenced &&
++        binding.constantViolations.every((violation) =>
++          violation.isDescendant(path),
++        )
++      ) {
+         state.stripped = true;
+         path.remove();
+       }
+@@ -70,7 +76,13 @@ function constantFoldingPlugin(context) {
+       const parentNode = parentPath?.node;
+       if (isVariableDeclarator(parentNode) && parentNode.id.name != null) {
+         const binding = parentPath?.scope.getBinding(parentNode.id.name);
+-        if (binding && !binding.referenced) {
++        if (
++          binding &&
++          !binding.referenced &&
++          binding.constantViolations.every((violation) =>
++            violation.isDescendant(path),
++          )
++        ) {
+           state.stripped = true;
+           parentPath?.remove();
+         }

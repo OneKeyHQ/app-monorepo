@@ -4332,6 +4332,8 @@ export enum ETranslations {
   perps_spot_buy_token_spot__action = 'perps_spot_buy_token_spot__action',
   perps_spot_deposit_to_usdc__desc = 'perps_spot_deposit_to_usdc__desc',
   perps_spot_deposit_to_usdc__title = 'perps_spot_deposit_to_usdc__title',
+  perps_tp_long_loss__desc = 'perps_tp_long_loss__desc',
+  perps_tp_short_loss__desc = 'perps_tp_short_loss__desc',
   perps_trading_page_chart__title = 'perps_trading_page_chart__title',
   perps_trigger_price_equal_current = 'perps_trigger_price_equal_current',
   photo_library_access_denied__desc = 'photo_library_access_denied__desc',
