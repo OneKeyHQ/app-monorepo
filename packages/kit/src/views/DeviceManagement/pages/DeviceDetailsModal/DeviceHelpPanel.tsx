@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 import { PixelRatio } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -18,6 +19,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { HELP_CENTER_HARDWARE_FAQ_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
@@ -26,6 +28,12 @@ import type {
 } from '@onekeyhq/shared/types/linkConfig';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+
+// Hover and press tint only the background, eased by CSS on the web; native
+// switches it at once.
+const BG_TRANSITION = platformEnv.isNative
+  ? undefined
+  : { transition: 'background-color 150ms ease-out' };
 
 // Rows bleed past the text edge so hover fills reach beyond the text.
 const BLEED = 12;
@@ -37,8 +45,7 @@ function openLink(item: ILinkConfigItem) {
   parseNotificationPayload(item.mode, item.payload, () => {});
 }
 
-// Articles open in the app's browser, as in the current release, whatever
-// open mode the server sets (the test server opens them as a full page).
+// Articles open in the app's browser, whatever open mode the server sets.
 function openArticle(item: ILinkConfigItem) {
   const url = item.payload?.trim();
   if (url && /^https?:\/\//i.test(url)) {
@@ -84,6 +91,7 @@ function PressableRow({
   children: ReactNode;
   testID?: string;
 } & Omit<ComponentProps<typeof XStack>, 'onPress' | 'children'>) {
+  const reducedMotion = useReducedMotion();
   return (
     <XStack
       role="button"
@@ -103,6 +111,7 @@ function PressableRow({
       userSelect="none"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
+      style={reducedMotion ? undefined : BG_TRANSITION}
       focusVisibleStyle={{
         outlineWidth: 2,
         outlineStyle: 'solid',
@@ -119,7 +128,13 @@ function PressableRow({
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <XStack minHeight={32} px={BLEED} ai="center">
-      <SizableText size="$headingSm" color="$text" flex={1}>
+      <SizableText
+        size="$headingSm"
+        color="$text"
+        flex={1}
+        role="heading"
+        aria-level={2}
+      >
         {children}
       </SizableText>
     </XStack>
@@ -175,48 +190,72 @@ function RowsSkeleton({
   );
 }
 
-// Questions configured on the server.
-function FaqsSection() {
+// After the list, where someone who didn't find their question looks next.
+// The chevron sets it apart from the articles.
+function ViewAllFaqsRow() {
   const intl = useIntl();
-  const faqs = useLinks('hardware_faqs');
-  if (faqs && !faqs.length) return null;
+  return (
+    <PressableRow
+      onPress={openAllFaqs}
+      testID={DeviceManagementTestIDs.helpFaqViewMoreBtn}
+      minHeight={40}
+      ai="center"
+      gap="$1"
+    >
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_view_more })}
+      </SizableText>
+      <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+    </PressableRow>
+  );
+}
+
+// Shaped like a guide row: the thumbnail where it will land and two lines
+// where the title wraps, so nothing moves when the guides arrive.
+function GuideRowsSkeleton() {
+  return (
+    <YStack>
+      {[
+        [190, 130],
+        [204, 112],
+        [214, 64],
+      ].map(([first, second]) => (
+        <XStack key={first} px={BLEED} py={10} gap="$3" ai="center">
+          <Skeleton w={80} h={45} radius={6} />
+          <YStack flex={1}>
+            <Skeleton.BodyMd w={first} />
+            <Skeleton.BodyMd w={second} />
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+// Questions configured on the server. With none, or none loaded, the link
+// to every question still stands.
+function FaqsSection({ faqs }: { faqs: ILinkConfigItem[] | undefined }) {
+  const intl = useIntl();
   return (
     <YStack>
       <SectionLabel>
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SectionLabel>
       {faqs ? (
-        <>
-          {faqs.map((item) => (
-            <LinkRow
-              key={item.linkId}
-              title={item.title}
-              testID={DeviceManagementTestIDs.helpFaqItem}
-              onPress={() => openArticle(item)}
-            />
-          ))}
-          {/* After the list, where someone who didn't find their question
-              looks next. The chevron sets it apart from the articles. */}
-          <PressableRow
-            onPress={openAllFaqs}
-            testID={DeviceManagementTestIDs.helpFaqViewMoreBtn}
-            minHeight={40}
-            ai="center"
-            gap="$1"
-          >
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_view_more })}
-            </SizableText>
-            <Icon
-              name="ChevronRightSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          </PressableRow>
-        </>
+        faqs.map((item) => (
+          <LinkRow
+            key={item.linkId}
+            title={item.title}
+            testID={DeviceManagementTestIDs.helpFaqItem}
+            onPress={() => openArticle(item)}
+          />
+        ))
       ) : (
         <RowsSkeleton widths={[220, 180, 200, 236, 196]} height={40} />
       )}
+      {/* Needs no data, so it is there while the questions load and the
+          section does not grow when they arrive. */}
+      <ViewAllFaqsRow />
     </YStack>
   );
 }
@@ -282,9 +321,8 @@ function GuideRow({ item }: { item: ILinkConfigItem }) {
 }
 
 // Video guides configured on the server.
-function GuidesSection() {
+function GuidesSection({ guides }: { guides: ILinkConfigItem[] | undefined }) {
   const intl = useIntl();
-  const guides = useLinks('hardware_getstarteds');
   if (guides && !guides.length) return null;
   return (
     <YStack>
@@ -296,18 +334,26 @@ function GuidesSection() {
           .slice(0, MAX_GUIDES)
           .map((item) => <GuideRow key={item.linkId} item={item} />)
       ) : (
-        <RowsSkeleton widths={[200, 170, 186]} height={65} />
+        <GuideRowsSkeleton />
       )}
     </YStack>
   );
 }
 
-export function DeviceHelpPanel() {
+// The panel as drawn. Lists not given yet show as loading, which is also how
+// the router draws it while the page's code loads.
+export function DeviceHelpPanelView({
+  faqs,
+  guides,
+}: {
+  faqs?: ILinkConfigItem[];
+  guides?: ILinkConfigItem[];
+}) {
   const intl = useIntl();
   return (
     <YStack gap="$5">
-      <FaqsSection />
-      <GuidesSection />
+      <FaqsSection faqs={faqs} />
+      <GuidesSection guides={guides} />
       <YStack gap="$2">
         <Stack px={BLEED}>
           <Stack h={HAIRLINE} bg="$neutral4" />
@@ -324,4 +370,10 @@ export function DeviceHelpPanel() {
       </YStack>
     </YStack>
   );
+}
+
+export function DeviceHelpPanel() {
+  const faqs = useLinks('hardware_faqs');
+  const guides = useLinks('hardware_getstarteds');
+  return <DeviceHelpPanelView faqs={faqs} guides={guides} />;
 }

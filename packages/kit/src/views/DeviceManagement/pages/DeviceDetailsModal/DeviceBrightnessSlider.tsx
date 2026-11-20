@@ -11,7 +11,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
-import { LIST_ITEM_GROUP_INSET } from '../listItemGroupLayout';
+import {
+  LIST_ITEM_GROUP_INSET,
+  LIST_ITEM_TITLE_SIZE,
+  LIST_ITEM_VALUE_SIZE,
+} from '../listItemGroupLayout';
 
 const MIN_BRIGHTNESS = 10;
 const MAX_BRIGHTNESS = 100;
@@ -128,10 +132,18 @@ export function DeviceBrightnessSlider({
       testID={DeviceManagementTestIDs.brightnessItem}
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyMdMedium" color="$text" userSelect="none">
+        <SizableText
+          size={LIST_ITEM_TITLE_SIZE}
+          color="$text"
+          userSelect="none"
+        >
           {intl.formatMessage({ id: ETranslations.global_brightness })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
+        <SizableText
+          size={LIST_ITEM_VALUE_SIZE}
+          color="$textSubdued"
+          userSelect="none"
+        >
           {displayValue}%
         </SizableText>
       </XStack>

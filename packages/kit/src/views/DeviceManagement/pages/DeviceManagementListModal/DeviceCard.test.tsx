@@ -22,13 +22,27 @@ jest.mock('react-intl', () => ({
   useIntl: () => mockIntl,
 }));
 
+jest.mock('react-native-reanimated', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const View = ({ children }: { children?: ReactNode }) =>
+    React.createElement('div', null, children);
+  return {
+    __esModule: true,
+    default: { View },
+    Easing: { out: () => undefined },
+    useAnimatedStyle: () => ({}),
+    useReducedMotion: () => false,
+    useSharedValue: (value: number) => ({ value }),
+    withTiming: (value: number) => value,
+  };
+});
+
 jest.mock('@react-navigation/core', () => ({
   useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const React = require('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   const Box = ({
     children,
     testID,
@@ -143,6 +157,10 @@ jest.mock('@onekeyhq/shared/src/utils/thirdPartyDeviceUtils', () => ({
 
 jest.mock('../../hooks/useDeviceManagerNavigation', () => ({
   useDeviceManagerNavigation: () => ({ pushToDeviceDetail: jest.fn() }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
 }));
 
 jest.mock('../DeviceArt', () => ({

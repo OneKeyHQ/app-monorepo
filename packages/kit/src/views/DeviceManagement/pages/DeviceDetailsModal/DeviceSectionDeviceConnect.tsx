@@ -19,6 +19,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_TITLE_SIZE } from '../listItemGroupLayout';
 
 import { useDialogForgetDevice } from './dialog/DialogForgetDevice';
 
@@ -91,7 +92,7 @@ function DeviceSectionDeviceConnect() {
           subtitle={intl.formatMessage({
             id: ETranslations.device_stage_reconnect__action,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           drillIn
           onPress={onPressRebindBle}
           testID={DeviceManagementTestIDs.rebindBleItem}
@@ -101,7 +102,7 @@ function DeviceSectionDeviceConnect() {
         title={intl.formatMessage({
           id: ETranslations.global_forget_device,
         })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
         drillIn
         onPress={onPressForgetDevice}
         testID={DeviceManagementTestIDs.forgetDeviceItem}

@@ -6,6 +6,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_TITLE_SIZE } from '../listItemGroupLayout';
 
 // DEV-ONLY Trezor THP debug tools. Rendered at the bottom of the device details
 // modal and gated behind developer mode + Trezor vendor by the parent. Strings
@@ -59,14 +60,14 @@ function DeviceSectionTrezorDebug() {
       <ListItem
         title="Randomize bad THP handshake"
         subtitle="Corrupt stored credentials so the next handshake is rejected"
-        titleProps={{ size: '$bodyMdMedium', color: '$textCritical' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$textCritical' }}
         drillIn
         onPress={onCorrupt}
       />
       <ListItem
         title="Clear THP handshake"
         subtitle="Remove credentials + BLE binding to force re-pairing"
-        titleProps={{ size: '$bodyMdMedium', color: '$textCritical' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$textCritical' }}
         drillIn
         onPress={onClear}
       />

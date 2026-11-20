@@ -15,9 +15,17 @@ jest.mock('react-intl', () => {
   return { useIntl: () => intl };
 });
 
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  const Passthrough = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
   return {
+    HeightTransition: Passthrough,
+    YStack: Passthrough,
     Button: ({
       children,
       onPress,

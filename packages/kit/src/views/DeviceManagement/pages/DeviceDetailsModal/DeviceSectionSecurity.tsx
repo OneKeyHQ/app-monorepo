@@ -10,6 +10,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_TITLE_SIZE } from '../listItemGroupLayout';
 
 function DeviceSectionSecurity() {
   const intl = useIntl();
@@ -41,7 +42,7 @@ function DeviceSectionSecurity() {
         title={intl.formatMessage({
           id: ETranslations.global_change_pin,
         })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
         drillIn
         onPress={onPressChangePin}
         testID={DeviceManagementTestIDs.changePinItem}

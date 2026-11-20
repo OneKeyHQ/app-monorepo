@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
 import { Image, StyleSheet, View } from 'react-native';
@@ -72,6 +81,16 @@ export interface IDeviceScreenAnimation {
 export const SHEEN_COLOR = 'rgba(255,255,255,0.22)';
 
 /**
+ * Told when a shell's chrome bitmap has landed (or failed to). The screen
+ * and keys are drawn in code and show at once, while the bitmap decodes
+ * later; a presenter that wants the drawing to appear whole listens here.
+ * Without a provider nothing changes.
+ */
+export const DeviceChromeLoadContext = createContext<(() => void) | undefined>(
+  undefined,
+);
+
+/**
  * A shell's pre-baked chrome bitmap, covering the device box it mounts
  * in — sized explicitly off the canvas constants rather than
  * absolute-filling, so the chrome never depends on the parent's resolved
@@ -92,12 +111,15 @@ export function BakedChrome({
     () => ({ position: 'absolute' as const, left: 0, top: 0, width, height }),
     [height, width],
   );
+  const onChromeLoad = useContext(DeviceChromeLoadContext);
   return (
     <Image
       source={source}
       style={style}
       resizeMode="stretch"
       fadeDuration={0}
+      onLoad={onChromeLoad}
+      onError={onChromeLoad}
     />
   );
 }
@@ -447,8 +469,11 @@ export function useSceneScreen<TScene extends string>(
   // The one screen-content opacity every scene renders through. Resident:
   // it outlives scene mounts and is scheduled here, decoupled from mount
   // timing, so a busy mount frame cannot swallow an entrance and pop the
-  // content in fully shown.
-  const screenIn = useSharedValue(0);
+  // content in fully shown. An arrival granted `instantEntry` on mount has
+  // no entrance to protect and starts lit, so a picture the platform already
+  // holds shows on the first frame rather than once the gate's layout and
+  // load reports come in.
+  const screenIn = useSharedValue(instantEntry && displayed ? 1 : 0);
   useEffect(() => {
     if (target === displayed) return undefined;
     if (displayed && scenes[displayed].content && !reducedMotion) {

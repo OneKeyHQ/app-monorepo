@@ -1,15 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  ScrollView,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -17,6 +10,7 @@ import {
   useDeviceAtom,
   useDeviceDetailsActions,
   useDeviceMetaStateAtom,
+  useRefreshSettledAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
@@ -26,7 +20,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
   ETabDeviceManagementRoutes,
@@ -38,15 +31,21 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
-import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
-import { DeviceCommonHeader } from '../DeviceCommonHeader';
 
 import DeviceBasicInfo from './DeviceBasicInfo';
+import {
+  DeviceDetailsPageFrame,
+  DeviceDetailsPlaceholder,
+  useDeviceDetailsHelpSidebar,
+  useDeviceDetailsPlaceholderDelay,
+} from './DeviceDetailsFrame';
 import { DeviceHelpSidebar } from './DeviceHelpSidebar';
 import DeviceSectionAdvance from './DeviceSectionAdvance';
 import DeviceSectionDangerZone from './DeviceSectionDangerZone';
 import DeviceSectionDeviceConnect from './DeviceSectionDeviceConnect';
-import DeviceSectionGeneral from './DeviceSectionGeneral';
+import DeviceSectionGeneral, {
+  useDeviceGeneralOptions,
+} from './DeviceSectionGeneral';
 import DeviceSectionQrInfo from './DeviceSectionQrInfo';
 import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
@@ -60,9 +59,6 @@ import {
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
-// One settings column; rows bleed 12px past it on both sides.
-const DEVICE_DETAILS_COLUMN_WIDTH = 640 + 12 * 2;
-
 function DeviceDetailsModalV2Cmp({
   walletId,
   initialDeviceVendor,
@@ -70,9 +66,7 @@ function DeviceDetailsModalV2Cmp({
   walletId: string;
   initialDeviceVendor?: EHardwareVendor;
 }) {
-  const intl = useIntl();
-  const { gtXl } = useMedia();
-  const { isModalStack } = useDeviceManagerModalStyle();
+  const placeholderDelay = useDeviceDetailsPlaceholderDelay();
   const localActions = useDeviceDetailsActions();
   const { applyDeviceStateEvent, refresh } = localActions;
   const { handleBackPress } = useDeviceBackNavigation();
@@ -102,6 +96,28 @@ function DeviceDetailsModalV2Cmp({
     isQrWallet,
     hasLoadedDevice,
   });
+  const showSettingsSections = showDeviceSettings && showInteractiveSections;
+
+  // A refresh that settles without a device falls through to the degraded
+  // header rather than waiting on a placeholder that would never leave.
+  const [refreshSettled] = useRefreshSettledAtom();
+  // The column arrives in one frame, once the device's refresh has settled
+  // and the General rows are known: their option lists load from the
+  // hardware SDK after the device does (and need its model), and revealing
+  // before them would grow General under the reader a frame later.
+  // Latched, so a later reload updates rows in place.
+  const { options: generalOptions, isCurrent: generalOptionsCurrent } =
+    useDeviceGeneralOptions();
+  const sectionsRevealedRef = useRef(false);
+  if (
+    hasLoadedDevice &&
+    refreshSettled &&
+    (!showSettingsSections || generalOptionsCurrent)
+  ) {
+    sectionsRevealedRef.current = true;
+  }
+  const sectionsRevealed = sectionsRevealedRef.current;
+  const loading = !sectionsRevealed && !(refreshSettled && !hasLoadedDevice);
 
   const refreshCurrentDevice = useCallback(async () => {
     if (!walletId) return;
@@ -195,26 +211,25 @@ function DeviceDetailsModalV2Cmp({
     [localActions, actions],
   );
 
-  // Help gets its own column only where there is room for it; elsewhere the
-  // troubleshooting row in the page stands in for it.
-  const showHelpSidebar =
-    gtXl &&
-    !isModalStack &&
-    Boolean(showDeviceSettings && showInteractiveSections);
+  const showHelpSidebar = useDeviceDetailsHelpSidebar({
+    walletId,
+    vendor: deviceVendor,
+  });
 
-  const settingsColumn = (
-    <YStack
-      flex={showHelpSidebar ? undefined : 1}
-      minWidth={0}
-      alignItems="center"
-      px="$2"
-      pb="$8"
-      $gtMd={{ px: '$6', pt: '$12', pb: '$16' }}
+  return (
+    <DeviceDetailsPageFrame
+      showHelpSidebar={showHelpSidebar}
+      sidebar={<DeviceHelpSidebar />}
+      testID="device-details-content"
     >
-      <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
-        {/* DeviceBasicInfo self-manages its skeleton; sections gate on
-                  their own hasLoadedDevice. The offer shares this slot so a
-                  0-height entrance does not consume the column gap. */}
+      {loading ? (
+        <DeviceDetailsPlaceholder
+          delay={placeholderDelay}
+          withTroubleshooting={!showHelpSidebar}
+        />
+      ) : (
+        // The offer shares the header's slot so a 0-height entrance does
+        // not consume the column gap.
         <YStack w="100%">
           <DeviceBasicInfo
             showFirmwareVersion={Boolean(vendorProfile?.firmware.showVersion)}
@@ -225,66 +240,43 @@ function DeviceDetailsModalV2Cmp({
             <PrimeGiftOffer device={device} source="deviceDetails" />
           ) : null}
         </YStack>
-        {isQrWallet ? <DeviceSectionQrInfo /> : null}
-        {showDeviceSupport ? (
-          <DeviceSectionSupport
-            onPressCheckForUpdates={onPressCheckForUpdates}
-            showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
-            showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
-            showTroubleshooting={!showHelpSidebar}
-          />
-        ) : null}
-        {showDeviceSettings && showInteractiveSections ? (
-          <>
-            <DeviceSectionGeneral />
-            <DeviceSectionSecurity />
-          </>
-        ) : null}
-        {showPassphraseSettings && showInteractiveSections ? (
-          <DeviceSectionAdvance />
-        ) : null}
-        {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
-        {/* Last of the user-facing sections so a destructive action is
-                  never adjacent to the routine settings above. Wipe device is a
-                  OneKey-SDK op; the danger zone is wipe-only for third-party
-                  (Trezor/Ledger), so hide it for them. */}
-        {showDeviceSettings && !vendorProfile?.isThirdParty ? (
-          <DeviceSectionDangerZone
-            onPressCheckForUpdates={onPressCheckForUpdates}
-          />
-        ) : null}
-        {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
-      </YStack>
-    </YStack>
-  );
-
-  return (
-    // With help beside them, the settings and the help each scroll on their
-    // own; otherwise the whole page scrolls.
-    <Page scrollEnabled={!showHelpSidebar}>
-      <DeviceCommonHeader
-        title={intl.formatMessage({ id: ETranslations.global_about_device })}
-      />
-      <Page.Body
-        alignItems="stretch"
-        pt="$0"
-        pb="$0"
-        testID="device-details-content"
-      >
-        {showHelpSidebar ? (
-          <XStack flex={1}>
-            <ScrollView flex={1} minWidth={0}>
-              {settingsColumn}
-            </ScrollView>
-            <DeviceHelpSidebar />
-          </XStack>
-        ) : (
-          <XStack w="100%" alignItems="flex-start">
-            {settingsColumn}
-          </XStack>
-        )}
-      </Page.Body>
-    </Page>
+      )}
+      {sectionsRevealed ? (
+        <>
+          {isQrWallet ? <DeviceSectionQrInfo /> : null}
+          {showDeviceSupport ? (
+            <DeviceSectionSupport
+              onPressCheckForUpdates={onPressCheckForUpdates}
+              showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+              showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
+              showTroubleshooting={!showHelpSidebar}
+            />
+          ) : null}
+          {showSettingsSections ? (
+            <>
+              {generalOptions ? (
+                <DeviceSectionGeneral options={generalOptions} />
+              ) : null}
+              <DeviceSectionSecurity />
+            </>
+          ) : null}
+          {showPassphraseSettings && showInteractiveSections ? (
+            <DeviceSectionAdvance />
+          ) : null}
+          {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+          {/* Last of the user-facing sections so a destructive action is
+                never adjacent to the routine settings above. Wipe device is
+                a OneKey-SDK op; the danger zone is wipe-only for third-party
+                (Trezor/Ledger), so hide it for them. */}
+          {showDeviceSettings && !vendorProfile?.isThirdParty ? (
+            <DeviceSectionDangerZone
+              onPressCheckForUpdates={onPressCheckForUpdates}
+            />
+          ) : null}
+          {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
+        </>
+      ) : null}
+    </DeviceDetailsPageFrame>
   );
 }
 

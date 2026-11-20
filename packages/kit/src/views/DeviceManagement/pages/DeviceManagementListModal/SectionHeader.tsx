@@ -12,7 +12,7 @@ function SectionHeader() {
     return null;
   }
   return (
-    <SizableText size="$heading2xl" color="$text">
+    <SizableText size="$heading2xl" color="$text" role="heading" aria-level={1}>
       {intl.formatMessage({
         id: ETranslations.device_management_devices__title,
       })}

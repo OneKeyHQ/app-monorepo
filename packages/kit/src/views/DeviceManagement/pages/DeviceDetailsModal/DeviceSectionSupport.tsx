@@ -14,6 +14,7 @@ import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwa
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_TITLE_SIZE } from '../listItemGroupLayout';
 
 import { useDialogDeviceAbout } from './dialog/DialogDeviceAbout';
 
@@ -88,7 +89,7 @@ function DeviceSectionSupport({
         title={intl.formatMessage({
           id: ETranslations.global_about_device,
         })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
         drillIn
         onPress={onPressAboutDevice}
         testID={DeviceManagementTestIDs.aboutDeviceItem}
@@ -99,7 +100,7 @@ function DeviceSectionSupport({
           title={intl.formatMessage({
             id: ETranslations.device_auth_request_title,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           drillIn
           onPress={onPressAuthRequest}
           isLoading={isFirmwareVerifyDialogLoading}
@@ -112,7 +113,7 @@ function DeviceSectionSupport({
           title={intl.formatMessage({
             id: ETranslations.global_check_for_updates,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           drillIn
           onPress={() => onPressCheckForUpdates()}
           testID={DeviceManagementTestIDs.checkForUpdatesItem}
@@ -124,7 +125,7 @@ function DeviceSectionSupport({
           title={intl.formatMessage({
             id: ETranslations.global_hardware_troubleshooting,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           drillIn
           onPress={onPressTroubleshooting}
           testID={DeviceManagementTestIDs.troubleshootingItem}

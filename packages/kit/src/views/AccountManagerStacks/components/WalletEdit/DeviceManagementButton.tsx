@@ -23,6 +23,7 @@ export function DeviceManagementButton({
       onPress={async () => {
         pushToDeviceDetail({
           walletId: wallet?.id || '',
+          initialDeviceVendor: wallet?.associatedDeviceInfo?.vendor,
         });
       }}
       onClose={onClose}

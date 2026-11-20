@@ -7,6 +7,7 @@ import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDe
 
 import { ClassicDevice } from '../ClassicDevice';
 import { CLASSIC_DEVICE_ASPECT } from '../ClassicDevice/shell';
+import { DeviceChromeLoadContext } from '../deviceSceneHost';
 import { MiniDevice } from '../MiniDevice';
 import { MINI_DEVICE_ASPECT } from '../MiniDevice/shell';
 import { NeoDevice } from '../NeoDevice';
@@ -125,10 +126,16 @@ export interface IHardwareDeviceProps {
    * Pro 2 in black, the Neo in white.
    */
   color?: IHardwareDeviceColor;
+  /**
+   * Called once the shell's chrome bitmap has landed (or failed to). The
+   * screen and keys are drawn in code and show before the bitmap decodes,
+   * so a presenter that wants the drawing to appear whole waits for this.
+   */
+  onChromeLoad?: () => void;
 }
 
 /** What the router hands every replica: its own props minus the model. */
-type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType' | 'onChromeLoad'>;
 
 const SHADOW_OPACITY = 0.35;
 const SHADOW_BLUR = 10;
@@ -197,6 +204,7 @@ export function HardwareDevice({
   warmScenes,
   shadow,
   color,
+  onChromeLoad,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
@@ -216,5 +224,12 @@ export function HardwareDevice({
       color={replicaColor}
     />
   );
-  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  const drawn = shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  return onChromeLoad ? (
+    <DeviceChromeLoadContext.Provider value={onChromeLoad}>
+      {drawn}
+    </DeviceChromeLoadContext.Provider>
+  ) : (
+    drawn
+  );
 }

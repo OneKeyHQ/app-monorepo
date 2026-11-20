@@ -3,20 +3,25 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   Icon,
   Page,
-  ScrollView,
   SizableText,
-  Spinner,
   Stack,
   XStack,
   YStack,
@@ -28,6 +33,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { getDeviceManagementWallets } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -43,7 +49,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { getHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
-import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -55,17 +60,27 @@ import { DeviceArt } from '../DeviceArt';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { canOpenDeviceManagementDetails } from '../DeviceDetailsModal/utils';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
+import { FadeView } from '../FadeView';
 
-import SectionHeader from './SectionHeader';
+import {
+  ART_AREA_HEIGHT,
+  ART_HEIGHT,
+  CARD_TEXT,
+  CARD_WIDTH,
+  DeviceListGrid,
+  DeviceListPageBody,
+  DeviceListPlaceholder,
+  SURFACE_BG,
+  useDeviceListPlaceholderDelay,
+} from './DeviceListFrame';
 
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
+  // Set by the wallet menu's device list, which shares this shape.
   firmwareTypeBadge?: EFirmwareType;
-  firmwareVersionDisplay?: string;
   bleName?: string;
   shouldUpdate?: boolean;
-  updateVersionDisplay?: string;
   isQrWallet?: boolean;
   deviceType?: IHardwareDeviceType;
   deviceColor?: IHardwareDeviceColor;
@@ -74,18 +89,39 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
 // Module-level so dedup survives modal close/reopen within a session.
 const reportedUnverifiedDeviceIds = new Set<string>();
 
-// Desktop cards share three columns of the 900px page; phones get one.
-const DEVICE_GRID_MAX_WIDTH = 900;
-const DEVICE_GRID_COLUMN_GAP = 16;
-const CARD_WIDTH = {
-  mobile: '100%',
-  desktop: `calc((100% - ${DEVICE_GRID_COLUMN_GAP * 2}px) / 3)`,
-} as const;
-// The picture area is a fixed size, so a status change never moves a card.
-const ART_AREA_HEIGHT = { desktop: 244, mobile: 184 };
-const ART_HEIGHT = { desktop: 160, mobile: 120 };
+// Hover and press tint only the background, eased by CSS on the web; native
+// switches it at once.
+const BG_TRANSITION = platformEnv.isNative
+  ? undefined
+  : { transition: 'background-color 150ms ease-out' };
 
-export type IDeviceCardChip = 'qr' | 'unverified' | 'update';
+const CHIP_POSITION = { position: 'absolute', bottom: 8, right: 8 } as const;
+
+const DOT_SIZE = 8;
+const DOT_POSITION = {
+  position: 'absolute',
+  top: 16,
+  left: 16,
+  width: DOT_SIZE,
+  height: DOT_SIZE,
+  pointerEvents: 'none',
+} as const;
+const RING_POSITION = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: DOT_SIZE,
+  height: DOT_SIZE,
+} as const;
+// The glow is the dot's own green, which is brighter in dark mode.
+const DOT_GLOW = {
+  light: { boxShadow: '0 0 6px 1px rgba(14, 172, 0, 0.45)' },
+  dark: { boxShadow: '0 0 6px 1px rgba(55, 255, 53, 0.45)' },
+} as const;
+const DOT_FADE = { duration: 200, easing: Easing.out(Easing.cubic) };
+const RING_OUT = { duration: 450, easing: Easing.out(Easing.cubic) };
+
+type IDeviceCardChip = 'qr' | 'unverified' | 'update';
 
 // One label at most. A QR wallet is never verified or updated from here, and
 // an unverified device is the more urgent of the two.
@@ -118,7 +154,16 @@ const CHIP_COLORS = {
   },
 } as const;
 
-function DeviceCardChip({ chip }: { chip: IDeviceCardChip }) {
+function DeviceCardChip({
+  chip,
+  visible,
+  fadeInOnMount,
+}: {
+  chip: IDeviceCardChip;
+  visible: boolean;
+  // Read once: a label that was there when the page opened just sits there.
+  fadeInOnMount: boolean;
+}) {
   const intl = useIntl();
   const colors = CHIP_COLORS[chip];
   let label = 'QR';
@@ -129,40 +174,83 @@ function DeviceCardChip({ chip }: { chip: IDeviceCardChip }) {
   }
   return (
     // A label, not a button: the whole card opens the device. Never
-    // truncated; a long word may sit over the corner of the device.
-    <XStack
-      position="absolute"
-      bottom={8}
-      right={8}
-      px={6}
-      py={2}
-      borderRadius="$full"
-      borderWidth={1}
-      borderColor={colors.border}
-      bg={colors.bg}
-      testID={`device-card-chip-${chip}`}
+    // truncated; a long word may sit over the corner of the device. Leaving,
+    // it stays mounted and fades out.
+    <FadeView
+      shown={visible}
+      fadeInOnMount={fadeInOnMount}
+      style={CHIP_POSITION}
     >
-      <SizableText size="$bodySm" color={colors.text} numberOfLines={1}>
-        {label}
-      </SizableText>
-    </XStack>
+      {/* The tints are translucent: an opaque base keeps the label's
+          contrast over the picture area, which darkens on hover and press. */}
+      <XStack bg="$bgApp" borderRadius="$full">
+        <XStack
+          px={6}
+          py={2}
+          borderRadius="$full"
+          borderWidth={1}
+          borderColor={colors.border}
+          bg={colors.bg}
+          testID={`device-card-chip-${chip}`}
+          aria-hidden={!visible}
+        >
+          <SizableText size="$bodySm" color={colors.text} numberOfLines={1}>
+            {label}
+          </SizableText>
+        </XStack>
+      </XStack>
+    </FadeView>
   );
 }
 
-function ConnectedDot() {
+function ConnectedDot({
+  connected,
+  animated,
+}: {
+  connected: boolean;
+  animated: boolean;
+}) {
+  const themeVariant = useThemeVariant();
+  // Always mounted, so connecting and disconnecting are transitions of one
+  // element; the state the page opened with renders without motion.
+  const lit = useSharedValue(connected ? 1 : 0);
+  // The glow ring: 1 once it has rung out.
+  const ring = useSharedValue(1);
+  const connectedBeforeRef = useRef(connected);
+  useEffect(() => {
+    if (connected === connectedBeforeRef.current) return;
+    connectedBeforeRef.current = connected;
+    const target = connected ? 1 : 0;
+    lit.value = animated ? withTiming(target, DOT_FADE) : target;
+    // Each connection made while the page is open rings the glow once.
+    if (connected && animated) {
+      ring.value = 0;
+      ring.value = withTiming(1, RING_OUT);
+    }
+  }, [animated, connected, lit, ring]);
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: lit.value,
+    transform: [{ scale: 0.6 + 0.4 * lit.value }],
+  }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.5 * (1 - ring.value),
+    transform: [{ scale: 1 + 1.6 * ring.value }],
+  }));
   return (
-    <Stack
-      position="absolute"
-      top={16}
-      left={16}
-      w={8}
-      h={8}
-      borderRadius="$full"
-      bg="$brand9"
-      borderWidth={1}
-      borderColor="$brand10"
-      style={{ boxShadow: '0 0 6px 1px rgba(14, 172, 0, 0.45)' }}
-    />
+    <Animated.View style={[DOT_POSITION, dotStyle]} aria-hidden>
+      <Animated.View style={[RING_POSITION, ringStyle]}>
+        <Stack w={DOT_SIZE} h={DOT_SIZE} borderRadius="$full" bg="$brand9" />
+      </Animated.View>
+      <Stack
+        w={DOT_SIZE}
+        h={DOT_SIZE}
+        borderRadius="$full"
+        bg="$brand9"
+        borderWidth={1}
+        borderColor="$brand10"
+        style={DOT_GLOW[themeVariant === 'dark' ? 'dark' : 'light']}
+      />
+    </Animated.View>
   );
 }
 
@@ -194,6 +282,9 @@ function CardPressable({
             onPress,
             onHoverIn: () => setState('hover'),
             onHoverOut: () => setState('idle'),
+            // Native waits a beat before tinting, as the app's list rows do,
+            // so a scroll that starts on a card doesn't flash it.
+            delayPressIn: platformEnv.isNative ? 50 : undefined,
             onPressIn: () => setState('press'),
             onPressOut: () => setState('idle'),
             onKeyDown: (e: { key: string; preventDefault: () => void }) => {
@@ -222,12 +313,6 @@ function CardPressable({
     </YStack>
   );
 }
-
-const SURFACE_BG = {
-  idle: '$bgSubdued',
-  hover: '$bgHover',
-  press: '$bgActive',
-} as const;
 
 // Exported for tests.
 export function DeviceCard({
@@ -324,6 +409,17 @@ export function DeviceCard({
   });
   const chip = getDeviceCardChip({ item, isThirdParty });
   const size = gtMd ? 'desktop' : 'mobile';
+  const reducedMotion = useReducedMotion();
+  // True after the first render: a label appearing from then on changed
+  // while the page was open.
+  const openedRef = useRef(false);
+  useEffect(() => {
+    openedRef.current = true;
+  }, []);
+  // Keep the last label on screen while it fades out.
+  const lastChipRef = useRef(chip);
+  if (chip) lastChipRef.current = chip;
+  const shownChip = chip ?? lastChipRef.current;
 
   return (
     <CardPressable
@@ -338,6 +434,7 @@ export function DeviceCard({
           ai="center"
           jc="center"
           overflow="hidden"
+          style={reducedMotion ? undefined : BG_TRANSITION}
           testID={
             isConnected
               ? DeviceManagementTestIDs.deviceStatusConnected
@@ -350,21 +447,28 @@ export function DeviceCard({
             wallet={item.wallet}
             height={ART_HEIGHT[size]}
           />
-          {isConnected ? <ConnectedDot /> : null}
-          {chip ? <DeviceCardChip chip={chip} /> : null}
+          <ConnectedDot connected={isConnected} animated={!reducedMotion} />
+          {shownChip ? (
+            <DeviceCardChip
+              key={shownChip}
+              chip={shownChip}
+              visible={Boolean(chip)}
+              fadeInOnMount={openedRef.current}
+            />
+          ) : null}
         </Stack>
       )}
     >
       <YStack p="$4" gap="$1">
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        <SizableText size={CARD_TEXT.name} color="$text" numberOfLines={1}>
           {item.wallet.name}
         </SizableText>
         {/* Always a second line, so every card keeps the same height. */}
         <SizableText
-          size="$bodySm"
+          size={CARD_TEXT.detail}
           color="$textSubdued"
           numberOfLines={1}
-          minHeight={16}
+          minHeight={CARD_TEXT.detailHeight}
         >
           {bleName}
         </SizableText>
@@ -376,6 +480,7 @@ export function DeviceCard({
 function AddDeviceCard({ onPress }: { onPress: () => void }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const reducedMotion = useReducedMotion();
   return (
     <CardPressable
       w={CARD_WIDTH}
@@ -392,9 +497,13 @@ function AddDeviceCard({ onPress }: { onPress: () => void }) {
           ai="center"
           jc="center"
           gap="$2"
+          style={reducedMotion ? undefined : BG_TRANSITION}
         >
           <Icon name="PlusLargeOutline" color="$iconSubdued" />
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size={platformEnv.isNative ? '$bodyLg' : '$bodyMd'}
+            color="$textSubdued"
+          >
             {intl.formatMessage({
               id: ETranslations.device_management_add_device__action,
             })}
@@ -413,6 +522,7 @@ function DeviceManagementV2ListWeb() {
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
 
+  const placeholderDelay = useDeviceListPlaceholderDelay();
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   const { connectedDevices } = useHardwareWalletConnectStatus();
 
@@ -474,22 +584,6 @@ function DeviceManagementV2ListWeb() {
           continue;
         }
 
-        const firmwareTypeBadge = vendorProfile.isThirdParty
-          ? thirdPartyDeviceUtils.getFirmwareType({
-              features: item.device?.featuresInfo,
-            })
-          : await deviceUtils.getFirmwareType({
-              features: item.device?.featuresInfo,
-            });
-        const deviceVersion = vendorProfile.isThirdParty
-          ? thirdPartyDeviceUtils.getDeviceVersion({
-              device: item.device,
-              features: item.device?.featuresInfo,
-            })
-          : await deviceUtils.getDeviceVersion({
-              device: item.device,
-              features: item.device?.featuresInfo,
-            });
         const deviceConnectId = item.device?.connectId;
         const detectStatusSnapshot =
           vendorProfile.firmware.update && deviceConnectId
@@ -502,26 +596,9 @@ function DeviceManagementV2ListWeb() {
               snapshot: detectStatusSnapshot,
             })
           : undefined;
-        const shouldUpdate = vendorProfile.firmware.update
+        item.shouldUpdate = vendorProfile.firmware.update
           ? deviceDetectStatus?.hasUpgrade
           : false;
-        const updateVersionDisplay = vendorProfile.firmware.update
-          ? deviceDetectStatus?.toVersion
-          : undefined;
-        item.firmwareTypeBadge = firmwareTypeBadge;
-        const firmwareTypeLabel =
-          deviceUtils.getFirmwareTypeLabelByFirmwareType({
-            firmwareType: firmwareTypeBadge,
-            displayFormat: 'withSpace',
-          });
-        item.firmwareVersionDisplay = `${firmwareTypeLabel}v${
-          deviceVersion.firmwareVersion ?? '-'
-        }`;
-        item.shouldUpdate = shouldUpdate;
-        item.updateVersionDisplay =
-          updateVersionDisplay && !isEmpty(updateVersionDisplay)
-            ? `v${updateVersionDisplay}`
-            : undefined;
       }
 
       return devices;
@@ -590,8 +667,15 @@ function DeviceManagementV2ListWeb() {
   }, [toOnBoardingPage]);
 
   const existingDevices = hwQrWalletList.length > 0;
-
-  const showHeader = existingDevices || isLoading;
+  // The page holds its loading shape until the first load finishes: the
+  // hook's first render reports neither loading nor loaded, and a refocus
+  // reload must not swap the empty-list guide for the grid and back.
+  const loadedOnceRef = useRef(false);
+  if (isLoading === false || existingDevices) {
+    loadedOnceRef.current = true;
+  }
+  const loadedOnce = loadedOnceRef.current;
+  const showHeader = existingDevices || !loadedOnce;
 
   // Only apply transparent header on mobile when showing DeviceGuideView
   useLayoutEffect(() => {
@@ -626,66 +710,38 @@ function DeviceManagementV2ListWeb() {
   };
 
   return (
-    <Page fullPage safeAreaEnabled={gtMd || showHeader}>
+    // Native lists run to the bottom edge; the scroll padding clears the home
+    // indicator.
+    <Page
+      fullPage
+      safeAreaEnabled={!platformEnv.isNative && (gtMd || showHeader)}
+    >
       {renderHeader()}
-      <Page.Body
-        alignItems="stretch"
-        $gtMd={{
-          overflow: 'hidden',
-          borderTopLeftRadius: '$4',
-          borderTopRightRadius: '$4',
-        }}
-      >
+      <DeviceListPageBody>
         {showHeader ? (
-          <Page.Container flex={1} padded={false}>
-            <ScrollView flex={1} bg="$bgApp">
-              <YStack
-                px="$pagePadding"
-                pt="$2"
-                pb="$8"
-                $gtMd={{
-                  pt: platformEnv.isExtensionUiSidePanel ? '$2' : '$16',
-                  pb: '$16',
-                }}
-              >
-                <YStack
-                  w="100%"
-                  maxWidth={DEVICE_GRID_MAX_WIDTH}
-                  alignSelf="center"
-                  gap="$6"
-                >
-                  <SectionHeader />
-                  {existingDevices ? (
-                    <XStack
-                      flexWrap="wrap"
-                      columnGap={DEVICE_GRID_COLUMN_GAP}
-                      rowGap="$6"
-                    >
-                      {hwQrWalletList.map((item) => (
-                        <DeviceCard
-                          key={item.wallet.id}
-                          item={item}
-                          onPress={onWalletPressed}
-                          isConnected={
-                            walletConnectionMap.get(item.wallet.id) ?? false
-                          }
-                        />
-                      ))}
-                      {/* Adding a device is the last card in the grid. */}
-                      <AddDeviceCard onPress={onAddDevice} />
-                    </XStack>
-                  ) : (
-                    <Stack p="$16">
-                      <Spinner size="large" />
-                    </Stack>
-                  )}
-                </YStack>
-              </YStack>
-            </ScrollView>
-          </Page.Container>
+          <DeviceListGrid>
+            {existingDevices ? (
+              <>
+                {hwQrWalletList.map((item) => (
+                  <DeviceCard
+                    key={item.wallet.id}
+                    item={item}
+                    onPress={onWalletPressed}
+                    isConnected={
+                      walletConnectionMap.get(item.wallet.id) ?? false
+                    }
+                  />
+                ))}
+                {/* Adding a device is the last card in the grid. */}
+                <AddDeviceCard onPress={onAddDevice} />
+              </>
+            ) : (
+              <DeviceListPlaceholder delay={placeholderDelay} />
+            )}
+          </DeviceListGrid>
         ) : null}
-        {!existingDevices && !isLoading ? <DeviceGuideView /> : null}
-      </Page.Body>
+        {loadedOnce && !existingDevices ? <DeviceGuideView /> : null}
+      </DeviceListPageBody>
     </Page>
   );
 }
