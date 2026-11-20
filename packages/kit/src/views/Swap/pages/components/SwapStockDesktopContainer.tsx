@@ -144,11 +144,12 @@ import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
+import { SWAP_TWO_PANE_FORM_WIDTH } from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -185,6 +186,10 @@ interface ISwapStockDesktopContainerProps {
   stockTradeHeader?: ReactNode;
   stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
+  // Devices whose screen can become wide (a foldable): when the row is wide
+  // enough, the price chart sits beside the trade ticket, as on desktop, and
+  // the positions span the page below both.
+  chartPanelCapable?: boolean;
 }
 
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
@@ -195,6 +200,11 @@ const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1364;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
+// The $5 gap between the chart and the ticket, in points.
+const STOCK_TWO_PANE_GAP = 20;
+// Narrowest width the chart is shown at. A row without room for it beside the
+// ticket leaves the chart out.
+const STOCK_TWO_PANE_MIN_CHART_WIDTH = 340;
 
 function StockTradeSideSwitch({
   value,
@@ -1575,7 +1585,20 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     stockTradeConfig,
     stockTradeHeader,
     showThirdPartyNotice,
+    chartPanelCapable,
   } = props;
+  // Whether the row has room for the chart beside the ticket. Read from the
+  // laid out row rather than from the window size: while a foldable folds or
+  // unfolds the two disagree for a few frames.
+  const [chartBeside, setChartBeside] = useState(false);
+  const handleRowLayout = useCallback((event: LayoutChangeEvent) => {
+    setChartBeside(
+      event.nativeEvent.layout.width >=
+        SWAP_TWO_PANE_FORM_WIDTH +
+          STOCK_TWO_PANE_GAP +
+          STOCK_TWO_PANE_MIN_CHART_WIDTH,
+    );
+  }, []);
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   useSwapHistoryScrollToTop(scrollViewRef);
@@ -1628,37 +1651,64 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        {embedded ? null : <SwapStockMobileHeader />}
-        <StockTradeTicket
-          showThirdPartyNotice={showThirdPartyNotice}
-          onSelectToken={onSelectToken}
-          fetchLoading={fetchLoading}
-          storeName={storeName}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          onPreSwap={onPreSwap}
-          onToAnotherAddressModal={onToAnotherAddressModal}
-          onOpenProviderList={onOpenProviderList}
-          refreshAction={refreshAction}
-          quoteResult={quoteResult}
-          quoteLoading={quoteLoading}
-          quoteEventFetching={quoteEventFetching}
-          alerts={alerts}
-          stockChannel={stockChannel}
-          tradeSide={stockChannel.tradeSide}
-          onTradeSideChange={handleTradeSideChange}
-          recentTokenPairs={stockRecentTokenPairs}
-          onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
-          compact
-          stockTradeConfig={stockTradeConfig}
-          stockTradeHeader={
-            embedded ? (
-              stockTradeHeader
-            ) : (
-              <SwapStockVariantSelector hasMarketPanel={false} />
-            )
-          }
-        />
+        <YStack onLayout={chartPanelCapable ? handleRowLayout : undefined}>
+          {/* The ticket keeps the width it has on the folded screen and sits
+              at the row's end, so unfolding moves it without resizing it. */}
+          <YStack
+            width="100%"
+            maxWidth={chartPanelCapable ? SWAP_TWO_PANE_FORM_WIDTH : undefined}
+            alignSelf="flex-end"
+            gap="$2"
+          >
+            {embedded ? null : <SwapStockMobileHeader />}
+            <StockTradeTicket
+              showThirdPartyNotice={showThirdPartyNotice}
+              onSelectToken={onSelectToken}
+              fetchLoading={fetchLoading}
+              storeName={storeName}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+              onPreSwap={onPreSwap}
+              onToAnotherAddressModal={onToAnotherAddressModal}
+              onOpenProviderList={onOpenProviderList}
+              refreshAction={refreshAction}
+              quoteResult={quoteResult}
+              quoteLoading={quoteLoading}
+              quoteEventFetching={quoteEventFetching}
+              alerts={alerts}
+              stockChannel={stockChannel}
+              tradeSide={stockChannel.tradeSide}
+              onTradeSideChange={handleTradeSideChange}
+              recentTokenPairs={stockRecentTokenPairs}
+              onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
+              compact
+              stockTradeConfig={stockTradeConfig}
+              stockTradeHeader={
+                embedded ? (
+                  stockTradeHeader
+                ) : (
+                  <SwapStockVariantSelector hasMarketPanel={false} />
+                )
+              }
+            />
+          </YStack>
+          {chartPanelCapable && chartBeside ? (
+            // Out of the flow, so the ticket alone sets the row height and
+            // the chart fills it. Clipped: right after a fold the row is
+            // already narrow for a frame before the chart is unmounted, and
+            // without clipping the chart would be drawn over the ticket.
+            <YStack
+              position="absolute"
+              top={0}
+              bottom={0}
+              left={0}
+              right={SWAP_TWO_PANE_FORM_WIDTH + STOCK_TWO_PANE_GAP}
+              overflow="hidden"
+            >
+              <SwapStockMarketPanel chartOnly />
+            </YStack>
+          ) : null}
+        </YStack>
         {embedded || isDesktopModalPage ? null : (
           <SwapStockMobilePositions
             networks={supportNetworksList}

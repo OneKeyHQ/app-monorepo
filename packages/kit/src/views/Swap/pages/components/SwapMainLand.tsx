@@ -1990,6 +1990,9 @@ const SwapMainLoad = ({
     isFoldableSwapPage &&
     (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
       swapTypeSwitch === ESwapTabSwitchType.BRIDGE);
+  // Stocks places the price chart beside the trade ticket itself.
+  const foldableChartPanelTab =
+    isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
@@ -2095,6 +2098,7 @@ const SwapMainLoad = ({
           alerts={alerts}
           stockSpeedConfig={stockSpeedConfig}
           showThirdPartyNotice={showThirdPartyNotice}
+          chartPanelCapable={foldableChartPanelTab}
         />
       );
     }
@@ -2213,6 +2217,7 @@ const SwapMainLoad = ({
     isMarketEmbeddedSwap,
     shouldRenderDesktopSwapHeader,
     foldableProviderPanelTab,
+    foldableChartPanelTab,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -2410,7 +2415,7 @@ const SwapMainLoad = ({
               minHeight={0}
               width="100%"
               maxWidth={
-                foldableProviderPanelTab
+                foldableProviderPanelTab || foldableChartPanelTab
                   ? undefined
                   : SWAP_TWO_PANE_FORM_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2
               }
