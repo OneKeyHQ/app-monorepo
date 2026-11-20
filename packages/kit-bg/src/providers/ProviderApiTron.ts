@@ -34,6 +34,7 @@ const TRON_CHAIN_ID = {
   main: '0x2b6653dc',
   shasta: '0x94a9059e',
   nile: '0xcd8690dc',
+  unknown: '0x00',
 } as const;
 
 const TRON_SCAN_REQUESTED_URL = {
@@ -41,6 +42,21 @@ const TRON_SCAN_REQUESTED_URL = {
   shasta: 'https://api.shasta.trongrid.io',
   nile: 'https://nile.trongrid.io',
 };
+
+const KNOWN_TRON_URLS: Record<string, string> = {
+  [TRON_CHAIN_ID.main]: TRON_SCAN_REQUESTED_URL.main,
+  [TRON_CHAIN_ID.shasta]: TRON_SCAN_REQUESTED_URL.shasta,
+  [TRON_CHAIN_ID.nile]: TRON_SCAN_REQUESTED_URL.nile,
+};
+
+function buildTronNodes(url: string) {
+  return {
+    fullHost: url,
+    fullNode: url,
+    solidityNode: url,
+    eventServer: url,
+  };
+}
 
 export const TRON_SCAN_HOST_WHITE_LIST = [
   'tronscan.org',
@@ -52,7 +68,7 @@ function toHexChainId(raw?: string): string | undefined {
   if (isNil(raw) || raw === '') {
     return undefined;
   }
-  // Preset/server testnets can store prefixed chainIds such as "tron--0xcd8690dc".
+  // Preset/server testnets or custom entries can store prefixed chainIds such as "tron--0xcd8690dc".
   const candidate = raw.includes(SEPERATOR)
     ? networkUtils.parseNetworkId({ networkId: raw }).chainId
     : raw;
@@ -60,10 +76,10 @@ function toHexChainId(raw?: string): string | undefined {
   if (!Number.isSafeInteger(numeric) || numeric <= 0) {
     return undefined;
   }
-  return hexUtils.hexlify(numeric);
+  return hexUtils.hexlify(numeric).toLowerCase();
 }
 
-function resolveTronChainId(
+function parseTronChainId(
   network?: Pick<IServerNetwork, 'id' | 'chainId'>,
 ): string | undefined {
   if (!network) {
@@ -76,10 +92,70 @@ function resolveTronChainId(
 class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
 
+  private readonly unsyncedNodeOrigins = new Set<string>();
+
+  private async resolveNodesForNetwork(
+    network: Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'> | undefined,
+    parsedChainId: string | undefined,
+  ) {
+    if (network?.id) {
+      const customRpc =
+        await this.backgroundApi.serviceCustomRpc?.getCustomRpcForNetwork?.(
+          network.id,
+        );
+      if (customRpc?.enabled && customRpc.rpc) {
+        return buildTronNodes(customRpc.rpc);
+      }
+    }
+
+    if (parsedChainId && KNOWN_TRON_URLS[parsedChainId]) {
+      return buildTronNodes(KNOWN_TRON_URLS[parsedChainId]);
+    }
+
+    if (!network) {
+      return buildTronNodes(TRON_SCAN_REQUESTED_URL.main);
+    }
+
+    const defaultRpcUrl = network.id
+      ? await this.backgroundApi.serviceCustomRpc?.resolveDefaultRpcUrl?.({
+          networkId: network.id,
+        })
+      : undefined;
+    if (defaultRpcUrl) {
+      return buildTronNodes(defaultRpcUrl);
+    }
+
+    // Do not pair a custom numeric chainId with Shasta/Mainnet TronGrid when no
+    // custom or default RPC is configured; only unparseable legacy networks fall back.
+    if (!parsedChainId) {
+      return buildTronNodes(
+        network.isTestnet
+          ? TRON_SCAN_REQUESTED_URL.shasta
+          : TRON_SCAN_REQUESTED_URL.main,
+      );
+    }
+
+    throw web3Errors.provider.disconnected(
+      'RPC URL is not configured for custom Tron network',
+    );
+  }
+
+  private async resolveConnectedNodesAndChainId(
+    request: IJsBridgeMessagePayload,
+  ) {
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
+    const network = networks?.[0];
+    const parsedChainId = parseTronChainId(network);
+    const chainId = parsedChainId ?? TRON_CHAIN_ID.unknown;
+    const nodes = await this.resolveNodesForNetwork(network, parsedChainId);
+    return { nodes, chainId };
+  }
+
   async tron_chainId(request: IJsBridgeMessagePayload) {
     const networks =
       await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
-    return resolveTronChainId(networks?.[0]);
+    return parseTronChainId(networks?.[0]) ?? TRON_CHAIN_ID.unknown;
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
@@ -95,17 +171,15 @@ class ProviderApiTron extends ProviderApiBase {
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
+      const { nodes, chainId } = await this.resolveConnectedNodesAndChainId({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_nodesChanged',
         params: {
-          nodes: await this.tron_nodes({
-            origin,
-            scope: this.providerName,
-          }),
-          chainId: await this.tron_chainId({
-            origin,
-            scope: this.providerName,
-          }),
+          nodes,
+          chainId,
         },
       };
       return result;
@@ -182,26 +256,8 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   async tron_nodes(request: IJsBridgeMessagePayload) {
-    const networks =
-      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
-    const network = networks?.[0];
-    const chainId = resolveTronChainId(network)?.toLowerCase();
-
-    let url: string = TRON_SCAN_REQUESTED_URL.main;
-    if (chainId === TRON_CHAIN_ID.nile) {
-      url = TRON_SCAN_REQUESTED_URL.nile;
-    } else if (chainId === TRON_CHAIN_ID.shasta) {
-      url = TRON_SCAN_REQUESTED_URL.shasta;
-    } else if (network?.isTestnet) {
-      url = TRON_SCAN_REQUESTED_URL.shasta;
-    }
-
-    return Promise.resolve({
-      fullHost: url,
-      fullNode: url,
-      solidityNode: url,
-      eventServer: url,
-    });
+    const { nodes } = await this.resolveConnectedNodesAndChainId(request);
+    return nodes;
   }
 
   private async syncConnectedNodes(request: IJsBridgeMessagePayload) {
@@ -210,33 +266,52 @@ class ProviderApiTron extends ProviderApiBase {
     }
 
     const { origin } = request;
-    const [nodes, chainId] = await Promise.all([
-      this.tron_nodes({ origin, scope: this.providerName }),
-      this.tron_chainId({ origin, scope: this.providerName }),
-    ]);
+    try {
+      const { nodes, chainId } = await this.resolveConnectedNodesAndChainId({
+        origin,
+        scope: this.providerName,
+      });
 
-    const payload = {
-      method: 'wallet_events_nodesChanged',
-      params: {
-        nodes,
-        chainId,
-      },
-    };
+      // An unconnected page initializes TronWeb on Mainnet TronGrid nodes.
+      // Skipping wallet_events_nodesChanged when connecting to default Mainnet
+      // prevents pinned @onekeyfe/onekey-tron-provider@2.2.78 from emitting a
+      // premature chainChanged event before provider.ready becomes true.
+      if (
+        chainId === TRON_CHAIN_ID.main &&
+        nodes.fullHost === TRON_SCAN_REQUESTED_URL.main
+      ) {
+        this.unsyncedNodeOrigins.delete(origin);
+        return;
+      }
 
-    const bridgeExtBg = this.backgroundApi.bridgeExtBg;
-    if (bridgeExtBg) {
-      // Send a resolved payload for this origin only; passing an async callback
-      // yields inside JsBridgeExtBackground.requestToAllCS and lets the
-      // tron_requestAccounts response overtake wallet_events_nodesChanged.
-      bridgeExtBg.requestToAllCS(this.providerName, payload, origin);
-      return;
-    }
+      const payload = {
+        method: 'wallet_events_nodesChanged',
+        params: {
+          nodes,
+          chainId,
+        },
+      };
 
-    const send = this.backgroundApi.sendForProvider?.(this.providerName) as
-      | ((data: unknown, targetOrigin: string) => Promise<void> | void)
-      | undefined;
-    if (typeof send === 'function') {
-      await send(payload, origin);
+      const bridgeExtBg = this.backgroundApi.bridgeExtBg;
+      if (bridgeExtBg) {
+        // Send a resolved payload for this origin only; passing an async callback
+        // yields inside JsBridgeExtBackground.requestToAllCS and lets the
+        // tron_requestAccounts response overtake wallet_events_nodesChanged.
+        bridgeExtBg.requestToAllCS(this.providerName, payload, origin);
+      } else {
+        const send = this.backgroundApi.sendForProvider?.(this.providerName) as
+          | ((data: unknown, targetOrigin: string) => Promise<void> | void)
+          | undefined;
+        if (typeof send === 'function') {
+          await send(payload, origin);
+        }
+      }
+      this.unsyncedNodeOrigins.delete(origin);
+    } catch (error) {
+      // Connection approval has already persisted the session; keep
+      // tron_requestAccounts succeeding and retry node sync on the next call.
+      this.unsyncedNodeOrigins.add(origin);
+      console.error('ProviderTron.syncConnectedNodes failed', error);
     }
   }
 
@@ -246,6 +321,9 @@ class ProviderApiTron extends ProviderApiBase {
     console.log('ProviderTron.tron_requestAccounts', request);
     const accounts = await this.tron_accounts(request);
     if (accounts && accounts.length) {
+      if (request.origin && this.unsyncedNodeOrigins.has(request.origin)) {
+        await this.syncConnectedNodes(request);
+      }
       return accounts;
     }
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
@@ -467,6 +545,7 @@ class ProviderApiTron extends ProviderApiBase {
     if (!origin) {
       return;
     }
+    this.unsyncedNodeOrigins.delete(origin);
     await this.backgroundApi.serviceDApp.disconnectWebsite({
       origin,
       storageType: 'injectedProvider',

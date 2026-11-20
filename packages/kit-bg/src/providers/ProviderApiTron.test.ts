@@ -29,15 +29,25 @@ jest.mock('./ProviderApiBase', () => ({
 function setup({
   networks = [],
   accountsInfo = [],
+  customRpc,
+  defaultRpcUrl,
 }: {
   networks?: Array<Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>>;
   accountsInfo?: Array<{ account?: { address: string } }>;
+  customRpc?: { enabled?: boolean; rpc?: string } | undefined;
+  defaultRpcUrl?: string;
 } = {}) {
   const serviceDApp = {
     getConnectedNetworks: jest.fn().mockResolvedValue(networks),
     dAppGetConnectedAccountsInfo: jest.fn().mockResolvedValue(accountsInfo),
   };
-  const provider = new ProviderApiTron({ backgroundApi: { serviceDApp } });
+  const serviceCustomRpc = {
+    getCustomRpcForNetwork: jest.fn().mockResolvedValue(customRpc),
+    resolveDefaultRpcUrl: jest.fn().mockResolvedValue(defaultRpcUrl),
+  };
+  const provider = new ProviderApiTron({
+    backgroundApi: { serviceDApp, serviceCustomRpc },
+  });
   const request = (method: string): IJsBridgeMessagePayload =>
     ({
       origin: 'https://dapp.example',
@@ -45,7 +55,7 @@ function setup({
       data: { method },
     }) as IJsBridgeMessagePayload;
 
-  return { provider, serviceDApp, request };
+  return { provider, serviceDApp, serviceCustomRpc, request };
 }
 
 describe('ProviderApiTron network and chainId resolution', () => {
@@ -206,14 +216,14 @@ describe('ProviderApiTron network and chainId resolution', () => {
     },
   );
 
-  it('returns undefined chainId when no network is connected or chainId cannot be parsed', async () => {
+  it('returns 0x00 chainId when no network is connected or chainId cannot be parsed', async () => {
     const emptySetup = setup({ networks: [] });
     await expect(
       emptySetup.provider.tron_chainId(emptySetup.request('tron_chainId')),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('0x00');
     await expect(
       emptySetup.provider.eth_chainId(emptySetup.request('eth_chainId')),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('0x00');
 
     const invalidSetup = setup({
       networks: [
@@ -226,7 +236,70 @@ describe('ProviderApiTron network and chainId resolution', () => {
     });
     await expect(
       invalidSetup.provider.tron_chainId(invalidSetup.request('tron_chainId')),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('0x00');
+  });
+
+  it('prefers enabled custom RPC and rejects custom numeric chainId without RPC instead of serving Shasta', async () => {
+    const customNile = setup({
+      networks: [
+        {
+          id: 'tron--0xcd8690dc',
+          chainId: '0xcd8690dc',
+          isTestnet: true,
+        },
+      ],
+      customRpc: { enabled: true, rpc: 'https://custom-nile.example' },
+    });
+    await expect(
+      customNile.provider.tron_nodes(customNile.request('tron_nodes')),
+    ).resolves.toEqual({
+      fullHost: 'https://custom-nile.example',
+      fullNode: 'https://custom-nile.example',
+      solidityNode: 'https://custom-nile.example',
+      eventServer: 'https://custom-nile.example',
+    });
+
+    const disabledCustomWithDefault = setup({
+      networks: [
+        {
+          id: 'tron--0x1',
+          chainId: '0x1',
+          isTestnet: true,
+        },
+      ],
+      customRpc: { enabled: false, rpc: 'https://disabled.example' },
+      defaultRpcUrl: 'https://default-custom-tron.example',
+    });
+    await expect(
+      disabledCustomWithDefault.provider.tron_nodes(
+        disabledCustomWithDefault.request('tron_nodes'),
+      ),
+    ).resolves.toEqual({
+      fullHost: 'https://default-custom-tron.example',
+      fullNode: 'https://default-custom-tron.example',
+      solidityNode: 'https://default-custom-tron.example',
+      eventServer: 'https://default-custom-tron.example',
+    });
+
+    const missingRpcCustom = setup({
+      networks: [
+        {
+          id: 'tron--0x1',
+          chainId: '0x1',
+          isTestnet: true,
+        },
+      ],
+    });
+    await expect(
+      missingRpcCustom.provider.tron_chainId(
+        missingRpcCustom.request('tron_chainId'),
+      ),
+    ).resolves.toBe('0x01');
+    await expect(
+      missingRpcCustom.provider.tron_nodes(
+        missingRpcCustom.request('tron_nodes'),
+      ),
+    ).rejects.toThrow('RPC URL is not configured for custom Tron network');
   });
 
   it('returns Nile nodes with connected accounts in tron_getProviderState', async () => {
@@ -591,5 +664,148 @@ describe('ProviderApiTron first-time connection node sync', () => {
       } as IJsBridgeMessagePayload),
     ).resolves.toEqual(['TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3']);
     expect(requestToAllCS).not.toHaveBeenCalled();
+  });
+
+  it('reads connected network once in notifyDappChainChanged and syncConnectedNodes', async () => {
+    const nile = {
+      id: 'tron--0xcd8690dc',
+      chainId: '0xcd8690dc',
+      isTestnet: true,
+    };
+    const mainnet = {
+      id: 'tron--0x2b6653dc',
+      chainId: '0x2b6653dc',
+      isTestnet: false,
+    };
+    const getConnectedNetworks = jest
+      .fn()
+      .mockResolvedValueOnce([nile])
+      .mockResolvedValueOnce([mainnet]);
+
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp: { getConnectedNetworks },
+      },
+    });
+
+    const sent: unknown[] = [];
+    let sendPromise!: Promise<void>;
+    provider.notifyDappChainChanged({
+      targetOrigin: 'https://dapp.example',
+      send: (data: (params: { origin: string }) => Promise<unknown>) => {
+        sendPromise = data({ origin: 'https://dapp.example' }).then((res) => {
+          sent.push(res);
+        });
+      },
+    });
+    await sendPromise;
+
+    expect(getConnectedNetworks).toHaveBeenCalledTimes(1);
+    expect(sent).toEqual([
+      {
+        method: 'wallet_events_nodesChanged',
+        params: {
+          nodes: {
+            fullHost: 'https://nile.trongrid.io',
+            fullNode: 'https://nile.trongrid.io',
+            solidityNode: 'https://nile.trongrid.io',
+            eventServer: 'https://nile.trongrid.io',
+          },
+          chainId: '0xcd8690dc',
+        },
+      },
+    ]);
+  });
+
+  it('skips node-change push on first connect to default Mainnet', async () => {
+    const requestToAllCS = jest.fn();
+    const mainnetConnected = {
+      id: 'tron--0x2b6653dc',
+      chainId: '0x2b6653dc',
+      isTestnet: false,
+    };
+    const accounts: Array<{ account?: { address: string } }> = [];
+    const networks: Array<
+      Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>
+    > = [];
+    const serviceDApp = {
+      getConnectedNetworks: jest.fn(async () => networks),
+      dAppGetConnectedAccountsInfo: jest.fn(async () => accounts),
+      openConnectionModal: jest.fn(async () => {
+        networks.push(mainnetConnected);
+        accounts.push({
+          account: { address: 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3' },
+        });
+      }),
+    };
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp,
+        bridgeExtBg: { requestToAllCS },
+      },
+    });
+
+    await expect(
+      provider.tron_requestAccounts({
+        origin: 'https://dapp.example',
+        scope: 'tron',
+        data: { method: 'tron_requestAccounts' },
+      } as IJsBridgeMessagePayload),
+    ).resolves.toEqual(['TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3']);
+    expect(requestToAllCS).not.toHaveBeenCalled();
+  });
+
+  it('keeps tron_requestAccounts succeeding if initial sync fails and retries on next call', async () => {
+    const requestToAllCS = jest.fn();
+    const accounts: Array<{ account?: { address: string } }> = [];
+    const nile = {
+      id: 'tron--0xcd8690dc',
+      chainId: '0xcd8690dc',
+      isTestnet: true,
+    };
+    const serviceDApp = {
+      getConnectedNetworks: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('transient db error'))
+        .mockResolvedValue([nile]),
+      dAppGetConnectedAccountsInfo: jest.fn(async () => accounts),
+      openConnectionModal: jest.fn(async () => {
+        accounts.push({
+          account: { address: 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3' },
+        });
+      }),
+    };
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp,
+        bridgeExtBg: { requestToAllCS },
+      },
+    });
+
+    const req = {
+      origin: 'https://dapp.example',
+      scope: 'tron',
+      data: { method: 'tron_requestAccounts' },
+    } as IJsBridgeMessagePayload;
+
+    // First connect approval succeeds even when sync fails.
+    await expect(provider.tron_requestAccounts(req)).resolves.toEqual([
+      'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3',
+    ]);
+    expect(requestToAllCS).not.toHaveBeenCalled();
+
+    // Subsequent connect retries the missed node sync even though accounts are already connected.
+    await expect(provider.tron_requestAccounts(req)).resolves.toEqual([
+      'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3',
+    ]);
+    expect(requestToAllCS).toHaveBeenCalledTimes(1);
+    expect(requestToAllCS).toHaveBeenCalledWith(
+      'tron',
+      expect.objectContaining({
+        method: 'wallet_events_nodesChanged',
+        params: expect.objectContaining({ chainId: '0xcd8690dc' }),
+      }),
+      'https://dapp.example',
+    );
   });
 });
