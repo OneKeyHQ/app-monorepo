@@ -18,6 +18,7 @@ import {
 let mockFocused = true;
 let mockStockId = 'AAPL';
 const mockLoad = jest.fn();
+const mockSelectToken = jest.fn<void, [ISwapToken]>();
 const mockFetch = jest.fn<
   Promise<IMarketAccountPortfolioResponse>,
   [unknown]
@@ -36,6 +37,7 @@ const mockTokens: ISwapToken[] = [
     stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
   },
 ];
+let mockPositionTokens = mockTokens;
 
 jest.mock('@onekeyhq/components', () => {
   const { useMemo } = jest.requireActual<typeof import('react')>('react');
@@ -76,7 +78,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 jest.mock('../../hooks/useSwapPro', () => ({
   useSwapProSupportNetworksTokenList: () => ({
     hasAccount: true,
-    positionTokenList: mockTokens,
+    positionTokenList: mockPositionTokens,
     positionLoading: false,
     positionLoadError: false,
     resolvedNetworkIds: ['evm--1'],
@@ -146,10 +148,36 @@ jest.mock('./SwapPendingHistoryList', () => ({
 }));
 jest.mock('./SwapProPositionsList', () => ({
   __esModule: true,
-  default: () => <div>Stock positions</div>,
+  default: ({
+    positionTokenList,
+    onTokenPress,
+    isTokenDisabled,
+  }: {
+    positionTokenList: ISwapToken[];
+    onTokenPress: (token: ISwapToken) => void;
+    isTokenDisabled?: (token: ISwapToken) => boolean;
+  }) => (
+    <div>
+      Stock positions
+      {positionTokenList.map((token) => (
+        <button
+          key={token.symbol}
+          type="button"
+          disabled={isTokenDisabled?.(token)}
+          onClick={() => onTokenPress(token)}
+        >
+          {token.symbol}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
-  useSwapStockSelection: () => undefined,
+  useSwapStockSelection: () => ({
+    selectToken: mockSelectToken,
+    displayStockId: mockStockId,
+    displayTokenVariants: [],
+  }),
 }));
 jest.mock('./SwapStockTradeProvider', () => ({
   useSwapStockTradeContext: () => ({}),
@@ -194,6 +222,8 @@ beforeEach(() => {
   globalThis.cancelIdleCallback = (id) => globalThis.clearTimeout(id);
   mockFocused = true;
   mockStockId = 'AAPL';
+  mockPositionTokens = mockTokens;
+  mockSelectToken.mockClear();
   mockLoad.mockReset();
   mockFetch.mockReset().mockResolvedValue({
     list: [
@@ -252,6 +282,31 @@ it('switches mobile Stocks between positions and order history without duplicati
   fireEvent.click(positions);
   expect(screen.getByText(ETranslations.stocks_current_stock)).toBeTruthy();
   expect(screen.queryByText('Stock orders')).toBeNull();
+});
+
+it('leaves other stocks visible but blocks selecting them from the Market stock trade modal', () => {
+  const otherStock: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: '0xCCDD',
+    symbol: 'MSFTon',
+    decimals: 18,
+    stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+  };
+  mockPositionTokens = [...mockTokens, otherStock];
+  render(
+    <SwapStockPositionsProvider networks={networks} ready={false}>
+      <SwapStockMobilePositions
+        networks={networks}
+        storeName={EJotaiContextStoreNames.swap}
+        lockToCurrentStock
+      />
+    </SwapStockPositionsProvider>,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'MSFTon' }));
+  expect(mockSelectToken).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'AAPLon' }));
+  expect(mockSelectToken).toHaveBeenCalledWith(mockTokens[0]);
 });
 
 it('shares one PnL read and one portfolio projection between both consumers', async () => {

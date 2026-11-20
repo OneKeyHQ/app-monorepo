@@ -223,6 +223,8 @@ interface ISwapMainLoadProps {
   storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
+  marketStockTrade?: boolean;
+  marketNonStockTrade?: boolean;
   singleSwapBridgeHeader?: boolean;
   /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
   embeddedStockTrade?: boolean;
@@ -273,6 +275,8 @@ const SwapMainLoad = ({
   storeName,
   swapInitParams,
   pageType,
+  marketStockTrade,
+  marketNonStockTrade,
   singleSwapBridgeHeader,
   embeddedStockTrade,
   stockSpeedConfig,
@@ -1903,6 +1907,7 @@ const SwapMainLoad = ({
       return (
         <SwapStockMobileContainer
           pageType={pageType}
+          marketStockTrade={marketStockTrade}
           storeName={storeName}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
@@ -1996,6 +2001,7 @@ const SwapMainLoad = ({
     );
   }, [
     swapTypeSwitch,
+    marketStockTrade,
     embeddedStockTrade,
     stockSpeedConfig,
     stockTradeConfig,
@@ -2073,7 +2079,7 @@ const SwapMainLoad = ({
   const { top: safeAreaTop } = useSafeAreaInsets();
   let contentTopPadding: string | number = '$5';
   if (pageType === EPageType.modal) {
-    contentTopPadding = '$2.5';
+    contentTopPadding = marketStockTrade ? '$0' : '$2.5';
   } else if (platformEnv.isNativeIOS) {
     // Foldable iPhones report a top inset of 0, so only MDHeader's spacer sits
     // above this row; center it on the camera line like the Wallet header.
@@ -2090,6 +2096,7 @@ const SwapMainLoad = ({
   // mounted while the tab-specific container changes.
   const renderSwapHeader = () => {
     if (
+      marketStockTrade ||
       embeddedStockTrade ||
       (!shouldRenderDesktopSwapHeader &&
         gtLg &&
@@ -2112,6 +2119,7 @@ const SwapMainLoad = ({
         }
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
+        hideStockAndProTabs={marketNonStockTrade}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         marketPresetSettings={

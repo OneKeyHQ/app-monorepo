@@ -130,6 +130,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  hideStockAndProTabs?: boolean;
   singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
@@ -145,6 +146,7 @@ const SwapHeaderContainer = ({
   onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
+  hideStockAndProTabs,
   singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
@@ -447,30 +449,34 @@ const SwapHeaderContainer = ({
       >
         {swapBridgeLabel}
       </CustomTabItem>
-      <CustomTabItem
-        itemId={ESwapTabSwitchType.STOCK}
-        compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
-        onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
-        }}
-      >
-        {stockLabel}
-      </CustomTabItem>
-      <CustomTabItem
-        itemId={ESwapTabSwitchType.LIMIT}
-        compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
-        onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
-        }}
-      >
-        {intl.formatMessage({
-          id: showSwapPro
-            ? ETranslations.dexmarket_pro
-            : ETranslations.swap_page_limit,
-        })}
-      </CustomTabItem>
+      {hideStockAndProTabs ? null : (
+        <CustomTabItem
+          itemId={ESwapTabSwitchType.STOCK}
+          compact={isCompactLayout}
+          isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
+          onPress={() => {
+            void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
+          }}
+        >
+          {stockLabel}
+        </CustomTabItem>
+      )}
+      {hideStockAndProTabs && showSwapPro ? null : (
+        <CustomTabItem
+          itemId={ESwapTabSwitchType.LIMIT}
+          compact={isCompactLayout}
+          isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
+          onPress={() => {
+            void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
+          }}
+        >
+          {intl.formatMessage({
+            id: showSwapPro
+              ? ETranslations.dexmarket_pro
+              : ETranslations.swap_page_limit,
+          })}
+        </CustomTabItem>
+      )}
     </>
   );
 

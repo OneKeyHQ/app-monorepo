@@ -39,6 +39,8 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.DustSweep]: IDustSweepRouteParams | undefined;
   [EModalSwapRoutes.SwapMainLand]: {
     marketSwapDirection?: 'from' | 'to';
+    marketStockTrade?: boolean;
+    marketNonStockTrade?: boolean;
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
     importAccountKey?: string;

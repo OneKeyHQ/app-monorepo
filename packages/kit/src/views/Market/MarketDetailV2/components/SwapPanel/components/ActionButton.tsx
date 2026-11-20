@@ -151,6 +151,7 @@ export function ActionButton({
           onlySupportCrossChain,
         }),
         swapSource: ESwapSource.MARKET,
+        ...(!actionToken?.isStock && { marketNonStockTrade: true }),
         marketPresetToken: actionToken
           ? {
               networkId: actionToken.networkId,

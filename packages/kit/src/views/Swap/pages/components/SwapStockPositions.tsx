@@ -113,9 +113,11 @@ export function useSwapStockPositions() {
 export function SwapStockMobilePositions({
   networks,
   storeName,
+  lockToCurrentStock,
 }: {
   networks: (IMarketBasicConfigNetwork | ISwapNetwork)[];
   storeName: EJotaiContextStoreNames;
+  lockToCurrentStock?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState(ETabName.Positions);
   const showPositions = activeTab === ETabName.Positions;
@@ -146,7 +148,11 @@ export function SwapStockMobilePositions({
           />
         </XStack>
         {showPositions ? (
-          <SwapStockPositions mobile networks={networks} />
+          <SwapStockPositions
+            mobile
+            networks={networks}
+            lockToCurrentStock={lockToCurrentStock}
+          />
         ) : (
           <XStack minHeight={180} mx="$-6">
             <SwapMarketHistoryList
@@ -166,9 +172,11 @@ export function SwapStockMobilePositions({
 export function SwapStockPositions({
   mobile = false,
   networks,
+  lockToCurrentStock,
 }: {
   mobile?: boolean;
   networks: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  lockToCurrentStock?: boolean;
 }) {
   const intl = useIntl();
   const positions = useSwapStockPositions();
@@ -176,12 +184,12 @@ export function SwapStockPositions({
   const { currentStockToken } = useSwapStockTradeContext();
   const selection = useSwapStockSelection();
   const [onlyCurrent, setOnlyCurrent] = useSwapProEnableCurrentSymbolAtom();
-  const selectPositionToken = useCallback(
+  const belongsToCurrentStock = useCallback(
     (token: ISwapToken) => {
       const tokenStockTicker = token.stock?.underlyingAssetTicker
         ?.trim()
         .toUpperCase();
-      const belongsToCurrentStock = Boolean(
+      return Boolean(
         stockId &&
         (resolveMarketStockId(token) === stockId ||
           tokenStockTicker === stockId ||
@@ -189,8 +197,13 @@ export function SwapStockPositions({
             equalTokenNoCaseSensitive({ token1: variant, token2: token }),
           )),
       );
+    },
+    [stockId, tokenVariants],
+  );
+  const selectPositionToken = useCallback(
+    (token: ISwapToken) => {
       const tokenWithStockIdentity =
-        belongsToCurrentStock && token.stock
+        belongsToCurrentStock(token) && token.stock
           ? {
               ...token,
               stock: {
@@ -201,7 +214,7 @@ export function SwapStockPositions({
           : token;
       void selection?.selectToken(tokenWithStockIdentity);
     },
-    [selection, stockId, tokenVariants],
+    [belongsToCurrentStock, selection, stockId],
   );
   const filterToken = useMemo(
     () =>
@@ -278,6 +291,11 @@ export function SwapStockPositions({
         pnlMap={positions.pnlMap}
         filterToken={filterToken}
         onTokenPress={selectPositionToken}
+        isTokenDisabled={
+          lockToCurrentStock
+            ? (token) => !belongsToCurrentStock(token)
+            : undefined
+        }
         onRetry={() =>
           void positions.swapProLoadSupportNetworksTokenListRun(networks, {
             forceRefresh: true,

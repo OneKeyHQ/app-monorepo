@@ -36,6 +36,8 @@ const SwapMainLandModalPage = () => {
     tradeAgainFromHistory,
     marketPresetToken,
     marketSwapDirection,
+    marketStockTrade,
+    marketNonStockTrade,
     closeModalAfterSwapBroadcast,
     onSwapBroadcast,
   } = route.params ?? {};
@@ -77,6 +79,8 @@ const SwapMainLandModalPage = () => {
       />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
+        marketStockTrade={marketStockTrade}
+        marketNonStockTrade={marketNonStockTrade}
         swapInitParams={{
           importAccountKey,
           importFromToken,

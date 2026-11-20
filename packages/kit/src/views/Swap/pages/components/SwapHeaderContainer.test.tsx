@@ -240,6 +240,42 @@ describe('SwapHeaderContainer', () => {
     }
   });
 
+  it('keeps Swap & Bridge and header actions when hiding Stock and Pro', () => {
+    mockSwapTypeSwitch = ESwapTabSwitchType.SWAP;
+    const view = render(
+      <SwapHeaderContainer pageType={EPageType.modal} showSwapPro />,
+    );
+    expect(
+      view.getByText(ETranslations.perps_token_selector_stocks),
+    ).toBeTruthy();
+    expect(view.getByText(ETranslations.dexmarket_pro)).toBeTruthy();
+
+    view.rerender(
+      <SwapHeaderContainer
+        pageType={EPageType.modal}
+        showSwapPro
+        hideStockAndProTabs
+      />,
+    );
+    expect(
+      view.queryByText(ETranslations.perps_token_selector_stocks),
+    ).toBeNull();
+    expect(view.queryByText(ETranslations.dexmarket_pro)).toBeNull();
+    expect(view.getByText(ETranslations.swap_history_title)).toBeTruthy();
+    expect(view.getByTestId('swap-header-right-actions')).toBeTruthy();
+  });
+
+  it('keeps the non-native Limit tab in the filtered modal header', () => {
+    platformEnv.isNative = false;
+    const view = render(
+      <SwapHeaderContainer pageType={EPageType.modal} hideStockAndProTabs />,
+    );
+    expect(
+      view.queryByText(ETranslations.perps_token_selector_stocks),
+    ).toBeNull();
+    expect(view.getByText(ETranslations.swap_page_limit)).toBeTruthy();
+  });
+
   it.each([true, false])(
     'forwards the Market store through the header (single: %s)',
     (singleSwapBridgeTab) => {
