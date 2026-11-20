@@ -66,14 +66,8 @@ type IResultScreen = {
   proof?: IProof;
   result?: IResult;
   accepted?: IAcceptedNotice;
-  attempt?: IAttempt;
   checkAfter?: number;
-  deleteRetryAt?: number;
   resultCheckFailed?: boolean;
-  canRetry?: boolean;
-  needsNewConfirmation?: boolean;
-  cannotRetry?: boolean;
-  submissionError?: DeletionBusinessError | DeletionError;
 };
 
 export type IResultHistory = Map<string, IResultScreen>;
@@ -259,7 +253,8 @@ export function useDeletionFlow(
           code: businessError?.serverCode,
           httpStatusCode: businessError?.httpStatusCode,
           className:
-            cause instanceof TypeError
+            cause instanceof TypeError ||
+            (cause instanceof DOMException && cause.name === 'TimeoutError')
               ? EOneKeyErrorClassNames.AxiosNetworkError
               : EOneKeyErrorClassNames.OneKeyServerApiError,
           message: getServerApiErrorMessage({
@@ -352,10 +347,6 @@ export function useDeletionFlow(
         const restored = {
           ...previous,
           result: withoutCurrentShareStatus(previous.result),
-          canRetry: false,
-          ...(info.status === 'used'
-            ? { attempt: undefined, cannotRetry: true }
-            : {}),
         };
         history.set(token, restored);
         setScreen(restored);
@@ -409,7 +400,6 @@ export function useDeletionFlow(
           step: 'result',
           provider,
           proof,
-          cannotRetry: true,
         } as const;
         remember(previous);
         await loadResult(client, previous, proof, isCurrent);
@@ -543,56 +533,13 @@ export function useDeletionFlow(
       if (!matchesOriginal(previous, result)) {
         throw new SyntaxError('Result does not match the original deletion.');
       }
-      if (
-        result.status === 'not_submitted' &&
-        previous.needsNewConfirmation &&
-        previous.attempt
-      ) {
-        const info = await client.getLinkInfo(token);
-        if (!isCurrent() || !setInvitationDeadline(info)) {
-          return;
-        }
-        if (
-          info.status !== 'ready' ||
-          info.allowedProvider !== previous.provider ||
-          info.confirmationVersion === previous.attempt.body.confirmationVersion
-        ) {
-          throw new SyntaxError(
-            'The invitation changed during confirmation refresh.',
-          );
-        }
-        if (info.recreationPolicy === 'pending_decision') {
-          setScreen({ step: 'policy-pending' });
-          return;
-        }
-        history.delete(token);
-        setScreen({
-          ...previous.attempt.review,
-          step: 'confirm',
-          info,
-          proof,
-          key: undefined,
-          deleteRetryAt: previous.deleteRetryAt,
-          confirmationUpdated: true,
-        });
-        return;
-      }
-      const { submissionError, ...resolved } = previous;
       remember({
-        ...resolved,
+        ...previous,
         proof,
         result,
         resultCheckFailed: false,
-        canRetry:
-          result.status === 'not_submitted' &&
-          !!previous.attempt &&
-          !previous.cannotRetry,
         checkAfter: checkAfter(result),
-        attempt: result.status === 'completed' ? undefined : previous.attempt,
       });
-      if (result.status === 'not_submitted' && submissionError) {
-        showError(submissionError);
-      }
     } catch (cause) {
       if (isCurrent()) {
         if (
@@ -619,7 +566,6 @@ export function useDeletionFlow(
               cause.response.code === 'IDENTITY_MISMATCH')
               ? undefined
               : previous.proof,
-          canRetry: false,
           checkAfter:
             retryAfterSeconds === undefined
               ? previous.checkAfter
@@ -628,10 +574,7 @@ export function useDeletionFlow(
                   otpCooldownDeadline(retryAfterSeconds),
                 ),
         });
-        const transportFailed =
-          cause instanceof TypeError ||
-          (cause instanceof DOMException && cause.name === 'TimeoutError');
-        showError(cause, transportFailed ? 'SERVICE_UNAVAILABLE' : undefined);
+        showError(cause);
       }
     }
   }
@@ -642,13 +585,6 @@ export function useDeletionFlow(
     }
     const { client } = channel.current;
     run(async (isCurrent) => {
-      const pending: IResultScreen = {
-        step: 'result',
-        provider: proof.provider,
-        proof,
-        attempt,
-      };
-      history.set(token, pending);
       let result: ICompleted;
       try {
         result = await client.deleteShare(
@@ -670,7 +606,7 @@ export function useDeletionFlow(
             ? attempt.review.deleteRetryAt
             : otpCooldownDeadline(retryAfterSeconds);
         if (isAuthError(cause)) {
-          remember({ ...pending, proof: undefined, deleteRetryAt });
+          setScreen({ step: 'identity', info: attempt.review.info });
           showError(cause);
           return;
         }
@@ -730,23 +666,28 @@ export function useDeletionFlow(
                 supportReference: response?.supportReference,
               }
             : undefined;
-        const recovery = {
-          ...pending,
-          accepted,
-          deleteRetryAt,
-          needsNewConfirmation: code === 'CONFIRMATION_CHANGED',
-          submissionError:
-            cause instanceof DeletionBusinessError ||
-            (cause instanceof DeletionError &&
-              (code === 'SERVICE_UNAVAILABLE' || code === 'INVALID_REQUEST'))
-              ? cause
-              : undefined,
-          cannotRetry: Boolean(accepted || code === 'IDEMPOTENCY_CONFLICT'),
-        };
-        remember(recovery);
-        if (code !== 'MANUAL_REVIEW_REQUIRED') {
-          await loadResult(client, recovery, proof, isCurrent);
+        if (accepted) {
+          const acknowledged: IResultScreen = {
+            step: 'result',
+            provider: proof.provider,
+            proof,
+            accepted,
+          };
+          remember(acknowledged);
+          if (accepted.status === 'processing') {
+            await loadResult(client, acknowledged, proof, isCurrent);
+          }
+          return;
         }
+        // No confirmed outcome. A manual retry must reuse the request key.
+        setScreen({
+          ...attempt.review,
+          step: 'confirm',
+          proof,
+          key: attempt.key,
+          deleteRetryAt,
+        });
+        showError(cause);
         return;
       }
       if (isCurrent()) {
@@ -755,7 +696,6 @@ export function useDeletionFlow(
           provider: proof.provider,
           proof,
           result,
-          cannotRetry: true,
         };
         remember(completed);
         await loadResult(client, completed, proof, isCurrent);
@@ -802,7 +742,7 @@ export function useDeletionFlow(
     }
     const { client } = channel.current;
     const { proof } = screen;
-    const previous = { ...screen, canRetry: false };
+    const previous = screen;
     run((isCurrent) => loadResult(client, previous, proof, isCurrent));
   }
 
@@ -825,18 +765,6 @@ export function useDeletionFlow(
     }
   }
 
-  function retrySubmit() {
-    if (
-      screen.step === 'result' &&
-      screen.attempt &&
-      screen.canRetry &&
-      screen.proof &&
-      globalThis.performance.now() >= (screen.deleteRetryAt ?? 0)
-    ) {
-      submitAttempt(screen.attempt, screen.proof);
-    }
-  }
-
   function editCode() {
     setError((previous) =>
       previous?.code === 'OTP_INVALID' ? undefined : previous,
@@ -855,6 +783,5 @@ export function useDeletionFlow(
     submit,
     checkStatus,
     reauthenticate,
-    retrySubmit,
   };
 }

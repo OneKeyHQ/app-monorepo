@@ -29,6 +29,8 @@ export const messages = {
   currentSharePresent:
     '当前账号仍有 OneKey 服务端分片。如需删除，请联系客服获取新的邀请链接。',
   currentShareUnknown: '暂时无法确认当前分片状态',
+  resultCheckFailed: '查询失败，结果未更新。',
+  retryResultCheck: '重新查询',
   checkingShare: '正在确认当前分片状态…',
   checkCurrentShare: '查询分片状态',
   manualReview: '需要人工核查',
@@ -38,13 +40,10 @@ export const messages = {
   deletedShare: 'OneKey 服务端分片已删除',
   unknownShare: 'OneKey 服务端分片 · 状态待核实',
   unknownDetail: '请查询原申请的状态。',
-  retryDetail: '可重试原申请。',
   supportReference: '参考编号',
   completedAt: (time: string) => `原申请完成时间 ${time}`,
   checkStatus: '查询处理状态',
   statusCountdown: (seconds: number) => `${seconds} 秒后可查询`,
-  retryOriginal: '重试原申请',
-  retryCountdown: (seconds: number) => `${seconds} 秒后可重试`,
   expired: '此邀请已失效',
   requestNew: '请联系 OneKey 客服获取新的专属邀请。',
   changed: '邀请绑定的钱包已变更',
@@ -64,8 +63,9 @@ export const messages = {
   rateLimited: '操作过于频繁。请在倒计时结束后重试。',
   reverify: '身份验证已失效。请用原绑定身份重新登录。',
   reauthenticate: '用原绑定身份重新登录',
-  serviceUnavailable: '暂时无法查询处理状态，请稍后再查。',
+  serviceUnavailable: '暂时无法处理请求，请稍后重试。',
   unsupportedConfirmation:
     '此页面无法展示最新的删除确认说明。请联系 OneKey 客服。',
   confirmationRequired: '请重新确认当前删除说明。',
+  confirmationChanged: '删除说明已更新，请重新打开邀请链接。',
 };

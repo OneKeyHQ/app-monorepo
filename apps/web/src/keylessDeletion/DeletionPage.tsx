@@ -74,6 +74,7 @@ const errorMessages: Partial<Record<IFlowErrorCode, ITextKey>> = {
   SERVICE_UNAVAILABLE: 'serviceUnavailable',
   UNSUPPORTED_CONFIRMATION: 'unsupportedConfirmation',
   CONFIRMATION_REQUIRED: 'confirmationRequired',
+  CONFIRMATION_CHANGED: 'confirmationChanged',
   DELETION_DISABLED: 'deletionDisabled',
   INVALID_REQUEST: 'invalidRequest',
 };
@@ -379,37 +380,32 @@ function ResultStep({ flow }: { flow: IFlow }) {
   const { locale } = useIntl();
   const { screen, busy, resultCheckAfter } = flow;
   const cooldown = useCountdown(resultCheckAfter);
-  const deleteCooldown = useCountdown(
-    screen.step === 'result' ? (screen.deleteRetryAt ?? 0) : 0,
-  );
   if (screen.step !== 'result') {
     return null;
   }
-  const { result, accepted, proof, canRetry, resultCheckFailed } = screen;
+  const { result, accepted, proof, resultCheckFailed } = screen;
   const needsSignIn = !proof;
   const known = result && result.status !== 'not_submitted' ? result : accepted;
   const shareStatus =
     result?.status === 'completed' ? result.currentShareStatus : undefined;
   let resultDetail = resultCheckFailed
-    ? messages.currentShareUnknown
+    ? messages.resultCheckFailed
     : messages.unknownDetail;
-  if (canRetry) {
-    resultDetail = messages.retryDetail;
-  } else if (result?.status === 'not_submitted') {
+  if (!resultCheckFailed && result?.status === 'not_submitted') {
     resultDetail = messages.notSubmitted;
   }
-  const checkLabel =
-    known?.status === 'completed'
-      ? messages.checkCurrentShare
-      : messages.checkStatus;
+  let checkLabel: string = messages.checkStatus;
+  if (resultCheckFailed) checkLabel = messages.retryResultCheck;
+  else if (known?.status === 'completed') checkLabel = messages.checkCurrentShare;
   let scopeDetail: string | undefined;
   if (known?.status === 'completed') {
     if (shareStatus === 'absent') scopeDetail = messages.deletedShare;
     else if (shareStatus === 'present')
       scopeDetail = messages.currentSharePresent;
+    else if (busy) scopeDetail = messages.checkingShare;
     else
-      scopeDetail = busy
-        ? messages.checkingShare
+      scopeDetail = resultCheckFailed
+        ? messages.resultCheckFailed
         : messages.currentShareUnknown;
   } else if (known) {
     scopeDetail = messages[resultScopes[known.status]];
@@ -428,7 +424,7 @@ function ResultStep({ flow }: { flow: IFlow }) {
             </SizableText>
             {resultCheckFailed && known.status !== 'completed' ? (
               <SizableText color="$textSubdued" textAlign="center">
-                {messages.currentShareUnknown}
+                {messages.resultCheckFailed}
               </SizableText>
             ) : null}
             {shareStatus === 'absent' ? (
@@ -474,7 +470,7 @@ function ResultStep({ flow }: { flow: IFlow }) {
           ) : null}
         </YStack>
       ) : (
-        result?.status !== 'not_submitted' && (
+        (resultCheckFailed || result?.status !== 'not_submitted') && (
           <SizableText color="$textSubdued">{resultDetail}</SizableText>
         )
       )}
@@ -496,18 +492,6 @@ function ResultStep({ flow }: { flow: IFlow }) {
           onClick={flow.checkStatus}
         >
           {cooldown > 0 ? messages.statusCountdown(cooldown) : checkLabel}
-        </Action>
-      ) : null}
-      {canRetry && !needsSignIn ? (
-        <Action
-          data-testid="retry-original"
-          variant="secondary"
-          disabled={busy || deleteCooldown > 0}
-          onClick={flow.retrySubmit}
-        >
-          {deleteCooldown > 0
-            ? messages.retryCountdown(deleteCooldown)
-            : messages.retryOriginal}
         </Action>
       ) : null}
     </>
