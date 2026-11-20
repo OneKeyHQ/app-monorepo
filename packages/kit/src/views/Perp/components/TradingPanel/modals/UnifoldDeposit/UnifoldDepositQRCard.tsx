@@ -130,6 +130,7 @@ export function UnifoldDepositQRCard({
           bg="white"
         >
           <QRCode
+            key={normalizedTokenIconUri}
             value={address}
             size={QR_CODE_SIZE}
             padding={QR_CODE_PADDING}

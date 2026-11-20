@@ -6,6 +6,8 @@ import {
   useState,
 } from 'react';
 
+import { I18nManager } from 'react-native';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover } from '../../actions/Popover';
@@ -13,6 +15,7 @@ import { Tooltip } from '../../actions/Tooltip';
 import { useMedia } from '../../hooks/useStyle';
 import { SizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
+import { useTheme } from '../../shared/tamagui';
 
 import type { IPopoverProps } from '../../actions/Popover';
 import type { ITooltipProps } from '../../actions/Tooltip';
@@ -77,6 +80,7 @@ function DashTextCore({
   | 'tooltipPlacement'
   | 'tooltipTriggerAsChild'
 >) {
+  const theme = useTheme();
   const [textWidth, setTextWidth] = useState(0);
   const [textLines, setTextLines] = useState<
     { x: number; y: number; width: number; height: number }[]
@@ -134,6 +138,31 @@ function DashTextCore({
     [dashGap, dashLength, resolvedDashThickness, webDashScaleY],
   );
 
+  const dashColorValue = dashColor.startsWith('$')
+    ? theme[dashColor.slice(1) as keyof typeof theme]?.val
+    : dashColor;
+  const webMultilineStyle = useMemo<CSSProperties>(
+    () => ({
+      // Each inline fragment gets its own bounded dash pattern when text wraps.
+      boxDecorationBreak: 'clone',
+      WebkitBoxDecorationBreak: 'clone',
+      backgroundImage: `repeating-linear-gradient(to right, ${dashColorValue} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
+      backgroundPosition: 'left bottom',
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: `${Math.max(0, length * (dashLength + dashGap) - dashGap)}px ${dashThickness}px`,
+      paddingBottom: dashOverlay ? 0 : dashSpacing,
+    }),
+    [
+      dashColorValue,
+      dashLength,
+      dashGap,
+      length,
+      dashThickness,
+      dashOverlay,
+      dashSpacing,
+    ],
+  );
+
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     setTextWidth(event.nativeEvent.layout.width);
   }, []);
@@ -149,16 +178,13 @@ function DashTextCore({
           {...textProps}
           onTextLayout={onTextLayout}
           paddingBottom={dashOverlay ? 0 : '$0.2'}
-          {...(multiline && length > 0
-            ? {
-                maxWidth: '100%',
-                textDecorationLine: 'underline',
-                textDecorationStyle: 'dashed',
-                textDecorationColor: dashColor,
-              }
-            : undefined)}
+          maxWidth={multiline ? '100%' : textProps.maxWidth}
         >
-          {children}
+          {multiline && length > 0 ? (
+            <span style={webMultilineStyle}>{children}</span>
+          ) : (
+            children
+          )}
         </SizableText>
         {length > 0 && !multiline ? (
           <YStack
@@ -191,7 +217,10 @@ function DashTextCore({
               <XStack
                 key={lineIndex}
                 position="absolute"
-                left={line.x}
+                // Text layout reports physical x coordinates, even in RTL.
+                start={I18nManager.isRTL ? undefined : line.x}
+                end={I18nManager.isRTL ? line.x : undefined}
+                flexDirection={I18nManager.isRTL ? 'row-reverse' : 'row'}
                 top={
                   line.y +
                   line.height +
