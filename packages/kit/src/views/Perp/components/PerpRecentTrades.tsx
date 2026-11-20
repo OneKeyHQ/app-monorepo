@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -23,13 +23,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  getHlPriceTick,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
 import { ORDER_BOOK_VERTICAL_ROW_STEP } from '../layouts/perpLayoutUtils';
 
 import { PerpBookText, orderBookTextStyles } from './OrderBook';
-import { ORDER_BOOK_HORIZONTAL_ROW_HEIGHT } from './OrderBook/AnimatedDepthBlock.shared';
+import {
+  ORDER_BOOK_HORIZONTAL_ROW_HEIGHT,
+  ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP,
+} from './OrderBook/AnimatedDepthBlock.shared';
 
 function TradeLine({
   price,
@@ -66,7 +73,8 @@ function TradeLine({
       style={[
         textStyle,
         {
-          width: inline ? '34%' : '33%',
+          width: inline ? '24%' : '33%',
+          paddingLeft: !inline && isHeader ? 8 : 0,
           color: side ? priceColors[side] : textColor,
         },
       ]}
@@ -86,7 +94,8 @@ function TradeLine({
       {size}
     </PerpBookText>
   );
-  const timeWidth = inline ? '30%' : '37%';
+  const timeWidth = inline ? '40%' : '37%';
+  const timeRightPadding = isHeader ? 8 : 20;
   const transactionUrl =
     hash && /^0x[0-9a-f]{64}$/i.test(hash)
       ? `${HYPER_LIQUID_ORIGIN}/explorer/tx/${hash}`
@@ -97,7 +106,7 @@ function TradeLine({
       alignSelf="stretch"
       alignItems="center"
       justifyContent={inline ? 'flex-start' : 'flex-end'}
-      gap="$0.5"
+      gap="$2"
     >
       <PerpBookText
         numberOfLines={1}
@@ -131,7 +140,7 @@ function TradeLine({
           width: timeWidth,
           textAlign: inline ? 'left' : 'right',
           // Align timestamps with linked rows even when a trade has no explorer link.
-          paddingRight: !inline && !isHeader ? 14 : 0,
+          paddingRight: inline ? 0 : timeRightPadding,
           color: textColor,
         },
       ]}
@@ -141,12 +150,14 @@ function TradeLine({
   );
   const dataRowHeight = inline
     ? ORDER_BOOK_HORIZONTAL_ROW_HEIGHT
-    : ORDER_BOOK_VERTICAL_ROW_STEP;
+    : ORDER_BOOK_VERTICAL_ROW_STEP - ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP;
   const headerHeight = inline ? '$8' : '$6';
+  const verticalHorizontalPadding = isHeader ? 0 : 7;
   return (
     <XStack
       h={isHeader ? headerHeight : dataRowHeight}
-      px={inline ? '$5' : '$2'}
+      px={inline ? '$5' : verticalHorizontalPadding}
+      mt={!inline && !isHeader ? ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP : 0}
       alignItems="center"
     >
       {inline ? timeCell : null}
@@ -159,10 +170,12 @@ function TradeLine({
 
 const TradeRow = memo(function TradeRow({
   trade,
+  priceDecimals,
   szDecimals,
   inline,
 }: {
   trade: IRecentTrade;
+  priceDecimals: number;
   szDecimals?: number;
   inline: boolean;
 }) {
@@ -171,7 +184,9 @@ const TradeRow = memo(function TradeRow({
   const sideLabel = intl.formatMessage({
     id: isBuy ? ETranslations.global_buy : ETranslations.global_sell,
   });
-  const price = formatLocalizedNumberString(new BigNumber(trade.px).toFixed());
+  const price = formatLocalizedNumberString(
+    new BigNumber(trade.px).toFixed(priceDecimals),
+  );
   const size =
     szDecimals === undefined
       ? trade.sz
@@ -208,6 +223,21 @@ function RecentTradesList({
   const intl = useIntl();
   const { trades, isLoading, isError, isDisconnected, retry } =
     usePerpPublicTrades(coin, active);
+  const priceDecimals = useMemo(
+    () =>
+      trades.reduce((decimals, trade) => {
+        const price = new BigNumber(trade.px);
+        const tick =
+          szDecimals === undefined ? null : getHlPriceTick(price, szDecimals);
+        // Share precision across rows without rounding trades at price magnitude boundaries.
+        return Math.max(
+          decimals,
+          price.decimalPlaces() ?? 0,
+          tick?.decimalPlaces() ?? 0,
+        );
+      }, 0),
+    [trades, szDecimals],
+  );
   if (!visible) return null;
   const hasStatus = isError || isDisconnected;
   const showInitialLoading =
@@ -218,6 +248,7 @@ function RecentTradesList({
     <TradeRow
       key={`${trade.time}:${trade.tid}`}
       trade={trade}
+      priceDecimals={priceDecimals}
       inline={inline}
       szDecimals={szDecimals}
     />
@@ -238,13 +269,14 @@ function RecentTradesList({
     <YStack
       flex={inline ? undefined : 1}
       minHeight={inline ? inlineMinHeight : 0}
+      padding={inline ? 0 : 1}
       testID="perp-recent-trades"
       aria-busy={active && isLoading}
     >
       <TradeLine
         inline={inline}
         price={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-        size={intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+        size={`${intl.formatMessage({ id: ETranslations.perp_orderbook_size })} (${parseDexCoin(coin).displayName})`}
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
