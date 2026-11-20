@@ -169,10 +169,14 @@ import {
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
+  buildPublicAccountSnapshot,
+  getPublicAccountSnapshotId,
+  getPublicAccountSnapshotIdentityHash,
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
+  getForeignAccountDeletion,
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
   isUnsyncedPublicAccountSnapshotRemoval,
@@ -10652,6 +10656,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     { leading: false, trailing: true, maxWait: 5000 },
   );
 
+  private async withPublicAccountDeletionTransaction(
+    items: IDBCloudSyncItem[],
+    task: (tx: ILocalDBTransaction) => Promise<void>,
+  ) {
+    const transaction = () =>
+      this.withSpaceFreeingTransaction(EIndexedDBBucketNames.account, task);
+    const foreign = items.flatMap((item) => {
+      const intent = getForeignAccountDeletion(item);
+      return intent ? [intent] : [];
+    });
+    const first = foreign[0];
+    if (!first) return transaction();
+    if (foreign.some((intent) => intent.credential !== first.credential))
+      throw new OneKeyLocalError(
+        'Cloud account deletion has inconsistent scope.',
+      );
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    // Public removal is already running under the key lock. Follow the
+    // key → import → repair order, and take repair only for the IDB work.
+    const committed = await keyless.runWithCloudAccountImportLock(() =>
+      keyless.runWithVerifiedHardwareAccountArchiveSession(
+        first.credential,
+        async () => {
+          await transaction();
+          return true;
+        },
+      ),
+    );
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'Cloud sync changed before account deletion. Try removing the account again.',
+      );
+    }
+  }
+
   private async txWritePublicAccountDeletionSyncItems({
     tx,
     items,
@@ -10664,9 +10703,88 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const writes = items.filter(
       (item) => !isUnsyncedPublicAccountSnapshotRemoval(item),
     );
+    for (const item of writes) {
+      const intent = getForeignAccountDeletion(item);
+      // eslint-disable-next-line no-continue
+      if (!intent) continue;
+      const {
+        records: [current],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+      });
+      const {
+        records: [account],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [intent.accountId],
+      });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: intent.accountId,
+      });
+      const {
+        records: [wallet],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: [walletId],
+      });
+      const invalid = new OneKeyLocalError(
+        'Synced account data changed before deletion. Try removing the account again.',
+      );
+      if (
+        !tx.cloudAccountArchive ||
+        !current ||
+        !isEqual(current, intent.previous) ||
+        !canArchiveForeignAccountCopy(current, item.pwdHash) ||
+        item.pwdHash !== intent.credential.pwdHash ||
+        !item.data ||
+        !Number.isSafeInteger(item.dataTime) ||
+        (item.dataTime ?? 0) <= 0 ||
+        !item.isDeleted ||
+        item.serverUploaded ||
+        !account ||
+        !wallet ||
+        wallet.isMocked ||
+        wallet.isTemp
+      )
+        throw invalid;
+      if (accountUtils.isHwWallet({ walletId })) {
+        const {
+          records: [device],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: wallet.associatedDevice ? [wallet.associatedDevice] : [],
+        });
+        if (
+          !device ||
+          (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
+            EHardwareVendor.onekey) !== EHardwareVendor.onekey
+        )
+          throw invalid;
+      }
+      const snapshot = buildPublicAccountSnapshot({ wallet, account });
+      if (
+        !snapshot ||
+        item.rawKey !==
+          `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(snapshot)}` ||
+        getPublicAccountSnapshotIdentityHash(snapshot) !== intent.identityHash
+      )
+        throw invalid;
+      await tx.cloudAccountArchive.retain(current);
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+        updater: (record) => Object.assign(record, item),
+      });
+    }
     await this.txAddAndUpdateSyncItems({
       tx,
-      items: writes,
+      items: writes.filter((item) => !getForeignAccountDeletion(item)),
       skipUploadToServer: true,
     });
     const { records } = await this.txGetRecordsByIds({
@@ -10724,8 +10842,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           indexedAccountIds: new Set(indexedAccounts.map((item) => item.id)),
         }),
       );
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
         await this.txWritePublicAccountDeletionSyncItems({
           tx,
@@ -10790,8 +10908,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }),
       );
 
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
         await this.txWritePublicAccountDeletionSyncItems({
           tx,
@@ -10855,8 +10973,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // disk-full guard was raised, leaving wallets pointing at accounts that
     // no longer exist; and even unguarded, a failure between them left the
     // same inconsistency. `removeAccount` already has this shape.
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
         await this.txWritePublicAccountDeletionSyncItems({
           tx,
@@ -10937,8 +11055,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       syncItemKey = keyInfo.key;
     }
 
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
         await this.txWritePublicAccountDeletionSyncItems({
           tx,

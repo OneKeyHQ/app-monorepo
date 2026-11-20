@@ -223,6 +223,7 @@ export abstract class CloudSyncFlowManagerBase<
     allowHistoricalTime,
     existingDataTime,
     preserveUndefinedDataTime,
+    dataTimeScope,
     syncCredential,
     isDeleted,
   }: {
@@ -231,6 +232,7 @@ export abstract class CloudSyncFlowManagerBase<
     allowHistoricalTime?: boolean;
     existingDataTime?: number;
     preserveUndefinedDataTime?: boolean;
+    dataTimeScope?: string;
     syncCredential: ICloudSyncCredential | undefined;
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -249,7 +251,7 @@ export abstract class CloudSyncFlowManagerBase<
           ? undefined
           : await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime(
               {
-                syncItemKey: key,
+                syncItemKey: dataTimeScope ? `${dataTimeScope}:${key}` : key,
                 existingDataTime,
                 explicitHistoricalTime: dataTime,
                 allowHistoricalTime,

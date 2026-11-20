@@ -1,3 +1,5 @@
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
 type IPreviousSnapshotVersion = Pick<
@@ -97,4 +99,30 @@ export function matchesPublicAccountSnapshotWrite(
     previous.rawData === version.rawData &&
     previous.rawKey === version.rawKey
   );
+}
+
+// Proven only for this local delete operation; no scope credential or old
+// ciphertext reference can leak into the serialized/uploaded tombstone.
+type IForeignAccountDeletion = {
+  previous: IDBCloudSyncItem;
+  credential: IKeylessCloudSyncCredential;
+  accountId: string;
+  identityHash: string;
+};
+
+const foreignAccountDeletions = new WeakMap<
+  IDBCloudSyncItem,
+  IForeignAccountDeletion
+>();
+
+export function rememberForeignAccountDeletion(
+  tombstone: IDBCloudSyncItem,
+  intent: IForeignAccountDeletion,
+) {
+  foreignAccountDeletions.set(tombstone, intent);
+  return tombstone;
+}
+
+export function getForeignAccountDeletion(tombstone: IDBCloudSyncItem) {
+  return foreignAccountDeletions.get(tombstone);
 }
