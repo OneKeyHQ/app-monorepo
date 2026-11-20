@@ -39,6 +39,9 @@ function drawingEvent(
   };
 }
 
+// Roots of the charts with drawing tools, so a key press reaches one of them.
+const chartRoots = new Set<RefObject<HTMLDivElement | null>>();
+
 export function useChartDrawings(
   options: Parameters<typeof useSharedChartDrawings>[0] & {
     rootRef: RefObject<HTMLDivElement | null>;
@@ -76,6 +79,7 @@ export function useChartDrawings(
   const { enabled, rootRef } = options;
   useEffect(() => {
     if (!enabled) return undefined;
+    chartRoots.add(rootRef);
     const handle = (event: KeyboardEvent) => {
       const target = event.target;
       if (
@@ -85,14 +89,23 @@ export function useChartDrawings(
       )
         return;
       const root = rootRef.current;
+      if (!root) return;
+      // With several charts on screen the key goes to the one under the
+      // pointer; a focused chart only takes it when the pointer is over none.
+      const isHovered = (chart: RefObject<HTMLDivElement | null>) =>
+        Boolean(chart.current?.matches(':hover'));
       if (
-        root &&
-        (root.contains(document.activeElement) || root.matches(':hover'))
+        isHovered(rootRef) ||
+        (root.contains(document.activeElement) &&
+          ![...chartRoots].some(isHovered))
       )
         onKeyDown(event);
     };
     document.addEventListener('keydown', handle);
-    return () => document.removeEventListener('keydown', handle);
+    return () => {
+      chartRoots.delete(rootRef);
+      document.removeEventListener('keydown', handle);
+    };
   }, [enabled, onKeyDown, rootRef]);
   const draw = useCallback(
     (

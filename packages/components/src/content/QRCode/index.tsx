@@ -163,9 +163,17 @@ function BasicQRCode({
   // second logo would be clipped to the first one's shape. Only the logo
   // image needs a clip — the plate is a <Rect> that rounds itself.
   const logoClipId = `qrLogo${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  // Keep edge-touching finder rings inside the viewport when fractional SVG
+  // dimensions are rounded by the renderer. Center without scaling the symbol.
+  const svgSize = Math.ceil(size) + 2;
+  const svgInset = (svgSize - size) / 2;
 
   return (
-    <Svg height={size} width={size}>
+    <Svg
+      height={svgSize}
+      width={svgSize}
+      viewBox={`${-svgInset} ${-svgInset} ${svgSize} ${svgSize}`}
+    >
       {logo ? (
         <Defs>
           <ClipPath id={logoClipId}>

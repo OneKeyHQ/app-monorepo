@@ -295,7 +295,6 @@ export function PerpTradersHistoryListModal() {
                 </XStack>
                 <PerpTradesHistoryList
                   isMobile
-                  useTabsList={false}
                   filters={tradeHistoryFilters.filters}
                   onMarketOptionsChange={
                     tradeHistoryFilters.onMarketOptionsChange
@@ -306,7 +305,6 @@ export function PerpTradersHistoryListModal() {
             {activeTab === 'Twap' ? (
               <PerpTwapList
                 isMobile
-                useTabsList={false}
                 onSwitchInstrument={handleSwitchInstrument}
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
@@ -341,7 +339,6 @@ export function PerpTradersHistoryListModal() {
               </XStack>
               <PerpFundingHistoryList
                 isMobile
-                useTabsList={false}
                 isActive={activeTab === 'Funding'}
                 sideFilter={fundingHistorySideFilter}
                 marketFilter={fundingHistoryMarketFilter}
@@ -352,7 +349,6 @@ export function PerpTradersHistoryListModal() {
             {activeTab === 'Account' ? (
               <PerpAccountList
                 isMobile
-                useTabsList={false}
                 ListHeaderComponent={
                   <Stack pt="$2">
                     <NotificationEnableAlert scene="perpHistory" />

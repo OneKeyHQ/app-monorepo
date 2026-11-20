@@ -57,7 +57,7 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
 }));
 
-// The tab bar is `Tabs.TabBar` underneath (covered by its own test); a plain
+// The tab bar is `TabBar` underneath (covered by its own test); a plain
 // row of buttons keeps these tests on the selector's own logic.
 jest.mock('./selectorTabBar', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');

@@ -19,8 +19,11 @@ describe('buildHardwareEvmTransaction', () => {
     expect(() => serialize(unsignedTx)).not.toThrow();
   });
 
-  it('keeps EIP-2930 access-list transactions typed as type 1', () => {
-    const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+  // The hardware gas-price sign message has no access-list field, so the
+  // device always signs the legacy payload. Assembling a type 1 envelope
+  // locally would pair that signature with different bytes (OK-67031).
+  describe('gas-price transactions', () => {
+    const gasPriceTx = {
       from: '0x1111111111111111111111111111111111111111',
       to: '0x2222222222222222222222222222222222222222',
       value: '0x0',
@@ -28,24 +31,102 @@ describe('buildHardwareEvmTransaction', () => {
       nonce: 1,
       gasLimit: '21000',
       gasPrice: '1000000000',
+      chainId: 56,
+    };
+    const accessList = [
+      {
+        address: '0x3333333333333333333333333333333333333333',
+        storageKeys: [`0x${'00'.repeat(31)}01`],
+      },
+    ];
+    const legacySerialized = serialize(
+      buildHardwareEvmTransaction(gasPriceTx).unsignedTx,
+    );
+
+    it('signs as legacy and drops a non-empty access list', () => {
+      const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+        ...gasPriceTx,
+        accessList,
+      });
+
+      expect(hwTransaction).not.toHaveProperty('accessList');
+      expect(unsignedTx.type).toBeUndefined();
+      expect(unsignedTx.accessList).toBeUndefined();
+      expect(serialize(unsignedTx)).toBe(legacySerialized);
+    });
+
+    it('signs as legacy when the access list is empty', () => {
+      const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+        ...gasPriceTx,
+        accessList: [],
+      });
+
+      expect(hwTransaction).not.toHaveProperty('accessList');
+      expect(unsignedTx.type).toBeUndefined();
+      expect(serialize(unsignedTx)).toBe(legacySerialized);
+    });
+
+    it('does not forward an EIP-2930 txType to the device', () => {
+      const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+        ...gasPriceTx,
+        txType: 1,
+        accessList,
+      });
+
+      expect(hwTransaction).not.toHaveProperty('txType');
+      expect(serialize(unsignedTx)).toBe(legacySerialized);
+    });
+  });
+
+  it('keeps the access list on EIP-1559 transactions', () => {
+    const accessList = [
+      {
+        address: '0x3333333333333333333333333333333333333333',
+        storageKeys: [`0x${'00'.repeat(31)}01`],
+      },
+    ];
+    const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+      from: '0x1111111111111111111111111111111111111111',
+      to: '0x2222222222222222222222222222222222222222',
+      value: '0x0',
+      data: '0x',
+      nonce: 1,
+      gasLimit: '21000',
+      maxFeePerGas: '2000000000',
+      maxPriorityFeePerGas: '1000000000',
       chainId: 1,
-      txType: 1,
+      accessList,
+    });
+
+    expect((hwTransaction as { accessList?: unknown }).accessList).toEqual(
+      accessList,
+    );
+    expect(unsignedTx.type).toBe(2);
+    expect(unsignedTx.accessList).toEqual(accessList);
+  });
+
+  it('leaves the access list out of an EIP-1559 transaction on a chain that rejects access lists', () => {
+    const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+      from: '0x1111111111111111111111111111111111111111',
+      to: '0x2222222222222222222222222222222222222222',
+      value: '0x0',
+      data: '0x',
+      nonce: 1,
+      gasLimit: '21000',
+      maxFeePerGas: '2000000000',
+      maxPriorityFeePerGas: '1000000000',
+      // zkSync Era
+      chainId: 324,
       accessList: [
         {
           address: '0x3333333333333333333333333333333333333333',
-          storageKeys: [],
+          storageKeys: [`0x${'00'.repeat(31)}01`],
         },
       ],
     });
 
-    expect((hwTransaction as { txType?: number }).txType).toBe(1);
-    expect(unsignedTx.type).toBe(1);
-    expect(unsignedTx.accessList).toEqual([
-      {
-        address: '0x3333333333333333333333333333333333333333',
-        storageKeys: [],
-      },
-    ]);
-    expect(serialize(unsignedTx)).toMatch(/^0x01/u);
+    expect(hwTransaction).not.toHaveProperty('accessList');
+    expect(unsignedTx.type).toBe(2);
+    expect(unsignedTx.accessList).toBeUndefined();
   });
 });

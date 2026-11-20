@@ -137,6 +137,37 @@ describe('ServicePassword', () => {
       });
   });
 
+  it('cancels public account imports when clearing the cached password', async () => {
+    const service = Object.create(ServicePassword.prototype) as ServicePassword;
+    const cancelPublicAccountSnapshotImport = jest.fn(async () => undefined);
+    const clearCachedSyncCredential = jest.fn(async () => undefined);
+    service.backgroundApi = {
+      serviceKeylessCloudSync: {
+        cancelHardwareCloudKeyOperation: jest.fn(async () => true),
+        clearKeylessCloudSyncCredentialCache: jest.fn(async () => undefined),
+      },
+      servicePrimeCloudSync: {
+        cancelPublicAccountSnapshotImport,
+        clearCachedSyncCredential,
+      },
+    } as unknown as ServicePassword['backgroundApi'];
+    jest.spyOn(service, 'clearCachedPrfMasterKey').mockResolvedValue();
+    jest
+      .spyOn(service, 'refreshHyperLiquidAgentPasswordStatus')
+      .mockResolvedValue({
+        isPasswordSet: false,
+        requiresPasswordSetupOrVerify: true,
+      });
+
+    await service.clearCachedPassword();
+
+    expect(cancelPublicAccountSnapshotImport).toHaveBeenCalledTimes(1);
+    expect(clearCachedSyncCredential).toHaveBeenCalledTimes(1);
+    expect(
+      cancelPublicAccountSnapshotImport.mock.invocationCallOrder[0],
+    ).toBeLessThan(clearCachedSyncCredential.mock.invocationCallOrder[0]);
+  });
+
   it('preserves an interrupted Windows challenge without reading the stored password', async () => {
     const originalPlatform = {
       isDesktopWin: platformEnv.isDesktopWin,

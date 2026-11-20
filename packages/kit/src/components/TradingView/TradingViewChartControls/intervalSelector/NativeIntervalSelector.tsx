@@ -17,6 +17,7 @@ import { IntervalsDialogContent } from './NativeIntervalsDialogContent';
 import {
   COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT,
   MAX_PREFERRED_INTERVAL_COUNT,
+  WIDE_MOBILE_MAX_PREFERRED_INTERVAL_COUNT,
   isIntervalOptionDisabled,
 } from './NativeIntervalUtils';
 
@@ -31,6 +32,9 @@ const FULL_WIDTH_MORE_CONTROL_FLEX = 1.2;
 
 interface ITradingViewNativeIntervalSelectorProps {
   compactMobileLayout?: boolean;
+  // The regular toolbar has room for as many preferred intervals as the
+  // compact chart, e.g. a tablet split-view pane or a full-width tablet window.
+  wideMobileLayout?: boolean;
   fullWidth?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -119,6 +123,7 @@ function IntervalMoreTrigger({
 export const TradingViewNativeIntervalSelector = memo(
   ({
     compactMobileLayout = false,
+    wideMobileLayout = false,
     fullWidth = false,
     intervalConfig,
     intervalControlMode = 'dialog',
@@ -133,9 +138,14 @@ export const TradingViewNativeIntervalSelector = memo(
     });
     const shouldCompressIntervalItems = compactMobileLayout || fullWidth;
     const shouldShrinkToSiblings = compactMobileLayout && !fullWidth;
-    const toolbarMaxPreferredIntervalCount = compactMobileLayout
-      ? COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT
-      : MAX_PREFERRED_INTERVAL_COUNT;
+    let toolbarMaxPreferredIntervalCount = MAX_PREFERRED_INTERVAL_COUNT;
+    if (compactMobileLayout) {
+      toolbarMaxPreferredIntervalCount =
+        COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT;
+    } else if (wideMobileLayout) {
+      toolbarMaxPreferredIntervalCount =
+        WIDE_MOBILE_MAX_PREFERRED_INTERVAL_COUNT;
+    }
     const maxPreferredIntervalCount =
       intervalControlMode === 'popover'
         ? null

@@ -1,4 +1,9 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError as LocalError } from '@onekeyhq/shared/src/errors';
+import {
+  createSwapReviewQuoteExpiredError,
+  isSwapReviewQuoteExpiredWithoutSubmission,
+} from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import type { INativeStorageGlobal } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 const mockSharedRPCWrite = jest.fn();
@@ -773,6 +778,63 @@ describe('main thread background runner', () => {
       'info',
       expect.stringContaining('guessesRemaining'),
     );
+  });
+
+  it('rehydrates a trusted swap expiry from the background transport', async () => {
+    const {
+      buildSafeBackgroundThreadErrorData,
+      serializeBackgroundThreadResponse,
+    } = await import('./rpcProtocol');
+    await import('./setupMainThreadBackgroundRunner');
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          callServiceRequest: (
+            request: {
+              type: 'service-call';
+              method: string;
+              params: unknown[];
+              sync: boolean;
+            },
+            localFallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+    if (!transport) throw new LocalError('Missing native transport');
+    const request = {
+      type: 'service-call' as const,
+      method: 'serviceSend.signAndSendTransaction',
+      params: [],
+      sync: false,
+    };
+    const requestPromise = transport.callServiceRequest(
+      request,
+      async () => undefined,
+    );
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
+      ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+    );
+    const requestCall = requestCalls[requestCalls.length - 1];
+    const callId = (requestCall?.[0] as string).slice('onekey:bg:req:'.length);
+    const originalError = createSwapReviewQuoteExpiredError(true);
+    mockInboundMessageHandler?.(
+      `onekey:bg:res:${callId}`,
+      serializeBackgroundThreadResponse({
+        ok: false,
+        error: {
+          name: originalError.name,
+          message: originalError.message,
+          data: buildSafeBackgroundThreadErrorData(originalError.data, {
+            request,
+            message: originalError.message,
+            error: originalError,
+          }),
+        },
+      }),
+    );
+    const error: unknown = await requestPromise.catch((e: unknown) => e);
+    expect(isSwapReviewQuoteExpiredWithoutSubmission(error)).toBe(true);
   });
 
   it('replays single and batched Jotai broadcasts after hydration', async () => {

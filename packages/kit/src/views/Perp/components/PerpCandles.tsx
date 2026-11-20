@@ -13,15 +13,8 @@ import {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
   TradingViewChartModeSelect,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import {
-  TradingViewNative,
-  getTradingViewNativeSourceKey,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import type {
-  ITradingViewNativeProps,
-  ITradingViewNativeSource,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
+import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { ITradingViewNativeSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -33,54 +26,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
-  getHyperliquidTokenImageUris,
-  getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
-import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
-import { usePerpsNativeChartLines } from '../hooks/usePerpsNativeChartLines';
-import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
-import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadata';
+import { PerpNativeCandles, PerpNativeSplitCandles } from './PerpNativeCandles';
 
-function PerpNativeCandles({
-  enableTradingUi,
-  ...props
-}: ITradingViewNativeProps & { enableTradingUi: boolean }) {
-  const { chartComponents: lines, onReferenceLineAction } =
-    usePerpsNativeChartLines(enableTradingUi);
-  const marks = usePerpsNativeChartMarks();
-  const metadata = usePerpsNativeChartMetadata();
-  const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
-  const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
-  const fullscreenHeader = useMemo(
-    () =>
-      platformEnv.isNative ? (
-        <TradingViewNativeTokenHeader
-          name={mode === 'spot' ? displayName : `${displayName}USDC`}
-          {...(mode === 'spot'
-            ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
-            : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
-        />
-      ) : undefined,
-    [baseName, coin, displayName, mode],
-  );
-  return (
-    <TradingViewNative
-      {...props}
-      {...metadata}
-      {...orderMenu}
-      isPricePrecisionLoading={metadata.priceDecimalPlaces === undefined}
-      nativeChartFullscreenHeader={fullscreenHeader}
-      chartComponents={chartComponents}
-      onReferenceLineAction={
-        enableTradingUi ? onReferenceLineAction : undefined
-      }
-    />
-  );
-}
+import type { IPerpNativeCandlesProps } from './PerpNativeCandles';
 
 export function PerpCandles({
   chartMode,
@@ -197,6 +148,31 @@ export function PerpCandles({
     [activeTradeInstrument.coin, onInteractionOverlayOpenChange],
   );
 
+  // Split view needs room for several charts, so only the large web, extension
+  // and desktop layouts offer it.
+  const NativeCandles = isDesktopLayout
+    ? PerpNativeSplitCandles
+    : PerpNativeCandles;
+  const nativeChartProps: IPerpNativeCandlesProps = {
+    source,
+    storageNamespace: 'perps',
+    enableTradingUi: enablePerpsTradingUi,
+    useFullscreenOverlay: !isDesktopLayout,
+    onInteractionChange: setIsChartInteracting,
+    enableNativeChartSettings: true,
+    enableDrawings: !platformEnv.isNative,
+    prioritizePageScroll: platformEnv.isNativeIOS,
+    nativeControlsLayoutMode: isDesktopLayout ? 'desktop' : 'mobile',
+    nativeChartSettingsInToolbar: platformEnv.isNative,
+    showNativeIndicatorQuickBar: platformEnv.isNative,
+    nativeChartGrowsWithSubIndicators,
+    onChartSwitch: showChartModeSelect ? handleChartSwitch : undefined,
+    isNativeChartFullscreen: isDesktopLayout
+      ? chartExpanded
+      : isMobileChartFullscreen,
+    onNativeChartFullscreenChange: handleFullscreenChange,
+  };
+
   const content = (
     <Stack w="100%" h="100%" flex={1} minHeight={0}>
       {!isTradingViewNative &&
@@ -218,25 +194,13 @@ export function PerpCandles({
         </XStack>
       ) : null}
       {isTradingViewNative && activeTradeInstrument.coin ? (
-        <PerpNativeCandles
-          key={getTradingViewNativeSourceKey(source)}
-          source={source}
-          storageNamespace="perps"
-          enableTradingUi={enablePerpsTradingUi}
-          useFullscreenOverlay={!isDesktopLayout}
-          onInteractionChange={setIsChartInteracting}
-          enableNativeChartSettings
-          enableDrawings={!platformEnv.isNative}
-          prioritizePageScroll={platformEnv.isNativeIOS}
-          nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
-          nativeChartSettingsInToolbar={platformEnv.isNative}
-          showNativeIndicatorQuickBar={platformEnv.isNative}
-          nativeChartGrowsWithSubIndicators={nativeChartGrowsWithSubIndicators}
-          onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
-          isNativeChartFullscreen={
-            isDesktopLayout ? chartExpanded : isMobileChartFullscreen
+        <NativeCandles
+          // The single chart is keyed by its token; split view keeps its grid
+          // mounted and keys the panels itself.
+          key={
+            isDesktopLayout ? undefined : getTradingViewNativeSourceKey(source)
           }
-          onNativeChartFullscreenChange={handleFullscreenChange}
+          {...nativeChartProps}
         />
       ) : null}
       {!isTradingViewNative && reloadHook > 0 && activeTradeInstrument.coin ? (

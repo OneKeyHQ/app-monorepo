@@ -40,8 +40,8 @@ function StorybookRoot() {
     return () => clearTimeout(timer);
   }, []);
   return (
-    // Gesture context for swipe-driven overlay components (backpackapp
-    // toasts, sheets). The wallet mounts its GestureHandlerRootView in kit's
+    // Gesture context for swipe-driven overlay components (sheets).
+    // The wallet mounts its GestureHandlerRootView in kit's
     // provider tree, which this shell doesn't use, so it owns one here.
     <GestureHandlerRootView style={rootStyle}>
       <StorybookUIRoot />

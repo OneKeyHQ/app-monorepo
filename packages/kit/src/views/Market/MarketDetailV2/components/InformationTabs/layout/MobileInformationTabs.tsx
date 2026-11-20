@@ -7,10 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   DelayedFreeze,
   Skeleton,
-  Tabs,
+  Tab,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import type { IAppPagerTabBarProps } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -87,11 +88,8 @@ function MobileInformationTabsHeader({
     [focusedTab, onTabPress],
   );
   const renderTabBarItem = useCallback(
-    (
-      itemProps: React.ComponentProps<typeof Tabs.TabBarItem>,
-      index: number,
-    ) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>, index: number) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         testID={`market-detail-information-tab-${index}`}
@@ -112,7 +110,7 @@ function MobileInformationTabsHeader({
           ? { position: 'sticky', top: 0, zIndex: 10 }
           : undefined)}
       >
-        <Tabs.TabBar
+        <TabBar
           {...props}
           scrollable
           keepFocusedTabVisible
@@ -220,7 +218,7 @@ export function MobileInformationTabs({
       id: ETranslations.global_overview,
     });
     const portfolioTab = (
-      <Tabs.Tab
+      <Tab
         key="portfolio"
         startMounted={platformEnv.isNativeAndroid}
         name={intl.formatMessage({
@@ -241,12 +239,12 @@ export function MobileInformationTabs({
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>
-      </Tabs.Tab>
+      </Tab>
     );
 
     if (detailKind === 'topCoin') {
       return [
-        <Tabs.Tab key="overview" name={overviewName}>
+        <Tab key="overview" name={overviewName}>
           <DelayedFreeze freeze={freezeContent}>
             <MobileTopCoinsOverviewPanel
               scrollEnabled={scrollEnabled}
@@ -254,20 +252,20 @@ export function MobileInformationTabs({
               isAssetDetailLoading={isMarketAssetDetailLoading}
             />
           </DelayedFreeze>
-        </Tabs.Tab>,
+        </Tab>,
         portfolioTab,
       ];
     }
 
     if (detailKind === 'stock') {
       return [
-        <Tabs.Tab key="overview" name={overviewName}>
+        <Tab key="overview" name={overviewName}>
           <DelayedFreeze freeze={freezeContent}>
             <MobileStockOverviewPanel scrollEnabled={scrollEnabled} />
           </DelayedFreeze>
-        </Tabs.Tab>,
+        </Tab>,
         stockId && !hideFinancials ? (
-          <Tabs.Tab
+          <Tab
             key="financials"
             name={intl.formatMessage({
               id: ETranslations.market_stock_financials__title,
@@ -280,7 +278,7 @@ export function MobileInformationTabs({
                 financials={financials}
               />
             </DelayedFreeze>
-          </Tabs.Tab>
+          </Tab>
         ) : null,
         portfolioTab,
       ].filter(Boolean);
@@ -293,13 +291,13 @@ export function MobileInformationTabs({
     const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
 
     return [
-      <Tabs.Tab key="overview" name={overviewName}>
+      <Tab key="overview" name={overviewName}>
         <DelayedFreeze freeze={freezeContent}>
           <MobileTrendingOverviewPanel scrollEnabled={scrollEnabled} />
         </DelayedFreeze>
-      </Tabs.Tab>,
+      </Tab>,
       shouldShowTransactionsTab && (
-        <Tabs.Tab
+        <Tab
           key="transactions"
           name={intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions,
@@ -313,11 +311,11 @@ export function MobileInformationTabs({
               scrollEnabled={scrollEnabled}
             />
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
       portfolioTab,
       shouldShowLiquidityPoolsTab && (
-        <Tabs.Tab
+        <Tab
           key="liquidityPools"
           name={intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -334,10 +332,10 @@ export function MobileInformationTabs({
               />
             </MarketDetailScrollView>
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
       shouldShowHoldersTab && (
-        <Tabs.Tab key="holders" name={holdersTabName}>
+        <Tab key="holders" name={holdersTabName}>
           <DelayedFreeze freeze={freezeContent}>
             <Holders
               tokenAddress={tokenAddress}
@@ -345,7 +343,7 @@ export function MobileInformationTabs({
               scrollEnabled={scrollEnabled}
             />
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
     ].filter(Boolean);
   }, [

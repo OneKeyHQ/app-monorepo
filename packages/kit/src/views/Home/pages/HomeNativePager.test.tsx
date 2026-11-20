@@ -977,6 +977,7 @@ describe('HomePageView complete header authority', () => {
         '../../../components/NetworkAlert',
         '../../../components/NotificationEnableAlert',
         '../../../components/NotificationPermissionRecoveryAlert',
+        '../../../components/OsEndOfSupportAlert',
         '../../../components/TabPageHeader',
         '../../../components/WatchOnlyAlert',
         '../../../components/WebDapp/WebDappEmptyView',

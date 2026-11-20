@@ -87,7 +87,6 @@ const ZERO_USDC_BALANCES = [ZERO_USDC_BALANCE];
 
 interface ISpotBalanceListProps {
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
 }
@@ -102,7 +101,6 @@ function getBalanceSortPriority(item: IBalanceDisplayItem): number {
 
 function SpotBalanceList({
   isMobile,
-  useTabsList,
   disableListScroll,
   ListHeaderComponent,
 }: ISpotBalanceListProps) {
@@ -481,9 +479,6 @@ function SpotBalanceList({
 
   return (
     <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'SpotBalanceList',
@@ -491,7 +486,6 @@ function SpotBalanceList({
         }),
         [],
       )}
-      useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

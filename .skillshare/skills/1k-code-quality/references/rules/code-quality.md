@@ -7,19 +7,26 @@ Linting, documentation, and general code quality standards for OneKey.
 ### Lint Commands
 
 ```bash
-# Recommended for agent workflows (fast, only staged files)
+# Implementation gate (includes worktree auto-fixes)
 yarn agent:check --profile commit
 
-# PR readiness (local checks + GitHub CI/review summary)
+# PR readiness (local auto-fixes + GitHub CI/review summary)
 yarn agent:check --profile pr
 
-# Full project check (for CI or comprehensive pre-PR validation)
-yarn lint          # Comprehensive lint (~1 minute)
+# Remote status without source edits (writes local logs)
+yarn agent:check --profile ci --pr <number>
+
+# Full project check (CI)
+yarn lint
 ```
 
-**✅ Recommended**: For agent workflows, use `yarn agent:check --profile commit` to run the staged lint and type checks behind a compact summary. This keeps detailed logs out of conversation context.
+**Side effects:** The `commit` and `pr` profiles run worktree `oxlint --fix`
+and `oxfmt` in addition to staged checks. Inspect modified and untracked files
+first and preserve unrelated user work. Do not use them for read-only reviews.
 
-**Note:** `yarn lint` runs a comprehensive check and takes ~1 minute. Use it for CI or debugging a failed `agent:check` step.
+Use `agent:check` for implementation gates and its logs to diagnose failures.
+Run targeted behavioral tests separately when needed. Reserve `yarn lint`
+for CI or diagnosis of a failed gate.
 
 ### Pre-Commit Workflow
 

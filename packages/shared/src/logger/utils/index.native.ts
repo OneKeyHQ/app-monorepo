@@ -8,6 +8,7 @@ import {
   supportedCpuArchitectures,
   totalMemory,
 } from 'expo-device';
+import { NativeModules } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -87,6 +88,15 @@ const getLogFilePath = async (filename: string) => {
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
   if (!isExist) {
     await RNFS.mkdir(NATIVE_LOG_ZIP_PATH, IOS_FILE_PROTECTION_OPTIONS);
+  }
+  if (platformEnv.isNativeIOS) {
+    const widgetModule = NativeModules.OneKeyMarketWidget as
+      | { exportDiagnostics?: () => Promise<void> }
+      | undefined;
+    // The extension writes in its App Group, outside the host's log directory.
+    await widgetModule?.exportDiagnostics?.().catch(() => {
+      consoleFunc('[MarketWidget] diagnostics.export_failed');
+    });
   }
   const safeFilename = filename.replace(/[^A-Za-z0-9._-]/g, '_');
   const archiveName = safeFilename || 'OneKeyLogs';

@@ -5,6 +5,7 @@ import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalPerpRoutes,
   IModalPerpParamList,
@@ -38,6 +39,10 @@ export function showPerpPortfolioDialog(
     title: getPortfolioTitle(intl),
     showFooter: false,
     floatingPanelProps: { width: 960 },
+    // Reserve the dialog header (70px) within the card's 90vh height limit.
+    contentContainerProps: platformEnv.isNative
+      ? undefined
+      : { maxHeight: 'calc(90vh - 70px)', overflow: 'scroll' },
     renderContent: (
       // In-tab dialogs render through the IN_PAGE_TAB_CONTAINER portal at the
       // TabNavigator root, so they do NOT inherit the page/header providers.

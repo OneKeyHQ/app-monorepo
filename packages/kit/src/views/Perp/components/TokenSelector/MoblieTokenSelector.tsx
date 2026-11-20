@@ -4,6 +4,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -543,17 +544,14 @@ function MobileTokenSelectorModal({
     };
   }, [shouldEnableSpotData]);
 
+  const selectorOwner = useId();
   useEffect(() => {
-    const currentActions = actions.current;
-    currentActions.setTradeRouteViewState({
-      tokenSelectorOpen: true,
-    });
+    const { setTokenSelectorOpen } = actions.current;
+    setTokenSelectorOpen({ owner: selectorOwner, open: true });
     return () => {
-      currentActions.setTradeRouteViewState({
-        tokenSelectorOpen: false,
-      });
+      setTokenSelectorOpen({ owner: selectorOwner, open: false });
     };
-  }, [actions]);
+  }, [actions, selectorOwner]);
 
   useEffect(() => {
     actions.current.setTradeRouteViewState({

@@ -10,11 +10,11 @@ import {
   IconButton,
   SearchBar,
   SizableText,
-  Tabs,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
@@ -599,7 +599,7 @@ export function AvailableAssetsTabViewList({
         )}
       </XStack>
       <XStack ai="center" jc="space-between" px="$pagePadding">
-        <Tabs.TabBar
+        <TabBar
           containerStyle={ASSET_TAB_BAR_CONTAINER_STYLE}
           divider={false}
           onTabPress={handleTabChange}

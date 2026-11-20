@@ -11,7 +11,7 @@ import {
 import { pack } from '@solana/spl-token-metadata';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 
-import { getSolanaSwapRent } from './solanaRentUtils';
+import { getSolanaSwapRent, getSolanaTransferRent } from './solanaRentUtils';
 
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 jest.mock('./sdkSol/ClientSol', () => ({
@@ -45,8 +45,9 @@ function fixture() {
   return {
     getMultipleAccountsInfo: jest.fn().mockResolvedValue([null, accountInfo()]),
     getAccountInfo: jest.fn(),
-    getMinimumBalanceForRentExemption: jest.fn(async (size: number) =>
-      size === 0 ? 650_240 : 1_488_440,
+    getMinimumBalanceForRentExemption: jest.fn(
+      async (size: number): Promise<number> =>
+        size === 0 ? 650_240 : 1_488_440,
     ),
   };
 }
@@ -311,4 +312,124 @@ describe('getSolanaSwapRent', () => {
       expect(client.getMinimumBalanceForRentExemption).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('getSolanaTransferRent', () => {
+  it('returns the on-chain rent of a token account the sender creates', async () => {
+    const client = fixture();
+    client.getMultipleAccountsInfo.mockResolvedValue([null]);
+    await expect(
+      getSolanaTransferRent({
+        instructions: [create()],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBe('0.00148844');
+    expect(client.getMinimumBalanceForRentExemption).toHaveBeenCalledWith(165);
+  });
+
+  it('sizes a Token-2022 account by its mint extensions (transfer fee + hook = 187 bytes)', async () => {
+    const client = fixture();
+    client.getMultipleAccountsInfo.mockResolvedValue([null]);
+    client.getMinimumBalanceForRentExemption.mockImplementation(
+      async (size: number) => (128 + size) * 5080,
+    );
+    const extensions = [
+      ExtensionType.TransferFeeConfig,
+      ExtensionType.TransferHook,
+    ];
+    const data = Buffer.alloc(getMintLen(extensions));
+    data[165] = 1;
+    let offset = 166;
+    for (const extension of extensions) {
+      data.writeUInt16LE(extension, offset);
+      data.writeUInt16LE(getTypeLen(extension), offset + 2);
+      offset += 4 + getTypeLen(extension);
+    }
+    MintLayout.encode(
+      {
+        mintAuthorityOption: 0,
+        mintAuthority: payer,
+        supply: 0n,
+        decimals: 6,
+        isInitialized: true,
+        freezeAuthorityOption: 0,
+        freezeAuthority: payer,
+      },
+      data,
+    );
+    client.getAccountInfo.mockResolvedValue(
+      accountInfo(TOKEN_2022_PROGRAM_ID, 1, data),
+    );
+    await expect(
+      getSolanaTransferRent({
+        instructions: [create(TOKEN_2022_PROGRAM_ID)],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBe('0.0016002');
+    expect(client.getMinimumBalanceForRentExemption).toHaveBeenCalledWith(187);
+  });
+
+  it('reads a Token-2022 mint once for several token accounts of that mint', async () => {
+    const client = fixture();
+    client.getMultipleAccountsInfo.mockResolvedValue([null, null]);
+    const data = Buffer.alloc(MintLayout.span);
+    MintLayout.encode(
+      {
+        mintAuthorityOption: 0,
+        mintAuthority: payer,
+        supply: 0n,
+        decimals: 6,
+        isInitialized: true,
+        freezeAuthorityOption: 0,
+        freezeAuthority: payer,
+      },
+      data,
+    );
+    client.getAccountInfo.mockResolvedValue(
+      accountInfo(TOKEN_2022_PROGRAM_ID, 1, data),
+    );
+    await expect(
+      getSolanaTransferRent({
+        instructions: [
+          create(TOKEN_2022_PROGRAM_ID),
+          create(TOKEN_2022_PROGRAM_ID, payer, other),
+        ],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBe('0.00297688');
+    expect(client.getAccountInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns zero when the lookup succeeds and nothing needs funding', async () => {
+    const client = fixture();
+    client.getMultipleAccountsInfo.mockResolvedValue([
+      accountInfo(TOKEN_PROGRAM_ID, 1_488_440),
+    ]);
+    await expect(
+      getSolanaTransferRent({
+        instructions: [create()],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBe('0');
+    expect(client.getMinimumBalanceForRentExemption).not.toHaveBeenCalled();
+  });
+
+  it('returns undefined when the rent cannot be read, so callers fall back', async () => {
+    const client = fixture();
+    client.getMultipleAccountsInfo.mockResolvedValue([null]);
+    client.getMinimumBalanceForRentExemption.mockRejectedValue(
+      new Error('rpc down'),
+    );
+    await expect(
+      getSolanaTransferRent({
+        instructions: [create()],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBeUndefined();
+  });
 });

@@ -23,6 +23,7 @@ export * from './activeAccountValue';
 export * from './prime';
 export * from './keyless';
 export * from './bannerClose';
+export * from './osEndOfSupportNotice';
 export * from './allNetworks';
 export * from './bulkExportHistory';
 export * from './desktopBluetooth';

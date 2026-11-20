@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
+import {
+  THIRD_PARTY_BLE_CHANNELS,
+  isThirdPartyBleIpcErrorResponse,
+} from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
@@ -56,6 +59,17 @@ async function invokeNobleBle<T>(channel: string, ...args: unknown[]) {
   if (isNobleBleIpcErrorResponse(response)) {
     // A plain object keeps its structured fields when proxied through
     // contextBridge; Error instances lose custom properties at this boundary.
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw response.error;
+  }
+  return response;
+}
+
+async function invokeThirdPartyBle(channel: string, ...args: unknown[]) {
+  const response: unknown = await ipcRenderer.invoke(channel, ...args);
+  if (isThirdPartyBleIpcErrorResponse(response)) {
+    // Rejected as data so `code` survives contextBridge; the SDK transport
+    // turns it back into an Error.
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw response.error;
   }
@@ -433,28 +447,28 @@ const desktopApi = {
   // renderer surface.
   thirdPartyBle: {
     scan: (options?: ElectronBleScanOptions) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.scan, options),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.scan, options),
     stopScan: (vendor?: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.stopScan, vendor),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.stopScan, vendor),
     connect: (id: string, options?: ElectronBleConnectOptions) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.connect, id, options),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.connect, id, options),
     disconnect: (id: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.disconnect, id),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.disconnect, id),
     subscribe: (id: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.subscribe, id),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.subscribe, id),
     unsubscribe: (id: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.unsubscribe, id),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.unsubscribe, id),
     write: (id: string, hexData: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.write, id, hexData),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.write, id, hexData),
     checkAvailability: () =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.availability),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.availability),
     getDevice: (id: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.getDevice, id),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.getDevice, id),
     // cspell:ignore Rssi
     readRssi: (id: string) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.readRssi, id),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.readRssi, id),
     cancelPairing: (options?: { vendor: string; id?: string }) =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, options),
+      invokeThirdPartyBle(THIRD_PARTY_BLE_CHANNELS.cancelPairing, options),
     onNotification: (handler: (id: string, hexData: string) => void) => {
       const subscription = (_: unknown, id: string, hexData: string) => {
         handler(id, hexData);

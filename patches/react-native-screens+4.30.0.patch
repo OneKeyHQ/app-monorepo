@@ -1,9 +1,9 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
 new file mode 100644
-index 0000000..eaa5010
+index 0000000..a6baab1
 --- /dev/null
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
-@@ -0,0 +1,457 @@
+@@ -0,0 +1,475 @@
 +package com.swmansion.rnscreens
 +
 +import android.animation.Animator
@@ -36,6 +36,14 @@ index 0000000..eaa5010
 +import com.swmansion.rnscreens.ScreenFragment.ScreenLifecycleEvent
 +import kotlin.math.abs
 +import kotlin.math.max
++
++// react-native-pager-view cannot be a compile-time dependency of this package, so the collapsible
++// pager's header offset is read by name; the pager class is kept for the OneKey bottom tabs.
++private val collapsiblePagerHeaderOffsetGetter by lazy {
++    runCatching {
++        Class.forName("com.reactnativepagerview.CollapsiblePagerHost").getMethod("getHeaderOffsetPx")
++    }.getOrNull()
++}
 +
 +// OneKey patch: keep vertical dismiss gestures, settling and removal on the Android UI thread.
 +// Horizontal swipe-back is intentionally unsupported because it conflicts with system back gestures.
@@ -193,6 +201,10 @@ index 0000000..eaa5010
 +        // frame scroll, so inner scroll containers and page-handled drags are invisible here.
 +        if (view is SwipeRefreshLayout && view.isEnabled) return true
 +        if (view is WebView) return true
++        // A collapsible pager keeps its collapsed header apart from the page's scroll offset,
++        // so a page back at its own top still reports no upward scroll. Expand the header first,
++        // unless a fling left it within the touch slop of fully expanded, where it looks expanded.
++        if (collapsiblePagerHeaderOffset(view) > slop) return true
 +        if (view is ViewGroup) {
 +            for (index in view.childCount - 1 downTo 0) {
 +                val child = view.getChildAt(index)
@@ -202,6 +214,12 @@ index 0000000..eaa5010
 +            }
 +        }
 +        return view.canScrollVertically(-1)
++    }
++
++    private fun collapsiblePagerHeaderOffset(view: View): Int {
++        val getter = collapsiblePagerHeaderOffsetGetter ?: return 0
++        if (!getter.declaringClass.isInstance(view)) return 0
++        return runCatching { getter.invoke(view) as Int }.getOrDefault(0)
 +    }
 +
 +    private fun applyProgress(value: Float) {

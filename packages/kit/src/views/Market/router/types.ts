@@ -1,20 +1,35 @@
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import type { IMarketWidgetKind } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import type {
   EMarketBannerType,
   IMarketStockDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { IMarketHighlightQuote } from '../MarketHighlights/useMarketHighlightQuotes';
+import type { IMarketHighlightsPreview } from '../MarketHighlights/useMarketHighlights';
+
 export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
+  MarketHighlights = 'MarketHighlights',
   MobileTokenSelector = 'MobileTokenSelector',
   MarketChartSettings = 'MarketChartSettings',
   MarketIndicatorSettings = 'MarketIndicatorSettings',
+  MarketWidgetList = 'MarketWidgetList',
+  MarketWidgetEditor = 'MarketWidgetEditor',
 }
 
 export type IModalMarketParamList = {
+  [EModalMarketRoutes.MarketWidgetList]:
+    | { kind?: IMarketWidgetKind }
+    | undefined;
+  [EModalMarketRoutes.MarketWidgetEditor]: {
+    profileId?: string;
+    kind?: IMarketWidgetKind;
+    editorSession?: string;
+  };
   [EModalMarketRoutes.MarketDetailV2]: {
     tokenAddress?: string;
     network?: string;
@@ -31,6 +46,13 @@ export type IModalMarketParamList = {
     title: string;
     type?: EMarketBannerType;
   };
+  [EModalMarketRoutes.MarketHighlights]:
+    | {
+        initialHighlightId?: string;
+        initialQuotes?: [string, IMarketHighlightQuote][];
+        initialHighlights?: IMarketHighlightsPreview;
+      }
+    | undefined;
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
         showFavoriteButton?: boolean;

@@ -7,6 +7,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     typeof import('@onekeyhq/shared/src/eventBus/appEventBusNames')
   >('@onekeyhq/shared/src/eventBus/appEventBusNames').EAppEventBusNames,
   appEventBus: {
+    on: jest.fn(),
     emit: (...args: unknown[]) => {
       mockEmit(...args);
     },

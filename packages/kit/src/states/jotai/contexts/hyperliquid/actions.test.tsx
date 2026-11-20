@@ -38,6 +38,7 @@ import {
   activeTradeInstrumentAtom,
   perpsActiveOpenOrdersAtom,
   perpsActiveTwapOrdersAtom,
+  tradeRouteViewStateAtom,
   tradingFormAtom,
   tradingFormEnvAtom,
 } from './atoms';
@@ -265,6 +266,29 @@ function createWrapper(store = createStore()) {
     );
   };
 }
+
+describe('useHyperliquidActions.setTokenSelectorOpen', () => {
+  it('keeps the selector subscriptions on while any picker is open', () => {
+    const store = createStore();
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    const report = (owner: string, open: boolean) =>
+      act(() => result.current.current.setTokenSelectorOpen({ owner, open }));
+    const isOpen = () => store.get(tradeRouteViewStateAtom()).tokenSelectorOpen;
+
+    report('chart', true);
+    report('ticker', true);
+    expect(isOpen()).toBe(true);
+    report('chart', false);
+    expect(isOpen()).toBe(true);
+    // A picker closing twice cannot release another picker's hold.
+    report('chart', false);
+    expect(isOpen()).toBe(true);
+    report('ticker', false);
+    expect(isOpen()).toBe(false);
+  });
+});
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {
   beforeEach(() => {

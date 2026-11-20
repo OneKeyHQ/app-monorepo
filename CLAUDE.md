@@ -6,7 +6,7 @@ aware, and aligned with package boundaries.
 
 ## Core Rules
 
-- Do not remove existing code/components unless the request requires it.
+- Fix root causes. Preserve required behavior when replacing code.
 - Keep TypeScript precise: no fallback `never[]`, avoidable `any`, or
   unjustified `@ts-ignore`.
 - Use platform-specific files or `Platform.select` for platform behavior; do
@@ -97,7 +97,7 @@ Never violate this dependency order:
 - Before commit run `yarn agent:check --profile commit`; before PR readiness run
   `yarn agent:check --profile pr`.
 - For remote-only status run `yarn agent:check --profile ci --pr <number>`.
-- Debug a failed `agent:check` with lower-level commands; logs:
+- Debug failed lint/type gates with lower-level commands; logs:
   `node_modules/.cache/agent-checks`.
 - Run targeted tests when scope or risk requires them; avoid the root `yarn test`
   alias.

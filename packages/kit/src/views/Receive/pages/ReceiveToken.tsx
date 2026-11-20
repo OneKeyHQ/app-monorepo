@@ -25,6 +25,7 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
@@ -51,7 +52,6 @@ import {
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAggregateTokenSelectContext,

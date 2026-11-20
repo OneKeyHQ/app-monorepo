@@ -125,7 +125,7 @@ const ProtocolDesktopLayout = memo(
       forwardedRef,
     ) => {
       // Container's pin tracker reads getBoundingClientRect() because the
-      // shared Tabs.Container's overflow:hidden ancestor blocks CSS sticky.
+      // web pager's overflow:hidden ancestor blocks CSS sticky.
       const anchorRef = useRef<HTMLElement | null>(null);
       const [accordionValue, setAccordionValue] =
         useState<string>(ACCORDION_OPEN_VALUE);

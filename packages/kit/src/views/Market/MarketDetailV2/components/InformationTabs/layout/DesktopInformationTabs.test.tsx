@@ -85,6 +85,39 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
+    Tab: ({ children }: { children?: ReactNode; name: string }) => (
+      <div>{children}</div>
+    ),
+    TabBar: ({
+      renderItem,
+      tabNames,
+    }: {
+      renderItem: (props: {
+        name: string;
+        isFocused: boolean;
+        onPress: (name: string) => void;
+      }) => ReactNode;
+      tabNames: string[];
+    }) => (
+      <div data-testid="tab-bar">
+        {tabNames.map((name, index) =>
+          React.createElement(
+            React.Fragment,
+            { key: name },
+            renderItem({
+              name,
+              isFocused: index === 0,
+              onPress: jest.fn(),
+            }),
+          ),
+        )}
+      </div>
+    ),
+    TabBarItem: ({ label, name }: { label?: string; name: string }) => (
+      <span data-testid={`tab-bar-item-${name}`} data-name={name}>
+        {label ?? name}
+      </span>
+    ),
     Tabs: {
       Container: ({
         children,
@@ -113,39 +146,7 @@ jest.mock('@onekeyhq/components', () => {
           </div>
         );
       },
-      Tab: ({ children }: { children?: ReactNode; name: string }) => (
-        <div>{children}</div>
-      ),
-      TabBar: ({
-        renderItem,
-        tabNames,
-      }: {
-        renderItem: (props: {
-          name: string;
-          isFocused: boolean;
-          onPress: (name: string) => void;
-        }) => ReactNode;
-        tabNames: string[];
-      }) => (
-        <div data-testid="tab-bar">
-          {tabNames.map((name, index) =>
-            React.createElement(
-              React.Fragment,
-              { key: name },
-              renderItem({
-                name,
-                isFocused: index === 0,
-                onPress: jest.fn(),
-              }),
-            ),
-          )}
-        </div>
-      ),
-      TabBarItem: ({ label, name }: { label?: string; name: string }) => (
-        <span data-testid={`tab-bar-item-${name}`} data-name={name}>
-          {label ?? name}
-        </span>
-      ),
+
       ScrollView: ({ children }: { children?: ReactNode }) => (
         <div>{children}</div>
       ),

@@ -9,7 +9,7 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { I18nManager } from 'react-native';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeIndicatorPriceRange } from '../utils/chartIndicators';
@@ -85,7 +85,7 @@ function mockCreateGestureBuilder(
 }
 
 jest.mock(
-  '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext',
+  '@onekeyhq/components/src/composite/HeaderScrollGestureContext',
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')

@@ -12,7 +12,7 @@ import type {
   ITradingViewNativeStorageNamespace,
 } from '../types';
 
-export type ITradingViewNativeIntervalStorageNamespace =
+type ITradingViewNativeBaseIntervalStorageNamespace =
   | 'asset'
   | 'market-hyperliquid'
   | 'perps'
@@ -20,6 +20,11 @@ export type ITradingViewNativeIntervalStorageNamespace =
   | 'stock'
   | 'swap'
   | 'token';
+
+// A split-view panel remembers its own interval beside the base namespace's.
+export type ITradingViewNativeIntervalStorageNamespace =
+  | ITradingViewNativeBaseIntervalStorageNamespace
+  | `${ITradingViewNativeBaseIntervalStorageNamespace}:panel:${string}`;
 
 interface IStoredTradingViewNativeInterval {
   interval: string;
@@ -37,10 +42,10 @@ export function normalizeTradingViewStoredInterval(interval: string) {
 }
 
 function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
-  if (namespace === 'perps') {
+  if (namespace === 'perps' || namespace.startsWith('perps:panel:')) {
     return EAppSyncStorageKeys.onekey_perps_trading_view_native_active_intervals_v1;
   }
-  return namespace === 'swap'
+  return namespace === 'swap' || namespace.startsWith('swap:panel:')
     ? EAppSyncStorageKeys.onekey_swap_trading_view_native_active_intervals_v1
     : EAppSyncStorageKeys.onekey_trading_view_native_active_intervals_v1;
 }
@@ -48,7 +53,16 @@ function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
 export function getTradingViewNativeIntervalStorageNamespace(
   source: ITradingViewNativeSource,
   storageNamespace?: ITradingViewNativeStorageNamespace,
+  panelId?: string,
 ): ITradingViewNativeIntervalStorageNamespace {
+  const namespace = getBaseIntervalStorageNamespace(source, storageNamespace);
+  return panelId ? `${namespace}:panel:${panelId}` : namespace;
+}
+
+function getBaseIntervalStorageNamespace(
+  source: ITradingViewNativeSource,
+  storageNamespace?: ITradingViewNativeStorageNamespace,
+): ITradingViewNativeBaseIntervalStorageNamespace {
   if (storageNamespace === 'swap') {
     return 'swap';
   }

@@ -15,8 +15,6 @@ import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 const NATIVE_FOOTER_MIN_BOTTOM_PADDING = 20;
-const MARKET_FOOTER_BUTTON_HEIGHT = 36;
-const MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT = 20;
 
 function PerpMarketFooter() {
   const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
@@ -70,9 +68,7 @@ function PerpMarketFooter() {
       cancelButton={
         <Page.CancelButton
           flex={1}
-          height={MARKET_FOOTER_BUTTON_HEIGHT}
-          size="small"
-          py="$0"
+          size="large"
           borderRadius="$full"
           bg={longButtonStyle.bg}
           hoverStyle={longButtonStyle.hoverStyle}
@@ -83,8 +79,7 @@ function PerpMarketFooter() {
           onCancel={handleCancel}
         >
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+            size="$bodyLgMedium"
             color={longButtonStyle.textColor}
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -97,9 +92,7 @@ function PerpMarketFooter() {
       confirmButton={
         <Page.ConfirmButton
           flex={1}
-          height={MARKET_FOOTER_BUTTON_HEIGHT}
-          size="small"
-          py="$0"
+          size="large"
           borderRadius="$full"
           bg={shortButtonStyle.bg}
           hoverStyle={shortButtonStyle.hoverStyle}
@@ -110,8 +103,7 @@ function PerpMarketFooter() {
           onConfirm={handleConfirm}
         >
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+            size="$bodyLgMedium"
             color={shortButtonStyle.textColor}
             numberOfLines={1}
             ellipsizeMode="tail"

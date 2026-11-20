@@ -1,5 +1,6 @@
 import * as Loader from '@onekeyfe/cardano-coin-selection-asmjs';
 
+import { derivePublicAccountAddresses } from '../publicAccountAddresses';
 import { batchGetShelleyAddressByRootKeyHex } from '../shelley-address';
 
 import type { IGetCardanoApi } from './types';
@@ -20,6 +21,7 @@ const getCardanoApi: IGetCardanoApi = async () => ({
   extractStakeKeyHashFromBaseAddress:
     Loader.onekeyUtils.extractStakeKeyHashFromBaseAddress,
   batchGetShelleyAddressByRootKeyHex,
+  derivePublicAccountAddresses,
 });
 
 export default {

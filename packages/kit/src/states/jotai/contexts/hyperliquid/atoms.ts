@@ -269,6 +269,12 @@ export const {
   favoritesBarSpotActive: false,
 });
 
+// Token pickers open right now. `tokenSelectorOpen` follows it, so closing one
+// picker cannot drop the live prices another open picker relies on.
+export const { atom: openTokenSelectorsAtom } = contextAtom<readonly string[]>(
+  [],
+);
+
 export type IBBOPriceMode =
   | null
   | { type: 'counterparty'; offsetTicks: 0 | 5 }

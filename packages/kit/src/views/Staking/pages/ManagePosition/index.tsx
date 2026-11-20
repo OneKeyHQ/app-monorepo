@@ -17,7 +17,10 @@ import {
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnUtmParams,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
@@ -72,6 +75,7 @@ const ManagePositionPage = () => {
     initialProtocol: ISelectedProtocol;
     initialTab: 'deposit' | 'withdraw';
     onStakeWithdrawSuccess: (() => void) | undefined;
+    utm: IEarnUtmParams | undefined;
   }>(() => {
     const {
       networkId,
@@ -82,6 +86,7 @@ const ManagePositionPage = () => {
       enableProtocolSwitch,
       tab,
       onStakeWithdrawSuccess,
+      utm,
     } = route.params;
 
     return {
@@ -98,6 +103,7 @@ const ManagePositionPage = () => {
       },
       initialTab: tab ?? 'deposit',
       onStakeWithdrawSuccess,
+      utm,
     };
   }, [activeAccount, route.params, selectedAccount]);
 
@@ -131,6 +137,7 @@ const ManagePositionPage = () => {
     tokenImageUri,
     enableProtocolSwitch,
     onStakeWithdrawSuccess,
+    utm,
   } = resolvedParams;
 
   const { result: protocols, isLoading: isProtocolListLoading } =
@@ -224,6 +231,7 @@ const ManagePositionPage = () => {
           onTabChange={setSelectedTab}
           stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          utm={utm}
         />
       </Page.Body>
     </Page>

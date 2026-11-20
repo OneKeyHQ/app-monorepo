@@ -108,7 +108,8 @@ export function MarketDetailHeader({
     left: safeAreaLeft,
     right: safeAreaRight,
   } = useSafeAreaInsets();
-  const listingIdentity = useMarketDetailWatchlistIdentity();
+  const { watchlistContractAddress, ...listingIdentity } =
+    useMarketDetailWatchlistIdentity();
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
@@ -435,7 +436,7 @@ export function MarketDetailHeader({
   const { checked: starChecked, onPress: onStarPress } = useStarV2Checked({
     ...listingIdentity,
     chainId: networkId ?? '',
-    contractAddress: tokenDetail?.address ?? '',
+    contractAddress: watchlistContractAddress ?? tokenDetail?.address ?? '',
     from: EWatchlistFrom.Detail,
     tokenSymbol: headerIdentity.symbol,
     isNative,
@@ -708,7 +709,9 @@ export function MarketDetailHeader({
                 <MarketStarV2
                   {...listingIdentity}
                   chainId={networkId ?? ''}
-                  contractAddress={tokenDetail?.address ?? ''}
+                  contractAddress={
+                    watchlistContractAddress ?? tokenDetail?.address ?? ''
+                  }
                   size="large"
                   from={EWatchlistFrom.Detail}
                   tokenSymbol={headerIdentity.symbol}

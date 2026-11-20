@@ -66,14 +66,13 @@ the minimal slice of the app's `FullWindowOverlayContainer`:
   `Dialog.show`, `ActionList`, Popover/Select sheets; being inside
   `ConfigProvider` is what keeps portaled content themed/intl'd.
 - `<ShowToastProvider />` — `Toast.show` custom toasts.
-- `<Toaster />` — `Toast.success/error/…` (sonner on web, backpackapp on
-  native; sonner renders no DOM until the first toast, so an "empty" toaster
-  is normal).
+- `<Toaster />` — `Toast.success/error/…`. It renders nothing itself: the
+  cards are drawn by the platform renderer of
+  `@onekeyfe/react-native-native-overlay` (plain DOM on web, native views on
+  iOS and Android), so no toast DOM exists until the first toast.
 
 The native shell's `.rnstorybook/preview.tsx` mounts the same three, wrapped
-in `OverlayContainer` (iOS `FullWindowOverlay`); the backpackapp `Toaster`
-additionally needs the `GestureHandlerRootView` that `.rnstorybook/index.tsx`
-mounts at the shell root (the wallet gets one from kit's provider tree).
+in `OverlayContainer` (iOS `FullWindowOverlay`).
 
 The decorator remounts on theme/locale change (via `key`) to avoid stale Tamagui
 theme state.

@@ -50,6 +50,7 @@ import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SendTestIDs } from '../../testIDs';
 
 import { shouldCloseReplaceTxOnError } from './replaceTxErrorUtils';
+import { getReplaceTxGasLimit } from './replaceTxGasLimit';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -269,6 +270,21 @@ function SendReplaceTxContainer() {
         }
       }
 
+      // The original gas limit may not cover an access list the replacement
+      // now carries, so the estimate for the replacement can raise it.
+      const replaceGasLimit = getReplaceTxGasLimit({
+        replaceEncodedTx: replaceEncodedTx as IEncodedTxEvm,
+        originalGasLimit: gasLimit,
+        estimatedGasLimit: (f.gasEIP1559?.[1] ?? f.gas?.[1])?.gasLimit,
+      });
+      if (replaceGasLimit !== gasLimit) {
+        setReplaceFeeInfo((prev) => ({ ...prev, gasLimit: replaceGasLimit }));
+        setFeeInfoUsedAsRestBase((prev) => ({
+          ...prev,
+          gasLimit: replaceGasLimit,
+        }));
+      }
+
       setIsLoadingFeeInfo(false);
 
       setFeeInfo({
@@ -282,6 +298,7 @@ function SendReplaceTxContainer() {
   }, [
     account,
     accountId,
+    gasLimit,
     isInit,
     network,
     networkId,

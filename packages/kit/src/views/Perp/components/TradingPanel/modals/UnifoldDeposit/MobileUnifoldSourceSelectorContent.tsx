@@ -79,10 +79,8 @@ function MobileSourceSelectorRow({
       <XStack width="100%" alignItems="center" gap="$3" py="$2.5">
         <Token tokenImageUri={normalizeUnifoldIconUrl(iconUri)} size="md" />
         <YStack flex={1} minWidth={0}>
-          <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {label}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          <SizableText size="$bodyLgMedium">{label}</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
             {description}
           </SizableText>
         </YStack>

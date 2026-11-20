@@ -22,13 +22,13 @@ import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot'
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   ONEKEY_SIFU_URL,
   ONEKEY_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appendUtmSourceToUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 

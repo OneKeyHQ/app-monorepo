@@ -1,6 +1,7 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
 import type { IAdaSdk, IEnsureSDKReady, IGetCardanoApi } from './types';
+import type { IAdaPublicAccountAddressesParams } from '../publicAccountAddresses';
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 
@@ -48,6 +49,10 @@ const batchGetShelleyAddressByRootKeyHex = async (...args: any[]) =>
     ...args,
   );
 
+const derivePublicAccountAddresses = async (
+  params: IAdaPublicAccountAddressesParams,
+) => appGlobals.$offscreenApiProxy.adaSdk.derivePublicAccountAddresses(params);
+
 const getCardanoApi: IGetCardanoApi = async () =>
   Promise.resolve({
     composeTxPlan,
@@ -64,6 +69,7 @@ const getCardanoApi: IGetCardanoApi = async () =>
     parseRawTxBodyStakeInfo,
     extractStakeKeyHashFromBaseAddress,
     batchGetShelleyAddressByRootKeyHex,
+    derivePublicAccountAddresses,
   });
 
 const sdk: IAdaSdk = { getCardanoApi, ensureSDKReady };

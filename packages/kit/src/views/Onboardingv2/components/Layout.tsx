@@ -41,6 +41,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 import { OnboardingTestIDs } from '../testIDs';
 
+import { ONBOARDING_NARROW_CONTENT_WIDTH } from './layoutConstants';
+
 export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
@@ -299,7 +301,10 @@ export function OnboardingPage({
         $md={{ flex: 1 }}
         $gtMd={{
           minHeight: 600,
-          ...(narrow && { py: '$10', maxWidth: 400 }),
+          ...(narrow && {
+            py: '$10',
+            maxWidth: ONBOARDING_NARROW_CONTENT_WIDTH,
+          }),
         }}
         {...(shouldAnimate && {
           transition: 'quick',
@@ -423,32 +428,8 @@ export function OnboardingSidebar({
   );
 }
 
-export interface IOnboardingIconBadgeProps extends Omit<
-  IYStackProps,
-  'children'
-> {
-  icon: IKeyOfIcons;
-  iconColor?: React.ComponentProps<typeof Icon>['color'];
-}
-
-export function OnboardingIconBadge({
-  icon,
-  iconColor = '$bgApp',
-  ...rest
-}: IOnboardingIconBadgeProps) {
-  return (
-    <YStack
-      bg="$brand10"
-      p="$2"
-      borderRadius="$full"
-      alignSelf="flex-start"
-      mb="$8"
-      {...rest}
-    >
-      <Icon name={icon} color={iconColor} />
-    </YStack>
-  );
-}
+export { OnboardingIconBadge } from './OnboardingIconBadge';
+export type { IOnboardingIconBadgeProps } from './OnboardingIconBadge';
 
 export function OnboardingHeading({
   children,

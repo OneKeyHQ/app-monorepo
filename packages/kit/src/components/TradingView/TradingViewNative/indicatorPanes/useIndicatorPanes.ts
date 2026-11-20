@@ -9,6 +9,7 @@ import {
   arrangeIndicatorPanes,
   moveIndicatorPane,
   parseIndicatorPanePreferences,
+  setIndicatorPaneHeights,
 } from './model';
 
 import type { IIndicatorPanePreferences } from './model';
@@ -17,6 +18,8 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndic
 export function useIndicatorPanes(
   input: readonly ITradingViewNativeSubIndicatorRenderPane[],
   storageKey?: string,
+  /** Measured chart height; saved pane heights scale with it. */
+  chartHeight?: number,
 ) {
   const key = `trading-view-indicator-panes:v1:${storageKey ?? 'default'}`;
   const [preferences, setPreferences] = useState<IIndicatorPanePreferences>(
@@ -25,6 +28,8 @@ export function useIndicatorPanes(
   const [readyKey, setReadyKey] = useState<string | null>(null);
   const current = useRef(preferences);
   current.current = preferences;
+  const latestChartHeight = useRef(chartHeight);
+  latestChartHeight.current = chartHeight;
   useEffect(() => {
     let active = true;
     setReadyKey(null);
@@ -56,22 +61,34 @@ export function useIndicatorPanes(
     [key, readyKey],
   );
   const panes = useMemo(
-    () => arrangeIndicatorPanes(input, preferences),
-    [input, preferences],
+    () => arrangeIndicatorPanes(input, preferences, chartHeight),
+    [chartHeight, input, preferences],
   );
   const resize = useCallback(
     (heights: Record<string, number>, finished: boolean) => {
       if (readyKey !== key) return;
-      const next = {
-        ...current.current,
-        heights: { ...current.current.heights, ...heights },
-      };
+      const next = setIndicatorPaneHeights(
+        current.current,
+        heights,
+        latestChartHeight.current,
+      );
       current.current = next;
       setPreferences(next);
       if (finished) commit(next);
     },
     [commit, key, readyKey],
   );
+  /** The preferences before a drag, to put back if it is abandoned. */
+  const snapshot = useCallback(() => current.current, []);
+  const restore = useCallback((previous: IIndicatorPanePreferences) => {
+    current.current = previous;
+    setPreferences(previous);
+  }, []);
+  /** Back to the default pane heights. */
+  const resetHeights = useCallback(() => {
+    if (!Object.keys(current.current.heights).length) return;
+    commit({ order: current.current.order, heights: {} });
+  }, [commit]);
   const move = useCallback(
     (id: string, target: string) => {
       const order = moveIndicatorPane(
@@ -83,5 +100,13 @@ export function useIndicatorPanes(
     },
     [commit, panes],
   );
-  return { panes, resize, move, ready: readyKey === key };
+  return {
+    panes,
+    resize,
+    snapshot,
+    restore,
+    resetHeights,
+    move,
+    ready: readyKey === key,
+  };
 }

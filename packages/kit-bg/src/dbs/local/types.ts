@@ -244,6 +244,8 @@ export type IDBCreateQRWalletParams = {
   firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  cloudSyncSource?: IDBCloudSyncItem;
+  firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
   avatar?: IAvatarInfo;
@@ -258,6 +260,7 @@ export type IDBRemoveWalletParams = {
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 };
 type IDBSetAccountNameParamsBase = {
+  cloudSyncSource?: IDBCloudSyncItem;
   shouldCheckDuplicate?: boolean;
   skipEventEmit?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
@@ -321,6 +324,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
+  addresses?: Record<string, string>;
 };
 export type IDBUtxoAccount = IDBBaseAccount & {
   pub?: string; // TODO rename pubKey to pub
@@ -512,6 +516,10 @@ export type IDBCloudSyncItem = IDBBaseObject & {
 
   localSceneUpdated: boolean;
   serverUploaded: boolean;
+
+  // A local deletion waiting for the key of this record's Cloud space.
+  pendingPublicAccountDeletionAt?: number;
+  pendingPublicAccountDeletionHash?: string;
 
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;

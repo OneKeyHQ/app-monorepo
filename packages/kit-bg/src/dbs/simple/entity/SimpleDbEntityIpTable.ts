@@ -1,4 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { DEFAULT_IP_TABLE_CONFIG } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import type {
   IIpTableConfigWithRuntime,
@@ -13,6 +17,7 @@ import {
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 const STALE_SPEED_TEST_CONFIG = new Error('stale_speed_test_config');
+const REVOKED_IP_TABLE_ENDPOINT = new Error('revoked_ip_table_endpoint');
 
 /**
  * IP Table SimpleDB storage structure
@@ -37,6 +42,19 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   entityName = 'ipTable';
 
   override enableCache = false;
+
+  @backgroundMethod()
+  override async setRawData(
+    dataOrBuilder: Parameters<
+      SimpleDbEntityBase<ISimpleDbIpTableData>['setRawData']
+    >[0],
+  ): Promise<ISimpleDbIpTableData | undefined> {
+    // All routing writes, including direct SimpleDB calls, invalidate every
+    // runtime only after storage accepts the write.
+    return this.setRawDataWithCommitGuard(dataOrBuilder, undefined, () => {
+      appEventBus.emit(EAppEventBusNames.IpTableConfigChanged, undefined);
+    });
+  }
 
   @backgroundMethod()
   async getStorageData(): Promise<ISimpleDbIpTableData | null | undefined> {
@@ -114,29 +132,46 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
    * Update IP selection for a domain
    */
   @backgroundMethod()
-  async updateSelection(domain: string, ip: string): Promise<void> {
-    await this.setRawData((data) => {
-      const runtime = data?.runtime ?? {
-        enabled: true,
-        lastUpdated: 0,
-        lastRegionCheck: 0,
-        selections: {},
-      };
+  async updateSelection(domain: string, ip: string): Promise<boolean> {
+    try {
+      await this.setRawData((data) => {
+        const config = data?.config ?? DEFAULT_IP_TABLE_CONFIG;
+        // A fast-failover callback may have read this IP before saveConfig
+        // revoked it. Validate inside the same storage critical section.
+        if (
+          ip !== '' &&
+          !config.domains[domain]?.endpoints.some(
+            (endpoint) => endpoint.ip === ip,
+          )
+        ) {
+          throw REVOKED_IP_TABLE_ENDPOINT;
+        }
+        const runtime = data?.runtime ?? {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: {},
+        };
 
-      return {
-        ...data,
-        config: data?.config ?? null,
-        currentRegion: data?.currentRegion ?? 'AUTO',
-        runtime: {
-          ...runtime,
-          selections: {
-            ...runtime.selections,
-            [domain]: ip,
+        return {
+          ...data,
+          config: data?.config ?? null,
+          currentRegion: data?.currentRegion ?? 'AUTO',
+          runtime: {
+            ...runtime,
+            selections: {
+              ...runtime.selections,
+              [domain]: ip,
+            },
           },
-        },
-        version: data?.version ?? 1,
-      };
-    });
+          version: data?.version ?? 1,
+        };
+      });
+      return true;
+    } catch (error) {
+      if (error === REVOKED_IP_TABLE_ENDPOINT) return false;
+      throw error;
+    }
   }
 
   /**
@@ -144,29 +179,43 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
    * final selection. Consumed by fast failover when the domain starts failing.
    */
   @backgroundMethod()
-  async updateLastBestIp(domain: string, ip: string): Promise<void> {
-    await this.setRawData((data) => {
-      const runtime = data?.runtime ?? {
-        enabled: true,
-        lastUpdated: 0,
-        lastRegionCheck: 0,
-        selections: {},
-      };
+  async updateLastBestIp(domain: string, ip: string): Promise<boolean> {
+    try {
+      await this.setRawData((data) => {
+        const config = data?.config ?? DEFAULT_IP_TABLE_CONFIG;
+        if (
+          !config.domains[domain]?.endpoints.some(
+            (endpoint) => endpoint.ip === ip,
+          )
+        ) {
+          throw REVOKED_IP_TABLE_ENDPOINT;
+        }
+        const runtime = data?.runtime ?? {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: {},
+        };
 
-      return {
-        ...data,
-        config: data?.config ?? null,
-        currentRegion: data?.currentRegion ?? 'AUTO',
-        runtime: {
-          ...runtime,
-          lastBestIp: {
-            ...runtime.lastBestIp,
-            [domain]: ip,
+        return {
+          ...data,
+          config: data?.config ?? null,
+          currentRegion: data?.currentRegion ?? 'AUTO',
+          runtime: {
+            ...runtime,
+            lastBestIp: {
+              ...runtime.lastBestIp,
+              [domain]: ip,
+            },
           },
-        },
-        version: data?.version ?? 1,
-      };
-    });
+          version: data?.version ?? 1,
+        };
+      });
+      return true;
+    } catch (error) {
+      if (error === REVOKED_IP_TABLE_ENDPOINT) return false;
+      throw error;
+    }
   }
 
   /**

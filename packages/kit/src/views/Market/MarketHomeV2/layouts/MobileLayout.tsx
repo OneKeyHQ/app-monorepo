@@ -11,7 +11,6 @@ import type { RefObject } from 'react';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
-import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
 import type {
   IAppPagerPage,
@@ -20,8 +19,9 @@ import type {
 } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MarketHighlightStrip } from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
@@ -309,8 +309,6 @@ function MobileLayoutComponent({
     onSpotCategoryChange: filterBarProps.onCategoryChange,
   });
 
-  const tabBarHeight = useTabBarHeight();
-
   // Watchlist state — used to hide category selector when empty
   const [watchlistState] = useMarketWatchListV2Atom();
   const isWatchlistEmpty =
@@ -369,38 +367,28 @@ function MobileLayoutComponent({
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;
 
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
+  const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
   const containerProps = useMemo(
     () => ({
-      // NOTE: renderHeader must never return a 0-height tree after it had
-      // a positive height, because react-native-collapsible-tab-view's
-      // useLayoutHeight guard ignores 0-height re-layouts once a positive
-      // height has been measured. Wrapping in a YStack with minHeight={1}
-      // ensures the layout callback always fires with height >= 1 so the
-      // library re-measures correctly when the banner disappears.
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
+          {hasHighlightSlot ? (
+            <MarketHighlightStrip
+              highlight={highlight}
+              highlights={highlights}
+              compact
+            />
+          ) : null}
           <MarketBannerList />
         </YStack>
       ),
     }),
-    [],
+    [hasHighlightSlot, highlight, highlights],
   );
-
-  const listContainerProps = useMemo(() => {
-    const getPaddingBottom = () => {
-      if (platformEnv.isNativeIOS) {
-        return 125;
-      }
-      if (platformEnv.isNativeAndroid) {
-        return tabBarHeight + 40;
-      }
-      return 0;
-    };
-
-    return {
-      paddingBottom: getPaddingBottom(),
-    };
-  }, [tabBarHeight]);
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
@@ -483,10 +471,7 @@ function MobileLayoutComponent({
             key: 'watchlist',
             name: watchlistTabName,
             children: (
-              <MobileMarketWatchlistFlatList
-                selectedFilter={watchlistFilter}
-                listContainerProps={listContainerProps}
-              />
+              <MobileMarketWatchlistFlatList selectedFilter={watchlistFilter} />
             ),
           },
         ]
@@ -501,14 +486,12 @@ function MobileLayoutComponent({
         tabContent = (
           <MobileMarketTopCoinsFlatList
             selectedCategoryId={selectedTopCoinsCategoryId}
-            listContainerProps={listContainerProps}
           />
         );
       } else if (isStockCategory) {
         tabContent = (
           <MobileMarketStockFlatList
             selectedCategoryId={selectedStockCategoryId}
-            listContainerProps={listContainerProps}
           />
         );
       } else {
@@ -517,7 +500,6 @@ function MobileLayoutComponent({
             networkId={selectedNetworkId}
             selectedCategory={item.categoryId}
             timeRange={filterBarProps.timeRange}
-            listContainerProps={listContainerProps}
             onStockDataChange={handleStockDataChange}
           />
         );
@@ -536,7 +518,6 @@ function MobileLayoutComponent({
             children: (
               <MobileMarketPerpsFlatList
                 selectedCategoryId={selectedCategoryId}
-                listContainerProps={listContainerProps}
               />
             ),
           },

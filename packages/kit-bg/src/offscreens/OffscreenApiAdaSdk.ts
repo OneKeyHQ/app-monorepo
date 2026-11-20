@@ -1,8 +1,14 @@
+import type { IAdaPublicAccountAddressesParams } from '@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses';
 import adaWebSdk from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/adaWebSdk';
 import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export default class OffscreenApiAdaSdk implements IAdaSdkApi {
+  async derivePublicAccountAddresses(params: IAdaPublicAccountAddressesParams) {
+    const api = await adaWebSdk.getCardanoApi();
+    return api.derivePublicAccountAddresses(params);
+  }
+
   async sayHello() {
     await timerUtils.wait(3000);
     return 'Hello World: OffscreenApiAdaSdk';

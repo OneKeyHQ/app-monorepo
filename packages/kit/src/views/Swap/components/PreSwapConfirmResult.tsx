@@ -11,13 +11,14 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import type { ILottieViewHandle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
@@ -29,6 +30,9 @@ interface IPreSwapConfirmResultProps {
   fromToken?: ISwapToken;
   supportUrl?: string;
   onConfirm?: () => void;
+  pendingTitle?: string;
+  showPendingHistoryHint?: boolean;
+  allowRetry?: boolean;
 }
 
 export function SwapTransactionResultStatus({
@@ -88,10 +92,14 @@ const PreSwapConfirmResult = ({
   fromToken,
   supportUrl,
   onConfirm,
+  pendingTitle,
+  showPendingHistoryHint = true,
+  allowRetry = true,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
   const { md } = useMedia();
+  const dialogInstance = useDialogInstance();
   const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
@@ -125,7 +133,7 @@ const PreSwapConfirmResult = ({
   // A result-unknown sponsored send (OK-64746): the tx may already be on
   // chain, so this is neither a failure to retry nor a confirmed submit.
   const submitResultUnknown = Boolean(lastStep.submitResultUnknown);
-  const isRetryableFailure =
+  const hasFailed =
     lastStep.status === ESwapStepStatus.FAILED && !submitResultUnknown;
 
   const statusText = useMemo(() => {
@@ -144,10 +152,13 @@ const PreSwapConfirmResult = ({
         id: ETranslations.swap_review_transaction_failed,
       });
     }
-    return intl.formatMessage({
-      id: ETranslations.feedback_transaction_submitted,
-    });
-  }, [lastStep.status, submitResultUnknown, intl]);
+    return (
+      pendingTitle ??
+      intl.formatMessage({
+        id: ETranslations.feedback_transaction_submitted,
+      })
+    );
+  }, [lastStep.status, submitResultUnknown, pendingTitle, intl]);
   return (
     <YStack alignItems="center" justifyContent="flex-end" h={300} flex={1}>
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
@@ -161,7 +172,7 @@ const PreSwapConfirmResult = ({
         </AnimatePresence>
         {lastStep.status !== ESwapStepStatus.SUCCESS ? (
           <>
-            {isRetryableFailure ? (
+            {hasFailed ? (
               <YStack key={lastStep.status}>
                 <SwapTransactionResultStatus status="failed" />
               </YStack>
@@ -176,7 +187,7 @@ const PreSwapConfirmResult = ({
           <SizableText size="$headingLg" color="$text" textAlign="center">
             {statusText}
           </SizableText>
-          {isRetryableFailure ? (
+          {hasFailed ? (
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {lastStep.errorMessage ?? ''}
             </SizableText>
@@ -214,9 +225,12 @@ const PreSwapConfirmResult = ({
             flexBasis={0}
             variant="secondary"
             size={buttonSize}
-            onPress={() => {
+            onPress={async () => {
               if (supportUrl?.includes(SUPPORT_URL)) {
-                void showIntercom();
+                // The review dialog is a full-window overlay on native and
+                // would cover the support page pushed underneath it.
+                await dialogInstance.close();
+                await showIntercom();
               } else {
                 openUrlExternal(supportUrl ?? '');
               }
@@ -234,9 +248,10 @@ const PreSwapConfirmResult = ({
           size={buttonSize}
         >
           {intl.formatMessage({
-            id: isRetryableFailure
-              ? ETranslations.global_retry
-              : ETranslations.global_done,
+            id:
+              hasFailed && allowRetry
+                ? ETranslations.global_retry
+                : ETranslations.global_done,
           })}
         </Button>
       </XStack>
@@ -267,7 +282,7 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
-      {lastStep.status === ESwapStepStatus.PENDING ? (
+      {lastStep.status === ESwapStepStatus.PENDING && showPendingHistoryHint ? (
         <XStack alignItems="center" justifyContent="center" mt="$3">
           <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
             {intl.formatMessage({

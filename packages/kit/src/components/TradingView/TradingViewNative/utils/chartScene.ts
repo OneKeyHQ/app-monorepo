@@ -41,7 +41,10 @@ import {
 } from '../chartConstants';
 import { drawingPointToScreen } from '../drawings/model';
 
-import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
+import {
+  getTradingViewNativeCandleSlotAtTime,
+  getTradingViewNativeCandleTimestampAtOffset,
+} from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
@@ -105,6 +108,7 @@ import type { ITradingViewNativeReferenceLineHitRegion } from './chartComponentS
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
+  ITradingViewNativeCrosshairPosition,
 } from './chartRuntime';
 import type {
   ITradingViewNativeSubIndicatorLegendHitRegion,
@@ -283,11 +287,17 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   priceAxisWidth?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  showPriceLegend?: boolean;
   timeAxisFontSize?: number;
   timeAxisHeight?: number;
   priceRangeScale?: number;
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  /**
+   * The crosshair of another chart, e.g. in a split view. Shown at the same
+   * time while this chart has no crosshair of its own.
+   */
+  syncedCrosshair?: ITradingViewNativeCrosshairPosition | null;
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
   width: number;
@@ -317,6 +327,8 @@ export interface ITradingViewNativeChartScene {
   autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
+  /** Where this chart's own crosshair points; null while it only follows. */
+  crosshairPosition: ITradingViewNativeCrosshairPosition | null;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   priceAxisWidth: number;
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
@@ -440,6 +452,28 @@ export function getTradingViewNativeChartScenePaintStyles(
   };
 }
 
+const INDICATOR_ISOLATED_POINT_RADIUS = 1.75;
+
+// Whether the value at `index` has no value on either side in the whole
+// series, not only in the part that is in view.
+function isIsolatedIndicatorValue(
+  values: readonly (number | null)[],
+  index: number,
+) {
+  'worklet';
+
+  const previousValue = values[index - 1];
+  const nextValue = values[index + 1];
+  return (
+    (previousValue === null ||
+      previousValue === undefined ||
+      !Number.isFinite(previousValue)) &&
+    (nextValue === null ||
+      nextValue === undefined ||
+      !Number.isFinite(nextValue))
+  );
+}
+
 function appendIndicatorCommands({
   commands,
   customPaintStyles,
@@ -505,6 +539,38 @@ function appendIndicatorCommands({
       }
     } else {
       let linePoints: { x: number; y: number }[] = [];
+      let lastPointIndex = -1;
+      const appendLine = () => {
+        const [point] = linePoints;
+        if (linePoints.length > 1) {
+          commands.push({
+            ...(customPaintId ? { customPaintId } : {}),
+            kind: 'polyline',
+            paint: series.paint,
+            points: linePoints,
+          });
+        } else if (
+          point &&
+          customPaintId &&
+          series.style &&
+          series.showIsolatedPoints &&
+          isIsolatedIndicatorValue(series.values, lastPointIndex)
+        ) {
+          commands.push({
+            cx: point.x,
+            cy: point.y,
+            // The legend paint is the fill version of the line's own paint.
+            customPaintId: `${customPaintId}:legend`,
+            kind: 'circle',
+            paint: series.paint,
+            radius: Math.max(
+              INDICATOR_ISOLATED_POINT_RADIUS,
+              series.style.lineWidth,
+            ),
+          });
+        }
+        linePoints = [];
+      };
       for (let index = firstIndex; index < lastIndex; index += 1) {
         const value = series.values[index];
         if (value !== null && value !== undefined && Number.isFinite(value)) {
@@ -512,26 +578,12 @@ function appendIndicatorCommands({
             x: getPointX(index),
             y: getTradingViewNativePriceY(value, layout),
           });
+          lastPointIndex = index;
         } else {
-          if (linePoints.length > 1) {
-            commands.push({
-              ...(customPaintId ? { customPaintId } : {}),
-              kind: 'polyline',
-              paint: series.paint,
-              points: linePoints,
-            });
-          }
-          linePoints = [];
+          appendLine();
         }
       }
-      if (linePoints.length > 1) {
-        commands.push({
-          ...(customPaintId ? { customPaintId } : {}),
-          kind: 'polyline',
-          paint: series.paint,
-          points: linePoints,
-        });
-      }
+      appendLine();
     }
   }
 }
@@ -704,11 +756,13 @@ export function buildTradingViewNativeChartScene({
   priceAxisWidth,
   priceAxisTickCount,
   showLegend = true,
+  showPriceLegend = true,
   timeAxisFontSize = AXIS_FONT_SIZE,
   timeAxisHeight = TIME_AXIS_HEIGHT,
   priceRangeScale,
   priceScaleMode,
   subIndicatorPanes = [],
+  syncedCrosshair,
   viewport,
   watermarkOpacity,
   width,
@@ -891,6 +945,7 @@ export function buildTradingViewNativeChartScene({
     autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
+    crosshairPosition: null,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions: [],
@@ -1219,20 +1274,22 @@ export function buildTradingViewNativeChartScene({
     commands.push({ kind: 'restore' });
   }
 
-  const crosshairPointIndex =
-    crosshair.visible && (chartSettings?.options.crossLine ?? true)
-      ? getTradingViewNativePointIndexAtX({
-          initialRightOffset: viewport.initialRightOffset,
-          offset,
-          pointCount: points.length,
-          priceAxisX,
-          x: crosshair.x,
-          zoomScale,
-        })
-      : null;
+  const isCrossLineEnabled = chartSettings?.options.crossLine ?? true;
+  const isOwnCrosshairVisible = crosshair.visible && isCrossLineEnabled;
+  let crosshairPointIndex: number | null = null;
   let crosshairX: number | null = null;
   let crosshairTimestamp: number | null = null;
-  if (crosshair.visible && (chartSettings?.options.crossLine ?? true)) {
+  let crosshairY: number | null = null;
+  let isFollowingCrosshair = false;
+  if (isOwnCrosshairVisible) {
+    crosshairPointIndex = getTradingViewNativePointIndexAtX({
+      initialRightOffset: viewport.initialRightOffset,
+      offset,
+      pointCount: points.length,
+      priceAxisX,
+      x: crosshair.x,
+      zoomScale,
+    });
     if (crosshairPointIndex !== null) {
       crosshairX = getPointX(crosshairPointIndex);
       crosshairTimestamp = points[crosshairPointIndex].t;
@@ -1250,12 +1307,10 @@ export function buildTradingViewNativeChartScene({
         offset: distance,
       });
     }
-  }
-  const pinnedPriceIsOutsideChart =
-    crosshair.price !== undefined &&
-    (crosshair.price < minPrice || crosshair.price > maxPrice);
-  const crosshairY =
-    crosshairX === null || pinnedPriceIsOutsideChart
+    const pinnedPriceIsOutsideChart =
+      crosshair.price !== undefined &&
+      (crosshair.price < minPrice || crosshair.price > maxPrice);
+    crosshairY = pinnedPriceIsOutsideChart
       ? null
       : Math.min(
           Math.max(
@@ -1266,7 +1321,37 @@ export function buildTradingViewNativeChartScene({
           ),
           timeAxisY,
         );
-  if (crosshairX !== null && crosshairY !== null) {
+  } else if (isCrossLineEnabled && syncedCrosshair) {
+    const slot = getTradingViewNativeCandleSlotAtTime({
+      candleIntervalSeconds,
+      candleTimeMode,
+      points,
+      time: syncedCrosshair.time,
+    });
+    if (slot) {
+      const anchorIndex = Math.min(Math.max(slot.index, 0), points.length - 1);
+      const slotX =
+        getPointX(anchorIndex) +
+        (slot.index - anchorIndex) *
+          TRADING_VIEW_NATIVE_CANDLE_STEP *
+          zoomScale;
+      // A time scrolled out of view leaves this chart without a crosshair.
+      if (slotX >= CHART_HORIZONTAL_PADDING && slotX <= priceAxisX) {
+        isFollowingCrosshair = true;
+        crosshairPointIndex = slot.index === anchorIndex ? anchorIndex : null;
+        crosshairX = slotX;
+        crosshairTimestamp = slot.timestamp;
+        const { price } = syncedCrosshair;
+        if (price !== null && price >= minPrice && price <= maxPrice) {
+          crosshairY = getTradingViewNativePriceY(price, layout);
+        }
+      }
+    }
+  }
+  // A followed crosshair keeps its time line where its price is off the chart.
+  const showCrosshairTimeLine =
+    crosshairX !== null && (crosshairY !== null || isFollowingCrosshair);
+  if (crosshairX !== null && showCrosshairTimeLine) {
     commands.push(
       {
         kind: 'clip',
@@ -1286,7 +1371,9 @@ export function buildTradingViewNativeChartScene({
         y1: 0,
         y2: timeAxisY,
       },
-      {
+    );
+    if (crosshairY !== null) {
+      commands.push({
         ...(chartSettings ? { customPaintId: CROSSHAIR_PAINT_ID } : {}),
         kind: 'line',
         paint: 'crosshairLine',
@@ -1294,9 +1381,9 @@ export function buildTradingViewNativeChartScene({
         x2: priceAxisX,
         y1: crosshairY,
         y2: crosshairY,
-      },
-      { kind: 'restore' },
-    );
+      });
+    }
+    commands.push({ kind: 'restore' });
   }
 
   const latestPointIndex = points.length - 1;
@@ -1321,12 +1408,22 @@ export function buildTradingViewNativeChartScene({
       : primarySeries.colorRole;
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
+  // Emitted after the plot's lines, the latest price line among them, so a
+  // line crossing a legend row passes under its background and text.
+  const legendCommands: ITradingViewNativeChartSceneCommand[] = [];
   const appendLegendRows = (
     layouts: ITradingViewNativeChartLegendRowLayout[],
+    maxBottom = Number.POSITIVE_INFINITY,
   ) => {
     for (const rowLayout of layouts) {
+      if (
+        rowLayout.backgroundRect.y + rowLayout.backgroundRect.height >
+        maxBottom
+      ) {
+        return;
+      }
       appendLegendCommands({
-        commands,
+        commands: legendCommands,
         layout: rowLayout,
         trendValuePaint,
         valuePaint: legendValuePaint,
@@ -1334,26 +1431,44 @@ export function buildTradingViewNativeChartScene({
     }
   };
   if (showLegend) {
-    const priceLegendLayouts = getTradingViewNativeChartLegendRowLayouts({
-      items:
-        chartSettings?.options.priceChange === false
-          ? legend.priceItems.filter((item) => item.valueColorRole !== 'trend')
-          : legend.priceItems,
-      maxX: priceAxisX,
-      measureTextWidth: measureLegendTextWidth,
-      top: PRICE_LEGEND_TOP,
-    });
-    appendLegendRows(priceLegendLayouts);
+    // The price and indicator rows stack down from the top. Rows that would
+    // run past the main chart, onto the time axis or the sub-indicator panes,
+    // are left out; a short chart with many indicators shows the first ones.
+    const priceLegendLayouts = showPriceLegend
+      ? getTradingViewNativeChartLegendRowLayouts({
+          items:
+            chartSettings?.options.priceChange === false
+              ? legend.priceItems.filter(
+                  (item) => item.valueColorRole !== 'trend',
+                )
+              : legend.priceItems,
+          maxX: priceAxisX,
+          measureTextWidth: measureLegendTextWidth,
+          top: PRICE_LEGEND_TOP,
+        })
+      : [];
+    appendLegendRows(priceLegendLayouts, mainChartBottom);
     let mainIndicatorLegendTop =
       PRICE_LEGEND_TOP +
       priceLegendLayouts.reduce(
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,
       );
-    for (const indicator of ['MA', 'EMA'] as const) {
+    // One legend row per indicator whose series carry a legend label.
+    for (const indicator of [
+      'MA',
+      'EMA',
+      'WMA',
+      'VWMA',
+      'SUPERTREND',
+      'ENV',
+      'VWAP',
+      'DC',
+    ] as const) {
       const items = indicatorSeries.flatMap((series) => {
         const value = series.values[legendPointIndex];
         return series.indicator === indicator &&
+          series.visible !== false &&
           series.legendLabel &&
           value !== null &&
           value !== undefined &&
@@ -1378,7 +1493,7 @@ export function buildTradingViewNativeChartScene({
         measureTextWidth: measureLegendTextWidth,
         top: mainIndicatorLegendTop,
       });
-      appendLegendRows(layouts);
+      appendLegendRows(layouts, mainChartBottom);
       mainIndicatorLegendTop += layouts.reduce(
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,
@@ -1488,6 +1603,7 @@ export function buildTradingViewNativeChartScene({
       );
     }
   }
+  commands.push(...legendCommands);
 
   const tradeMarkTooltipCommands: ITradingViewNativeChartSceneCommand[] = [];
   appendTradingViewNativeTradeMarkCommands({
@@ -1515,19 +1631,20 @@ export function buildTradingViewNativeChartScene({
     ...chartComponentCommandLayers.textLabelCommands,
   );
 
-  if (
-    crosshairTimestamp !== null &&
-    crosshairX !== null &&
-    crosshairY !== null
-  ) {
-    const crosshairPrice = getTradingViewNativePriceAtY({
-      allowOutsideChart: crosshairY < (hasVolume ? volumeTop : mainChartBottom),
-      maxPrice,
-      minPrice,
-      priceChartHeight,
-      priceScaleMode: resolvedPriceScaleMode,
-      y: crosshairY,
-    });
+  let crosshairPrice: number | null = null;
+  if (crosshairX !== null && crosshairY !== null) {
+    // A followed crosshair shows the other chart's price as it was sent.
+    crosshairPrice = isFollowingCrosshair
+      ? (syncedCrosshair?.price ?? null)
+      : getTradingViewNativePriceAtY({
+          allowOutsideChart:
+            crosshairY < (hasVolume ? volumeTop : mainChartBottom),
+          maxPrice,
+          minPrice,
+          priceChartHeight,
+          priceScaleMode: resolvedPriceScaleMode,
+          y: crosshairY,
+        });
     const crosshairVolume = getTradingViewNativeVolumeAtY({
       maxVolume,
       volumeBottom,
@@ -1582,7 +1699,12 @@ export function buildTradingViewNativeChartScene({
         },
       );
     }
-
+  }
+  if (
+    crosshairTimestamp !== null &&
+    crosshairX !== null &&
+    showCrosshairTimeLine
+  ) {
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
@@ -1641,6 +1763,12 @@ export function buildTradingViewNativeChartScene({
     layout,
     commands,
     crosshairPointIndex,
+    crosshairPosition:
+      isOwnCrosshairVisible &&
+      crosshairTimestamp !== null &&
+      crosshairY !== null
+        ? { time: crosshairTimestamp, price: crosshairPrice }
+        : null,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions,

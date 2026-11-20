@@ -37,6 +37,28 @@ export function getTokenRowIconSize(gtMd: boolean): number {
   return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
 }
 
+// Horizontal padding of a token row and the gap between its icon and text, in
+// both engines. Keep in sync with the row config in NativeTokenSelectorList.
+export const TOKEN_ROW_HORIZONTAL_PADDING = 12;
+export const TOKEN_ROW_LEADING_GAP = 12;
+
+// Leading icon of the footer rows under the list (low-value and risk assets).
+// It takes the token icon's box and gap so the footer text starts where the
+// token names do. The numbers are raw on purpose: the rows are laid out
+// unscaled, while size tokens shrink on narrow Android screens (OK-67211).
+export function getTokenListFooterLeading(gtMd: boolean): {
+  boxSize: number;
+  iconSize: '$5' | '$6';
+  gap: number;
+} {
+  const boxSize = getTokenRowIconSize(gtMd);
+  return {
+    boxSize,
+    iconSize: boxSize < TOKEN_ROW_ICON_SIZE_COMPACT ? '$5' : '$6',
+    gap: TOKEN_ROW_LEADING_GAP,
+  };
+}
+
 type ITokenTableColumnWeight = 1 | 2 | 3;
 
 export type ITokenTableColumnWeights = {
@@ -74,8 +96,8 @@ export type ITokenListHeaderLayout = {
 };
 
 export type ITokenListFooterLayout = {
-  // Outer horizontal margin of the footer block.
-  mx: 0 | '$2' | undefined;
+  // Outer horizontal margin of the footer block, in raw units like the rows.
+  mx: number | undefined;
   // Horizontal box of each footer `ListItem`; undefined keeps its defaults.
-  itemProps?: { mx: 0; px: '$3' };
+  itemProps?: { mx: 0; px: number };
 };

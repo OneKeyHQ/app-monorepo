@@ -51,6 +51,8 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
 
   private transactionAgents = new WeakMap<object, ILocalDBAgent>();
 
+  private deviceWriteTransactions = new Set<object>();
+
   protected getReadyDbForAdmittedOperation(): Promise<ILocalDBAgent> {
     return this.readyDb;
   }
@@ -163,19 +165,31 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
         }
       }
 
-      // TODO default to readOnly: true
-      return await db.withTransaction(
-        bucketName,
-        async (tx) => {
-          this.transactionAgents.set(tx, db);
-          try {
-            return await task(tx);
-          } finally {
-            this.transactionAgents.delete(tx);
-          }
-        },
-        options,
-      );
+      let deviceWriteTransaction: object | undefined;
+      try {
+        // TODO default to readOnly: true
+        return await db.withTransaction(
+          bucketName,
+          async (tx) => {
+            this.transactionAgents.set(tx, db);
+            try {
+              return await task(tx);
+            } finally {
+              if (this.deviceWriteTransactions.has(tx)) {
+                deviceWriteTransaction = tx;
+              }
+              this.transactionAgents.delete(tx);
+            }
+          },
+          options,
+        );
+      } finally {
+        if (deviceWriteTransaction) {
+          this.deviceWriteTransactions.delete(deviceWriteTransaction);
+          // Reads during a pending write must not survive its commit or rollback.
+          this.clearDeviceRecordsCache();
+        }
+      }
     };
     const environment = await travelModeManager.getRuntimeEnvironment();
     return environment.persistence.run({
@@ -328,11 +342,12 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
       | 'allDbIndexedAccounts'
       | 'allDbWallets'
       | 'allDbDevices',
+    { includeEmpty = false }: { includeEmpty?: boolean } = {},
   ) {
     return travelModeManager.getRuntimeEnvironmentSync().persistence.runSync({
       operation: () => {
         const allItemsInCache = this.dbAllRecordsCache.get(cacheKey) as T[];
-        if (allItemsInCache && allItemsInCache.length) {
+        if (allItemsInCache && (includeEmpty || allItemsInCache.length)) {
           return cloneDeep(allItemsInCache);
         }
         return undefined;
@@ -354,6 +369,15 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     'allDbAccounts' | 'allDbIndexedAccounts' | 'allDbWallets' | 'allDbDevices',
     Promise<unknown>
   >();
+
+  protected hasPendingDeviceWrites() {
+    return this.deviceWriteTransactions.size > 0;
+  }
+
+  private clearDeviceRecordsCache() {
+    this.dbAllRecordsCache.delete('allDbDevices');
+    this.dbAllRecordsInflight.delete('allDbDevices');
+  }
 
   clearStoreCachedData() {
     this.getRecordByIdWithCache.clear();
@@ -431,6 +455,12 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txUpdateRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
+    }
     this.clearStoreCachedDataIfMatch(params.name);
     const dbTask = async (db: ILocalDBAgent) => {
       // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
@@ -452,6 +482,12 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
+    }
     this.clearStoreCachedDataIfMatch(params.name);
     return this.runWithProtectedAgent(async (db) => {
       if (params.name === ELocalDBStoreNames.CloudSyncItem) {
@@ -469,6 +505,12 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
+    if (
+      params.name === ELocalDBStoreNames.Device &&
+      this.transactionAgents.has(params.tx)
+    ) {
+      this.deviceWriteTransactions.add(params.tx);
+    }
     this.clearStoreCachedDataIfMatch(params.name);
     return this.runWithProtectedAgent(
       (db) => db.txRemoveRecords(params),
@@ -479,7 +521,17 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   abstract reset(): Promise<void>;
 
   async clearRecords(params: { name: ELocalDBStoreNames }) {
+    const deviceWrite =
+      params.name === ELocalDBStoreNames.Device ? {} : undefined;
+    if (deviceWrite) this.deviceWriteTransactions.add(deviceWrite);
     this.clearStoreCachedDataIfMatch(params.name);
-    return this.runWithProtectedAgent((db) => db.clearRecords(params));
+    try {
+      return await this.runWithProtectedAgent((db) => db.clearRecords(params));
+    } finally {
+      if (deviceWrite) {
+        this.deviceWriteTransactions.delete(deviceWrite);
+        this.clearDeviceRecordsCache();
+      }
+    }
   }
 }

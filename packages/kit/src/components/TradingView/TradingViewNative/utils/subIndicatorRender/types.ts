@@ -40,9 +40,9 @@ export type ITradingViewNativeSubIndicatorInputDefinition =
   | ITradingViewNativeSubIndicatorNumberInputDefinition;
 
 export type ITradingViewNativeSubIndicatorPlotType =
-  | 'columns'
-  | 'histogram'
-  | 'line';
+  // A dot on the baseline for every bar that has a value. The value is not
+  // drawn: it only picks the palette color and shows in the legend.
+  'circles' | 'columns' | 'histogram' | 'line';
 
 export type ITradingViewNativeSubIndicatorLineStyle =
   | 'dashed'

@@ -1619,6 +1619,76 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Enable the existing per-tab eager-mount capability only for the Android position tab. Android 35 verification with an ordinary token and no positions preserved the header on the initial visit and a fresh re-entry; populated position lists and iOS manual regression remain unverified.
 **Catchable by**: Sections 3 and 8: Verify the first tab switch after a fresh detail mount at partial and full header collapse, then compare subsequent switches and a fresh re-entry.
 
+## Case: Passive support polling bypassed the startup delay
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: First-screen visibility requested a support JWT and pinged Intercom before Bootstrap's ten-second delay elapsed.
+**Root Cause**: Visibility, unlock and push paths could start the unread task independently of Bootstrap.
+**Fix**: Add a controller startup gate enabled only by Bootstrap's delayed callback. Keep explicit support opens immediate and test visibility, unlock, push and identity changes before the gate opens.
+**Catchable by**: Sections 4 and 5: Trace every entry into a delayed subsystem; a timer in one caller does not constrain independent callers.
+
+## Case: Native support image previews used persistent disk caches
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main UI runtimes; image caching is owned by the native image loader.
+**Symptom**: Received, pending and selected support images could remain in the native image disk cache after app data reset.
+**Root Cause**: Support used the shared Image default caching policy for private attachments and local previews.
+**Fix**: Set cachePolicy="none" on all three support image surfaces, mapping to the native NONE policy, and cover all three states in rendering tests.
+**Catchable by**: Sections 3 and 6: Review platform-specific storage behavior of shared media components, including pending and draft states.
+
+## Case: Accepted support messages remained failed locally
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A lost send response showed a failed pending bubble even after polling returned the accepted message; retry could create another conversation.
+**Root Cause**: Pending state trusted request completion without reconciling server client IDs, and new-conversation recovery depended on receiving its creation response.
+**Fix**: Reconcile pending messages by client ID, prevent late failures from restoring acknowledged bubbles, and query existing conversations before explicit retries. Recover creation responses through read-only polling.
+**Catchable by**: Sections 4 and 5: Test successful server mutation followed by a lost response, including polling before the original promise rejects.
+
+## Case: Support inbox polling dropped loaded page boundaries
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A new or updated first-page conversation pushed the previous boundary item out of an already loaded inbox.
+**Root Cause**: Polling replaced the first page while retaining only later pages, and could replace the cursor belonging to the loaded range.
+**Fix**: Retain the complete loaded range, merge refreshed first-page content by ID, and keep pagination owned by the last loaded page. Test cursor/page pagination and repeated boundary shifts.
+**Catchable by**: Sections 4 and 5: Combine pagination with live refreshes; verify the union of loaded IDs and ownership of the next-page cursor.
+
+## Case: Stalled support uploads left the composer pending indefinitely
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main runtimes using Expo transport; Web, desktop and extension using browser transport.
+**Symptom**: An upload whose connection never settled kept the attachment and composer pending without a recovery deadline.
+**Root Cause**: The upload passed the caller's abort signal but had no timeout of its own.
+**Fix**: Link caller cancellation to a sixty-second upload deadline and remove listeners/timers on completion. Test stalled native and Web requests, pre-aborted signals and cancellation without automatic mutation retries.
+**Catchable by**: Section 5: Every externally awaited upload needs bounded completion and cleanup, separately from its metadata request.
+
+## Case: Creating a support conversation interrupted the composer
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: Assigning the newly created conversation ID remounted the page; preserving the key alone still temporarily disabled the composer while its first refresh was pending.
+**Root Cause**: Route identity used the server ID, and the page discarded the acknowledged creation data before the first GET completed.
+**Fix**: Preserve the page instance for its own creation transition and retain the acknowledged conversation as a fallback. Continue resetting drafts on actual conversation changes; test the same input node, focus, draft and editability with the first GET held pending.
+**Catchable by**: Sections 4 and 5: Distinguish enrichment of the current route from navigation to another entity, and test the interval before a follow-up read completes.
+
+## Case: A late extension logout observer revoked a fresh support visitor
+**Date**: 2026-11-12 | **Platforms**: Extension main windows with separate JS heaps, shared IndexedDB/Web Locks and bg-owned authoritative account state; native main/bg identity checks also covered.
+**Symptom**: A second window processing logout later could delete the anonymous visitor already created by the first window.
+**Root Cause**: Each runtime treated its local identity transition as permission to clear shared credentials without a shared transition marker or authoritative account check.
+**Fix**: Coordinate the persisted identity marker and anonymous boot with the same lock. Check bg identity before transitions and after obtaining a JWT; test independent module registries over shared storage and delayed atom synchronization.
+**Catchable by**: Sections 3 and 5: Independent UI runtimes can observe one identity change at different times; shared-resource mutation needs shared ownership and current identity verification.
+
+## Case: Support previews were consumed while hidden and older replies resurfaced
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; extension windows coordinate shared notification metadata through IndexedDB/Web Locks. Web and desktop use one app runtime, with separate Web tabs coordinated by storage locks.
+**Symptom**: Hiding while notification metadata was being read could permanently consume an unseen preview. A follow-up that recorded only the newest reply caused older replies from the same batch to appear in later polls or after restart.
+**Root Cause**: Session validity did not imply visibility, persistence preceded publication, and per-reply bookkeeping lost the existing one-preview-per-batch behavior.
+**Fix**: Validate a visibility generation after asynchronous work, publish the newest preview synchronously to the visible host, then persist the observed batch's bounded IDs/timestamps under the shared lock. Keep unread badges and allow genuinely new replies.
+**Catchable by**: Sections 5 and 6: Pause lock acquisition, metadata reads and writes around hide/resume and competing windows; also test two unread conversations across another poll and a cold restart.
+
+## Case: Submitted support form values reverted after a failed refresh
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: A successful form POST followed by a failed GET cleared the draft and exposed the old server value. Confirming again could submit that stale value.
+**Root Cause**: The form treated a resolved polling refresh as a successful read even though the scheduler absorbs read errors. Reusing a poll started before the POST was also insufficient confirmation.
+**Fix**: Add a fresh-read result that waits for an older poll before starting the post-write read. Release a submitted draft only after a valid snapshot; retain it after failed reads and release it when polling recovers, without overwriting newer edits. Test the production POST/failed-GET/reconfirm flow and inactive-screen cancellation.
+**Catchable by**: Sections 4 and 5: Separate mutation success, request completion and authoritative read success; cached display data is not confirmation of a write.
+
+## Case: Uncertain support creation recovery searched only the first inbox page
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: After a lost creation response, a conversation that had moved beyond the first twenty inbox rows could be missed and an explicit Retry could create a second conversation.
+**Root Cause**: Client-ID reconciliation inspected only the first inbox response, treating an incomplete history search as absence of the accepted write.
+**Fix**: Follow cursor/page pagination through the relevant timestamp range and inspect candidate conversations for the original client ID. Reject incomplete pagination, repeated cursors and failed page reads instead of authorizing another creation; inspect candidates with unknown timestamps as well.
+**Catchable by**: Sections 4 and 5: Move an accepted write to page two before recovery, and interrupt pagination with missing/repeated cursors or read failures; assert that the mutation is not replayed.
+
 ## Case: Intercom reply pushes left native unread dots stale (OK-67112)
 **Date**: 2026-11-11 | **Platforms**: iOS and Android. Main owns JS unread state; main/bg initialize independently in separate heaps and share the process-native Intercom instance. Attribute deduplication was verified on Android 18.10.0.
 **Symptom**: OneKey support-reply pushes could arrive while support entry dots remained off.
@@ -1626,16 +1696,30 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Deliver reply events from bg to main, defer background refreshes, and deduplicate reply IDs. The Android bridge invalidates only SDK attribute dedup before the normal authenticated update; main awaits its callback and reads the cache alongside SDK unread events. Failed refreshes are requeued, and older binaries without the bridge report failure. Pinned-SDK component checks, a bridge harness with framework/transport stubs, regression tests and mutation checks passed; rebuilt Android device verification remains pending.
 **Catchable by**: Sections 4 and 6: Verify the remote effect behind SDK success callbacks, model pinned-SDK deduplication, and cover delayed responses, failure retry and missing native capabilities. Remove the native dedup reset or retry flag to confirm the corresponding regression checks fail.
 
-## Case: Native privacy token sync status displaced the gas icon (OK-67223)
-**Date**: 2026-11-13 | **Platforms**: iOS and Android main UI runtimes; the table-layout selection is iOS-only. Background scanning and native-resource ownership are unchanged.
-**Symptom**: Privacy token rows showed sync status differently from desktop, and the iOS gas icon was not kept next to the token symbol.
-**Root Cause**: The adapter passed sync status as a badge while retaining a separate asset subtitle. The existing iOS linear DataRow renderer aligned its title icon against the combined text area instead of the primary line.
-**Fix**: Put native sync status on the asset's second line, remove its duplicate badge, and preserve the balance and trailing spinner. Use the published SDK's existing table renderer only for single-network iOS privacy lists outside token selection and cross-network grouping. Keep layout selection independent of sync state and preserve the normal row background. Adapter regression tests cover platform and list-context guards; iPhone simulator checks cover actual Home preparing/error states and production-adapter Gallery syncing/paused/synced states. Live scanning completion was not verified because of a separate WebEmbed readiness failure.
-**Catchable by**: Sections 3, 6 and 8: Verify the real native renderer's title-icon alignment and status transitions, not just the adapter payload or desktop layout; cover excluded list contexts and stable layout selection across sync states.
+## Case: Hardware gas-price EVM transaction with an access list failed to send (OK-67031)
+**Date**: 2026-11-12 | **Platforms**: All clients with OneKey hardware or Trezor. Hardware signing runs in bg on iOS, Android and extension and in the single runtime on desktop and web; the CLI hardware signer shares the builder.
+**Symptom**: On a gas-price network, a dApp transaction carrying `accessList` (an empty array included) was signed on the device and then failed to send. Found by code reading and a unit-level simulation; not reproduced on a device.
+**Root Cause**: The gas-price hardware sign message has no access-list field, so the device signs a legacy payload. Since the Trezor integration the builder assembled an EIP-2930 transaction locally whenever `accessList` was truthy, attaching the legacy signature to different bytes that recover to another sender. The existing test asserted the type 1 assembly itself and never compared it with what the device signs.
+**Fix**: Drop `accessList` and `txType` on the gas-price hardware path so the locally assembled transaction is the legacy one the device signed. Tests compare the serialized bytes with the list-less legacy transaction for non-empty and empty lists.
+**Catchable by**: NEW — not covered (when a signer has its own message format, assert that the bytes assembled locally are the bytes it signs, including empty-array and optional-field inputs)
 
-## Case: Empty privacy-management progress subtitle misaligned single-line status (OK-67119)
-**Date**: 2026-11-13 | **Platforms**: Shared Settings privacy-management UI on desktop, web, extension, iOS and Android. Background scanning is unchanged.
-**Symptom**: Preparing and paused status titles appeared above the vertical center of the refresh icon and action in Settings, even after the separate Token Details banner had been aligned.
-**Root Cause**: The management row always rendered an empty subtitle with a 40px minimum height to prevent loading-height jumps. That invisible subtitle displaced the visible title, and the earlier fix only covered the Token Details component.
-**Fix**: Render the subtitle only when progress or error text exists and reserve the existing 80px minimum on the whole row. Regression coverage exercises preparing, syncing, paused and preparing transitions without an empty subtitle. The actual desktop paused row retained its 80px height with matching title/icon vertical centers; preparing was covered by tests rather than a separate live screenshot.
-**Catchable by**: Sections 4, 6 and 8: Trace every page named by the issue, distinguish empty from visible detail text, and verify both alignment and stable row height during state changes instead of accepting a similar component's screenshot.
+## Case: Market search and sticky headers used inconsistent background materials (OK-67414)
+**Date**: 2026-11-17 | **Platforms**: iOS main UI, with page-owned native search and pager views; bg is uninvolved. The shared native layout is also regression-tested on Android.
+**Symptom**: Scrolling Market on iOS 26+ exposed a visible background boundary between the search row and the sticky tabs, filters and column headers.
+**Root Cause**: Market enabled search glass and native scroll-edge blur with transparent header surfaces alongside opaque app backgrounds. The measured search row also became an absolute external overlay, coupling list and loading-state spacing to native capability and overlay geometry.
+**Fix**: Use solid app backgrounds for the search row, native tabs and sticky subheaders; disable the Market search glass and pager scroll-edge effect. Keep the search row in normal layout and remove its external-overlay measurement, prop forwarding and compensating insets.
+**Catchable by**: Sections 3, 6 and 8: Verify initial rendering, sticky scrolling and tab switches on iOS. Regression tests assert opaque headers and no overlay/scroll-edge props, retain the search row during banner/category loading, and check empty/retry viewport resizing and Android geometry. The 33 focused tests and iOS 26.5 simulator checks passed for the implementation.
+
+## Case: Address risk top exposure value truncated (OK-67492)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React page); verified on the iOS simulator.
+**Symptom**: On the address risk check result, the Top exposure value was cut off, e.g. `Phishing address 41.2…` in English.
+**Root Cause**: The three stats split the row equally although Top exposure holds a category plus a percentage while the other two hold single numbers. The first fix widened that column to 1:1:2, which then squeezed the count labels below the German and Spanish label widths on 375-point screens (found in review).
+**Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
+
+## Case: Address risk signal count pushed out of the risk intelligence card (OK-67493)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React component); verified on the iOS simulator in English and Chinese.
+**Symptom**: In the address risk check Risk intelligence list, a long category description such as `Fake airdrop claim, Wallet drainer, Approval phishing` left only `3` of `3 signals` / `3 个信号` visible; the rest of the count was outside the card.
+**Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
+**Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.

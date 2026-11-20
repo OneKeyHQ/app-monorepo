@@ -22,6 +22,7 @@ const LINE_STYLES: readonly ITradingViewNativeSubIndicatorLineStyle[] = [
   'solid',
 ];
 const PLOT_TYPES: readonly ITradingViewNativeSubIndicatorPlotType[] = [
+  'circles',
   'columns',
   'histogram',
   'line',

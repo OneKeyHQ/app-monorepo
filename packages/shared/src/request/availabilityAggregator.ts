@@ -25,6 +25,7 @@ import type { IAvailabilitySnapshotParams } from '../logger/scopes/app/types';
 export type IAvailabilitySource =
   | 'api'
   | 'api_endpoint'
+  | 'api_ip'
   | 'api_ip_table'
   | 'api_net'
   | 'api_proxy'
@@ -37,7 +38,7 @@ export type IAvailabilityOutcome = {
   /** Counted as slow at or above AVAILABILITY_SLOW_MS. */
   durationMs?: number;
   /** Failures only: the outcome is also kept in the failure details. */
-  failure?: { detail: string; errorCode: string };
+  failure?: { detail: string; errorCode: string; ip?: string };
   /** The request went to a test environment host. */
   testEndpoint?: true;
 };
@@ -51,11 +52,9 @@ export type IAvailabilityFlushReason = 'hidden' | 'record' | 'tick';
 
 export const AVAILABILITY_MIN_SEND_GAP_MS = 2 * 60 * 60 * 1000;
 export const AVAILABILITY_SLOW_MS = 3000;
-// Metrics produce at most 193 counter keys per runtime today. With at most 34
-// other event properties, this cap keeps an event under the 255-property
-// limit. Two more service or endpoint labels would overflow it, so raise this
-// alongside them.
-const MAX_COUNTERS = 200;
+// Reserve room for configured-server IP outcomes without exceeding the event
+// limit: 216 counters plus at most 34 other properties stays below 255.
+const MAX_COUNTERS = 216;
 export const AVAILABILITY_MAX_FAILURE_KEYS = 50;
 // Four slots held about 16 entries, and a single six-minute outage already
 // overflowed them. Eight covers the 50-key cap at the sizes seen on device.
@@ -91,7 +90,7 @@ export type IAvailabilityWindow = {
   windowCount: number;
   /** `${source}_${target}_${status}` and `${source}_${target}_slow_outcome`. */
   counters: Record<string, number>;
-  /** `${source}|${target}|${status}|${detail}|${errorCode}`. */
+  /** `${source}|${target}|${status}|${detail}|${errorCode}[|${ip}]`. */
   failures: Record<string, number>;
   /** Failure outcomes without a failure detail entry. */
   failuresOmitted: number;
@@ -246,13 +245,14 @@ export function addAvailabilityOutcome(
     addWindowCount(window, `${prefix}_slow_outcome`, 1);
   }
   if (outcome.failure) {
-    const { detail, errorCode } = outcome.failure;
+    const { detail, errorCode, ip } = outcome.failure;
     const key = [
       outcome.source,
       outcome.target,
       outcome.status,
       detail,
       errorCode,
+      ...(ip ? [ip] : []),
     ].join('|');
     if (!addCount(window.failures, key, 1, AVAILABILITY_MAX_FAILURE_KEYS)) {
       window.failuresOmitted += 1;
@@ -295,9 +295,8 @@ export function buildAvailabilitySnapshotParams(
 ): IAvailabilitySnapshotParams {
   const params: IAvailabilitySnapshotParams = {
     ...meta,
-    // 4: `_slow` became `_slow_outcome`, `api_net` gained the `unread` and
-    // `unsupported` targets, and `countersOmitted` was added.
-    schemaVersion: 4,
+    // 5: api_ip_<server IP> outcomes and an optional IP in failure details.
+    schemaVersion: 5,
     snapshotId: window.id,
     // Deduplicates a resent window and dates it at the window end. A clock
     // far from this one is left to the server, which dates it on arrival.

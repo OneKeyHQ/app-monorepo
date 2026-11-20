@@ -147,6 +147,7 @@ const EVM_CHAIN_NAMES: Record<string, string> = {
 const CHAIN_TYPE_NAMES: Record<string, string> = {
   solana: 'Solana',
   bitcoin: 'Bitcoin',
+  tron: 'Tron',
   cardano: 'Cardano',
   algorand: 'Algorand',
   xrpl: 'XRPL',

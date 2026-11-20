@@ -11,8 +11,8 @@ export class NetworkScene extends BaseScene {
    * Only availabilityAggregator emits it, at most once per
    * AVAILABILITY_MIN_SEND_GAP_MS (2h) per runtime, so volume does not scale
    * with request count or failure storms. Params are numeric counters plus
-   * sanitized failure details: no URLs, query strings, addresses, payloads,
-   * device identifiers or free-form errors.
+   * sanitized failure details and configured public server IPs. No user IPs,
+   * URLs, query strings, wallet addresses, payloads or free-form errors.
    */
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'debug' })

@@ -34,6 +34,7 @@ import {
   getHardwareCloudSyncErrorDiagnostics,
   logHardwareCloudSyncDiagnostic,
 } from './hardwareCloudSyncLog';
+import { forEachHardwareCloudSyncResetPage } from './hardwareCloudSyncResetDownload';
 
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
@@ -180,6 +181,7 @@ async function requestRaw<T>({
   method,
   urlPath,
   data,
+  requestOptions,
   jwk,
   accessToken,
 }: {
@@ -187,6 +189,7 @@ async function requestRaw<T>({
   method: 'GET' | 'POST';
   urlPath: string;
   data?: unknown;
+  requestOptions?: { signal?: AbortSignal; timeout?: number };
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
@@ -226,7 +229,7 @@ async function requestRaw<T>({
     if (accessToken) {
       headers.Authorization = `DPoP ${accessToken}`;
     }
-    const config: AxiosRequestConfig = { headers };
+    const config: AxiosRequestConfig = { ...requestOptions, headers };
     return method === 'GET'
       ? client.get<IApiClientResponse<T>>(urlPath, config)
       : client.post<IApiClientResponse<T>>(urlPath, data, config);
@@ -461,18 +464,21 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   method,
   urlPath,
   data,
+  requestOptions,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   method: 'GET' | 'POST';
   urlPath: string;
   data?: unknown;
+  requestOptions?: { signal?: AbortSignal; timeout?: number };
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
   return requestRaw<T>({
     client,
     method,
     urlPath,
     data,
+    requestOptions,
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });
@@ -1033,29 +1039,60 @@ export async function rotateHardwareCloudSyncDataKey<
     from: current,
     to: next,
   });
-  // The server copy is the source: it also holds records this device keeps
-  // no local copy of, such as other devices' wallets.
-  const serverData = await downloadAllForReset({
-    client,
-    session,
-    pwdHash: current.pwdHash,
+  // Read the complete rotation input once, then re-encrypt in bounded batches.
+  // The pre-download nonce still guards concurrent server writes at flush.
+  const envelopeRecords: IServerSyncRecord[] = [];
+  const serverItems: IServerSyncRecord[] = [];
+  const downloadResult = await forEachHardwareCloudSyncResetPage({
+    download: async () => {
+      const response = await requestWithHardwareCloudSyncSession<{
+        serverData?: unknown;
+      }>({
+        client,
+        session,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/download',
+        data: { pwdHash: current.pwdHash, includeDeleted: true },
+      });
+      return response?.serverData;
+    },
+    onPage: async (records) => {
+      const encrypted = await reencryptHardwareCloudSyncItems({
+        items: records
+          .filter((record) => {
+            if (isHardwareCloudSyncKeyEnvelopeItem(record)) {
+              envelopeRecords.push(record);
+              return false;
+            }
+            return true;
+          })
+          .map((record) => ({
+            ...record,
+            id: record.key,
+            pwdHash: current.pwdHash,
+          })),
+        from: current,
+        to: next,
+      });
+      assertCurrent();
+      for (const record of encrypted) {
+        const { key, dataType, data, dataTimestamp, isDeleted } = record;
+        serverItems.push({
+          key,
+          dataType,
+          data: data ?? '',
+          dataTimestamp,
+          isDeleted: !!isDeleted,
+        });
+      }
+    },
+    assertCurrent,
   });
-  const [envelopeRecords, records] = [
-    (serverData ?? []).filter((item) =>
-      isHardwareCloudSyncKeyEnvelopeItem(item),
-    ),
-    (serverData ?? []).filter(
-      (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
-    ),
-  ];
-  const serverItems = await reencryptHardwareCloudSyncItems({
-    items: records.map((item) => ({
-      ...item,
-      id: item.key,
-      pwdHash: current.pwdHash,
-    })),
-    from: current,
-    to: next,
+  logHardwareCloudSyncDiagnostic('reset_download_received', {
+    hasServerDataArray: true,
+    returnedCount: downloadResult.recordCount,
+    page: downloadResult.pageCount,
+    historyCompleteKnown: false,
   });
   const envelopeData = stringUtils.stableStringify(envelope);
   // Keep every earlier envelope; they are tiny and help recovery.
@@ -1080,7 +1117,7 @@ export async function rotateHardwareCloudSyncDataKey<
     previousGeneration: existing.generation,
     nextGeneration: envelope.generation,
     localItemCount: localItems.length,
-    returnedCount: serverData.length,
+    returnedCount: downloadResult.recordCount,
     inputEnvelopeCount: envelopeRecords.length,
     outputEnvelopeCount: envelopeItems.length,
     previousCurrentEnvelopeIncluded: envelopeRecords.some(
@@ -1108,18 +1145,7 @@ export async function rotateHardwareCloudSyncDataKey<
         data: envelopeData,
         dataTimestamp: envelope.createdAt,
       },
-      localData: [
-        ...serverItems.map(
-          ({ key, dataType, data, dataTimestamp, isDeleted }) => ({
-            key,
-            dataType,
-            data: data ?? '',
-            dataTimestamp,
-            isDeleted: !!isDeleted,
-          }),
-        ),
-        ...envelopeItems,
-      ],
+      localData: [...serverItems, ...envelopeItems],
     },
   });
   logHardwareCloudSyncDiagnostic('rotation_flush_accepted', {
@@ -1137,8 +1163,8 @@ export type IServerSyncRecord = {
   isDeleted?: boolean;
 };
 
-// The server does not guarantee stable ordering across offset pages. Omitting
-// limit returns all records; the pre-download nonce protects the later flush.
+// Keep the existing all-record read for migration callers. Reset streams pages
+// separately, guarded by its pre-download nonce and the final atomic flush.
 export async function downloadAllForReset({
   client,
   session,

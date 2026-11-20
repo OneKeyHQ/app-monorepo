@@ -14,13 +14,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
-  IDeFiAsset,
   IDeFiProtocol,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 import type {
   IEarnPortfolioPosition,
   IEarnPortfolioPositionsResponse,
+  IEarnPositionAsset,
   IEarnPositionCategory,
   IEarnPositionEffectiveDeposit,
   IEarnPositionManageTarget,
@@ -62,7 +62,7 @@ export type IEarnPositionSectionKind =
   | 'pendingWithdrawal'
   | 'claimable';
 
-export type IEarnPositionSectionAsset = IDeFiAsset & {
+export type IEarnPositionSectionAsset = IEarnPositionAsset & {
   /** the server position the row came from: its claim, cancel and identity */
   origin: IEarnPortfolioPosition;
   /**
@@ -401,7 +401,7 @@ function buildPositionView({
     key: source.groupId,
     badgeLabel,
     name: source.name || undefined,
-    value: getProtocolPositionSectionsValueState(sections),
+    value: getProtocolPositionSectionsValueState(countedSections(sections)),
     meta:
       typeof item.healthFactor === 'number'
         ? { kind: 'healthFactor', healthFactor: item.healthFactor }
@@ -465,16 +465,37 @@ function byValueDesc(a: IEarnProtocolView, b: IEarnProtocolView) {
 }
 
 /**
+ * The sections as the totals count them: a row the server marked as left out
+ * (OK-61790, the USDu Unitas is converting back to USDT) stays on the card
+ * with its own value and adds to no figure, since the amount has already
+ * left the position.
+ */
+function countedSections<T extends { assets: IEarnPositionSectionAsset[] }>(
+  sections: T[],
+): T[] {
+  return sections.map((section) =>
+    section.assets.some((asset) => asset.excludedFromTotals)
+      ? {
+          ...section,
+          assets: section.assets.filter((asset) => !asset.excludedFromTotals),
+        }
+      : section,
+  );
+}
+
+/**
  * Header "DeFi Assets": what the user holds, debts subtracted and rewards
  * left out (figma 30490-21882: the cards and protocol rows include their
  * rewards, the header figure does not — $58.28 = $68.90 − $10.62).
  */
 export function sumEarnDefiAssets(protocols: IEarnProtocolView[]): number {
   return getProtocolPositionSectionsValueState(
-    protocols
-      .flatMap((protocol) => protocol.positions)
-      .flatMap((position) => position.sections)
-      .filter((section) => section.kind !== 'rewards'),
+    countedSections(
+      protocols
+        .flatMap((protocol) => protocol.positions)
+        .flatMap((position) => position.sections)
+        .filter((section) => section.kind !== 'rewards'),
+    ),
   ).value;
 }
 
@@ -500,7 +521,16 @@ export function buildEarnPortfolioView({
         } else {
           sourcesByHolding.set(groupId, [position]);
         }
-        return { ...position, groupId };
+        // The wallet grouping values a protocol from these copies: a row left
+        // out of the totals goes in at zero, so the protocol line agrees
+        // with the card. The card's rows read the untouched server position.
+        return {
+          ...position,
+          groupId,
+          assets: position.assets.map((asset) =>
+            asset.excludedFromTotals ? { ...asset, value: 0 } : asset,
+          ),
+        };
       }),
     ]),
   );

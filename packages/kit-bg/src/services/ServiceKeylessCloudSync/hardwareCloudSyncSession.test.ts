@@ -22,6 +22,7 @@ import {
   bootstrapHardwareCloudSyncDataKey,
   computeHardwareCloudSyncPwdHash,
   createHardwareCloudSyncDeviceKey,
+  downloadAllForReset,
   getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
@@ -124,6 +125,32 @@ describe('hardware Cloud sync session', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('forwards reconciliation cancellation and timeout without replacing auth headers', async () => {
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const controller = new AbortController();
+    await requestWithHardwareCloudSyncSession({
+      client: c.client,
+      session: session(),
+      method: 'POST',
+      urlPath: '/prime/v1/sync/check',
+      data: {},
+      requestOptions: { signal: controller.signal, timeout: 1234 },
+    });
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/check',
+      {},
+      expect.objectContaining({
+        signal: controller.signal,
+        timeout: 1234,
+        headers: expect.objectContaining({
+          DPoP: expect.any(String),
+          Authorization: expect.stringMatching(/^DPoP /),
+        }),
+      }),
+    );
   });
 
   test('repeated successful sync requests do not produce diagnostic traffic', async () => {
@@ -802,8 +829,8 @@ describe('hardware Cloud sync session', () => {
       // The server also holds a record this device has no local copy of.
       const remote = await item(key.dek, key.pwdHash, 'from-other-device');
       const serverData = [
-        envelopeItem,
         { key: 'a', dataType: 'BrowserBookmark', data: local[0].data },
+        envelopeItem,
         { key: remote.id, dataType: remote.dataType, data: remote.data },
         { key: 'gone', dataType: 'BrowserBookmark', data: '', isDeleted: true },
       ];
@@ -942,12 +969,12 @@ describe('hardware Cloud sync session', () => {
       },
     );
 
-    test.each([1000, 2500])(
-      'reads all %s records without pagination before resetting',
+    test.each([1000, 1002, 2500])(
+      'downloads all %s records once before the nonce-guarded reset',
       async (count) => {
         const { key, lock, envelopeItem } = await firstDevice();
         const records = Array.from({ length: count }, (_, i) => ({
-          key: `k${i}`,
+          key: `a${i.toString().padStart(6, '0')}`,
           dataType: 'BrowserBookmark',
           data: '',
           isDeleted: true,
@@ -1018,13 +1045,183 @@ describe('hardware Cloud sync session', () => {
         );
         expect(c.post.mock.calls.map(([url]) => url as string)).toEqual([
           '/prime/v1/sync/check',
-          '/prime/v1/sync/download',
+          ...downloads.map(() => '/prime/v1/sync/download'),
           '/prime/v1/sync/flush',
         ]);
         expect(new Set(flushed.map((record) => record.key)).size).toBe(
           count + 1,
         );
         expect(flushed).toEqual(expect.arrayContaining([envelopeItem]));
+      },
+    );
+
+    test('retains the all-record API used by migration callers', async () => {
+      const c = fakeClient();
+      const records = [
+        { key: 'z', dataType: 'Wallet' },
+        { key: 'a', dataType: 'Wallet' },
+      ];
+      c.post.mockResolvedValue(ok({ serverData: records }));
+      await expect(
+        downloadAllForReset({
+          client: c.client,
+          session: session(),
+          pwdHash: 'public-test-pwdhash',
+        }),
+      ).resolves.toEqual(records);
+      expect(c.post).toHaveBeenCalledTimes(1);
+      expect(c.post.mock.calls[0][1]).toEqual({
+        pwdHash: 'public-test-pwdhash',
+        includeDeleted: true,
+      });
+    });
+
+    test('uses one complete reset read regardless of server collation', async () => {
+      const { key, lock, envelopeItem } = await firstDevice();
+      const records = [
+        ...Array.from({ length: 500 }, (_, i) => ({
+          key: `a${i.toString().padStart(6, '0')}`,
+          dataType: 'Wallet',
+          data: '',
+          isDeleted: true,
+        })),
+        { key: 'B', dataType: 'Wallet', data: '', isDeleted: true },
+        envelopeItem,
+      ];
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post.mockImplementation(
+        async (url: string, body: { skip?: number; limit?: number }) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 9 });
+          if (url === '/prime/v1/sync/download')
+            return ok({
+              serverData: records.slice(
+                body.skip ?? 0,
+                body.limit === undefined
+                  ? undefined
+                  : (body.skip ?? 0) + body.limit,
+              ),
+            });
+          return ok({});
+        },
+      );
+      await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        localItems: [],
+        savePending: jest.fn(async () => undefined),
+      });
+      const downloads = c.post.mock.calls.filter(
+        ([url]) => url === '/prime/v1/sync/download',
+      );
+      expect(downloads).toHaveLength(1);
+      expect(downloads[0][1]).toEqual({
+        pwdHash: key.pwdHash,
+        includeDeleted: true,
+      });
+      const flush = c.post.mock.calls.find(
+        ([url]) => url === '/prime/v1/sync/flush',
+      )?.[1] as { localData: Array<{ isDeleted: boolean }> } | undefined;
+      expect(flush).toMatchObject({
+        expectedNonce: 9,
+        expectedPwdHash: key.pwdHash,
+      });
+      expect(flush?.localData).toHaveLength(records.length + 1);
+      expect(
+        flush?.localData.filter((record) => record.isDeleted),
+      ).toHaveLength(501);
+    });
+
+    test.each(['failed', 'malformed', 'key changed', 'cancelled'])(
+      'a %s complete download cannot save or flush a partial reset',
+      async (mode) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let current = true;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 3 });
+          if (mode === 'failed')
+            throw new OneKeyLocalError('Download unavailable');
+          if (mode === 'key changed')
+            throw Object.assign(new Error('Key changed'), { code: 90_704 });
+          if (mode === 'cancelled') {
+            current = false;
+            return ok({ serverData: [] });
+          }
+          return ok({ serverData: [null] });
+        });
+        const savePending = jest.fn(async () => undefined);
+        const beforeFlush = jest.fn(async () => undefined);
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+            beforeFlush,
+            isCurrent: () => current,
+          }),
+        ).rejects.toThrow();
+        expect(savePending).not.toHaveBeenCalled();
+        expect(beforeFlush).not.toHaveBeenCalled();
+        expect(
+          c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
+        ).toBe(false);
+      },
+    );
+
+    test.each(['upload', 'delete', 'flush'])(
+      'a concurrent %s during download preserves the original nonce and makes no write',
+      async () => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let serverNonce = 7;
+        let writes = 0;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(
+          async (
+            url: string,
+            body: { skip?: number; expectedNonce?: number },
+          ) => {
+            if (url === '/prime/v1/sync/check')
+              return ok({ nonce: serverNonce });
+            if (url === '/prime/v1/sync/download') {
+              serverNonce += 1;
+              return ok({ serverData: [] });
+            }
+            if (body.expectedNonce !== serverNonce)
+              throw Object.assign(new Error('Data version changed'), {
+                code: 90_705,
+              });
+            writes += 1;
+            return ok({});
+          },
+        );
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending: jest.fn(async () => undefined),
+          }),
+        ).rejects.toMatchObject({ code: 90_705 });
+        expect(writes).toBe(0);
+        expect(
+          c.post.mock.calls.find(
+            ([url]) => url === '/prime/v1/sync/flush',
+          )?.[1],
+        ).toMatchObject({
+          expectedNonce: 7,
+          expectedPwdHash: key.pwdHash,
+        });
+        expect(c.post.mock.calls[0][0]).toBe('/prime/v1/sync/check');
       },
     );
 

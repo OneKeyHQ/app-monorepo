@@ -34,6 +34,9 @@ const mockIntl = {
   formatMessage: ({ id }: { id: string }) => id,
 };
 let mockIsFocused = false;
+let mockReviewControl = true;
+let mockGiftDevices: { serialNo: string }[] = [];
+const mockGiftQuery = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => mockIntl,
@@ -150,6 +153,25 @@ jest.mock('./PrimeTermsAndPrivacy', () => ({
   PrimeTermsAndPrivacy: () => null,
 }));
 jest.mock('./PrimeUserInfo', () => ({ PrimeUserInfo: () => null }));
+jest.mock('@onekeyhq/kit/src/components/ReviewControl', () => ({
+  useReviewControl: () => mockReviewControl,
+}));
+jest.mock('../../hooks/usePrimeGiftClaimableDevices', () => ({
+  usePrimeGiftClaimableDevices: (options?: { enabled: boolean }) => {
+    mockGiftQuery(options);
+    return {
+      devices: options?.enabled === false ? undefined : mockGiftDevices,
+    };
+  },
+}));
+jest.mock('../../components/PrimeGiftDashboardEntry', () => ({
+  PrimeGiftDashboardEntry: ({
+    devices,
+  }: {
+    devices?: { serialNo: string }[];
+  }) =>
+    devices?.length ? <div data-testid="prime-gift-dashboard-entry" /> : null,
+}));
 jest.mock('./primeSubscribeLoadingUtils', () => ({
   runPrimeSubscribeWithMinimumLoadingDuration: (run: () => Promise<void>) =>
     run(),
@@ -762,5 +784,49 @@ describe('PrimeDashboard opened from a gated feature', () => {
 
     expect(mockNavigation.pop).not.toHaveBeenCalled();
     expect(mockEnsureSubscription).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Prime dashboard gift visibility', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsFocused = false;
+    mockReviewControl = true;
+    mockGiftDevices = [];
+    mockAuth.isLoggedIn = false;
+    mockAuth.isPrimeSubscriptionActive = false;
+  });
+  afterEach(() => {
+    mockReviewControl = true;
+    mockGiftDevices = [];
+  });
+  it('keeps automatic gift checks enabled when signed out and when already subscribed', () => {
+    const route = {
+      key: 'gift',
+      name: EPrimePages.PrimeDashboard,
+      params: {},
+    } as const;
+    const view = render(<PrimeDashboard route={route} />);
+    expect(mockGiftQuery).toHaveBeenLastCalledWith(undefined);
+    mockAuth.isLoggedIn = true;
+    mockAuth.isPrimeSubscriptionActive = true;
+    view.rerender(<PrimeDashboard route={route} />);
+    expect(mockGiftQuery).toHaveBeenLastCalledWith(undefined);
+  });
+  it('checks and shows eligible gifts when App Store review control is off', () => {
+    mockReviewControl = false;
+    mockGiftDevices = [{ serialNo: 'PRO2-SERIAL' }];
+    const route = {
+      key: 'gift',
+      name: EPrimePages.PrimeDashboard,
+      params: {},
+    } as const;
+    const view = render(<PrimeDashboard route={route} />);
+    expect(mockGiftQuery).toHaveBeenCalledWith(undefined);
+    expect(screen.getByTestId('prime-gift-dashboard-entry')).toBeTruthy();
+
+    mockGiftDevices = [];
+    view.rerender(<PrimeDashboard route={route} />);
+    expect(screen.queryByTestId('prime-gift-dashboard-entry')).toBeNull();
   });
 });

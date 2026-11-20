@@ -429,8 +429,7 @@ function DeFiListBlock({
     );
   }, []);
 
-  // The DeFi list provider lives inside `Tabs.Container`, which no longer
-  // remounts on an account switch (OK-63873), so `protocols` would keep the
+  // When the DeFi provider survives an account switch, `protocols` would keep the
   // previous owner's positions until the debounced fetch (>= 1 s) replaces
   // them. Drop them in the same commit the owner changes (layout effect,
   // before paint): the block then shows its skeleton, and `loadedOwnerKey`
@@ -503,8 +502,8 @@ function DeFiListBlock({
     isDeFiEnabledProp === undefined,
   );
   const isDeFiEnabled = isDeFiEnabledProp ?? computedIsDeFiEnabled;
-  // Held per owner, not as a plain flag: `Tabs.Container` no longer remounts
-  // on an account switch (OK-63873), so a boolean would still read `true`
+  // Held per owner: when the provider survives an account switch, a boolean
+  // would still read `true`
   // from the previous owner in the switch render and let the new owner's
   // fan-out start before the gate below closes it. The closing render then
   // starts a skipped run that invalidates the in-flight one, and the

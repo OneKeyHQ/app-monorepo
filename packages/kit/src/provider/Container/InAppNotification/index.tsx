@@ -4,13 +4,8 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Button,
-  SizableText,
-  Toast,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IToastAction } from '@onekeyhq/components';
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import {
   EAppEventBusNames,
@@ -200,19 +195,13 @@ const InAppNotification = () => {
     );
   }, [navigation]);
 
-  const approvingSuccessAction = useMemo(() => {
-    return (
-      <Button
-        testID="provider-approving-success-action-btn"
-        variant="primary"
-        size="small"
-        onPress={approvingSuccessActionConfirm}
-      >
-        <SizableText size="$bodyMdMedium" color="$textInverse">
-          {intl.formatMessage({ id: ETranslations.swap_toast_go_to_swap })}
-        </SizableText>
-      </Button>
-    );
+  const approvingSuccessAction = useMemo<IToastAction>(() => {
+    return {
+      testID: 'provider-approving-success-action-btn',
+      variant: 'primary',
+      label: intl.formatMessage({ id: ETranslations.swap_toast_go_to_swap }),
+      onPress: approvingSuccessActionConfirm,
+    };
   }, [approvingSuccessActionConfirm, intl]);
 
   useEffect(() => {
@@ -464,7 +453,7 @@ const InAppNotification = () => {
         ENotificationPushTopicTypes.system;
 
       // Check if this is an Earn/Borrow transaction by looking up local history
-      let earnAction: JSX.Element | undefined;
+      let earnAction: IToastAction | undefined;
       const { transactionHash, networkId, accountAddress } =
         remotePushMessageInfo?.extras?.params || {};
 
@@ -494,28 +483,22 @@ const InAppNotification = () => {
             label && [EEarnLabels.Borrow, EEarnLabels.Repay].includes(label);
 
           if (isEarnTransaction || isBorrowTransaction) {
-            earnAction = (
-              <Button
-                testID="provider-is-borrow-transaction-btn"
-                variant="primary"
-                size="small"
-                onPress={async () => {
-                  navigation.switchTab(ETabRoutes.Earn);
-                  await timerUtils.wait(50);
-                  appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
-                    mode: isBorrowTransaction ? 'borrow' : 'earn',
-                  });
-                }}
-              >
-                <SizableText size="$bodyMdMedium" color="$textInverse">
-                  {intl.formatMessage({
-                    id: isBorrowTransaction
-                      ? ETranslations.global_borrow
-                      : ETranslations.global_earn,
-                  })}
-                </SizableText>
-              </Button>
-            );
+            earnAction = {
+              testID: 'provider-is-borrow-transaction-btn',
+              variant: 'primary',
+              label: intl.formatMessage({
+                id: isBorrowTransaction
+                  ? ETranslations.global_borrow
+                  : ETranslations.global_earn,
+              }),
+              onPress: async () => {
+                navigation.switchTab(ETabRoutes.Earn);
+                await timerUtils.wait(50);
+                appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+                  mode: isBorrowTransaction ? 'borrow' : 'earn',
+                });
+              },
+            };
           }
         } catch {
           // Ignore errors when looking up local history

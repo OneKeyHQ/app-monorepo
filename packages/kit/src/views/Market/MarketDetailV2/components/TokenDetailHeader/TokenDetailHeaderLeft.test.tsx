@@ -48,7 +48,9 @@ jest.mock('../../../components/CommunityRecognizedBadge', () => ({
 }));
 
 jest.mock('../../../components/MarketStarV2', () => ({
-  MarketStarV2: () => null,
+  MarketStarV2: ({ contractAddress }: { contractAddress: string }) => (
+    <span data-testid="favorite" data-address={contractAddress} />
+  ),
 }));
 
 jest.mock('../../../components/PerpsBadges', () => ({
@@ -103,6 +105,23 @@ const tokenDetail = {
 describe('TokenDetailHeaderLeft share button layout', () => {
   beforeEach(() => {
     mockMd = false;
+  });
+
+  test('keeps the legacy favorite address when the BTC asset address resolves', () => {
+    const view = render(
+      <TokenDetailHeaderLeft
+        tokenDetail={{ ...tokenDetail, symbol: 'BTC', address: '' }}
+        networkId="btc--0"
+        isNative
+        desktopRedesign
+        desktopDetailVariant="topCoins"
+        watchlistContractAddress="native"
+      />,
+    );
+
+    expect(view.getByTestId('favorite').getAttribute('data-address')).toBe(
+      'native',
+    );
   });
 
   test('renders only the outer share button in the desktop redesign', () => {

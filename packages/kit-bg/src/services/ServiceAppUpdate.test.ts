@@ -2542,6 +2542,29 @@ describe('ServiceAppUpdate state transitions', () => {
         'https://apps.apple.com/app/onekey/id1609559473',
       );
     });
+
+    test('passes checkSource=manual query param only when isManualCheck is true', async () => {
+      const mockClient = mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+
+      await service.fetchConfig();
+      expect(mockClient.get).toHaveBeenLastCalledWith('/utility/v1/app-update');
+
+      await service.fetchConfig({ isManualCheck: true });
+      expect(mockClient.get).toHaveBeenLastCalledWith(
+        '/utility/v1/app-update',
+        { params: { checkSource: 'manual' } },
+      );
+
+      const fetchSpy = jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockResolvedValue({} as any);
+      await service.fetchAppUpdateInfoByManual();
+      expect(fetchSpy).toHaveBeenCalledWith(true, { isManualCheck: true });
+      fetchSpy.mockRestore();
+    });
   });
 
   // =========================================================================

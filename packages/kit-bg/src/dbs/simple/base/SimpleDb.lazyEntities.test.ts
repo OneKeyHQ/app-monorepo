@@ -7,6 +7,19 @@ const mockAppStatusConstructor = jest.fn();
 const mockAppStatusStorageGetItem = jest.fn(async (key: string) => key);
 const mockAppStatusGetRawData = jest.fn(async () => ({ ready: true }));
 let mockAppStatusModuleLoadCount = 0;
+const mockCloudIssuesConstructor = jest.fn();
+const mockGetCloudIssues = jest.fn(async () => null);
+let mockCloudIssuesModuleLoadCount = 0;
+
+jest.mock('../entity/SimpleDbEntityCloudSyncAccountIssues', () => {
+  mockCloudIssuesModuleLoadCount += 1;
+  return {
+    SimpleDbEntityCloudSyncAccountIssues: jest.fn().mockImplementation(() => {
+      mockCloudIssuesConstructor();
+      return { getRawData: mockGetCloudIssues };
+    }),
+  };
+});
 
 jest.mock('../entity/SimpleDbEntityPerp', () => {
   mockPerpModuleLoadCount += 1;
@@ -52,6 +65,7 @@ describe('SimpleDb lazy entities', () => {
     mockPerpModuleLoadCount = 0;
     mockCustomTokensModuleLoadCount = 0;
     mockAppStatusModuleLoadCount = 0;
+    mockCloudIssuesModuleLoadCount = 0;
   });
 
   test('keeps the perp API stable and loads one entity on concurrent use', async () => {
@@ -84,7 +98,8 @@ describe('SimpleDb lazy entities', () => {
       .filter(([, descriptor]) => typeof descriptor.get === 'function')
       .map(([name]) => name);
 
-    expect(entityNames).toHaveLength(79);
+    expect(entityNames).toHaveLength(80);
+    expect(entityNames).toContain('cloudSyncAccountIssues');
     entityNames.forEach((entityName) => {
       const first = Reflect.get(simpleDb, entityName) as Record<
         PropertyKey,
@@ -95,6 +110,19 @@ describe('SimpleDb lazy entities', () => {
     });
     expect(mockPerpModuleLoadCount).toBe(0);
     expect(mockPerpConstructor).not.toHaveBeenCalled();
+  });
+
+  test('loads Cloud account issues only on use and shares the lazy instance', async () => {
+    const { SimpleDb } = await import('./SimpleDb');
+    const simpleDb = new SimpleDb();
+    const issues = simpleDb.cloudSyncAccountIssues;
+    expect(simpleDb.cloudSyncAccountIssues).toBe(issues);
+    expect(mockCloudIssuesModuleLoadCount).toBe(0);
+    expect(mockCloudIssuesConstructor).not.toHaveBeenCalled();
+    await Promise.all([issues.getRawData(), issues.getRawData()]);
+    expect(mockCloudIssuesModuleLoadCount).toBe(1);
+    expect(mockCloudIssuesConstructor).toHaveBeenCalledTimes(1);
+    expect(mockGetCloudIssues).toHaveBeenCalledTimes(2);
   });
 
   test('keeps legacy synchronous helpers on the facade without loading an entity', async () => {

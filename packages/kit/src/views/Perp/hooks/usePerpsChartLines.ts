@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { ITVLine } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/types';
 import { buildAllLinesForSymbol } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/utils/lineBuilder';
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
@@ -14,18 +13,26 @@ import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.co
 
 import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
 import { usePerpsAccountScopedOpenOrdersByCoin } from './usePerpsAccountScopedOpenOrdersByCoin';
+import { useActivePerpsChartInstrument } from './usePerpsChartInstrument';
+
+import type { IPerpsChartInstrument } from './usePerpsChartInstrument';
 
 export function usePerpsChartLines({
+  instrument,
   symbol,
   szDecimals,
   userAddress,
 }: {
+  // The instrument `symbol` belongs to. Defaults to the active trade
+  // instrument; a split-view panel passes its own.
+  instrument?: IPerpsChartInstrument;
   symbol: string;
   szDecimals: number;
   userAddress: string | undefined | null;
 }): ITVLine[] {
   const intl = useIntl();
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const activeInstrument = useActivePerpsChartInstrument();
+  const activeTradeInstrument = instrument ?? activeInstrument;
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
   const [
@@ -50,8 +57,8 @@ export function usePerpsChartLines({
       // instrument only while it still matches the chart's raw symbol.
       const aliases = new Set<string>([symbol]);
       if (activeTradeInstrument.coin === symbol) {
-        if (activeTradeInstrument.universe?.name) {
-          aliases.add(activeTradeInstrument.universe.name);
+        if (activeTradeInstrument.spotName) {
+          aliases.add(activeTradeInstrument.spotName);
         }
         if (typeof activeTradeInstrument.assetId === 'number') {
           aliases.add(
@@ -67,7 +74,7 @@ export function usePerpsChartLines({
     activeTradeInstrument.mode,
     activeTradeInstrument.coin,
     activeTradeInstrument.assetId,
-    activeTradeInstrument.universe,
+    activeTradeInstrument.spotName,
     normalizedUserAddress,
     perpsOpenOrders,
     spotOpenOrders,

@@ -11,6 +11,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type {
   IDBAccount,
   IDBDevice,
@@ -28,7 +29,6 @@ import {
   isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -152,13 +152,15 @@ export function useAccountSelectorCreateAddress() {
         // If indexedAccountId is empty, create the first account (index 0) for all networks
         const indexes = account?.indexedAccountId ? undefined : [0];
         const result =
-          await serviceBatchCreateAccount.addDefaultNetworkAccounts({
-            walletId: account?.walletId,
-            indexedAccountId: account?.indexedAccountId,
-            indexes,
-            customNetworks,
-            ...hwUiControlParams,
-          });
+          await serviceBatchCreateAccount.addDefaultNetworkAccountsForUserCreation(
+            {
+              walletId: account?.walletId,
+              indexedAccountId: account?.indexedAccountId,
+              indexes,
+              customNetworks,
+              ...hwUiControlParams,
+            },
+          );
         if (
           result &&
           result?.failedAccounts?.length &&
@@ -270,7 +272,7 @@ export function useAccountSelectorCreateAddress() {
           }
           // If indexedAccountId is empty, create the first account (index 0)
           const indexes = account?.indexedAccountId ? undefined : [0];
-          const result = await serviceAccount.addHDOrHWAccounts({
+          const result = await serviceAccount.addHDOrHWAccountsForUserCreation({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
@@ -325,7 +327,7 @@ export function useAccountSelectorCreateAddress() {
                 await serviceAccount.isBtcOnlyFirmwareByWalletId({
                   walletId: account.walletId,
                 });
-              Dialog.show({
+              const dialog = Dialog.show({
                 title: intl.formatMessage({
                   id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
                 }),
@@ -380,7 +382,10 @@ export function useAccountSelectorCreateAddress() {
                       </SizableText>
                       <Button
                         variant="tertiary"
-                        onPress={() => showIntercom()}
+                        onPress={async () => {
+                          await dialog.close();
+                          await showIntercom();
+                        }}
                         testID={AccountSelectorTestIDs.genericButton}
                       >
                         {intl.formatMessage({

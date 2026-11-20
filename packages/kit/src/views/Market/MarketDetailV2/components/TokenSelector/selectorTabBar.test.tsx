@@ -25,7 +25,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-jest.mock('@onekeyhq/components', () => {
+jest.mock('@onekeyhq/components/src/composite/TabBar', () => {
   const TabBarItem = ({
     name,
     isFocused,
@@ -47,46 +47,44 @@ jest.mock('@onekeyhq/components', () => {
     </button>
   );
   return {
-    Tabs: {
-      TabBarItem,
-      TabBar: ({
-        tabNames,
-        focusedTab,
-        onTabPress,
-        renderItem,
-      }: {
-        tabNames: string[];
-        focusedTab: { value: string };
-        onTabPress: (name: string) => void;
-        renderItem: (
-          props: {
-            name: string;
-            isFocused: boolean;
-            onPress: (name: string) => void;
-          },
-          index: number,
-        ) => ReactNode;
-      }) => {
-        const ReactModule = jest.requireActual<typeof import('react')>('react');
-        const [mountedFocus] = ReactModule.useState(focusedTab.value);
-        const currentTab = mockStaleFocus ? mountedFocus : focusedTab.value;
-        return (
-          <div>
-            {tabNames.map((name, index) => (
-              <span key={name}>
-                {renderItem(
-                  {
-                    name,
-                    isFocused: currentTab === name,
-                    onPress: onTabPress,
-                  },
-                  index,
-                )}
-              </span>
-            ))}
-          </div>
-        );
-      },
+    TabBarItem,
+    TabBar: ({
+      tabNames,
+      focusedTab,
+      onTabPress,
+      renderItem,
+    }: {
+      tabNames: string[];
+      focusedTab: { value: string };
+      onTabPress: (name: string) => void;
+      renderItem: (
+        props: {
+          name: string;
+          isFocused: boolean;
+          onPress: (name: string) => void;
+        },
+        index: number,
+      ) => ReactNode;
+    }) => {
+      const ReactModule = jest.requireActual<typeof import('react')>('react');
+      const [mountedFocus] = ReactModule.useState(focusedTab.value);
+      const currentTab = mockStaleFocus ? mountedFocus : focusedTab.value;
+      return (
+        <div>
+          {tabNames.map((name, index) => (
+            <span key={name}>
+              {renderItem(
+                {
+                  name,
+                  isFocused: currentTab === name,
+                  onPress: onTabPress,
+                },
+                index,
+              )}
+            </span>
+          ))}
+        </div>
+      );
     },
   };
 });

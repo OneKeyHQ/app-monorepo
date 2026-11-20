@@ -95,6 +95,8 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'fetchMarketStockList',
     'fetchMarketTokenList',
     'fetchMarketTokenListBatch',
+    // The background-owned writer strips identities in masked runtimes.
+    'setMarketWidgetConfiguration',
   ]),
   serviceNetwork: new Set([
     'getAllNetworkIds',

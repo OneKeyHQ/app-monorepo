@@ -5,32 +5,24 @@ import { useIntl } from 'react-intl';
 import {
   SizableText,
   Stack,
-  Tabs,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
-import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
 import { buildTopCoinMarketRow } from '../MarketNativeList/marketNativeListRows';
 import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
-import { TokenListItem } from '../MarketTokenList/components/TokenListItem';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
 
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
-import type { FlatListProps } from 'react-native';
 
 type IMobileMarketTopCoinsFlatListProps = {
   selectedCategoryId: string;
-  listContainerProps: {
-    paddingBottom: number;
-  };
   shouldSuppressItemPress?: () => boolean;
 };
 
@@ -65,7 +57,6 @@ function toMobileMarketToken(item: IMarketAssetListItem): IMarketToken {
 
 function MobileMarketTopCoinsFlatListBase({
   selectedCategoryId,
-  listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketTopCoinsFlatListProps) {
   const intl = useIntl();
@@ -74,22 +65,6 @@ function MobileMarketTopCoinsFlatListBase({
   });
   const tabBarHeight = useScrollContentTabBarOffset();
   const showSkeleton = isLoading && data.length === 0;
-
-  const renderItem: FlatListProps<IMarketAssetListItem>['renderItem'] =
-    useCallback(
-      ({ item }) => (
-        <TokenListItem
-          item={toMobileMarketToken(item)}
-          onPress={() => {
-            if (shouldSuppressItemPress?.()) {
-              return;
-            }
-            void handleItemPress(item);
-          }}
-        />
-      ),
-      [handleItemPress, shouldSuppressItemPress],
-    );
 
   const ListEmptyComponent = useMemo(() => {
     if (showSkeleton) {
@@ -120,38 +95,14 @@ function MobileMarketTopCoinsFlatListBase({
     },
     [handleItemPress, shouldSuppressItemPress],
   );
-  if (!platformEnv.isNative) {
-    return (
-      <WebMarketCompactList<IMarketAssetListItem>
-        data={showSkeleton ? EMPTY_DATA : data}
-        buildRow={buildTopCoinMarketRow}
-        onPress={handleWebItemPress}
-        onPressIn={handleWebPressIn}
-        empty={ListEmptyComponent}
-        contentPaddingBottom={tabBarHeight}
-      />
-    );
-  }
-
   return (
-    <Tabs.FlatList<IMarketAssetListItem>
-      showsVerticalScrollIndicator={false}
+    <WebMarketCompactList<IMarketAssetListItem>
       data={showSkeleton ? EMPTY_DATA : data}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.assetId}
-      initialNumToRender={10}
-      maxToRenderPerBatch={20}
-      windowSize={platformEnv.isNativeAndroid ? 7 : 3}
-      removeClippedSubviews={platformEnv.isNativeIOS}
-      ListEmptyComponent={ListEmptyComponent}
-      contentContainerStyle={{
-        ...(platformEnv.isNative
-          ? getMarketNativeCompactListStyle(true)
-          : { paddingTop: 4 }),
-        paddingBottom: platformEnv.isNativeAndroid
-          ? listContainerProps.paddingBottom
-          : tabBarHeight,
-      }}
+      buildRow={buildTopCoinMarketRow}
+      onPress={handleWebItemPress}
+      onPressIn={handleWebPressIn}
+      empty={ListEmptyComponent}
+      contentPaddingBottom={tabBarHeight}
     />
   );
 }

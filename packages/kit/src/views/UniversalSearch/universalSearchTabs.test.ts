@@ -37,10 +37,11 @@ it.each([false, true])(
       ...(!isWebDappMode ? [EUniversalSearchType.AccountAssets] : []),
       EUniversalSearchType.Dapp,
       EUniversalSearchType.Settings,
+      EUniversalSearchType.HelpCenter,
     ];
     expect(
       types.map((type) => getUniversalSearchTabIndex(type, { isWebDappMode })),
-    ).toEqual(isWebDappMode ? [2, 3, 4, 5, 6] : [2, 3, 4, 5, 6, 7]);
+    ).toEqual(isWebDappMode ? [2, 3, 4, 5, 6, 7] : [2, 3, 4, 5, 6, 7, 8]);
   },
 );
 
