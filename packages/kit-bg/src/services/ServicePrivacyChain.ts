@@ -608,10 +608,49 @@ class ServicePrivacyChain extends ServiceBase {
         (await this.doLocalWalletPasswordWork({ networkId, accountIds }))
       ) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: accountIds.map((accountId) => ({ accountId, networkId })),
+          accounts: await this.getLocalWalletBalanceRefreshAccounts({
+            networkId,
+            accountIds,
+            capability,
+          }),
         });
       }
     }
+  }
+
+  private async getLocalWalletBalanceRefreshAccounts({
+    networkId,
+    accountIds,
+    capability,
+  }: {
+    networkId: string;
+    accountIds: string[];
+    capability?: ILocalWalletCapability;
+  }): Promise<{ accountId: string; networkId: string }[]> {
+    const aliases = new Set<string>();
+    try {
+      const localWallet =
+        capability ?? (await this.requireAccountCapability(networkId));
+      for (const accountId of accountIds) {
+        if (!aliases.has(accountId)) {
+          // eslint-disable-next-line no-await-in-loop
+          const group = await localWallet.getAccountAliases({ accountId });
+          group.forEach((alias) => aliases.add(alias));
+        }
+      }
+    } catch (e) {
+      // A failed alias lookup must not suppress the initiating account's refresh.
+      console.error('[privacy-chain] balance refresh alias lookup failed', {
+        networkId,
+        ...describePrivacyChainError(e),
+      });
+    }
+    const affectedAccountIds = uniq([...accountIds, ...aliases]);
+    this.clearInFlightLocalWalletReads({
+      networkId,
+      accountIds: affectedAccountIds,
+    });
+    return affectedAccountIds.map((accountId) => ({ accountId, networkId }));
   }
 
   // Funds a send must first verify, on the device or by unlocking, for the send
@@ -664,9 +703,10 @@ class ServicePrivacyChain extends ServiceBase {
       });
       if (changed) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: [
-            { accountId: params.accountId, networkId: params.networkId },
-          ],
+          accounts: await this.getLocalWalletBalanceRefreshAccounts({
+            networkId: params.networkId,
+            accountIds: [params.accountId],
+          }),
         });
       }
     } catch (e) {
@@ -698,7 +738,11 @@ class ServicePrivacyChain extends ServiceBase {
         { deviceParams, debugMethodName: 'privacyChain.syncKeyImages' },
       );
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-        accounts: [{ accountId, networkId }],
+        accounts: await this.getLocalWalletBalanceRefreshAccounts({
+          networkId,
+          accountIds: [accountId],
+          capability: vault.getLocalWalletCapability(),
+        }),
       });
       return;
     }
@@ -712,7 +756,11 @@ class ServicePrivacyChain extends ServiceBase {
       });
     await vault.localWalletDoPasswordWork({ password });
     appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-      accounts: [{ accountId, networkId }],
+      accounts: await this.getLocalWalletBalanceRefreshAccounts({
+        networkId,
+        accountIds: [accountId],
+        capability: vault.getLocalWalletCapability(),
+      }),
     });
   }
 
@@ -2507,6 +2555,7 @@ class ServicePrivacyChain extends ServiceBase {
       }
       this.takeDueFollowUpSyncs(Date.now());
       let anyStateChanged = false;
+      let passwordWorkChanged = false;
       let retryNeeded = false;
       const seenAccountIds = new Set<string>();
       const seenRuntimeStateKeys = new Set<string>();
@@ -2732,7 +2781,7 @@ class ServicePrivacyChain extends ServiceBase {
             result.synced &&
             (await this.doLocalWalletPasswordWork(candidate))
           ) {
-            anyStateChanged = true;
+            passwordWorkChanged = true;
           }
           // Derive the pace from the pass's published state, so the boost tracks sync distance, not
           // the open screen.
@@ -2858,7 +2907,11 @@ class ServicePrivacyChain extends ServiceBase {
       if (boostStateChanged) {
         await this.publishBoostingNetworks();
       }
-      if (anyStateChanged) {
+      if (candidate && passwordWorkChanged) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: await this.getLocalWalletBalanceRefreshAccounts(candidate),
+        });
+      } else if (anyStateChanged) {
         appEventBus.emit(
           EAppEventBusNames.RefreshTokenList,
           candidate?.accountIds.length
