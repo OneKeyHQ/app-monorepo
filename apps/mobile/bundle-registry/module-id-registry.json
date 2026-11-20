@@ -21198,6 +21198,7 @@
     "packages/core/src/chains/btc/sdkBtc/index.ts": 9294,
     "packages/core/src/chains/btc/sdkBtc/networks.ts": 11050,
     "packages/core/src/chains/btc/sdkBtc/providerUtils.ts": 11483,
+    "packages/core/src/chains/btc/sdkBtc/psbtAuthorization.ts": 5290,
     "packages/core/src/chains/btc/sdkBtc/signMessage.ts": 985,
     "packages/core/src/chains/btc/sdkBtc/verify.ts": 6133,
     "packages/core/src/chains/btc/types.ts": 17705,

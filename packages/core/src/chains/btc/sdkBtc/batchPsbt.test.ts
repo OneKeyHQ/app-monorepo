@@ -355,6 +355,75 @@ describe('computeBatchPsbtAmounts', () => {
       ownedRecipients: [derivedAddress, primaryAddress],
     });
   });
+
+  it('returns null when an output carries value but decodes to no address', () => {
+    const { address: accountAddress, script: accountScript } = makeP2wpkh();
+    const { script: dustScript } = makeP2wpkh();
+    // Pay-to-pubkey: spendable by the key holder, yet it has no address form.
+    const { output: p2pkScript } = payments.p2pk({
+      pubkey: ECPair.makeRandom({ network: psbtNetwork }).publicKey,
+      network: psbtNetwork,
+    });
+    if (!p2pkScript) {
+      throw new OneKeyLocalError('failed to build p2pk test fixture');
+    }
+
+    const psbt = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: accountScript },
+      ],
+      outputs: [
+        { script: p2pkScript, value: 90_000n },
+        { script: dustScript, value: 546n },
+      ],
+    });
+
+    // Summarized, the overview would label 90_546 sat as sent to the dust
+    // address alone.
+    expect(
+      computeBatchPsbtAmounts({
+        psbt,
+        psbtNetwork,
+        accountAddresses: [accountAddress],
+      }),
+    ).toBeNull();
+  });
+
+  it('still summarizes a psbt whose address-less output carries no value', () => {
+    const { address: accountAddress, script: accountScript } = makeP2wpkh();
+    const { address: externalAddress, script: externalScript } = makeP2wpkh();
+    const { output: opReturnScript } = payments.embed({
+      data: [Buffer.from('onekey')],
+    });
+    if (!opReturnScript) {
+      throw new OneKeyLocalError('failed to build op_return test fixture');
+    }
+
+    const psbt = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: accountScript },
+      ],
+      outputs: [
+        { script: externalScript, value: 60_000n },
+        { script: opReturnScript, value: 0n },
+        { script: accountScript, value: 30_000n },
+      ],
+    });
+
+    expect(
+      computeBatchPsbtAmounts({
+        psbt,
+        psbtNetwork,
+        accountAddresses: [accountAddress],
+      }),
+    ).toEqual({
+      feeValue: '10000',
+      externalOutValue: '60000',
+      changeValue: '30000',
+      externalRecipients: [externalAddress],
+      ownedRecipients: [accountAddress],
+    });
+  });
 });
 
 describe('buildOwnedAddressesForBatchDisplay', () => {
