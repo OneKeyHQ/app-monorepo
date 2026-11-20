@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -172,7 +173,13 @@ export function buildSwapTokenNativeListSnapshot({
     const fiatValue = new BigNumber(token.fiatValue ?? 0);
     const formattedBalance =
       !balance.isZero() && token.balanceParsed
-        ? formatSwapListAmount(token.balanceParsed, 'balance')
+        ? formatSwapListAmount(
+            getSwapDisplayAmount(
+              token.balanceParsed,
+              token.balanceMultiplier,
+            ) ?? '',
+            'balance',
+          )
         : undefined;
     const formattedValue =
       !fiatValue.isZero() && token.fiatValue
