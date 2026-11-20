@@ -823,32 +823,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const navigation = payload?.navigation;
       const { tabs } = get(webTabsAtom());
       const activeTabId = get(activeTabIdAtom());
-      const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
       const tabsToClose = tabs.filter((tab) => !tab.isPinned);
-      const nextPinnedTab = pinnedTabs[0];
-      const shouldResetActiveTab = pinnedTabs.every(
-        (tab) => tab.id !== activeTabId,
+      const shouldResetActiveTab = !tabs.some(
+        (tab) => tab.isPinned && tab.id === activeTabId,
       );
-
-      // Create a queue for closing tabs
-      const closeQueue = tabsToClose.map((tab) => async () => {
-        if (tab.url && tab.url !== homeTab.url) {
-          await this.addBrowserHistory.call(set, {
-            url: tab.url,
-            title: tab.title || tab.url,
-            logo: tab.favicon,
-          });
-        }
-      });
-
-      // Process queue sequentially
-      for (const closeOperation of closeQueue) {
-        await closeOperation();
-      }
 
       // should update active tab, if active tab is not in pinnedTabs
       if (shouldResetActiveTab) {
-        const nextActiveTabId = nextPinnedTab?.id ?? null;
+        const nextActiveTabId = tabs.find((tab) => tab.isPinned)?.id ?? null;
         this.setCurrentWebTab.call(set, nextActiveTabId);
 
         if (!nextActiveTabId && platformEnv.isDesktop) {
@@ -856,6 +838,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       }
 
+      const pinnedTabs = get(webTabsAtom()).tabs.filter((tab) => tab.isPinned);
       for (const id of Object.getOwnPropertyNames(webviewRefs)) {
         if (!pinnedTabs.find((tab) => tab.id === id)) {
           delete webviewRefs[id];
@@ -877,6 +860,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       defaultLogger.discovery.browser.clearTabs({
         clearTabsAmount: tabsToClose.length,
       });
+
+      // Save history in tab order after publishing the updated tab state.
+      for (const tab of tabsToClose) {
+        await this.addBrowserHistory.call(set, {
+          url: tab.url,
+          title: tab.title || tab.url,
+          logo: tab.favicon,
+        });
+      }
     },
   );
 
@@ -1116,9 +1108,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
       };
 
-      await backgroundApiProxy.simpleDb.browserHistory.addEntry(
-        newHistoryEntry,
-      );
+      try {
+        await backgroundApiProxy.simpleDb.browserHistory.addEntry(
+          newHistoryEntry,
+        );
+      } catch {
+        defaultLogger.app.error.log('Failed to save browser history entry');
+      }
     },
   );
 

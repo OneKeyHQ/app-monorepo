@@ -45,6 +45,9 @@ const mockGetBrowserTabsRawData = jest.fn(
   async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
 );
 const mockSetBrowserTabsRawData = jest.fn();
+const mockAddBrowserHistoryEntry = jest.fn(
+  async (_entry: IBrowserHistory) => true,
+);
 const mockSetBrowserHistoryRawData = jest.fn(
   async (payload: { data: IBrowserHistory[] }) => payload,
 );
@@ -151,7 +154,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
       browserHistory: {
         getRawData: jest.fn(async () => ({ data: [] })),
-        addEntry: jest.fn(async () => true),
+        get addEntry() {
+          return mockAddBrowserHistoryEntry;
+        },
         get setRawData() {
           return mockSetBrowserHistoryRawData;
         },
@@ -767,6 +772,70 @@ describe('useBrowserTabActions', () => {
           isActive: true,
         }),
       ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes unpinned desktop tabs without waiting for a failing history write', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    jest.useFakeTimers();
+    try {
+      const firstWrite = createDeferred<boolean>();
+      mockAddBrowserHistoryEntry.mockReturnValueOnce(firstWrite.promise);
+      const pinnedTab = {
+        id: 'pinned',
+        url: 'https://pinned.example',
+        title: 'Pinned',
+        isPinned: true,
+        timestamp: 0,
+      };
+      const { result } = renderHook(
+        () => {
+          const [activeTabId] = useActiveTabIdAtom();
+          const [webTabs] = useWebTabsAtom();
+          return {
+            actions: useBrowserTabActions().current,
+            activeTabId,
+            tabs: webTabs.tabs,
+          };
+        },
+        { wrapper: createWrapper({ tabs: [pinnedTab, ...tabsFixture] }) },
+      );
+
+      let completion!: Promise<void>;
+      act(() => {
+        completion = result.current.actions.closeAllWebTabs();
+      });
+
+      const activePinnedTab = { ...pinnedTab, isActive: true };
+      expect(result.current.activeTabId).toBe('pinned');
+      expect(result.current.tabs).toEqual([activePinnedTab]);
+      expect(mockSetBrowserTabsRawData).toHaveBeenLastCalledWith({
+        tabs: [activePinnedTab],
+      });
+      expect(mockAddBrowserHistoryEntry).toHaveBeenCalledTimes(1);
+      expect(mockAddBrowserHistoryEntry).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ url: tabsFixture[0].url }),
+      );
+
+      await act(async () => {
+        firstWrite.reject(
+          new DOMException('Write rejected', 'QuotaExceededError'),
+        );
+        await completion;
+      });
+
+      expect(mockAddBrowserHistoryEntry).toHaveBeenCalledTimes(2);
+      expect(mockAddBrowserHistoryEntry).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ url: tabsFixture[1].url }),
+      );
+      expect(result.current.tabs).toEqual([activePinnedTab]);
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
     } finally {
       jest.useRealTimers();
     }
