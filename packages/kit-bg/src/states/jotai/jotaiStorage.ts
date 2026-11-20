@@ -85,6 +85,19 @@ class JotaiStorage implements AsyncStorage<any> {
 
   async setItem(key: string, newValue: any): Promise<void> {
     const write = async () => {
+      if (
+        platformEnv.isWeb &&
+        key === SETTINGS_CONTROL_STORAGE_KEY &&
+        isPlainObject(newValue) &&
+        'patchObjectItem' in appStorage &&
+        appStorage.patchObjectItem
+      ) {
+        // The ordinary Web settings writer may have a stale copy of locale
+        // from before another tab changed it.
+        return appStorage.patchObjectItem(key, newValue, {
+          preserveOnReplace: ['locale'],
+        });
+      }
       const r = await this.getItem(key, undefined);
       if (r !== newValue) {
         await appStorage.setItem(
@@ -299,6 +312,19 @@ export async function updateWebAppLocalePreference(locale: ILocaleSymbol) {
   await storage.patchObjectItem(SETTINGS_CONTROL_STORAGE_KEY, { locale });
 }
 
+const explicitWebLocaleUpdates = new WeakMap<object, ILocaleSymbol>();
+
+// The Web settings atom receives a full snapshot from its outer write wrapper.
+// Mark the intentional locale write without putting metadata into that snapshot.
+export function withExplicitWebLocaleUpdate<T extends object>(
+  settings: T,
+  locale: ILocaleSymbol,
+): T {
+  const next = { ...settings, locale };
+  explicitWebLocaleUpdates.set(next, locale);
+  return next;
+}
+
 async function setTravelModeSettingsControlState(
   newValue: unknown,
 ): Promise<void> {
@@ -454,6 +480,30 @@ export function atomWithStorage<Value>(
       if (nextValue === JOTAI_RESET) {
         set(baseAtom, initialValue);
         return storage.removeItem(key);
+      }
+
+      if (platformEnv.isWeb && storageName === EAtomNames.settingsPersistAtom) {
+        const explicitLocale =
+          typeof nextValue === 'object' && nextValue
+            ? explicitWebLocaleUpdates.get(nextValue)
+            : undefined;
+        if (explicitLocale !== undefined) {
+          await updateWebAppLocalePreference(explicitLocale);
+          const current = get(baseAtom);
+          const settings = current instanceof Promise ? await current : current;
+          set(baseAtom, { ...settings, locale: explicitLocale });
+          return;
+        }
+        // The wrapper forwards the original initial object for an explicit reset.
+        if (nextValue === initialValue && isPlainObject(initialValue)) {
+          set(baseAtom, initialValue);
+          return appStorage.setItem(
+            key,
+            appStorageUtils.canSaveAsObject()
+              ? (initialValue as string)
+              : JSON.stringify(initialValue),
+          );
+        }
       }
 
       const shouldMergeInitialValue =

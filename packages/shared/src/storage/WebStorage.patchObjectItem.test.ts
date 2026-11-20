@@ -72,3 +72,34 @@ test('a malformed settings record is preserved, not replaced', async () => {
     (await storage.indexed).close();
   }
 });
+
+test.each([true, false])(
+  'an ordinary replacement and picker write preserve both settings (locale first=%s)',
+  async (localeFirst) => {
+    const [picker, wallet] = openSettingsPair();
+    try {
+      await picker.setItem(
+        settingsKey,
+        JSON.stringify({ locale: 'en-US', theme: 'light', remove: true }),
+        undefined,
+      );
+      const language = () =>
+        picker.patchObjectItem(settingsKey, { locale: 'ja-JP' });
+      const theme = () =>
+        wallet.patchObjectItem(
+          settingsKey,
+          { locale: 'en-US', theme: 'dark' },
+          { preserveOnReplace: ['locale'] },
+        );
+      await Promise.all(
+        localeFirst ? [language(), theme()] : [theme(), language()],
+      );
+      await expect(wallet.getItem(settingsKey, undefined)).resolves.toBe(
+        JSON.stringify({ locale: 'ja-JP', theme: 'dark' }),
+      );
+    } finally {
+      (await picker.indexed).close();
+      (await wallet.indexed).close();
+    }
+  },
+);

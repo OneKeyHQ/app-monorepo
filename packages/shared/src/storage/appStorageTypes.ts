@@ -64,6 +64,7 @@ export interface IAppStorage extends AsyncStorageStatic {
   patchObjectItem?: (
     key: string,
     patch: Record<string, unknown>,
+    options?: { preserveOnReplace: readonly string[] },
   ) => Promise<void>;
   syncStorage: ISyncStorage;
   secureStorage: ISecureStorage;

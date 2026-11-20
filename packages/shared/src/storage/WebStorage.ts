@@ -266,7 +266,11 @@ class WebStorage implements AsyncStorageStatic {
 
   // Use this for partial persisted settings updates that must not race an
   // independent read and write. Keep the existing string/object representation.
-  async patchObjectItem(key: string, patch: Record<string, unknown>) {
+  async patchObjectItem(
+    key: string,
+    patch: Record<string, unknown>,
+    options?: { preserveOnReplace: readonly string[] },
+  ) {
     resetUtils.checkNotInResetting();
     this.checkDiskFull({ method: 'patchObjectItem', key });
     const indexed = await this.indexed;
@@ -275,16 +279,37 @@ class WebStorage implements AsyncStorageStatic {
     const store = tx.objectStore(this.tableName);
     try {
       const stored = await store.get(key);
-      const current: unknown =
+      const readCurrent = (): unknown =>
         typeof stored === 'string' ? JSON.parse(stored) : stored;
-      if (
+      let current: unknown;
+      try {
+        current = readCurrent();
+      } catch (error) {
+        if (!options) {
+          throw error;
+        }
+      }
+      const record =
         current !== null &&
-        current !== undefined &&
-        (typeof current !== 'object' || Array.isArray(current))
-      ) {
+        typeof current === 'object' &&
+        !Array.isArray(current)
+          ? (current as Record<string, unknown>)
+          : undefined;
+      if (!options && current !== null && current !== undefined && !record) {
         throw new OneKeyLocalError('Invalid persisted settings record.');
       }
-      const next = { ...current, ...patch };
+      const next = options
+        ? {
+            ...patch,
+            ...(record
+              ? Object.fromEntries(
+                  Object.entries(record).filter(([field]) =>
+                    options.preserveOnReplace.includes(field),
+                  ),
+                )
+              : {}),
+          }
+        : { ...record, ...patch };
       await store.put(
         typeof stored === 'string' ? JSON.stringify(next) : next,
         key,

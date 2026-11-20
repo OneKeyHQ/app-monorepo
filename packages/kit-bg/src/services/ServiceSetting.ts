@@ -95,6 +95,7 @@ import {
   settingsPersistAtom,
   termsConsentPersistAtom,
 } from '../states/jotai/atoms/settings';
+import { withExplicitWebLocaleUpdate } from '../states/jotai/jotaiStorage';
 
 import ServiceBase from './ServiceBase';
 import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim';
@@ -160,11 +161,18 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setLocale(locale: ILocaleSymbol) {
-    const currentSettings = await settingsPersistAtom.get();
-    if (currentSettings.locale === locale) {
-      return;
+    if (platformEnv.isWeb) {
+      // The cached settings can predate an explicit choice in another tab.
+      await settingsPersistAtom.set((prev) =>
+        withExplicitWebLocaleUpdate(prev, locale),
+      );
+    } else {
+      const currentSettings = await settingsPersistAtom.get();
+      if (currentSettings.locale === locale) {
+        return;
+      }
+      await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     }
-    await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
 
     // clear i18nText cache

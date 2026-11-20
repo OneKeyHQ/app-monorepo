@@ -115,11 +115,14 @@ export const buildAppStorageFactory = (
   const originalPatchObjectItem =
     'patchObjectItem' in storage ? storage.patchObjectItem : undefined;
   if (typeof originalPatchObjectItem === 'function') {
-    storage.patchObjectItem = async (key, patch) =>
+    storage.patchObjectItem = async (key, patch, options) =>
       travelModeManager.getRuntimeEnvironmentSync().persistence.run({
-        operation: () => originalPatchObjectItem.call(storage, key, patch),
+        operation: () =>
+          originalPatchObjectItem.call(storage, key, patch, options),
         onBlocked: () => {
-          throw new OneKeyLocalError('Settings storage is not available.');
+          if (!options) {
+            throw new OneKeyLocalError('Settings storage is not available.');
+          }
         },
       });
   }
