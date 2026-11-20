@@ -1,6 +1,7 @@
 import { Platform, StyleSheet } from 'react-native';
 
 import { useThemeName } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Corner radius of the raised settings cards.
 export const CARD_SURFACE_RADIUS = 12;
@@ -29,7 +30,7 @@ const CARD_SHADOW = {
 // test that only imports this module still loads it.
 function drawsOutsetShadow() {
   return !(
-    Platform.OS === 'android' &&
+    platformEnv.isNativeAndroid &&
     typeof Platform.Version === 'number' &&
     Platform.Version < 28
   );
