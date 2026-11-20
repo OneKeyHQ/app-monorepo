@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,7 +79,7 @@ function HistoryListModal() {
 
   const [page, setPage] = useState(1);
   const lastSuccessfulPage = useRef<IHistoryPage | undefined>(undefined);
-  const { result, run, isLoading } = usePromiseResult(
+  const { result, run, setResult, isLoading } = usePromiseResult(
     async (): Promise<IHistoryPage | null> => {
       try {
         const history =
@@ -89,13 +90,14 @@ function HistoryListModal() {
       }
     },
     [page],
-    { watchLoading: true },
+    { watchLoading: true, checkIsFocused: false },
   );
   useEffect(() => {
     if (result) lastSuccessfulPage.current = result;
   }, [result]);
-  const dataSource = (result ?? lastSuccessfulPage.current)?.data;
-  const canLoadMore = result?.page === page && result.hasMore;
+  const visiblePage = result ?? lastSuccessfulPage.current;
+  const dataSource = visiblePage?.data;
+  const canLoadMore = !isLoading && result?.page === page && result.hasMore;
   const needsRetry = result === null;
 
   const previousDataRef = useRef<IBrowserHistory[] | undefined>(undefined);
@@ -128,20 +130,58 @@ function HistoryListModal() {
   }, [dataSource]);
 
   const removeHistoryFlagRef = useRef(false);
-  const handleDeleteAll = useCallback(async () => {
-    await removeAllBrowserHistory();
-    removeHistoryFlagRef.current = true;
-    setTimeout(() => {
+  const deleteHistory = useCallback(
+    async (id?: string) => {
+      let saved: boolean;
+      try {
+        saved =
+          id === undefined
+            ? await removeAllBrowserHistory()
+            : await removeBrowserHistory(id);
+      } catch (error) {
+        errorToastUtils.showToastOfError(error);
+        return;
+      }
+      if (!saved) return;
+
+      const removeDeletedRows = (loadedPage: IHistoryPage): IHistoryPage =>
+        id === undefined
+          ? { ...loadedPage, data: [], hasMore: false }
+          : {
+              ...loadedPage,
+              data: loadedPage.data.filter((entry) => entry.id !== id),
+            };
+      // Replace both the displayed page and the fallback before refreshing.
+      const cachedPage = lastSuccessfulPage.current;
+      const updatedCache = cachedPage && removeDeletedRows(cachedPage);
+      lastSuccessfulPage.current = updatedCache;
+      removeHistoryFlagRef.current = true;
+      setResult((current) =>
+        current ? removeDeletedRows(current) : (updatedCache ?? current),
+      );
       void run();
-    }, 200);
-  }, [run, removeAllBrowserHistory]);
+
+      if (id !== undefined) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.explore_removed_success,
+          }),
+        });
+      }
+    },
+    [intl, removeAllBrowserHistory, removeBrowserHistory, run, setResult],
+  );
 
   useEffect(() => {
-    if (removeHistoryFlagRef.current && dataSource?.length === 0) {
-      navigation.pop();
+    if (
+      removeHistoryFlagRef.current &&
+      dataSource?.length === 0 &&
+      !visiblePage?.hasMore
+    ) {
       removeHistoryFlagRef.current = false;
+      navigation.pop();
     }
-  }, [navigation, dataSource?.length]);
+  }, [navigation, dataSource?.length, visiblePage?.hasMore]);
 
   const headerRight = useCallback(
     () => (
@@ -163,7 +203,7 @@ function HistoryListModal() {
                   description: intl.formatMessage({
                     id: ETranslations.browser_clear_recently_closed_description,
                   }),
-                  onConfirm: () => handleDeleteAll(),
+                  onConfirm: () => deleteHistory(),
                   onConfirmText: intl.formatMessage({
                     id: ETranslations.global_clear,
                   }),
@@ -187,7 +227,7 @@ function HistoryListModal() {
         </Button>
       </XStack>
     ),
-    [handleDeleteAll, isEditing, intl],
+    [deleteHistory, isEditing, intl],
   );
 
   const theme = useHomeNativeListTheme();
@@ -283,19 +323,10 @@ function HistoryListModal() {
           enterMethod: EEnterMethod.history,
         });
       } else if (event.actionKey === 'delete') {
-        void removeBrowserHistory(item.id);
-        removeHistoryFlagRef.current = true;
-        setTimeout(() => {
-          void run();
-        }, 200);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.explore_removed_success,
-          }),
-        });
+        void deleteHistory(item.id);
       }
     },
-    [historyById, isEditing, handleWebSite, removeBrowserHistory, run, intl],
+    [historyById, isEditing, handleWebSite, deleteHistory],
   );
 
   const hasRows = memoizedDataSource.length > 0;

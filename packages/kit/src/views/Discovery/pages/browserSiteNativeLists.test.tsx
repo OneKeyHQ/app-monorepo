@@ -28,6 +28,9 @@ const mockFetchHistoryData = jest.fn();
 const mockSortBookmark = jest.fn();
 const mockRemoveBookmark = jest.fn();
 const mockRemoveHistory = jest.fn();
+const mockRemoveAllHistory = jest.fn();
+const mockShowHistoryDialog = jest.fn();
+const mockPop = jest.fn();
 const mockOpenSite = jest.fn();
 let mockList: NativeListProps;
 
@@ -47,7 +50,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     NativeList: (props: NativeListProps) => {
       validateSnapshot(props.snapshot);
       mockList = props;
-      return null;
+      return <div data-testid={props.testID} />;
     },
   };
 });
@@ -68,9 +71,27 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ),
+    Dialog: {
+      get show() {
+        return mockShowHistoryDialog;
+      },
+    },
     Divider: Wrapper,
     Empty: () => null,
-    IconButton: () => null,
+    IconButton: ({
+      onPress,
+      testID,
+    }: {
+      onPress: () => void;
+      testID: string;
+    }) => (
+      <button
+        type="button"
+        aria-label={testID}
+        data-testid={testID}
+        onClick={onPress}
+      />
+    ),
     Page: Object.assign(Wrapper, {
       Body: Wrapper,
       Header: ({ headerRight }: { headerRight: () => ReactNode }) =>
@@ -81,6 +102,10 @@ jest.mock('@onekeyhq/components', () => {
     useTheme: () => theme,
   };
 });
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: { showToastOfError: jest.fn() },
+}));
 jest.mock('react-intl', () => {
   const intl = { formatMessage: ({ id }: { id: string }) => id };
   return { useIntl: () => intl };
@@ -122,7 +147,7 @@ jest.mock('@onekeyhq/kit/src/components/RenameDialog', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({}),
+  default: () => ({ pop: mockPop }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const { useCallback, useEffect, useRef, useState } =
@@ -132,17 +157,21 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
       const [result, setResult] = useState<T>();
       const [isLoading, setIsLoading] = useState(false);
       const fetchRef = useRef(fetch);
+      const requestId = useRef(0);
       fetchRef.current = fetch;
       const run = useCallback(async () => {
+        requestId.current += 1;
+        const id = requestId.current;
         setIsLoading(true);
         try {
-          setResult(await fetchRef.current());
+          const response = await fetchRef.current();
+          if (id === requestId.current) setResult(response);
         } finally {
-          setIsLoading(false);
+          if (id === requestId.current) setIsLoading(false);
         }
       }, []);
       useEffect(() => void run(), [run, page]);
-      return { result, run, isLoading };
+      return { result, run, isLoading, setResult };
     },
   };
 });
@@ -154,7 +183,10 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/discovery', () => ({
     },
   }),
   useBrowserHistoryAction: () => ({
-    current: { removeBrowserHistory: mockRemoveHistory },
+    current: {
+      removeBrowserHistory: mockRemoveHistory,
+      removeAllBrowserHistory: mockRemoveAllHistory,
+    },
   }),
 }));
 jest.mock('../hooks/useWebSiteHandler', () => ({
@@ -389,4 +421,84 @@ it('keeps loaded history and retries the same page after a read fails', async ()
   expect(mockFetchHistoryData.mock.calls).toEqual([[1], [2], [2]]);
   expect(screen.queryByRole('button', { name: 'global.retry' })).toBeNull();
   expect(mockList.snapshot.capabilities?.loadMore).toBe(false);
+});
+
+const historyBeforeDeletion = {
+  data: [
+    {
+      id: 'first',
+      url: 'https://example.com/first',
+      title: 'First',
+      createdAt: Date.UTC(2026, 10, 20),
+    },
+    {
+      id: 'second',
+      url: 'https://example.com/second',
+      title: 'Second',
+      createdAt: Date.UTC(2026, 10, 20),
+    },
+  ],
+  hasMore: false,
+};
+
+it('drops all histories after a confirmed clear even when the refresh aborts', async () => {
+  const write = Promise.withResolvers<boolean>();
+  const refresh = Promise.withResolvers<typeof historyBeforeDeletion>();
+  mockFetchHistoryData.mockResolvedValueOnce(historyBeforeDeletion);
+  mockFetchHistoryData.mockReturnValueOnce(refresh.promise);
+  mockRemoveAllHistory.mockReturnValueOnce(write.promise);
+  render(<HistoryListModal />);
+  await screen.findByTestId('History-SectionList');
+
+  fireEvent.click(screen.getByRole('button', { name: 'global.edit' }));
+  fireEvent.click(screen.getByTestId('history-clear-all-button'));
+  const { onConfirm } = mockShowHistoryDialog.mock.lastCall?.[0] as {
+    onConfirm: () => Promise<void>;
+  };
+
+  act(() => {
+    void onConfirm();
+  });
+  expect(screen.getByTestId('History-SectionList')).toBeTruthy();
+  expect(mockFetchHistoryData).toHaveBeenCalledTimes(1);
+  await act(async () => write.resolve(true));
+  expect(screen.queryByTestId('History-SectionList')).toBeNull();
+  expect(mockPop).toHaveBeenCalledTimes(1);
+  expect(mockFetchHistoryData).toHaveBeenCalledTimes(2);
+
+  await act(async () =>
+    refresh.reject(new DOMException('Read aborted', 'AbortError')),
+  );
+  expect(screen.queryByTestId('History-SectionList')).toBeNull();
+  expect(mockPop).toHaveBeenCalledTimes(1);
+});
+
+it('keeps only surviving history rows after a confirmed deletion and an aborted refresh', async () => {
+  const write = Promise.withResolvers<boolean>();
+  mockFetchHistoryData.mockResolvedValueOnce(historyBeforeDeletion);
+  mockFetchHistoryData.mockRejectedValueOnce(
+    new DOMException('Read aborted', 'AbortError'),
+  );
+  mockRemoveHistory.mockReturnValueOnce(write.promise);
+  render(<HistoryListModal />);
+  await screen.findByTestId('History-SectionList');
+
+  fireEvent.click(screen.getByRole('button', { name: 'global.edit' }));
+  act(() => {
+    mockList.onRowAction?.({ rowKey: 'first', actionKey: 'delete' });
+  });
+  expect(mockRemoveHistory).toHaveBeenCalledWith('first');
+  expect(mockList.snapshot.rows.map(({ key }) => key)).toContain('first');
+  expect(mockFetchHistoryData).toHaveBeenCalledTimes(1);
+  await act(async () => write.resolve(true));
+
+  expect(mockList.snapshot.rows.map(({ key }) => key)).not.toContain('first');
+  expect(mockList.snapshot.rows.map(({ key }) => key)).toContain('second');
+  expect(screen.getByRole('button', { name: 'global.retry' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'global.done' }));
+  act(() => {
+    mockList.onRowAction?.({ rowKey: 'first', actionKey: 'press' });
+  });
+  expect(mockOpenSite).not.toHaveBeenCalled();
+  expect(mockPop).not.toHaveBeenCalled();
 });

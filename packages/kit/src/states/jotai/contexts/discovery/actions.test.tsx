@@ -10,6 +10,7 @@ import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type {
   IBrowserBookmark,
+  IBrowserHistory,
   IWebTab,
 } from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
@@ -21,7 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
-import { useBrowserAction, useBrowserTabActions } from './actions';
+import {
+  useBrowserAction,
+  useBrowserHistoryAction,
+  useBrowserTabActions,
+} from './actions';
 import {
   ProviderJotaiContextDiscovery,
   activeTabIdAtom,
@@ -40,7 +45,9 @@ const mockGetBrowserTabsRawData = jest.fn(
   async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
 );
 const mockSetBrowserTabsRawData = jest.fn();
-const mockSetBrowserHistoryRawData = jest.fn();
+const mockSetBrowserHistoryRawData = jest.fn(
+  async (payload: { data: IBrowserHistory[] }) => payload,
+);
 const mockSetBrowserClosedTabsRawData = jest.fn();
 const mockCrossWebviewLoadUrl = jest.fn();
 const mockFetchDiscoveryHomePageData = jest.fn(async () => ({
@@ -144,8 +151,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
       browserHistory: {
         getRawData: jest.fn(async () => ({ data: [] })),
-        setRawData: (payload: unknown) => {
-          mockSetBrowserHistoryRawData(payload);
+        addEntry: jest.fn(async () => true),
+        get setRawData() {
+          return mockSetBrowserHistoryRawData;
         },
       },
       browserBookmarks: {
@@ -1876,4 +1884,20 @@ describe('useBrowserTabActions', () => {
       result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
     ).toEqual(expect.objectContaining({ url: 'https://example.com' }));
   });
+});
+
+it('waits for the history clear write before reporting a committed deletion', async () => {
+  const write = createDeferred<{ data: [] }>();
+  mockSetBrowserHistoryRawData.mockReturnValueOnce(write.promise);
+  const { result } = renderHook(() => useBrowserHistoryAction().current, {
+    wrapper: createWrapper(),
+  });
+  const completed = jest.fn();
+  const clear = result.current.removeAllBrowserHistory().then(completed);
+  await flushMicrotasks();
+  expect(mockSetBrowserHistoryRawData).toHaveBeenLastCalledWith({ data: [] });
+  expect(completed).not.toHaveBeenCalled();
+  write.resolve({ data: [] });
+  await clear;
+  expect(completed).toHaveBeenCalledWith(true);
 });

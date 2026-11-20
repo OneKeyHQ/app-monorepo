@@ -1069,9 +1069,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   buildHistoryData = contextAtomMethod(
-    (
+    async (
       get,
-      set,
+      _,
 
       payload: {
         data: IBrowserHistory[];
@@ -1081,27 +1081,31 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
       if (!isReady && !options?.isInitFromStorage) {
-        return;
+        return false;
       }
       if (!Array.isArray(data)) {
         throw new OneKeyLocalError(
           'buildHistoryData: payload must be an array',
         );
       }
-      void backgroundApiProxy.simpleDb.browserHistory.setRawData({
-        data,
-      });
+      const saved = await backgroundApiProxy.simpleDb.browserHistory.setRawData(
+        {
+          data,
+        },
+      );
+      return saved !== undefined;
     },
   );
 
   addBrowserHistory = contextAtomMethod(
-    async (_, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
-      if (!payload.url || payload.url === homeTab.url) {
+    async (get, _, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
+      if (
+        !get(browserDataReadyAtom()) ||
+        !payload.url ||
+        payload.url === homeTab.url
+      ) {
         return;
       }
-      const history = await this.getHistoryData.call(set);
-
-      const updatedHistory = history.filter((item) => item.url !== payload.url);
 
       const newHistoryEntry: IBrowserHistory = {
         id: generateUUID(),
@@ -1112,23 +1116,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
       };
 
-      this.buildHistoryData.call(set, {
-        data: [newHistoryEntry, ...updatedHistory],
-      });
+      await backgroundApiProxy.simpleDb.browserHistory.addEntry(
+        newHistoryEntry,
+      );
     },
   );
 
-  removeBrowserHistory = contextAtomMethod(async (_, set, payload: string) => {
-    const history = await this.getHistoryData.call(set);
-
-    const updatedHistory = history.filter((item) => item.id !== payload);
-
-    this.buildHistoryData.call(set, { data: updatedHistory });
+  removeBrowserHistory = contextAtomMethod(async (get, _, id: string) => {
+    if (!get(browserDataReadyAtom())) return false;
+    return backgroundApiProxy.simpleDb.browserHistory.removeEntry(id);
   });
 
-  removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
-    this.buildHistoryData.call(set, { data: [] });
-  });
+  removeAllBrowserHistory = contextAtomMethod((_, set) =>
+    this.buildHistoryData.call(set, { data: [] }),
+  );
 
   /**
    * Browser Logic
