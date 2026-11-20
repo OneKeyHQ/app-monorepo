@@ -37,11 +37,6 @@ jobs:
           lfs: false
           fetch-depth: 1
 
-      - name: Fetch PR base for lockfile comparison
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
-
       - name: Use Node.js 24.x
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -61,7 +56,10 @@ jobs:
         run: |
           mkdir -p ci-ai
           set +e
-          node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}" 2>&1 | tee ci-ai/minimum-release-age.log
+          (
+            git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" &&
+              node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"
+          ) 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
