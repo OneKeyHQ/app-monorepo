@@ -589,9 +589,20 @@ function AppDataSection({
             });
           });
         }
-        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-          enabled: value,
-        });
+        const completed =
+          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+            enabled: value,
+          });
+        if (completed === false) {
+          void backgroundApiProxy.serviceApp.showToast({
+            method: 'error',
+            title: intl.formatMessage({ id: ETranslations.global_sync_error }),
+            message: intl.formatMessage({
+              id: ETranslations.global_unknown_error_retry_message,
+            }),
+          });
+          return;
+        }
         defaultLogger.prime.usage.onekeyCloudToggle({
           status: value ? 'on' : 'off',
         });

@@ -1638,7 +1638,7 @@ describe('Cloud sync records from opaque server storage', () => {
   );
 
   test.each([false, true])(
-    'an unready first legacy flush rolls back only its own settings (previous Keyless: %s)',
+    'an unready first legacy flush reports incomplete without a late settings write (previous Keyless: %s)',
     async (previousKeyless) => {
       jest.useFakeTimers();
       const service = build();
@@ -1650,8 +1650,9 @@ describe('Cloud sync records from opaque server storage', () => {
         lastSyncTimeKeyless: 42,
       };
       const clearLocalMasterPassword = jest.fn();
+      const apiFetchPrimeUserInfo = jest.fn();
       Object.assign(service.backgroundApi, {
-        servicePrime: { apiFetchPrimeUserInfo: jest.fn() },
+        servicePrime: { apiFetchPrimeUserInfo },
         serviceMasterPassword: { clearLocalMasterPassword },
       });
       jest
@@ -1693,33 +1694,39 @@ describe('Cloud sync records from opaque server storage', () => {
           isServerMasterPasswordSet: false,
         });
       const flush = jest.spyOn(service, 'startServerSyncFlowForItems');
-      const first = service
-        .toggleCloudSync({ enabled: true })
-        .catch((error: unknown) => error);
-      const duplicate = service
-        .toggleCloudSync({ enabled: true })
-        .catch((error: unknown) => error);
+      if (previousKeyless) {
+        jest
+          .spyOn(service, 'hideDialogLoading')
+          .mockRejectedValueOnce(
+            new OneKeyLocalError('fixture loading dismissal failed'),
+          );
+      }
+      jest.mocked(primeCloudSyncPersistAtom.set).mockClear();
+      const first = service.toggleCloudSync({ enabled: true });
+      const duplicate = service.toggleCloudSync({ enabled: true });
       await jest.runAllTimersAsync();
-      const error = await first;
-      expect(error).toBeInstanceOf(Error);
-      expect(await duplicate).toBe(error);
+      await expect(first).resolves.toBe(false);
+      await expect(duplicate).resolves.toBe(false);
       expect(prepare).toHaveBeenCalledTimes(1);
+      expect(primeCloudSyncPersistAtom.set).toHaveBeenCalledTimes(1);
       expect(state).toEqual({
-        isCloudSyncEnabled: false,
-        isCloudSyncEnabledKeyless: previousKeyless,
+        isCloudSyncEnabled: true,
+        isCloudSyncEnabledKeyless: false,
         currentCloudSyncKeylessWalletId: 'existing-keyless-wallet',
-        hasEverEnabledOneKeyIdSync: false,
+        hasEverEnabledOneKeyIdSync: true,
         lastSyncTimeKeyless: 42,
       });
       expect(flush).not.toHaveBeenCalled();
       expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
       expect(clearLocalMasterPassword).not.toHaveBeenCalled();
+      expect(apiFetchPrimeUserInfo).not.toHaveBeenCalled();
     },
   );
 
   test.each([
     'newer-confirmed-enable',
     'newer-keyless-setting',
+    'independent-tab-confirmed-keyless',
     'ordinary-reconcile',
     'already-enabled',
   ])(
@@ -1732,6 +1739,7 @@ describe('Cloud sync records from opaque server storage', () => {
         isCloudSyncEnabledKeyless: false,
         hasEverEnabledOneKeyIdSync: scenario === 'already-enabled',
       };
+      const persisted = { ...state };
       const clearLocalMasterPassword = jest.fn();
       Object.assign(service.backgroundApi, {
         servicePrime: { apiFetchPrimeUserInfo: jest.fn() },
@@ -1745,8 +1753,11 @@ describe('Cloud sync records from opaque server storage', () => {
       jest
         .mocked(primeCloudSyncPersistAtom.set)
         .mockImplementation(async (update) => {
-          if (typeof update === 'function')
-            Object.assign(state, update({ ...state }));
+          if (typeof update === 'function') {
+            const next = update({ ...state });
+            Object.assign(state, next);
+            Object.assign(persisted, next);
+          }
         });
       jest.spyOn(service, 'prepareCloudSync').mockResolvedValue({
         success: true,
@@ -1783,16 +1794,80 @@ describe('Cloud sync records from opaque server storage', () => {
         // Keyless off can leave the same flags behind, but changes ownership.
         service.invalidateOneKeyIdCloudSyncToggle();
       }
+      if (scenario === 'independent-tab-confirmed-keyless') {
+        // An independent tab writes the shared settings, while this tab's
+        // cached base value still says legacy is on.
+        Object.assign(persisted, {
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: true,
+          currentCloudSyncKeylessWalletId: 'confirmed-by-other-tab',
+          lastSyncTimeKeyless: 42,
+        });
+      }
+      const writesBeforeOldOutcome = jest.mocked(primeCloudSyncPersistAtom.set)
+        .mock.calls.length;
       finishOld(false);
       await jest.runAllTimersAsync();
-      await old;
+      await expect(old).resolves.toBe(
+        scenario === 'ordinary-reconcile' ? undefined : false,
+      );
+      expect(primeCloudSyncPersistAtom.set).toHaveBeenCalledTimes(
+        writesBeforeOldOutcome,
+      );
       expect(state.isCloudSyncEnabled).toBe(true);
+      if (scenario === 'independent-tab-confirmed-keyless') {
+        expect(persisted).toMatchObject({
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: true,
+          currentCloudSyncKeylessWalletId: 'confirmed-by-other-tab',
+          lastSyncTimeKeyless: 42,
+        });
+      }
       expect(state.hasEverEnabledOneKeyIdSync).toBe(true);
       expect(clearLocalMasterPassword).toHaveBeenCalledTimes(
         scenario === 'newer-confirmed-enable' ? 1 : 0,
       );
     },
   );
+
+  test('an atom updater superseded while waiting for storage does not write stale settings', async () => {
+    const service = build();
+    const persisted = {
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+    };
+    let entered!: () => void;
+    let proceed!: () => void;
+    const enteredSet = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const unblockSet = new Promise<void>((resolve) => {
+      proceed = resolve;
+    });
+    const durableWrite = jest.fn();
+    Object.assign(service.backgroundApi, {
+      servicePrime: { apiFetchPrimeUserInfo: jest.fn() },
+    });
+    jest
+      .mocked(primeCloudSyncPersistAtom.set)
+      .mockImplementation(async (update) => {
+        entered();
+        await unblockSet;
+        if (typeof update === 'function') durableWrite(update(persisted));
+      });
+    jest.spyOn(service, 'prepareCloudSync').mockResolvedValue({
+      success: true,
+      isServerMasterPasswordSet: false,
+    });
+    const flush = jest.spyOn(service, 'startServerSyncFlow');
+    const older = service.toggleCloudSync({ enabled: true });
+    await enteredSet;
+    service.invalidateOneKeyIdCloudSyncToggle();
+    proceed();
+    await older;
+    expect(durableWrite).not.toHaveBeenCalled();
+    expect(flush).not.toHaveBeenCalled();
+  });
 
   test('prepare may clear an outdated local credential before enabling an existing server key', async () => {
     jest.useFakeTimers();
