@@ -44,19 +44,6 @@ function DeviceSectionSupport({
 
   const { show: showDialogDeviceAbout } = useDialogDeviceAbout();
 
-  const onPressAboutDevice = useCallback(async () => {
-    const walletWithDevice = await actions.getWalletWithDevice();
-    if (!walletWithDevice) return;
-
-    showDialogDeviceAbout(
-      walletWithDevice,
-      resolveDeviceState({
-        persistedState: walletWithDevice.device?.deviceStateInfo,
-        snapshot: deviceStateSnapshot,
-      }),
-    );
-  }, [actions, deviceStateSnapshot, showDialogDeviceAbout]);
-
   const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
     useFirmwareVerifyDialog();
   const onPressAuthRequest = useCallback(async () => {
@@ -73,6 +60,26 @@ function DeviceSectionSupport({
       onClose: async () => {},
     });
   }, [showFirmwareVerifyDialog, actions]);
+
+  const onPressAboutDevice = useCallback(async () => {
+    const walletWithDevice = await actions.getWalletWithDevice();
+    if (!walletWithDevice) return;
+
+    showDialogDeviceAbout(
+      walletWithDevice,
+      resolveDeviceState({
+        persistedState: walletWithDevice.device?.deviceStateInfo,
+        snapshot: deviceStateSnapshot,
+      }),
+      showFirmwareVerify ? onPressAuthRequest : undefined,
+    );
+  }, [
+    actions,
+    deviceStateSnapshot,
+    showDialogDeviceAbout,
+    showFirmwareVerify,
+    onPressAuthRequest,
+  ]);
 
   const onPressTroubleshooting = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();

@@ -1,5 +1,6 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
+import { parseISO } from 'date-fns';
 
 import {
   backgroundMethod,
@@ -27,6 +28,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceVerifyVersionCompareResult,
+  IDeviceWarrantyInfo,
+  IDeviceWarrantyState,
+  IDeviceWarrantyStatus,
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
   IFirmwareVerifyResult,
@@ -47,6 +51,7 @@ import type {
   IDBDevice,
   IDBUpdateFirmwareVerifiedParams,
 } from '../../dbs/local/types';
+import type { IDeviceWarrantyRecord } from '../../dbs/simple/entity/SimpleDbEntityDeviceWarranty';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type {
   DeviceVerifySignature,
@@ -74,6 +79,87 @@ type IHardwareVerifyV2Data = {
   primeCode?: string;
   primeCodeStatus?: IPrimeGiftVerifyV2Result['status'];
 };
+
+type IDeviceWarrantyApiData = {
+  warrantyStatus?: string;
+  warrantyStartAt?: string | number | null;
+  warrantyEndAt?: string | number | null;
+  warrantyPeriodMonths?: number;
+};
+
+const WARRANTY_STATUSES = new Set<IDeviceWarrantyStatus>([
+  'in_warranty',
+  'expired',
+  'unknown',
+]);
+// Anything outside these years is a misread format, not a date to show.
+const MIN_WARRANTY_TIME = Date.UTC(2019, 0, 1);
+const MAX_WARRANTY_TIME = Date.UTC(2100, 0, 1);
+const WARRANTY_RECHECK_DELAY_MS = 1500;
+
+// Epoch seconds or milliseconds, or an ISO string. A date-only string is that
+// calendar day where the user is, not midnight UTC.
+export function parseWarrantyTime(value: unknown): number | undefined {
+  const text = typeof value === 'string' ? value.trim() : undefined;
+  const numeric = text && /^\d+$/.test(text) ? Number(text) : value;
+  let time: number | undefined;
+  if (typeof numeric === 'number') {
+    time = numeric < 1e11 ? numeric * 1000 : numeric;
+  } else if (text) {
+    time = parseISO(text).getTime();
+  }
+  return time !== undefined &&
+    time >= MIN_WARRANTY_TIME &&
+    time < MAX_WARRANTY_TIME
+    ? time
+    : undefined;
+}
+
+function parseWarrantyInfo(
+  data: IDeviceWarrantyApiData | null | undefined,
+): IDeviceWarrantyInfo | undefined {
+  const status = data?.warrantyStatus as IDeviceWarrantyStatus | undefined;
+  if (!status || !WARRANTY_STATUSES.has(status)) {
+    return undefined;
+  }
+  return {
+    status,
+    startAt: parseWarrantyTime(data?.warrantyStartAt),
+    endAt: parseWarrantyTime(data?.warrantyEndAt),
+    periodMonths: data?.warrantyPeriodMonths,
+  };
+}
+
+export function normalizeWarrantySerialNo(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+export function toWarrantyState(
+  record: IDeviceWarrantyRecord | undefined,
+  now = Date.now(),
+): IDeviceWarrantyState {
+  const hasCert = Boolean(record?.cert);
+  const info = record?.info;
+  // A verdict given before the end date has since run out; one given after it
+  // stands as the server gave it, whatever this device's clock says.
+  if (
+    info?.status === 'in_warranty' &&
+    info.endAt !== undefined &&
+    info.endAt <= now &&
+    (record?.checkedAt ?? 0) < info.endAt
+  ) {
+    return { hasCert, info: { ...info, status: 'expired' } };
+  }
+  return { hasCert, info };
+}
+
+function getErrorCode(error: unknown) {
+  const { code, httpStatusCode } = (error ?? {}) as {
+    code?: unknown;
+    httpStatusCode?: unknown;
+  };
+  return String(code ?? httpStatusCode ?? 'unknown');
+}
 
 function getFirmwareVerifyPayload({
   instanceId,
@@ -206,7 +292,147 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       message: string;
       data?: IHardwareVerifyV2Data | null;
     }>('/wallet/v1/hardware/verify-v2', payload);
+    if (response.data?.code === 0) {
+      await this.keepDeviceWarrantyCert({
+        sno: response.data.data?.sno,
+        cert: payload.cert,
+      });
+    }
     return response.data;
+  }
+
+  // The warranty lookup takes the device certificate, and only a genuine
+  // check reads it off the device: keep it, then look the warranty up, since
+  // this check may be the device's first, which starts the warranty.
+  private async keepDeviceWarrantyCert({
+    sno,
+    cert,
+  }: {
+    sno: unknown;
+    cert: string;
+  }) {
+    // Keyed by the serial the server read from the certificate: in the Prime
+    // gift flow the device picked and the device connected can differ.
+    const serialNo = normalizeWarrantySerialNo(sno);
+    if (!serialNo || !cert) {
+      return;
+    }
+    try {
+      await this.backgroundApi.simpleDb.deviceWarranty.updateRecord(
+        serialNo,
+        (prev) => ({ ...prev, cert }),
+      );
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `Device warranty certificate not kept: ${getErrorCode(error)}`,
+      );
+      return;
+    }
+    void this.lookUpDeviceWarranty(serialNo, { recheckUnknown: true });
+  }
+
+  private deviceWarrantyLookups = new Map<
+    string,
+    Promise<IDeviceWarrantyState>
+  >();
+
+  // One lookup per device at a time, so a page opened right after a check
+  // waits on the lookup the check started.
+  private lookUpDeviceWarranty(
+    serialNo: string,
+    options?: { recheckUnknown?: boolean },
+  ) {
+    const inFlight = this.deviceWarrantyLookups.get(serialNo);
+    if (inFlight) {
+      return inFlight;
+    }
+    const lookup = this.fetchAndKeepDeviceWarranty(serialNo, options).finally(
+      () => {
+        this.deviceWarrantyLookups.delete(serialNo);
+      },
+    );
+    this.deviceWarrantyLookups.set(serialNo, lookup);
+    return lookup;
+  }
+
+  private async fetchAndKeepDeviceWarranty(
+    serialNo: string,
+    { recheckUnknown = false }: { recheckUnknown?: boolean } = {},
+  ): Promise<IDeviceWarrantyState> {
+    const db = this.backgroundApi.simpleDb.deviceWarranty;
+    let record = await db.getRecord(serialNo);
+    const cert = record?.cert;
+    if (!cert) {
+      return toWarrantyState(record);
+    }
+    try {
+      let info = await this.fetchDeviceWarranty(cert);
+      // The check that just ran may not have reached the server's records.
+      if (recheckUnknown && info?.status === 'unknown') {
+        await timerUtils.wait(WARRANTY_RECHECK_DELAY_MS);
+        info = await this.fetchDeviceWarranty(cert);
+      }
+      record = await db.updateRecord(serialNo, (prev) => ({
+        ...prev,
+        cert: prev?.cert ?? cert,
+        info,
+        checkedAt: Date.now(),
+      }));
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `Device warranty lookup failed: ${getErrorCode(error)}`,
+      );
+    }
+    return toWarrantyState(record);
+  }
+
+  private async fetchDeviceWarranty(cert: string) {
+    const client = await this.serviceHardware.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const response = await client.post<{
+      code: number;
+      message?: string;
+      data?: IDeviceWarrantyApiData | null;
+    }>('/wallet/v1/hardware/device/warranty', { cert });
+    if (response.data?.code !== 0) {
+      throw new OneKeyServerApiError({
+        code: response.data?.code,
+        message: response.data?.message,
+      });
+    }
+    // A status this version doesn't know clears what it showed before.
+    return parseWarrantyInfo(response.data.data);
+  }
+
+  @backgroundMethod()
+  async getDeviceWarranty({
+    serialNo,
+  }: {
+    serialNo: string;
+  }): Promise<IDeviceWarrantyState> {
+    const key = normalizeWarrantySerialNo(serialNo);
+    if (!key) {
+      return { hasCert: false };
+    }
+    return toWarrantyState(
+      await this.backgroundApi.simpleDb.deviceWarranty.getRecord(key),
+    );
+  }
+
+  // Looks again on every call: the pages that show the warranty open rarely,
+  // and a fresh answer corrects a stale or missing one.
+  @backgroundMethod()
+  async refreshDeviceWarranty({
+    serialNo,
+  }: {
+    serialNo: string;
+  }): Promise<IDeviceWarrantyState> {
+    const key = normalizeWarrantySerialNo(serialNo);
+    if (!key) {
+      return { hasCert: false };
+    }
+    return this.lookUpDeviceWarranty(key);
   }
 
   private async getFirmwareVerificationPayload({

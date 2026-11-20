@@ -725,6 +725,19 @@ export class SimpleDb {
     return value;
   }
 
+  get deviceWarranty() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@deviceWarranty',
+      loader: () =>
+        import('../entity/SimpleDbEntityDeviceWarranty').then(
+          ({ SimpleDbEntityDeviceWarranty }) =>
+            new SimpleDbEntityDeviceWarranty(),
+        ),
+    });
+    Object.defineProperty(this, 'deviceWarranty', { value });
+    return value;
+  }
+
   get hardwarePortfolioSync() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@hardwarePortfolioSync',
