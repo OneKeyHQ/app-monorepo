@@ -27,6 +27,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IIntercomConversation,
+  IIntercomHome,
   IIntercomInbox,
   IIntercomMessengerSession,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
@@ -50,6 +51,18 @@ import { SupportError } from './SupportError';
 
 const ARTICLE_PLACEHOLDER_WIDTHS = ['80%', '60%', '70%', '50%'] as const;
 const CONVERSATION_PLACEHOLDER_ROWS = 5;
+// Intercom serves the label of an external link in one language only. A link
+// to one of these help articles is labelled from the app's translations.
+const HELP_ARTICLE_LABELS: Partial<Record<string, ETranslations>> = {
+  '13405885': ETranslations.support_collaboration__action,
+};
+const HELP_ARTICLE_URL =
+  /^https:\/\/help\.onekey\.so\/(?:[^/?#]+\/)?articles\/(\d+)/;
+
+function helpArticleLabel(url: string) {
+  const articleId = HELP_ARTICLE_URL.exec(url)?.[1];
+  return articleId ? HELP_ARTICLE_LABELS[articleId] : undefined;
+}
 
 export function SupportInbox({
   session,
@@ -200,6 +213,10 @@ export function SupportInbox({
     if (home) navigation.push(EIntercomRoutes.Messages, route);
   };
   const showHelp = () => navigation.push(EIntercomRoutes.Help, route);
+  const linkLabel = (link: IIntercomHome['links'][number]) => {
+    const id = helpArticleLabel(link.url);
+    return id ? intl.formatMessage({ id }) : link.label;
+  };
   const renderRefresh = useCallback(() => {
     const label = intl.formatMessage({ id: ETranslations.global_refresh });
     return (
@@ -463,7 +480,7 @@ export function SupportInbox({
                 pressStyle={{ bg: '$bgActive' }}
               >
                 <SizableText size="$bodyLg" flex={1}>
-                  {link.label}
+                  {linkLabel(link)}
                 </SizableText>
                 <Icon
                   name="OpenOutline"

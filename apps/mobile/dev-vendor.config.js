@@ -126,7 +126,6 @@ const nativeContractDependencies = {
     '@react-native-async-storage/async-storage',
     '@react-native-community/datetimepicker',
     '@react-native-community/netinfo',
-    '@react-native-community/slider',
     '@react-native-documents/picker',
     '@react-native-google-signin/google-signin',
     '@react-native-masked-view/masked-view',

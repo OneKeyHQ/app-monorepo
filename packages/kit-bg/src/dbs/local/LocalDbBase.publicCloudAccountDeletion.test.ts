@@ -9,10 +9,14 @@ import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeClo
 import { CloudSyncFlowManagerAccount } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
+import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import { PUBLIC_ACCOUNT_TEST_XFP } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
-import { hasPublicAccountSnapshotWriteGuard } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
+import {
+  hasPublicAccountSnapshotWriteGuard,
+  rememberPublicAccountSnapshotWrite,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
-import { EDBAccountType } from './consts';
+import { EDBAccountType, INDEXED_DB_VERSION, REALM_DB_VERSION } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
@@ -336,6 +340,11 @@ describe('public account deletion tombstones', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
+  test('requires the pending account deletion schema in both databases', () => {
+    expect(REALM_DB_VERSION).toBeGreaterThanOrEqual(21);
+    expect(INDEXED_DB_VERSION).toBe(REALM_DB_VERSION);
+  });
+
   test('single HD/HW deletion retains the tombstone and triggers sync after commit', async () => {
     const db = new DeletionTestDb();
     const record = account('hw-test');
@@ -584,6 +593,199 @@ describe('public account deletion tombstones', () => {
     ).toEqual(records.map((record) => record.id));
     await jest.advanceTimersByTimeAsync(1000);
     expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test.each(['account', 'index', 'batch'] as const)(
+    'allows offline %s deletion and preserves encrypted Cloud scope and timestamp',
+    async (mode) => {
+      const db = new DeletionTestDb();
+      const record = account();
+      db.put(
+        ELocalDBStoreNames.Wallet,
+        wallet('hd-1', { xfp: PUBLIC_ACCOUNT_TEST_XFP, accounts: [record.id] }),
+      );
+      db.addAccount(record);
+      const manager = attachRealSnapshotManager(db);
+      const item = await manager.buildSyncItemByDBQuery({
+        dbRecord: record,
+        isDeleted: false,
+        dataTime: undefined,
+        syncCredential: realManagerFixtureCredential,
+      });
+      if (!item) throw new OneKeyLocalError('Missing real manager fixture');
+      const original = { ...item, serverUploaded: true };
+      db.put(ELocalDBStoreNames.CloudSyncItem, original);
+      const prime = db.backgroundApi.servicePrimeCloudSync;
+      const removalTime = 1_750_000_001_000;
+      prime.getSyncCredentialSafe = async () => undefined;
+      prime.getCloudSyncDataTime = async () => removalTime;
+      if (mode === 'account')
+        await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+      else if (mode === 'batch')
+        await db.removeAccountsByIds({ ids: [record.id] });
+      else
+        await db.removeIndexedAccount({
+          indexedAccountId: record.indexedAccountId ?? '',
+          walletId: 'hd-1',
+        });
+
+      const pending = {
+        ...original,
+        pendingPublicAccountDeletionAt: removalTime,
+        pendingPublicAccountDeletionHash:
+          expect.stringMatching(/^[\da-f]{64}$/),
+      };
+      expect(db.read(ELocalDBStoreNames.CloudSyncItem, original.id)).toEqual(
+        pending,
+      );
+      if (mode === 'index')
+        expect(
+          db.read(
+            ELocalDBStoreNames.IndexedAccount,
+            record.indexedAccountId ?? '',
+          ),
+        ).toBeUndefined();
+      else
+        expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
+
+      await db.addAndUpdateSyncItems({
+        items: [
+          {
+            ...original,
+            dataTime: removalTime + 1000,
+            pwdHash: 'different-cloud-space',
+          },
+        ],
+        skipUploadToServer: true,
+      });
+      expect(db.read(ELocalDBStoreNames.CloudSyncItem, original.id)).toEqual(
+        pending,
+      );
+    },
+  );
+
+  test.each(['remote', 'explicit'] as const)(
+    'a newer %s re-add wins without the pending deletion being replayed',
+    async (mode) => {
+      const db = new DeletionTestDb();
+      const record = account();
+      db.put(
+        ELocalDBStoreNames.Wallet,
+        wallet('hd-1', { xfp: PUBLIC_ACCOUNT_TEST_XFP, accounts: [record.id] }),
+      );
+      db.addAccount(record);
+      const manager = attachRealSnapshotManager(db);
+      const original = await manager.buildSyncItemByDBQuery({
+        dbRecord: record,
+        isDeleted: false,
+        dataTime: undefined,
+        syncCredential: realManagerFixtureCredential,
+      });
+      if (!original) throw new OneKeyLocalError('Missing real manager fixture');
+      db.put(ELocalDBStoreNames.CloudSyncItem, original);
+      const prime = db.backgroundApi.servicePrimeCloudSync;
+      const deletedAt = 1_750_000_001_000;
+      prime.getCloudSyncDataTime = async () => deletedAt;
+      prime.getSyncCredentialSafe = async () => undefined;
+      await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+      const pending = db.read<IDBCloudSyncItem>(
+        ELocalDBStoreNames.CloudSyncItem,
+        original.id,
+      );
+      if (!pending) throw new OneKeyLocalError('Missing queued deletion');
+      expect(pending.pendingPublicAccountDeletionAt).toBe(deletedAt);
+      const tombstone = rememberPublicAccountSnapshotWrite(
+        {
+          ...pending,
+          dataTime: deletedAt,
+          isDeleted: true,
+          pendingPublicAccountDeletionAt: undefined,
+          pendingPublicAccountDeletionHash: undefined,
+        },
+        pending,
+      );
+
+      if (mode === 'explicit') {
+        prime.getCloudSyncDataTime = async () => deletedAt + 1000;
+        const restored = await withPublicAccountCreationContext(
+          (creationContext) =>
+            manager.buildSyncItemForExplicitAccountCreation({
+              target: {
+                account: record,
+                dataType: EPrimeCloudSyncDataType.Account,
+                targetId: record.id,
+              },
+              syncCredential: realManagerFixtureCredential,
+              creationContext,
+            }),
+        );
+        if (!restored)
+          throw new OneKeyLocalError('Missing explicit restore fixture');
+        await db.addAndUpdateSyncItems({
+          items: [restored.item],
+          skipUploadToServer: true,
+        });
+        await db.addAndUpdateSyncItems({
+          items: [tombstone],
+          skipUploadToServer: true,
+        });
+      } else {
+        await db.addAndUpdateSyncItems({
+          items: [tombstone],
+          skipUploadToServer: true,
+        });
+        await db.addAndUpdateSyncItems({
+          items: [{ ...original, serverUploaded: true }],
+          skipUploadToServer: true,
+        });
+        expect(
+          db.read<IDBCloudSyncItem>(
+            ELocalDBStoreNames.CloudSyncItem,
+            original.id,
+          )?.isDeleted,
+        ).toBe(true);
+        await db.addAndUpdateSyncItems({
+          items: [
+            { ...original, serverUploaded: true, dataTime: deletedAt + 1000 },
+          ],
+          skipUploadToServer: true,
+        });
+      }
+
+      expect(
+        db.read(ELocalDBStoreNames.CloudSyncItem, original.id),
+      ).toMatchObject({
+        dataTime: deletedAt + 1000,
+        isDeleted: false,
+        pendingPublicAccountDeletionAt: undefined,
+      });
+    },
+  );
+
+  test('cancels a queued local-only snapshot without creating a cross-space deletion', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { xfp: PUBLIC_ACCOUNT_TEST_XFP, accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    const manager = attachRealSnapshotManager(db);
+    const original = await manager.buildSyncItemByDBQuery({
+      dbRecord: record,
+      isDeleted: false,
+      dataTime: undefined,
+      syncCredential: undefined,
+    });
+    if (!original) throw new OneKeyLocalError('Missing real manager fixture');
+    db.put(ELocalDBStoreNames.CloudSyncItem, original);
+    db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
+      undefined;
+    await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
+    expect(
+      db.read(ELocalDBStoreNames.CloudSyncItem, original.id),
+    ).toBeUndefined();
   });
 
   test('the real manager refuses an encrypted future-format tombstone target before deleting local data', async () => {
