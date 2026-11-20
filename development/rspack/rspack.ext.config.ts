@@ -296,9 +296,9 @@ function createCompilerConfig({
       ? createProductionConfig({
           platform,
           basePath,
-          // The unsplit background bundle benefits from one extra compression pass.
+          // One more pass keeps the larger extension compiler outputs within budget.
           compressPasses:
-            compilerName === compilerNames.background ? 3 : undefined,
+            compilerName === compilerNames.contentScript ? undefined : 3,
         })
       : createDevelopmentConfig({ basePath });
 
