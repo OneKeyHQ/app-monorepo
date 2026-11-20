@@ -397,6 +397,41 @@ describe('split view', () => {
     expect(first?.onPriceSelect).toBeUndefined();
   });
 
+  it('keeps the precision and quote of a selected panel while the trade instrument loads its token', async () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      panels: {
+        main: { source: btcSource },
+        'panel-2': { source: ethSource },
+      },
+    };
+    const view = renderTradingViewCandles();
+    await waitFor(() =>
+      expect(getChartProps('ETH')?.priceDecimalPlaces).toBe(3),
+    );
+
+    // Selecting the panel switches the trade instrument at once, before the
+    // instrument's own metadata has loaded.
+    mockCoin = 'ETH';
+    mockSzDecimals = undefined;
+    mockMultiChartLayout = {
+      ...mockMultiChartLayout,
+      activePanelId: 'panel-2',
+    };
+    mockQuote.mockClear();
+    view.rerender(<PerpCandles />);
+
+    const trading = getChartProps('ETH');
+    expect(trading?.onReferenceLineAction).toBe(mockReferenceLineAction);
+    // No loading mask over the candles the panel already shows.
+    expect(trading?.isPricePrecisionLoading).toBe(false);
+    expect(trading?.priceDecimalPlaces).toBe(3);
+    // Nor does its quote go away.
+    expect(mockQuote).toHaveBeenCalledWith(
+      expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+    );
+  });
+
   it('gives each panel a token picker of its own', async () => {
     renderTradingViewCandles();
 

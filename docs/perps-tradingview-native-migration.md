@@ -205,6 +205,9 @@ keep the single chart.
 - Pressing another panel selects it and switches the trade instrument to its
   token; no chart moves, changes its token or remounts. Until the switch lands
   the panel stays read-only, and a switch that fails returns the selection.
+  The switch publishes the trade instrument before its metadata has loaded;
+  the panel keeps its own metadata of the same token meanwhile, so its chart
+  never flashes the loading mask and its quote stays.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

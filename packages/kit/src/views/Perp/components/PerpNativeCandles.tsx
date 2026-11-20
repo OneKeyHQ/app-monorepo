@@ -44,7 +44,10 @@ import { PerpTestIDs } from '../testIDs';
 import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
 import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
-import type { IPerpsChartInstrumentDisplay } from '../hooks/usePerpsChartInstrument';
+import type {
+  IPerpsChartInstrument,
+  IPerpsChartInstrumentDisplay,
+} from '../hooks/usePerpsChartInstrument';
 
 export type IPerpNativeCandlesProps = ITradingViewNativeProps & {
   enableTradingUi: boolean;
@@ -187,7 +190,22 @@ function PerpNativeSplitPanel({
   // A selected panel keeps its own token until the switch has landed, so it
   // never shows the previous token's orders or menu.
   const isTrading = isActive && activeInstrument.coin === coin;
-  const instrument = isTrading ? activeInstrument : panelInstrument;
+  // A switch publishes the trade instrument before its metadata has loaded.
+  // The panel already has the same token's metadata, so its chart keeps its
+  // precision and quote meanwhile instead of flashing the loading mask.
+  const instrument = useMemo<IPerpsChartInstrument>(
+    () =>
+      isTrading
+        ? {
+            ...activeInstrument,
+            szDecimals:
+              activeInstrument.szDecimals ?? panelInstrument.szDecimals,
+            spotName: activeInstrument.spotName ?? panelInstrument.spotName,
+            assetId: activeInstrument.assetId ?? panelInstrument.assetId,
+          }
+        : panelInstrument,
+    [activeInstrument, isTrading, panelInstrument],
+  );
   const canTrade = isTrading && enableTradingUi;
   const { chartComponents: lines, onReferenceLineAction } =
     usePerpsNativeChartLines(canTrade, instrument);
