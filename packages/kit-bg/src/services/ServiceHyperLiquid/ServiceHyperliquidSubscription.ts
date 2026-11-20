@@ -2025,7 +2025,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       )
         return;
       const entry = this._publicTradesSubscriptions.get(subscription.coin);
-      if (entry && !entry.connected) {
+      if (entry && !entry.connected && !entry.failure) {
         entry.connected = true;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'connected',
@@ -2051,6 +2051,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       console.error(
         '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
         error,
+      );
+    }
+  }
+
+  private _releaseFailedPublicTrades(coin: string) {
+    if (this._publicTradesSubscriptions.size === 0) {
+      this._closePublicTradesClient();
+      return;
+    }
+    const socket = this._publicTradesTransport?.socket;
+    if (socket?.readyState === WebSocket.OPEN) {
+      // The SDK dropped its handle, but the server may have accepted the request.
+      // The mutation queue orders this frame before the next subscribe on this socket.
+      socket.send(
+        JSON.stringify({
+          method: 'unsubscribe',
+          subscription: { type: ESubscriptionType.TRADES, coin },
+        }),
       );
     }
   }
@@ -2184,9 +2202,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             this._publicTradesSubscriptions.delete(normalizedCoin);
             this._clearPublicTradesBatch(normalizedCoin);
           }
-          if (this._publicTradesSubscriptions.size === 0) {
-            this._closePublicTradesClient();
-          }
+          this._releaseFailedPublicTrades(normalizedCoin);
           throw error;
         }
       },
@@ -2226,6 +2242,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
         this._publicTradesSubscriptions.delete(normalizedCoin);
         this._clearPublicTradesBatch(normalizedCoin);
+        if (entry.failure) {
+          this._releaseFailedPublicTrades(normalizedCoin);
+          return;
+        }
         try {
           const subscription = await entry.subscriptionPromise;
           await subscription.unsubscribe();

@@ -593,6 +593,38 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it('clears a failed BTC subscription on the wire before reacquiring it alongside ETH', async () => {
+    const service = createService();
+    const btc = { coin: 'BTC' };
+    const eth = { coin: 'ETH' };
+    const send = jest.fn();
+    Object.assign(socket, { readyState: WebSocket.OPEN, send });
+    await service.subscribePublicTrades(eth);
+    await service.subscribePublicTrades(btc);
+    await service.subscribePublicTrades(btc);
+    const { onError } = trades.mock.calls[1][2] as {
+      onError: (error: Error) => void;
+    };
+    onError(new Error('Subscription acknowledgement timed out'));
+    await service.unsubscribePublicTrades(btc);
+    expect(send).not.toHaveBeenCalled();
+    await Promise.all([
+      service.unsubscribePublicTrades(btc),
+      service.subscribePublicTrades(btc),
+    ]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(send.mock.calls[0][0] as string)).toEqual({
+      method: 'unsubscribe',
+      subscription: { type: 'trades', coin: 'BTC' },
+    });
+    expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+      trades.mock.invocationCallOrder[2],
+    );
+    expect(close).not.toHaveBeenCalled();
+    await service.unsubscribePublicTrades(btc);
+    await service.unsubscribePublicTrades(eth);
+  });
+
   it('waits for the market subscription acknowledgement after the socket reopens', async () => {
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
