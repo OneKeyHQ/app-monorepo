@@ -303,7 +303,7 @@ function BasicStakePage() {
     () =>
       earnUtils.resolveEarnApproveSpenderAddress({
         providerName: protocolInfo?.provider || '',
-        protocolVault: protocolInfo?.vault,
+        verifiedProtocolVault: protocolInfo?.vault,
         backendApproveTarget: stakeApprove?.approveTarget,
       }),
     [protocolInfo?.provider, protocolInfo?.vault, stakeApprove?.approveTarget],

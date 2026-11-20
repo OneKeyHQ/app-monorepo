@@ -20,6 +20,8 @@ import type {
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 
+import { MarketHighlightStrip } from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
@@ -365,15 +367,27 @@ function MobileLayoutComponent({
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;
 
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
+  const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
+          {hasHighlightSlot ? (
+            <MarketHighlightStrip
+              highlight={highlight}
+              highlights={highlights}
+              compact
+            />
+          ) : null}
           <MarketBannerList />
         </YStack>
       ),
     }),
-    [],
+    [hasHighlightSlot, highlight, highlights],
   );
 
   // Stable renderTabBar — reads dynamic values from context, not props.

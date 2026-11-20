@@ -81,10 +81,12 @@ import {
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
+  prepareHardwareCloudSyncMigrationSource,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
 import {
   commitHardwareCloudSyncLocalRecovery,
+  hasPendingDeletionFromPreviousHardwareKey,
   prepareHardwareCloudSyncLocalRecovery,
 } from './hardwareCloudSyncRecovery';
 import {
@@ -709,6 +711,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
             credential.pwdHash,
             ...dataKey.previousPwdHashes,
           ]);
+          const previousPwdHashesForSource = new Set(dataKey.previousPwdHashes);
+          if (existing?.pwdHash) {
+            previousPwdHashesForSource.add(existing.pwdHash);
+          }
+
+          // A pending removal cannot use the new key to authenticate its old
+          // ciphertext. Keep the original credential and snapshot intact.
+          if (
+            hasPendingDeletionFromPreviousHardwareKey({
+              items,
+              currentPwdHash: credential.pwdHash,
+              previousPwdHashes: previousPwdHashesForSource,
+            })
+          ) {
+            throw new HardwareCloudSyncError(
+              ETranslations.cloud_sync_data_changed_during_key_change__msg,
+              'Sync pending account deletions with the original Cloud key before changing the encryption key.',
+            );
+          }
           const restoresRotatedHardwareKey =
             !rebuildsLocalItemsNow &&
             current.hardwareCloudSyncKeySource?.credentialId ===
@@ -1717,10 +1738,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
           targetCredentialId === device.credentialId &&
           device.source?.credentialId === device.credentialId
         ) {
-          const { items: migrationItems } =
-            await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(
-              { includeUnsupportedDataTypes: true },
-            );
+          const migrationItems = await prepareHardwareCloudSyncMigrationSource({
+            backgroundApi: this.backgroundApi,
+            sourcePwdHash: credential.pwdHash,
+            reconcile: true,
+          });
           this.assertUnknownSyncItemsCanMigrate(migrationItems, [
             credential.pwdHash,
           ]);
@@ -1751,7 +1773,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
             source: credential,
             target,
             isCurrent,
-            beforeFlush,
+            beforeFlush: async () => {
+              await prepareHardwareCloudSyncMigrationSource({
+                backgroundApi: this.backgroundApi,
+                sourcePwdHash: credential.pwdHash,
+              });
+              await beforeFlush();
+            },
             overwriteTargetSnapshot,
             savePending: async (pendingHardwareKeyMigration) => {
               migrationSource = await this.saveHardwareCredential({
@@ -2285,7 +2313,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const { syncItems } = await localDb.getAllSyncItems();
     const itemsToConvert = syncItems.filter(
-      (item) => item.dataType !== EPrimeCloudSyncDataType.Lock,
+      (item) =>
+        item.dataType !== EPrimeCloudSyncDataType.Lock &&
+        !item.pendingPublicAccountDeletionAt,
     );
 
     if (itemsToConvert.length === 0) {

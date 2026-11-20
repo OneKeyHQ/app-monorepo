@@ -108,6 +108,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchTokensDetails: (input: unknown) => mockWrappedBalance(input),
     },
     serviceStaking: {
+      assertEarnApproval: jest.fn().mockResolvedValue(undefined),
       buildStakeTransaction: (input: { stakeType?: IEarnStakeType }) =>
         mockBuildStake(input),
       buildInternalDappTx: (input: unknown) => mockBuildInternal(input),

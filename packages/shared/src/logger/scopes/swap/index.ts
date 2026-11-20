@@ -10,6 +10,7 @@ import { SelectTokenScene } from './scenes/selectToken';
 import { StockTokenCheckScene } from './scenes/stockTokenCheck';
 import { StockTradeAlertScene } from './scenes/stockTradeAlert';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
+import { SwapHistoryTradeAgainScene } from './scenes/swapHistoryTradeAgain';
 import { SwapKlineScene } from './scenes/swapKline';
 import { SwapLowSlippageWarningScene } from './scenes/swapLowSlippageWarning';
 import { SwapOrderLongPendingWarningScene } from './scenes/swapOrderLongPendingWarning';
@@ -49,6 +50,11 @@ export class SwapScope extends BaseScope {
   enterSwap = this.createScene('enterSwap', EnterSwapScene);
 
   swapEstimateFee = this.createScene('swapEstimateFee', SwapEstimateFeeScene);
+
+  swapHistoryTradeAgain = this.createScene(
+    'swapHistoryTradeAgain',
+    SwapHistoryTradeAgainScene,
+  );
 
   swapKline = this.createScene('swapKline', SwapKlineScene);
 

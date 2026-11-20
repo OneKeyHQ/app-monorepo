@@ -1496,16 +1496,33 @@ export default class Vault extends VaultBase {
     return resp;
   }
 
-  async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {
-    const { unsignedTx } = params;
+  async _signRentalTx(params: {
+    unsignedTx: IUnsignedTxPro;
+    reviewQuoteValidUntil?: number;
+  }) {
+    const { unsignedTx, reviewQuoteValidUntil } = params;
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId: this.accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
+    if (
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil)
+    ) {
+      return undefined;
+    }
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
+          if (
+            reviewQuoteValidUntil !== undefined &&
+            (!Number.isFinite(reviewQuoteValidUntil) ||
+              Date.now() >= reviewQuoteValidUntil)
+          ) {
+            return undefined;
+          }
           const signedTx = await this.signTransaction({
             unsignedTx,
             password,
@@ -1572,7 +1589,13 @@ export default class Vault extends VaultBase {
   override async preActionsBeforeSending(
     params: IPreActionsBeforeSendingParams & { feeInfo?: IFeeInfoUnit },
   ) {
-    const { unsignedTxs, tronResourceRentalInfo } = params;
+    const { unsignedTxs, tronResourceRentalInfo, reviewQuoteValidUntil } =
+      params;
+
+    const isReviewQuoteExpired = () =>
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil);
 
     if (!tronResourceRentalInfo) {
       return;
@@ -1589,15 +1612,28 @@ export default class Vault extends VaultBase {
       return;
     }
 
+    if (isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
+
     const rentalOrder = await this._createResourceRentalOrder({
       tronResourceRentalInfo,
     });
+
+    if (isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
 
     const signedRentalTx = await this._signRentalTx({
       unsignedTx: {
         encodedTx: rentalOrder.transaction,
       },
+      reviewQuoteValidUntil,
     });
+
+    if (!signedRentalTx || isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
 
     const uploadResult = await this._uploadResourceRentalOrder({
       orderId: rentalOrder.orderId,
@@ -1616,7 +1652,8 @@ export default class Vault extends VaultBase {
 
     return {
       preSendTx: {
-        txid: uploadResult?.tx_ids?.[0] ?? '',
+        txid: uploadResult?.tx_ids?.[0] || signedRentalTx.txid,
+        orderId: rentalOrder.orderId,
       },
     };
   }

@@ -927,6 +927,7 @@ export interface IBatchSignTransactionParamsBase {
   // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
   gasAccountSubmitId?: string;
   broadcastDeadline?: number;
+  reviewQuoteValidUntil?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   // WalletConnect Pay only: identity of the durable progress slot the
   // background writes the txid into between signing and broadcast
@@ -951,6 +952,7 @@ export type IPreActionsBeforeSendingParams = Pick<
   | 'signOnly'
   | 'beforeBroadcastAction'
   | 'wcPayPreBroadcastRecord'
+  | 'reviewQuoteValidUntil'
 >;
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {

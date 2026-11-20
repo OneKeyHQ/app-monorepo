@@ -2994,6 +2994,37 @@ const BaseDevSettingsSection = () => {
                           />
                         </SectionFieldItem>
                       ) : null}
+                      <SectionFieldItem
+                        icon="ErrorOutline"
+                        name="primeFetchPackagesFault"
+                        title="模拟 Prime 套餐加载失败"
+                        subtitle="付费页拉套餐时直接抛出所选 RevenueCat 错误码，用来检查各个失败态、文案和埋点；下次加载或点重试时生效"
+                        searchKeywords="Prime packages offerings fault simulate error RevenueCat 套餐 加载失败 模拟 错误码 失败态"
+                        testID="dev-settings-prime-fetch-packages-fault"
+                      >
+                        <Select
+                          title="模拟 Prime 套餐加载失败"
+                          items={[
+                            { label: '关闭', value: 'off' },
+                            { label: '10 网络错误', value: '10' },
+                            { label: '33 RevenueCat 被拦截', value: '33' },
+                            { label: '2 商店连接问题', value: '2' },
+                            { label: '3 不允许购买', value: '3' },
+                            { label: '5 商品不可用', value: '5' },
+                            { label: '23 商店没返回商品', value: '23' },
+                            {
+                              label: '空套餐（无错误码）',
+                              value: 'emptyOffering',
+                            },
+                            {
+                              label: '23 + 中国大陆 Apple 账户',
+                              value: 'chinaStorefront',
+                            },
+                            { label: '0 未知错误', value: '0' },
+                          ]}
+                          placement="bottom-end"
+                        />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="移除 Prime 权益"

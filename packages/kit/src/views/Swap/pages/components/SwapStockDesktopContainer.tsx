@@ -110,6 +110,7 @@ import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
@@ -147,6 +148,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
+import type { ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -1387,6 +1389,8 @@ function SwapStockDesktopContent({
   stockTradeHeader,
   stockTradeIdentityLoading,
 }: ISwapStockDesktopContainerProps) {
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { resetQuoteAction } = useSwapActions().current;
@@ -1495,7 +1499,11 @@ function SwapStockDesktopContent({
     </YStack>
   );
   return (
-    <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+    <ScrollView
+      ref={scrollViewRef}
+      flex={1}
+      contentContainerStyle={{ flexGrow: 1 }}
+    >
       {embedded || hideSwapTips ? null : (
         <SwapTipsContainer pageType={pageType} />
       )}
@@ -1570,6 +1578,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();

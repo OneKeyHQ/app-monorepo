@@ -113,18 +113,17 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-it('loads without data, then displays Home cache while fresh data is pending', async () => {
+it('waits for Swap-backed data when no Dust cache exists', async () => {
   const request = deferred();
   mockLoad.mockReturnValue(request.promise);
   const { result } = renderHook(() => useModel());
-  expect(mockLoad.mock.calls[0][3]).toMatchObject({
+  expect(mockLoad.mock.calls[0][2]).toMatchObject({
     isManualRefresh: false,
     forceFresh: true,
   });
   expect(result.current.loadStatus).toBe('loading');
   expect(result.current.timerActive).toBe(false);
-  act(() => mockLoad.mock.calls[0][2]?.([network]));
-  expect(result.current.loadStatus).toBe('ready');
+  expect(result.current.loadStatus).toBe('loading');
   expect(result.current.refreshStatus).toBe('refreshing');
   expect(getDustSweepNetworksCache(params)).toBeUndefined();
   await settle(request);
@@ -132,22 +131,114 @@ it('loads without data, then displays Home cache while fresh data is pending', a
   expect(getDustSweepNetworksCache(params)).toEqual(data);
 });
 
-it('prefers Dust cache on re-entry and ignores Home cache even if it arrives later', async () => {
+it('retains the Dust cache on re-entry while fresh data loads', async () => {
   setDustSweepNetworksCache(params, data);
   const request = deferred();
   mockLoad.mockReturnValue(request.promise);
   const { result } = renderHook(() => useModel());
   expect(result.current.loadStatus).toBe('ready');
   expect(result.current.networks).toEqual([network]);
-  expect(mockLoad.mock.calls[0][3]).toEqual({
+  expect(mockLoad.mock.calls[0][2]).toEqual({
     isManualRefresh: true,
-    skipCache: true,
     forceFresh: true,
     onContexts: expect.any(Function),
   });
-  act(() => mockLoad.mock.calls[0][2]?.([{ ...network, address: 'obsolete' }]));
   expect(result.current.networks).toEqual([network]);
   await settle(request);
+});
+
+it('removes unsupported cached networks as soon as fresh contexts arrive', async () => {
+  const unsupported = {
+    ...network,
+    network: { ...network.network, networkId: 'apt--1', name: 'Aptos' },
+    accountId: 'aptos-account',
+    address: 'aptos-address',
+  };
+  setDustSweepNetworksCache(params, {
+    networks: [network, unsupported],
+    partialError: false,
+  });
+  const request = deferred();
+  mockLoad.mockReturnValue(request.promise);
+  const { result } = renderHook(() => useModel());
+
+  expect(result.current.networks).toEqual([network, unsupported]);
+  expect(result.current.refreshStatus).toBe('refreshing');
+  act(() => {
+    mockLoad.mock.calls[0][2]?.onContexts?.([network]);
+  });
+  expect(result.current.networks).toEqual([network]);
+  expect(result.current.refreshStatus).toBe('refreshing');
+
+  await settle(request);
+  expect(result.current.networks).toEqual([network]);
+});
+
+it('does not restore unsupported cached networks if the subsequent asset load fails', async () => {
+  const unsupported = {
+    ...network,
+    network: { ...network.network, networkId: 'apt--1', name: 'Aptos' },
+    accountId: 'aptos-account',
+    address: 'aptos-address',
+  };
+  setDustSweepNetworksCache(params, {
+    networks: [network, unsupported],
+    partialError: false,
+  });
+  const request = deferred();
+  mockLoad.mockReturnValue(request.promise);
+  const { result } = renderHook(() => useModel());
+
+  act(() => {
+    mockLoad.mock.calls[0][2]?.onContexts?.([network]);
+  });
+  expect(result.current.networks).toEqual([network]);
+  await act(async () => {
+    request.reject(new Error('Asset load failed'));
+    await request.promise.catch(() => undefined);
+  });
+  expect(result.current.networks).toEqual([network]);
+  expect(result.current.refreshStatus).toBe('error');
+  expect(result.current.partialError).toBe(true);
+});
+
+it('ignores contexts from a canceled request after switching scope', async () => {
+  const other = {
+    ...network,
+    network: { ...network.network, networkId: 'evm--56' },
+    accountId: 'other-account',
+    address: 'other-address',
+  };
+  const nextParams = { ...params, accountId: 'new-scope' };
+  setDustSweepNetworksCache(nextParams, {
+    networks: [network, other],
+    partialError: false,
+  });
+  const previous = deferred();
+  const current = deferred();
+  mockLoad
+    .mockReturnValueOnce(previous.promise)
+    .mockReturnValueOnce(current.promise);
+  const { result, rerender } = renderHook(({ scope }) => useModel({ scope }), {
+    initialProps: { scope: params },
+  });
+  rerender({ scope: nextParams });
+  expect(mockLoad.mock.calls[0][1].aborted).toBe(true);
+  expect(result.current.networks).toEqual([network, other]);
+
+  act(() => {
+    mockLoad.mock.calls[0][2]?.onContexts?.([network]);
+  });
+  expect(result.current.networks).toEqual([network, other]);
+  act(() => {
+    mockLoad.mock.calls[1][2]?.onContexts?.([other]);
+  });
+  expect(result.current.networks).toEqual([other]);
+
+  await settle(previous);
+  expect(result.current.networks).toEqual([other]);
+  await settle(current, { networks: [other], partialError: false });
+  expect(result.current.networks).toEqual([other]);
 });
 
 it('retains a known empty result during refresh instead of returning to a skeleton', async () => {
@@ -158,7 +249,6 @@ it('retains a known empty result during refresh instead of returning to a skelet
   expect(result.current.hasData).toBe(true);
   expect(result.current.loadStatus).toBe('ready');
   expect(result.current.networks).toEqual([]);
-  act(() => mockLoad.mock.calls[0][2]?.([network]));
   expect(result.current.networks).toEqual([]);
   await settle(request, { networks: [], partialError: false });
 });
@@ -450,7 +540,7 @@ it('clears changed account identities before refresh and refuses their old cache
   expect(result.current.networks).toEqual([]);
   expect(getDustSweepNetworksCache(params)).toBeUndefined();
   expect(mockLoad.mock.calls[0][1].aborted).toBe(true);
-  expect(mockLoad.mock.calls[1][3]?.skipCache).toBe(false);
+  expect(mockLoad.mock.calls[1][2]?.isManualRefresh).toBe(true);
   await settle(first);
   expect(result.current.networks).toEqual([]);
   const updated = {

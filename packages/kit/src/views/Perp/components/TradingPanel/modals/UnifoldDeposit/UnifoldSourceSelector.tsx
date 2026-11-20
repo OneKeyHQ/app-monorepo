@@ -1,5 +1,5 @@
 // cspell: words unifold Unifold
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { isSameUnifoldChain } from '@onekeyhq/kit/src/views/Perp/utils/unifoldDestination';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -34,6 +35,8 @@ import {
   normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
 const SELECTOR_LABEL_BOTTOM_PADDING = platformEnv.isNative ? '$px' : '$0.5';
@@ -45,6 +48,8 @@ function SelectorTrigger({
   loading,
   disabled,
   onPress,
+  minHeight,
+  onLabelLayout,
 }: {
   testID: string;
   iconUri?: string;
@@ -52,12 +57,15 @@ function SelectorTrigger({
   loading: boolean;
   disabled?: boolean;
   onPress: () => void;
+  minHeight: number;
+  onLabelLayout: (event: LayoutChangeEvent) => void;
 }) {
   return (
     <XStack
       testID={testID}
       role="button"
-      height="$10"
+      minHeight={minHeight}
+      py="$2"
       px="$2.5"
       alignItems="center"
       gap="$2"
@@ -93,18 +101,19 @@ function SelectorTrigger({
       ) : (
         <>
           <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
-          <SizableText
-            size="$bodySm"
-            color="$text"
-            numberOfLines={1}
-            flex={1}
-            minWidth={0}
-          >
-            {label}
-          </SizableText>
+          <YStack flex={1} minWidth={0} onLayout={onLabelLayout}>
+            <SizableText size="$bodySm" color="$text">
+              {label}
+            </SizableText>
+          </YStack>
         </>
       )}
-      <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$4"
+        color="$icon"
+        flexShrink={0}
+      />
     </XStack>
   );
 }
@@ -143,11 +152,11 @@ function OptionRow({
     >
       <Token size="md" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
       <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$0.5">
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        <SizableText size="$bodyMdMedium" color="$text">
           {label}
         </SizableText>
         {description ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
             {description}
           </SizableText>
         ) : null}
@@ -261,25 +270,20 @@ function SelectedTokenLabel({
   });
   if (!selection?.chain.token_address?.trim()) {
     return (
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        numberOfLines={1}
-        flexShrink={1}
-      >
+      <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
         {label}
       </SizableText>
     );
   }
   const trigger = (
     <DashText
+      multiline
       testID="perps-unifold-selected-token-contract"
       size="$bodySm"
       color="$textSubdued"
       dashColor="$textDisabled"
       dashThickness={0.5}
       dashOverlay
-      numberOfLines={1}
       cursor="pointer"
     >
       {label}
@@ -333,6 +337,21 @@ export function UnifoldSourceSelector({
   const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
+  const [tokenLabelHeight, setTokenLabelHeight] = useState(0);
+  const [chainLabelHeight, setChainLabelHeight] = useState(0);
+  const handleTokenLabelLayout = useCallback((event: LayoutChangeEvent) => {
+    setTokenLabelHeight(event.nativeEvent.layout.height);
+  }, []);
+  const handleChainLabelLayout = useCallback((event: LayoutChangeEvent) => {
+    setChainLabelHeight(event.nativeEvent.layout.height);
+  }, []);
+  // Measure the labels, not the controls, so both controls can shrink again.
+  // Popover wraps its trigger, so flex stretching cannot cross that wrapper.
+  const triggerMinHeight = Math.max(
+    40,
+    tokenLabelHeight + 18,
+    chainLabelHeight + 18,
+  );
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
   // Popover has no disabled state of its own, so an empty catalog would open a
@@ -343,6 +362,8 @@ export function UnifoldSourceSelector({
   const tokenTrigger = (
     <SelectorTrigger
       testID="perps-unifold-token-selector"
+      minHeight={triggerMinHeight}
+      onLabelLayout={handleTokenLabelLayout}
       iconUri={selection?.asset.icon_url}
       label={selection?.asset.symbol}
       loading={loading || !selection}
@@ -364,6 +385,8 @@ export function UnifoldSourceSelector({
   const chainTrigger = (
     <SelectorTrigger
       testID="perps-unifold-network-selector"
+      minHeight={triggerMinHeight}
+      onLabelLayout={handleChainLabelLayout}
       iconUri={selection?.chain.icon_url}
       label={selection?.chain.chain_name}
       loading={loading || !selection}
@@ -383,110 +406,109 @@ export function UnifoldSourceSelector({
   );
 
   return (
-    <XStack gap="$3">
-      <YStack flex={1} flexBasis={0} minWidth={0}>
-        <XStack
-          width="100%"
-          mb="$1.5"
-          pb={SELECTOR_LABEL_BOTTOM_PADDING}
-          gap="$2"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+    <YStack>
+      <XStack
+        gap="$3"
+        mb="$1.5"
+        pb={SELECTOR_LABEL_BOTTOM_PADDING}
+        alignItems="center"
+      >
+        <YStack flex={1} flexBasis={0} minWidth={0}>
           <SelectedTokenLabel selection={selection} />
-        </XStack>
-        {onOpenMobileTokenSelector ? (
-          tokenTrigger
-        ) : (
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.token_selector_title,
-            })}
-            placement="bottom-start"
-            open={tokenOpen}
-            onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
-            floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
-            renderTrigger={tokenTrigger}
-            renderContent={
-              <SelectorOptions>
-                {usableAssets.map((asset) => (
-                  <OptionRow
-                    key={asset.symbol}
-                    testID={`perps-unifold-token-option-${asset.symbol}`}
-                    iconUri={asset.icon_url}
-                    label={asset.symbol}
-                    description={
-                      asset.chains.length === 1
-                        ? `1 ${intl.formatMessage({
-                            id: ETranslations.global_network,
-                          })}`
-                        : intl.formatMessage(
-                            { id: ETranslations.global_count_networks },
-                            { count: asset.chains.length },
-                          )
-                    }
-                    selected={asset.symbol === selection?.asset.symbol}
-                    onPress={() => {
-                      onSelectToken(asset);
-                      setTokenOpen(false);
-                    }}
-                  />
-                ))}
-              </SelectorOptions>
-            }
-          />
-        )}
-      </YStack>
-      <YStack flex={1} flexBasis={0} minWidth={0}>
-        <XStack
-          width="100%"
-          mb="$1.5"
-          pb={SELECTOR_LABEL_BOTTOM_PADDING}
-          gap="$2"
-          alignItems="center"
-          justifyContent="space-between"
+        </YStack>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
         >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_unifold_selected_chain__title,
-            })}
-          </SizableText>
-        </XStack>
-        {onOpenMobileChainSelector ? (
-          chainTrigger
-        ) : (
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.global_select_network,
-            })}
-            placement="bottom-end"
-            open={chainOpen}
-            onOpenChange={(next) => setChainOpen(next && canSelectChain)}
-            floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
-            renderTrigger={chainTrigger}
-            renderContent={
-              <SelectorOptions>
-                {chainOptions.map((chain) => (
-                  <OptionRow
-                    key={`${chain.chain_type}-${chain.chain_id}`}
-                    testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
-                    iconUri={chain.icon_url}
-                    label={chain.chain_name}
-                    selected={chain.chain_id === selection?.chain.chain_id}
-                    description={`${intl.formatMessage({
-                      id: ETranslations.perp_unifold_minimum_deposit__title,
-                    })} $${chain.minimum_deposit_amount_usd ?? 3}`}
-                    onPress={() => {
-                      onSelectChain(chain);
-                      setChainOpen(false);
-                    }}
-                  />
-                ))}
-              </SelectorOptions>
-            }
-          />
-        )}
-      </YStack>
-    </XStack>
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_selected_chain__title,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack gap="$3">
+        <YStack flex={1} flexBasis={0} minWidth={0}>
+          {onOpenMobileTokenSelector ? (
+            tokenTrigger
+          ) : (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.token_selector_title,
+              })}
+              placement="bottom-start"
+              open={tokenOpen}
+              onOpenChange={(next) => setTokenOpen(next && canSelectToken)}
+              floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
+              renderTrigger={tokenTrigger}
+              renderContent={
+                <SelectorOptions>
+                  {usableAssets.map((asset) => (
+                    <OptionRow
+                      key={asset.symbol}
+                      testID={`perps-unifold-token-option-${asset.symbol}`}
+                      iconUri={asset.icon_url}
+                      label={asset.symbol}
+                      description={
+                        asset.chains.length === 1
+                          ? `1 ${intl.formatMessage({
+                              id: ETranslations.global_network,
+                            })}`
+                          : intl.formatMessage(
+                              { id: ETranslations.global_count_networks },
+                              { count: asset.chains.length },
+                            )
+                      }
+                      selected={asset.symbol === selection?.asset.symbol}
+                      onPress={() => {
+                        onSelectToken(asset);
+                        setTokenOpen(false);
+                      }}
+                    />
+                  ))}
+                </SelectorOptions>
+              }
+            />
+          )}
+        </YStack>
+        <YStack flex={1} flexBasis={0} minWidth={0}>
+          {onOpenMobileChainSelector ? (
+            chainTrigger
+          ) : (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.global_select_network,
+              })}
+              placement="bottom-end"
+              open={chainOpen}
+              onOpenChange={(next) => setChainOpen(next && canSelectChain)}
+              floatingPanelProps={{ width: SELECTOR_POPOVER_WIDTH }}
+              renderTrigger={chainTrigger}
+              renderContent={
+                <SelectorOptions>
+                  {chainOptions.map((chain) => (
+                    <OptionRow
+                      key={`${chain.chain_type}-${chain.chain_id}`}
+                      testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
+                      iconUri={chain.icon_url}
+                      label={chain.chain_name}
+                      selected={isSameUnifoldChain(chain, selection?.chain)}
+                      description={`${intl.formatMessage({
+                        id: ETranslations.perp_unifold_minimum_deposit__title,
+                      })} $${chain.minimum_deposit_amount_usd ?? 3}`}
+                      onPress={() => {
+                        onSelectChain(chain);
+                        setChainOpen(false);
+                      }}
+                    />
+                  ))}
+                </SelectorOptions>
+              }
+            />
+          )}
+        </YStack>
+      </XStack>
+    </YStack>
   );
 }

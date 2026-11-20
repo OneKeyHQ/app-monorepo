@@ -22,7 +22,8 @@ const indexFilePath = path.join(mobileDirPath, 'index.ts');
 const backgroundIndexFilePath = path.join(mobileDirPath, 'background.ts');
 const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
 const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
-const backgroundProtocolVersion = '1';
+// Match react-native-bundle-update. Protocol 2 requires the new Nitro slider ABI.
+const backgroundProtocolVersion = '2';
 const useUnionBuild = process.env.UNION_BUILD === 'true';
 const enableNativeBackgroundThread =
   process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';

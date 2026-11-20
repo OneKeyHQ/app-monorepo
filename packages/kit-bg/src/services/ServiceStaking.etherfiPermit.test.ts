@@ -1,6 +1,9 @@
 import { EtherFiLiquidReferContract } from '@onekeyhq/shared/src/consts/addresses';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
-import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnPermit2ApproveSignData,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import ServiceStaking from './ServiceStaking';
 
@@ -89,6 +92,15 @@ function createServiceHarness() {
       [string, Record<string, unknown>]
     >()
     .mockResolvedValue({ data: { data: txResponse } });
+  jest.spyOn(service, '_getProtocolList').mockResolvedValue(
+    ['etherfi', 'morpho'].map(
+      (name) =>
+        ({
+          provider: { name, vault: protocolVault },
+          network: { networkId: 'evm--1' },
+        }) as IStakeProtocolListItem,
+    ),
+  );
   jest
     .spyOn(service, 'getClient')
     .mockResolvedValue({ get, post } as unknown as AxiosInstance);

@@ -92,6 +92,7 @@ export type ITabHomeParamList = {
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
     hasDuplicateSenders?: boolean;
+    entitlementSource?: IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendAmountsInput]['entitlementSource'];
   };
   [ETabHomeRoutes.TabHomeBulkSendProcess]: IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
   [ETabHomeRoutes.TabHomeApprovalList]: {
