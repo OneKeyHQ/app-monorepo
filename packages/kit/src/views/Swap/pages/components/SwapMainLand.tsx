@@ -250,16 +250,22 @@ const SwapMainLoad = ({
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const analyticsSwapSource = swapInitParams?.swapSource;
+  // Embedded in another page: Market detail, or the desktop home's trade
+  // column (the only other host of the single Swap & Bridge header).
+  const isEmbeddedSwap = Boolean(singleSwapBridgeHeader);
   const isMarketEmbeddedSwap =
-    Boolean(singleSwapBridgeHeader) &&
-    analyticsSwapSource === ESwapSource.MARKET;
+    isEmbeddedSwap && analyticsSwapSource === ESwapSource.MARKET;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
-    if (isMarketEmbeddedSwap) {
-      return registerMarketSwapApprovalFlow(marketSwapApprovalFlowId);
+    // Lets the approval notice know this form's review is on screen there.
+    if (isEmbeddedSwap) {
+      return registerMarketSwapApprovalFlow(
+        marketSwapApprovalFlowId,
+        isMarketEmbeddedSwap ? 'marketDetail' : 'homeTab',
+      );
     }
     return undefined;
-  }, [isMarketEmbeddedSwap, marketSwapApprovalFlowId]);
+  }, [isEmbeddedSwap, isMarketEmbeddedSwap, marketSwapApprovalFlowId]);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
@@ -298,7 +304,7 @@ const SwapMainLoad = ({
     onSwapBroadcast,
     // Order attribution must not change the quote's provider pool.
     buildTxSource: isMarketEmbeddedSwap ? ESwapQuoteSource.MARKET : undefined,
-    marketSwapApprovalFlowId: isMarketEmbeddedSwap
+    marketSwapApprovalFlowId: isEmbeddedSwap
       ? marketSwapApprovalFlowId
       : undefined,
   });
@@ -1539,7 +1545,7 @@ const SwapMainLoad = ({
     accountStatus: swapProAccount.accountStatus,
   });
   useSwapQuote({
-    isEmbeddedSwap: Boolean(singleSwapBridgeHeader),
+    isEmbeddedSwap,
     storeName,
   });
 

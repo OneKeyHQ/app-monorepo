@@ -3,6 +3,8 @@ import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 export type ISwapNavigationContext = {
   isInSwapTab: boolean;
   isInMarketDetail: boolean;
+  // The Wallet tab on its own home, where the desktop trade column docks.
+  isInHomeTab: boolean;
   isHasSwapModal: boolean;
   isSwapModalOnTheTop: boolean;
   hasModal: boolean;
@@ -21,10 +23,20 @@ export function isMarketDetailRoute(routeName?: string) {
   return routeName ? MARKET_DETAIL_ROUTES.has(routeName) : false;
 }
 
-const activeMarketSwapApprovalFlowIds = new Set<string>();
+// Where an embedded Swap form shows its review: Market detail, or the desktop
+// home's trade column.
+export type IEmbeddedSwapApprovalFlowHost = 'marketDetail' | 'homeTab';
 
-export function registerMarketSwapApprovalFlow(flowId: string) {
-  activeMarketSwapApprovalFlowIds.add(flowId);
+const activeMarketSwapApprovalFlowIds = new Map<
+  string,
+  IEmbeddedSwapApprovalFlowHost
+>();
+
+export function registerMarketSwapApprovalFlow(
+  flowId: string,
+  host: IEmbeddedSwapApprovalFlowHost = 'marketDetail',
+) {
+  activeMarketSwapApprovalFlowIds.set(flowId, host);
   return () => {
     activeMarketSwapApprovalFlowIds.delete(flowId);
   };
@@ -37,15 +49,19 @@ export function isMarketSwapApprovalFlowMounted(flowId?: string) {
 export function isSwapApprovalFlowActive({
   isInSwapTab,
   isInMarketDetail,
+  isInHomeTab,
   isHasSwapModal,
   isSwapModalOnTheTop,
   hasModal,
   marketSwapApprovalFlowId,
 }: ISwapNavigationContext & { marketSwapApprovalFlowId?: string }) {
+  const embeddedFlowHost = marketSwapApprovalFlowId
+    ? activeMarketSwapApprovalFlowIds.get(marketSwapApprovalFlowId)
+    : undefined;
   return (
     (isInSwapTab && !hasModal) ||
     (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal) ||
-    (isInMarketDetail &&
-      isMarketSwapApprovalFlowMounted(marketSwapApprovalFlowId))
+    (isInMarketDetail && embeddedFlowHost === 'marketDetail') ||
+    (isInHomeTab && embeddedFlowHost === 'homeTab')
   );
 }

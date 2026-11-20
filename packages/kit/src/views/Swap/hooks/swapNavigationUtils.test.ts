@@ -9,6 +9,7 @@ import {
 const baseNavigationContext = {
   isInSwapTab: false,
   isInMarketDetail: false,
+  isInHomeTab: false,
   isHasSwapModal: false,
   isSwapModalOnTheTop: false,
   hasModal: false,
@@ -110,5 +111,48 @@ describe('isSwapApprovalFlowActive', () => {
       }),
     ).toBe(false);
     unregister();
+  });
+
+  it('treats the home trade column flow as active on the Wallet home', () => {
+    const unregister = registerMarketSwapApprovalFlow('home-flow-1', 'homeTab');
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInHomeTab: true,
+        marketSwapApprovalFlowId: 'home-flow-1',
+      }),
+    ).toBe(true);
+    unregister();
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInHomeTab: true,
+        marketSwapApprovalFlowId: 'home-flow-1',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps each embedded flow to the page that shows it', () => {
+    const unregisterHome = registerMarketSwapApprovalFlow(
+      'home-flow-2',
+      'homeTab',
+    );
+    const unregisterMarket = registerMarketSwapApprovalFlow('market-flow-3');
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInMarketDetail: true,
+        marketSwapApprovalFlowId: 'home-flow-2',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInHomeTab: true,
+        marketSwapApprovalFlowId: 'market-flow-3',
+      }),
+    ).toBe(false);
+    unregisterHome();
+    unregisterMarket();
   });
 });
