@@ -35,7 +35,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: false
-          fetch-depth: 0
+          fetch-depth: 1
+
+      - name: Fetch PR base for lockfile comparison
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
       - name: Use Node.js 24.x
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -51,10 +56,12 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
       - name: Check minimum release age
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           mkdir -p ci-ai
           set +e
-          node development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
+          node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}" 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
