@@ -49,11 +49,13 @@ async function openKeylessRoute(root, kind) {
   referrer.content = 'no-referrer';
   globalThis.document.head.append(referrer);
   if (kind === 'callback') {
-    // The opener closes this popup; the text only helps if it stays open.
-    root.textContent =
-      (await import('./src/keylessDeletion/startupText')
-        .then(({ loadStartupText }) => loadStartupText('callback'))
-        .catch(() => undefined)) ?? '';
+    // The opener verifies the OAuth result, so this popup only gives a neutral
+    // pointer back; English shows until the localized text loads.
+    root.textContent = 'Return to the original window to continue.';
+    const text = await import('./src/keylessDeletion/startupText')
+      .then(({ loadStartupText }) => loadStartupText('callback'))
+      .catch(() => undefined);
+    if (text) root.textContent = text;
     return;
   }
 

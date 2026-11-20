@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Я розумію, що гаманець, створений пізніше з цим обліковим записом, буде новим і не матиме доступу до активів цього гаманця",
   "keyless_deletion_ack_recovery__action": "Я розумію, що після видалення не зможу відновити цей гаманець за допомогою входу через Google або Apple і свого PIN-коду",
   "keyless_deletion_automatic_unavailable__msg": "Автоматичне видалення недоступне. Зверніться до підтримки.",
-  "keyless_deletion_callback__msg": "Вхід виконано. Поверніться до початкового вікна, щоб продовжити.",
+  "keyless_deletion_callback__msg": "Поверніться до початкового вікна, щоб продовжити.",
   "keyless_deletion_cannot_continue__desc": "Зверніться до підтримки, щоб перевірити запит на видалення.",
   "keyless_deletion_cannot_continue__title": "Неможливо продовжити видалення",
   "keyless_deletion_check_countdown__action": "Перевірити за {seconds} с",
