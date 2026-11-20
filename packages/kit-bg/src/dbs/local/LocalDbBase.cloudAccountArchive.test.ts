@@ -556,6 +556,123 @@ it.each([false, true])(
   },
 );
 
+it.each([false, true])(
+  'applies the exact staged current-source tombstone only, atomically archives, and removes the local Account and unused index (MAS=%s)',
+  async (mas) => {
+    platformEnv.isMas = mas;
+    jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+    const writer = new LocalDbIndexed();
+    const reader = new LocalDbIndexed();
+    const target = wallet(56);
+    const fixtures = rows(56);
+    const old = { ...fixtures.old, data: 'bc'.repeat(32) };
+    const current = {
+      ...fixtures.current,
+      data: 'cd'.repeat(32),
+      isDeleted: true,
+    };
+    const input = parameters(target, current, old);
+    const [account] = input.accounts;
+    await retainFixture(writer, target, old);
+    await writer.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await writer.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        records: [
+          {
+            id: account.indexedAccountId ?? '',
+            walletId: target.id,
+            index: account.pathIndex ?? 0,
+            name: 'Local index',
+            idHash: '',
+          },
+        ],
+      });
+      await writer.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        records: [account],
+      });
+    });
+    const stage = (candidate: IDBCloudSyncItem) =>
+      writer.storePendingCloudAccountHandoffs({
+        candidates: [candidate],
+        expectedForeignById: new Map([[old.id, old]]),
+        pwdHash: cloudHash,
+        isCurrent: () => true,
+      });
+    // An unproven invocation cannot promote a tombstone across spaces.
+    expect(await writer.deletePublicCloudAccounts(input)).toMatchObject({
+      pending: 1,
+      deleted: 0,
+    });
+    await stage({ ...current, isDeleted: false });
+    expect(await writer.getPendingCloudAccountHandoffs(cloudHash)).toHaveLength(
+      1,
+    );
+    expect(await writer.deletePublicCloudAccounts(input)).toMatchObject({
+      pending: 1,
+      deleted: 0,
+    });
+    await stage(current);
+    expect(await writer.getPendingCloudAccountHandoffs(cloudHash)).toHaveLength(
+      1,
+    );
+    const stale = { ...current, dataTime: (current.dataTime ?? 0) - 1 };
+    expect(
+      await writer.deletePublicCloudAccounts(parameters(target, stale, old)),
+    ).toMatchObject({ pending: 1, deleted: 0 });
+    expect(await reader.getSyncItem({ id: old.id })).toEqual(old);
+    expect(await readArchive(reader, old.id)).toEqual([]);
+
+    // Read from another connection to model replay after restarting.
+    const [staged] = await reader.getPendingCloudAccountHandoffs(cloudHash);
+    const apply = () =>
+      reader.deletePublicCloudAccounts(
+        parameters(target, staged.candidate, staged.expectedForeign),
+      );
+    const archive = jest
+      .spyOn(globalThis.IDBObjectStore.prototype, 'add')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('Injected archive failure');
+      });
+    await expect(apply()).rejects.toThrow('Injected archive failure');
+    archive.mockRestore();
+    expect(await reader.getSyncItem({ id: old.id })).toEqual(old);
+    expect(await readArchive(reader, old.id)).toEqual([]);
+    expect(await reader.getPendingCloudAccountHandoffs(cloudHash)).toHaveLength(
+      1,
+    );
+    expect(
+      await reader.getAccountSafe({ accountId: account.id }),
+    ).toMatchObject({
+      id: account.id,
+      indexedAccountId: account.indexedAccountId,
+    });
+    expect(await apply()).toMatchObject({ pending: 0, deleted: 1 });
+    expect(await reader.getAccountSafe({ accountId: account.id })).toBeFalsy();
+    expect(
+      (
+        await reader.getRecordsByIds({
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [account.indexedAccountId ?? ''],
+        })
+      ).records.filter(Boolean),
+    ).toEqual([]);
+    expect(await readArchive(writer, old.id)).toEqual([old]);
+    expect(await writer.getPendingCloudAccountHandoffs(cloudHash)).toEqual([]);
+    expect(await writer.getSyncItem({ id: old.id })).toMatchObject({
+      isDeleted: true,
+      pwdHash: cloudHash,
+      data: current.data,
+      dataTime: current.dataTime,
+      localSceneUpdated: true,
+      serverUploaded: true,
+      rawData: '',
+    });
+  },
+);
+
 it('still clears the active v21 pool when the archive is not available', async () => {
   platformEnv.isDesktop = false;
   jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
@@ -683,7 +800,9 @@ it('does not replay an earlier live candidate after a verified active-space tomb
     pwdHash: cloudHash,
     isCurrent: () => true,
   });
-  expect(await db.getPendingCloudAccountHandoffs(cloudHash)).toEqual([]);
+  expect(await db.getPendingCloudAccountHandoffs(cloudHash)).toMatchObject([
+    { candidate: { id: current.id, isDeleted: true }, expectedForeign: old },
+  ]);
   expect(
     await db.importPublicCloudAccounts(parameters(target, current, old)),
   ).toMatchObject({

@@ -2052,6 +2052,8 @@ class ServicePrimeCloudSync extends ServiceBase {
             const collisions = candidates.filter((item) =>
               foreignAccountsByWireId.has(item.id),
             );
+            // Preserve the existing live collision scene diagnostics. A
+            // destructive handoff must first pass verification and staging.
             collisionCandidates.push(
               ...collisions.filter((item) => !item.isDeleted),
             );
@@ -2083,6 +2085,9 @@ class ServicePrimeCloudSync extends ServiceBase {
                 pwdHash: activePwdHash,
                 isCurrent: isCurrent ?? (() => true),
               });
+              collisionCandidates.push(
+                ...verified.filter((item) => item.isDeleted),
+              );
             }
           }
         }

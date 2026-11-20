@@ -306,13 +306,17 @@ function harness(
   const committedBatches: number[] = [];
   const writePool = jest
     .spyOn(localDb, 'addAndUpdateSyncItems')
-    .mockImplementation(async ({ items, fn }) => {
+    .mockImplementation(async ({ items, fn, preserveExisting }) => {
       const staged = new Map(
         Array.from(pool, ([key, value]) => [key, cloneDeep(value)]),
       );
       for (const row of items) {
         const previous = staged.get(row.id);
-        if (!previous || (row.dataTime ?? 0) >= (previous.dataTime ?? 0))
+        if (
+          !previous ||
+          (!preserveExisting?.(previous) &&
+            (row.dataTime ?? 0) >= (previous.dataTime ?? 0))
+        )
           staged.set(row.id, cloneDeep(row));
       }
       const gate = commitGate;
@@ -1807,84 +1811,110 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
-  test('stores only selected-DEK authenticated canonical Desktop collision candidates', async () => {
-    const h = harness();
-    jest.replaceProperty(platformEnv, 'isDesktop', true);
-    jest.replaceProperty(platformEnv, 'isMas', false);
-    jest.replaceProperty(platformEnv, 'isDev', false);
-    const pwdHash = 'hw-dek-active';
-    const credential = {
-      masterPasswordUUID: pwdHash,
-      keylessCredential: { source: { type: 'hardware' }, hardwareSession: {} },
-    } as NonNullable<
-      Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
-    >;
-    jest
-      .spyOn(h.service, 'getSyncCredentialSafe')
-      .mockResolvedValue(credential);
-    const candidate: IDBCloudSyncItem = {
-      id: 'validated-wire-id',
-      data: 'original-opaque-ciphertext',
-      dataTime: 50,
-      dataType: EPrimeCloudSyncDataType.Account,
-      pwdHash,
-      isDeleted: false,
-      rawKey: '',
-      rawData: '',
-      localSceneUpdated: false,
-      serverUploaded: true,
-    };
-    const expectedForeign = {
-      ...candidate,
-      data: 'original-other-source-bytes',
-      pwdHash: 'foreign-fixture',
-      localSceneUpdated: true,
-    };
-    h.pool.set(candidate.id, expectedForeign);
-    const snapshot = publicAccountTestSnapshot();
-    const accountId = getPublicAccountSnapshotId(snapshot);
-    const rawKey = `Account >> ${accountId}`;
-    h.service.syncManagers.account.rawKeyToHashKey = jest.fn(
-      () => candidate.id,
-    );
-    const decrypt = jest
-      .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
-      .mockRejectedValueOnce(new OneKeyLocalError('unreadable ciphertext'))
-      .mockImplementationOnce(async ({ item }) => ({
-        dbItem: item,
-        rawDataJson: {
-          rawKey,
-          dataType: EPrimeCloudSyncDataType.Account,
-          payload: {
-            accountId,
-            name: snapshot.account.name,
-            publicAccountSnapshot: snapshot,
-          },
+  test.each([false, true])(
+    'stages only selected-DEK authenticated canonical Desktop collisions and never applies a bare deletion ACK (deleted=%s)',
+    async (isDeleted) => {
+      const h = harness();
+      jest.replaceProperty(platformEnv, 'isDesktop', true);
+      jest.replaceProperty(platformEnv, 'isMas', false);
+      jest.replaceProperty(platformEnv, 'isDev', false);
+      const pwdHash = 'hw-dek-active';
+      const credential = {
+        masterPasswordUUID: pwdHash,
+        keylessCredential: {
+          source: { type: 'hardware' },
+          hardwareSession: {},
         },
-        dataType: item.dataType,
-        isDeleted: item.isDeleted,
-      }));
-    const store = jest.spyOn(localDb, 'storePendingCloudAccountHandoffs');
-    const update = () =>
-      h.service.updateLocalItemsByServer({
-        localItems: [candidate],
-        syncCredential: credential,
-        shouldSyncToScene: true,
-        allowSettledAccountHandoff: true,
-      });
-    await update();
-    expect(store).not.toHaveBeenCalled();
-    await update();
-    expect(decrypt).toHaveBeenCalledTimes(2);
-    expect(store).toHaveBeenCalledWith(
-      expect.objectContaining({
-        candidates: [candidate],
-        expectedForeignById: new Map([[candidate.id, expectedForeign]]),
+      } as NonNullable<
+        Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
+      >;
+      jest
+        .spyOn(h.service, 'getSyncCredentialSafe')
+        .mockResolvedValue(credential);
+      const candidate: IDBCloudSyncItem = {
+        id: 'validated-wire-id',
+        data: 'original-opaque-ciphertext',
+        dataTime: 50,
+        dataType: EPrimeCloudSyncDataType.Account,
         pwdHash,
-      }),
-    );
-    expect(h.pool.get(candidate.id)).toEqual(expectedForeign);
-  });
+        isDeleted,
+        rawKey: '',
+        rawData: '',
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      const expectedForeign = {
+        ...candidate,
+        data: 'original-other-source-bytes',
+        pwdHash: 'foreign-fixture',
+        isDeleted: false,
+        localSceneUpdated: true,
+      };
+      h.pool.set(candidate.id, expectedForeign);
+      const snapshot = publicAccountTestSnapshot();
+      const accountId = getPublicAccountSnapshotId(snapshot);
+      const rawKey = `Account >> ${accountId}`;
+      h.service.syncManagers.account.rawKeyToHashKey = jest.fn(
+        () => candidate.id,
+      );
+      const decrypt = jest
+        .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockRejectedValueOnce(new OneKeyLocalError('unreadable ciphertext'))
+        .mockImplementationOnce(async ({ item }) => ({
+          dbItem: item,
+          rawDataJson: {
+            rawKey,
+            dataType: EPrimeCloudSyncDataType.Account,
+            payload: {
+              accountId,
+              name: snapshot.account.name,
+              publicAccountSnapshot: snapshot,
+            },
+          },
+          dataType: item.dataType,
+          isDeleted: item.isDeleted,
+        }));
+      const store = jest.spyOn(localDb, 'storePendingCloudAccountHandoffs');
+      const update = () =>
+        h.service.updateLocalItemsByServer({
+          localItems: [candidate],
+          syncCredential: credential,
+          shouldSyncToScene: true,
+          allowSettledAccountHandoff: true,
+        });
+      await update();
+      expect(store).not.toHaveBeenCalled();
+      expect(h.scene).toHaveBeenLastCalledWith(
+        expect.objectContaining({ items: isDeleted ? [] : [candidate] }),
+      );
+      await update();
+      expect(h.scene).toHaveBeenLastCalledWith(
+        expect.objectContaining({ items: [candidate] }),
+      );
+      expect(decrypt).toHaveBeenCalledTimes(2);
+      expect(store).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidates: [candidate],
+          expectedForeignById: new Map([[candidate.id, expectedForeign]]),
+          pwdHash,
+        }),
+      );
+      expect(h.pool.get(candidate.id)).toEqual(expectedForeign);
+      store.mockClear();
+      await h.service.saveServerDeletedItemsToLocal({
+        deletedItemIds: [candidate.id],
+        requestItems: [candidate],
+        shouldSyncToScene: true,
+        syncCredential: credential,
+        serverPwdHash: pwdHash,
+      });
+      expect(store).not.toHaveBeenCalled();
+      expect(h.scene).toHaveBeenLastCalledWith(
+        expect.objectContaining({ items: [] }),
+      );
+      expect(h.pool.get(candidate.id)).toEqual(expectedForeign);
+    },
+  );
 
   test.each(['startup', 'unlock'] as const)(
     'offline %s after keep-wallet commit recovers both pending sources despite a lost wallet-ready event',

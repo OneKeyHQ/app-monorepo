@@ -209,9 +209,14 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.restoreAllMocks();
   });
 
-  test.each(['valid', 'invalid cipher', 'wrong ID'] as const)(
-    'only forwards a collision with authenticated current ciphertext and wire identity to the account apply boundary: %s',
-    async (scenario) => {
+  test.each([
+    ['valid', false],
+    ['valid', true],
+    ['invalid cipher', true],
+    ['wrong ID', true],
+  ] as const)(
+    'only forwards a collision with authenticated current ciphertext and wire identity to the account apply boundary: %s (deleted=%s)',
+    async (scenario, isDeleted) => {
       const h = harness();
       const fixtureCredential = credential.keylessCredential;
       if (!fixtureCredential)
@@ -233,6 +238,7 @@ describe('public account snapshot Cloud scene integration', () => {
         undefined,
         selected,
       );
+      item.isDeleted = isDeleted;
       if (scenario === 'invalid cipher') item.data = 'inauthentic-fixture';
       if (scenario === 'wrong ID') item.id = `wrong-${item.id}`;
       const foreignCopy: IDBCloudSyncItem = {
@@ -240,6 +246,7 @@ describe('public account snapshot Cloud scene integration', () => {
         pwdHash: 'foreign-cloud-fixture',
         data: 'opaque-foreign-ciphertext',
         localSceneUpdated: true,
+        isDeleted: false,
       };
       const foreignAccountsByWireId = new Map([[item.id, foreignCopy]]);
       await h.manager.syncToScene({
@@ -250,6 +257,7 @@ describe('public account snapshot Cloud scene integration', () => {
       if (scenario === 'valid') {
         expect(importPublicAccountSnapshots).toHaveBeenCalledWith(
           expect.objectContaining({
+            action: isDeleted ? 'delete' : 'copy',
             foreignAccountsByWireId,
             snapshots: [snapshot],
           }),

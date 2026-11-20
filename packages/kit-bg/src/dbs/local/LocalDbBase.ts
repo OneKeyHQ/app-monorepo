@@ -9342,6 +9342,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
+  private matchesStagedCloudAccountHandoff(
+    staged: IPendingCloudAccountHandoff,
+    candidate: IDBCloudSyncItem,
+    foreign: IDBCloudSyncItem,
+  ) {
+    return (
+      isEqual(
+        staged.candidate,
+        this.cloudAccountHandoffWireVersion(candidate),
+      ) &&
+      isEqual(
+        staged.expectedForeign,
+        this.cloudAccountHandoffWireVersion(foreign),
+      )
+    );
+  }
+
   async getPendingCloudAccountHandoffs(pwdHash: string) {
     if (!supportsIndexedCloudAccountArchive() || !pwdHash) return [];
     return this.withTransaction(
@@ -9352,8 +9369,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             this.getPendingCloudAccountHandoffPrefix(pwdHash),
           )) ?? [];
         const records = entries.filter(
-          ({ candidate }) =>
-            candidate.pwdHash === pwdHash && !candidate.isDeleted,
+          ({ candidate }) => candidate.pwdHash === pwdHash,
         );
         if (!records.length) return [];
         const foreground = await this.txGetRecordsByIds({
@@ -9645,19 +9661,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 (await tx.pendingCloudAccountHandoffs?.read(
                   this.getPendingCloudAccountHandoffKey(source),
                 ));
-              const stagedMatches =
-                !staged ||
-                (!staged.candidate.isDeleted &&
-                  staged.candidate.data === source?.data &&
-                  staged.candidate.dataTime === source?.dataTime &&
-                  !!foreign &&
-                  isEqual(
-                    staged.expectedForeign,
-                    this.cloudAccountHandoffWireVersion(foreign),
-                  ));
               const sourceStillMatches = foreign
-                ? action === 'copy' &&
-                  stagedMatches &&
+                ? (staged
+                    ? this.matchesStagedCloudAccountHandoff(
+                        staged,
+                        source,
+                        foreign,
+                      )
+                    : action === 'copy') &&
                   !!tx.cloudAccountArchive &&
                   !!currentSource &&
                   isEqual(currentSource, foreign) &&
@@ -10007,13 +10018,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               );
               if (
                 staged &&
-                !staged.candidate.isDeleted &&
-                staged.candidate.data === incoming.data &&
-                staged.candidate.dataTime === incoming.dataTime &&
-                isEqual(
-                  staged.expectedForeign,
-                  this.cloudAccountHandoffWireVersion(foreign),
-                )
+                this.matchesStagedCloudAccountHandoff(staged, incoming, foreign)
               )
                 await tx.pendingCloudAccountHandoffs?.remove(staged);
               promoted.add(incoming.id);
