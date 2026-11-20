@@ -13,6 +13,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -462,7 +463,9 @@ describe('hardware Cloud key source lifecycle', () => {
       const xfp = `00001234--xpub${'A'.repeat(107)}`;
       mockConfig.hardwareCloudSyncKeySource = {
         ...source,
-        credentialId: `hardware-cloud-v1-${createHash('sha256').update(xfp).digest('hex')}`,
+        credentialId: `hardware-cloud-v1-${createHash('sha256')
+          .update(xfp)
+          .digest('hex')}`,
         deviceName: 'Old label',
         deviceSerialNoHash: displayDeviceSerialNoHash,
       };
@@ -526,7 +529,9 @@ describe('hardware Cloud key source lifecycle', () => {
     const xfp = `00001234--xpub${'A'.repeat(107)}`;
     const selected = {
       ...source,
-      credentialId: `hardware-cloud-v1-${createHash('sha256').update(xfp).digest('hex')}`,
+      credentialId: `hardware-cloud-v1-${createHash('sha256')
+        .update(xfp)
+        .digest('hex')}`,
       deviceName: 'Old label',
       deviceSerialNoHash: displayDeviceSerialNoHash,
     };
@@ -750,6 +755,109 @@ describe('hardware Cloud key source lifecycle', () => {
         askPasswordOnlyIfHdXfpMissing: true,
       }),
     );
+  });
+
+  test('an unreadable Desktop credential permits only the local display callback', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    const unavailable = new Error('Synthetic secure-storage failure');
+    unavailable.name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockRejectedValueOnce(unavailable);
+    const ordinary = jest.fn(async () => 'ordinary');
+    const localDisplay = jest.fn(async () => 'local-only');
+    await expect(
+      service.runWithDesktopWalletMetadataKey(ordinary, localDisplay),
+    ).resolves.toBe('local-only');
+    expect(ordinary).not.toHaveBeenCalled();
+    expect(localDisplay).toHaveBeenCalledTimes(1);
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+    expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
+  });
+
+  test('a real business failure is not converted into local display success', async () => {
+    const { service } = setup();
+    mockConfig.isCloudSyncEnabled = false;
+    mockConfig.isCloudSyncEnabledKeyless = false;
+    const businessFailure = new OneKeyLocalError(
+      'Unexpected local write failure',
+    );
+    const ordinary = jest.fn(async () => {
+      throw businessFailure;
+    });
+    const localDisplay = jest.fn();
+    await expect(
+      service.runWithDesktopWalletMetadataKey(ordinary, localDisplay),
+    ).rejects.toBe(businessFailure);
+    expect(localDisplay).not.toHaveBeenCalled();
+  });
+
+  test('a stalled credential read cannot cause a late second Wallet write', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    const blocked = Promise.withResolvers<IKeylessCloudSyncCredential | null>();
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockReturnValueOnce(blocked.promise);
+    const ordinary = jest.fn(async () => 'ordinary');
+    const localDisplay = jest.fn(async () => 'local-only');
+    jest.useFakeTimers();
+    try {
+      const save = service.runWithDesktopWalletMetadataKey(
+        ordinary,
+        localDisplay,
+      );
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(save).resolves.toBe('local-only');
+      blocked.resolve(null);
+      await jest.runAllTimersAsync();
+      expect(ordinary).not.toHaveBeenCalled();
+      expect(localDisplay).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('after admission a stalled optional preparation cannot write after the local save', async () => {
+    const { service } = setup();
+    mockConfig.isCloudSyncEnabled = false;
+    mockConfig.isCloudSyncEnabledKeyless = false;
+    const finishCloudPreparation = Promise.withResolvers<void>();
+    const admitted = Promise.withResolvers<void>();
+    const cloudBusinessWrite = jest.fn();
+    const optionalPreparation = jest.fn(
+      async (_credential: unknown, claimWrite: () => boolean) => {
+        admitted.resolve();
+        await finishCloudPreparation.promise;
+        if (claimWrite()) cloudBusinessWrite();
+        return 'cloud';
+      },
+    );
+    const localDisplay = jest.fn(async () => 'local-only');
+    jest.useFakeTimers();
+    try {
+      const save = service.runWithDesktopWalletMetadataKey(
+        optionalPreparation,
+        localDisplay,
+      );
+      await admitted.promise;
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(save).resolves.toBe('local-only');
+      finishCloudPreparation.resolve();
+      await jest.runAllTimersAsync();
+      expect(optionalPreparation).toHaveBeenCalledTimes(1);
+      expect(localDisplay).toHaveBeenCalledTimes(1);
+      expect(cloudBusinessWrite).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('startup recovery finishes before queued writers and reads inside the key lock do not deadlock', async () => {

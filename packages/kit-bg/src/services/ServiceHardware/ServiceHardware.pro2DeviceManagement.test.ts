@@ -2485,9 +2485,12 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     [EDeviceType.Pro2, ''],
     [EDeviceType.Neo, undefined],
   ] as const)(
-    'writes the %s label back when Success.message is %j',
+    'writes the %s label back when Success.message is %j without waiting for Cloud metadata',
     async (deviceType, message) => {
       const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+      const syncHardwareCloudSyncDeviceLabel = jest.fn(
+        async () => new Promise<void>(() => {}),
+      );
       const currentState = {
         protocol: 'V2',
         revision: 4,
@@ -2515,9 +2518,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       const service = new ServiceHardware({
         backgroundApi: {
           serviceKeylessCloudSync: {
-            syncHardwareCloudSyncDeviceLabel: jest
-              .fn()
-              .mockResolvedValue(undefined),
+            syncHardwareCloudSyncDeviceLabel,
           },
           serviceAccount: {
             getWalletSafe: jest.fn().mockResolvedValue({
@@ -2568,9 +2569,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       );
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+        allowDesktopLocalMetadata: true,
         walletId: 'hw-wallet-1',
         name: 'Hardware Label',
         shouldCheckDuplicate: false,
+      });
+      expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
+        walletId: 'hw-wallet-1',
+        label: 'Hardware Label',
       });
       expect(appEventBus.emit).not.toHaveBeenCalledWith(
         EAppEventBusNames.SyncDeviceLabelToWalletName,

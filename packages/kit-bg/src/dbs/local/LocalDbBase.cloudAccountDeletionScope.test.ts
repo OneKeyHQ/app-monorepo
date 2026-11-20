@@ -215,7 +215,7 @@ async function archived(db: LocalDbIndexed) {
     await agent
       .getIndexedByBucketName(EIndexedDBBucketNames.account)
       .getAll(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-  ).map((item) => item.record);
+  ).flatMap((item) => ('record' in item ? [item.record] : []));
 }
 
 beforeEach(() => {

@@ -19,6 +19,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+import { useWalletMetadataPresentation } from '../../../hooks/useWalletMetadataPresentation';
 import { useAccountSelectorSceneInfo } from '../../../states/jotai/contexts/accountSelector';
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
@@ -66,8 +67,13 @@ export function AccountSelectorTriggerBase({
     ...others,
   });
   const intl = useIntl();
+  const displayWallet = useWalletMetadataPresentation(
+    showWalletName || showWalletAvatar ? wallet?.id : undefined,
+    wallet,
+  );
   const walletName =
-    wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
+    displayWallet?.name ||
+    intl.formatMessage({ id: ETranslations.global_no_wallet });
   const displayAccountName =
     accountName || intl.formatMessage({ id: ETranslations.no_account });
 
@@ -149,7 +155,7 @@ export function AccountSelectorTriggerBase({
           indexedAccount={indexedAccount}
           account={account}
           dbAccount={dbAccount}
-          wallet={showWalletAvatar ? wallet : undefined}
+          wallet={showWalletAvatar ? displayWallet : undefined}
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
@@ -215,7 +221,7 @@ export function AccountSelectorTriggerBase({
     isTriggerDisabled,
     showWalletAvatar,
     showWalletName,
-    wallet,
+    displayWallet,
     walletName,
     intl,
   ]);

@@ -172,6 +172,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   associatedDeviceInfo?: IDBDevice; // readonly field
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
+  hasDesktopLocalMetadata?: boolean; // presentation only
   hiddenWallets?: IDBWallet[]; // readonly field
   dbAccounts?: IDBAccount[]; // readonly field
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
@@ -243,7 +244,20 @@ export type IDBCreateQRWalletParams = {
   existingDeviceId?: string;
   firmwareTypeAtCreated?: EFirmwareType;
 };
+export type IDesktopWalletLocalMetadata = {
+  id: `wallet-local-metadata:${string}`;
+  kind: 'wallet-local-metadata';
+  modifiedAt: number;
+  walletNo: number;
+  walletType: IDBWalletType;
+  associatedDevice?: string;
+  passphraseState?: string;
+  name?: string;
+  avatar?: IAvatarInfo;
+};
+
 export type IDBSetWalletNameAndAvatarParams = {
+  allowDesktopLocalMetadata?: boolean;
   cloudSyncSource?: IDBCloudSyncItem;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
@@ -585,7 +599,9 @@ export type IIndexedDBStoreName =
 export interface IIndexedDBSchemaMap extends DBSchema {
   CloudSyncAccountArchive: {
     key: string;
-    value: { id: string; record: IDBCloudSyncItem };
+    value:
+      | { id: string; record: IDBCloudSyncItem }
+      | IDesktopWalletLocalMetadata;
   };
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
@@ -727,6 +743,13 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  desktopWalletLocalMetadata?: {
+    read(
+      id: IDesktopWalletLocalMetadata['id'],
+    ): Promise<IDesktopWalletLocalMetadata | undefined>;
+    write(record: IDesktopWalletLocalMetadata): Promise<void>;
+    remove(id: IDesktopWalletLocalMetadata['id']): Promise<void>;
+  };
   cloudAccountArchive?: {
     retain(record: IDBCloudSyncItem): Promise<void>;
   };
@@ -872,6 +895,10 @@ export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
+  skipCloudCredentialWarmup?: boolean;
+  // IndexedDB only. Required before retrying another business transaction
+  // after a deliberately declined optional pool write.
+  confirmRollbackOnError?: boolean;
   readOnly?: boolean;
   /**
    * Let the transaction run while the disk-full guard is raised. Set it for

@@ -847,7 +847,10 @@ class ServiceHardware extends ServiceBase {
       walletId,
       label,
       walletName,
-    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      allowDesktopLocalMetadata,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName] & {
+      allowDesktopLocalMetadata?: boolean;
+    }) => {
       const isHw =
         accountUtils.isHwWallet({ walletId }) &&
         !accountUtils.isQrWallet({ walletId });
@@ -880,16 +883,13 @@ class ServiceHardware extends ServiceBase {
       }
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
+        allowDesktopLocalMetadata,
         name: label,
         shouldCheckDuplicate: false,
       });
-      try {
-        await this.backgroundApi.serviceKeylessCloudSync.syncHardwareCloudSyncDeviceLabel(
-          { walletId, label },
-        );
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-      }
+      void this.backgroundApi.serviceKeylessCloudSync
+        .syncHardwareCloudSyncDeviceLabel({ walletId, label })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     },
     {
       maxAge: 600,
@@ -3845,6 +3845,7 @@ class ServiceHardware extends ServiceBase {
         label: result.label,
       });
       await this.handleHardwareLabelChanged({
+        allowDesktopLocalMetadata: true,
         walletId: p.walletId,
         dbDeviceId,
         label: result.label,

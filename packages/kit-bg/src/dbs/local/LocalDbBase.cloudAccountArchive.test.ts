@@ -127,9 +127,9 @@ async function readArchive(db: LocalDbIndexed, id: string) {
     throw new OneKeyLocalError('Expected test IndexedDB agent');
   const accountDb = agent.getIndexedByBucketName(EIndexedDBBucketNames.account);
   const records = await accountDb.getAll(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE);
-  return records
-    .filter((entry) => entry.record.id === id)
-    .map((entry) => entry.record);
+  return records.flatMap((entry) =>
+    'record' in entry && entry.record.id === id ? [entry.record] : [],
+  );
 }
 
 beforeEach(() => {

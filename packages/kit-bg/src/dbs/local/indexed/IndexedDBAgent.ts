@@ -331,6 +331,33 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
       const tx: ILocalDBTransaction = {
         bucketName,
+        ...(hasCloudAccountArchive
+          ? {
+              desktopWalletLocalMetadata: {
+                read: async (id) => {
+                  const value = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .get(id);
+                  return value &&
+                    'kind' in value &&
+                    value.kind === 'wallet-local-metadata' &&
+                    value.id === id
+                    ? value
+                    : undefined;
+                },
+                write: async (record) => {
+                  await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .put(record);
+                },
+                remove: async (id) => {
+                  await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .delete(id);
+                },
+              },
+            }
+          : {}),
         ...(hasCloudAccountArchive && !readOnly
           ? {
               cloudAccountArchive: {
@@ -448,6 +475,16 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
             errorUtils.logCurrentCallStack('localDB.withTransaction Failed');
           }
         }
+      }
+      if (options?.confirmRollbackOnError) {
+        try {
+          await dbTx.done;
+        } catch {
+          throw error;
+        }
+        throw new OneKeyLocalError(
+          'Local wallet transaction rollback could not be confirmed',
+        );
       }
       throw error;
     }

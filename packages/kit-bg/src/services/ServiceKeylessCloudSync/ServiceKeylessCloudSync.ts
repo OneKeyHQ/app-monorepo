@@ -342,6 +342,107 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
   }
 
+  async runWithDesktopWalletMetadataKey<T>(
+    applyVerifiedScope: (
+      credential: ICloudSyncCredential | undefined,
+      claimWrite: () => boolean,
+    ) => Promise<T>,
+    saveLocalDisplayOnly: () => Promise<T>,
+  ): Promise<T> {
+    let allowCloud = true;
+    let applying = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => {
+        allowCloud = false;
+        resolve(undefined);
+      }, 1000);
+    });
+    const claimWrite = () => {
+      if (!allowCloud) return false;
+      clearTimeout(timer);
+      return true;
+    };
+    const write = async (credential?: ICloudSyncCredential) => {
+      if (!allowCloud) return undefined;
+      applying = true;
+      return { value: await applyVerifiedScope(credential, claimWrite) };
+    };
+    const prepare = async () => {
+      try {
+        return await this.runWithCloudSyncKeyLock(async () => {
+          if (!allowCloud) return undefined;
+          const config = await primeCloudSyncPersistAtom.get();
+          const source = config.hardwareCloudSyncKeySource;
+          const selectedId = config.currentCloudSyncKeylessWalletId;
+          if (
+            !config.isCloudSyncEnabled &&
+            !config.isCloudSyncEnabledKeyless &&
+            !source
+          )
+            return write();
+          if (
+            config.isCloudSyncEnabled ||
+            !config.isCloudSyncEnabledKeyless ||
+            !selectedId
+          )
+            return undefined;
+          const credential =
+            await keylessSyncCredentialStorage.getCredential(selectedId);
+          if (!credential || credential.keylessWalletId !== selectedId)
+            return undefined;
+          if (source) {
+            return this.runWithVerifiedHardwareAccountArchiveSession(
+              credential,
+              () =>
+                write(
+                  this.buildSyncCredentialWithKeylessCredential(credential),
+                ),
+            );
+          }
+          // A software-key write also uses the current persisted credential, not
+          // a repair cache that can outlive a sign-out or credential replacement.
+          return this.repairCredentialMutex.runExclusive(async () => {
+            const selected = await primeCloudSyncPersistAtom.get();
+            if (
+              selected.isCloudSyncEnabled ||
+              !selected.isCloudSyncEnabledKeyless ||
+              selected.hardwareCloudSyncKeySource ||
+              selected.currentCloudSyncKeylessWalletId !== selectedId
+            )
+              return undefined;
+            const stored =
+              await keylessSyncCredentialStorage.getCredential(selectedId);
+            if (
+              !stored ||
+              stored.source ||
+              stored.hardwareSession ||
+              stored.keylessWalletId !== selectedId ||
+              !stored.pwdHash ||
+              !stored.encryptionKey ||
+              !stored.signingPublicKey
+            )
+              return undefined;
+            return write(this.buildSyncCredentialWithKeylessCredential(stored));
+          });
+        });
+      } catch (error) {
+        // Errors from the local business callback are not authentication
+        // failures, even if a genuine local read failed before it could start.
+        if (applying) throw error;
+        return undefined;
+      }
+    };
+    try {
+      const result = await Promise.race([deadline, prepare()]);
+      if (result) return result.value;
+      allowCloud = false;
+      return await saveLocalDisplayOnly();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // Scene replay takes only the import gate. Key-changing commits take the key
   // lock first, then this gate; never use this around a scene replay itself.
   private runWithCloudSyncSourceLock<T>(

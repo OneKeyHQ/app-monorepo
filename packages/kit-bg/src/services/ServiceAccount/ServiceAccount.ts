@@ -638,15 +638,19 @@ class ServiceAccount extends ServiceBase {
   async getWalletSafe({
     walletId,
     withoutRefill,
+    metadataForDisplay,
   }: {
     walletId: string;
     withoutRefill?: boolean;
+    metadataForDisplay?: boolean;
   }): Promise<IDBWallet | undefined> {
     const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
     if (!wallet) {
       return undefined;
     }
-    return wallet;
+    if (!metadataForDisplay) return wallet;
+    const [display] = await localDb.getWalletsForMetadataPresentation([wallet]);
+    return display ?? wallet;
   }
 
   // TODO move to serviceHardware
@@ -755,7 +759,9 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets(options?: IDBGetWalletsParams): Promise<{
+  async getWallets(
+    options?: IDBGetWalletsParams & { metadataForDisplay?: boolean },
+  ): Promise<{
     wallets: IDBWallet[];
   }> {
     const r = await localDb.getWallets(options);
@@ -769,7 +775,9 @@ class ServiceAccount extends ServiceBase {
 
     return {
       ...r,
-      wallets,
+      wallets: options?.metadataForDisplay
+        ? await localDb.getWalletsForMetadataPresentation(wallets)
+        : wallets,
     };
   }
 
@@ -5608,7 +5616,11 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    if (name && oldName && oldName !== result.name) {
+    const savedName =
+      name && result.hasDesktopLocalMetadata
+        ? (await localDb.getWallet({ walletId })).name
+        : result.name;
+    if (name && oldName && oldName !== savedName) {
       // Record the name change history
       await simpleDb.changeHistory.addChangeHistory({
         items: [
@@ -5617,7 +5629,7 @@ class ServiceAccount extends ServiceBase {
             entityId: walletId,
             contentType: EChangeHistoryContentType.Name,
             oldValue: oldName,
-            value: result.name,
+            value: savedName,
           },
         ],
       });

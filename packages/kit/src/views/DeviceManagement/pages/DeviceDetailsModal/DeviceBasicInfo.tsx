@@ -12,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { useWalletMetadataPresentation } from '@onekeyhq/kit/src/hooks/useWalletMetadataPresentation';
 import {
   getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
@@ -36,7 +37,11 @@ function DeviceWalletAvatar({
   size: number;
 }) {
   const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet } = walletWithDevice ?? {};
+  const { wallet: canonicalWallet } = walletWithDevice ?? {};
+  const wallet = useWalletMetadataPresentation(
+    canonicalWallet?.id,
+    canonicalWallet,
+  );
   return (
     <WalletAvatar
       size={size}
@@ -55,7 +60,11 @@ function DeviceWalletRenameButton({
   textSize: '$headingXl' | '$heading2xl';
 }) {
   const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet } = walletWithDevice ?? {};
+  const { wallet: canonicalWallet } = walletWithDevice ?? {};
+  const wallet = useWalletMetadataPresentation(
+    canonicalWallet?.id,
+    canonicalWallet,
+  );
   if (!wallet) return null;
   return <WalletRenameButton wallet={wallet} editable textSize={textSize} />;
 }
