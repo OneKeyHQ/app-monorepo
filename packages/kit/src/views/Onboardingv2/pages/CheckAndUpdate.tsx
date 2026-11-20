@@ -38,7 +38,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { formatLocaleDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -839,45 +838,6 @@ function CheckAndUpdatePage({
     return unsubscribe;
   }, [reactNavigation]);
 
-  // Once the device checks out, the genuine row says when it was first
-  // verified and how long its warranty runs. Nothing without a record.
-  const [warrantyLine, setWarrantyLine] = useState<string>();
-  const showWarrantyLine = useCallback(async () => {
-    const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
-      getActiveDeviceFeatures() ?? deviceFeaturesRef.current,
-    );
-    if (!serialNo) {
-      return;
-    }
-    const { info } = await backgroundApiProxy.serviceHardware
-      .refreshDeviceWarranty({ serialNo })
-      .catch(() => ({ info: undefined }));
-    if (!info?.startAt || !info.endAt || info.status === 'unknown') {
-      return;
-    }
-    const startDate = formatLocaleDate(new Date(info.startAt));
-    const endDate = formatLocaleDate(new Date(info.endAt));
-    const firstVerified =
-      startDate === formatLocaleDate(new Date())
-        ? intl.formatMessage({
-            id: ETranslations.device_check_first_verified_today__desc,
-          })
-        : intl.formatMessage(
-            { id: ETranslations.device_check_first_verified__desc },
-            { date: startDate },
-          );
-    const coverage = intl.formatMessage(
-      {
-        id:
-          info.status === 'expired'
-            ? ETranslations.device_check_warranty_expired__desc
-            : ETranslations.device_check_warranty_until__desc,
-      },
-      { date: endDate },
-    );
-    setWarrantyLine(`${firstVerified} · ${coverage}`);
-  }, [getActiveDeviceFeatures, intl]);
-
   const runGenuineCheck = useCallback(
     async (checkFirmwareAfterSuccess: boolean) => {
       // Double-check: ensure device scanning is fully stopped before starting verification
@@ -905,7 +865,6 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      setWarrantyLine(undefined);
 
       try {
         const verificationDevice =
@@ -933,7 +892,6 @@ function CheckAndUpdatePage({
         let genuineState = ECheckAndUpdateStepState.Error;
         if (result.verified) {
           genuineState = ECheckAndUpdateStepState.Success;
-          void showWarrantyLine();
         } else if (result.skipVerification) {
           genuineState = ECheckAndUpdateStepState.Skipped;
         }
@@ -992,7 +950,6 @@ function CheckAndUpdatePage({
       checkFirmwareUpdate,
       getActiveDevice,
       currentDevice,
-      showWarrantyLine,
     ],
   );
 
@@ -1223,9 +1180,6 @@ function CheckAndUpdatePage({
           step.id === ECheckAndUpdateStepId.FirmwareCheck &&
           isFirmwareRecheckPending;
         let displayDescription = isStepCollapsed ? undefined : step.description;
-        if (step.id === ECheckAndUpdateStepId.GenuineCheck && isStepSuccess) {
-          displayDescription = warrantyLine;
-        }
         if (isFirmwareRecheckWaiting) {
           displayDescription = intl.formatMessage({
             id: ETranslations.update_checking_device_if_no_restart,
