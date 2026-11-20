@@ -2406,9 +2406,9 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.fetchAppUpdateInfo(true);
 
       expect(atomValue.featuredChangelog).toBeNull();
-      expect(atomValue.featuredChangelogs).toEqual({
-        '1.0.0': installedFeatured,
-      });
+      // 9906.15.1 may keep a spare slot: it is only read again once a check
+      // selects it, and that check rewrites its entry.
+      expect(atomValue.featuredChangelogs?.['1.0.0']).toEqual(installedFeatured);
       expect(
         getFeaturedChangelogForVersion(mergeWithSnapshot(atomValue), '1.0.0'),
       ).toEqual(installedFeatured);
@@ -2427,6 +2427,28 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.featuredChangelogs).toEqual({
         '1.0.0': installedFeatured,
         '2.0.0': null,
+      });
+    });
+
+    test('keeps at most MAX_FEATURED_CHANGELOG_VERSIONS entries across checks', async () => {
+      const card = (version: string) => ({ ...installedFeatured, version });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.done,
+        featuredChangelogs: {
+          '0.8.0': card('0.8.0'),
+          '0.9.0': card('0.9.0'),
+          '1.0.0': card('1.0.0'),
+        },
+      });
+      mockRelease({ version: '3.0.0', featuredChangelog: card('3.0.0') });
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.featuredChangelogs).toEqual({
+        '1.0.0': card('1.0.0'),
+        '3.0.0': card('3.0.0'),
+        '0.9.0': card('0.9.0'),
       });
     });
 

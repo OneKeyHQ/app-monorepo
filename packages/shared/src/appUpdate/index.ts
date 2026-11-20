@@ -27,8 +27,9 @@ export {
   type IFeaturedChangelogsByVersion,
   getFeaturedChangelogForVersion,
   hasFeaturedChangelog,
+  MAX_FEATURED_CHANGELOG_VERSIONS,
+  buildFeaturedChangelogs,
   isAllowedFeaturedHref,
-  pickFeaturedChangelogs,
   normalizeFeaturedChangelog,
 } from './featuredChangelog';
 

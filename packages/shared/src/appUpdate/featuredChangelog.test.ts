@@ -1,7 +1,8 @@
 import {
   getFeaturedChangelogForVersion,
   normalizeFeaturedChangelog,
-  pickFeaturedChangelogs,
+  MAX_FEATURED_CHANGELOG_VERSIONS,
+  buildFeaturedChangelogs,
 } from './featuredChangelog';
 
 const media = { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' };
@@ -100,13 +101,48 @@ describe('versioned Featured Changelog storage', () => {
     expect(getFeaturedChangelogForVersion(state, '1.0.0')).toBeUndefined();
   });
 
-  it('keeps only the requested versions and migrates a matching legacy slot', () => {
-    const state = {
-      featuredChangelog: card('1.0.0'),
-      featuredChangelogs: { '2.0.0': null, '9906.15.1': card('9906.15.1') },
-    };
+  it('migrates the legacy slot only for a priority version', () => {
     expect(
-      pickFeaturedChangelogs(state, ['1.0.0', '2.0.0', '3.0.0', undefined]),
+      buildFeaturedChangelogs({ featuredChangelog: card('1.0.0') }, {}, [
+        '1.0.0',
+      ]),
+    ).toEqual({ '1.0.0': card('1.0.0') });
+    expect(
+      buildFeaturedChangelogs({ featuredChangelog: card('9906.15.1') }, {}, [
+        '1.0.0',
+      ]),
+    ).toEqual({});
+  });
+
+  it('applies updates, including explicit null removals', () => {
+    expect(
+      buildFeaturedChangelogs(
+        { featuredChangelogs: { '1.0.0': card('1.0.0') } },
+        { '2.0.0': null },
+        ['1.0.0', '2.0.0'],
+      ),
     ).toEqual({ '1.0.0': card('1.0.0'), '2.0.0': null });
+  });
+
+  it(`caps the map at ${MAX_FEATURED_CHANGELOG_VERSIONS} versions, keeping priority versions first`, () => {
+    const result = buildFeaturedChangelogs(
+      {
+        featuredChangelogs: {
+          '1.0.0': card('1.0.0'),
+          '1.1.0': card('1.1.0'),
+          '1.2.0': card('1.2.0'),
+          '9906.15.1': card('9906.15.1'),
+        },
+      },
+      { '2.0.0': card('2.0.0') },
+      ['1.0.0', '2.0.0', undefined, '1.0.0'],
+    );
+    expect(Object.keys(result)).toHaveLength(MAX_FEATURED_CHANGELOG_VERSIONS);
+    // Priority versions first, then the newest remaining version.
+    expect(result).toEqual({
+      '1.0.0': card('1.0.0'),
+      '2.0.0': card('2.0.0'),
+      '9906.15.1': card('9906.15.1'),
+    });
   });
 });

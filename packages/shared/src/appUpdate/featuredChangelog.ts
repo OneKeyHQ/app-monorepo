@@ -1,3 +1,5 @@
+import semver from 'semver';
+
 import { ENotificationPushMessageMode } from '../../types/notification';
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 
@@ -76,19 +78,48 @@ export function getFeaturedChangelogForVersion(
     : undefined;
 }
 
-// Keeps only the requested versions (migrating a matching legacy slot) so the
-// map stays bounded to the installed version and the pending update target.
-export function pickFeaturedChangelogs(
+export const MAX_FEATURED_CHANGELOG_VERSIONS = 3;
+
+function compareVersionsDesc(a: string, b: string): number {
+  const validA = semver.valid(a);
+  const validB = semver.valid(b);
+  if (validA && validB) return semver.rcompare(validA, validB);
+  if (validA) return -1;
+  if (validB) return 1;
+  return a < b ? 1 : -1;
+}
+
+/**
+ * Builds the next `featuredChangelogs` map for a write: existing entries plus
+ * `updates`, capped at MAX_FEATURED_CHANGELOG_VERSIONS. `priorityVersions`
+ * (installed version, update target) are kept first; remaining slots go to the
+ * newest other versions. The legacy slot is migrated only when it describes a
+ * priority version, so a withdrawn release's cards are never carried over.
+ */
+export function buildFeaturedChangelogs(
   state: IFeaturedChangelogState | null | undefined,
-  versions: Array<string | undefined>,
+  updates: IFeaturedChangelogsByVersion,
+  priorityVersions: Array<string | undefined>,
 ): IFeaturedChangelogsByVersion {
+  const priority = priorityVersions.filter(
+    (version, index, list): version is string =>
+      !!version && list.indexOf(version) === index,
+  );
+  const entries: IFeaturedChangelogsByVersion = {};
+  const legacy = state?.featuredChangelog;
+  if (legacy?.version && priority.includes(legacy.version)) {
+    entries[legacy.version] = legacy;
+  }
+  Object.assign(entries, state?.featuredChangelogs, updates);
+
+  const others = Object.keys(entries)
+    .filter((version) => !priority.includes(version))
+    .sort(compareVersionsDesc);
   const result: IFeaturedChangelogsByVersion = {};
-  for (const version of versions) {
-    if (version && !hasOwnVersion(result, version)) {
-      const featuredChangelog = lookupFeaturedChangelog(state, version);
-      if (featuredChangelog !== undefined) {
-        result[version] = featuredChangelog;
-      }
+  for (const version of [...priority, ...others]) {
+    if (Object.keys(result).length >= MAX_FEATURED_CHANGELOG_VERSIONS) break;
+    if (hasOwnVersion(entries, version)) {
+      result[version] = entries[version] ?? null;
     }
   }
   return result;

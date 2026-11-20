@@ -22,8 +22,8 @@ import {
   isFirstLaunchAfterUpdated,
   isPlaceholderUpdateDownloadUrl,
   isUsableUpdateDownloadUrl,
+  buildFeaturedChangelogs,
   normalizeFeaturedChangelog,
-  pickFeaturedChangelogs,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -325,18 +325,18 @@ function buildReleaseFeaturedChangelogs(
 ): IFeaturedChangelogsByVersion {
   const installedVersion = platformEnv.version;
   const releaseVersion = releaseInfo.version;
-  const featuredChangelogs = pickFeaturedChangelogs(prev, [
+  const updates: IFeaturedChangelogsByVersion = {};
+  if (releaseVersion) {
+    if (releaseInfo.featuredChangelog) {
+      updates[releaseVersion] = releaseInfo.featuredChangelog;
+    } else if (releaseVersion !== installedVersion) {
+      updates[releaseVersion] = null;
+    }
+  }
+  return buildFeaturedChangelogs(prev, updates, [
     installedVersion,
     releaseVersion || prev.latestVersion,
   ]);
-  if (releaseVersion) {
-    if (releaseInfo.featuredChangelog) {
-      featuredChangelogs[releaseVersion] = releaseInfo.featuredChangelog;
-    } else if (releaseVersion !== installedVersion) {
-      featuredChangelogs[releaseVersion] = null;
-    }
-  }
-  return featuredChangelogs;
 }
 
 @backgroundClass()
@@ -1552,10 +1552,11 @@ class ServiceAppUpdate extends ServiceBase {
           ? {
               ...prev,
               featuredChangelog: null,
-              featuredChangelogs: {
-                ...pickFeaturedChangelogs(prev, [installedVersion]),
-                [installedVersion]: featuredChangelog ?? null,
-              },
+              featuredChangelogs: buildFeaturedChangelogs(
+                prev,
+                { [installedVersion]: featuredChangelog ?? null },
+                [installedVersion],
+              ),
             }
           : prev,
       );
