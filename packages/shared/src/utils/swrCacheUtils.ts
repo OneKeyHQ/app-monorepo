@@ -317,6 +317,9 @@ const _lastReloadForTargetAt = new Map<string, number>();
 // Replaying the whole hydrated store instead would revive keys the other
 // runtime removed after this JS heap took its snapshot.
 const _updatedKeys = new Set<string>();
+// Keep freshness-sensitive verification times for an explicit flush, such as
+// entering the background. The timestamp identifies the payload we verified.
+const _revalidatedKeys = new Map<string, number>();
 
 // Without these, the copy still sitting on disk would revive a key deleted here.
 const _removedKeysAt = new Map<string, number>();
@@ -364,7 +367,10 @@ function readThroughToStore<T>(key: string): ISWREntry<T> | undefined {
   if (isDeletedLocally(key, stored.t)) {
     return undefined;
   }
-  const entry = { d: stored.d, t: stored.t } as ISWREntry<T>;
+  const entry = {
+    d: getCacheableResult(key, stored.d),
+    t: stored.t,
+  } as ISWREntry<T>;
   let serialized: ISerializedSWRCacheEntry<ISWREntry<T>> | undefined;
   if (
     typeof stored.serializedChars === 'number' &&
@@ -467,7 +473,7 @@ function diffHermesHeapStats(before: IHermesHeapStats | undefined) {
  * held here — pending writes first, so nothing still pending is lost.
  */
 function reloadFromStorage(): void {
-  flush();
+  flush(true);
   const startedAt = perfNow();
   const heapBefore = readHermesHeapStats();
   const store = loadStore();
@@ -529,6 +535,7 @@ function resetCacheSerializedChars(store: ISWRStore) {
 }
 
 function removeCachedEntry(store: ISWRStore, key: string) {
+  _revalidatedKeys.delete(key);
   const serializedChars = _cacheEntrySerializedChars.get(key);
   if (serializedChars !== undefined) {
     const entryCount = _cacheEntrySerializedChars.size;
@@ -651,12 +658,16 @@ function clearPendingIntents() {
   _dirty = false;
 }
 
-function flush() {
-  if (!_dirty || !_cache) return;
+function flush(includeVerifiedTimestamps = false) {
+  if (
+    (!_dirty && !(includeVerifiedTimestamps && _revalidatedKeys.size)) ||
+    !_cache
+  ) {
+    return;
+  }
   try {
     const startedAt = perfNow();
     const heapBefore = readHermesHeapStats();
-    const updatedKeyCount = _updatedKeys.size;
     // Order matters: the wipes are what this runtime decided is gone, and
     // they must not take the writes that followed them with them.
     if (_clearedAllAt > 0) {
@@ -671,8 +682,20 @@ function flush() {
         updates.push([key, { d: entry.d, t: entry.t }]);
       }
     });
+    if (includeVerifiedTimestamps) {
+      _revalidatedKeys.forEach((previousTimestamp, key) => {
+        const entry = _cache?.[key];
+        const stored = entry && readSwrCacheEntry(key);
+        if (entry && stored?.t === previousTimestamp) {
+          updates.push([key, { d: entry.d, t: entry.t }]);
+        }
+      });
+    }
     if (updates.length > 0) {
       writeSwrCacheEntries(updates);
+    }
+    if (includeVerifiedTimestamps) {
+      _revalidatedKeys.clear();
     }
     clearPendingIntents();
     const durationMs = Math.round(perfNow() - startedAt);
@@ -686,7 +709,7 @@ function flush() {
         pruneMs: 0,
         patchMs: durationMs,
         adoptMs: 0,
-        updatedKeyCount,
+        updatedKeyCount: updates.length,
         patchChars: updates.reduce(
           (sum, [key]) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
           0,
@@ -743,6 +766,20 @@ function getWithTimestamp<T>(
   return { data: entry.d, updatedAt: entry.t };
 }
 
+function getCacheableResult(key: string, data: unknown): unknown {
+  if (
+    isAccountSelectorCacheKey(key) &&
+    data &&
+    typeof data === 'object' &&
+    'valuesQueryId' in data
+  ) {
+    // The query ID only points to data in the current BG runtime.
+    const { valuesQueryId: _valuesQueryId, ...cacheable } = data;
+    return cacheable;
+  }
+  return data;
+}
+
 function set<T>(key: string, data: T): void {
   if (!isValidSWRCacheKey(key)) {
     reportInvalidSWRCacheKey(key);
@@ -751,13 +788,23 @@ function set<T>(key: string, data: T): void {
   const store = loadStore();
   const now = Date.now();
   const existing = lookupEntry(key);
-  // An unchanged result only refreshes the in-memory timestamp so session
-  // freshness checks stay current without rewriting unchanged payloads to disk.
-  if (existing && isEqual(existing.d, data)) {
+  const cacheable = getCacheableResult(key, data);
+  if (existing && isEqual(existing.d, cacheable)) {
+    const namespace = swrKeyPrefix(key);
+    if (
+      now > existing.t &&
+      (namespace === NS.marketHomeStocks ||
+        namespace === NS.marketTokenSecurity) &&
+      !_updatedKeys.has(key) &&
+      !_revalidatedKeys.has(key)
+    ) {
+      _revalidatedKeys.set(key, existing.t);
+    }
     existing.t = now;
     return;
   }
-  const entry = { d: data, t: now };
+  _revalidatedKeys.delete(key);
+  const entry = { d: cacheable, t: now };
   const serializedEntry = serializeSWRCacheEntry(key, entry);
   if (
     !serializedEntry ||
@@ -850,6 +897,7 @@ function clearAll(): void {
   _cache = {};
   resetCacheSerializedChars(_cache);
   _updatedKeys.clear();
+  _revalidatedKeys.clear();
   _clearedAllAt = Date.now();
   _dirty = true;
   scheduleFlush();
@@ -914,7 +962,7 @@ function flushNow(): void {
     clearTimeout(_flushTimer);
     _flushTimer = undefined;
   }
-  flush();
+  flush(true);
   void flushSnapshotStore();
 }
 
@@ -933,7 +981,7 @@ async function flushNowAndPersist(): Promise<boolean> {
     clearTimeout(_flushTimer);
     _flushTimer = undefined;
   }
-  flush();
+  flush(true);
   return flushSnapshotStore();
 }
 

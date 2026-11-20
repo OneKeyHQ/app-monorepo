@@ -346,6 +346,54 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     },
   );
 
+  it('retries a loaded hardware wallet account refresh after enumeration failed', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    const now = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 15_001);
+    const log = jest
+      .spyOn(defaultLogger.app.error, 'log')
+      .mockImplementation((errorMessage) => ({ errorMessage, stacktrace: '' }));
+    try {
+      getAllNetworkAccountsForHome.mockRejectedValueOnce(
+        new Error('account enumeration failed'),
+      );
+      await act(async () => {
+        await ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+      });
+      await waitFor(() => {
+        expect(log).toHaveBeenCalledWith(
+          'All Networks refresh failed: account enumeration failed',
+        );
+        expect(ctx.hook.result.current.result).toEqual(ctx.published[0]);
+      });
+      expect(ctx.requests).toHaveLength(2);
+
+      await ctx.refreshAccounts([{ ...ctx.eth, accountId: 'other-wallet' }], {
+        refreshAll: true,
+      });
+      expect(getAllNetworkAccountsForHome).toHaveBeenCalledTimes(2);
+
+      let retry: Promise<void> | undefined;
+      await act(async () => {
+        retry = ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+      });
+      await ctx.waitForPending(2);
+      await ctx.settleRequests();
+      await retry;
+
+      expect(getAllNetworkAccountsForHome).toHaveBeenCalledTimes(3);
+      expect(ctx.settled.slice(-2)).toEqual([
+        ['evm--1', 3],
+        ['sui--mainnet', 3],
+      ]);
+    } finally {
+      log.mockRestore();
+      now.mockRestore();
+    }
+  });
+
   it('refreshes the accounts one after another and survives one failed network', async () => {
     const ctx = setup();
     await ctx.waitForFirstFanOut();

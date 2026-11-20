@@ -475,6 +475,74 @@ describe('SWR cache persistence', () => {
     }
   });
 
+  it('shares a persisted account list across different runtime query IDs', () => {
+    const cache = loadFreshRuntime();
+    const key = 'accSelList:v1:wallet';
+    const list = { accountsForValuesQuery: [{ accountId: 'account' }] };
+    const live = { ...list, valuesQueryId: 'first-query' };
+    cache.set(key, live);
+    cache.flushNow();
+    const firstWrite = disk().get(key);
+    expect(live.valuesQueryId).toBe('first-query');
+    expect(firstWrite?.d).toEqual(list);
+
+    cache.set(key, { ...list, valuesQueryId: 'next-query' });
+    cache.flushNow();
+    expect(disk().get(key)).toBe(firstWrite);
+
+    disk().set(key, { d: live, t: 1000 });
+    expect(loadFreshRuntime().get(key)).toEqual(list);
+  });
+
+  it('keeps identical stock data fresh after a background flush and cold read', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      const key = swrKeys.marketHomeStocks('all');
+      const listings = [{ id: 'stock' }];
+      cache.set(key, listings);
+      cache.flushNow();
+      const firstWrite = disk().get(key)?.t;
+
+      jest.advanceTimersByTime(5 * 60 * 1000 + 1);
+      cache.set(key, [{ id: 'stock' }]);
+      const verifiedAt = Date.now();
+      cache.set('marketTokenDetail:other', 'changed');
+      jest.advanceTimersByTime(2000);
+      expect(disk().get(key)?.t).toBe(firstWrite);
+
+      cache.flushNow();
+      const coldCache = loadFreshRuntime();
+      expect(coldCache.getWithTimestamp(key)).toEqual({
+        data: listings,
+        updatedAt: verifiedAt,
+      });
+      expect(coldCache.isFresh(key, 5 * 60 * 1000)).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not replace a newer stock payload with a queued revalidation of an older one', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      const key = swrKeys.marketHomeStocks('all');
+      cache.set(key, 'original');
+      cache.flushNow();
+      jest.advanceTimersByTime(1000);
+      cache.set(key, 'original');
+
+      const newer = { d: 'other runtime', t: Date.now() + 1 };
+      disk().set(key, newer);
+      cache.flushNow();
+
+      expect(disk().get(key)).toBe(newer);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('adopts serializedChars from disk on cold read without calling JSON.stringify', () => {
     disk().set('marketHomeTokenList:all', {
       d: { text: 'cached-from-disk' },

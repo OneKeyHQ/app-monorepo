@@ -635,6 +635,7 @@ function useAllNetworkRequests<T>(params: {
       }
       allNetworkAccountsBaseCache.clear();
       allNetworkDataInit.current = false;
+      activeRunAccountKeysRef.current = undefined;
       supersedeActiveRun();
       // The retained snapshot was published for the previous enabled set; a
       // rerun whose every request fails must not restore it.
@@ -667,6 +668,7 @@ function useAllNetworkRequests<T>(params: {
       // config refresh. Rebuild the main-runtime fan-out so it deserializes
       // the current map and removes data for networks that were disabled.
       allNetworkDataInit.current = false;
+      activeRunAccountKeysRef.current = undefined;
       supersedeActiveRun();
       // The retained snapshot was published for the previous enabled set; a
       // rerun whose every request fails must not restore it.
@@ -1578,6 +1580,17 @@ function useAllNetworkRequests<T>(params: {
           lastPublishedResultRef.current = nextLastPublished;
           if (shouldRestoreResult && previousPublishedResult) {
             restoredResult = previousPublishedResult.result;
+            const previousMembership = activeRunAccountKeysRef.current;
+            if (
+              previousMembership?.ownerKey === runnerOwnerKey &&
+              previousMembership.generation < runGeneration
+            ) {
+              // Enumeration failed before it could replace the same-scope members.
+              activeRunAccountKeysRef.current = {
+                ...previousMembership,
+                generation: runGeneration,
+              };
+            }
             applyResultRef.current?.(restoredResult);
           }
         }
