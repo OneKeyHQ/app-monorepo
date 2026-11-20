@@ -58,7 +58,7 @@ import { homeHeaderLayoutCache } from '@onekeyhq/shared/src/storage/uiSnapshotCa
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -314,9 +314,13 @@ function BaseHomePageView({
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
   const { md: isSmallScreen, gtXl } = useMedia();
-  // From 1280 on the web the trade column docks on the right and the
-  // content beside it narrows to the docked width.
-  const dockTradeColumn = !platformEnv.isNative && gtXl;
+  // Web and desktop dock the trade column on the right from 1280 on, and the
+  // content beside it narrows to the docked width. The extension keeps the
+  // Swap modal.
+  const canDockTradeColumn = Boolean(
+    platformEnv.isWeb || platformEnv.isDesktop,
+  );
+  const dockTradeColumn = canDockTradeColumn && gtXl;
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
     account,
@@ -1909,9 +1913,20 @@ function BaseHomePageView({
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
             ) : null}
-            {dockTradeColumn ? (
-              <HomeTradeDock showPanel={!hasNoUsableWallet}>
-                <Stack {...homePageContentMaxWidthSx}>
+            {canDockTradeColumn ? (
+              // One tree on both sides of 1280, so crossing it only shows or
+              // hides the column instead of remounting the page. Only the
+              // user's own home trades: a viewed address's page has none.
+              <HomeTradeDock
+                showPanel={
+                  dockTradeColumn &&
+                  !hasNoUsableWallet &&
+                  sceneName === EAccountSelectorSceneName.home
+                }
+              >
+                <Stack
+                  {...(dockTradeColumn ? homePageContentMaxWidthSx : undefined)}
+                >
                   <TabPageHeader
                     sceneName={sceneName}
                     tabRoute={ETabRoutes.Home}
@@ -1976,6 +1991,7 @@ function BaseHomePageView({
     handleOuterHeaderHostRef,
     walletPageContent,
     tabBarHeight,
+    canDockTradeColumn,
     dockTradeColumn,
   ]);
 

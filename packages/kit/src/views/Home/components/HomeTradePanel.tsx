@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,7 +16,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { TokenSwapHandoffContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import type { ITokenSwapHandoffParams } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -61,12 +64,14 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
 
 type ITradeHandoff = { params: ITokenSwapHandoffParams; at: number };
 
-function HomeTradePanel({ handoff }: { handoff?: ITradeHandoff }) {
+function HomeTradePanel({
+  handoff,
+  importAccountKey,
+}: {
+  handoff?: ITradeHandoff;
+  importAccountKey?: string;
+}) {
   const intl = useIntl();
-  // The home's account, not whichever account Swap last traded from.
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const importAccountKey =
-    buildSwapSelectedTokensColdStartAccountKey(activeAccount);
   const swapInitParams = useMemo<ISwapInitParams>(
     () =>
       handoff?.params ?? {
@@ -114,8 +119,9 @@ function HomeTradePanel({ handoff }: { handoff?: ITradeHandoff }) {
   );
 }
 
-// Web from 1280 on: the home content beside a column holding Swap & Bridge.
-// A token row's Swap fills the column instead of opening the Swap modal.
+// Web and desktop: the home content, with a column holding Swap & Bridge
+// beside it from 1280 on. A token row's Swap fills the column instead of
+// opening the Swap modal.
 export function HomeTradeDock({
   children,
   showPanel,
@@ -123,20 +129,43 @@ export function HomeTradeDock({
   children: ReactNode;
   showPanel: boolean;
 }) {
+  // The home's account, not whichever account Swap last traded from.
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const importAccountKey =
+    buildSwapSelectedTokensColdStartAccountKey(activeAccount);
   const [handoff, setHandoff] = useState<ITradeHandoff>();
-  const handOffSwap = useCallback((params: ITokenSwapHandoffParams) => {
-    // What the Swap modal does when it opens with these params.
-    if (params.swapSource) {
-      defaultLogger.swap.enterSwap.enterSwap({ enterFrom: params.swapSource });
-    }
-    if (params.importDeriveType && params.importNetworkId) {
-      void backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
-        networkId: params.importNetworkId,
-        deriveType: params.importDeriveType,
-      });
-    }
-    setHandoff({ params, at: Date.now() });
-  }, []);
+  // A hand-off belongs to the account whose row made it: another home account
+  // starts the form over, and switching back does not bring it back.
+  useEffect(() => {
+    setHandoff(undefined);
+  }, [importAccountKey]);
+  const activeHandoff =
+    handoff?.params.importAccountKey === importAccountKey ? handoff : undefined;
+  const [, setSettings] = useSettingsAtom();
+  const handOffSwap = useCallback(
+    (params: ITokenSwapHandoffParams) => {
+      // What the Swap modal does when it opens with these params: log the
+      // entry, keep the derive type, and send to the user's own account.
+      if (params.swapSource) {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: params.swapSource,
+        });
+      }
+      if (params.importDeriveType && params.importNetworkId) {
+        void backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
+          networkId: params.importNetworkId,
+          deriveType: params.importDeriveType,
+        });
+      }
+      setSettings((v) =>
+        v.swapToAnotherAccountSwitchOn
+          ? { ...v, swapToAnotherAccountSwitchOn: false }
+          : v,
+      );
+      setHandoff({ params, at: Date.now() });
+    },
+    [setSettings],
+  );
   return (
     <TokenSwapHandoffContext.Provider
       value={showPanel ? handOffSwap : undefined}
@@ -146,7 +175,12 @@ export function HomeTradeDock({
         <YStack flex={1} minWidth={0}>
           {children}
         </YStack>
-        {showPanel ? <HomeTradePanel handoff={handoff} /> : null}
+        {showPanel ? (
+          <HomeTradePanel
+            handoff={activeHandoff}
+            importAccountKey={importAccountKey}
+          />
+        ) : null}
       </XStack>
     </TokenSwapHandoffContext.Provider>
   );
