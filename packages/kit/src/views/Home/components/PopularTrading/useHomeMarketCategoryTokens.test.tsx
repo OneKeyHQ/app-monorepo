@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,6 +28,22 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/components', () => {
+  const { useDeferredPromise } = jest.requireActual<
+    typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+  >('../../../../../../components/src/hooks/useDeferredPromise');
+  return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 let mockLocale = 'en';
@@ -66,6 +82,40 @@ describe('useHomeMarketCategoryTokens', () => {
       isLoading: false,
       result: undefined,
     });
+  });
+
+  it('starts the first market request immediately after leaving Favorites', async () => {
+    jest.useFakeTimers();
+    const { usePromiseResult: realUsePromiseResult } = jest.requireActual<
+      typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+    >('@onekeyhq/kit/src/hooks/usePromiseResult');
+    mockUsePromiseResult.mockImplementation(realUsePromiseResult);
+    serviceMarket.fetchMarketAssetList.mockResolvedValue({
+      list: [bitcoin],
+      total: 1,
+    });
+
+    const { result, rerender, unmount } = renderHook(
+      ({ category }: { category?: string }) =>
+        useHomeMarketCategoryTokens({
+          minLiquidity: 5000,
+          selectedMarketCategoryId: category,
+        }),
+      { initialProps: {} },
+    );
+    try {
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(0);
+
+      rerender({ category: 'top_coins' });
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(1);
+      expect(result.current.categoryTokens[0]?.symbol).toBe('BTC');
+    } finally {
+      unmount();
+      jest.useRealTimers();
+      mockUsePromiseResult.mockReset();
+    }
   });
 
   it('loads Top Coins from the Asset API instead of the token list API', async () => {

@@ -4,7 +4,10 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getAdvertisedHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { getEmptyTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IHomeTokenRequest } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchAccountTokensResp,
+  IHomeTokenRequest,
+} from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -160,7 +163,9 @@ describe('ServiceToken native Home request lifetime', () => {
   let api: ReturnType<typeof makeApi>;
   let service: ServiceToken;
   const fetchTokenListMock = jest.fn(
-    async (_params: { requestApiParams: unknown }) => ({
+    async (_params: {
+      requestApiParams: unknown;
+    }): Promise<{ data: { data: IFetchAccountTokensResp } }> => ({
       data: { data: getEmptyTokenData() },
     }),
   );
@@ -855,6 +860,58 @@ describe('ServiceToken native Home request lifetime', () => {
         networkId: 'btc--0',
       }),
     );
+  });
+
+  it('persists each derived account balance and writes the Home token catalog once', async () => {
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [
+          { account: { id: 'btc-derive-1' } },
+          { account: { id: 'btc-derive-2' } },
+        ],
+      },
+    );
+    for (const address of ['token-one', 'token-two']) {
+      const data: IFetchAccountTokensResp = getEmptyTokenData();
+      const key = `btc--0_${address}`;
+      data.tokens.data = [
+        {
+          $key: key,
+          address,
+          decimals: 8,
+          isNative: false,
+          name: address,
+          symbol: address,
+        },
+      ];
+      data.tokens.map = {
+        [key]: { balance: '1', balanceParsed: '1', fiatValue: '1', price: 1 },
+      };
+      fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+    }
+
+    await service.fetchAccountTokens({
+      ...fetchParams(),
+      networkId: 'btc--0',
+      indexedAccountId: 'indexed-1',
+      mergeDeriveAddressData: true,
+      saveToLocal: true,
+    });
+
+    expect(
+      api.simpleDb.localTokens.updateAccountTokenList,
+    ).toHaveBeenCalledTimes(2);
+    expect(api.simpleDb.localTokens.updateTokens.mock.calls).toEqual([
+      [
+        {
+          networkId: 'btc--0',
+          tokens: [
+            expect.objectContaining({ address: 'token-one' }),
+            expect.objectContaining({ address: 'token-two' }),
+          ],
+        },
+      ],
+    ]);
   });
 
   it('ingests single-network and merge-derive local cache directly in BG on getAccountLocalTokens', async () => {

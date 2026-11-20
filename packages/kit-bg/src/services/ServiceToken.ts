@@ -427,6 +427,13 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
   ): Promise<IFetchAccountTokensResp> {
+    return this.fetchAccountTokensWithRequest(params);
+  }
+
+  private async fetchAccountTokensWithRequest(
+    params: Parameters<ServiceToken['fetchAccountTokens']>[0],
+    skipHomeTokenCatalogUpdate = false,
+  ): Promise<IFetchAccountTokensResp> {
     this.claimHomeTokenRequest(params.homeRequest);
     const controller = new AbortController();
     this._fetchAccountTokensControllers.push({
@@ -460,6 +467,7 @@ class ServiceToken extends ServiceBase {
         params,
         controller,
         cacheRequest,
+        skipHomeTokenCatalogUpdate,
       );
     } finally {
       if (cacheRequest) this.accountTokensSnapshotCache.finish(cacheRequest);
@@ -502,15 +510,18 @@ class ServiceToken extends ServiceBase {
 
     const resp = await Promise.all(
       networkAccounts.map((networkAccount) =>
-        this.fetchAccountTokens({
-          ...rest,
-          accountId: networkAccount.account?.id ?? '',
-          networkId,
-          indexedAccountId,
-          homeRequest,
-          mergeDeriveAddressData: false,
-          homeIngest: undefined,
-        }),
+        this.fetchAccountTokensWithRequest(
+          {
+            ...rest,
+            accountId: networkAccount.account?.id ?? '',
+            networkId,
+            indexedAccountId,
+            homeRequest,
+            mergeDeriveAddressData: false,
+            homeIngest: undefined,
+          },
+          true,
+        ),
       ),
     );
     throwIfRequestAborted();
@@ -543,6 +554,14 @@ class ServiceToken extends ServiceBase {
       data: resp,
       mergeDeriveAssetsEnabled: true,
     });
+
+    if (
+      params.saveToLocal &&
+      params.flag === 'home-token-list' &&
+      allTokenList.tokens.length
+    ) {
+      void this.updateLocalTokens({ networkId, tokens: allTokenList.tokens });
+    }
 
     const homeAccountWorth: Record<string, string> = {};
     resp.forEach((item) => {
@@ -672,7 +691,8 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
     controller: AbortController,
-    cacheRequest?: ReturnType<AccountTokensSnapshotCache['begin']>,
+    cacheRequest: ReturnType<AccountTokensSnapshotCache['begin']> | undefined,
+    skipHomeTokenCatalogUpdate: boolean,
   ): Promise<IFetchAccountTokensResp> {
     const {
       mergeTokens,
@@ -1141,7 +1161,7 @@ class ServiceToken extends ServiceBase {
           hasAssets,
         });
         throwIfRequestAborted();
-        if (flag === 'home-token-list') {
+        if (flag === 'home-token-list' && !skipHomeTokenCatalogUpdate) {
           const mergedLocalTokens = [
             ...resp.data.data.tokens.data,
             ...resp.data.data.smallBalanceTokens.data,

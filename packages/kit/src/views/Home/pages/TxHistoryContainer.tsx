@@ -621,51 +621,17 @@ function TxHistoryListContainer(
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
       if (mergeDeriveAddressData) {
-        if (
-          'getAccountsLocalHistoryTxsForMergeDerive' in
-          backgroundApiProxy.serviceHistory
-        ) {
-          accountHistoryTxs =
-            await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxsForMergeDerive(
-              {
-                indexedAccountId: indexedAccountId ?? '',
-                networkId,
-                filterScam: settings.isFilterScamHistoryEnabled,
-                filterLowValue: settings.isFilterLowValueHistoryEnabled,
-                sourceCurrency: settings.currencyInfo.id,
-                limit: HISTORY_PAGE_SIZE,
-              },
-            );
-        } else {
-          const { networkAccounts } =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-              {
-                networkId,
-                indexedAccountId: indexedAccountId ?? '',
-                excludeEmptyAccount: true,
-              },
-            );
-
-          const resp = await Promise.all(
-            networkAccounts.map((networkAccount) =>
-              backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
-                accountId: networkAccount.account?.id ?? '',
-                networkId,
-                filterScam: settings.isFilterScamHistoryEnabled,
-                filterLowValue: settings.isFilterLowValueHistoryEnabled,
-                sourceCurrency: settings.currencyInfo.id,
-              }),
-            ),
+        accountHistoryTxs =
+          await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxsForMergeDerive(
+            {
+              indexedAccountId: indexedAccountId ?? '',
+              networkId,
+              filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              limit: HISTORY_PAGE_SIZE,
+            },
           );
-          accountHistoryTxs = resp
-            .flat()
-            .toSorted(
-              (b, a) =>
-                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-            )
-            .slice(0, HISTORY_PAGE_SIZE);
-        }
       } else {
         accountHistoryTxs =
           await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({

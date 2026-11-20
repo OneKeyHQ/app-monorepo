@@ -165,6 +165,7 @@ function useHomeMarketCategoryTokens({
           isActive && selectedMarketCategoryId
             ? HOME_MARKET_CATEGORY_POLLING_INTERVAL
             : undefined,
+        runImmediatelyOnPollingIntervalChange: true,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         undefinedResultIfReRun: false,
