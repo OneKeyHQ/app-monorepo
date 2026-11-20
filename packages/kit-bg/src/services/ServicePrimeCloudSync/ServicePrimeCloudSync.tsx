@@ -3780,27 +3780,39 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   async buildHardwareRestoreWalletAccountItems(
     syncCredential: ICloudSyncCredential,
+    opaqueCopies: readonly IDBCloudSyncItem[],
   ): Promise<IDBCloudSyncItem[]> {
-    const { wallets, allDevices } =
-      await this.backgroundApi.serviceAccount.getAllWallets({});
-    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
-      {},
-    );
-    const [walletItems, accountItems] = await Promise.all([
-      this.syncManagers.wallet.buildInitSyncDBItems({
+    const walletKeys = new Map<string, string>();
+    const accountItems: IDBCloudSyncItem[] = [];
+    for (const item of opaqueCopies) {
+      if (item.dataType === EPrimeCloudSyncDataType.Wallet) {
+        walletKeys.set(item.id, item.rawKey);
+      } else if (item.dataType === EPrimeCloudSyncDataType.Account) {
+        accountItems.push(item);
+      }
+    }
+    const buildWallets = async () => {
+      if (!walletKeys.size) return [];
+      const { wallets, allDevices } =
+        await this.backgroundApi.serviceAccount.getAllWallets({});
+      return this.syncManagers.wallet.buildInitSyncDBItems({
         dbRecords: wallets,
         allDevices,
         syncCredential,
         initDataTime: undefined,
-      }),
-      this.syncManagers.account.buildInitSyncDBItems({
-        dbRecords: accounts,
-        allDevices,
-        syncCredential,
-        initDataTime: undefined,
-      }),
+        requiredSyncItems: walletKeys,
+      });
+    };
+    const [wallets, accounts] = await Promise.all([
+      buildWallets(),
+      accountItems.length
+        ? this.syncManagers.account.buildHardwareRestoreLegacyAccountItems({
+            items: accountItems,
+            syncCredential,
+          })
+        : [],
     ]);
-    return [...walletItems, ...accountItems];
+    return [...wallets, ...accounts];
   }
 
   @backgroundMethod()

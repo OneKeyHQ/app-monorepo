@@ -194,9 +194,12 @@ function harness(
   const getWallet = jest.spyOn(localDb, 'getWalletSafe');
   const createAccounts = jest.spyOn(localDb, 'addAccountsToWallet');
   const importAccounts = jest.spyOn(localDb, 'importPublicCloudAccounts');
+  const getAllWallets = jest.fn(async () => ({ wallets: [], allDevices: [] }));
+  const getAllAccounts = jest.fn(async () => ({ accounts: [] }));
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       localDb,
+      serviceAccount: { getAllWallets, getAllAccounts },
       serviceKeylessCloudSync: { getCloudAccountImportGeneration: () => 0 },
     },
   });
@@ -216,6 +219,8 @@ function harness(
   return {
     service,
     buildTarget,
+    getAllWallets,
+    getAllAccounts,
     getItems,
     getCredential,
     upload,
@@ -233,6 +238,44 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
+
+  test('only dispatches authoritative recovery to the requested data type', async () => {
+    const { service, getAllWallets, getAllAccounts } = harness([]);
+    const accounts = jest.fn(async () => []);
+    const wallets = jest.fn(async () => []);
+    service.syncManagers.account.buildHardwareRestoreLegacyAccountItems =
+      accounts;
+    service.syncManagers.wallet.buildInitSyncDBItems = wallets;
+    const accountCopy = { ...rawItem(), rawData: '', isDeleted: false };
+    await service.buildHardwareRestoreWalletAccountItems(credential, [
+      accountCopy,
+    ]);
+    expect(accounts).toHaveBeenCalledWith({
+      items: [accountCopy],
+      syncCredential: credential,
+    });
+    expect(getAllWallets).not.toHaveBeenCalled();
+    expect(wallets).not.toHaveBeenCalled();
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    accounts.mockClear();
+    const walletCopy = {
+      ...accountCopy,
+      id: 'wallet-id',
+      rawKey: 'Wallet >> known',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+    };
+    await service.buildHardwareRestoreWalletAccountItems(credential, [
+      walletCopy,
+    ]);
+    expect(accounts).not.toHaveBeenCalled();
+    expect(getAllWallets).toHaveBeenCalledTimes(1);
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    expect(wallets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requiredSyncItems: new Map([[walletCopy.id, walletCopy.rawKey]]),
+      }),
+    );
+  });
 
   test('after reload, resolves a validated deletion only in its original Cloud space', async () => {
     const raw = rawFixture();

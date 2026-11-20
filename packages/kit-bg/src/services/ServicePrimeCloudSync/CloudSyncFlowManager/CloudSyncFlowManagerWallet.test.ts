@@ -12,7 +12,7 @@ import type { ICloudSyncTargetWallet } from '@onekeyhq/shared/types/prime/primeC
 import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManagerWallet';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-import type { IDBDevice } from '../../../dbs/local/types';
+import type { IDBDevice, IDBWallet } from '../../../dbs/local/types';
 
 describe('CloudSyncFlowManagerWallet', () => {
   const qaDevice: IDBDevice = {
@@ -139,6 +139,62 @@ describe('CloudSyncFlowManagerWallet', () => {
         dbDevice: { ...qaDevice, deviceId: 'ordinary-device' },
       }),
     ).resolves.toBe(true);
+  });
+
+  test('restore identities filter wallet lookups and encryption before constructing items', async () => {
+    const selected: IDBWallet = {
+      ...qaTarget.wallet,
+      id: 'hd-selected',
+      type: WALLET_TYPE_HD,
+      hash: 'selected-hash',
+      associatedDevice: undefined,
+    };
+    const other = { ...selected, id: 'hd-other', hash: 'other-hash' };
+    const wrongRaw = { ...selected, id: 'hd-wrong', hash: 'wrong-hash' };
+    const getSyncItemSafe = jest.fn(async () => undefined);
+    const restoreManager = new CloudSyncFlowManagerWallet({
+      backgroundApi: {
+        localDb: { getSyncItemSafe },
+      } as unknown as IBackgroundApi,
+    });
+    const build = jest
+      .spyOn(restoreManager, 'buildSyncItem')
+      .mockResolvedValue(undefined);
+    const selectedKey = await restoreManager.buildSyncKeyInfo({
+      target: await restoreManager.buildSyncTargetByDBQuery({
+        dbRecord: selected,
+      }),
+    });
+    const wrongKey = await restoreManager.buildSyncKeyInfo({
+      target: await restoreManager.buildSyncTargetByDBQuery({
+        dbRecord: wrongRaw,
+      }),
+    });
+    expect(selectedKey).toBeDefined();
+    expect(wrongKey).toBeDefined();
+    if (!selectedKey || !wrongKey) return;
+    const syncCredential = {
+      primeAccountSalt: 'fixture',
+      securityPasswordR1: 'fixture',
+      masterPasswordUUID: 'fixture',
+    };
+    await restoreManager.buildInitSyncDBItems({
+      dbRecords: [selected, other, wrongRaw],
+      initDataTime: undefined,
+      syncCredential,
+      requiredSyncItems: new Map([
+        [selectedKey.key, selectedKey.rawKey],
+        [wrongKey.key, 'Wallet >> wrong identity'],
+      ]),
+    });
+    expect(getSyncItemSafe).toHaveBeenCalledTimes(1);
+    expect(getSyncItemSafe).toHaveBeenCalledWith({ id: selectedKey.key });
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(build).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ targetId: selected.id }),
+      }),
+    );
   });
 
   test('buildSyncPayload only includes wallet payload fields', async () => {

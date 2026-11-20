@@ -748,12 +748,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
                   ...credential,
                   source,
                 }),
-                loadAuthoritativeItems: () =>
+                loadAuthoritativeItems: (opaqueCopies) =>
                   this.backgroundApi.servicePrimeCloudSync.buildHardwareRestoreWalletAccountItems(
                     this.buildSyncCredentialWithKeylessCredential({
                       ...credential,
                       source,
                     }),
+                    opaqueCopies,
                   ),
               })
             : [];

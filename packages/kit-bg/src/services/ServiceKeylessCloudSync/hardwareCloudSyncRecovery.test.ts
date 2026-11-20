@@ -294,6 +294,30 @@ describe('hardware re-sign recovery preserves business versions', () => {
     expect(local).toEqual(before);
   });
 
+  test('only asks the loader for applied, exact known-space opaque copies with no deletion', async () => {
+    const eligible = { ...local, rawData: '', serverUploaded: true };
+    const loadAuthoritativeItems = jest.fn(async () => []);
+    await prepareHardwareCloudSyncLocalRecovery({
+      items: [
+        eligible,
+        { ...eligible, id: 'foreign', pwdHash: 'hw-dek-unrelated' },
+        {
+          ...eligible,
+          id: 'pending-delete',
+          pendingPublicAccountDeletionAt: 300,
+        },
+        { ...eligible, id: 'tombstone', isDeleted: true },
+        { ...eligible, id: 'not-applied', localSceneUpdated: false },
+        { ...eligible, id: 'not-uploaded', serverUploaded: false },
+      ],
+      syncCredential,
+      knownPwdHashes: new Set([eligible.pwdHash]),
+      loadAuthoritativeItems,
+    });
+    expect(loadAuthoritativeItems).toHaveBeenCalledTimes(1);
+    expect(loadAuthoritativeItems).toHaveBeenCalledWith([eligible]);
+  });
+
   test.each([true, false])(
     'requires exact authoritative identity (matches=%s)',
     async (matches) => {

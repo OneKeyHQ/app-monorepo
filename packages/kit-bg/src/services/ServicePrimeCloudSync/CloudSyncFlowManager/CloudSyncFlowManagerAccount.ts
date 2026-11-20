@@ -361,6 +361,46 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     return { item, name };
   }
 
+  async buildHardwareRestoreLegacyAccountItems({
+    items,
+    syncCredential,
+  }: {
+    items: readonly IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }) {
+    const rawKeyPrefix = `${this.dataType} >> `;
+    const legacyAccountIds = new Set<string>();
+    const requiredSyncItems = new Map<string, string>();
+    for (const { id, rawKey } of items) {
+      if (rawKey.startsWith(rawKeyPrefix)) {
+        const accountId = rawKey.slice(rawKeyPrefix.length);
+        // Only watching/imported accounts have a rawKey derived directly
+        // from a local account ID. Public snapshots are deliberately kept
+        // opaque by init, even if their local business record still exists.
+        if (
+          (accountUtils.isWatchingAccount({ accountId }) ||
+            accountUtils.isImportedAccount({ accountId })) &&
+          this.rawKeyToHashKey(rawKey) === id
+        ) {
+          legacyAccountIds.add(accountId);
+          requiredSyncItems.set(id, rawKey);
+        }
+      }
+    }
+    if (!requiredSyncItems.size) return [];
+    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
+      {
+        ids: [...legacyAccountIds],
+      },
+    );
+    return this._buildInitSyncDBItems({
+      dbRecords: accounts,
+      initDataTime: undefined,
+      syncCredential,
+      requiredSyncItems,
+    });
+  }
+
   override async buildInitSyncDBItems({
     dbRecords,
     allDevices,

@@ -824,17 +824,20 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices,
     initDataTime,
     syncCredential,
+    requiredSyncItems,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
+    requiredSyncItems?: ReadonlyMap<string, string>;
   }) {
     return this._buildInitSyncDBItems({
       dbRecords,
       allDevices,
       initDataTime,
       syncCredential,
+      requiredSyncItems,
     });
   }
 
@@ -843,11 +846,13 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices,
     initDataTime,
     syncCredential,
+    requiredSyncItems,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
+    requiredSyncItems?: ReadonlyMap<string, string>;
   }) {
     const results: IDBCloudSyncItem[] = [];
     for (let offset = 0; offset < dbRecords.length; offset += 50) {
@@ -861,6 +866,12 @@ export abstract class CloudSyncFlowManagerBase<
           const keyInfo = await this.buildSyncKeyInfo({ target });
           if (!keyInfo || !keyInfo.key) {
             // dbRecord is not supported sync
+            return null;
+          }
+          if (
+            requiredSyncItems &&
+            requiredSyncItems.get(keyInfo.key) !== keyInfo.rawKey
+          ) {
             return null;
           }
           const existingSyncItem =

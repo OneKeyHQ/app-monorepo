@@ -52,7 +52,9 @@ export async function prepareHardwareCloudSyncLocalRecovery({
   items: IDBCloudSyncItem[];
   syncCredential: ICloudSyncCredential;
   knownPwdHashes: ReadonlySet<string>;
-  loadAuthoritativeItems?: () => Promise<IDBCloudSyncItem[]>;
+  loadAuthoritativeItems?: (
+    items: readonly IDBCloudSyncItem[],
+  ) => Promise<IDBCloudSyncItem[]>;
 }): Promise<IRecoveredItem[]> {
   const currentHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
   const recovered: IRecoveredItem[] = [];
@@ -62,13 +64,14 @@ export async function prepareHardwareCloudSyncLocalRecovery({
     item.localSceneUpdated &&
     knownPwdHashes.has(item.pwdHash) &&
     isRetainedHardwareCloudCopy(item, currentHash);
-  if (loadAuthoritativeItems && items.some(isKnownOpaqueCopy)) {
-    const candidates = await loadAuthoritativeItems();
+  const opaqueCopies = items.filter(isKnownOpaqueCopy);
+  if (loadAuthoritativeItems && opaqueCopies.length) {
+    const candidates = await loadAuthoritativeItems(opaqueCopies);
     const byId = new Map<string, IDBCloudSyncItem | undefined>();
     for (const candidate of candidates) {
       byId.set(candidate.id, byId.has(candidate.id) ? undefined : candidate);
     }
-    for (const item of items.filter(isKnownOpaqueCopy)) {
+    for (const item of opaqueCopies) {
       const replacement = byId.get(item.id);
       if (
         replacement?.data &&
