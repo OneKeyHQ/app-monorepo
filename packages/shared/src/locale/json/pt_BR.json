@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Entendo que uma carteira criada depois com esta conta será nova e não poderá acessar os ativos desta carteira",
   "keyless_deletion_ack_recovery__action": "Entendo que, após a exclusão, não poderei restaurar esta carteira com o login do Google ou da Apple e meu PIN",
   "keyless_deletion_automatic_unavailable__msg": "A exclusão automática não está disponível. Entre em contato com o suporte.",
-  "keyless_deletion_callback__msg": "Login realizado. Volte para a janela original para continuar.",
+  "keyless_deletion_callback__msg": "Volte para a janela original para continuar.",
   "keyless_deletion_cannot_continue__desc": "Entre em contato com o suporte para verificar a solicitação de exclusão.",
   "keyless_deletion_cannot_continue__title": "Não foi possível continuar a exclusão",
   "keyless_deletion_check_countdown__action": "Verificar em {seconds} s",

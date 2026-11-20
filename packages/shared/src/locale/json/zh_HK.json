@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "我明白日後以此帳戶建立的錢包為新錢包，無法存取此錢包的資產",
   "keyless_deletion_ack_recovery__action": "我明白刪除後無法透過 Google 或 Apple 登入及 PIN 碼恢復此錢包",
   "keyless_deletion_automatic_unavailable__msg": "無法自動刪除，請聯絡客戶服務。",
-  "keyless_deletion_callback__msg": "登入完成，請返回原視窗繼續。",
+  "keyless_deletion_callback__msg": "請返回原視窗繼續。",
   "keyless_deletion_cannot_continue__desc": "請聯絡客戶服務核實刪除申請。",
   "keyless_deletion_cannot_continue__title": "無法繼續刪除",
   "keyless_deletion_check_countdown__action": "{seconds} 秒後可查詢",

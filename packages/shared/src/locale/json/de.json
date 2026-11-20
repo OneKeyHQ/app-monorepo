@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Mir ist klar, dass eine später mit diesem Konto erstellte Wallet neu ist und nicht auf die Assets dieser Wallet zugreifen kann",
   "keyless_deletion_ack_recovery__action": "Ich verstehe, dass ich diese Wallet nach dem Löschen nicht mehr mit Google- oder Apple-Anmeldung und meiner PIN wiederherstellen kann",
   "keyless_deletion_automatic_unavailable__msg": "Automatisches Löschen ist nicht verfügbar. Kontaktieren Sie den Support.",
-  "keyless_deletion_callback__msg": "Angemeldet. Kehren Sie zum ursprünglichen Fenster zurück, um fortzufahren.",
+  "keyless_deletion_callback__msg": "Kehren Sie zum ursprünglichen Fenster zurück, um fortzufahren.",
   "keyless_deletion_cannot_continue__desc": "Kontaktieren Sie den Support, um die Löschanfrage zu überprüfen.",
   "keyless_deletion_cannot_continue__title": "Löschung kann nicht fortgesetzt werden",
   "keyless_deletion_check_countdown__action": "Prüfen in {seconds} s",

@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "今後このアカウントで作成するウォレットは新規扱いとなり、このウォレットの資産にはアクセスできないことを理解しました",
   "keyless_deletion_ack_recovery__action": "削除後は、GoogleまたはAppleのサインインとPINでこのウォレットを復元できないことを理解しました",
   "keyless_deletion_automatic_unavailable__msg": "自動削除は利用できません。サポートにお問い合わせください。",
-  "keyless_deletion_callback__msg": "サインインしました。元のウィンドウに戻って続行してください。",
+  "keyless_deletion_callback__msg": "元のウィンドウに戻って続行してください。",
   "keyless_deletion_cannot_continue__desc": "削除リクエストを確認するには、サポートにお問い合わせください。",
   "keyless_deletion_cannot_continue__title": "削除を続行できません",
   "keyless_deletion_check_countdown__action": "{seconds}秒後に確認",

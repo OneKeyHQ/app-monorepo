@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "ฉันเข้าใจว่ากระเป๋าเงินที่สร้างในภายหลังด้วยบัญชีนี้จะเป็นกระเป๋าเงินใหม่ และไม่สามารถเข้าถึงสินทรัพย์ของกระเป๋าเงินนี้ได้",
   "keyless_deletion_ack_recovery__action": "ฉันเข้าใจว่าหลังจากลบแล้ว จะไม่สามารถกู้คืนกระเป๋าเงินนี้ด้วยการลงชื่อเข้าใช้ Google หรือ Apple และ PIN ของฉันได้",
   "keyless_deletion_automatic_unavailable__msg": "ไม่สามารถลบอัตโนมัติได้ โปรดติดต่อฝ่ายสนับสนุน",
-  "keyless_deletion_callback__msg": "ลงชื่อเข้าใช้แล้ว กลับไปที่หน้าต่างเดิมเพื่อดำเนินการต่อ",
+  "keyless_deletion_callback__msg": "กลับไปยังหน้าต่างเดิมเพื่อดำเนินการต่อ",
   "keyless_deletion_cannot_continue__desc": "โปรดติดต่อฝ่ายสนับสนุนเพื่อยืนยันคำขอลบ",
   "keyless_deletion_cannot_continue__title": "ไม่สามารถดำเนินการลบต่อได้",
   "keyless_deletion_check_countdown__action": "ตรวจสอบใน {seconds} วิ",

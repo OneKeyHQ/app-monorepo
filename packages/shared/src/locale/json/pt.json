@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Compreendo que uma carteira criada mais tarde com esta conta é nova e não pode aceder aos ativos desta carteira",
   "keyless_deletion_ack_recovery__action": "Compreendo que, após a eliminação, não poderei restaurar esta carteira com o início de sessão Google ou Apple e o meu PIN",
   "keyless_deletion_automatic_unavailable__msg": "A eliminação automática não está disponível. Contacte o suporte.",
-  "keyless_deletion_callback__msg": "Sessão iniciada. Regresse à janela original para continuar.",
+  "keyless_deletion_callback__msg": "Volta à janela original para continuar.",
   "keyless_deletion_cannot_continue__desc": "Contacte o suporte para verificar o pedido de eliminação.",
   "keyless_deletion_cannot_continue__title": "Não foi possível continuar a eliminação",
   "keyless_deletion_check_countdown__action": "Verificar em {seconds} s",

@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Entiendo que una billetera creada más adelante con esta cuenta será nueva y no podrá acceder a los activos de esta billetera",
   "keyless_deletion_ack_recovery__action": "Entiendo que, tras la eliminación, no podré restaurar esta billetera con el inicio de sesión de Google o Apple y mi PIN",
   "keyless_deletion_automatic_unavailable__msg": "La eliminación automática no está disponible. Contacta con soporte.",
-  "keyless_deletion_callback__msg": "Sesión iniciada. Vuelve a la ventana original para continuar.",
+  "keyless_deletion_callback__msg": "Vuelve a la ventana original para continuar.",
   "keyless_deletion_cannot_continue__desc": "Contacta con soporte para verificar la solicitud de eliminación.",
   "keyless_deletion_cannot_continue__title": "No se puede continuar con la eliminación",
   "keyless_deletion_check_countdown__action": "Comprobar en {seconds} s",

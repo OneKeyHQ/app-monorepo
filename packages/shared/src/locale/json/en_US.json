@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "I understand a wallet created later with this account is new and can't access this wallet's assets",
   "keyless_deletion_ack_recovery__action": "I understand that after deletion I can't restore this wallet with Google or Apple sign-in and my PIN",
   "keyless_deletion_automatic_unavailable__msg": "Automatic deletion is unavailable. Contact support.",
-  "keyless_deletion_callback__msg": "Signed in. Return to the original window to continue.",
+  "keyless_deletion_callback__msg": "Return to the original window to continue.",
   "keyless_deletion_cannot_continue__desc": "Contact support to verify the deletion request.",
   "keyless_deletion_cannot_continue__title": "Unable to Continue Deletion",
   "keyless_deletion_check_countdown__action": "Check in {seconds}s",

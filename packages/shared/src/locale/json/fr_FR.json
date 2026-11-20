@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Je comprends qu'un portefeuille créé ultérieurement avec ce compte sera nouveau et ne pourra pas accéder aux actifs de ce portefeuille",
   "keyless_deletion_ack_recovery__action": "Je comprends qu'après la suppression, je ne pourrai plus restaurer ce portefeuille avec la connexion Google ou Apple et mon code PIN",
   "keyless_deletion_automatic_unavailable__msg": "La suppression automatique est indisponible. Contactez le support.",
-  "keyless_deletion_callback__msg": "Connexion réussie. Revenez à la fenêtre d'origine pour continuer.",
+  "keyless_deletion_callback__msg": "Reviens à la fenêtre d’origine pour continuer.",
   "keyless_deletion_cannot_continue__desc": "Contactez le support pour vérifier la demande de suppression.",
   "keyless_deletion_cannot_continue__title": "Impossible de poursuivre la suppression",
   "keyless_deletion_check_countdown__action": "Vérifier dans {seconds} s",
