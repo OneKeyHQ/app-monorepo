@@ -690,4 +690,71 @@ describe('TradingViewNative sub-indicator scene', () => {
       ).size,
     ).toBeGreaterThan(1);
   });
+
+  it('draws squeeze states as palette colored circles on the zero line', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'smi', indicator: 'SMI' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: pane ? [pane] : [],
+      stackBottom: 300,
+      stackTop: 220,
+      startIndex: 30,
+    });
+    const [layout] = layouts;
+    const commands: ITradingViewNativeChartSceneCommand[] = [];
+    const customPaintStyles: Record<
+      string,
+      ITradingViewNativeChartScenePaintStyle
+    > = {};
+
+    appendTradingViewNativeSubIndicatorCommands({
+      candleBodyWidth: 5,
+      chartWidth: 280,
+      commands,
+      customPaintStyles,
+      endIndex: POINTS.length,
+      getPointX: (index) => index * 6,
+      layouts,
+      priceAxisX: 280,
+      startIndex: 30,
+    });
+
+    const circles = commands.flatMap((command) =>
+      command.kind === 'circle' ? [command] : [],
+    );
+    const squeeze = pane?.series.find(({ id }) => id === 'squeeze');
+    const zeroY =
+      layout?.range &&
+      getTradingViewNativeSubIndicatorY({
+        bottom: layout.plotBottom,
+        range: layout.range,
+        top: layout.plotTop,
+        value: 0,
+      });
+
+    // One circle per visible bar that has a squeeze state.
+    expect(circles).toHaveLength(
+      squeeze?.values.slice(30).filter((value) => value !== null).length ?? -1,
+    );
+    expect(circles.length).toBeGreaterThan(0);
+    circles.forEach((circle) => {
+      expect(circle.cy).toBe(zeroY);
+      expect(circle.radius).toBe(1.75);
+      expect(circle.customPaintId).toContain(':series:squeeze:palette:');
+      expect(customPaintStyles[circle.customPaintId ?? '']?.drawStyle).toBe(
+        'fill',
+      );
+    });
+    // The momentum columns still use their own palette.
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.includes(':series:momentum:palette:'),
+      ),
+    ).toBe(true);
+  });
 });

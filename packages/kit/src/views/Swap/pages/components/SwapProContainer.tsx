@@ -55,6 +55,7 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { getSwapProDepositAccountInfo } from '../../utils/swapProAccountUtils';
 
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
@@ -131,6 +132,7 @@ const SwapProContainer = ({
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollViewInstance>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();

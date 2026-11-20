@@ -30,11 +30,17 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: { setWalletTempStatus: jest.fn(async () => undefined) },
 }));
 
-function buildService(onWalletTempStatusChanged: jest.Mock) {
+function buildService(
+  onWalletTempStatusChanged: jest.Mock,
+  resumeCloudSyncReconciliation = jest.fn(async () => undefined),
+) {
   return Object.assign(
     Object.create(ServiceAccount.prototype) as ServiceAccount,
     {
-      backgroundApi: { servicePrivacyChain: { onWalletTempStatusChanged } },
+      backgroundApi: {
+        servicePrivacyChain: { onWalletTempStatusChanged },
+        servicePrimeCloudSync: { resumeCloudSyncReconciliation },
+      },
     },
   );
 }
@@ -49,12 +55,15 @@ describe('setWalletTempStatus', () => {
     'tells privacy chains about the wallet (isTemp: %s)',
     async (isTemp) => {
       const notice = jest.fn(async () => undefined);
-      await buildService(notice).setWalletTempStatus({
+      const resume = jest.fn(async () => undefined);
+      await buildService(notice, resume).setWalletTempStatus({
         walletId: 'hd-1',
         isTemp,
       });
       expect(notice).toHaveBeenCalledWith({ walletId: 'hd-1' });
       expect(mockEmit).toHaveBeenCalledWith('WalletUpdate', undefined);
+      if (isTemp) expect(resume).not.toHaveBeenCalled();
+      else expect(resume).toHaveBeenCalledWith({ reason: 'wallet-ready' });
     },
   );
 

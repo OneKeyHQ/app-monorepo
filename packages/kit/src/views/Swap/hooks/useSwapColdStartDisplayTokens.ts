@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
@@ -34,6 +34,7 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
+const SWAP_INITIAL_SELECTION_WAIT_MS = 2000;
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const ACCOUNT_SELECTOR_SWAP_SCOPE_KEY = 'store:accountSelector@swap';
@@ -597,11 +598,13 @@ function resolveTokenSelectionState(
 }
 
 export function useSwapColdStartDisplayTokens({
+  allowInitialSelectionTimeout = true,
   fromToken,
   initialSelectedTokensSynced = false,
   swapType,
   toToken,
 }: {
+  allowInitialSelectionTimeout?: boolean;
   fromToken?: ISwapToken;
   initialSelectedTokensSynced?: boolean;
   swapType?: ESwapTabSwitchType;
@@ -609,6 +612,24 @@ export function useSwapColdStartDisplayTokens({
 }) {
   const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
   const scope = useSwapColdStartScopeKey();
+  const isAwaitingInitialSwapSelection =
+    allowInitialSelectionTimeout &&
+    swapType === ESwapTabSwitchType.SWAP &&
+    !initialSelectedTokensSynced;
+  const [unresolvedPairWaitExpired, setUnresolvedPairWaitExpired] =
+    useState(false);
+  useEffect(() => {
+    setUnresolvedPairWaitExpired(false);
+    if (!isAwaitingInitialSwapSelection) {
+      return;
+    }
+    // Bound only the presentation wait; token/account initialization stays active.
+    const timer = setTimeout(
+      () => setUnresolvedPairWaitExpired(true),
+      SWAP_INITIAL_SELECTION_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [isAwaitingInitialSwapSelection, scope]);
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
   const hasResolvedToTokenRef = useRef(Boolean(toToken?.symbol));
   const previousDisplayFromTokenRef = useRef<ISwapToken | undefined>(
@@ -702,9 +723,11 @@ export function useSwapColdStartDisplayTokens({
   };
   const isInitialFromTokenSelectionPending =
     !displayTokens.displayFromToken?.symbol &&
+    !(isAwaitingInitialSwapSelection && unresolvedPairWaitExpired) &&
     (defaultConfigStatus === 'pending' || !hasResolvedFromTokenRef.current);
   const isInitialToTokenSelectionPending =
     !displayTokens.displayToToken?.symbol &&
+    !(isAwaitingInitialSwapSelection && unresolvedPairWaitExpired) &&
     (defaultConfigStatus === 'pending' || !hasResolvedToTokenRef.current);
 
   return {

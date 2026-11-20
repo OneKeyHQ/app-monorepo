@@ -84,6 +84,9 @@ import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenS
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
+// Android can reserve more space for system gestures than for the navigation bar.
+const ANDROID_SPLIT_CHART_MIN_BOTTOM_PADDING = 32;
+
 // Native sub-indicator panes extend the chart downward; the price pane keeps
 // its height.
 function useMobilePerpChartLayout() {
@@ -597,7 +600,7 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
-  const { top: safeAreaTop } = useSafeAreaInsets();
+  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
   const isTitleInLeftItem = isFoldableIPhone();
   const buildHeaderLeftItems = useCallback(
     (): NativeStackHeaderItem[] => [
@@ -787,7 +790,18 @@ function MobilePerpMarket() {
               {isSplitDetailActive ? (
                 <YStack flex={1}>
                   <MobilePerpMarketHeader />
-                  <YStack flex={1} overflow="hidden">
+                  <YStack
+                    flex={1}
+                    overflow="hidden"
+                    pb={
+                      platformEnv.isNativeAndroid
+                        ? Math.max(
+                            safeAreaBottom,
+                            ANDROID_SPLIT_CHART_MIN_BOTTOM_PADDING,
+                          )
+                        : undefined
+                    }
+                  >
                     <PerpCandles
                       onInteractionOverlayOpenChange={
                         handleInteractionOverlayOpenChange

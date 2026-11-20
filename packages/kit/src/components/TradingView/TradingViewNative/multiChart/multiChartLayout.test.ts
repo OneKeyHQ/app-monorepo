@@ -10,10 +10,12 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  getTradingViewNativeMultiChartSync,
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
   setTradingViewNativeMultiChartPanelSource,
+  setTradingViewNativeMultiChartSync,
   updateTradingViewNativeMultiChartPanel,
 } from './multiChartLayout';
 
@@ -260,5 +262,78 @@ describe('panel state', () => {
         source: coin('SOL'),
       }),
     ).toBe(layout);
+  });
+});
+
+describe('sync options', () => {
+  const layout: ITradingViewNativeMultiChartLayout = {
+    preset: '2h',
+    panels: { 'panel-2': { source: coin('ETH'), indicatorSettings } },
+  };
+
+  it('shares nothing until the user turns an option on', () => {
+    expect(getTradingViewNativeMultiChartSync(layout)).toEqual({
+      symbol: false,
+      interval: false,
+      crosshair: false,
+      time: false,
+      dateRange: false,
+    });
+  });
+
+  it('saves a choice only when it changes something', () => {
+    const on = setTradingViewNativeMultiChartSync(
+      setTradingViewNativeMultiChartSync(layout, 'crosshair', true),
+      'interval',
+      true,
+    );
+    expect(on).toEqual({
+      ...layout,
+      sync: { crosshair: true, interval: true },
+    });
+    const next = setTradingViewNativeMultiChartSync(on, 'crosshair', false);
+    expect(getTradingViewNativeMultiChartSync(next)).toEqual({
+      symbol: false,
+      interval: true,
+      crosshair: false,
+      time: false,
+      dateRange: false,
+    });
+    expect(setTradingViewNativeMultiChartSync(layout, 'crosshair', false)).toBe(
+      layout,
+    );
+    expect(setTradingViewNativeMultiChartSync(next, 'interval', true)).toBe(
+      next,
+    );
+  });
+
+  it('survives the changes that rebuild the layout', () => {
+    const synced = setTradingViewNativeMultiChartSync(
+      layout,
+      'dateRange',
+      true,
+    );
+    const saved = normalizeTradingViewNativeMultiChartLayout(
+      JSON.parse(JSON.stringify(synced)),
+    );
+    expect(saved).toEqual(synced);
+    expect(
+      setTradingViewNativeMultiChartPanelSource(saved, 'panel-2', coin('SOL'))
+        .sync,
+    ).toEqual({ dateRange: true });
+  });
+
+  it('falls back to the defaults for values it cannot trust', () => {
+    for (const sync of [null, 'off', [], { crosshair: 'no', zoom: true }, {}]) {
+      expect(
+        normalizeTradingViewNativeMultiChartLayout({ ...layout, sync }),
+      ).toEqual(layout);
+    }
+    expect(
+      normalizeTradingViewNativeMultiChartLayout({
+        ...layout,
+        sync: { symbol: true, time: 1, crosshair: false },
+      }).sync,
+    ).toEqual({ symbol: true, crosshair: false });
   });
 });

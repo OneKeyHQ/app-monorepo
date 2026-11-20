@@ -171,6 +171,15 @@ Both `PerpCandles` and the compact `PerpMobileChartPanel` use
 use separate Perps persistent atoms. Desktop dialogs, mobile quick settings and
 mobile settings routes retain the originating namespace.
 
+The compact chart has no indicator controls of its own. It opts in with
+`showCompactMainIndicators` and draws the main indicators (MA, EMA, BOLL, SAR
+and the other price-pane overlays) turned on in the full Perps chart. Its legend
+has the full chart's indicator rows, such as `MA5 / MA10 / MA20` or the EMA
+values, but no candle price row; overlays without a row in the full chart, such
+as BOLL and SAR, have none here either. Rows that do not fit above the time axis
+are left out. Sub-indicators such as VOL and MACD stay off for space. Other
+compact charts, such as Swap's, draw no indicators.
+
 Intervals use a dedicated Perps storage key.
 Drawing keys include a `perps:` prefix before the existing source.
 Indicator-pane heights and ordering are kept once for the Perps chart and once
@@ -197,6 +206,20 @@ and the native apps keep the single chart.
   previously traded token in the panel, so nothing leaves the screen.
 - A new panel starts on a liquid token that is not on screen yet and copies the
   trading chart's indicators; afterwards the two are independent.
+- The layout picker has five sync switches, saved with the layout. All are
+  off by default.
+  - Symbol: every panel shows the trade instrument, and a token picked in any
+    panel switches it. Panels return to their own tokens when it is turned off.
+  - Interval: every panel takes the trading chart's interval, and an interval
+    picked in any panel applies to all.
+  - Crosshair: hovering one chart shows its crosshair in the others at the
+    same time. Each chart marks the candle of its own interval that holds that
+    time, and its legend reads that candle. The price line follows only
+    between panels showing the same token.
+  - Time: panning or zooming one chart scrolls the others to the same time;
+    each keeps its own zoom.
+  - Date range: the others also zoom, so every chart shows the same span of
+    time, as far as the zoom limits and its loaded history allow.
 - Expanding the chart expands the whole grid. The legacy TradingView renderer
   stays a single chart; the saved layout returns with the native renderer.
 Market and Swap keep their existing storage keys and settings. Perps starts with

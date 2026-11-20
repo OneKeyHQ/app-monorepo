@@ -17,6 +17,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
   useNetInfo,
 } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
@@ -109,19 +110,69 @@ function StatItem({
   label,
   value,
   valueNumberOfLines = 1,
+  flex = 1,
 }: {
   label: string;
   value: string;
   valueNumberOfLines?: number;
+  flex?: number;
 }) {
   return (
-    <YStack flex={1} gap="$0.5" minWidth={0}>
+    <YStack flex={flex} gap="$0.5" minWidth={0}>
       <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
       <SizableText size="$bodyMdMedium" numberOfLines={valueNumberOfLines}>
         {value}
       </SizableText>
+    </YStack>
+  );
+}
+
+function ExposureStats({
+  exposuresLabel,
+  exposures,
+  directLabel,
+  direct,
+  topExposureLabel,
+  topExposure,
+}: {
+  exposuresLabel: string;
+  exposures: string;
+  directLabel: string;
+  direct: string;
+  topExposureLabel: string;
+  topExposure: string;
+}) {
+  const { gtMd } = useMedia();
+  const counts = (
+    <>
+      <StatItem label={exposuresLabel} value={exposures} />
+      <StatItem label={directLabel} value={direct} />
+    </>
+  );
+  const top = (
+    <StatItem
+      label={topExposureLabel}
+      value={topExposure}
+      valueNumberOfLines={2}
+      flex={gtMd ? 2 : 1}
+    />
+  );
+  if (gtMd) {
+    return (
+      <XStack gap="$3">
+        {counts}
+        {top}
+      </XStack>
+    );
+  }
+  // Narrow screens: keep the count labels at half width so translated labels
+  // (e.g. German, Spanish) fit, and give the top exposure its own full row.
+  return (
+    <YStack gap="$3">
+      <XStack gap="$3">{counts}</XStack>
+      <XStack>{top}</XStack>
     </YStack>
   );
 }
@@ -366,27 +417,20 @@ function AddressRiskCheckResultContent({
                   ) : null}
                   {score !== undefined && showExposures ? <Divider /> : null}
                   {showExposures ? (
-                    <XStack gap="$3">
-                      <StatItem
-                        label={intl.formatMessage({
-                          id: ETranslations.address_risk_check_stats_exposures__title,
-                        })}
-                        value={String(stats.total)}
-                      />
-                      <StatItem
-                        label={intl.formatMessage({
-                          id: ETranslations.address_risk_check_exposure_direct__title,
-                        })}
-                        value={String(stats.direct)}
-                      />
-                      <StatItem
-                        label={intl.formatMessage({
-                          id: ETranslations.address_risk_check_stats_top_exposure__title,
-                        })}
-                        value={topExposureText}
-                        valueNumberOfLines={2}
-                      />
-                    </XStack>
+                    <ExposureStats
+                      exposuresLabel={intl.formatMessage({
+                        id: ETranslations.address_risk_check_stats_exposures__title,
+                      })}
+                      exposures={String(stats.total)}
+                      directLabel={intl.formatMessage({
+                        id: ETranslations.address_risk_check_exposure_direct__title,
+                      })}
+                      direct={String(stats.direct)}
+                      topExposureLabel={intl.formatMessage({
+                        id: ETranslations.address_risk_check_stats_top_exposure__title,
+                      })}
+                      topExposure={topExposureText}
+                    />
                   ) : null}
                 </YStack>
               ) : null}

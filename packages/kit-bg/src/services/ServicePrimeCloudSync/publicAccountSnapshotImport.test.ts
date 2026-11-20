@@ -372,7 +372,11 @@ describe('importPublicAccountSnapshots', () => {
         action: 'delete',
         isCurrent: () => true,
       }),
-    ).toMatchObject({ deleted: 0, pending: 1 });
+    ).toMatchObject({
+      deleted: 0,
+      pending: 0,
+      skippedSnapshotIds: [getPublicAccountSnapshotId(value)],
+    });
     expect(missing.getVault).not.toHaveBeenCalled();
     expect(missing.getHardwareSDK).not.toHaveBeenCalled();
   });
@@ -419,7 +423,8 @@ describe('importPublicAccountSnapshots', () => {
       ),
       isCurrent: () => true,
     });
-    expect(result).toMatchObject({ added: 0, pending: 1000 });
+    expect(result).toMatchObject({ added: 0, pending: 0 });
+    expect(result.skippedSnapshotIds).toHaveLength(1000);
     expect(h.getAllWallets).toHaveBeenCalledTimes(1);
     expect(h.getCredentialSafe).not.toHaveBeenCalled();
     expect(h.getVault).not.toHaveBeenCalled();
@@ -468,13 +473,19 @@ describe('importPublicAccountSnapshots', () => {
 
   it('does not cross wallet kind or silently choose duplicate local wallets', async () => {
     const h = harness([wallet('hd'), { ...wallet('hd'), id: 'hd-duplicate' }]);
+    const missing = snapshot();
     expect(
       await importPublicAccountSnapshots({
         backgroundApi: h.api,
-        snapshots: [snapshot(), snapshot(0, 'hd')],
+        snapshots: [missing, snapshot(0, 'hd')],
         isCurrent: () => true,
       }),
-    ).toMatchObject({ pending: 2, added: 0, appliedSnapshotIds: [] });
+    ).toMatchObject({
+      pending: 1,
+      added: 0,
+      appliedSnapshotIds: [],
+      skippedSnapshotIds: [getPublicAccountSnapshotId(missing)],
+    });
     expect(h.getCredentialSafe).not.toHaveBeenCalled();
     expect(h.write).not.toHaveBeenCalled();
   });
@@ -489,7 +500,10 @@ describe('importPublicAccountSnapshots', () => {
         snapshots: [hidden],
         isCurrent: () => true,
       }),
-    ).toMatchObject({ pending: 1 });
+    ).toMatchObject({
+      pending: 0,
+      skippedSnapshotIds: [getPublicAccountSnapshotId(hidden)],
+    });
     const local = {
       ...wallet(),
       id: 'hw-local-device-hidden',

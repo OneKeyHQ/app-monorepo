@@ -10,6 +10,7 @@ import {
   Input,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   XStack,
   YStack,
@@ -28,6 +29,7 @@ import type {
   IIntercomParamList,
   IIntercomSupportRoute,
 } from '@onekeyhq/shared/src/routes/intercom';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { SupportNavigation } from '../components/SupportNavigation';
@@ -36,6 +38,7 @@ import { useSupportResource } from '../hooks/useSupportResource';
 
 // Stable empty list: FlatList treats a new array as changed data.
 const NO_ARTICLES: IIntercomArticleLink[] = [];
+const ARTICLE_PLACEHOLDER_WIDTHS = ['80%', '60%', '70%', '50%'] as const;
 
 function SupportHelpContent({
   session,
@@ -70,13 +73,34 @@ function SupportHelpContent({
   const search = useSupportResource(loadSearch, active && !!phrase);
   const isSearching = !!input.trim();
   const waiting = input.trim() !== phrase;
+  // Placeholders cover only the first answer; later retries keep the screen.
+  const homeLoading = !sessionError && !home.settled;
+  const showSkeleton = homeLoading && !isSearching;
   const loading = isSearching ? waiting || search.loading : home.loading;
   const failed = !!sessionError || (isSearching ? search.failed : home.failed);
   let articles = NO_ARTICLES;
   if (!failed && !waiting)
     articles = (isSearching ? search.data : home.data?.articles) ?? NO_ARTICLES;
   let emptyState: ReactElement | undefined;
-  if (failed) {
+  if (showSkeleton) {
+    emptyState = (
+      <YStack testID="support-help-skeleton">
+        {/* Same box as a result row. */}
+        {ARTICLE_PLACEHOLDER_WIDTHS.map((width) => (
+          <YStack
+            key={width}
+            minHeight="$11"
+            justifyContent="center"
+            mx="$2"
+            px="$3"
+            py="$2"
+          >
+            <Skeleton.BodyLg w={width} />
+          </YStack>
+        ))}
+      </YStack>
+    );
+  } else if (failed) {
     emptyState = (
       <Empty
         title={intl.formatMessage({
@@ -128,20 +152,26 @@ function SupportHelpContent({
           data={articles}
           keyExtractor={(article) => article.id}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
-          ListHeaderComponent={loading ? <Spinner /> : undefined}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListHeaderComponent={
+            loading && !showSkeleton ? <Spinner /> : undefined
+          }
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
+            // Standard list-row spacing, so the highlight pads the text. The
+            // row keeps its own button role, which ListItem does not declare.
             <XStack
               testID={`support-help-result-${item.id}`}
               role="button"
-              py="$4"
+              minHeight="$11"
+              mx="$2"
+              px="$3"
+              py="$2"
               gap="$3"
               alignItems="center"
-              borderBottomWidth={1}
-              borderBottomColor="$borderSubdued"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
+              borderRadius="$3"
+              borderCurve="continuous"
+              {...listItemPressStyle}
               onPress={() => openUrlExternal(item.url)}
             >
               <YStack flex={1} gap="$1">
@@ -156,7 +186,11 @@ function SupportHelpContent({
                   </SizableText>
                 ) : null}
               </YStack>
-              <Icon name="ChevronRightOutline" size="$5" />
+              <Icon
+                name="ChevronRightSmallOutline"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
             </XStack>
           )}
         />
@@ -167,6 +201,7 @@ function SupportHelpContent({
           unread={unread}
           homeLabel={home.data?.homeLabel}
           messagesLabel={home.data?.messagesLabel}
+          loading={homeLoading}
           onHome={navigation.pop}
           onMessages={() => navigation.replace(EIntercomRoutes.Messages, route)}
         />

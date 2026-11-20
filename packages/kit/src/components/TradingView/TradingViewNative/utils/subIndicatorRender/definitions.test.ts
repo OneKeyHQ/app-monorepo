@@ -12,7 +12,7 @@ import type {
   ITradingViewNativeSubIndicatorInputDefinition,
 } from './types';
 
-const PLOT_TYPES = ['columns', 'histogram', 'line'] as const;
+const PLOT_TYPES = ['circles', 'columns', 'histogram', 'line'] as const;
 const LINE_STYLES = ['dashed', 'dotted', 'solid'] as const;
 
 function expectUniqueIds(items: readonly { id: string }[]): void {
@@ -139,7 +139,7 @@ describe('TradingViewNative sub-indicator definitions', () => {
       );
 
     expect(definitionIndicators).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
-    expect(TRADING_VIEW_NATIVE_SUB_INDICATOR_DEFINITIONS).toHaveLength(13);
+    expect(TRADING_VIEW_NATIVE_SUB_INDICATOR_DEFINITIONS).toHaveLength(32);
     expect(new Set(definitionIndicators).size).toBe(
       TRADING_VIEW_NATIVE_SUB_INDICATORS.length,
     );

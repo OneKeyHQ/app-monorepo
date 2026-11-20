@@ -1,9 +1,8 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
-
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import type { IToastAction } from '@onekeyhq/components';
 import {
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
@@ -167,16 +166,15 @@ function renderAccessHook() {
 
 function toastAt(index: number) {
   return mockToastMessage.mock.calls[index]?.[0] as
-    | { title?: string; message?: string; actions?: ReactElement }
+    | { title?: string; message?: string; actions?: IToastAction }
     | undefined;
 }
 
 function pressGetPrimeOf(index: number) {
-  const actions = toastAt(index)?.actions as
-    | ReactElement<{ onPress: () => void }>
-    | undefined;
+  const actions = toastAt(index)?.actions;
+  expect(actions?.onPress).toBeDefined();
   act(() => {
-    actions?.props.onPress();
+    void actions?.onPress?.();
   });
 }
 
@@ -314,6 +312,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     // The hand-off keeps the action it just saved.
     expect(mockLoginOneKeyId).toHaveBeenCalledWith({
       keepFreeTrialPendingAction: true,
+      freeTrialFeatureId: EPrimeFeatures.BulkCopyAddresses,
     });
     expect(mockPushFullModal).not.toHaveBeenCalled();
   });
@@ -336,6 +335,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockSavePendingAction).not.toHaveBeenCalled();
     expect(mockLoginOneKeyId).toHaveBeenCalledWith({
       keepFreeTrialPendingAction: false,
+      freeTrialFeatureId: EPrimeFeatures.AddressRiskCheck,
     });
   });
 

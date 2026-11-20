@@ -40,7 +40,8 @@ import {
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyFirmwareUpdateFailure,
-  resolveFirmwareUpdateErrorCode,
+  readFirmwareUpdateFailureTracking,
+  resolveReportedFirmwareUpdateFailure,
   toUserFacingFirmwareUpdateError,
 } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import {
@@ -2413,18 +2414,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getUpdateWorkflowTrackingInfo(): Promise<{
-    retryCount: number | undefined;
-    totalDurationMs: number | undefined;
-    transferredBytes: number | undefined;
-    totalBytes: number | undefined;
-    averageTransferRateBytesPerSecond: number | undefined;
-    transferDurationMs: number | undefined;
-    lastFailureType:
-      | ReturnType<typeof classifyFirmwareUpdateFailure>
-      | undefined;
-    lastErrorCode: string | undefined;
-  }> {
+  async getUpdateWorkflowTrackingInfo(): Promise<
+    {
+      retryCount: number | undefined;
+      totalDurationMs: number | undefined;
+      transferredBytes: number | undefined;
+      totalBytes: number | undefined;
+      averageTransferRateBytesPerSecond: number | undefined;
+      transferDurationMs: number | undefined;
+    } & ReturnType<typeof readFirmwareUpdateFailureTracking>
+  > {
     const tracking = this.updateWorkflowTracking;
     const now = Date.now();
     const [activeUiState, completedUiState] = await Promise.all([
@@ -2441,10 +2440,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       totalBytes: transferMetrics?.totalBytes,
       averageTransferRateBytesPerSecond: transferMetrics?.rateBytesPerSecond,
       transferDurationMs: transferMetrics?.elapsedMs,
-      lastFailureType: tracking?.lastFailure
-        ? classifyFirmwareUpdateFailure(tracking.lastFailure)
-        : undefined,
-      lastErrorCode: resolveFirmwareUpdateErrorCode(tracking?.lastFailure),
+      ...readFirmwareUpdateFailureTracking(tracking?.lastFailure),
     };
   }
 
@@ -2878,7 +2874,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     const err = toPlainErrorObject(error as any);
     const displayError = toUserFacingFirmwareUpdateError(err);
-    const failureType = classifyFirmwareUpdateFailure(err);
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
@@ -2894,11 +2889,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
     try {
       const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
-      const resultFailureType =
-        failureType === 'cancelled'
-          ? trackingInfo.lastFailureType
-          : failureType;
-      if (!resultFailureType || resultFailureType === 'cancelled') {
+      const reportedFailure = resolveReportedFirmwareUpdateFailure({
+        error: err,
+        previous: {
+          failureType: trackingInfo.lastFailureType,
+          failurePhase: trackingInfo.lastFailurePhase,
+          errorCode: trackingInfo.lastErrorCode,
+          errorName: trackingInfo.lastErrorName,
+          errorDetail: trackingInfo.lastErrorDetail,
+        },
+      });
+      if (!reportedFailure) {
         return;
       }
 
@@ -2910,11 +2911,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
         toFirmwareType: updateFirmwareInfo?.toFirmwareType,
         status: 'failed',
-        failureType: resultFailureType,
-        errorCode:
-          failureType === 'cancelled'
-            ? trackingInfo.lastErrorCode
-            : resolveFirmwareUpdateErrorCode(err),
+        ...reportedFailure,
         retryCount: trackingInfo.retryCount,
         totalDurationMs: trackingInfo.totalDurationMs,
         transferredBytes: trackingInfo.transferredBytes,

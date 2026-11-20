@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -394,8 +394,10 @@ export function DeriveTypeSelectorTriggerGlobalStandAlone({
 export function DeriveTypeSelectorFormInput(
   props: Omit<IDeriveTypeSelectorTriggerProps, 'items'> & {
     enabledItems?: IAccountDeriveInfo[];
+    preloadedItems?: IAccountDeriveInfoItems[];
     networkId: string;
     onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
+    onUserSelect?: (type: IAccountDeriveTypes) => void;
     hideIfItemsLTEOne?: boolean; // <=1
     undefinedResultIfReRun?: boolean;
   },
@@ -403,10 +405,12 @@ export function DeriveTypeSelectorFormInput(
   const {
     hideIfItemsLTEOne,
     enabledItems,
+    preloadedItems,
     networkId,
     value: deriveType,
     onChange: onDeriveTypeChange,
     onItemsChange,
+    onUserSelect,
     undefinedResultIfReRun = true,
     ...others
   } = props;
@@ -415,13 +419,14 @@ export function DeriveTypeSelectorFormInput(
   const { result: viewItems } = usePromiseResult(
     async () => {
       const selectItems =
-        await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
+        preloadedItems ??
+        (await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
           networkId,
           enabledItems,
-        });
+        }));
       return { items: selectItems, networkId };
     },
-    [enabledItems, networkId],
+    [enabledItems, networkId, preloadedItems],
     {
       undefinedResultIfReRun,
     },
@@ -459,6 +464,7 @@ export function DeriveTypeSelectorFormInput(
 
   // autofix derivetype when it's not in the list or not set value yet
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       if (
         shouldResetDeriveTypeWhenNetworkChanged.current ||
@@ -478,6 +484,7 @@ export function DeriveTypeSelectorFormInput(
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
+        if (cancelled) return;
         let fixedValue = viewItems?.items?.[0]?.value as
           | IAccountDeriveTypes
           | undefined;
@@ -494,7 +501,18 @@ export function DeriveTypeSelectorFormInput(
         }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [deriveType, networkId, onDeriveTypeChange, viewItems]);
+
+  const handleUserSelect = useCallback(
+    (type: IAccountDeriveTypes) => {
+      onDeriveTypeChange?.(type);
+      onUserSelect?.(type);
+    },
+    [onDeriveTypeChange, onUserSelect],
+  );
 
   onItemsChange?.(options);
 
@@ -508,7 +526,7 @@ export function DeriveTypeSelectorFormInput(
       items={options}
       networkId={networkId}
       value={deriveType}
-      onChange={onDeriveTypeChange}
+      onChange={onUserSelect ? handleUserSelect : onDeriveTypeChange}
       {...others}
       renderTrigger={
         hideIfItemsLTEOne && options.length <= 1

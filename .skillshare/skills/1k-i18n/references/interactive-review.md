@@ -8,7 +8,7 @@ yarn i18n:workflow review --file <dir>/plan.json --out <dir>/review.html
 
 Use new output filenames; the model does not implement preview UI.
 Pass `review --feedback <revision.json>` to prefill requested edits while retaining
-original key identities. This produces an editable revision, not a refreshed upload plan.
+original key identities. This produces an editable revision, not a refreshed write plan.
 
 ## Import and revise
 
@@ -20,7 +20,7 @@ original key identities. This produces an editable revision, not a refreshed upl
 
    The importer returns `revise-draft`, `approve-plan`, or `already-applied`.
    Only `approve-plan` confirms the original plan for apply; `already-applied`
-   requires no reupload. Generating feedback inside HTML is not approval until
+   requires no new write. Generating feedback inside HTML is not approval until
    the user sends it into the conversation.
 
 2. For `revise-draft`, run `inspect --file <dir>/revised.json`. Resolve `reviewNote`
@@ -54,7 +54,13 @@ its remote record; reuse a target only when semantics match.
 
 ## Applied or stale plans
 
-Before revising an applied plan, run the normal sync and scan, then re-import with
-`--baseline <fresh-scanned-draft.json>` for the same project. Source/remote changes
+Before revising an applied plan whose onekey-i18n PR is merged and released, run the
+normal sync and scan, then re-import with
+`--baseline <fresh-scanned-draft.json>` for the same project. To revise earlier,
+close that PR and run `yarn i18n:pull` (latest release). It rewrites only the
+generated files, replacing the PR preview, and leaves the git index and every other
+file alone. A plain `sync` refuses generated files that differ from git, so rebuild
+the baseline with `yarn i18n:sync --verify-current --out <dir>/sync-next.json`
+and scan against it. Source/remote changes
 also require a refreshed baseline and new preview. Preserve unknown local changes;
 see [recovery](rules/i18n.md#recovery).

@@ -20,7 +20,10 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
-import type { ITradingViewNativeChartRuntimeState } from '../utils/chartRuntime';
+import type {
+  ITradingViewNativeChartRuntimeState,
+  ITradingViewNativeCrosshairPosition,
+} from '../utils/chartRuntime';
 import type {
   ITradingViewNativePriceRange,
   ITradingViewNativeVisiblePointRange,
@@ -55,7 +58,9 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   priceScaleMode: ITradingViewNativePriceScaleMode;
   runtimeState: ITradingViewNativeChartRuntimeState;
   showLegend: boolean;
+  showPriceLegend: boolean;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  syncedCrosshair?: ITradingViewNativeCrosshairPosition | null;
   timeAxisFontSize: number;
   timeAxisHeight: number;
   timeAxisBorderWidth?: number;
@@ -90,7 +95,9 @@ export function drawTradingViewNativeCanvasChart({
   priceScaleMode,
   runtimeState,
   showLegend,
+  showPriceLegend,
   subIndicatorPanes,
+  syncedCrosshair,
   timeAxisFontSize,
   timeAxisHeight,
   timeAxisBorderWidth,
@@ -157,7 +164,9 @@ export function drawTradingViewNativeCanvasChart({
     priceRangeScale,
     priceScaleMode,
     showLegend,
+    showPriceLegend,
     subIndicatorPanes,
+    syncedCrosshair,
     timeAxisFontSize,
     timeAxisHeight,
     viewport: runtimeState.viewport,

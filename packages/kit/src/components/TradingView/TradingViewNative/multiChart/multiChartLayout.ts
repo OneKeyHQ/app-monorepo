@@ -1,10 +1,15 @@
-import { TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS } from '@onekeyhq/shared/types/tradingViewNative';
+import {
+  TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS,
+  TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   ITradingViewNativeIndicatorSettings,
   ITradingViewNativeMultiChartLayout,
   ITradingViewNativeMultiChartPanelState,
   ITradingViewNativeMultiChartPreset,
   ITradingViewNativeMultiChartSizes,
+  ITradingViewNativeMultiChartSync,
+  ITradingViewNativeMultiChartSyncOption,
   ITradingViewNativeSource,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -202,13 +207,47 @@ export function normalizeTradingViewNativeMultiChartLayout(
       }
     }
   }
+  const sync: ITradingViewNativeMultiChartSync = {};
+  if (isRecord(input.sync)) {
+    for (const option of TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS) {
+      const isSynced = input.sync[option];
+      if (typeof isSynced === 'boolean') sync[option] = isSynced;
+    }
+  }
   return {
     preset: isTradingViewNativeMultiChartPreset(input.preset)
       ? input.preset
       : '1',
     panels,
     ...(Object.keys(sizes).length ? { sizes } : {}),
+    ...(Object.keys(sync).length ? { sync } : {}),
   };
+}
+
+const NOTHING_SYNCED: Record<ITradingViewNativeMultiChartSyncOption, boolean> =
+  {
+    symbol: false,
+    interval: false,
+    crosshair: false,
+    time: false,
+    dateRange: false,
+  };
+
+/** Every sync option; one the user has not turned on is off. */
+export function getTradingViewNativeMultiChartSync(
+  layout: ITradingViewNativeMultiChartLayout,
+): Record<ITradingViewNativeMultiChartSyncOption, boolean> {
+  return { ...NOTHING_SYNCED, ...layout.sync };
+}
+
+export function setTradingViewNativeMultiChartSync(
+  layout: ITradingViewNativeMultiChartLayout,
+  option: ITradingViewNativeMultiChartSyncOption,
+  isSynced: boolean,
+): ITradingViewNativeMultiChartLayout {
+  return getTradingViewNativeMultiChartSync(layout)[option] === isSynced
+    ? layout
+    : { ...layout, sync: { ...layout.sync, [option]: isSynced } };
 }
 
 export function getTradingViewNativeMultiChartPanelIds(

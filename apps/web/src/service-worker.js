@@ -13,6 +13,7 @@ import {
   isTradingViewEmbedManifestIntegrityValid,
 } from '@onekeyhq/shared/src/utils/tradingViewEmbedRelease';
 
+import { getKeylessRouteKind } from './keylessDeletion/paths';
 import {
   TRADINGVIEW_EMBED_ASSET_MAX_BYTES,
   TradingViewEmbedAssetIntegrityError,
@@ -1925,6 +1926,10 @@ async function handleScriptStyleRequest(request, event) {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
+    if (getKeylessRouteKind(new URL(event.request.url))) {
+      event.respondWith(fetchNetworkHtml());
+      return;
+    }
     const navigationResponsePromise = handleNavigation().catch(() =>
       fetchNetworkHtml(),
     );

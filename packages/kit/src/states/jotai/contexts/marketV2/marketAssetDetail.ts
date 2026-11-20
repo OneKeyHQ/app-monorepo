@@ -32,6 +32,7 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
+  tokenDetailSwrScopeAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 import {
@@ -308,13 +309,21 @@ async function fetchMarketAssetTokenDetail(
       lastUpdated,
     });
     // Chart updates may arrive while the decimals lookup is in flight.
+    const latestTokenDetail = get(tokenDetailAtom());
+    // A legacy REST quote can cover the handoff, but only real chart ticks
+    // should take precedence over the first valid asset quote.
+    const hasLegacyDetail = get(tokenDetailSwrScopeAtom()) !== undefined;
     const finalTokenData = mergeMarketTokenDetailPrice({
-      currentTokenDetail: get(tokenDetailAtom()),
+      currentTokenDetail:
+        latestTokenDetail && hasLegacyDetail
+          ? { ...latestTokenDetail, detailPriceInitializedAt: undefined }
+          : latestTokenDetail,
       tokenData,
       requestStartedAt,
     });
 
     set(tokenDetailAtom(), finalTokenData);
+    set(tokenDetailSwrScopeAtom(), undefined);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);

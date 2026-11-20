@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import type { IToastAction } from '@onekeyhq/components';
 import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import {
   InvalidPIN,
@@ -70,13 +71,7 @@ jest.mock('react-intl', () => {
 });
 
 jest.mock('@onekeyhq/components', () => ({
-  Button: ({
-    children,
-    onPress,
-  }: {
-    children: import('react').ReactNode;
-    onPress: () => void;
-  }) => <button onClick={onPress}>{children}</button>,
+  useClipboard: () => ({ copyText: jest.fn() }),
   Toast: {
     dismiss: jest.fn(),
     error: jest.fn(),
@@ -301,7 +296,7 @@ describe('ErrorToastContainer', () => {
     const view = render(<ErrorToastContainer />);
     const title =
       'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed';
-    const action = <button type="button">Support</button>;
+    const action = { label: 'Support' };
     jest.mocked(getErrorAction).mockReturnValueOnce(action);
     await act(async () =>
       appEventBus.emit(EAppEventBusNames.ShowToast, {
@@ -377,14 +372,13 @@ describe('ErrorToastContainer', () => {
       }),
     );
     const toast = mockedToast.error.mock.calls[0][0] as {
-      actions: import('react').ReactElement;
+      actions: IToastAction;
     };
-    const action = render(toast.actions);
-    fireEvent.click(action.getByRole('button', { name: '检查更新' }));
+    expect(toast.actions.label).toBe('检查更新');
+    void toast.actions.onPress?.();
     expect(mockOpenChangeLogModal).toHaveBeenCalledWith({
       connectId: 'PORTFOLIO_DEVICE_ID',
     });
-    action.unmount();
     unmount();
   });
 
@@ -585,7 +579,7 @@ describe('ErrorToastContainer', () => {
       // Error construction under Jest leaves the background fallback text;
       // the real UI formatter above must supply the Chinese guidance.
       expect(error.message).not.toBe(expectedTitle);
-      const action = <span>Update firmware</span>;
+      const action = { label: 'Update firmware' };
       jest.mocked(getErrorAction).mockReturnValueOnce(action);
       const onShowToast = jest.fn();
       appEventBus.on(EAppEventBusNames.ShowToast, onShowToast);
@@ -604,6 +598,7 @@ describe('ErrorToastContainer', () => {
             errorCode: error.code,
             connectId: 'FIRMWARE_DEVICE_ID',
           }),
+          expect.anything(),
         );
         expect(mockedToast.error).toHaveBeenCalledWith(
           expect.objectContaining({

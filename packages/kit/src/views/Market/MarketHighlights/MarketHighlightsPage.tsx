@@ -1,0 +1,732 @@
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  HeaderIconButton,
+  Icon,
+  IconButton,
+  NumberSizeableText,
+  Page,
+  Popover,
+  ScrollView,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type {
+  IMarketHighlight,
+  IMarketHighlightAsset,
+} from '@onekeyhq/shared/types/marketV2';
+
+import { MarketPerpsStarV2, MarketStarV2 } from '../components/MarketStarV2';
+import {
+  LeverageBadge,
+  USStockMarketStatusIcon,
+} from '../components/PerpsBadges';
+import { PriceChangePercentage } from '../components/PriceChangePercentage';
+import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
+import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
+import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
+import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+
+import { useInitialHighlightScroll } from './useInitialHighlightScroll';
+import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
+import { useMarketHighlights } from './useMarketHighlights';
+
+import type { IMarketHighlightQuote } from './useMarketHighlightQuotes';
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../router/types';
+import type { RouteProp } from '@react-navigation/core';
+
+const MAX_CARD_ASSETS = 3;
+const ASSET_SLOT_MAX_WIDTH = 240;
+// Keeps the last slot's star off the card edge.
+const ASSET_ROW_TRAILING_PADDING = 10;
+
+function getValidLinks(links: IMarketHighlight['links']) {
+  return links.filter(({ url }) => /^https?:\/\//i.test(url));
+}
+
+function HighlightInfo({
+  validLinks,
+  wide,
+}: {
+  validLinks: IMarketHighlight['links'];
+  wide: boolean;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.global_details });
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      hoverable={wide}
+      title={title}
+      showHeader={!wide}
+      placement="bottom-end"
+      offset={wide ? { mainAxis: 6, crossAxis: 14 } : undefined}
+      floatingPanelProps={{ width: 200, borderRadius: '$2' }}
+      renderTrigger={
+        // eslint-disable-next-line props-checker/validator -- Popover supplies the trigger handler.
+        <XStack
+          testID="market-highlights-info"
+          role="button"
+          alignItems="center"
+          gap="$1"
+          px="$2"
+          py="$1"
+          mx="$-2"
+          my="$-1"
+          cursor="default"
+          aria-expanded={isOpen}
+        >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {title}
+          </SizableText>
+          <Icon
+            name="ChevronDownSmallOutline"
+            size="$3.5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      }
+      renderContent={
+        // Sources only; the shared disclaimer lives in the page header.
+        <YStack
+          px={wide ? '$3' : '$5'}
+          pt={wide ? '$1' : undefined}
+          pb={wide ? '$1' : '$5'}
+        >
+          {validLinks.map(({ title: label, url }, index) => (
+            <XStack
+              key={`${url}:${index}`}
+              role="link"
+              minHeight={wide ? 36 : 40}
+              gap="$2"
+              cursor="pointer"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => openUrlExternal(url)}
+            >
+              <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
+                {label}
+              </SizableText>
+              <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+            </XStack>
+          ))}
+        </YStack>
+      }
+    />
+  );
+}
+
+function HighlightsDisclaimer({
+  wide,
+  onOpen,
+}: {
+  wide: boolean;
+  onOpen: () => void;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.earn_disclaimer });
+  const testID = 'market-highlights-disclaimer';
+  // No `title`: it would add a hover tooltip on top of the popover.
+  const triggerProps = {
+    'aria-label': title,
+    icon: 'InfoCircleOutline' as const,
+  };
+  return (
+    <Popover
+      title={title}
+      onOpenChange={(open) => {
+        if (open) onOpen();
+      }}
+      showHeader={!wide}
+      placement="bottom-end"
+      // Desktop matches the default Tooltip panel (width, padding, text).
+      floatingPanelProps={{ width: 288, borderRadius: '$2' }}
+      renderTrigger={
+        wide ? (
+          <IconButton
+            testID={testID}
+            {...triggerProps}
+            variant="tertiary"
+            iconProps={{ color: '$iconSubdued' }}
+            mr="$-2"
+          />
+        ) : (
+          <HeaderIconButton testID={testID} {...triggerProps} />
+        )
+      }
+      renderContent={
+        <YStack
+          px={wide ? '$3' : '$5'}
+          pt={wide ? '$2' : undefined}
+          pb={wide ? '$2' : '$5'}
+        >
+          <SizableText
+            size={wide ? '$bodySm' : '$bodyMd'}
+            color={wide ? undefined : '$textSubdued'}
+          >
+            {intl.formatMessage({ id: ETranslations.market_news_disclaimer })}
+          </SizableText>
+        </YStack>
+      }
+    />
+  );
+}
+
+function HighlightDescription({
+  description,
+  wide,
+  onMeasured,
+}: {
+  description: string;
+  wide: boolean;
+  onMeasured: () => void;
+}) {
+  const intl = useIntl();
+  const [expanded, setExpanded] = useState(false);
+  const [fullHeight, setFullHeight] = useState(0);
+  const maxLines = wide ? 3 : 4;
+  const isTruncated = fullHeight > s(20) * maxLines + 1;
+  const showMore = intl.formatMessage({ id: ETranslations.global_show_more });
+  const showLess = intl.formatMessage({ id: ETranslations.global_show_less });
+
+  return (
+    <YStack alignSelf="stretch">
+      <YStack
+        aria-hidden
+        position="absolute"
+        width="100%"
+        opacity={0}
+        pointerEvents="none"
+        onLayout={({ nativeEvent }) => {
+          setFullHeight(nativeEvent.layout.height);
+          onMeasured();
+        }}
+      >
+        <SizableText size="$bodyMd">{description}</SizableText>
+      </YStack>
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={isTruncated && !expanded ? maxLines : undefined}
+      >
+        {description}
+      </SizableText>
+      {isTruncated ? (
+        <XStack
+          testID="market-highlights-description-toggle"
+          position={expanded ? undefined : 'absolute'}
+          right={expanded ? undefined : 0}
+          bottom={expanded ? undefined : 0}
+          alignSelf="flex-start"
+          gap="$1"
+          bg="$bgSubdued"
+          role="button"
+          accessibilityLabel={expanded ? showLess : showMore}
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded((value) => !value)}
+        >
+          {expanded ? null : (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              …
+            </SizableText>
+          )}
+          <SizableText
+            size="$bodyMd"
+            textDecorationLine="underline"
+            textTransform={
+              !expanded && intl.locale.startsWith('en')
+                ? 'capitalize'
+                : undefined
+            }
+          >
+            {expanded ? showLess : showMore}
+          </SizableText>
+        </XStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function HighlightAssetRow({
+  asset,
+  quote,
+  onPress,
+  wide,
+}: {
+  asset: IMarketHighlightAsset;
+  quote?: IMarketHighlightQuote;
+  onPress: (asset: IMarketHighlightAsset) => void;
+  wide: boolean;
+}) {
+  const { favorite } = asset;
+  const maxLeverage = asset.type === 'perp' ? quote?.maxLeverage : undefined;
+  return (
+    <XStack
+      alignItems="center"
+      // Hover background extends beyond the fixed slot without changing its width.
+      alignSelf="stretch"
+      width={wide ? undefined : '100%'}
+      px={wide ? '$3' : undefined}
+      mx={wide ? '$-3' : undefined}
+      borderRadius={wide ? '$3' : undefined}
+      hoverStyle={wide ? { bg: '$bgHover' } : undefined}
+      minWidth={0}
+      py={wide ? '$3' : undefined}
+      gap={wide ? '$5' : '$1'}
+    >
+      <XStack
+        testID={`market-highlights-asset-${getMarketWatchlistKey(favorite)}`}
+        role="button"
+        flex={1}
+        flexShrink={1}
+        minWidth={0}
+        alignItems="center"
+        gap="$3"
+        minHeight={44}
+        cursor="pointer"
+        onPress={() => onPress(asset)}
+      >
+        <Token
+          size="md"
+          tokenImageUri={quote?.logoUrl}
+          networkId={asset.type === 'token' ? asset.chainId : undefined}
+          showNetworkIcon={asset.type === 'token'}
+        />
+        <YStack
+          flex={wide ? undefined : 1}
+          minWidth={0}
+          flexDirection={wide ? 'column' : 'row'}
+          alignItems={wide ? 'flex-start' : 'center'}
+          gap={wide ? undefined : '$2'}
+        >
+          <XStack
+            flex={wide ? undefined : 1}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            flexShrink={1}
+            alignItems="center"
+            gap="$1.5"
+          >
+            <SizableText flexShrink={1} size="$bodyLgMedium" numberOfLines={1}>
+              {asset.symbol}
+            </SizableText>
+            {quote?.isUSStock ? <USStockMarketStatusIcon /> : null}
+            {maxLeverage && maxLeverage > 0 ? (
+              <LeverageBadge leverage={maxLeverage} compact={!wide} />
+            ) : null}
+          </XStack>
+          <XStack
+            flex={wide ? undefined : 2}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            maxWidth={wide ? undefined : 160}
+            alignItems="center"
+            gap="$1.5"
+          >
+            <XStack
+              flex={wide ? undefined : 3}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
+            >
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+                flexShrink={1}
+                adjustsFontSizeToFit={!wide}
+              >
+                {quote?.price ?? '-'}
+              </NumberSizeableText>
+            </XStack>
+            <XStack
+              flex={wide ? undefined : 2}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
+            >
+              <PriceChangePercentage numberOfLines={1} flexShrink={1}>
+                {quote?.priceChange24hPercent}
+              </PriceChangePercentage>
+            </XStack>
+          </XStack>
+        </YStack>
+      </XStack>
+      {asset.type === 'perp' ? (
+        <MarketPerpsStarV2
+          perpsCoin={asset.perpsCoin}
+          size="small"
+          customIconSize="$4"
+        />
+      ) : (
+        <MarketStarV2
+          size="small"
+          customIconSize="$4"
+          from={EWatchlistFrom.Others}
+          tokenSymbol={asset.symbol}
+          assetId={favorite.assetId}
+          stockId={favorite.stockId}
+          chainId={favorite.chainId}
+          contractAddress={favorite.contractAddress}
+          isNative={favorite.isNative}
+        />
+      )}
+    </XStack>
+  );
+}
+
+function HighlightCard({
+  item,
+  quotes,
+  onAssetPress,
+  wide,
+  onDescriptionMeasured,
+}: {
+  item: IMarketHighlight;
+  quotes?: Map<string, IMarketHighlightQuote>;
+  onAssetPress: (asset: IMarketHighlightAsset) => void;
+  wide: boolean;
+  onDescriptionMeasured: (id: string) => void;
+}) {
+  const publishedAt = new Date(item.publishedAt);
+  const time = Number.isNaN(publishedAt.getTime())
+    ? undefined
+    : formatRelativeTimeAbbr(publishedAt);
+  // Details only lists sources, so it is hidden when there are none.
+  const validLinks = getValidLinks(item.links);
+  const hasSources = validLinks.length > 0;
+
+  return (
+    <YStack
+      testID="market-highlights-card"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      p={wide ? '$5' : '$4'}
+      gap={wide ? '$4' : '$3'}
+    >
+      <YStack
+        flexDirection={wide ? 'row' : 'column'}
+        alignItems={wide ? 'center' : 'flex-start'}
+        justifyContent={wide ? 'space-between' : undefined}
+        gap={wide ? '$3' : '$2'}
+      >
+        <XStack alignItems="center" flexShrink={1} minWidth={0} gap="$3">
+          <SizableText size="$headingMd" flexShrink={1}>
+            {item.title}
+          </SizableText>
+          {wide && time ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {time.toUpperCase()}
+            </SizableText>
+          ) : null}
+        </XStack>
+        <XStack alignItems="center" gap="$2" flexShrink={0}>
+          {wide || !time ? null : (
+            <>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {time.toUpperCase()}
+              </SizableText>
+              {hasSources ? (
+                <Stack width={1} height={10} bg="$borderSubdued" />
+              ) : null}
+            </>
+          )}
+          {hasSources ? (
+            <HighlightInfo validLinks={validLinks} wide={wide} />
+          ) : null}
+        </XStack>
+      </YStack>
+      <HighlightDescription
+        key={item.description}
+        description={item.description}
+        wide={wide}
+        onMeasured={() => onDescriptionMeasured(item.highlightId)}
+      />
+      <YStack
+        flexDirection={wide ? 'row' : 'column'}
+        flexWrap={wide ? 'wrap' : 'nowrap'}
+        alignItems={wide ? 'center' : 'stretch'}
+        gap={wide ? '$5' : '$2'}
+        pr={wide ? ASSET_ROW_TRAILING_PADDING : undefined}
+      >
+        {Array.from(
+          {
+            length:
+              wide && item.assets.length > 0
+                ? MAX_CARD_ASSETS
+                : Math.min(item.assets.length, MAX_CARD_ASSETS),
+          },
+          (_, index) => {
+            const asset = item.assets[index];
+            const identity = asset
+              ? getMarketWatchlistKey(asset.favorite)
+              : 'empty';
+            return (
+              <Fragment key={`${identity}:${index}`}>
+                {wide && index > 0 ? (
+                  <Stack
+                    width={1}
+                    height={44}
+                    bg={asset ? '$borderDisabled' : undefined}
+                  />
+                ) : null}
+                <YStack
+                  flex={wide ? 1 : undefined}
+                  flexBasis={wide ? 0 : undefined}
+                  maxWidth={wide ? ASSET_SLOT_MAX_WIDTH : undefined}
+                  minWidth={0}
+                >
+                  {asset ? (
+                    <HighlightAssetRow
+                      asset={asset}
+                      quote={quotes?.get(identity)}
+                      onPress={onAssetPress}
+                      wide={wide}
+                    />
+                  ) : null}
+                </YStack>
+              </Fragment>
+            );
+          },
+        )}
+      </YStack>
+    </YStack>
+  );
+}
+
+const LIST_EDGE_SPACING = 10;
+
+function MarketHighlightsContent() {
+  const route =
+    useRoute<
+      RouteProp<IModalMarketParamList, EModalMarketRoutes.MarketHighlights>
+    >();
+  const initialQuotes = useMemo(
+    () =>
+      route.params?.initialQuotes
+        ? new Map(route.params.initialQuotes)
+        : undefined,
+    [route.params?.initialQuotes],
+  );
+  const intl = useIntl();
+  const { gtMd: wide } = useMedia();
+  const title = intl.formatMessage({
+    id: ETranslations.market_market_highlights,
+  });
+  const { popStack } = useAppNavigation();
+  const { navigateToPerps } = usePerpsNavigation();
+  const toDetailPage = useToDetailPage({ switchToMarketTabFirst: true });
+  const { items, isLoading, retry } = useMarketHighlights(
+    route.params?.initialHighlights,
+  );
+  const assets = useMemo(
+    () => items?.flatMap((item) => item.assets.slice(0, MAX_CARD_ASSETS)),
+    [items],
+  );
+  const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+  const initialHighlightId = route.params?.initialHighlightId;
+  const initialScroll = useInitialHighlightScroll(items, initialHighlightId);
+  const renderHeaderRight = useCallback(
+    () => <HighlightsDisclaimer wide={false} onOpen={initialScroll.finish} />,
+    [initialScroll.finish],
+  );
+  useEffect(() => {
+    if (!quotes) return;
+    prewarmMarketTokenImages(
+      {
+        tokenImageUris: [...quotes.values()]
+          .map((quote) => quote.logoUrl)
+          .filter((url): url is string => Boolean(url)),
+      },
+      { limit: quotes.size },
+    );
+  }, [quotes]);
+  const onAssetPress = useCallback(
+    (asset: IMarketHighlightAsset) => {
+      if (asset.type === 'perp') {
+        navigateToPerps(asset.perpsCoin, { dismissOverlays: true });
+        return;
+      }
+      popStack();
+      void toDetailPage({
+        symbol: asset.symbol,
+        name: asset.name,
+        tokenAddress: asset.type === 'token' ? asset.contractAddress : '',
+        networkId: asset.type === 'token' ? asset.chainId : '',
+        isNative: asset.type === 'token' ? asset.isNative : undefined,
+        stockId: asset.type === 'stock' ? asset.stockId : undefined,
+        assetId: asset.type === 'asset' ? asset.assetId : undefined,
+      });
+    },
+    [navigateToPerps, popStack, toDetailPage],
+  );
+
+  const content = (
+    <Page onMounted={initialScroll.onPageMounted}>
+      <Page.Header
+        headerShown={!wide}
+        title={title}
+        headerRight={renderHeaderRight}
+      />
+      <Page.Body bg="$bgApp" minHeight={0}>
+        {wide ? (
+          <XStack
+            testID="market-highlights-header"
+            h={52}
+            px="$5"
+            gap="$4"
+            flexShrink={0}
+            alignItems="center"
+          >
+            <IconButton
+              testID="market-highlights-close"
+              title={intl.formatMessage({ id: ETranslations.global_close })}
+              icon="CrossedLargeOutline"
+              iconProps={{ color: '$iconSubdued' }}
+              variant="tertiary"
+              ml="$-2"
+              onPress={popStack}
+            />
+            <SizableText size="$headingLg" flex={1}>
+              {title}
+            </SizableText>
+            <HighlightsDisclaimer wide onOpen={initialScroll.finish} />
+          </XStack>
+        ) : null}
+        {items?.length ? (
+          <YStack
+            ref={initialScroll.viewportRef}
+            testID="market-highlights-list"
+            flex={1}
+            minHeight={0}
+            onLayout={initialScroll.onViewportLayout}
+            onTouchStart={initialScroll.finish}
+          >
+            {!initialScroll.visible ? (
+              <YStack
+                position="absolute"
+                inset={0}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Spinner />
+              </YStack>
+            ) : null}
+            <ScrollView
+              ref={initialScroll.scrollRef}
+              testID="market-highlights-scroll"
+              opacity={initialScroll.visible ? 1 : 0}
+              pointerEvents={initialScroll.visible ? 'auto' : 'none'}
+              accessibilityElementsHidden={!initialScroll.visible}
+              aria-hidden={!initialScroll.visible}
+              scrollEventThrottle={16}
+              onScroll={initialScroll.onScroll}
+              onScrollBeginDrag={initialScroll.finish}
+            >
+              <YStack
+                ref={initialScroll.contentRef}
+                onLayout={initialScroll.onContentLayout}
+                collapsable={false}
+                py={LIST_EDGE_SPACING}
+              >
+                {items.map((item) => (
+                  <YStack
+                    key={item.highlightId}
+                    ref={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.targetRef
+                        : undefined
+                    }
+                    onLayout={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.onTargetLayout
+                        : undefined
+                    }
+                    collapsable={false}
+                    px={wide ? '$5' : '$4'}
+                    pb="$3"
+                  >
+                    <HighlightCard
+                      item={item}
+                      quotes={quotes}
+                      onAssetPress={onAssetPress}
+                      wide={wide}
+                      onDescriptionMeasured={
+                        initialScroll.onDescriptionMeasured
+                      }
+                    />
+                  </YStack>
+                ))}
+              </YStack>
+            </ScrollView>
+          </YStack>
+        ) : (
+          <YStack flex={1} alignItems="center" justifyContent="center" gap="$3">
+            {isLoading ? <Spinner /> : null}
+            {!isLoading && items ? (
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_no_data })}
+              </SizableText>
+            ) : null}
+            {!isLoading && !items ? (
+              <Button
+                testID="market-highlights-retry"
+                onPress={() => void retry()}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            ) : null}
+          </YStack>
+        )}
+      </Page.Body>
+    </Page>
+  );
+  return platformEnv.isNative ? (
+    content
+  ) : (
+    <div
+      style={{ display: 'contents' }}
+      onWheelCapture={initialScroll.finish}
+      onPointerDownCapture={initialScroll.finish}
+      onKeyDownCapture={initialScroll.finish}
+      onClickCapture={initialScroll.finish}
+    >
+      {content}
+    </div>
+  );
+}
+
+export function MarketHighlightsPage() {
+  return (
+    <MarketWatchListProviderMirrorV2
+      storeName={EJotaiContextStoreNames.marketWatchListV2}
+    >
+      <MarketHighlightsContent />
+    </MarketWatchListProviderMirrorV2>
+  );
+}

@@ -28,6 +28,11 @@ import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
   MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
 } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT,
+  MarketHighlightStrip,
+} from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -128,17 +133,41 @@ export function DesktopLayout({
   const bannerHeaderRef = useRef<IElement | null>(null);
   const stickyHeaderRef = useRef<IElement | null>(null);
 
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
+  const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
+  const renderBannerContent = useCallback(
+    () => (
+      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
+        {hasHighlightSlot ? (
+          <YStack
+            testID="market-highlights-slot"
+            h={MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT}
+            flexShrink={0}
+          >
+            <MarketHighlightStrip
+              highlight={highlight}
+              highlights={highlights}
+              compact={false}
+            />
+          </YStack>
+        ) : null}
+        <MarketBannerList compactTopSpacing={hasHighlightSlot} />
+      </YStack>
+    ),
+    [hasHighlightSlot, highlight, highlights],
+  );
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
         <YStack ref={bannerHeaderRef} bg="$bgApp" pointerEvents="box-none">
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
-            <MarketBannerList />
-          </YStack>
+          {renderBannerContent()}
         </YStack>
       ),
     }),
-    [],
+    [renderBannerContent],
   );
 
   // Portal target for sticky column headers.

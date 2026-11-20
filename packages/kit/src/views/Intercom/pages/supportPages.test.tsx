@@ -1,6 +1,11 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren, ReactNode } from 'react';
+import type {
+  CompositionEventHandler,
+  KeyboardEventHandler,
+  PropsWithChildren,
+  ReactNode,
+} from 'react';
 
 import {
   act,
@@ -22,6 +27,7 @@ import type {
   IIntercomPart,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { uploadIntercomImage } from '@onekeyhq/shared/src/modules3rdParty/intercom/upload';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IIntercomSupportRoute } from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -106,6 +112,9 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
     global_home: 'Home',
     global_close: 'Close',
     global_search: 'Search',
+    global_no_data: 'No data',
+    global_refresh: 'Refresh',
+    support_collaboration__action: 'Collaboration in the app language',
   },
 }));
 jest.mock('../utils/pickSupportImage', () => ({
@@ -153,15 +162,18 @@ jest.mock('react-native', () => ({
     data,
     renderItem,
     ListHeaderComponent,
+    ListEmptyComponent,
     ListFooterComponent,
   }: {
     data: T[];
     renderItem: (item: { item: T; index: number }) => ReactNode;
     ListHeaderComponent?: ReactNode;
+    ListEmptyComponent?: ReactNode;
     ListFooterComponent?: ReactNode;
   }) => (
     <div>
       {ListHeaderComponent}
+      {data.length ? null : ListEmptyComponent}
       {data.map((item, index) => (
         <div key={index}>{renderItem({ item, index })}</div>
       ))}
@@ -187,14 +199,21 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     disabled,
     testID,
+    accessibilityLabel,
+    title,
   }: PropsWithChildren<{
     onPress?: () => void;
     disabled?: boolean;
     testID?: string;
+    accessibilityLabel?: string;
+    // On an icon button this is the tooltip.
+    title?: string;
   }>) => (
     <button
       type="button"
       data-testid={testID}
+      aria-label={accessibilityLabel}
+      title={title}
       disabled={disabled}
       onClick={onPress}
     >
@@ -207,13 +226,39 @@ jest.mock('@onekeyhq/components', () => {
       bgApp: { val: '#ffffff' },
       bgSubdued: { val: '#eeeeee' },
     }),
-    Page: Object.assign(View, { Header: () => null, Body: View, Footer: View }),
+    Page: Object.assign(View, {
+      Header: ({
+        title,
+        headerTitle,
+        headerRight,
+      }: {
+        title?: string;
+        headerTitle?: () => ReactNode;
+        headerRight?: () => ReactNode;
+      }) => (
+        // Like the real navigation bar, keyed by its title: a new title
+        // remounts the bar together with its buttons.
+        <div key={title}>
+          {headerTitle?.()}
+          {headerRight?.()}
+        </div>
+      ),
+      Body: View,
+      Footer: View,
+    }),
     Button,
     IconButton: Button,
+    HeaderIconButton: Button,
     YStack: View,
     XStack: View,
     LinearGradient: View,
     SizableText: View,
+    Skeleton: Object.assign(View, {
+      BodyMd: View,
+      BodyLg: View,
+      HeadingMd: View,
+      HeadingLg: View,
+    }),
     Spinner: () => <div>Loading</div>,
     Icon: () => null,
     Image: ({
@@ -230,14 +275,21 @@ jest.mock('@onekeyhq/components', () => {
       />
     ),
     Empty: ({
+      title,
       buttonProps,
     }: {
+      title?: string;
       buttonProps?: {
         children?: ReactNode;
         onPress?: () => void;
         testID?: string;
       };
-    }) => <Button {...buttonProps} testID={buttonProps?.testID} />,
+    }) => (
+      <div>
+        {title}
+        <Button {...buttonProps} testID={buttonProps?.testID} />
+      </div>
+    ),
     Input: ({
       value,
       onChangeText,
@@ -259,11 +311,17 @@ jest.mock('@onekeyhq/components', () => {
     TextArea: ({
       value,
       onChangeText,
+      onKeyPress,
+      onCompositionStart,
+      onCompositionEnd,
       editable,
       testID,
     }: {
       value: string;
       onChangeText: (text: string) => void;
+      onKeyPress?: KeyboardEventHandler<HTMLTextAreaElement>;
+      onCompositionStart?: CompositionEventHandler<HTMLTextAreaElement>;
+      onCompositionEnd?: CompositionEventHandler<HTMLTextAreaElement>;
       editable: boolean;
       testID: string;
     }) => (
@@ -272,6 +330,10 @@ jest.mock('@onekeyhq/components', () => {
         value={value}
         disabled={!editable}
         onChange={(event) => onChangeText(event.target.value)}
+        // RN-web maps onKeyPress to keydown.
+        onKeyDown={onKeyPress}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
       />
     ),
   };
@@ -1279,6 +1341,8 @@ it('keeps the acknowledged composer editable while the first conversation refres
   expect(screen.getByTestId('support-message-input')).toBe(input);
   expect(input.disabled).toBe(false);
   expect(document.activeElement).toBe(input);
+  // The creation receipt already carries the header shown above the thread.
+  expect(screen.queryByTestId('support-chat-header-skeleton')).toBeNull();
   await act(async () => refresh.resolve(conversation));
   expect(input.value).toBe('Next draft during refresh');
 });
@@ -1310,5 +1374,312 @@ it.each([
     render(<SupportScreen />);
     await screen.findByTestId('support-message-part-1');
     expect(!!screen.queryByTestId('support-quick-reply-yes')).toBe(offered);
+  },
+);
+
+// Holds one endpoint open so a screen can be observed before it answers.
+function holdRequest(heldPath: string) {
+  const gate = deferred<void>();
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) => {
+    if (path === heldPath) await gate.promise;
+    return original?.(path, parameters);
+  });
+  return gate;
+}
+
+it.each(['home', 'conversations', 'new_conversation_content'])(
+  'holds the home placeholders until %s, the last section, has answered',
+  async (lastSection) => {
+    mockRoute.name = 'IntercomHome';
+    const session = deferred<IIntercomMessengerSession>();
+    mockCreateSession.mockReturnValueOnce(session.promise);
+    const last = holdRequest(lastSection);
+    render(<SupportScreen />);
+    // The placeholders are the first paint, before a session exists.
+    expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+    expect(mockRequest).not.toHaveBeenCalled();
+    await act(async () => {
+      session.resolve(mockSession);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // Two sections answered, but cards and tab labels wait for the last one.
+    expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 });
+    expect(mockRequest).toHaveBeenCalledWith('new_conversation_content');
+    expect(mockRequest).toHaveBeenCalledWith('home');
+    expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+    expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+    expect(screen.queryByTestId('support-article-123')).toBeNull();
+    expect(screen.getByTestId('support-message-history').textContent).toBe('');
+    expect(screen.queryByText('Loading')).toBeNull();
+    await act(async () => last.resolve());
+    await screen.findByTestId('support-conversation-42');
+    expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+    expect(screen.getByTestId('support-article-123')).toBeTruthy();
+    expect(screen.getByTestId('support-home-external-link')).toBeTruthy();
+    expect(screen.getByTestId('support-message-history').textContent).toBe(
+      'Messages',
+    );
+  },
+);
+
+it('keeps the loaded home in place while a failed section retries', async () => {
+  mockRoute.name = 'IntercomHome';
+  const retry = deferred<void>();
+  const original = mockRequest.getMockImplementation();
+  let openRequests = 0;
+  mockRequest.mockImplementation(async (path, parameters) => {
+    if (path === 'new_conversation_content') {
+      openRequests += 1;
+      if (openRequests === 1) throw new OneKeyLocalError('offline');
+      await retry.promise;
+    }
+    return original?.(path, parameters);
+  });
+  render(<SupportScreen />);
+  await screen.findByTestId('support-conversation-42');
+  fireEvent.click(screen.getByTestId('support-retry'));
+  await waitFor(() => expect(openRequests).toBe(2));
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+  await act(async () => retry.resolve());
+  await waitFor(() => expect(screen.queryByText('Loading')).toBeNull());
+  expect(screen.queryByTestId('support-retry')).toBeNull();
+});
+
+it('labels a known help article link in the app language and other links as served', async () => {
+  mockRoute.name = 'IntercomHome';
+  // The backend answers with the same English label in every language.
+  const collaboration = {
+    label: 'Looking for collaboration?',
+    href: 'https://help.onekey.so/en/articles/13405885',
+  };
+  const links = [
+    collaboration,
+    {
+      label: 'Titled path',
+      href: 'https://help.onekey.so/zh-CN/articles/13405885-collaboration',
+    },
+    { label: 'No language', href: 'https://help.onekey.so/articles/13405885' },
+    {
+      label: 'Another article',
+      href: 'https://help.onekey.so/en/articles/134058850',
+    },
+    {
+      label: 'Another site',
+      href: 'https://example.com/en/articles/13405885',
+    },
+  ];
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'home'
+      ? { cards: [{ type: 'external_links', links }] }
+      : original?.(path, parameters),
+  );
+  render(<SupportScreen />);
+  const rows = await screen.findAllByTestId('support-home-external-link');
+  expect(rows.map((row) => row.textContent)).toEqual([
+    'Collaboration in the app language',
+    'Collaboration in the app language',
+    'Collaboration in the app language',
+    'Another article',
+    'Another site',
+  ]);
+  fireEvent.click(rows[0]);
+  expect(openUrlExternal).toHaveBeenCalledWith(collaboration.href);
+});
+
+it('offers a retry instead of placeholders when the support session fails', async () => {
+  mockRoute.name = 'IntercomHome';
+  mockCreateSession.mockRejectedValueOnce(new OneKeyLocalError('offline'));
+  render(<SupportScreen />);
+  await screen.findByTestId('support-retry');
+  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+});
+
+it('shows conversation placeholders until the inbox answers, then its empty state', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const session = deferred<IIntercomMessengerSession>();
+  mockCreateSession.mockReturnValueOnce(session.promise);
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations'
+      ? { conversation_page: { conversations: [] } }
+      : original?.(path, parameters),
+  );
+  render(<SupportScreen />);
+  // An inbox that has not answered yet is loading, not empty.
+  expect(screen.getByTestId('support-conversation-list-skeleton')).toBeTruthy();
+  expect(screen.queryByText('No data')).toBeNull();
+  await act(async () => session.resolve(mockSession));
+  await screen.findByText('No data');
+  expect(screen.queryByTestId('support-conversation-list-skeleton')).toBeNull();
+});
+
+it('shows message placeholders until the conversation first answers', async () => {
+  mockRoute.params = { userId: null, conversationId: '42' };
+  const loaded = holdRequest('conversations/42');
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-chat-skeleton')).toBeTruthy();
+  expect(screen.getByTestId('support-chat-header-skeleton')).toBeTruthy();
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'conversations/42',
+      expect.anything(),
+    ),
+  );
+  expect(screen.getByTestId('support-chat-skeleton')).toBeTruthy();
+  expect(screen.queryByText('Loading')).toBeNull();
+  await act(async () => loaded.resolve());
+  await screen.findByTestId('support-message-part-1');
+  expect(screen.queryByTestId('support-chat-skeleton')).toBeNull();
+  expect(screen.queryByTestId('support-chat-header-skeleton')).toBeNull();
+});
+
+it('shows article placeholders until the help suggestions answer', async () => {
+  mockRoute.name = 'IntercomHelp';
+  const loaded = holdRequest('home');
+  render(<SupportScreen />);
+  expect(screen.getByTestId('support-help-skeleton')).toBeTruthy();
+  await waitFor(() => expect(mockRequest).toHaveBeenCalledWith('home'));
+  expect(screen.getByTestId('support-help-skeleton')).toBeTruthy();
+  expect(screen.queryByText('Loading')).toBeNull();
+  await act(async () => loaded.resolve());
+  await screen.findByTestId('support-help-result-123');
+  expect(screen.queryByTestId('support-help-skeleton')).toBeNull();
+});
+
+// jsdom has no matchMedia, so a test declares the primary pointer itself.
+function setPrimaryPointer(pointer: 'fine' | 'coarse') {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia');
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({ matches: query === `(pointer: ${pointer})` }),
+  });
+  return () => {
+    if (original) Object.defineProperty(globalThis, 'matchMedia', original);
+    else Reflect.deleteProperty(globalThis, 'matchMedia');
+  };
+}
+
+it('sends on Enter while Shift+Enter and IME confirmation stay with the draft', async () => {
+  const restorePointer = setPrimaryPointer('fine');
+  try {
+    mockRoute.params = { userId: null, conversationId: '42' };
+    render(<SupportScreen />);
+    const input = (await screen.findByTestId(
+      'support-message-input',
+    )) as HTMLTextAreaElement;
+    await waitFor(() => expect(input.disabled).toBe(false));
+    const replied = () =>
+      mockRequest.mock.calls.some(
+        ([path]) => path === 'conversations/42/reply',
+      );
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    // Engines report an Enter that confirms a candidate in different ways.
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(replied()).toBe(false);
+    expect(input.value).toBe('Hello');
+    // The composition lock releases on the next task.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(replied()).toBe(true));
+    expect(input.value).toBe('');
+  } finally {
+    restorePointer();
+  }
+});
+
+it('offers a new conversation on the message list before the home content answers', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  const button = (await screen.findByTestId(
+    'support-new-conversation',
+  )) as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+    userId: null,
+    conversationId: undefined,
+  });
+  await act(async () => home.resolve());
+});
+
+it('keeps keyboard focus on the refresh action while the message list title loads', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  await screen.findByTestId('support-conversation-42');
+  const refresh = screen.getByLabelText('Refresh');
+  expect(refresh).toBe(screen.getByTestId('support-refresh'));
+  // A tooltip mounts lazily on first focus and would swap the focused node.
+  expect(refresh.hasAttribute('title')).toBe(false);
+  expect(screen.getByTestId('support-messages-title-skeleton')).toBeTruthy();
+  refresh.focus();
+  await act(async () => home.resolve());
+  await waitFor(() =>
+    expect(screen.getByTestId('support-messages-title').textContent).toBe(
+      'Messages',
+    ),
+  );
+  expect(screen.queryByTestId('support-messages-title-skeleton')).toBeNull();
+  expect(screen.getByTestId('support-refresh')).toBe(refresh);
+  expect(document.activeElement).toBe(refresh);
+});
+
+function setPlatform(flag: 'isNative' | 'isWebMobile') {
+  platformEnv[flag] = true;
+  return () => {
+    platformEnv[flag] = false;
+  };
+}
+
+const onScreenKeyboards = {
+  'native app': () => setPlatform('isNative'),
+  'mobile browser': () => setPlatform('isWebMobile'),
+  // A tablet browser that requests the desktop site sends a desktop user agent.
+  'touch-first desktop site': () => setPrimaryPointer('coarse'),
+};
+
+it.each(Object.keys(onScreenKeyboards) as (keyof typeof onScreenKeyboards)[])(
+  'keeps Enter as a line break on an on-screen keyboard (%s)',
+  async (keyboard) => {
+    const restore = onScreenKeyboards[keyboard]();
+    try {
+      mockRoute.params = { userId: null, conversationId: '42' };
+      render(<SupportScreen />);
+      const input = (await screen.findByTestId(
+        'support-message-input',
+      )) as HTMLTextAreaElement;
+      await waitFor(() => expect(input.disabled).toBe(false));
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      // The key keeps its default action, which is the line break.
+      expect(fireEvent.keyDown(input, { key: 'Enter' })).toBe(true);
+      expect(
+        mockRequest.mock.calls.some(
+          ([path]) => path === 'conversations/42/reply',
+        ),
+      ).toBe(false);
+      expect(input.value).toBe('Hello');
+      // The send button still sends.
+      fireEvent.click(screen.getByTestId('support-send'));
+      await waitFor(() =>
+        expect(mockRequest).toHaveBeenCalledWith(
+          'conversations/42/reply',
+          expect.anything(),
+        ),
+      );
+    } finally {
+      restore();
+    }
   },
 );

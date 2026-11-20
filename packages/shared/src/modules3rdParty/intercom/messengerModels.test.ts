@@ -235,6 +235,40 @@ it('normalizes web conversation messages, nested parts, bot authors and forms', 
   });
 });
 
+it('drops conversation events that carry no message content', () => {
+  const oak = { type: 'Admin', is_admin: true, name: 'Oak' };
+  const result = parseIntercomConversation({
+    id: '42',
+    conversation_parts: {
+      conversation_parts: [
+        {
+          id: '7_joined',
+          part_type: 'teammate_joined',
+          created_at: 2,
+          author: oak,
+          body: [],
+          event_data: { participant: { id: '7', label: 'Oak', type: 'admin' } },
+        },
+        {
+          id: 'reply',
+          part_type: 'comment',
+          created_at: 2,
+          author: oak,
+          body: [{ type: 'paragraph', text: 'Hello' }],
+        },
+        {
+          id: 'choices',
+          created_at: 3,
+          author: oak,
+          body: [],
+          reply_options: [{ uuid: 'yes', text: 'Yes' }],
+        },
+      ],
+    },
+  });
+  expect(result.parts.map((part) => part.id)).toEqual(['reply', 'choices']);
+});
+
 it('uses the web pagination cursor instead of a message timestamp', () => {
   expect(
     parseIntercomInbox({

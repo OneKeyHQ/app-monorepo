@@ -68,9 +68,15 @@ const RECORDABLE_ENDPOINTS = [
   },
   { route: 'GET utility.onekeycn.com/utility/v1/app-update' },
   { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
+  { route: 'GET utility.onekeycn.com/utility/v1/market/highlight' },
+  {
+    route: 'GET utility.onekeycn.com/utility/v1/market/asset/detail',
+    query: ['assetId', 'currency'],
+    values: { assetId: /^btc$/, currency: /^usd$/ },
+  },
   {
     route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
-    body: /^\{"stockIds":\["NVDA"\]\}$/,
+    body: /^\{"stockIds":\["NVDA"(?:,"AAPL")?\]\}$/,
   },
   {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
@@ -106,7 +112,12 @@ const RECORDABLE_ENDPOINTS = [
   },
   {
     route: 'POST utility.onekeycn.com/utility/v2/market/token/list/batch',
-    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"","isNative":true\})?\]\}$/,
+    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"0xdac17f958d2ee523a2206206994597c13d831ec7","isNative":false\})?)?\]\}$/,
+  },
+  {
+    route: 'GET utility.onekeycn.com/utility/v2/market/perps/token-list',
+    query: ['assetTypeVersion', 'category'],
+    values: { assetTypeVersion: /^3$/, category: /^all$/ },
   },
   {
     route: 'GET wallet.onekeycn.com/wallet/v1/health',
@@ -321,12 +332,20 @@ function recordRefusal({ method, url, postData, headers }) {
       return 'query parameter value not allowed for this endpoint';
     }
   }
-  if (
-    endpoint.body &&
-    !endpoint.body.test(bodyKey(postData)) &&
-    !hourlyCandleRequest({ method, url, postData })
-  ) {
-    return 'request body not allowed for this endpoint';
+  if (endpoint.body) {
+    let normalizedBody;
+    try {
+      normalizedBody = canonicalJson(JSON.parse(postData));
+    } catch {
+      return 'request body not allowed for this endpoint';
+    }
+    // Fixture keys hash long bodies; recording policy must inspect the JSON.
+    if (
+      !endpoint.body.test(normalizedBody) &&
+      !hourlyCandleRequest({ method, url, postData })
+    ) {
+      return 'request body not allowed for this endpoint';
+    }
   }
   return null;
 }
@@ -637,6 +656,18 @@ async function installNetworkIsolation({
       url,
       postData: request.postData(),
     };
+
+    // Cold-start runs use an ineligible device; never record device rewards.
+    if (
+      routeKey(keyInput) === 'GET rebate.onekeycn.com/rebate/v1/recall/progress'
+    ) {
+      increment(stats.stubbed, 'recall-ineligible');
+      return route.fulfill({
+        status: 204,
+        headers: apiResponseHeaders(),
+        body: '',
+      });
+    }
 
     if (mode === 'record') {
       const label = redactRequest(keyInput);

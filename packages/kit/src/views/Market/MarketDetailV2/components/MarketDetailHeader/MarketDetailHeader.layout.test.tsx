@@ -1,9 +1,11 @@
 /** @jest-environment jsdom */
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailHeader } from './MarketDetailHeader';
 
@@ -31,6 +33,32 @@ let mockTokenAddress: string | undefined;
 let mockIsNative = true;
 let mockStockId: string | undefined;
 let mockNetworkId = 'evm--1';
+let mockUseActualStar = false;
+let mockWatchlist: IMarketWatchListItemV2[] = [];
+const mockRemoveFavorite = jest.fn(
+  async (chainId: string, contractAddress: string) => {
+    mockWatchlist = mockWatchlist.filter(
+      (item) =>
+        getMarketWatchlistKey(item) !==
+        getMarketWatchlistKey({ chainId, contractAddress }),
+    );
+    return true;
+  },
+);
+const mockAddFavorite = jest.fn(async (items: IMarketWatchListItemV2[]) => {
+  mockWatchlist = [...mockWatchlist, ...items];
+  return true;
+});
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: mockWatchlist, isMounted: true }],
+  useWatchListV2Actions: () => ({
+    current: {
+      removeFromWatchListV2: mockRemoveFavorite,
+      addIntoWatchListV2: mockAddFavorite,
+    },
+  }),
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -176,12 +204,27 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
   useNetworkLogoUri: () => undefined,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {},
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexRemoveFromWatchlist: jest.fn(),
+        dexAddToWatchlist: jest.fn(),
+      },
+    },
+  },
 }));
-jest.mock('../../../components/MarketStarV2', () => ({
-  MarketStarV2: () => null,
-  useStarV2Checked: () => ({ checked: false, onPress: mockStarPress }),
-}));
+jest.mock('../../../components/MarketStarV2', () => {
+  const actual = jest.requireActual<
+    typeof import('../../../components/MarketStarV2')
+  >('../../../components/MarketStarV2');
+  return {
+    MarketStarV2: () => null,
+    useStarV2Checked: (props: Parameters<typeof actual.useStarV2Checked>[0]) =>
+      mockUseActualStar
+        ? actual.useStarV2Checked(props)
+        : { checked: false, onPress: mockStarPress },
+  };
+});
 jest.mock('../../../components/TokenTagsPopover', () => ({
   TokenTagsPopover: () => null,
 }));
@@ -213,8 +256,9 @@ jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
 }));
 jest.mock('../../hooks/useMarketDetailWatchlistIdentity', () => ({
   useMarketDetailWatchlistIdentity: () => ({
-    assetId: mockStockId ? undefined : 'ethereum',
+    assetId: mockStockId || mockUseActualStar ? undefined : 'ethereum',
     stockId: mockStockId,
+    watchlistContractAddress: mockUseActualStar ? 'native' : undefined,
   }),
 }));
 jest.mock('../TokenDetailHeader/ShareButton', () => {
@@ -257,12 +301,51 @@ describe('Market detail global navigation', () => {
     mockIsNative = true;
     mockStockId = undefined;
     mockNetworkId = 'evm--1';
+    mockUseActualStar = false;
+    mockWatchlist = [];
     jest.replaceProperty(platformEnv, 'isWebDappMode', true);
     jest.replaceProperty(platformEnv, 'isWeb', true);
     jest.replaceProperty(platformEnv, 'isNative', false);
     jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', false);
     jest.replaceProperty(platformEnv, 'isNativeIOSPad', false);
   });
+
+  it.each(['in-page', 'native-bar'])(
+    'removes and re-adds the stored BTC alias from the iOS 26 %s star',
+    async (header) => {
+      mockWidth = header === 'in-page' ? 402 : 600;
+      mockHeight = header === 'in-page' ? 874 : 400;
+      jest.replaceProperty(platformEnv, 'isWeb', false);
+      jest.replaceProperty(platformEnv, 'isNative', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+      mockUseActualStar = true;
+      mockNetworkId = 'btc--0';
+      mockTokenAddress = '';
+      mockWatchlist = [{ chainId: 'btc--0', contractAddress: 'native' }];
+      render(<MarketDetailHeader />);
+      fireEvent.click(screen.getByRole('button', { name: 'StarSolid' }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'StarOutline' }),
+        ).toBeTruthy(),
+      );
+      expect(mockWatchlist).toEqual([]);
+      expect(mockRemoveFavorite).toHaveBeenCalledWith('btc--0', 'native', {
+        assetId: undefined,
+        stockId: undefined,
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'StarOutline' }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'StarSolid' })).toBeTruthy(),
+      );
+      expect(mockWatchlist).toEqual([
+        expect.objectContaining({
+          chainId: 'btc--0',
+          contractAddress: 'native',
+        }),
+      ]);
+    },
+  );
 
   it.each([768, 900, 1023, 1024])(
     'retains the DappHeader entry at %spx when the sidebar is hidden',

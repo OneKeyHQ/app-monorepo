@@ -1,4 +1,5 @@
-// cspell:ignore macd
+// cspell:ignore macd VWAP vwap
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type ITradingViewNativeIndicatorSettings,
   TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_SCHEMA_VERSION,
@@ -101,9 +102,13 @@ describe('indicatorSettingsAdapter', () => {
   });
 
   it('limits only new activations when settings already exceed the cap', () => {
-    const activeSubIndicatorIds = new Set<string>(
-      TRADING_VIEW_NATIVE_SUB_INDICATORS.slice(0, 5),
-    );
+    const activeSubIndicatorIds = new Set<string>([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
     const value = createTradingViewNativeIndicatorSettingsValue();
     value.indicators.forEach((indicator) => {
       if (activeSubIndicatorIds.has(indicator.id)) {
@@ -628,5 +633,98 @@ describe('indicatorSettingsAdapter', () => {
       restoredBoll?.parameters?.find((parameter) => parameter.id === 'period')
         ?.value,
     ).toBe(30);
+  });
+
+  it('exposes parameters and lines for the added main indicators', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const find = (id: string) =>
+      value.indicators.find((indicator) => indicator.id === id);
+    const getParameters = (id: string) =>
+      (find(id)?.parameters ?? []).map((parameter) => [
+        parameter.id,
+        parameter.value,
+      ]);
+    const getLineIds = (id: string) => find(id)?.lines.map((line) => line.id);
+
+    expect(find('WMA')).toMatchObject({
+      scope: 'main',
+      title: 'WMA (Weighted Moving Average)',
+    });
+    expect(find('WMA')?.lines.map((line) => [line.label, line.period])).toEqual(
+      [
+        ['WMA1', 5],
+        ['WMA2', 10],
+        ['WMA3', 20],
+      ],
+    );
+    expect(getLineIds('VWMA')).toEqual(['line:0', 'line:1', 'line:2']);
+    expect(getParameters('SUPERTREND')).toEqual([
+      ['atrPeriod', 14],
+      ['multiplier', 3],
+    ]);
+    expect(getLineIds('SUPERTREND')).toEqual(['up', 'down']);
+    expect(getParameters('ENV')).toEqual([
+      ['bandwidth', 8],
+      ['multiplier', 3],
+      ['lookback', 100],
+    ]);
+    expect(getLineIds('ENV')).toEqual(['upper', 'lower', 'background']);
+    expect(getParameters('VWAP')).toEqual([['period', 14]]);
+    expect(getLineIds('VWAP')).toEqual(['vwap']);
+    expect(getParameters('DC')).toEqual([['period', 20]]);
+    expect(getLineIds('DC')).toEqual(['basis', 'upper', 'lower', 'background']);
+  });
+
+  it('passes edited main indicator parameters through to the renderer', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const vwap = value.indicators.find((indicator) => indicator.id === 'VWAP');
+    const envelope = value.indicators.find(
+      (indicator) => indicator.id === 'ENV',
+    );
+    if (!vwap?.parameters?.[0] || !envelope?.parameters?.[2]) {
+      throw new OneKeyLocalError('Missing main indicator parameters');
+    }
+    vwap.active = true;
+    vwap.parameters[0].value = 3;
+    // The lookback is capped so that the kernel stays cheap to compute.
+    envelope.parameters[2].value = 9000;
+
+    const settings = getTradingViewNativeIndicatorSettings(value);
+    const mainSettings = getTradingViewNativeMainIndicatorSettings(settings);
+
+    expect(mainSettings.VWAP?.parameters.period).toBe(3);
+    expect(mainSettings.ENV?.parameters.lookback).toBe(500);
+    expect([...getTradingViewNativeActiveMainIndicators(settings)]).toEqual([
+      'VWAP',
+    ]);
+  });
+
+  it('applies the up and down colors only to the first palette of an indicator', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const squeezeMomentum = value.indicators.find(
+      (indicator) => indicator.id === 'SMI',
+    );
+    if (!squeezeMomentum) {
+      throw new OneKeyLocalError('Missing SMI indicator');
+    }
+    squeezeMomentum.active = true;
+    squeezeMomentum.opacityColors = {
+      downColor: '#AA0000',
+      upColor: '#00AA00',
+    };
+
+    const instance = getTradingViewNativeSubIndicatorInstances(
+      getTradingViewNativeIndicatorSettings(value),
+    ).find(({ indicator }) => indicator === 'SMI');
+
+    // The squeeze palette is still listed so that its theme colors resolve.
+    // Down replaces the falling negative color, up the rising positive one.
+    expect(instance?.settings?.palettes).toEqual({
+      momentum: ['#AA0000', '#00AA00', '$red6', '$green6'],
+      squeeze: ['$amber9', '$cyan9', '$neutral9'],
+    });
+    expect(
+      squeezeMomentum.lines.find((line) => line.id === 'plot:squeeze'),
+    ).toMatchObject({ showColor: false, showStyle: false });
   });
 });

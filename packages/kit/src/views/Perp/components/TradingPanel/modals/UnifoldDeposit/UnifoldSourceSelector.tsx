@@ -22,6 +22,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { isSameUnifoldChain } from '@onekeyhq/kit/src/views/Perp/utils/unifoldDestination';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -472,7 +473,7 @@ export function UnifoldSourceSelector({
                     testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
                     iconUri={chain.icon_url}
                     label={chain.chain_name}
-                    selected={chain.chain_id === selection?.chain.chain_id}
+                    selected={isSameUnifoldChain(chain, selection?.chain)}
                     description={`${intl.formatMessage({
                       id: ETranslations.perp_unifold_minimum_deposit__title,
                     })} $${chain.minimum_deposit_amount_usd ?? 3}`}
