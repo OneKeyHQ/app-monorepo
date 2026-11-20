@@ -43,7 +43,7 @@ async function writeTestFile(filePath: string, content: string): Promise<void> {
 const TEST_MAIN_BUNDLE_FILE = 'main.jsbundle.hbc';
 const TEST_BACKGROUND_BUNDLE_FILE = 'background.bundle';
 const TEST_WEB_EMBED_INDEX_FILE = 'web-embed/index.html';
-const TEST_BACKGROUND_PROTOCOL_VERSION = '1';
+const TEST_BACKGROUND_PROTOCOL_VERSION = '2';
 const TEST_STORAGE_SCHEMA_VERSION = 'mmkv-v1';
 
 function parseMetadataPathFromMessage(message: string): string {
@@ -770,7 +770,7 @@ describe('bundle pair compatibility', () => {
     }
   });
 
-  test('protocol mismatch invalidates the whole OTA pair', async () => {
+  test('the old slider ABI protocol invalidates the whole OTA pair', async () => {
     const appVersion = '99.99.90';
     const bundleVersion = '9004';
     await clearBundlePairFixture(appVersion, bundleVersion);
@@ -784,7 +784,7 @@ describe('bundle pair compatibility', () => {
       await createBundlePairFixture({
         appVersion,
         bundleVersion,
-        backgroundProtocolVersion: '999',
+        backgroundProtocolVersion: '1',
       });
       await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {

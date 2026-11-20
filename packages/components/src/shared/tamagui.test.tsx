@@ -34,7 +34,6 @@ jest.mock('@tamagui/toggle-group', () => ({}));
 jest.mock('@tamagui/accordion', () => ({}));
 jest.mock('@tamagui/portal', () => ({}));
 jest.mock('@tamagui/switch', () => ({}));
-jest.mock('@tamagui/slider', () => ({}));
 jest.mock('@tamagui/separator', () => ({}));
 jest.mock('@tamagui/radio-group', () => ({}));
 jest.mock('@tamagui/focusable', () => ({}));
