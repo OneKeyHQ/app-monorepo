@@ -4356,6 +4356,9 @@ export function useSpeedSwapActions(props: {
         })
       : undefined;
 
+  const canRefreshCurrentQuote =
+    canRetryMultiplierInMarket || !quoteActionLock.hasMultiplierMismatch;
+
   return {
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
@@ -4391,9 +4394,12 @@ export function useSpeedSwapActions(props: {
           })
         : undefined),
     quoteReadyForReview: multiplierMetadataReady && quoteActionState.canReview,
-    quoteNeedsRefresh: quoteActionState.canRefresh || multiplierNeedsRefresh,
+    quoteNeedsRefresh:
+      (canRefreshCurrentQuote && quoteActionState.canRefresh) ||
+      multiplierNeedsRefresh,
     quoteRefreshActionActive:
-      quoteActionState.isRefreshAction || multiplierNeedsRefresh,
+      (canRefreshCurrentQuote && quoteActionState.isRefreshAction) ||
+      multiplierNeedsRefresh,
     refreshMarketQuote,
     forceRefreshMarketQuote,
     estimateMarketPresetNetworkFees,

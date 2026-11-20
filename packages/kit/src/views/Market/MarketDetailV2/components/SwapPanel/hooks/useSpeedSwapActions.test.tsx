@@ -60,6 +60,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { resolveMarketTradeActionState } from '../components/ActionButton.utils';
+
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
@@ -1124,6 +1126,57 @@ describe('useSpeedSwapActions', () => {
       }),
     );
   });
+
+  it.each([true, false])(
+    'keeps the Swap fallback available with Speed Swap disabled (multiplier mismatch: %s)',
+    async (hasMultiplierMismatch) => {
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps({
+            tradeToken: hasMultiplierMismatch
+              ? { ...usdcToken, balanceMultiplier: '2' }
+              : usdcToken,
+          }),
+          fromTokenAmount: '6',
+          supportSpeedSwap: false,
+          isAccountNetworkSupported: true,
+        }),
+      );
+      await waitFor(() =>
+        expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            fromTokenAmount: hasMultiplierMismatch ? '3' : '6',
+          }),
+        ),
+      );
+      expect(result.current.multiplierMetadataReady).toBe(true);
+      act(() => {
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), (request) => ({
+          ...request,
+          actionLock: false,
+          hasMultiplierMismatch,
+        }));
+      });
+      expect(result.current.quoteReadyForReview).toBe(false);
+      expect(result.current.quoteNeedsRefresh).toBe(!hasMultiplierMismatch);
+      expect(result.current.quoteRefreshActionActive).toBe(
+        !hasMultiplierMismatch,
+      );
+      expect(
+        resolveMarketTradeActionState({
+          supportSpeedSwap: false,
+          isAccountNetworkSupported: true,
+          isBalanceAvailable: true,
+          isInsufficientBalance: false,
+          isRefreshQuote: result.current.quoteRefreshActionActive,
+        }).shouldJumpToSwap,
+      ).toBe(hasMultiplierMismatch);
+    },
+  );
 
   it('re-requests the provider quote when a stock live-open state changes', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([]);

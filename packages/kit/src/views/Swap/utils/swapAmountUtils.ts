@@ -227,8 +227,17 @@ export function hasScaledSwapLimitPair(
   );
 }
 
-export function getScaledSwapLimitRate(
-  price: ISwapLimitPriceInfo,
+type ISwapLimitPriceRatio = {
+  from: string;
+  to: string;
+};
+
+export type ISwapLimitPriceInput = ISwapLimitPriceInfo & {
+  priceRatio?: ISwapLimitPriceRatio;
+};
+
+export function getScaledSwapLimitPrice(
+  price: ISwapLimitPriceInput,
   fromToken: ISwapAmountToken | undefined,
   toToken: ISwapAmountToken | undefined,
 ) {
@@ -242,8 +251,15 @@ export function getScaledSwapLimitRate(
   ) {
     return undefined;
   }
-  const rate = new BigNumber(price.rate ?? '');
-  return rate.isFinite() && rate.gt(0) ? rate.toFixed() : undefined;
+  const from = new BigNumber(price.priceRatio?.from ?? '1');
+  const to = new BigNumber(price.priceRatio?.to ?? price.rate ?? '');
+  return from.isFinite() && from.gt(0) && to.isFinite() && to.gt(0)
+    ? { from: from.toFixed(), to: to.toFixed() }
+    : undefined;
+}
+
+export function getSwapLimitPriceKey(price: ISwapLimitPriceRatio | undefined) {
+  return price ? `${price.from}:${price.to}` : undefined;
 }
 
 export type ISwapLimitRawAmounts = {
@@ -256,14 +272,14 @@ export function getScaledSwapLimitAmounts({
   toToken,
   kind,
   input,
-  rate,
+  price,
   maxRawAmount,
 }: {
   fromToken: ISwapAmountToken;
   toToken: ISwapAmountToken;
   kind: ESwapQuoteKind;
   input: string;
-  rate: string;
+  price: ISwapLimitPriceRatio;
   maxRawAmount?: string;
 }): ISwapLimitRawAmounts | undefined {
   const fromMultiplier = getMultiplier(fromToken.balanceMultiplier);
@@ -279,8 +295,11 @@ export function getScaledSwapLimitAmounts({
     );
     if (toTokenAmount === undefined) return undefined;
     const fromTokenAmount = getSwapRawAmount(
-      new BigNumber(toTokenAmount).times(toMultiplier).toFixed(),
-      fromMultiplier.times(rate).toFixed(),
+      new BigNumber(toTokenAmount)
+        .times(toMultiplier)
+        .times(price.from)
+        .toFixed(),
+      fromMultiplier.times(price.to).toFixed(),
       fromToken.decimals,
       'down',
     );
@@ -298,8 +317,11 @@ export function getScaledSwapLimitAmounts({
     );
   if (fromTokenAmount === undefined) return undefined;
   const toTokenAmount = getSwapRawAmount(
-    new BigNumber(fromTokenAmount).times(fromMultiplier).times(rate).toFixed(),
-    toMultiplier.toFixed(),
+    new BigNumber(fromTokenAmount)
+      .times(fromMultiplier)
+      .times(price.to)
+      .toFixed(),
+    toMultiplier.times(price.from).toFixed(),
     toToken.decimals,
     'up',
   );

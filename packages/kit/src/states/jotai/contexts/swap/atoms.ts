@@ -5,9 +5,10 @@ import BigNumber from 'bignumber.js';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import {
+  type ISwapLimitPriceInput,
   type ISwapMaxAmountSnapshot,
   getScaledSwapLimitAmounts,
-  getScaledSwapLimitRate,
+  getScaledSwapLimitPrice,
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
@@ -463,7 +464,7 @@ export const {
   toTokenAmount?: string;
   rawFromTokenAmount?: string;
   rawToTokenAmount?: string;
-  scaledLimitRate?: string;
+  scaledLimitPriceKey?: string;
   maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   accountId?: string;
   kind?: ESwapQuoteKind;
@@ -763,7 +764,7 @@ export const {
 export const {
   atom: swapLimitPriceUseRateAtom,
   use: useSwapLimitPriceUseRateAtom,
-} = contextAtom<ISwapLimitPriceInfo>({
+} = contextAtom<ISwapLimitPriceInput>({
   fromToken: undefined,
   toToken: undefined,
 });
@@ -809,18 +810,18 @@ export const {
   ) {
     if (toTokenAmount.value && toTokenAmount.isInput) {
       const pair = readSwapLimitSelectedPair(get);
-      const rate = getScaledSwapLimitRate(
+      const price = getScaledSwapLimitPrice(
         limitPriceUseRate,
         pair.fromToken,
         pair.toToken,
       );
-      if (rate && pair.fromToken && pair.toToken) {
+      if (price && pair.fromToken && pair.toToken) {
         const amounts = getScaledSwapLimitAmounts({
           fromToken: pair.fromToken,
           toToken: pair.toToken,
           kind: ESwapQuoteKind.BUY,
           input: toTokenAmount.value,
-          rate,
+          price,
         });
         return amounts
           ? (getSwapDisplayAmount(
@@ -863,18 +864,18 @@ export const {
   ) {
     if (fromTokenAmount.value && fromTokenAmount.isInput) {
       const pair = readSwapLimitSelectedPair(get);
-      const scaledRate = getScaledSwapLimitRate(
+      const price = getScaledSwapLimitPrice(
         limitPriceUseRate,
         pair.fromToken,
         pair.toToken,
       );
-      if (scaledRate && pair.fromToken && pair.toToken) {
+      if (price && pair.fromToken && pair.toToken) {
         const amounts = getScaledSwapLimitAmounts({
           fromToken: pair.fromToken,
           toToken: pair.toToken,
           kind: ESwapQuoteKind.SELL,
           input: fromTokenAmount.value,
-          rate: scaledRate,
+          price,
         });
         return amounts
           ? (getSwapDisplayAmount(

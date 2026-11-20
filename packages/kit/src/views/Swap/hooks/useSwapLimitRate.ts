@@ -33,6 +33,8 @@ import {
 
 import { useSwapProInputToken, useSwapProToToken } from './useSwapPro';
 
+import type { ISwapLimitPriceInput } from '../utils/swapAmountUtils';
+
 export const useSwapLimitRate = () => {
   const [limitPriceUseRate, setLimitPriceUseRate] =
     useSwapLimitPriceUseRateAtom();
@@ -153,7 +155,7 @@ export const useSwapLimitRate = () => {
     toSelectTokenRef.current = toSelectToken;
   }
   const onLimitRateChange = useCallback(
-    (text: string) => {
+    (text: string, priceRatio?: ISwapLimitPriceInput['priceRatio']) => {
       // Sub-1 rates may legitimately carry more decimals than the
       // counterparty token (leading zeros + digits), so widen the validation
       // limit with the same formula clampLimitRateDecimals uses instead of
@@ -190,6 +192,7 @@ export const useSwapLimitRate = () => {
             rate: '0',
             reverseRate: '0',
             inputRate: text,
+            priceRatio: undefined,
           }));
         } else {
           const newRate = limitPriceSetReverse
@@ -211,6 +214,13 @@ export const useSwapLimitRate = () => {
             rate: newRateValue,
             reverseRate: newReverseRateValue,
             inputRate: text,
+            // The reciprocal is rounded for display. Keep the entered price
+            // for the limit amounts even if the user flips the display back.
+            priceRatio:
+              priceRatio ??
+              (limitPriceSetReverse
+                ? { from: textBN.toFixed(), to: '1' }
+                : { from: '1', to: textBN.toFixed() }),
           }));
         }
       }
@@ -308,6 +318,7 @@ export const useSwapLimitRate = () => {
         inputRate: limitPriceSetReverse
           ? formatReverseRate.toFixed()
           : formatRate.toFixed(),
+        priceRatio: undefined,
       }));
     },
     [
@@ -323,12 +334,10 @@ export const useSwapLimitRate = () => {
       setLimitPriceSetReverse(reverse);
       setLimitPriceUseRate((v) => ({
         ...v,
-        inputRate: reverse
-          ? limitPriceUseRate.reverseRate
-          : limitPriceUseRate.rate,
+        inputRate: reverse ? v.reverseRate : v.rate,
       }));
     },
-    [setLimitPriceSetReverse, setLimitPriceUseRate, limitPriceUseRate],
+    [setLimitPriceSetReverse, setLimitPriceUseRate],
   );
 
   useEffect(() => {

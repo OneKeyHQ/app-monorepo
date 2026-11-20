@@ -9,9 +9,10 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import { getSwapAccountNetworkWarningAccountId } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount.utils';
 import {
   getScaledSwapLimitAmounts,
-  getScaledSwapLimitRate,
+  getScaledSwapLimitPrice,
   getSwapDisplayAmount,
   getSwapDisplayRate,
+  getSwapLimitPriceKey,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
   isSwapMaxAmountCurrent,
@@ -2371,7 +2372,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteEventCompletedAtom(), false);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
       const userMarketPriceRate =
-        get(swapQuoteActionLockAtom()).scaledLimitRate &&
+        get(swapQuoteActionLockAtom()).scaledLimitPriceKey &&
         fromTokenAmount &&
         toTokenAmount
           ? getSwapLimitRateFromRawAmounts({
@@ -2868,16 +2869,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         void this.resetQuoteAction.call(set);
         return;
       }
-      const scaledLimitRate =
+      const scaledLimitPrice =
         swapTabSwitchType === ESwapTabSwitchType.LIMIT
-          ? getScaledSwapLimitRate(
+          ? getScaledSwapLimitPrice(
               get(swapLimitPriceUseRateAtom()),
               fromToken,
               toToken,
             )
           : undefined;
       const scaledLimitAmounts =
-        scaledLimitRate && quoteKind
+        scaledLimitPrice && quoteKind
           ? getScaledSwapLimitAmounts({
               fromToken,
               toToken,
@@ -2886,12 +2887,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 quoteKind === ESwapQuoteKind.BUY
                   ? toTokenAmount.value
                   : fromTokenAmount.value,
-              rate: scaledLimitRate,
+              price: scaledLimitPrice,
               maxRawAmount: maxSnapshot?.rawAmount,
             })
           : undefined;
       if (
-        scaledLimitRate &&
+        scaledLimitPrice &&
         (!scaledLimitAmounts ||
           !new BigNumber(scaledLimitAmounts.fromTokenAmount).gt(0) ||
           !new BigNumber(scaledLimitAmounts.toTokenAmount).gt(0))
@@ -2940,7 +2941,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount: toTokenAmount.value,
         rawFromTokenAmount,
         rawToTokenAmount,
-        scaledLimitRate,
+        scaledLimitPriceKey: getSwapLimitPriceKey(scaledLimitPrice),
         maxAmountSnapshot: maxSnapshot,
         kind: quoteKind,
         accountId,
@@ -3292,7 +3293,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const request = get(swapQuoteActionLockAtom());
       if (
         get(swapTypeSwitchAtom()) !== ESwapTabSwitchType.LIMIT ||
-        !request.scaledLimitRate ||
+        !request.scaledLimitPriceKey ||
         !request.rawFromTokenAmount ||
         !request.rawToTokenAmount ||
         !address ||
@@ -3322,11 +3323,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? ESwapQuoteKind.BUY
           : ESwapQuoteKind.SELL;
       if (
-        request.scaledLimitRate !==
-          getScaledSwapLimitRate(
-            get(swapLimitPriceUseRateAtom()),
-            fromToken,
-            toToken,
+        request.scaledLimitPriceKey !==
+          getSwapLimitPriceKey(
+            getScaledSwapLimitPrice(
+              get(swapLimitPriceUseRateAtom()),
+              fromToken,
+              toToken,
+            ),
           ) ||
         request.fromToken?.decimals !== fromToken?.decimals ||
         request.toToken?.decimals !== toToken?.decimals ||

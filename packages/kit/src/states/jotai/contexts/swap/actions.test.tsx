@@ -92,6 +92,8 @@ import {
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
   swapLastNonLimitSelectedTokensAtom,
+  swapLimitPriceFromAmountAtom,
+  swapLimitPriceToAmountAtom,
   swapLimitPriceUseRateAtom,
   swapNetworkConfigStatusAtom,
   swapNetworks,
@@ -1693,24 +1695,76 @@ describe('useSwapActions', () => {
       fromRaw: '0.51',
       toRaw: '0.34',
     },
+    {
+      kind: ESwapQuoteKind.BUY,
+      rate: '3.33',
+      reverseRate: '0.3',
+      priceRatio: { from: '0.3', to: '1' },
+      fromDecimals: 6,
+      fromMultiplier: '1',
+      shownFrom: '30',
+      shownTo: '100',
+      toMultiplier: '2',
+      fromRaw: '30',
+      toRaw: '50',
+    },
+    {
+      kind: ESwapQuoteKind.SELL,
+      rate: '4.33',
+      reverseRate: '0.230947',
+      priceRatio: { from: '0.3', to: '1.3' },
+      isPro: true,
+      fromDecimals: 6,
+      fromMultiplier: '1',
+      shownFrom: '30',
+      shownTo: '130',
+      toMultiplier: '2',
+      fromRaw: '30',
+      toRaw: '65',
+    },
   ])(
     'freezes the scaled Limit pair after quantizing the $kind input',
     async ({
       kind,
       rate,
       reverseRate,
+      priceRatio,
+      isPro,
+      fromDecimals = 2,
+      fromMultiplier = '2',
       shownFrom,
       shownTo,
       toMultiplier,
       fromRaw,
       toRaw,
     }) => {
-      const from = { ...ethToken, decimals: 2, balanceMultiplier: '2' };
+      const from = {
+        ...ethToken,
+        decimals: fromDecimals,
+        balanceMultiplier: fromMultiplier,
+      };
       const to = { ...bnbToken, decimals: 2, balanceMultiplier: toMultiplier };
+      const price = {
+        fromToken: from,
+        toToken: to,
+        rate,
+        reverseRate,
+        priceRatio,
+      };
       const { store, Wrapper } = createWrapperWithStore((s) => {
         s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
-        s.set(swapSelectFromTokenAtom(), from);
-        s.set(swapSelectToTokenAtom(), to);
+        if (isPro) {
+          s.set(swapProTradeTypeAtom(), ESwapProTradeType.LIMIT);
+          s.set(swapProDirectionAtom(), ESwapDirection.BUY);
+          s.set(swapProUseSelectBuyTokenAtom(), {
+            ...from,
+            speedSwapDefaultAmount: [],
+          });
+          s.set(swapProSelectTokenAtom(), to);
+        } else {
+          s.set(swapSelectFromTokenAtom(), from);
+          s.set(swapSelectToTokenAtom(), to);
+        }
         s.set(swapFromTokenAmountAtom(), {
           value: shownFrom,
           isInput: kind === ESwapQuoteKind.SELL,
@@ -1719,12 +1773,7 @@ describe('useSwapActions', () => {
           value: shownTo,
           isInput: kind === ESwapQuoteKind.BUY,
         });
-        s.set(swapLimitPriceUseRateAtom(), {
-          fromToken: from,
-          toToken: to,
-          rate,
-          reverseRate,
-        });
+        s.set(swapLimitPriceUseRateAtom(), price);
       });
       const { result } = renderHook(() => useSwapActions().current, {
         wrapper: Wrapper,
@@ -1762,6 +1811,16 @@ describe('useSwapActions', () => {
         rawFromTokenAmount: fromRaw,
         rawToTokenAmount: toRaw,
       });
+      if (priceRatio) {
+        const isExactOutput = kind === ESwapQuoteKind.BUY;
+        expect(
+          store.get(
+            isExactOutput
+              ? swapLimitPriceFromAmountAtom()
+              : swapLimitPriceToAmountAtom(),
+          ),
+        ).toBe(isExactOutput ? shownFrom : shownTo);
+      }
 
       const currentLimitQuote: IFetchQuoteResult = {
         quoteId: 'current-limit',
@@ -1793,10 +1852,23 @@ describe('useSwapActions', () => {
         fromTokenAmount: fromRaw,
         toTokenAmount: toRaw,
       });
-      store.set(swapLimitPriceUseRateAtom(), (previous) => ({
-        ...previous,
-        rate: '101',
-      }));
+      if (priceRatio) {
+        store.set(swapLimitPriceUseRateAtom(), {
+          ...price,
+          inputRate: rate,
+        });
+        expect(readPreviewAmounts()).toEqual({
+          fromTokenAmount: fromRaw,
+          toTokenAmount: toRaw,
+        });
+        const updatedPrice = {
+          ...price,
+          priceRatio: { ...priceRatio, from: '0.3001' },
+        };
+        store.set(swapLimitPriceUseRateAtom(), updatedPrice);
+      } else {
+        store.set(swapLimitPriceUseRateAtom(), { ...price, rate: '101' });
+      }
       expect(readPreviewAmounts()).toBeUndefined();
     },
   );
