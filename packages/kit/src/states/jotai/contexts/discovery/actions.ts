@@ -73,6 +73,8 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
+type IBrowserHistoryInput = Omit<IBrowserHistory, 'id' | 'createdAt'>;
+
 function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
   if (!tabs || tabs.length === 0) {
     defaultLogger.discovery.browser.setTabsDataFunctionName(fnName);
@@ -824,6 +826,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { tabs } = get(webTabsAtom());
       const activeTabId = get(activeTabIdAtom());
       const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+      // Queue the entire history write before publishing tab changes that can trigger a clear.
+      const historyWrite = this.addBrowserHistory.call(
+        set,
+        tabsToClose.map((tab) => ({
+          url: tab.url,
+          title: tab.title || tab.url,
+          logo: tab.favicon,
+        })),
+      );
       const shouldResetActiveTab = !tabs.some(
         (tab) => tab.isPinned && tab.id === activeTabId,
       );
@@ -861,14 +872,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         clearTabsAmount: tabsToClose.length,
       });
 
-      // Save history in tab order after publishing the updated tab state.
-      for (const tab of tabsToClose) {
-        await this.addBrowserHistory.call(set, {
-          url: tab.url,
-          title: tab.title || tab.url,
-          logo: tab.favicon,
-        });
-      }
+      await historyWrite;
     },
   );
 
@@ -1090,30 +1094,29 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   addBrowserHistory = contextAtomMethod(
-    async (get, _, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
-      if (
-        !get(browserDataReadyAtom()) ||
-        !payload.url ||
-        payload.url === homeTab.url
-      ) {
+    async (get, _, payload: IBrowserHistoryInput | IBrowserHistoryInput[]) => {
+      if (!get(browserDataReadyAtom())) {
         return;
       }
 
-      const newHistoryEntry: IBrowserHistory = {
-        id: generateUUID(),
-        url: payload.url,
-        title: payload.title,
-        createdAt: Date.now(),
-        // Skip data: URIs to avoid inflating storage
-        logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
-      };
+      const entries = (Array.isArray(payload) ? payload : [payload])
+        .filter(({ url }) => url && url !== homeTab.url)
+        .map(({ url, title, logo }) => ({
+          id: generateUUID(),
+          url,
+          title,
+          createdAt: Date.now(),
+          // Skip data: URIs to avoid inflating storage.
+          logo: logo?.startsWith('data:') ? undefined : logo,
+        }));
+      if (!entries.length) {
+        return;
+      }
 
       try {
-        await backgroundApiProxy.simpleDb.browserHistory.addEntry(
-          newHistoryEntry,
-        );
+        await backgroundApiProxy.simpleDb.browserHistory.addEntries(entries);
       } catch {
-        defaultLogger.app.error.log('Failed to save browser history entry');
+        defaultLogger.app.error.log('Failed to save browser history');
       }
     },
   );

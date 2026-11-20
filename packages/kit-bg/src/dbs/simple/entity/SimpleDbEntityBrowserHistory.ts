@@ -1,3 +1,5 @@
+import { uniqBy } from 'lodash';
+
 import type { IBrowserHistory } from '@onekeyhq/kit/src/views/Discovery/types';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
@@ -13,11 +15,13 @@ export class SimpleDbEntityBrowserHistory extends SimpleDbEntityBase<IBrowserHis
   override enableCache = false;
 
   @backgroundMethod()
-  async addEntry(entry: IBrowserHistory): Promise<boolean> {
+  async addEntries(entries: IBrowserHistory[]): Promise<boolean> {
+    const newestEntries = uniqBy(entries.toReversed(), ({ url }) => url);
+    const newUrls = new Set(newestEntries.map(({ url }) => url));
     const saved = await this.setRawData((current) => ({
       data: [
-        entry,
-        ...(current?.data ?? []).filter(({ url }) => url !== entry.url),
+        ...newestEntries,
+        ...(current?.data ?? []).filter(({ url }) => !newUrls.has(url)),
       ],
     }));
     return saved !== undefined;

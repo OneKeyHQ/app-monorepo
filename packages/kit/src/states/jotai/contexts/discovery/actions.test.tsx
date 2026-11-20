@@ -45,8 +45,8 @@ const mockGetBrowserTabsRawData = jest.fn(
   async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
 );
 const mockSetBrowserTabsRawData = jest.fn();
-const mockAddBrowserHistoryEntry = jest.fn(
-  async (_entry: IBrowserHistory) => true,
+const mockAddBrowserHistoryEntries = jest.fn(
+  async (_entries: IBrowserHistory[]) => true,
 );
 const mockSetBrowserHistoryRawData = jest.fn(
   async (payload: { data: IBrowserHistory[] }) => payload,
@@ -154,8 +154,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
       browserHistory: {
         getRawData: jest.fn(async () => ({ data: [] })),
-        get addEntry() {
-          return mockAddBrowserHistoryEntry;
+        get addEntries() {
+          return mockAddBrowserHistoryEntries;
         },
         get setRawData() {
           return mockSetBrowserHistoryRawData;
@@ -781,8 +781,8 @@ describe('useBrowserTabActions', () => {
     Object.assign(platformEnv, { isDesktop: true, isNative: false });
     jest.useFakeTimers();
     try {
-      const firstWrite = createDeferred<boolean>();
-      mockAddBrowserHistoryEntry.mockReturnValueOnce(firstWrite.promise);
+      const historyWrite = createDeferred<boolean>();
+      mockAddBrowserHistoryEntries.mockReturnValueOnce(historyWrite.promise);
       const pinnedTab = {
         id: 'pinned',
         url: 'https://pinned.example',
@@ -814,24 +814,23 @@ describe('useBrowserTabActions', () => {
       expect(mockSetBrowserTabsRawData).toHaveBeenLastCalledWith({
         tabs: [activePinnedTab],
       });
-      expect(mockAddBrowserHistoryEntry).toHaveBeenCalledTimes(1);
-      expect(mockAddBrowserHistoryEntry).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ url: tabsFixture[0].url }),
+      expect(mockAddBrowserHistoryEntries).toHaveBeenCalledTimes(1);
+      const [entries] = mockAddBrowserHistoryEntries.mock.calls[0];
+      expect(entries.map(({ url }) => url)).toEqual(
+        tabsFixture.map(({ url }) => url),
       );
+      expect(
+        mockAddBrowserHistoryEntries.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockSetBrowserTabsRawData.mock.invocationCallOrder[0]);
 
       await act(async () => {
-        firstWrite.reject(
+        historyWrite.reject(
           new DOMException('Write rejected', 'QuotaExceededError'),
         );
         await completion;
       });
 
-      expect(mockAddBrowserHistoryEntry).toHaveBeenCalledTimes(2);
-      expect(mockAddBrowserHistoryEntry).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ url: tabsFixture[1].url }),
-      );
+      expect(mockAddBrowserHistoryEntries).toHaveBeenCalledTimes(1);
       expect(result.current.tabs).toEqual([activePinnedTab]);
       act(() => {
         jest.advanceTimersByTime(50);
