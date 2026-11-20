@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
-  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
   TradingViewNative,
   TradingViewNativeMultiChart,
   getTradingViewNativeSourceKey,
@@ -43,9 +43,7 @@ import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadat
 import { PerpTestIDs } from '../testIDs';
 
 import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
-import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
-import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
 import type { IPerpsChartInstrumentDisplay } from '../hooks/usePerpsChartInstrument';
 
 export type IPerpNativeCandlesProps = ITradingViewNativeProps & {
@@ -164,7 +162,8 @@ function PerpChartPanelQuote({
  * read-only. Selecting a panel only changes these props, so no chart remounts.
  * Only the selected panel's controls are on screen, above the grid, so every
  * panel gets the page-level controls; in a split each panel names its token,
- * price and 24h change instead.
+ * price and 24h change instead. No panel has a token picker of its own: the
+ * page's picker switches the trade instrument, which the selected panel shows.
  */
 function PerpNativeSplitPanel({
   activeDisplay,
@@ -179,16 +178,7 @@ function PerpNativeSplitPanel({
   isVisible: boolean;
   panel: ITradingViewNativeMultiChartPanel;
 }) {
-  const {
-    id,
-    isActive,
-    isMain,
-    isSplit,
-    isSymbolSynced,
-    layoutControl,
-    setSource,
-    source,
-  } = panel;
+  const { id, isActive, isMain, isSplit, layoutControl, source } = panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
   const activeInstrument = useActivePerpsChartInstrument();
   const { display, instrument: panelInstrument } =
@@ -204,12 +194,7 @@ function PerpNativeSplitPanel({
   const metadata = usePerpsNativeChartMetadata(instrument);
   const orderMenu = usePerpsChartOrderMenu(canTrade);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  const handleSelectToken = useCallback(
-    (selection: IPerpTokenSelection) => {
-      setSource(getHyperliquidSource(selection.coin));
-    },
-    [setSource],
-  );
+  const tokenDisplay = coin === activeInstrument.coin ? activeDisplay : display;
   const { onInteractionChange, testID, ...pageProps } = hostProps;
   return (
     // The header slot is always there, so a preset change never remounts the
@@ -225,21 +210,23 @@ function PerpNativeSplitPanel({
           overflow="hidden"
           testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
         >
-          {/* Opening the picker is not a press on the chart: in a panel that
-              is not selected it changes that panel's token only. */}
           <XStack
             flexShrink={0}
-            {...TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS}
+            gap="$1.5"
+            alignItems="center"
+            testID={`${PerpTestIDs.NativeChartPanelToken}-${id}`}
           >
-            <PerpChartTokenSelector
-              testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
-              display={coin === activeInstrument.coin ? activeDisplay : display}
-              // The selected panel's picker switches the trade instrument,
-              // and so does every picker while the panels share the token.
-              onSelectToken={
-                isActive || isSymbolSynced ? undefined : handleSelectToken
-              }
+            <Token
+              size="xs"
+              borderRadius="$full"
+              {...(tokenDisplay.tokenImageUris
+                ? { tokenImageUris: tokenDisplay.tokenImageUris }
+                : { tokenImageUri: tokenDisplay.tokenImageUri })}
+              fallbackIcon="CryptoCoinOutline"
             />
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {tokenDisplay.label}
+            </SizableText>
           </XStack>
           <PerpChartPanelQuote
             coin={coin}

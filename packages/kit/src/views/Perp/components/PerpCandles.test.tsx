@@ -4,7 +4,6 @@ import { act, render, waitFor } from '@testing-library/react-native';
 
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
-  type ITradingViewNativeMultiChartPanel,
   type ITradingViewNativeMultiChartProps,
   type ITradingViewNativeProps,
   type ITradingViewNativeSource,
@@ -21,8 +20,6 @@ import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
-
-import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
 
 let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
@@ -46,10 +43,6 @@ const mockSetCustomSettings = jest.fn(
 );
 const mockNativeChart = jest.fn<null, [ITradingViewNativeProps]>(() => null);
 let mockMultiChartLayout: ITradingViewNativeMultiChartLayout;
-const mockSetPanelSource = jest.fn<
-  void,
-  Parameters<ITradingViewNativeMultiChartPanel['setSource']>
->();
 let mockMultiChartProps: ITradingViewNativeMultiChartProps | undefined;
 // What the grid shows in the selected panel while the host is still switching.
 let mockPendingActiveSource: ITradingViewNativeSource | undefined;
@@ -58,13 +51,7 @@ const mockPriceSelect = jest.fn();
 const mockMarkAllAssetCtxsRequired = jest.fn();
 const mockMarkAllAssetCtxsNotRequired = jest.fn();
 const mockSetTradeRouteViewState = jest.fn();
-type IMockTokenSelectorProps = {
-  testID?: string;
-  onSelectToken?: (selection: IPerpTokenSelection) => void;
-};
-const mockTokenSelector = jest.fn<null, [IMockTokenSelectorProps]>(() => null);
-// Rows that keep a press from selecting their split-view panel.
-const mockKeepSelectionRow = jest.fn<void, [ReactNode]>();
+const mockText = jest.fn<null, [{ children?: ReactNode }]>(() => null);
 const mockQuote = jest.fn<
   null,
   [{ coinName: string; mode: string; assetId: number; displayMode: string }]
@@ -98,18 +85,9 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
-  XStack: ({
-    children,
-    'data-multi-chart-keep-selection': keepsSelection,
-  }: {
-    children?: ReactNode;
-    'data-multi-chart-keep-selection'?: string;
-  }) => {
-    if (keepsSelection) mockKeepSelectionRow(children);
-    return children;
-  },
+  XStack: ({ children }: { children?: ReactNode }) => children,
   YStack: ({ children }: { children?: ReactNode }) => children,
-  SizableText: () => null,
+  SizableText: (props: { children?: ReactNode }) => mockText(props),
   IconButton: () => null,
   LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
@@ -167,11 +145,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('./TokenSelector/PerpChartTokenSelector', () => ({
-  PerpChartTokenSelector: (props: IMockTokenSelectorProps) =>
-    mockTokenSelector(props),
-}));
-
 jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
   CtxPriceDisplay: (props: Parameters<typeof mockQuote>[0]) => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
@@ -203,11 +176,6 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
     '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource',
   ).getTradingViewNativeSourceKey,
   TradingViewNative: (props: ITradingViewNativeProps) => mockNativeChart(props),
-  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS: jest.requireActual<
-    typeof import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/TradingViewNativeMultiChartPanelContext')
-  >(
-    '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/TradingViewNativeMultiChartPanelContext',
-  ).TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
   // The grid itself is covered beside the component; here it only has to hand
   // every visible panel to the host.
   TradingViewNativeMultiChart: (props: ITradingViewNativeMultiChartProps) => {
@@ -242,7 +210,6 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
             isSymbolSynced,
             source,
             layoutControl: null,
-            setSource: mockSetPanelSource,
           })}
         </Fragment>
       ) : null;
@@ -398,15 +365,6 @@ describe('split view', () => {
     expect(getChartProps('ETH')).toBeUndefined();
   });
 
-  function getPicker(panelId: string) {
-    return mockTokenSelector.mock.calls
-      .map(([props]) => props)
-      .findLast(
-        (props) =>
-          props.testID === `perp-native-chart-panel-token-selector-${panelId}`,
-      );
-  }
-
   it('moves trading to a selected panel and keeps the others read-only', () => {
     mockCoin = 'ETH';
     mockMultiChartLayout = {
@@ -422,35 +380,23 @@ describe('split view', () => {
     const trading = getChartProps('ETH');
     expect(trading?.onReferenceLineAction).toBe(mockReferenceLineAction);
     expect(trading?.onPriceSelect).toBe(mockPriceSelect);
-    // Its picker switches the trade instrument instead of the panel's token.
-    expect(getPicker('panel-2')?.onSelectToken).toBeUndefined();
 
     // The first panel keeps its token, read-only.
     const first = getChartProps('BTC');
     expect(first?.onReferenceLineAction).toBeUndefined();
     expect(first?.onPriceSelect).toBeUndefined();
-    act(() =>
-      getPicker('main')?.onSelectToken?.({ coin: 'SOL', mode: 'perp' }),
-    );
-    expect(mockSetPanelSource).toHaveBeenCalledWith({
-      ...ethSource,
-      coin: 'SOL',
-    });
   });
 
-  it('keeps a press on a token picker from selecting its panel', () => {
+  it('names each panel token without a picker of its own', async () => {
     renderTradingViewCandles();
 
-    // The grid leaves presses inside these rows alone, so a picker of a panel
-    // that is not selected changes that panel's token instead of the trade.
-    const guarded = mockKeepSelectionRow.mock.calls.map(
-      ([children]) =>
-        (children as { props?: IMockTokenSelectorProps } | undefined)?.props
-          ?.testID,
+    // The page's picker switches the trade instrument, which the selected
+    // panel shows; the panels only name their tokens.
+    await waitFor(() =>
+      expect(mockText.mock.calls.map(([props]) => props.children)).toEqual(
+        expect.arrayContaining(['BTCUSDC', 'ETHUSDC']),
+      ),
     );
-    for (const id of ['main', 'panel-2']) {
-      expect(guarded).toContain(`perp-native-chart-panel-token-selector-${id}`);
-    }
   });
 
   it('names every token with its live quote while split', async () => {
@@ -489,7 +435,7 @@ describe('split view', () => {
     mockMultiChartLayout = { preset: '1', panels: {} };
     renderTradingViewCandles();
 
-    expect(mockTokenSelector).not.toHaveBeenCalled();
+    expect(mockText).not.toHaveBeenCalledWith({ children: 'BTCUSDC' });
     expect(mockQuote).not.toHaveBeenCalled();
   });
 
@@ -614,9 +560,6 @@ describe('split view', () => {
       .filter((props) => props.testID?.endsWith('panel-2'));
     const panel = panels.at(-1);
     expect(panel?.source).toEqual(btcSource);
-    // A pick in any panel now switches the trade instrument, like the ticker
-    // bar's.
-    expect(getPicker('panel-2')?.onSelectToken).toBeUndefined();
     // Only the selected panel trades.
     expect(panel?.onReferenceLineAction).toBeUndefined();
     const selected = mockNativeChart.mock.calls

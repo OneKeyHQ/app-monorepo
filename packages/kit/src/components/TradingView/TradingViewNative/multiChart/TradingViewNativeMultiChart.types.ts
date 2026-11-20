@@ -21,21 +21,11 @@ export interface ITradingViewNativeMultiChartPanel {
   isActive: boolean;
   /** More than one chart is on screen. */
   isSplit: boolean;
-  /**
-   * Every panel shows the selected panel's token, the host's own source. A pick
-   * in any panel should then change the host's source instead of calling
-   * `setSource`.
-   */
+  /** Every panel shows the selected panel's token, the host's own source. */
   isSymbolSynced: boolean;
   source: ITradingViewNativeSource;
   /** Layout picker for the selected panel's controls; null for the others. */
   layoutControl: ReactNode;
-  /**
-   * Changes the token of a panel that is not selected. The selected panel
-   * follows the host. A picker that calls this must not select the panel with
-   * its presses: see `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`.
-   */
-  setSource: (source: ITradingViewNativeSource) => void;
 }
 
 export interface ITradingViewNativeMultiChartProps {

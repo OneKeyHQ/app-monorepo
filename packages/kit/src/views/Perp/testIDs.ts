@@ -135,7 +135,7 @@ export const PerpTestIDs = {
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
   NativeChartSplitView: 'perp-native-chart-split-view',
   NativeChartPanel: 'perp-native-chart-panel',
-  NativeChartPanelTokenSelector: 'perp-native-chart-panel-token-selector',
+  NativeChartPanelToken: 'perp-native-chart-panel-token',
   NativeChartPanelHeader: 'perp-native-chart-panel-header',
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',

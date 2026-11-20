@@ -198,7 +198,8 @@ keep the single chart.
 
 - One panel is selected and outlined. It shows the active trade instrument and
   has every trading integration: lines with cancel/drag, the order menu and
-  fill marks. Its token picker switches the trade instrument.
+  fill marks. The page's token picker switches the trade instrument, so it
+  changes the selected panel's token; no panel has a picker of its own.
 - Pressing another panel selects it and switches the trade instrument to its
   token; no chart moves, changes its token or remounts. Until the switch lands
   the panel stays read-only, and a switch that fails returns the selection.
@@ -206,8 +207,6 @@ keep the single chart.
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
   Selecting the traded token's panel again drops a switch still on its way.
-  A token picked meanwhile for the panel selected before stays with it, also
-  when a third chart is pressed before the switch lands.
   Enter or Space on a panel's focused chart selects it like a press, so the
   controls row can be moved from the keyboard; the keys of the panel's own
   controls, e.g. a drawing tool's style list, do not select.
@@ -216,20 +215,20 @@ keep the single chart.
   hidden panel, so selecting another chart leaves it there and the first panel
   returns to its own token. The same holds when the layout shrinks while the
   switch to a selected panel's token is still on its way. If the trade
-  instrument then goes to another token, e.g. from the first panel's picker,
-  the hidden panel keeps its own token and does not take the new one.
-- Instead of its own controls, each chart in a split has a header with its
-  token picker, live price and 24h change, from the same asset contexts as the
-  favorites bar. Each header holds one quote, subscribed to its own token
+  instrument then goes to another token, e.g. from the page's picker while
+  the first panel shows it, the hidden panel keeps its own token and does not
+  take the new one.
+- Instead of its own controls, each chart in a split has a header naming its
+  token, with its live price and 24h change, from the same asset contexts as
+  the favorites bar. Each header holds one quote, subscribed to its own token
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
   (`chartPanelsSpotActive`). Both are let go while the workspace shows another
   view (Info, Funding, Order book) over the mounted chart, and the headers drop
   their quotes meanwhile.
-- The other panels show any perp or spot token picked from the regular token
-  selector, with the account's lines and fill marks for it read-only and no
-  order menu. Their token picker does not select the panel: it changes that
-  panel's token and leaves the trade instrument alone. The first panel keeps
+- The other panels show any perp or spot token, with the account's lines and
+  fill marks for it read-only and no order menu. A panel keeps the token it
+  showed while selected. The first panel keeps
   the page's interval and indicators wherever the selection is; every extra
   panel has its own.
 - An order line that is being cancelled or moved is locked in every chart
@@ -242,9 +241,8 @@ keep the single chart.
   trading chart's indicators; afterwards the two are independent.
 - The layout picker has five sync switches, saved with the layout. All are
   off by default.
-  - Symbol: every panel shows the trade instrument, and a token picked in any
-    panel switches it; selecting a panel then only moves the controls row to
-    it. Panels return to their own tokens when it is turned off: the ones
+  - Symbol: every panel shows the trade instrument; selecting a panel then
+    only moves the controls row to it. Panels return to their own tokens when it is turned off: the ones
     they showed when it was turned on, the selected panel's included.
   - Interval: every panel takes the trading chart's interval, and an interval
     picked in any panel applies to all.

@@ -17,10 +17,7 @@ import type {
 import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
 
 import { TradingViewNativeMultiChart } from './TradingViewNativeMultiChart';
-import {
-  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
-  TradingViewNativeMultiChartControlsContext,
-} from './TradingViewNativeMultiChartPanelContext';
+import { TradingViewNativeMultiChartControlsContext } from './TradingViewNativeMultiChartPanelContext';
 
 import type {
   ITradingViewNativeMultiChartPanel,
@@ -104,18 +101,12 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   return (
     <>
       {controlsSlot ? controlsSlot.renderControls(controls) : controls}
-      {/* The token picker: its trigger sits in the panel, its list elsewhere
-          on the page. */}
-      <span
-        data-testid={`picker-${panel.id}`}
-        {...TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS}
-      />
+      {/* A menu the chart opened, rendered elsewhere on the page. */}
       {createPortal(
         <button
           type="button"
-          aria-label="pick DOGE"
-          data-testid={`pick-${panel.id}`}
-          onClick={() => panel.setSource(coin('DOGE'))}
+          aria-label="Chart menu item"
+          data-testid={`menu-${panel.id}`}
         />,
         document.body,
       )}
@@ -587,10 +578,10 @@ it('selects a panel from the keyboard', async () => {
   const chart = screen.getByTestId('canvas-panel-2');
 
   // Other keys and shortcuts leave the selection alone, and so do the keys of
-  // the panel's own controls: a picker, a style list, a tool button.
+  // the panel's own controls: a style list, a tool button, a menu it opened.
   fireEvent.keyDown(chart, { key: 'Tab' });
   fireEvent.keyDown(chart, { key: 'Enter', metaKey: true });
-  for (const control of ['picker', 'pick', 'style', 'tool']) {
+  for (const control of ['menu', 'style', 'tool']) {
     for (const key of ['Enter', ' ']) {
       fireEvent.keyDown(screen.getByTestId(`${control}-panel-2`), { key });
     }
@@ -619,88 +610,15 @@ it('selects a panel from the keyboard', async () => {
   expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
 });
 
-it('changes only the token of a panel whose picker is used', () => {
+it('leaves the selection alone for a menu a panel opened elsewhere', () => {
   const onSelectPanel = jest.fn(async () => true);
-  const harness = renderGrid({ onSelectPanel });
+  renderGrid({ onSelectPanel });
 
-  // Opening the picker and pressing a token in its list are not presses on
-  // the chart, so the trade stays on BTC.
-  fireEvent.pointerDown(screen.getByTestId('picker-panel-2'), { button: 0 });
-  fireEvent.pointerDown(screen.getByTestId('pick-panel-2'), { button: 0 });
-  act(() => {
-    fireEvent.click(screen.getByTestId('pick-panel-2'));
-  });
+  // The menu reaches the panel through React only.
+  fireEvent.pointerDown(screen.getByTestId('menu-panel-2'), { button: 0 });
 
   expect(onSelectPanel).not.toHaveBeenCalled();
-  expectScreen({ main: 'BTC', 'panel-2': 'DOGE' }, 'main');
-  expect(harness.layout.panels['panel-2']?.source).toEqual(coin('DOGE'));
-  expect(harness.layout.activePanelId).toBeUndefined();
-});
-
-it('keeps a token picked for the previous panel while the host is switching', async () => {
-  let finish: (switched: boolean) => void = () => {};
-  const harness = renderGrid({
-    onSelectPanel: () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-  });
-
-  act(() => press('panel-2'));
-  // The first panel is not selected any more, so its picker changes its token.
-  act(() => {
-    fireEvent.click(screen.getByTestId('pick-main'));
-  });
-  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
-
-  await act(async () => {
-    harness.setActiveSource(coin('ETH'));
-    finish(true);
-  });
-  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
-  expect(harness.layout).toMatchObject({
-    activePanelId: 'panel-2',
-    panels: { main: { source: coin('DOGE') } },
-  });
-});
-
-it('keeps a token picked for the previous panel when another panel is pressed mid-switch', async () => {
-  const finishes: ((switched: boolean) => void)[] = [];
-  const harness = renderGrid({
-    layout: {
-      preset: '3',
-      panels: {
-        'panel-2': { source: coin('ETH'), indicatorSettings },
-        'panel-3': { source: coin('SOL'), indicatorSettings },
-      },
-    },
-    onSelectPanel: () =>
-      new Promise((resolve) => {
-        finishes.push(resolve);
-      }),
-  });
-  const charts = { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': 'SOL' };
-
-  // The host is still switching to ETH when the first panel gets DOGE from
-  // its picker and a third chart is pressed.
-  act(() => press('panel-2'));
-  act(() => {
-    fireEvent.click(screen.getByTestId('pick-main'));
-  });
-  act(() => press('panel-3'));
-  // Not the BTC the host was still trading.
-  expectScreen(charts, 'panel-3');
-
-  await act(async () => {
-    finishes[0](false);
-    harness.setActiveSource(coin('SOL'));
-    finishes[1](true);
-  });
-  expectScreen(charts, 'panel-3');
-  expect(harness.layout).toMatchObject({
-    activePanelId: 'panel-3',
-    panels: { main: { source: coin('DOGE') } },
-  });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
 });
 
 it('follows the host in the selected panel only', () => {
@@ -932,7 +850,7 @@ it('saves a selection whose panel the preset hides before the host follows', asy
   );
 });
 
-it('keeps a selection still on its way to a split runtime when a panel gets a token', async () => {
+it('keeps a selection still on its way to a split runtime when the preset changes', async () => {
   const onSelectPanel = async (
     source: ITradingViewNativeSource,
     { setActiveSource }: IHarness,
@@ -943,17 +861,17 @@ it('keeps a selection still on its way to a split runtime when a panel gets a to
   const harness = renderGrid({ deferLayoutWrites: true, onSelectPanel });
 
   // The host follows to ETH; the selection has not come back from bg when the
-  // first panel, not selected any more, gets another token.
+  // layout grows to four charts.
   await act(async () => press('panel-2'));
   act(() => {
-    fireEvent.click(screen.getByTestId('pick-main'));
+    fireEvent.click(screen.getByTestId('preset-4'));
   });
-  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
 
   act(() => harness.flushLayout());
   expect(harness.layout).toMatchObject({
+    preset: '4',
     activePanelId: 'panel-2',
-    panels: { main: { source: coin('DOGE') } },
+    panels: { main: { source: coin('BTC') } },
   });
 
   // A grid mounted afresh, e.g. after another chart mode, shows the same.
@@ -963,7 +881,10 @@ it('keeps a selection still on its way to a split runtime when a panel gets a to
     activeSource: coin('ETH'),
     onSelectPanel,
   });
-  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
+  expectScreen(
+    { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'SOL' },
+    'panel-2',
+  );
 });
 
 it('selects the first panel for good while it stands in for a hidden one', async () => {
@@ -1091,7 +1012,7 @@ it.each([
     };
 
     // The host is still switching to HYPE when the layout shrinks and the
-    // first panel's picker, the host's one on screen, trades DOGE instead.
+    // page's token picker, shown by the first panel, trades DOGE instead.
     act(() => press('panel-4'));
     setPreset('2h');
     act(() => harness.setActiveSource(coin('DOGE')));
@@ -1147,8 +1068,8 @@ it('lets a selection returned to on a split runtime follow the host', async () =
   setPreset('2h');
   expectScreen({ main: 'ETH', 'panel-2': 'ETH' }, 'main');
 
-  // The first panel's picker, the host's on screen, goes back to BTC and the
-  // switch to HYPE is dropped: the selection returns to panel-2.
+  // The page's token picker, shown by the first panel, goes back to BTC and
+  // the switch to HYPE is dropped: the selection returns to panel-2.
   act(() => harness.setActiveSource(coin('BTC')));
   await act(async () => finishes[0](false));
 

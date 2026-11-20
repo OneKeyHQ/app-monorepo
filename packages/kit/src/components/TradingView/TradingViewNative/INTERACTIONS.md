@@ -22,17 +22,16 @@ under separate owners:
   the saved layout has it, the grid keeps the tokens of the panels selected
   before and writes them all with every selection: a split runtime evaluates a
   write against the snapshot bg sent last, which can miss the selection before.
-  A token picked for one of those panels meanwhile replaces the one kept for
-  it, also when another panel is selected before the host has followed.
   For the same reason every write of the grid (a selection, a panel's token or
   indicators, the preset, sync options, sizes) starts from the layout the grid
   wrote last until the saved layout has caught up with it, so it cannot undo
   another write that has not come back yet.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
-  Presses inside `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`, e.g. a
-  token picker, and in overlays rendered outside the panel do not select, so a
-  picker in a panel that is not selected changes that panel's token only.
+  Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
+  not select. A panel has no token picker of its own: the host's picker
+  changes the host's source, which the selected panel shows, so a panel's
+  token changes by selecting it first.
   Enter or Space on a panel's focused chart canvas selects it the same way;
   on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
   shows the host's source in its place; the source still belongs to the hidden

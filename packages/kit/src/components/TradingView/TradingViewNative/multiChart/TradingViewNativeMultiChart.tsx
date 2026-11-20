@@ -42,7 +42,6 @@ import {
 import { TradingViewNativeMultiChartDivider } from './TradingViewNativeMultiChartDivider';
 import { TradingViewNativeMultiChartLayoutSelect } from './TradingViewNativeMultiChartLayoutSelect';
 import {
-  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
   TradingViewNativeMultiChartControlsContext,
   TradingViewNativeMultiChartPanelContext,
 } from './TradingViewNativeMultiChartPanelContext';
@@ -63,23 +62,11 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IOnLayoutChange = ITradingViewNativeMultiChartProps['onLayoutChange'];
 
-function ignoreSourceChange() {}
-
-const KEEP_SELECTION_SELECTOR = Object.keys(
-  TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS,
-)
-  .map((name) => `[${name}]`)
-  .join(',');
-
 // Whether a press or key on `target` is one on the panel itself. An overlay
-// the panel opened, e.g. a token list, is rendered elsewhere and only reaches
+// the panel opened, e.g. a chart's menu, is rendered elsewhere and only reaches
 // the panel through React.
 function isOnPanel(panel: Element, target: EventTarget): target is Element {
-  return (
-    target instanceof Element &&
-    panel.contains(target) &&
-    !target.closest(KEEP_SELECTION_SELECTOR)
-  );
+  return target instanceof Element && panel.contains(target);
 }
 
 const NO_CONTROLS_SLOT: ITradingViewNativeMultiChartControlsSlot = {
@@ -144,7 +131,6 @@ const Panel = memo(
     isSymbolSynced,
     layoutControl,
     onLayoutChange,
-    onSourceChange,
     renderPanel,
     source,
     sync,
@@ -157,7 +143,6 @@ const Panel = memo(
     isSymbolSynced: boolean;
     layoutControl: ReactNode;
     onLayoutChange: IOnLayoutChange;
-    onSourceChange: (panelId: string, source: ITradingViewNativeSource) => void;
     renderPanel: ITradingViewNativeMultiChartProps['renderPanel'];
     source: ITradingViewNativeSource;
     sync: IPanelSync;
@@ -167,21 +152,6 @@ const Panel = memo(
     const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
       () => ({ ...sync, isMain, instrumentKey }),
       [instrumentKey, isMain, sync],
-    );
-    const setSource = useCallback<
-      ITradingViewNativeMultiChartPanel['setSource']
-    >(
-      (nextSource) => {
-        onSourceChange(id, nextSource);
-        onLayoutChange((current) =>
-          updateTradingViewNativeMultiChartPanel(
-            normalizeTradingViewNativeMultiChartLayout(current),
-            id,
-            { source: nextSource },
-          ),
-        );
-      },
-      [id, onLayoutChange, onSourceChange],
     );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
@@ -193,7 +163,6 @@ const Panel = memo(
         isSymbolSynced,
         source,
         layoutControl: isActive ? layoutControl : null,
-        setSource: isActive ? ignoreSourceChange : setSource,
       }),
       [
         id,
@@ -203,7 +172,6 @@ const Panel = memo(
         isSplit,
         isSymbolSynced,
         layoutControl,
-        setSource,
         source,
       ],
     );
@@ -280,25 +248,6 @@ interface IPanelSelection {
    * has followed it, so it waits for nothing.
    */
   fallback: IPanelSelection | null;
-}
-
-// A token picked for a panel replaces the one a selection still holds for it.
-function replaceKeptSource(
-  selection: IPanelSelection | null,
-  panelId: string,
-  source: ITradingViewNativeSource,
-): IPanelSelection | null {
-  if (!selection) return selection;
-  const fallback = replaceKeptSource(selection.fallback, panelId, source);
-  const isKept = Boolean(selection.keptSources[panelId]);
-  if (!isKept && fallback === selection.fallback) return selection;
-  return {
-    ...selection,
-    fallback,
-    keptSources: isKept
-      ? { ...selection.keptSources, [panelId]: source }
-      : selection.keptSources,
-  };
 }
 
 // Compared as stored: on a split runtime the way to bg and back drops fields
@@ -508,11 +457,7 @@ export function TradingViewNativeMultiChart({
         state.isSymbolSynced &&
         Boolean(state.layout.panels[keptPanelId]?.source);
       const keptSources: IKeptSources = { ...state.selection?.keptSources };
-      // A selection the host has not followed holds that panel's token
-      // already: the host's, or one picked for the panel since, which is newer.
-      if (!keepsOwnToken && !keptSources[keptPanelId]) {
-        keptSources[keptPanelId] = state.activeSource;
-      }
+      if (!keepsOwnToken) keptSources[keptPanelId] = state.activeSource;
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
       const waitsForHost =
@@ -561,12 +506,6 @@ export function TradingViewNativeMultiChart({
         });
     },
     [saveSelection, setSelection],
-  );
-  const handlePanelSourceChange = useCallback(
-    (panelId: string, source: ITradingViewNativeSource) => {
-      setSelection(replaceKeptSource(selectionRef.current, panelId, source));
-    },
-    [setSelection],
   );
 
   const defaults = useRef({
@@ -876,7 +815,6 @@ export function TradingViewNativeMultiChart({
                       }
                       layoutControl={layoutControl}
                       onLayoutChange={onLayoutChange}
-                      onSourceChange={handlePanelSourceChange}
                       renderPanel={renderPanel}
                     />
                   ) : null}

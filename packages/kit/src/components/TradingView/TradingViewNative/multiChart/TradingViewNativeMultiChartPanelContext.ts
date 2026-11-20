@@ -27,12 +27,3 @@ export interface ITradingViewNativeMultiChartControlsSlot {
 // Set around every split-view panel, the first one included.
 export const TradingViewNativeMultiChartControlsContext =
   createContext<ITradingViewNativeMultiChartControlsSlot | null>(null);
-
-/**
- * Spread on an element inside a panel whose presses should not select the
- * panel, e.g. the token picker of a panel that is not selected: it changes
- * that panel's token only.
- */
-export const TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS = {
-  'data-multi-chart-keep-selection': 'true',
-} as const;
