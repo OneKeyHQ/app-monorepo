@@ -2,6 +2,8 @@ import { YStack } from '@onekeyhq/components';
 
 import { DeviceHelpPanel, DeviceHelpPanelView } from './DeviceHelpPanel';
 
+import type { IDeviceHelpTroubleshooting } from './DeviceHelpPanel';
+
 const DEVICE_HELP_SIDEBAR_WIDTH = 368;
 
 // Help in its own pane at the page's right edge, as tall as the page. It
@@ -9,8 +11,10 @@ const DEVICE_HELP_SIDEBAR_WIDTH = 368;
 // placeholder it draws the loading panel without fetching anything.
 export function DeviceHelpSidebar({
   placeholder = false,
+  troubleshooting = 'pending',
 }: {
   placeholder?: boolean;
+  troubleshooting?: IDeviceHelpTroubleshooting;
 }) {
   return (
     <YStack
@@ -24,7 +28,11 @@ export function DeviceHelpSidebar({
           follows the page's desktop top padding, keeping the first label
           level with the device. */}
       <YStack px={12} pt={40} pb="$10">
-        {placeholder ? <DeviceHelpPanelView /> : <DeviceHelpPanel />}
+        {placeholder ? (
+          <DeviceHelpPanelView />
+        ) : (
+          <DeviceHelpPanel troubleshooting={troubleshooting} />
+        )}
       </YStack>
     </YStack>
   );

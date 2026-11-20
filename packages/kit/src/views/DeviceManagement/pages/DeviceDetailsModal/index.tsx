@@ -56,6 +56,7 @@ import {
   syncRelevantDeviceStateEvent,
 } from './utils';
 
+import type { IDeviceHelpTroubleshooting } from './DeviceHelpPanel';
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
@@ -215,11 +216,15 @@ function DeviceDetailsModalV2Cmp({
     walletId,
     vendor: deviceVendor,
   });
+  let sidebarTroubleshooting: IDeviceHelpTroubleshooting = 'hidden';
+  if (vendorProfile?.deviceManager.about) {
+    sidebarTroubleshooting = showDeviceSupport ? 'ready' : 'pending';
+  }
 
   return (
     <DeviceDetailsPageFrame
       showHelpSidebar={showHelpSidebar}
-      sidebar={<DeviceHelpSidebar />}
+      sidebar={<DeviceHelpSidebar troubleshooting={sidebarTroubleshooting} />}
       testID="device-details-content"
     >
       {loading ? (

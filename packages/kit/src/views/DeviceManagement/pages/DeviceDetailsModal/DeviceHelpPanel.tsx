@@ -154,10 +154,11 @@ function LinkRow({
   title: string;
   icon?: IKeyOfIcons;
   testID?: string;
-  onPress: () => void;
+  // Without it the row only holds its place: no focus, no press.
+  onPress?: () => void;
 }) {
-  return (
-    <PressableRow onPress={onPress} testID={testID} minHeight={40} ai="center">
+  const content = (
+    <>
       {icon ? (
         <Icon name={icon} size="$4" color="$iconSubdued" flexShrink={0} />
       ) : null}
@@ -172,6 +173,25 @@ function LinkRow({
       >
         {title}
       </SizableText>
+    </>
+  );
+  if (!onPress) {
+    return (
+      <XStack
+        px={BLEED}
+        py={10}
+        gap="$3"
+        minHeight={40}
+        ai="center"
+        aria-hidden
+      >
+        {content}
+      </XStack>
+    );
+  }
+  return (
+    <PressableRow onPress={onPress} testID={testID} minHeight={40} ai="center">
+      {content}
     </PressableRow>
   );
 }
@@ -344,19 +364,22 @@ function GuidesSection({ guides }: { guides: ILinkConfigItem[] | undefined }) {
   );
 }
 
-// The router's placeholder has no device to troubleshoot yet; its row only
-// holds the place.
-function noop() {}
+// Troubleshooting is offered where the Support card would offer it: for
+// devices with an About page (not Trezor or Ledger), and only once the device
+// is known. Until then its row holds the place without taking focus.
+export type IDeviceHelpTroubleshooting = 'hidden' | 'pending' | 'ready';
 
 // The panel as drawn. Lists not given yet show as loading, which is also how
 // the router draws it while the page's code loads.
 export function DeviceHelpPanelView({
   faqs,
   guides,
-  onPressTroubleshooting = noop,
+  troubleshooting = 'pending',
+  onPressTroubleshooting,
 }: {
   faqs?: ILinkConfigItem[];
   guides?: ILinkConfigItem[];
+  troubleshooting?: IDeviceHelpTroubleshooting;
   onPressTroubleshooting?: () => void;
 }) {
   const intl = useIntl();
@@ -371,14 +394,18 @@ export function DeviceHelpPanelView({
         <Stack px={BLEED}>
           <Stack h={HAIRLINE} bg="$neutral4" />
         </Stack>
-        <LinkRow
-          icon="ToolboxOutline"
-          title={intl.formatMessage({
-            id: ETranslations.global_hardware_troubleshooting,
-          })}
-          testID={DeviceManagementTestIDs.troubleshootingItem}
-          onPress={onPressTroubleshooting}
-        />
+        {troubleshooting === 'hidden' ? null : (
+          <LinkRow
+            icon="ToolboxOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_hardware_troubleshooting,
+            })}
+            testID={DeviceManagementTestIDs.troubleshootingItem}
+            onPress={
+              troubleshooting === 'ready' ? onPressTroubleshooting : undefined
+            }
+          />
+        )}
         <LinkRow
           icon="HelpSupportOutline"
           title={intl.formatMessage({
@@ -392,7 +419,11 @@ export function DeviceHelpPanelView({
   );
 }
 
-export function DeviceHelpPanel() {
+export function DeviceHelpPanel({
+  troubleshooting,
+}: {
+  troubleshooting: IDeviceHelpTroubleshooting;
+}) {
   const faqs = useLinks('hardware_faqs');
   const guides = useLinks('hardware_getstarteds');
   const actions = useDeviceDetailsActions();
@@ -406,6 +437,7 @@ export function DeviceHelpPanel() {
     <DeviceHelpPanelView
       faqs={faqs}
       guides={guides}
+      troubleshooting={troubleshooting}
       onPressTroubleshooting={() => void onPressTroubleshooting()}
     />
   );
