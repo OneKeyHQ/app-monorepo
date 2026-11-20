@@ -324,6 +324,16 @@ function RewardCenterDetails({
   }, [selectionKey, resetField]);
   const selectionKeyRef = useRef(selectionKey);
   selectionKeyRef.current = selectionKey;
+  // The address on screen right now, as opposed to the one a request was
+  // started for: the account selector stays usable while a request is in
+  // flight.
+  const selectedOwnerRef = useRef<{ accountId?: string; networkId?: string }>(
+    {},
+  );
+  selectedOwnerRef.current = {
+    accountId: account?.id,
+    networkId: network?.id,
+  };
 
   const claimSource = network?.isTestnet
     ? TRON_SOURCE_FLAG_TESTNET
@@ -657,6 +667,19 @@ function RewardCenterDetails({
       });
       closeResult.current.isResourceClaimed = true;
 
+      // Today's pool is shared by every address of the network. Another
+      // address of it that was selected while this claim was in flight read
+      // the pool before the claim landed, or has that read on its way, and
+      // still counts the unit that is now gone: read it again.
+      const selected = selectedOwnerRef.current;
+      if (
+        selected.accountId &&
+        selected.accountId !== account.id &&
+        selected.networkId === network.id
+      ) {
+        void refreshInventory();
+      }
+
       notifyRewardSuccess(onIssuedForRequest);
       return resp;
     } catch (_error) {
@@ -671,6 +694,7 @@ function RewardCenterDetails({
     intl,
     network,
     setInventory,
+    refreshInventory,
     result,
     isClaimed,
     notifyRewardSuccess,

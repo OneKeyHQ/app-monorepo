@@ -634,6 +634,75 @@ describe('inline TRON energy claim', () => {
     }
   });
 
+  // Today's pool is shared: a claim that lands after another address was
+  // selected leaves that address with a count read before the claim.
+  it('reads the pool again when a claim lands after another account was selected', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      fireEvent.click(claim);
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+      // The second address has its inventory before the claim lands.
+      await waitFor(
+        () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+        { timeout: 3000 },
+      );
+      expect(screen.getByText('pool:1/500')).toBeTruthy();
+
+      // The claim takes the last unit of the pool.
+      mockInventory.remaining = 0;
+      await act(async () => {
+        resolveClaim(null);
+      });
+
+      await waitFor(() => expect(screen.getByText('pool:0/500')).toBeTruthy(), {
+        timeout: 3000,
+      });
+      // The claim belongs to the first address; the second one only learns
+      // that the pool is empty.
+      expect(screen.queryByText('claimed')).toBeNull();
+      const secondClaim = screen.getByTestId(RewardCenterTestIDs.claimBtn);
+      expect(secondClaim).toHaveProperty('disabled', true);
+      expect(secondClaim.textContent).toBe(
+        ETranslations.wallet_subsidy_all_used,
+      );
+    } finally {
+      mockInventory.remaining = 1;
+    }
+  });
+
+  it('does not read the inventory again when the claiming account stays selected', async () => {
+    mockClaim.mockResolvedValue(null);
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    const reads = ownersOf('/api/tronRent/isReceived').length;
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:0/500')).toBeTruthy();
+    expect(ownersOf('/api/tronRent/isReceived')).toHaveLength(reads);
+  });
+
   // The view keeps the space of the inventory rows while this flag is set,
   // so it must cover the whole wait and never drop to "no inventory" first.
   it('reports the inventory as loading until it arrives', async () => {

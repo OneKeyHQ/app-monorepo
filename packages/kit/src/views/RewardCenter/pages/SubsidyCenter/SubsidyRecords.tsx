@@ -147,11 +147,48 @@ function SubsidyRecordSkeleton({
   );
 }
 
-function SubsidyNotice({ children }: { children: string }) {
+// Layout height of the tertiary retry button of `SubsidyPartialNotice`: a
+// 20px label and 4px paddings inside a 1px border, less its -5px margins.
+const partialNoticeHeight = 20;
+
+// A source failed, so records may be missing. The records that did load stay
+// on screen; the retry asks for the same records again.
+function SubsidyPartialNotice({
+  onRetry,
+  isRetrying,
+  size = '$bodySm',
+}: {
+  onRetry: () => void;
+  isRetrying: boolean;
+  size?: '$bodySm' | '$bodyMd';
+}) {
+  const intl = useIntl();
   return (
-    <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-      {children}
-    </SizableText>
+    <XStack
+      alignItems="center"
+      justifyContent="center"
+      gap="$3"
+      testID="subsidy-records-partial"
+    >
+      <SizableText
+        size={size}
+        color="$textSubdued"
+        flexShrink={1}
+        numberOfLines={1}
+      >
+        {subsidyRecordsCopy.partial}
+      </SizableText>
+      <Button
+        size="small"
+        variant="tertiary"
+        flexShrink={0}
+        loading={isRetrying}
+        onPress={onRetry}
+        testID="subsidy-records-partial-retry"
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </XStack>
   );
 }
 
@@ -225,7 +262,7 @@ export function SubsidyRecentRecords({
 }: {
   query: ISubsidyQuery<ISubsidyHistoryView>;
 }) {
-  const { data, isLoading, isError, reload } = query;
+  const { data, isLoading, isError, isFetching, reload } = query;
   let content;
   if (isError) {
     content = (
@@ -241,11 +278,17 @@ export function SubsidyRecentRecords({
     // A partial result is not "no records": say what happened instead.
     content = (
       <YStack minHeight={recentRecordRowHeight} justifyContent="center">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {data.isPartial
-            ? subsidyRecordsCopy.partial
-            : subsidyRecordsCopy.empty}
-        </SizableText>
+        {data.isPartial ? (
+          <SubsidyPartialNotice
+            size="$bodyMd"
+            onRetry={reload}
+            isRetrying={isFetching}
+          />
+        ) : (
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            {subsidyRecordsCopy.empty}
+          </SizableText>
+        )}
       </YStack>
     );
   } else {
@@ -255,7 +298,7 @@ export function SubsidyRecentRecords({
           items={data.items.slice(0, SUBSIDY_RECENT_RECORD_LIMIT)}
         />
         {data.isPartial ? (
-          <SubsidyNotice>{subsidyRecordsCopy.partial}</SubsidyNotice>
+          <SubsidyPartialNotice onRetry={reload} isRetrying={isFetching} />
         ) : null}
       </>
     );
@@ -432,14 +475,15 @@ export function SubsidyRecordsPaged({
 
   const list = (
     <YStack flex={1} minHeight={0} gap="$3" testID="subsidy-records-panel">
-      <XStack alignItems="center" gap="$3">
+      {/* The row is as tall as the partial notice even without it: the list
+          area below must not change height when the notice comes and goes,
+          because its height decides how many records a page holds. */}
+      <XStack alignItems="center" gap="$3" minHeight={partialNoticeHeight}>
         <SizableText size="$bodySm" color="$textSubdued" flex={1}>
           {subsidyRecordsCopy.timeWindow}
         </SizableText>
         {data?.isPartial && data.items.length > 0 ? (
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-            {subsidyRecordsCopy.partial}
-          </SizableText>
+          <SubsidyPartialNotice onRetry={reload} isRetrying={isFetching} />
         ) : null}
       </XStack>
       <YStack flex={1} minHeight={0} onLayout={handleListLayout}>
