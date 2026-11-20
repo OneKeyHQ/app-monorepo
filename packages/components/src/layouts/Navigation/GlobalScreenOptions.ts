@@ -215,7 +215,9 @@ export function makeTabScreenOptions({
   };
 }
 
-export function makeFullScreenOptions(): StackNavigationOptions {
+export function makeFullScreenOptions(
+  _presentAsModal?: boolean,
+): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,

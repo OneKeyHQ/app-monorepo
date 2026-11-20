@@ -354,6 +354,20 @@ class ServiceDApp extends ServiceBase {
     routeParams: { query: string };
     modalParams: { screen: any; params: any };
   }) => {
+    const isNativeWalletConnectProposal =
+      platformEnv.isNative &&
+      (routeNames[0] === ERootRoutes.Modal ||
+        routeNames[0] === ERootRoutes.iOSFullScreen) &&
+      routeNames[1] === EModalRoutes.DAppConnectionModal &&
+      routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal;
+    // React Navigation consumes the nested screen params on mount. Keep the
+    // iOS presentation on the root params for the entire approval.
+    const navigationParams =
+      isNativeWalletConnectProposal &&
+      platformEnv.isNativeIOS &&
+      routeNames[0] === ERootRoutes.iOSFullScreen
+        ? { ...modalParams.params, walletConnectApproval: true }
+        : modalParams.params;
     if (platformEnv.isExtension) {
       if (sidePanelState.isOpen || platformEnv.isExtensionUiSidePanel) {
         await extUtils.openSidePanel({
@@ -370,13 +384,7 @@ class ServiceDApp extends ServiceBase {
         this.existingWindowId = extensionWindow.id;
       }
     } else if (appGlobals.$navigationRef?.current) {
-      if (
-        platformEnv.isNative &&
-        (routeNames[0] === ERootRoutes.Modal ||
-          routeNames[0] === ERootRoutes.iOSFullScreen) &&
-        routeNames[1] === EModalRoutes.DAppConnectionModal &&
-        routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal
-      ) {
+      if (isNativeWalletConnectProposal) {
         // Progress dismissal is best-effort. A ready
         // navigation ref must not depend on the background relay's React
         // effect having mounted.
@@ -392,7 +400,7 @@ class ServiceDApp extends ServiceBase {
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
-          modalParams.params,
+          navigationParams,
         );
       console.log('modalParams: ', modalParams);
       // TODO remove timeout after dapp request queue implemented.
@@ -401,7 +409,7 @@ class ServiceDApp extends ServiceBase {
       // Relay to the main runtime when navigation belongs to another JS heap.
       appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
         screen: modalParams.screen,
-        params: modalParams.params,
+        params: navigationParams,
       });
     }
   };

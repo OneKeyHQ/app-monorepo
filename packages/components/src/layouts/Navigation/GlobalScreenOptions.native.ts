@@ -194,10 +194,13 @@ export function makeTabScreenOptions({
   return options;
 }
 
-export function makeFullScreenOptions(): IStackNavigationOptions {
+export function makeFullScreenOptions(
+  presentAsModal = false,
+): IStackNavigationOptions {
   return {
     headerShown: false,
-    presentation: 'card',
+    presentation:
+      platformEnv.isNativeIOS && presentAsModal ? 'fullScreenModal' : 'card',
     gestureEnabled: true,
     gestureDirection: 'vertical',
     ...makeModalOpenAnimationOptions({ isVerticalLayout: true }),

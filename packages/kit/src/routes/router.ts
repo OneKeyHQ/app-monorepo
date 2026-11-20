@@ -93,6 +93,9 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     name: ERootRoutes.iOSFullScreen,
     component: withOverlayPageHost(IOSFullScreenNavigator),
     type: 'iOSFullScreen',
+    // A pushed card stays behind a presented sheet on iOS.
+    shouldPresentFullScreenModal: ({ route }) =>
+      route.params?.walletConnectApproval === true,
   },
   {
     name: ERootRoutes.FullScreenPush,
