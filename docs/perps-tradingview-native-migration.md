@@ -193,8 +193,9 @@ keep the single chart.
 - Pressing another panel selects it and switches the trade instrument to its
   token; no chart moves, changes its token or remounts. Until the switch lands
   the panel stays read-only, and a switch that fails returns the selection.
-  The selection is saved only once the switch has landed, so a failed one
-  leaves the layout as it was, also when the chart mode changed meanwhile.
+  The selection is saved only once the switch has landed, not when the trade
+  instrument first shows the token, so a failed one leaves the layout as it
+  was, also when the chart mode changed meanwhile.
   Selecting the traded token's panel again drops a switch still on its way.
   A token picked meanwhile for the panel selected before stays with it, also
   when a third chart is pressed before the switch lands.
@@ -214,7 +215,8 @@ keep the single chart.
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
   (`chartPanelsSpotActive`). Both are let go while the workspace shows another
-  view (Info, Funding, Order book) over the mounted chart.
+  view (Info, Funding, Order book) over the mounted chart, and the headers drop
+  their quotes meanwhile.
 - The other panels show any perp or spot token picked from the regular token
   selector, with the account's lines and fill marks for it read-only and no
   order menu. Their token picker does not select the panel: it changes that

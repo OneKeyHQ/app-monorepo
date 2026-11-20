@@ -17,15 +17,17 @@ under separate owners:
   panel goes on showing the token it showed, and a switch the host turns down
   returns the selection. The selection shows at once, before the saved layout
   or the host's source catch up, and is saved only once the host has followed,
-  from the host's answer, so it also lands after the grid is unmounted. Until
+  from the host's answer, so it also lands after the grid is unmounted; the
+  host can show the token before its switch has landed. Until
   the saved layout has it, the grid keeps the tokens of the panels selected
   before and writes them all with every selection: a split runtime evaluates a
   write against the snapshot bg sent last, which can miss the selection before.
   A token picked for one of those panels meanwhile replaces the one kept for
   it, also when another panel is selected before the host has followed.
-  For the same reason every other write of the grid (a panel's token or
-  indicators, the preset, sync options, sizes) starts from the selection saved
-  last, so it cannot undo a selection that has not come back yet.
+  For the same reason every write of the grid (a selection, a panel's token or
+  indicators, the preset, sync options, sizes) starts from the layout the grid
+  wrote last until the saved layout has caught up with it, so it cannot undo
+  another write that has not come back yet.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
   Presses inside `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`, e.g. a
@@ -37,10 +39,12 @@ under separate owners:
   panel (`getTradingViewNativeMultiChartSourceOwnerPanelId`), so a selection
   made then saves it there and never over the first panel's own token. A
   selection whose panel the preset hides before the host has followed is
-  saved all the same and returns with the preset. If the host goes to another
-  token before following, e.g. from the first panel's picker, the selected
-  panel takes it only while on screen; a hidden one keeps its own token and the
-  new one stays with the panel it belonged to. The
+  saved all the same and returns with the preset. If the host turns the switch
+  down for another token, e.g. picked in the first panel, the selected panel
+  takes it only if it was on screen when the host went there; a hidden one
+  keeps its own token and the new one stays with the panel it belonged to. A
+  host back on its own source returns the selection, and the selection
+  returned to follows the host from then on. The
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,

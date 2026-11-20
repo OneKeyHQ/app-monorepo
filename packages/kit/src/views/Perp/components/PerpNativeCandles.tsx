@@ -143,7 +143,8 @@ function PerpChartPanelQuote({
     markAllAssetCtxsRequired();
     return () => markAllAssetCtxsNotRequired();
   }, [actions, isLive, mode]);
-  if (assetId === undefined) return null;
+  // Off screen the quote would still follow the trade instrument's own ticks.
+  if (assetId === undefined || !isLive) return null;
   return (
     <CtxPriceDisplay
       key={`${mode}:${coin}:${assetId}`}

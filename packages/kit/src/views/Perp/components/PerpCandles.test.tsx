@@ -69,6 +69,8 @@ const mockQuote = jest.fn<
   null,
   [{ coinName: string; mode: string; assetId: number; displayMode: string }]
 >(() => null);
+// Panel quotes currently mounted.
+let mockMountedQuotes = 0;
 const mockSwitchTradeInstrument = jest.fn<
   Promise<boolean>,
   [{ mode: 'perp' | 'spot'; coin: string }]
@@ -171,7 +173,16 @@ jest.mock('./TokenSelector/PerpChartTokenSelector', () => ({
 }));
 
 jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
-  CtxPriceDisplay: (props: Parameters<typeof mockQuote>[0]) => mockQuote(props),
+  CtxPriceDisplay: (props: Parameters<typeof mockQuote>[0]) => {
+    const { useEffect } = jest.requireActual<typeof import('react')>('react');
+    useEffect(() => {
+      mockMountedQuotes += 1;
+      return () => {
+        mockMountedQuotes -= 1;
+      };
+    }, []);
+    return mockQuote(props);
+  },
 }));
 
 jest.mock(
@@ -498,12 +509,13 @@ describe('split view', () => {
     });
   });
 
-  it('lets go of the panel quotes while the workspace shows another view', () => {
+  it('lets go of the panel quotes while the workspace shows another view', async () => {
     mockMultiChartLayout = {
       preset: '2h',
       panels: { 'panel-2': { source: { ...ethSource, coin: '@107' } } },
     };
     render(<PerpMarketWorkspacePanel />);
+    await waitFor(() => expect(mockMountedQuotes).toBeGreaterThan(0));
     expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
       chartPanelsSpotActive: true,
     });
@@ -521,6 +533,9 @@ describe('split view', () => {
     expect(mockMarkAllAssetCtxsNotRequired.mock.calls.length).toBe(
       mockMarkAllAssetCtxsRequired.mock.calls.length,
     );
+    // The headers drop their quotes, which would follow the trade
+    // instrument's ticks.
+    expect(mockMountedQuotes).toBe(0);
     expect(mockChartUnmount).not.toHaveBeenCalled();
     expect(getChartProps('@107')).toBeDefined();
   });
