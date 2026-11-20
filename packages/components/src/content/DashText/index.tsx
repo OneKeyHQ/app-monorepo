@@ -1,12 +1,4 @@
-import {
-  type CSSProperties,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
-
-import { I18nManager } from 'react-native';
+import { type CSSProperties, type ReactNode, useMemo } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,9 +12,13 @@ import { useTheme } from '../../shared/tamagui';
 import type { IPopoverProps } from '../../actions/Popover';
 import type { ITooltipProps } from '../../actions/Tooltip';
 import type { ISizableTextProps } from '../../primitives';
-import type { LayoutChangeEvent } from 'react-native';
 
 export interface IDashTextProps extends ISizableTextProps {
+  /**
+   * Dash geometry is honored on web only. iOS and Android draw the dashes as
+   * a native dashed text decoration, whose pattern the platform sets;
+   * `dashThickness` there only sizes the space reserved below the text.
+   */
   dashLength?: number;
   dashGap?: number;
   dashColor?: string;
@@ -81,21 +77,6 @@ function DashTextCore({
   | 'tooltipTriggerAsChild'
 >) {
   const theme = useTheme();
-  const [textWidth, setTextWidth] = useState(0);
-  const [textLines, setTextLines] = useState<
-    { x: number; y: number; width: number; height: number }[]
-  >([]);
-  const handleTextLayout = useCallback<
-    Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
-  >(
-    (event) => {
-      setTextLines(event.nativeEvent.lines);
-      if (typeof onTextLayout === 'function') {
-        onTextLayout(event);
-      }
-    },
-    [onTextLayout],
-  );
   const resolvedDashThickness = platformEnv.isNative
     ? dashThickness
     : Math.max(1, dashThickness);
@@ -163,10 +144,6 @@ function DashTextCore({
     ],
   );
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setTextWidth(event.nativeEvent.layout.width);
-  }, []);
-
   const overlayProps = dashOverlay
     ? ({ position: 'absolute', bottom: 0, left: 0, right: 0 } as const)
     : undefined;
@@ -201,94 +178,52 @@ function DashTextCore({
     );
   }
 
+  // React Native draws dashed text decoration on iOS and Android itself, per
+  // wrapped line and in the same frame as the glyphs. Measuring the text first
+  // and then laying out dash views took a second commit, so the label showed
+  // without its dashes for a frame (OK-54207). The platform decides the dash
+  // length, gap and thickness; the padding below keeps the box as tall as the
+  // view-drawn rule made it, so surrounding layouts do not shift.
+  const decorationProps =
+    length > 0 && dashThickness > 0
+      ? ({
+          textDecorationLine: 'underline',
+          textDecorationStyle: 'dashed',
+          textDecorationColor: dashColor,
+        } as const)
+      : undefined;
+  const reservesDashHeight = !dashOverlay && length > 0;
+
   if (multiline) {
     return (
       <YStack
         maxWidth="100%"
-        paddingBottom={
-          dashOverlay || length <= 0 ? 0 : dashSpacing + dashThickness
-        }
+        paddingBottom={reservesDashHeight ? dashSpacing + dashThickness : 0}
       >
-        <SizableText {...textProps} onTextLayout={handleTextLayout}>
+        <SizableText
+          {...textProps}
+          {...decorationProps}
+          onTextLayout={onTextLayout}
+        >
           {children}
         </SizableText>
-        {length > 0
-          ? textLines.map((line, lineIndex) => (
-              <XStack
-                key={lineIndex}
-                position="absolute"
-                // Text layout reports physical x coordinates, even in RTL.
-                start={I18nManager.isRTL ? undefined : line.x}
-                end={I18nManager.isRTL ? line.x : undefined}
-                flexDirection={I18nManager.isRTL ? 'row-reverse' : 'row'}
-                top={
-                  line.y +
-                  line.height +
-                  (dashOverlay ? -dashThickness : dashSpacing)
-                }
-                width={line.width}
-                height={dashThickness}
-                gap={dashGap}
-                overflow="hidden"
-                pointerEvents="none"
-              >
-                {Array.from(
-                  {
-                    length: Math.min(
-                      length,
-                      Math.ceil(line.width / Math.max(1, dashLength + dashGap)),
-                    ),
-                  },
-                  (_, i) => (
-                    <YStack
-                      key={i}
-                      width={dashLength}
-                      height={dashThickness}
-                      bg={dashColor}
-                      flexShrink={0}
-                    />
-                  ),
-                )}
-              </XStack>
-            ))
-          : null}
       </YStack>
     );
   }
 
   return (
-    <YStack alignItems="flex-start">
-      <YStack onLayout={handleLayout}>
-        <SizableText
-          {...textProps}
-          onTextLayout={onTextLayout}
-          paddingBottom={dashOverlay ? 0 : '$0.2'}
-        >
-          {children}
-        </SizableText>
-      </YStack>
-      {length > 0 ? (
-        <XStack
-          gap={dashGap}
-          height={dashThickness}
-          overflow="hidden"
-          flexWrap="nowrap"
-          width={textWidth || 0}
-          {...overlayProps}
-        >
-          {textWidth > 0
-            ? Array.from({ length }, (_, i) => (
-                <YStack
-                  key={i}
-                  width={dashLength}
-                  height={resolvedDashThickness}
-                  bg={dashColor}
-                  flexShrink={0}
-                />
-              ))
-            : null}
-        </XStack>
-      ) : null}
+    <YStack
+      alignItems="flex-start"
+      paddingBottom={reservesDashHeight ? dashThickness : 0}
+    >
+      <SizableText
+        {...textProps}
+        {...decorationProps}
+        onTextLayout={onTextLayout}
+        paddingBottom={dashOverlay ? 0 : '$0.2'}
+      >
+        {children}
+      </SizableText>
     </YStack>
   );
 }

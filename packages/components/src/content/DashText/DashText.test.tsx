@@ -7,8 +7,7 @@ import { isValidElement } from 'react';
 
 import { DashText } from '.';
 
-import { act, render, screen } from '@testing-library/react';
-import { I18nManager } from 'react-native';
+import { render, screen } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SizableText } from '../../primitives/SizeableText';
 
 import type { ISizableTextProps } from '../../primitives';
-import type { TextLayoutEvent } from 'react-native';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -88,28 +86,8 @@ function webFragmentStyle() {
   return child.props.style;
 }
 
-function layoutText(
-  lines: { x: number; y: number; width: number; height: number }[],
-) {
-  const calls = jest.mocked(SizableText).mock.calls;
-  const callback = calls[calls.length - 1][0].onTextLayout;
-  if (typeof callback !== 'function') {
-    throw new OneKeyLocalError('Missing native text layout handler');
-  }
-  void act(() => callback({ nativeEvent: { lines } } as TextLayoutEvent));
-}
-
-function underlines(container: HTMLElement) {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>('[data-layout]'),
-  ).filter(
-    (node) => JSON.parse(node.dataset.layout ?? '{}').position === 'absolute',
-  );
-}
-
 beforeEach(() => {
   platformEnv.isNative = false;
-  I18nManager.isRTL = false;
   jest.clearAllMocks();
 });
 
@@ -158,16 +136,25 @@ it('removes web multiline decoration when length is zero', () => {
   expect(view.container.querySelector('[style*="background-size"]')).toBeNull();
 });
 
+function lastTextProps() {
+  const calls = jest.mocked(SizableText).mock.calls;
+  return calls[calls.length - 1][0];
+}
+
+function wrapperLayout(container: HTMLElement) {
+  const wrapper = container.querySelector<HTMLElement>('[data-layout]');
+  return JSON.parse(wrapper?.dataset.layout ?? '{}') as Record<string, unknown>;
+}
+
 it.each([false, true])(
-  'positions native fragments at physical x with RTL=%s and updates after reflow',
-  (rtl) => {
+  'draws native dashes as a text decoration in the first render (multiline=%s)',
+  (multiline) => {
     platformEnv.isNative = true;
-    I18nManager.isRTL = rtl;
     const onTextLayout = jest.fn();
     const view = render(
       <DashText
-        multiline
-        length={1}
+        multiline={multiline}
+        dashColor="$textSubdued"
         dashThickness={2}
         dashSpacing={3}
         onTextLayout={onTextLayout}
@@ -175,48 +162,37 @@ it.each([false, true])(
         Wrapped label
       </DashText>,
     );
-    layoutText([
-      { x: 7, y: 0, width: 60, height: 20 },
-      { x: 30, y: 20, width: 25, height: 20 },
-    ]);
-    const lines = underlines(view.container);
-    expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0].dataset.layout ?? '{}')).toMatchObject({
-      [rtl ? 'end' : 'start']: 7,
-      top: 23,
-      width: 60,
+    expect(jest.mocked(SizableText)).toHaveBeenCalledTimes(1);
+    expect(lastTextProps()).toMatchObject({
+      textDecorationLine: 'underline',
+      textDecorationStyle: 'dashed',
+      textDecorationColor: '$textSubdued',
+      onTextLayout,
     });
-    expect(
-      JSON.parse(lines[0].dataset.layout ?? '{}')[rtl ? 'start' : 'end'],
-    ).toBeUndefined();
-    expect(lines[0].children).toHaveLength(1);
-    expect(lines[1].children).toHaveLength(1);
-    expect(onTextLayout).toHaveBeenCalledTimes(1);
-    layoutText([{ x: 0, y: 0, width: 90, height: 20 }]);
-    expect(underlines(view.container)).toHaveLength(1);
-    expect(
-      JSON.parse(underlines(view.container)[0].dataset.layout ?? '{}').width,
-    ).toBe(90);
+    // No measured dash views: the wrapper only reserves the old rule height.
+    expect(view.container.querySelectorAll('[data-layout]')).toHaveLength(1);
+    expect(wrapperLayout(view.container).paddingBottom).toBe(multiline ? 5 : 2);
   },
 );
 
-it('caps native dash allocation to line width and supports overlay and zero length', () => {
+it('drops native decoration and reserved height for overlay and zero length', () => {
   platformEnv.isNative = true;
   const view = render(
-    <DashText multiline dashOverlay dashThickness={2}>
+    <DashText dashOverlay dashThickness={2}>
       Label
     </DashText>,
   );
-  layoutText([{ x: 0, y: 10, width: 12, height: 20 }]);
-  const line = underlines(view.container)[0];
-  expect(line.children).toHaveLength(3);
-  expect(JSON.parse(line.dataset.layout ?? '{}').top).toBe(28);
+  expect(lastTextProps().textDecorationStyle).toBe('dashed');
+  expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(
     <DashText multiline length={0}>
       Label
     </DashText>,
   );
-  expect(underlines(view.container)).toHaveLength(0);
+  expect(lastTextProps().textDecorationLine).toBeUndefined();
+  expect(wrapperLayout(view.container).paddingBottom).toBe(0);
+  view.rerender(<DashText dashThickness={0}>Label</DashText>);
+  expect(lastTextProps().textDecorationLine).toBeUndefined();
 });
 
 it('keeps multiline labels in the requested tooltip and native popover', () => {
