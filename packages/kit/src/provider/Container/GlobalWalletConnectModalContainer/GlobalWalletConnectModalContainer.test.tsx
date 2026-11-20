@@ -18,9 +18,9 @@ let mockIsNative = true;
 const mockOverlayView = jest.fn(
   ({ children }: { children?: ReactNode; [key: string]: unknown }) => children,
 );
-const mockWalletConnectModal = jest.fn(
-  (_props: { suspended: boolean }) => <div data-testid="wallet-picker" />,
-);
+const mockWalletConnectModal = jest.fn((_props: { suspended: boolean }) => (
+  <div data-testid="wallet-picker" />
+));
 const mockOpenModal = jest.fn();
 const mockCloseModal = jest.fn();
 
