@@ -99,7 +99,10 @@ function LnurlWithdrawModal() {
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const onConfirm = useCallback(
-    async (close?: (extra?: { flag?: string }) => void) => {
+    async (
+      close?: (extra?: { flag?: string }) => void,
+      closePageStack?: (extra?: { flag?: string }) => void,
+    ) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       const isValid = await useFormReturn.trigger();
@@ -136,7 +139,11 @@ function LnurlWithdrawModal() {
         Toast.success({
           title: 'Withdrawer success',
         });
-        close?.({ flag: EDAppModalPageStatus.Confirmed });
+        // From the Send page, close the whole flow as the transaction confirm
+        // page does. Closing only this page returns to the recipient input,
+        // which still holds the redeemed LNURL and then fails validation.
+        const closePage = isSendFlow && closePageStack ? closePageStack : close;
+        closePage?.({ flag: EDAppModalPageStatus.Confirmed });
       } catch (e: any) {
         const message = (e as Error)?.message;
         if (!isSendFlow) {
