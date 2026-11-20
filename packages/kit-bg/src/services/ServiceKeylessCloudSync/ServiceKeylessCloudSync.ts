@@ -1243,6 +1243,56 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
   }
 
+  // Called only from ordinary Account application under the import lock.
+  // Source switches hold that lock, but session revocation/refresh can write
+  // credentials under the repair mutex alone. Keep both outside mutations
+  // excluded until the already-prepared account transaction commits.
+  async runWithVerifiedHardwareAccountArchiveSession<T>(
+    expected: IKeylessCloudSyncCredential,
+    apply: () => Promise<T>,
+  ): Promise<T | undefined> {
+    return this.repairCredentialMutex.runExclusive(async () => {
+      const config = await primeCloudSyncPersistAtom.get();
+      const source = config.hardwareCloudSyncKeySource;
+      const session = expected.hardwareSession;
+      if (
+        !this.hardwareCloudMigrationRecovered ||
+        this.hardwareSessionEnding ||
+        config.isCloudSyncEnabled ||
+        !config.isCloudSyncEnabledKeyless ||
+        !source ||
+        !session ||
+        expected.pendingDataKey ||
+        expected.pendingHardwareKeyMigration ||
+        expected.source?.type !== 'hardware' ||
+        source.credentialId !== expected.keylessWalletId ||
+        source.credentialId !== expected.source.credentialId ||
+        source.derivationVersion !== expected.source.derivationVersion
+      ) {
+        return undefined;
+      }
+      const stored = await keylessSyncCredentialStorage.getCredential(
+        expected.keylessWalletId,
+      );
+      if (
+        stored?.source?.type !== 'hardware' ||
+        stored.pendingDataKey ||
+        stored.pendingHardwareKeyMigration ||
+        stored.source.credentialId !== source.credentialId ||
+        stored.source.derivationVersion !== source.derivationVersion ||
+        stored.keylessWalletId !== expected.keylessWalletId ||
+        stored.pwdHash !== expected.pwdHash ||
+        stored.encryptionKey !== expected.encryptionKey ||
+        stored.signingPublicKey !== expected.signingPublicKey ||
+        stored.hardwareSession?.sessionId !== session.sessionId ||
+        stored.hardwareSession?.dekId !== session.dekId
+      ) {
+        return undefined;
+      }
+      return apply();
+    });
+  }
+
   // True while storage still holds this hardware session as the selected key:
   // a request in flight must not write back after sync was turned off or
   // switched to Keyless (saveCredential replaces the whole credential table).

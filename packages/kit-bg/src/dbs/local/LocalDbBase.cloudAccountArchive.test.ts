@@ -1,0 +1,395 @@
+import { IDBFactory } from 'fake-indexeddb';
+import 'fake-indexeddb/auto';
+
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ICloudSyncCheckServerStatusResult } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import { runCloudSyncReconciliation } from '../../services/ServicePrimeCloudSync/cloudSyncReconciliation';
+import { publicAccountSnapshotToAccount } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
+import {
+  PUBLIC_ACCOUNT_TEST_XFP,
+  publicAccountTestSnapshot,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
+
+import {
+  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+  getIndexedLocalDbBucketVersion,
+} from './consts';
+import { IndexedDBAgent } from './indexed/IndexedDBAgent';
+import { LocalDbIndexed } from './indexed/LocalDbIndexed';
+import { ELocalDBStoreNames } from './localDBStoreNames';
+import { EIndexedDBBucketNames } from './types';
+
+import type { IDBCloudSyncItem, IDBWallet } from './types';
+
+const cloudHash = 'hw-dek-public-fixture';
+const xfp = PUBLIC_ACCOUNT_TEST_XFP;
+
+function rows(index: number) {
+  const current: IDBCloudSyncItem = {
+    id: `account-archive-test-${index}`,
+    data: 'new-synthetic-ciphertext',
+    dataTime: 101,
+    dataType: EPrimeCloudSyncDataType.Account,
+    rawData: 'validated fixture cache (never persisted)',
+    rawKey: 'verified-current-raw-key',
+    isDeleted: false,
+    pwdHash: cloudHash,
+    localSceneUpdated: false,
+    serverUploaded: true,
+  };
+  return {
+    current,
+    old: {
+      ...current,
+      data: 'unreadable-original-synthetic-ciphertext',
+      dataTime: 701,
+      rawData: '',
+      rawKey: 'old-foreign-key',
+      pwdHash: 'foreign-key-fixture',
+      localSceneUpdated: true,
+    },
+  };
+}
+
+function wallet(index: number): IDBWallet {
+  return {
+    id: `hd-${4000 + index}`,
+    type: 'hd',
+    name: 'Synthetic wallet',
+    xfp,
+    accounts: [],
+    nextIds: {},
+    backuped: true,
+    walletNo: 4000 + index,
+  };
+}
+
+async function retainFixture(
+  db: LocalDbIndexed,
+  target: IDBWallet,
+  old: IDBCloudSyncItem,
+  includeWallet = true,
+) {
+  return db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+    if (includeWallet) {
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        records: [target],
+      });
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [{ id: target.id, credential: 'synthetic-local-credential' }],
+      });
+    }
+    await db.txAddRecords({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      records: [old],
+    });
+  });
+}
+
+function parameters(
+  target: IDBWallet,
+  incoming: IDBCloudSyncItem,
+  expected: IDBCloudSyncItem,
+) {
+  const account = publicAccountSnapshotToAccount(
+    {
+      ...publicAccountTestSnapshot(),
+      wallet: { kind: 'hd', xfp, hidden: false },
+    },
+    target.id,
+  );
+  return {
+    walletId: target.id,
+    expectedWallet: { kind: 'hd' as const, xfp, hidden: false },
+    expectedCredential: 'synthetic-local-credential',
+    accounts: [account],
+    sourceItemsByAccountId: new Map([[account.id, incoming]]),
+    foreignAccountsByWireId: new Map([[incoming.id, expected]]),
+    isCurrent: () => true,
+  };
+}
+
+async function readArchive(db: LocalDbIndexed, id: string) {
+  const agent = await db.readyDb;
+  expect(agent).toBeInstanceOf(IndexedDBAgent);
+  if (!(agent instanceof IndexedDBAgent))
+    throw new OneKeyLocalError('Expected test IndexedDB agent');
+  const accountDb = agent.getIndexedByBucketName(EIndexedDBBucketNames.account);
+  const records = await accountDb.getAll(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE);
+  return records
+    .filter((entry) => entry.record.id === id)
+    .map((entry) => entry.record);
+}
+
+beforeEach(() => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isMas', false);
+  jest.replaceProperty(platformEnv, 'isDev', false);
+});
+
+afterEach(() => jest.restoreAllMocks());
+
+it('gets to the next real reconciliation page only after atomic account apply and archival', async () => {
+  const writer = new LocalDbIndexed();
+  const secondConnection = new LocalDbIndexed();
+  const target = wallet(1);
+  const { old, current } = rows(1);
+  const next = { ...rows(2).current, pwdHash: cloudHash };
+  await retainFixture(writer, target, old);
+  const apply = parameters(target, current, old);
+  const checkSummaries: string[][] = [];
+  const controller = new AbortController();
+  const upload = jest.fn(async () => ({ uploaded: 0 }));
+  const response = (
+    item: IDBCloudSyncItem,
+    hasMore: boolean,
+  ): ICloudSyncCheckServerStatusResult => ({
+    diff: [
+      {
+        key: item.id,
+        data: item.data ?? '',
+        dataTimestamp: item.dataTime,
+        dataType: item.dataType,
+        pwdHash: item.pwdHash,
+        isDeleted: false,
+      },
+    ],
+    updated: [],
+    deleted: [],
+    obsoleted: [],
+    pwdHash: cloudHash,
+    serverTime: Date.now(),
+    reconciliation: {
+      version: 1,
+      diffBeforeLimit: true,
+      includesDeleted: true,
+      hasMore,
+      maxItems: 1,
+      maxBytes: 100_000,
+    },
+  });
+  const result = await runCloudSyncReconciliation({
+    signal: controller.signal,
+    adapter: {
+      now: () => Date.now(),
+      isCurrent: () => true,
+      isBoundedCheckVerified: () => true,
+      pause: async () => undefined,
+      getFullSummary: async () =>
+        (await secondConnection.getAllSyncItems()).syncItems
+          .filter((row) => row.pwdHash === cloudHash)
+          .map((row) => ({
+            key: row.id,
+            dataTimestamp: row.dataTime,
+            dataType: row.dataType,
+          })),
+      check: async ({ localData }) => {
+        const keys = localData.map((item) => item.key);
+        checkSummaries.push(keys);
+        return keys.includes(current.id)
+          ? response(next, false)
+          : response(current, true);
+      },
+      uploadObsoleted: upload,
+      apply: async ({ response: incoming }) => {
+        if (incoming.diff[0]?.key === current.id) {
+          const accountResult = await writer.importPublicCloudAccounts(apply);
+          expect(accountResult.appliedAccountIds).toEqual([
+            apply.accounts[0].id,
+          ]);
+          const canonical = await secondConnection.getSyncItem({
+            id: current.id,
+          });
+          expect(canonical).toMatchObject({
+            data: current.data,
+            pwdHash: cloudHash,
+            rawData: '',
+            localSceneUpdated: true,
+          });
+          expect(await readArchive(secondConnection, current.id)).toEqual([
+            old,
+          ]);
+          return { applied: accountResult.appliedAccountIds.length };
+        }
+        await writer.addAndUpdateSyncItems({
+          items: [next],
+          skipUploadToServer: true,
+        });
+        return { applied: 1 };
+      },
+    },
+  });
+  expect(result).toMatchObject({ status: 'complete', unfinished: false });
+  expect(checkSummaries).toEqual([[], [current.id]]);
+  expect(upload).not.toHaveBeenCalled();
+  const { records } = await secondConnection.getRecordsByIds({
+    name: ELocalDBStoreNames.Account,
+    ids: [apply.accounts[0].id],
+  });
+  expect(records[0]?.id).toBe(apply.accounts[0].id);
+  await expect(
+    secondConnection.getSyncItem({ id: next.id }),
+  ).resolves.toMatchObject({ data: next.data });
+});
+
+it.each([
+  'pending',
+  'unsent',
+  'tombstone',
+  'concurrent',
+  'missing-wallet',
+  'aborted',
+] as const)(
+  'does not archive, publish or acknowledge an ineligible or interrupted handoff: %s',
+  async (scenario) => {
+    const index =
+      [
+        'pending',
+        'unsent',
+        'tombstone',
+        'concurrent',
+        'missing-wallet',
+        'aborted',
+      ].indexOf(scenario) + 10;
+    const writer = new LocalDbIndexed();
+    const other = new LocalDbIndexed();
+    const target = wallet(index);
+    const { current, old } = rows(index);
+    if (scenario === 'pending') old.pendingPublicAccountDeletionAt = 901;
+    if (scenario === 'unsent') old.serverUploaded = false;
+    if (scenario === 'tombstone') old.isDeleted = true;
+    await retainFixture(writer, target, old, scenario !== 'missing-wallet');
+    const input = parameters(target, current, old);
+    const competing = { ...old, data: 'concurrent-update' };
+    if (scenario === 'concurrent') {
+      await other.updateSyncItem({
+        ids: [old.id],
+        updater: (record) => Object.assign(record, competing),
+      });
+    }
+    if (scenario === 'aborted') {
+      const update = writer.txUpdateRecords.bind(writer);
+      jest
+        .spyOn(writer, 'txUpdateRecords')
+        .mockImplementation(async (params) => {
+          await update(params);
+          if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+            throw new OneKeyLocalError(
+              'Forced abort after archive and projection writes',
+            );
+          }
+        });
+      await expect(writer.importPublicCloudAccounts(input)).rejects.toThrow(
+        'Forced abort',
+      );
+    } else {
+      await expect(
+        writer.importPublicCloudAccounts(input),
+      ).resolves.toMatchObject({ appliedAccountIds: [] });
+    }
+    expect(await readArchive(other, old.id)).toEqual([]);
+    expect(await other.getSyncItem({ id: old.id })).toEqual(
+      scenario === 'concurrent' ? competing : old,
+    );
+    const { records } = await other.getRecordsByIds({
+      name: ELocalDBStoreNames.Account,
+      ids: [input.accounts[0].id],
+    });
+    expect(records[0]).toBeFalsy();
+  },
+);
+
+it('changes only the account IndexedDB version on the supported platforms', () => {
+  expect(getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.account)).toBe(
+    22,
+  );
+  expect(getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.address)).toBe(
+    21,
+  );
+  expect(getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.archive)).toBe(
+    21,
+  );
+  expect(
+    getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.backupAccount),
+  ).toBe(21);
+});
+
+it('upgrades only the disposable account Database and rejects an old reopen without destroying data', async () => {
+  jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+  platformEnv.isDesktop = false;
+  const legacy = new LocalDbIndexed();
+  const { old } = rows(99);
+  await retainFixture(legacy, wallet(99), old);
+  const legacyAgent = await legacy.readyDb;
+  if (!(legacyAgent instanceof IndexedDBAgent))
+    throw new OneKeyLocalError('Expected test IndexedDB agent');
+  const legacyAccount = legacyAgent.getIndexedByBucketName(
+    EIndexedDBBucketNames.account,
+  );
+  const oldNativeAccount = await legacyAccount.open();
+  expect(oldNativeAccount.version).toBe(21);
+  expect(
+    oldNativeAccount.objectStoreNames.contains(
+      INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+    ),
+  ).toBe(false);
+  const versionChanged = jest.fn();
+  oldNativeAccount.addEventListener('versionchange', versionChanged);
+  platformEnv.isDesktop = true;
+
+  const upgraded = new LocalDbIndexed();
+  const upgradedAgent = await upgraded.readyDb;
+  if (!(upgradedAgent instanceof IndexedDBAgent))
+    throw new OneKeyLocalError('Expected test IndexedDB agent');
+  const upgradedAccount = await upgradedAgent
+    .getIndexedByBucketName(EIndexedDBBucketNames.account)
+    .open();
+  expect(upgradedAccount.version).toBe(22);
+  expect(
+    upgradedAccount.objectStoreNames.contains(
+      INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+    ),
+  ).toBe(true);
+  expect(versionChanged).toHaveBeenCalledTimes(1);
+  await expect(legacyAccount.open()).rejects.toMatchObject({
+    name: 'VersionError',
+  });
+  await expect(upgraded.getSyncItem({ id: old.id })).resolves.toEqual(old);
+  expect(await readArchive(upgraded, old.id)).toEqual([]);
+  for (const bucket of [
+    EIndexedDBBucketNames.address,
+    EIndexedDBBucketNames.archive,
+    EIndexedDBBucketNames.backupAccount,
+  ]) {
+    const otherDb = await upgradedAgent.getIndexedByBucketName(bucket).open();
+    expect(otherDb.version).toBe(21);
+    expect(
+      otherDb.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
+    ).toBe(false);
+  }
+});
+
+it.each([
+  { desktop: false, mas: false, dev: false },
+  { desktop: true, mas: true, dev: false },
+  { desktop: true, mas: undefined, dev: false },
+  { desktop: true, mas: false, dev: true },
+])(
+  'does not upgrade a platform without proven single-session authority: %o',
+  ({ desktop, mas, dev }) => {
+    platformEnv.isDesktop = desktop;
+    platformEnv.isMas = mas;
+    platformEnv.isDev = dev;
+    expect(getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.account)).toBe(
+      21,
+    );
+  },
+);

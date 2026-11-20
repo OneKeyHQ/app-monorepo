@@ -14,7 +14,10 @@ import {
 } from '../../dbs/local/consts';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 
-import type { IIndexedDBSchemaMap } from '../../dbs/local/types';
+import type {
+  IIndexedDBSchemaMap,
+  IIndexedDBStoreName,
+} from '../../dbs/local/types';
 
 class LegacyIndexedDb {
   legacyDb!: Promise<IDBPDatabase<IIndexedDBSchemaMap>>;
@@ -77,7 +80,7 @@ class LegacyIndexedDb {
   private _getObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<
       IIndexedDBSchemaMap,
-      ELocalDBStoreNames[],
+      IIndexedDBStoreName[],
       'versionchange'
     >,
     storeName: T,
@@ -91,7 +94,7 @@ class LegacyIndexedDb {
     db: IDBPDatabase<IIndexedDBSchemaMap>,
     tx: IDBPTransaction<
       IIndexedDBSchemaMap,
-      ELocalDBStoreNames[],
+      IIndexedDBStoreName[],
       'versionchange'
     >,
     storeName: T,
@@ -122,7 +125,7 @@ class LegacyIndexedDb {
     newVersion: number | null;
     transaction: IDBPTransaction<
       IIndexedDBSchemaMap,
-      ELocalDBStoreNames[],
+      IIndexedDBStoreName[],
       'versionchange'
     >;
   }) {

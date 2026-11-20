@@ -2,6 +2,7 @@ import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   ICloudSyncCredential,
   ICloudSyncRawDataJson,
@@ -157,6 +158,7 @@ async function encryptedItem(
   manager: CloudSyncFlowManagerAccount,
   snapshot: unknown = publicAccountTestSnapshot(),
   accountId = getPublicAccountSnapshotId(publicAccountTestSnapshot()),
+  selectedCredential = credential,
 ) {
   const rawKey = `${EPrimeCloudSyncDataType.Account} >> ${accountId}`;
   const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
@@ -170,7 +172,7 @@ async function encryptedItem(
         publicAccountSnapshot: snapshot,
       },
     } as ICloudSyncRawDataJson,
-    syncCredential: credential,
+    syncCredential: selectedCredential,
     dataTime: 1_750_000_000_000,
   });
   item.rawData = '';
@@ -206,6 +208,59 @@ describe('public account snapshot Cloud scene integration', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  test.each(['valid', 'invalid cipher', 'wrong ID'] as const)(
+    'only forwards a collision with authenticated current ciphertext and wire identity to the account apply boundary: %s',
+    async (scenario) => {
+      const h = harness();
+      const fixtureCredential = credential.keylessCredential;
+      if (!fixtureCredential)
+        throw new OneKeyLocalError('Missing fixture credential');
+      const selected: ICloudSyncCredential = {
+        ...credential,
+        keylessCredential: {
+          ...fixtureCredential,
+          pwdHash: 'hw-dek-archive-fixture',
+        },
+      };
+      h.bg.servicePrimeCloudSync.getSyncCredentialSafe.mockResolvedValue(
+        selected,
+      );
+      const snapshot = publicAccountTestSnapshot();
+      const item = await encryptedItem(
+        h.manager,
+        snapshot,
+        undefined,
+        selected,
+      );
+      if (scenario === 'invalid cipher') item.data = 'inauthentic-fixture';
+      if (scenario === 'wrong ID') item.id = `wrong-${item.id}`;
+      const foreignCopy: IDBCloudSyncItem = {
+        ...item,
+        pwdHash: 'foreign-cloud-fixture',
+        data: 'opaque-foreign-ciphertext',
+        localSceneUpdated: true,
+      };
+      const foreignAccountsByWireId = new Map([[item.id, foreignCopy]]);
+      await h.manager.syncToScene({
+        syncCredential: selected,
+        items: [item],
+        foreignAccountsByWireId,
+      });
+      if (scenario === 'valid') {
+        expect(importPublicAccountSnapshots).toHaveBeenCalledWith(
+          expect.objectContaining({
+            foreignAccountsByWireId,
+            snapshots: [snapshot],
+          }),
+        );
+      } else {
+        expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
+      }
+      // Only the atomic database path may acknowledge a collided source.
+      expect(h.updateSyncItem).not.toHaveBeenCalled();
+    },
+  );
 
   test('clears pending issues for skipped snapshots and keeps them available for later replay', async () => {
     const h = harness();

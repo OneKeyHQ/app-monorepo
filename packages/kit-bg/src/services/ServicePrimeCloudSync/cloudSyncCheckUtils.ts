@@ -64,3 +64,18 @@ export function isRetainedHardwareCloudCopy(
     !item.pendingPublicAccountDeletionAt
   );
 }
+
+// Only a settled foreign Account cache can vacate its wire ID. Intent and
+// unapplied scenes/tombstones stay in their original pool row.
+export function canArchiveForeignAccountCopy(
+  item: IDBCloudSyncItem,
+  activePwdHash: string,
+): boolean {
+  return (
+    item.dataType === EPrimeCloudSyncDataType.Account &&
+    !item.isDeleted &&
+    item.localSceneUpdated &&
+    !item.pendingPublicAccountDeletionHash &&
+    isRetainedHardwareCloudCopy(item, activePwdHash)
+  );
+}

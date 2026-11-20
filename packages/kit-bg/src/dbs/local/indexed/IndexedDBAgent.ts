@@ -16,10 +16,13 @@ import type {
   IndexedDBTransactionPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import { generateUUID, noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
-import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
+import {
+  ALL_LOCAL_DB_STORE_NAMES,
+  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+} from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { EIndexedDBBucketNames } from '../types';
@@ -29,6 +32,7 @@ import indexedUtils from './indexedDBUtils';
 import type {
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
+  IIndexedDBStoreName,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -101,7 +105,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | {
         dbTx: IndexedDBTransactionPromised<
           IIndexedDBSchemaMap,
-          ELocalDBStoreNames[],
+          IIndexedDBStoreName[],
           'readwrite'
         >;
         tx: ILocalDBTransaction;
@@ -109,20 +113,38 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | undefined;
 
   _getObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      IIndexedDBStoreName[],
+      'readwrite'
+    >,
     storeName: T,
     _: IDBTransactionMode,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    IIndexedDBStoreName[],
+    T,
+    'readwrite'
+  > {
     const store = tx.objectStore(storeName);
     return store;
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      IIndexedDBStoreName[],
+      'readwrite'
+    >,
     storeName: T,
     mode: IDBTransactionMode,
     indexed: IndexedDBPromised<IIndexedDBSchemaMap>,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    IIndexedDBStoreName[],
+    T,
+    'readwrite'
+  > {
     try {
       const store = this._getObjectStore(tx, storeName, mode);
       // const dd = await store.get('');
@@ -156,11 +178,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const allStoreNames = ALL_LOCAL_DB_STORE_NAMES;
 
-      // const dbTx = indexed.transaction( // not working for bucket
+      const storeNames: IIndexedDBStoreName[] =
+        indexedUtils.getStoreNamesByBucketName(bucketName);
+      const hasCloudAccountArchive =
+        bucketName === EIndexedDBBucketNames.account &&
+        (await indexed.open()).objectStoreNames.contains(
+          INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+        );
+      const transactionStores: IIndexedDBStoreName[] = hasCloudAccountArchive
+        ? [...storeNames, INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE]
+        : storeNames;
       const dbTx = await indexed.createBucketTransaction(
-        // allStoreNames,
-        indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
-        // 'readwrite',
+        transactionStores,
         mode,
         { allowWhenStorageFull },
       );
@@ -302,6 +331,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
       const tx: ILocalDBTransaction = {
         bucketName,
+        ...(hasCloudAccountArchive && !readOnly
+          ? {
+              cloudAccountArchive: {
+                retain: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  await archive.add({ id: generateUUID(), record });
+                },
+              },
+            }
+          : {}),
         stores: {
           [ELocalDBStoreNames.Context]: contextStore,
           [ELocalDBStoreNames.Wallet]: walletStore,

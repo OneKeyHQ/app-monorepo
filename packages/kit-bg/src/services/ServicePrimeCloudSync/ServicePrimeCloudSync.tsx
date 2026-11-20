@@ -78,6 +78,7 @@ import type {
 } from '@onekeyhq/shared/types/socket';
 import type { ICloudSyncCustomToken } from '@onekeyhq/shared/types/token';
 
+import { supportsIndexedCloudAccountArchive } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
@@ -98,6 +99,7 @@ import ServiceBase from '../ServiceBase';
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
   buildOnlyCheckLocalDataTypes,
+  canArchiveForeignAccountCopy,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -1583,11 +1585,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     forceSync,
     isCurrent,
+    foreignAccountsByWireId,
   }: {
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!syncCredential) {
       return;
@@ -1600,6 +1604,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       forceSync,
       isCurrent,
+      foreignAccountsByWireId,
     });
   }
 
@@ -1608,11 +1613,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     forceSync,
     isCurrent,
+    foreignAccountsByWireId,
   }: {
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     const walletItems: IDBCloudSyncItem[] = [];
     const botWalletItems: IDBCloudSyncItem[] = [];
@@ -1710,6 +1717,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       items: accountItems,
       forceSync,
       isCurrent,
+      foreignAccountsByWireId,
       onAccountsChanged: () => {
         accountsChanged = true;
       },
@@ -1876,6 +1884,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       shouldSyncToScene,
       isCurrent,
+      allowSettledAccountHandoff:
+        !config.isCloudSyncEnabled &&
+        !!config.isCloudSyncEnabledKeyless &&
+        !!config.hardwareCloudSyncKeySource &&
+        !!syncCredential?.keylessCredential?.hardwareSession &&
+        config.hardwareCloudSyncKeySource.derivationVersion ===
+          syncCredential.keylessCredential.source?.derivationVersion,
     });
   }
 
@@ -1922,11 +1937,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     shouldSyncToScene,
     isCurrent,
+    allowSettledAccountHandoff = false,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
     isCurrent?: () => boolean;
+    allowSettledAccountHandoff?: boolean;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -1936,14 +1953,55 @@ class ServicePrimeCloudSync extends ServiceBase {
     const preserveExisting = (
       item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
     ) => isInactiveHardwareWalletAccount(item, activePwdHash);
+    const foreignAccountsByWireId = new Map<string, IDBCloudSyncItem>();
+    const collisionCandidates: IDBCloudSyncItem[] = [];
     console.log('updateLocalItemsByServer', localItems.length);
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
         // DB warm-up can await before the transaction starts. Keep the key
         // selected by this check until the write has actually committed.
         await this.assertSyncCredentialUnchanged(syncCredential);
+        if (
+          allowSettledAccountHandoff &&
+          shouldSyncToScene &&
+          supportsIndexedCloudAccountArchive() &&
+          syncCredential?.keylessCredential?.source?.type === 'hardware' &&
+          syncCredential.keylessCredential.hardwareSession &&
+          activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+        ) {
+          const candidates = localItems.filter(
+            (item) =>
+              item.dataType === EPrimeCloudSyncDataType.Account &&
+              item.pwdHash === activePwdHash &&
+              !!item.data &&
+              item.serverUploaded &&
+              !item.isDeleted &&
+              !item.pendingPublicAccountDeletionAt,
+          );
+          if (candidates.length) {
+            const { records } = await localDb.getRecordsByIds({
+              name: ELocalDBStoreNames.CloudSyncItem,
+              ids: candidates.map((item) => item.id),
+            });
+            for (const record of records) {
+              if (
+                record &&
+                canArchiveForeignAccountCopy(record, activePwdHash)
+              ) {
+                foreignAccountsByWireId.set(record.id, { ...record });
+              }
+            }
+            collisionCandidates.push(
+              ...candidates.filter((item) =>
+                foreignAccountsByWireId.has(item.id),
+              ),
+            );
+          }
+        }
         await this.writeCloudSyncPoolInBatches({
-          items: localItems,
+          items: localItems.filter(
+            (item) => !foreignAccountsByWireId.has(item.id),
+          ),
           // Server data does not need to be uploaded again.
           skipUploadToServer: true,
           ...(activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
@@ -1968,10 +2026,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       // fields or a concurrent local restore replaces the persisted records.
       const cleanupSources = items.filter(Boolean).map((item) => ({ ...item }));
       await this.assertSyncCredentialUnchanged(syncCredential);
+      // Collisions go through the normal verification and matching scene;
+      // their canonical DB rows change only in the Account apply transaction.
       await this.syncToSceneWithLocalSyncItems({
-        items: items.filter(Boolean),
+        items: [...items, ...collisionCandidates],
         syncCredential,
         isCurrent,
+        ...(foreignAccountsByWireId.size ? { foreignAccountsByWireId } : {}),
       });
       const deletedItems = items.filter(Boolean).filter((item) => {
         if (item && item.isDeleted) {

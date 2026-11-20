@@ -12,6 +12,7 @@ import {
   cloneDeep,
   debounce,
   isEmpty,
+  isEqual,
   isNil,
   isPlainObject,
   isString,
@@ -162,6 +163,7 @@ import type {
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
+  canArchiveForeignAccountCopy,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
@@ -463,6 +465,7 @@ type IPublicCloudAccountApplyParams = {
   expectedCredential?: string;
   accounts: IDBAccount[];
   sourceItemsByAccountId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   indexedNames?: ReadonlyMap<string, IPublicAccountIndexedName>;
   isCurrent: () => boolean;
 };
@@ -8867,6 +8870,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     expectedCredential,
     accounts,
     sourceItemsByAccountId,
+    foreignAccountsByWireId,
     indexedNames,
     isCurrent,
     action,
@@ -9026,6 +9030,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const source = expectedSources.get(account.id);
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
+              const foreign = source && foreignAccountsByWireId?.get(source.id);
+              const sourceStillMatches = foreign
+                ? action === 'copy' &&
+                  !!tx.cloudAccountArchive &&
+                  !!currentSource &&
+                  isEqual(currentSource, foreign) &&
+                  canArchiveForeignAccountCopy(foreign, source.pwdHash) &&
+                  source.serverUploaded &&
+                  !!source.data
+                : !!source &&
+                  matchesPublicAccountSnapshotWrite(
+                    source,
+                    currentSource ?? undefined,
+                  );
               if (
                 !source ||
                 source.dataType !== EPrimeCloudSyncDataType.Account ||
@@ -9034,10 +9052,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 !Number.isFinite(source.dataTime) ||
                 source.dataTime <= 0 ||
                 source.isDeleted !== (action === 'delete') ||
-                !matchesPublicAccountSnapshotWrite(
-                  source,
-                  currentSource ?? undefined,
-                )
+                !sourceStillMatches
               ) {
                 result.pending += 1;
                 result.issueByAccountId[account.id] = 'pending';
@@ -9336,6 +9351,33 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 });
                 result.indexedAccountsChanged = true;
               }
+              checkCurrent();
+            }
+          }
+          // Summary may advertise the new version only after the business
+          // account, the old ciphertext archive and the active row commit.
+          if (foreignAccountsByWireId?.size && tx.cloudAccountArchive) {
+            const promoted = new Set<string>();
+            for (const id of new Set(result.appliedAccountIds)) {
+              const incoming = expectedSources?.get(id);
+              const foreign =
+                incoming && foreignAccountsByWireId.get(incoming.id);
+              // eslint-disable-next-line no-continue
+              if (!incoming || !foreign || promoted.has(incoming.id)) continue;
+              await tx.cloudAccountArchive.retain(foreign);
+              await this.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.CloudSyncItem,
+                ids: [incoming.id],
+                updater: (record) =>
+                  Object.assign(record, {
+                    ...incoming,
+                    rawData: '',
+                    rawDataJson: undefined,
+                    localSceneUpdated: true,
+                  }),
+              });
+              promoted.add(incoming.id);
               checkCurrent();
             }
           }

@@ -326,6 +326,83 @@ describe('hardware Cloud key source lifecycle', () => {
       .mockImplementation(withSignIn({ credential, source }));
   });
 
+  test.each([
+    'current',
+    'revoked',
+    'rotated',
+    'switched',
+    'transitioning',
+  ] as const)(
+    'archive admission does not apply an unchanged foreign row under expired cached authority: %s',
+    async (scenario) => {
+      const { service } = setup();
+      const expected: IKeylessCloudSyncCredential = {
+        ...credential,
+        pwdHash: 'hw-dek-archive-old-fixture',
+        hardwareSession: {
+          accessToken: 'public-test-access',
+          accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+          refreshToken: 'public-test-refresh',
+          sessionId: 'public-test-session',
+          dekId: 'public-test-old-dek',
+          deviceKeyJwk: {
+            kty: 'EC',
+            crv: 'P-256',
+            x: 'public-test-x',
+            y: 'public-test-y',
+            d: 'public-test-fixture-d',
+          },
+        },
+      };
+      mockConfig = {
+        isCloudSyncEnabled: false,
+        isCloudSyncEnabledKeyless: true,
+        hardwareCloudSyncKeySource: source,
+      };
+      mockStored = expected;
+      await service.runWithCloudSyncKeyLock(async () => undefined);
+      if (scenario === 'revoked') mockStored = undefined;
+      if (scenario === 'rotated') {
+        const session = expected.hardwareSession;
+        if (!session) throw new OneKeyLocalError('Missing fixture session');
+        mockStored = {
+          ...expected,
+          pwdHash: 'hw-dek-archive-new-fixture',
+          encryptionKey: 'public-fixture-new-key',
+          hardwareSession: { ...session, dekId: 'public-test-new-dek' },
+        };
+      }
+      if (scenario === 'switched') {
+        mockConfig.hardwareCloudSyncKeySource = undefined;
+      }
+      if (scenario === 'transitioning') {
+        mockStored = {
+          ...expected,
+          pendingDataKey: {
+            dek: 'fixture-next-key',
+            dekId: 'fixture-next-generation',
+            pwdHash: 'hw-dek-next-fixture',
+          },
+        };
+      }
+      let canonicalRow = 'unchanged-foreign-record';
+      const apply = jest.fn(async () => {
+        canonicalRow = 'committed-current-account';
+        return true;
+      });
+      const result = await service.runWithCloudAccountImportLock(() =>
+        service.runWithVerifiedHardwareAccountArchiveSession(expected, apply),
+      );
+      expect(result).toBe(scenario === 'current' ? true : undefined);
+      expect(apply).toHaveBeenCalledTimes(scenario === 'current' ? 1 : 0);
+      expect(canonicalRow).toBe(
+        scenario === 'current'
+          ? 'committed-current-account'
+          : 'unchanged-foreign-record',
+      );
+    },
+  );
+
   test('skips account label refreshes when the Cloud source has a Bluetooth name', async () => {
     const { service } = setup();
     mockConfig.hardwareCloudSyncKeySource = {

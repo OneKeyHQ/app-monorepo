@@ -25,7 +25,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
-import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
+import {
+  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+  INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+  getIndexedLocalDbBucketVersion,
+  storeNameSupportCreatedAt,
+} from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { maskedLocalDbAgent } from '../MaskedLocalDbAgent';
@@ -42,6 +47,7 @@ import type {
   IDBWalletIdSingleton,
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
+  IIndexedDBStoreName,
   ILocalDBAgent,
 } from '../types';
 
@@ -80,7 +86,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     newVersion: number | null;
     transaction: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
   }): null {
@@ -95,6 +101,16 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         tx: transaction,
         storeName,
         bucketName,
+      });
+    }
+
+    if (
+      bucketName === EIndexedDBBucketNames.account &&
+      (options.newVersion ?? 0) >= INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION &&
+      !nativeDB.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+    ) {
+      nativeDB.createObjectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, {
+        keyPath: 'id',
       });
     }
 
@@ -175,7 +191,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
           bucketName,
           name: indexedDBUtils.buildDbName(bucketName),
-          version: INDEXED_DB_VERSION,
+          version: getIndexedLocalDbBucketVersion(bucketName),
           upgrade: (params) => {
             return self._handleDbUpgrade({
               bucketName,
@@ -332,7 +348,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     nativeDB: IDBDatabase;
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
     storeName: T;
@@ -344,7 +360,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   private _getObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >,
     storeName: T,
@@ -366,7 +382,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     nativeDB: IDBDatabase;
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
     storeName: T;

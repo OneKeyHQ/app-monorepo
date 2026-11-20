@@ -578,7 +578,15 @@ export enum EIndexedDBBucketNames {
   // misc = 'misc', // misc
 }
 
+export type IIndexedDBStoreName =
+  | ELocalDBStoreNames
+  | 'CloudSyncAccountArchive';
+
 export interface IIndexedDBSchemaMap extends DBSchema {
+  CloudSyncAccountArchive: {
+    key: string;
+    value: { id: string; record: IDBCloudSyncItem };
+  };
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
     value: IDBAccountDerivation;
@@ -719,6 +727,9 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  cloudAccountArchive?: {
+    retain(record: IDBCloudSyncItem): Promise<void>;
+  };
   bucketName: EIndexedDBBucketNames;
 }
 

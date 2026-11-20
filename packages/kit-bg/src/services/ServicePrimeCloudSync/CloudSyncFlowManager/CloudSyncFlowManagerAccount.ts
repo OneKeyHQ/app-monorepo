@@ -487,7 +487,9 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     forceSync,
     isCurrent: isOperationCurrent,
     onAccountsChanged,
+    foreignAccountsByWireId,
   }: {
+    foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
@@ -551,7 +553,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           return;
         }
         if (!payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)) {
-          legacy.push(item);
+          if (!foreignAccountsByWireId?.has(item.id)) legacy.push(item);
           return;
         }
         const { snapshot, rawKey } = normalizePublicAccountSnapshotRecord(
@@ -629,6 +631,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           ),
           action,
           isCurrent,
+          foreignAccountsByWireId,
         });
         result = {
           appliedSnapshotIds: [
@@ -666,8 +669,10 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       const applied = new Set(result.appliedSnapshotIds);
       const byKey = new Map(
         [...tombstones, ...candidates]
-          .filter((candidate) =>
-            applied.has(getPublicAccountSnapshotId(candidate.snapshot)),
+          .filter(
+            (candidate) =>
+              applied.has(getPublicAccountSnapshotId(candidate.snapshot)) &&
+              !foreignAccountsByWireId?.has(candidate.item.id),
           )
           .map((candidate) => [candidate.item.id, candidate]),
       );

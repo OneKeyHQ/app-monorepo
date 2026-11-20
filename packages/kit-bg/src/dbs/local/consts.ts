@@ -17,6 +17,23 @@ export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
   `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
 export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
 export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
+// Web and MAS permit independently running writers with no shared Cloud
+// authority transaction yet. Only the single-instance Desktop renderer uses v22.
+export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION = 22;
+export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE = 'CloudSyncAccountArchive';
+
+export function supportsIndexedCloudAccountArchive(): boolean {
+  return (
+    !!platformEnv.isDesktop && platformEnv.isMas === false && !platformEnv.isDev
+  );
+}
+
+export function getIndexedLocalDbBucketVersion(bucket: EIndexedDBBucketNames) {
+  return bucket === EIndexedDBBucketNames.account &&
+    supportsIndexedCloudAccountArchive()
+    ? INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION
+    : INDEXED_DB_VERSION;
+}
 export const REALM_DB_NAME = LOCAL_DB_NAME;
 export const REALM_DB_VERSION = LOCAL_DB_VERSION;
 export const ENABLE_INDEXEDDB_BUCKET = true;
