@@ -1727,3 +1727,39 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+// OK-67168: the vault's pre-send step (TRON energy rental) decides from the
+// kind of send whether a new tx is signed or an earlier attempt is settled.
+describe('ServiceSignatureConfirm.preActionsBeforeSending', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('hands the vault the send its step is preparing for', async () => {
+    const preActionsBeforeSending = jest.fn(async () => ({
+      preSendTx: { txid: 'rental-pay' },
+    }));
+    mockGetVault.mockResolvedValue({ preActionsBeforeSending });
+    const service = new ServiceSignatureConfirm({ backgroundApi: {} });
+    const sendContext = {
+      unsignedTxs: [{ uuid: 'u1', encodedTx: { txID: 'aa11' } }],
+      tronResourceRentalInfo: {
+        isResourceRentalNeeded: true,
+        isResourceRentalEnabled: true,
+      },
+      signOnly: true,
+      beforeBroadcastAction: { type: 'primeInfiniPayment' },
+      wcPayPreBroadcastRecord: { paymentId: 'pay-1' },
+    } as unknown as Omit<
+      Parameters<ServiceSignatureConfirm['preActionsBeforeSending']>[0],
+      'accountId' | 'networkId'
+    >;
+
+    await expect(
+      service.preActionsBeforeSending({ accountId, networkId, ...sendContext }),
+    ).resolves.toEqual({ preSendTx: { txid: 'rental-pay' } });
+
+    expect(mockGetVault).toHaveBeenCalledWith({ networkId, accountId });
+    expect(preActionsBeforeSending).toHaveBeenCalledWith(sendContext);
+  });
+});

@@ -62,7 +62,7 @@ const SwapHistoryListModal = ({
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
     >();
-  const { type } = route.params;
+  const { type, onTradeAgain } = route.params;
   const initialHistoryType =
     type === EProtocolOfExchange.LIMIT || type === EProtocolOfExchange.STOCK
       ? type
@@ -462,9 +462,15 @@ const SwapHistoryListModal = ({
         headerTitle={headerSelectType}
       />
       {visibleHistoryType !== EProtocolOfExchange.LIMIT ? (
-        <SwapMarketHistoryList protocol={visibleHistoryType} />
+        <SwapMarketHistoryList
+          protocol={visibleHistoryType}
+          onTradeAgain={onTradeAgain}
+        />
       ) : (
-        <LimitOrderListModalWithAllProvider storeName={storeName} />
+        <LimitOrderListModalWithAllProvider
+          storeName={storeName}
+          onTradeAgain={onTradeAgain}
+        />
       )}
     </Page>
   );

@@ -6,11 +6,23 @@ import type { IntlShape } from 'react-intl';
 
 export const MAX_PREFERRED_INTERVAL_COUNT = 4;
 export const COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT = 6;
+// A regular toolbar with enough room offers at least the compact chart's slots.
+export const WIDE_MOBILE_MAX_PREFERRED_INTERVAL_COUNT =
+  COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT;
+// Space beside the trailing chart tools that fits six regular interval
+// segments plus the More trigger in every locale (the longest labels, such as
+// Russian, need about 400pt). Phone toolbars stay below it; tablet split-view
+// panes and full-width tablet windows reach it.
+export const WIDE_MOBILE_INTERVAL_AREA_MIN_WIDTH = 420;
 export const INTERVAL_GRID_COLUMN_COUNT = 4;
 
 const PREFERRED_INTERVAL_STORAGE_KEY =
   'trading_view_native_preferred_intervals_v1';
+// One shared store for every mounted selector: a chart that stays mounted
+// (e.g. the Perps trade chart under a pushed chart page) has to follow an edit
+// made from another chart instead of keeping its mount-time copy.
 let cachedPreferredIntervalValues: string[] | null | undefined;
+const preferredIntervalValuesListeners = new Set<() => void>();
 const DEFAULT_PREFERRED_INTERVAL_LABELS = ['1m', '15m', '1H', '4H'];
 const ALL_INTERVAL_OPTION_TEMPLATES = [
   { label: '1m', fallbackValue: '1' },
@@ -367,8 +379,21 @@ function parseStoredPreferredIntervalValues(rawValue: string | null) {
   }
 }
 
+function setCachedPreferredIntervalValues(values: string[] | null) {
+  cachedPreferredIntervalValues = values;
+  preferredIntervalValuesListeners.forEach((listener) => listener());
+}
+
+// `undefined` means storage has not been read yet.
 export function getCachedPreferredIntervalValues() {
   return cachedPreferredIntervalValues;
+}
+
+export function subscribePreferredIntervalValues(listener: () => void) {
+  preferredIntervalValuesListeners.add(listener);
+  return () => {
+    preferredIntervalValuesListeners.delete(listener);
+  };
 }
 
 export async function readStoredPreferredIntervalValues() {
@@ -379,8 +404,9 @@ export async function readStoredPreferredIntervalValues() {
     const rawValue = await appStorage.getItem(PREFERRED_INTERVAL_STORAGE_KEY);
     // A user edit made while storage was loading owns the newer preference.
     if (cachedPreferredIntervalValues === undefined) {
-      cachedPreferredIntervalValues =
-        parseStoredPreferredIntervalValues(rawValue);
+      setCachedPreferredIntervalValues(
+        parseStoredPreferredIntervalValues(rawValue),
+      );
     }
     return cachedPreferredIntervalValues;
   } catch {
@@ -389,7 +415,7 @@ export async function readStoredPreferredIntervalValues() {
 }
 
 export async function saveStoredPreferredIntervalValues(values: string[]) {
-  cachedPreferredIntervalValues = [...values];
+  setCachedPreferredIntervalValues([...values]);
   try {
     await appStorage.setItem(
       PREFERRED_INTERVAL_STORAGE_KEY,

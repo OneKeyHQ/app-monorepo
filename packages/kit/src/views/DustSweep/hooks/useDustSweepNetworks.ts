@@ -69,8 +69,7 @@ function matchesVerifiedContext(
     verified.network.networkId === entry.network.networkId &&
     verified.accountId === entry.accountId &&
     verified.address === entry.address &&
-    verified.deriveAddressEncoding === entry.deriveAddressEncoding &&
-    verified.denySingleSwapProvider === entry.denySingleSwapProvider
+    verified.deriveAddressEncoding === entry.deriveAddressEncoding
   );
 }
 
@@ -144,34 +143,30 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
         needsRevalidation: false,
         needsContextRefresh: false,
       });
-      let freshSettled = false;
-      void loadDustSweepNetworks(
-        params,
-        controller.signal,
-        (cached) => {
-          if (
-            !isCurrent() ||
-            freshSettled ||
-            scope.state.data ||
-            !cached.length
-          )
-            return;
-          publish({
-            ...scope.state,
-            data: { networks: cached, partialError: false },
-          });
+      void loadDustSweepNetworks(params, controller.signal, {
+        isManualRefresh,
+        ...(forceFresh ? { forceFresh: true } : {}),
+        onContexts: (verifiedContexts) => {
+          if (!isCurrent()) return;
+          const previous = scope.state.data;
+          const networks = previous?.networks.filter((entry) =>
+            verifiedContexts.some((verified) =>
+              matchesVerifiedContext(entry, verified),
+            ),
+          );
+          const data =
+            previous && networks && networks.length !== previous.networks.length
+              ? { ...previous, networks }
+              : previous;
+          if (data && data !== previous) {
+            setDustSweepNetworksCache(params, data, write, {
+              preserveCapturedAt: true,
+            });
+          }
+          publish({ ...scope.state, data, verifiedContexts });
         },
-        {
-          isManualRefresh,
-          skipCache: !!scope.state.data,
-          ...(forceFresh ? { forceFresh: true } : {}),
-          onContexts: (verifiedContexts) => {
-            if (isCurrent()) publish({ ...scope.state, verifiedContexts });
-          },
-        },
-      )
+      })
         .then((result) => {
-          freshSettled = true;
           if (!isCurrent()) return;
           const data = {
             ...result,
@@ -197,7 +192,6 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
           });
         })
         .catch(() => {
-          freshSettled = true;
           if (isCurrent()) {
             scope.request = undefined;
             publish({ ...scope.state, status: 'error', loadFailed: true });

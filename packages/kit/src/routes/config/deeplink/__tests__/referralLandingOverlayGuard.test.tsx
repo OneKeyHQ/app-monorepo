@@ -1,6 +1,3 @@
-import type { ReactElement } from 'react';
-import { isValidElement } from 'react';
-
 import { CommonActions } from '@react-navigation/native';
 
 import {
@@ -12,6 +9,7 @@ import {
   isNativeTablet,
   rootNavigationRef,
 } from '@onekeyhq/components';
+import type { IToastAction } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -120,8 +118,10 @@ function setRootRoutes(
 function getLatestToastContinueHandler() {
   const toastProps = mockedToastMessage.mock.calls.at(-1)?.[0];
   const actions = toastProps?.actions;
-  expect(isValidElement<{ onPress: () => void }>(actions)).toBe(true);
-  return (actions as ReactElement<{ onPress: () => void }>).props.onPress;
+  expect(actions && !Array.isArray(actions)).toBe(true);
+  const { onPress } = actions as IToastAction;
+  expect(onPress).toBeTruthy();
+  return onPress as () => void;
 }
 
 function createFormInstance({

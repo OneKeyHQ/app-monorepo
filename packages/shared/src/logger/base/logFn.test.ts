@@ -1,5 +1,8 @@
 import appGlobals from '../../appGlobals';
+import platformEnv from '../../platformEnv';
 import { loggerConfig } from '../loggerConfig';
+import { KeylessScene } from '../scopes/wallet/scenes/keyless';
+import loggerUtils from '../utils';
 import { captureLoggerUtmParamsFromUrl } from '../utmParams';
 
 import { BaseScene } from './baseScene';
@@ -50,6 +53,45 @@ describe('logFn', () => {
   afterEach(() => {
     appGlobals.$analytics = undefined;
     jest.useRealTimers();
+  });
+
+  it('writes Keyless receipt diagnostics locally in production without raw fields', () => {
+    const prevEnv = process.env.NODE_ENV;
+    const dev = jest.replaceProperty(platformEnv, 'isDev', false);
+    const persist = jest
+      .spyOn(loggerUtils, 'consoleFunc')
+      .mockImplementation(() => {});
+    try {
+      process.env.NODE_ENV = 'production';
+      const scene = new KeylessScene();
+      scene.scopeName = 'wallet';
+      scene.sceneName = 'keyless';
+      const fields = {
+        status: 'revisionInvalid' as const,
+        baseRevision: 3,
+        revision: Number.NaN,
+        responseCode: 0,
+        hashIdMatches: true,
+        requestId: 'synthetic-not-a-request-id',
+        hashId: 'synthetic-private-field',
+      };
+      scene.backendShareUploadReceipt(fields);
+      jest.runOnlyPendingTimers();
+      expect(persist).toHaveBeenCalledTimes(1);
+      const [message] = persist.mock.calls[0];
+      expect(message).toContain(
+        'INFO : wallet => keyless => backendShareUploadReceipt',
+      );
+      expect(message).toContain('"baseRevision":3');
+      expect(message).toContain('"hashIdMatches":true');
+      expect(message).not.toContain('synthetic-');
+      expect(message).not.toContain('"revision":');
+      expect(trackEvent).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+      dev.restore();
+      persist.mockRestore();
+    }
   });
 
   it('reports utm params through a dedicated event only', () => {

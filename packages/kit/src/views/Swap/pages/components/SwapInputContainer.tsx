@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
@@ -65,6 +65,7 @@ import { isSwapBalanceLoadedZero } from '../../utils/swapDepositActionUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
+import { SwapInitialSelectionTimeoutContext } from './SwapHistoryTradeAgainContext';
 import SwapInputActions from './SwapInputActions';
 
 export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
@@ -130,6 +131,9 @@ const SwapInputContainer = ({
   const [selectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
   const { fromTokenState, toTokenState } = useSwapColdStartDisplayTokens({
+    allowInitialSelectionTimeout: useContext(
+      SwapInitialSelectionTimeoutContext,
+    ),
     fromToken,
     initialSelectedTokensSynced,
     swapType: swapTypeSwitch,

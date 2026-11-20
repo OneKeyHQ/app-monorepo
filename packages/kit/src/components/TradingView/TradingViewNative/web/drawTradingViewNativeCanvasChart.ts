@@ -58,6 +58,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   priceScaleMode: ITradingViewNativePriceScaleMode;
   runtimeState: ITradingViewNativeChartRuntimeState;
   showLegend: boolean;
+  showPriceLegend: boolean;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   syncedCrosshair?: ITradingViewNativeCrosshairPosition | null;
   timeAxisFontSize: number;
@@ -94,6 +95,7 @@ export function drawTradingViewNativeCanvasChart({
   priceScaleMode,
   runtimeState,
   showLegend,
+  showPriceLegend,
   subIndicatorPanes,
   syncedCrosshair,
   timeAxisFontSize,
@@ -162,6 +164,7 @@ export function drawTradingViewNativeCanvasChart({
     priceRangeScale,
     priceScaleMode,
     showLegend,
+    showPriceLegend,
     subIndicatorPanes,
     syncedCrosshair,
     timeAxisFontSize,

@@ -2,7 +2,10 @@ import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectMasterPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -25,13 +28,17 @@ import {
   PublicAccountSnapshotUnsupportedError,
   buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
+  getPublicAccountSnapshotIdentityHash,
   normalizePublicAccountSnapshot,
   normalizePublicAccountSnapshotRecord,
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
-import { rememberPublicAccountSnapshotWrite } from '../publicAccountSnapshotWriteGuard';
+import {
+  rememberPublicAccountSnapshotWrite,
+  removeUnsyncedPublicAccountSnapshot,
+} from '../publicAccountSnapshotWriteGuard';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
@@ -132,6 +139,30 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     };
   }
 
+  private async deferPublicAccountDeletion(
+    existing: IDBCloudSyncItem,
+    snapshot: ICloudPublicAccountSnapshot,
+  ) {
+    const pendingPublicAccountDeletionAt =
+      await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime({
+        syncItemKey: existing.id,
+        existingDataTime: Math.max(
+          existing.dataTime ?? 0,
+          existing.pendingPublicAccountDeletionAt ?? 0,
+        ),
+      });
+    // Keep the old ciphertext and its version until its key authenticates it.
+    return rememberPublicAccountSnapshotWrite(
+      {
+        ...existing,
+        pendingPublicAccountDeletionAt,
+        pendingPublicAccountDeletionHash:
+          getPublicAccountSnapshotIdentityHash(snapshot),
+      },
+      existing,
+    );
+  }
+
   override async buildSyncItem(
     params: Parameters<
       CloudSyncFlowManagerBase<
@@ -147,29 +178,47 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
       );
       existing = await this.backgroundApi.localDb.getSyncItemSafe({ id: key });
+      if (params.isDeleted && !params.syncCredential && !existing)
+        return undefined;
       if (existing) {
-        if (existing.isDeleted && !params.isDeleted) return undefined;
+        if (
+          !params.isDeleted &&
+          (existing.isDeleted || existing.pendingPublicAccountDeletionAt)
+        )
+          return undefined;
+        const canReadCloudSnapshot =
+          !!params.syncCredential &&
+          !!existing.pwdHash &&
+          cloudSyncItemBuilder.getPwdHash(params.syncCredential) ===
+            existing.pwdHash;
+        if (params.isDeleted && !canReadCloudSnapshot) {
+          if (existing.data || existing.pwdHash || existing.serverUploaded)
+            return this.deferPublicAccountDeletion(existing, snapshot);
+          if (!params.syncCredential && !existing.serverUploaded)
+            return removeUnsyncedPublicAccountSnapshot(existing);
+        }
         try {
-          if (!params.syncCredential && !existing.rawData && params.isDeleted)
-            throw new OneKeyLocalError(
-              'Unlock Cloud before removing this synced account. Existing data has been preserved.',
-            );
-          const raw = existing.rawData
-            ? (JSON.parse(existing.rawData) as {
-                dataType?: unknown;
-                payload?: { publicAccountSnapshot?: unknown };
-              })
-            : (
-                await cloudSyncItemBuilder.decryptSyncItem({
-                  item: existing,
-                  syncCredential: params.syncCredential,
+          const raw =
+            existing.rawData && (!existing.data || !params.isDeleted)
+              ? (JSON.parse(existing.rawData) as {
+                  dataType?: unknown;
+                  payload?: { publicAccountSnapshot?: unknown };
                 })
-              ).rawDataJson;
+              : (
+                  await cloudSyncItemBuilder.decryptSyncItem({
+                    item: existing,
+                    syncCredential: params.syncCredential,
+                  })
+                ).rawDataJson;
           const parsed = normalizePublicAccountSnapshotRecord(raw);
           if (this.rawKeyToHashKey(parsed.rawKey) !== existing.id)
             throw new OneKeyLocalError('Invalid public account sync identity');
         } catch (error) {
-          if (params.isDeleted) throw error;
+          if (params.isDeleted) {
+            if (existing.data && error instanceof IncorrectMasterPassword)
+              return this.deferPublicAccountDeletion(existing, snapshot);
+            throw error;
+          }
           return undefined;
         }
       }
@@ -178,7 +227,11 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       ...params,
       // A downloaded version may be ahead of this process's clock or cache.
       existingDataTime: existing
-        ? Math.max(existing.dataTime ?? 0, params.existingDataTime ?? 0)
+        ? Math.max(
+            existing.dataTime ?? 0,
+            existing.pendingPublicAccountDeletionAt ?? 0,
+            params.existingDataTime ?? 0,
+          )
         : params.existingDataTime,
     });
     if (snapshot && built) {
@@ -206,8 +259,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const existing = await this.backgroundApi.localDb.getSyncItemSafe({
       id: key,
     });
-    if (!existing?.isDeleted) return undefined;
-    if (!syncCredential)
+    if (!existing?.isDeleted && !existing?.pendingPublicAccountDeletionAt)
+      return undefined;
+    if (
+      !syncCredential ||
+      (existing.pwdHash &&
+        cloudSyncItemBuilder.getPwdHash(syncCredential) !== existing.pwdHash)
+    )
       throw new OneKeyLocalError(
         'Unlock Cloud before restoring this synced account.',
       );
@@ -282,18 +340,18 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         // naming metadata is missing or cannot be read with this Cloud key.
       }
     }
+    const existingDataTime = Math.max(
+      existing.dataTime ?? 0,
+      existing.pendingPublicAccountDeletionAt ?? 0,
+    );
     const item = await super.buildSyncItem({
       target: { ...target, account: { ...target.account, name } },
       syncCredential,
       isDeleted: false,
       dataTime: undefined,
-      existingDataTime: existing.dataTime,
+      existingDataTime,
     });
-    if (
-      !item?.data ||
-      !item.dataTime ||
-      item.dataTime <= (existing.dataTime ?? 0)
-    ) {
+    if (!item?.data || !item.dataTime || item.dataTime <= existingDataTime) {
       throw new OneKeyLocalError(
         'A newer Cloud timestamp is required to restore this account.',
       );

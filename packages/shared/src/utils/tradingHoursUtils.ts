@@ -443,6 +443,8 @@ export enum EUSMarketStatusVariant {
   /** Inter-session gap: the venue is switching session state (1–5 min). */
   AwaitingOpen = 'awaitingOpen',
   Halted = 'halted',
+  /** The selected token can trade now (token price mode only). */
+  TokenTradable = 'tokenTradable',
 }
 
 /**
@@ -610,6 +612,82 @@ export function resolveUSMarketStatusVariant({
     return EUSMarketStatusVariant.AwaitingOpen;
   }
   return sessionKeyToVariant(tradingHours.currentSessionKey);
+}
+
+const ALWAYS_OPEN_TRADING_DAYS_PATTERN = /^7\s*[x×]\s*24$/i;
+
+/** Backend sends the always-open window as "7 × 24". */
+export function isAlwaysOpenTradingDays(days: string | undefined): boolean {
+  return ALWAYS_OPEN_TRADING_DAYS_PATTERN.test(days?.trim() ?? '');
+}
+
+export type IStockTokenTradingHours = {
+  days?: string;
+  isMarketOpen?: boolean;
+  isPaused?: boolean;
+};
+
+/**
+ * Status of the selected token itself, used when the detail page shows the
+ * token price. A single selected token follows a single rule, so unlike the
+ * market chip this states whether that token trades now:
+ *   - paused or otherwise not tradable (disabled, inactive) → Halted;
+ *   - an explicit `isMarketOpen: false` → Closed, whatever the schedule says;
+ *   - 7×24 → TokenTradable;
+ *   - otherwise (Ondo 24/5) the token's own `isMarketOpen` decides, since it
+ *     describes this token rather than the listing;
+ *   - only without that flag does the token fall back to the US sessions: a
+ *     market-wide closure → Closed. Session gaps keep token trading available
+ *     (see the session table above), so every open session and gap reads
+ *     TokenTradable.
+ * Returns undefined without token trading hours, so the caller can fall back
+ * to the underlying market status.
+ */
+export function resolveStockTokenStatusVariant({
+  tradingHours,
+  isPaused,
+  isTradingDisabled,
+  status,
+  now = new Date(),
+}: {
+  tradingHours?: IStockTokenTradingHours;
+  isPaused?: boolean;
+  /** The token is disabled or inactive, so it cannot trade on any schedule. */
+  isTradingDisabled?: boolean;
+  status?: IFetchUSMarketStatusResult;
+  now?: Date;
+}): EUSMarketStatusVariant | undefined {
+  if (!tradingHours) {
+    return undefined;
+  }
+  if (isPaused || isTradingDisabled || tradingHours.isPaused) {
+    return EUSMarketStatusVariant.Halted;
+  }
+  if (tradingHours.isMarketOpen === false) {
+    return EUSMarketStatusVariant.Closed;
+  }
+  if (isAlwaysOpenTradingDays(tradingHours.days)) {
+    return EUSMarketStatusVariant.TokenTradable;
+  }
+  if (tradingHours.isMarketOpen === true) {
+    return EUSMarketStatusVariant.TokenTradable;
+  }
+  const marketVariant = resolveUSMarketStatusVariant({
+    // A 24/5 token is closed whenever the US market is, so it reads like a
+    // US listing: a market-wide closure is Closed, never Open247.
+    isUSListing: true,
+    isOpen: true,
+    status,
+    now,
+  });
+  switch (marketVariant) {
+    case EUSMarketStatusVariant.Closed:
+    case EUSMarketStatusVariant.Halted:
+    case undefined:
+      return marketVariant;
+    default:
+      return EUSMarketStatusVariant.TokenTradable;
+  }
 }
 
 /** Rows of the trading-hours panel: the four sessions plus closed/halts. */

@@ -517,6 +517,10 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   localSceneUpdated: boolean;
   serverUploaded: boolean;
 
+  // A local deletion waiting for the key of this record's Cloud space.
+  pendingPublicAccountDeletionAt?: number;
+  pendingPublicAccountDeletionHash?: string;
+
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;
 };

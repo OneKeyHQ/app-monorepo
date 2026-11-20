@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -20,6 +19,7 @@ interface IUseEarnPermitApproveParams {
   amountValue: string;
   providerName: string;
   vaultAddress: string;
+  beforeSign?: () => Promise<void>;
 }
 
 export interface IPermitSignatureResult {
@@ -41,6 +41,7 @@ export function useEarnPermitApprove() {
       amountValue,
       providerName,
       vaultAddress,
+      beforeSign,
     }: IUseEarnPermitApproveParams): Promise<IPermitSignatureResult> => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -76,51 +77,15 @@ export function useEarnPermitApprove() {
         throw error;
       }
 
-      if (providerName.toLowerCase() === 'etherfi') {
-        const value = new BigNumber(amountValue).shiftedBy(token.decimals);
-        const signedValue = new BigNumber(permit2Data.message?.value ?? '');
-        const permitFields = permit2Data.types?.Permit;
-        const expectedFields = [
-          ['owner', 'address'],
-          ['spender', 'address'],
-          ['value', 'uint256'],
-          ['nonce', 'uint256'],
-          ['deadline', 'uint256'],
-        ];
-        const domainFields = permit2Data.types?.EIP712Domain;
-        const expectedDomainFields = [
-          ['name', 'string'],
-          ['version', 'string'],
-          ['chainId', 'uint256'],
-          ['verifyingContract', 'address'],
-        ];
-        if (
-          permit2Data.primaryType !== 'Permit' ||
-          permit2Data.domain?.chainId !== 1 ||
-          permit2Data.domain?.verifyingContract?.toLowerCase() !==
-            token.address.toLowerCase() ||
-          permit2Data.message?.owner?.toLowerCase() !==
-            account.address.toLowerCase() ||
-          !value.isFinite() ||
-          !value.isInteger() ||
-          !value.isGreaterThan(0) ||
-          !signedValue.isEqualTo(value) ||
-          permitFields?.length !== expectedFields.length ||
-          domainFields?.length !== expectedDomainFields.length ||
-          !expectedDomainFields.every(
-            ([name, type], index) =>
-              domainFields[index]?.name === name &&
-              domainFields[index]?.type === type,
-          ) ||
-          !expectedFields.every(
-            ([name, type], index) =>
-              permitFields[index]?.name === name &&
-              permitFields[index]?.type === type,
-          )
-        ) {
-          throw new OneKeyLocalError('Invalid EtherFi permit data');
-        }
-      }
+      earnUtils.assertEarnPermit({
+        data: permit2Data,
+        providerName,
+        networkId,
+        accountAddress: account.address,
+        token,
+        amount: amountValue,
+      });
+      await beforeSign?.();
 
       const unsignedMessage = stringUtils.stableStringify(permit2Data);
 

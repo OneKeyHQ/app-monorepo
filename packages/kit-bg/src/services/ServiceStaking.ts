@@ -9,6 +9,11 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EtherFiLiquidReferContract,
+  EthereumWETH,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -434,6 +439,16 @@ class ServiceStaking extends ServiceBase {
     const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      {
+        networkId,
+        accountId,
+        provider,
+        symbol,
+        vault: protocolVault,
+      },
+      'deposit',
+    );
 
     // Determine publicKey: Stakefish validator pubkey takes priority
     let publicKey: string | undefined;
@@ -470,7 +485,7 @@ class ServiceStaking extends ServiceBase {
     };
 
     if (shouldSendProtocolVault) {
-      paramsToSend.vault = protocolVault;
+      paramsToSend.vault = registeredProtocol?.provider.vault ?? protocolVault;
     }
 
     const walletReferralCode = await this.backgroundApi.serviceReferralCode
@@ -744,6 +759,174 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  /** Match registered vaults for position access and enforce deposit eligibility before spending. */
+  private async _getValidatedEarnProtocol(
+    params: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    intent: 'position' | 'deposit',
+  ) {
+    if (
+      !earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
+    )
+      return undefined;
+    const protocols = await this.getProtocolList({
+      symbol: params.symbol,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: params.networkId,
+      filterNetworkId: params.networkId,
+      includeWithdrawOnly: true,
+      skipStakingConfigFilter: intent === 'position',
+    });
+    const protocol = earnUtils.findEarnProtocol({
+      protocols,
+      networkId: params.networkId,
+      providerName: params.provider,
+      protocolVault: params.vault,
+    });
+    if (
+      !protocol ||
+      (intent === 'deposit' &&
+        protocol.provider.group === EStakeProtocolGroupEnum.WithdrawOnly)
+    ) {
+      throw new OneKeyLocalError('Earn protocol is unavailable');
+    }
+    return protocol;
+  }
+
+  /** Re-read authoritative approval metadata at the Earn signing boundary. */
+  @backgroundMethod()
+  async assertEarnApproval(params: {
+    networkId: string;
+    accountId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    action: 'stake' | 'unstake' | 'claim';
+    tokenAddress: string;
+    spenderAddress: string;
+  }) {
+    const protocol = await this._getValidatedEarnProtocol(
+      params,
+      params.action === 'stake' ? 'deposit' : 'position',
+    );
+    const vault = protocol?.provider.vault ?? params.vault;
+    const query = {
+      networkId: params.networkId,
+      accountId: params.accountId,
+      provider: params.provider,
+      symbol: params.symbol,
+      vault,
+    };
+    const sameAddress = (a?: string, b?: string) =>
+      !!a &&
+      !!b &&
+      earnUtils.normalizeBorrowAddress({
+        networkId: params.networkId,
+        address: a,
+      }) ===
+        earnUtils.normalizeBorrowAddress({
+          networkId: params.networkId,
+          address: b,
+        });
+    let target: string | undefined;
+    let tokenAddress: string | undefined;
+    if (params.action === 'claim') {
+      const claimable = await this.getClaimableList(query);
+      target = claimable.claimApprove?.approveTarget;
+      tokenAddress = claimable.claimApprove?.tokenAddress;
+    } else {
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: params.accountId,
+          networkId: params.networkId,
+        });
+      const data = await this.getManagePage({ ...query, accountAddress });
+      if (params.action === 'unstake') {
+        target = data.withdrawApprove?.approveTarget;
+        tokenAddress = data.withdrawApprove?.tokenAddress;
+        if (
+          !data.withdrawApprove &&
+          earnUtils.isEtherFiProvider({ providerName: params.provider }) &&
+          vault &&
+          sameAddress(data.withdraw?.data?.token?.info.address, vault) &&
+          data.deposit?.data?.token?.info &&
+          !sameAddress(data.deposit.data.token.info.address, vault) &&
+          !data.buy &&
+          !data.sell
+        ) {
+          const detail = await this.getProtocolDetailsV2(query);
+          if (sameAddress(detail.withdrawApprove?.tokenAddress, vault)) {
+            target = detail.withdrawApprove?.approveTarget;
+            tokenAddress = detail.withdrawApprove?.tokenAddress;
+          }
+        }
+        // Pendle spends the PT shown on the pay side, even when the user selects another receive asset.
+        if (earnUtils.isPendleProvider({ providerName: params.provider })) {
+          if (!target || !tokenAddress) {
+            tokenAddress = data.sell?.payButton?.data?.token?.info.address;
+          }
+          target = earnUtils.resolveEarnApproveSpenderAddress({
+            providerName: params.provider,
+          });
+        }
+      } else {
+        target = earnUtils.resolveEarnApproveSpenderAddress({
+          providerName: params.provider,
+          verifiedProtocolVault: protocol?.provider.vault,
+          backendApproveTarget:
+            data.approve?.approveTarget ?? data.approveTarget,
+        });
+        tokenAddress = (data.deposit ?? data.buy?.payButton)?.data?.token?.info
+          .address;
+        const isEtherFi = earnUtils.isEtherFiProvider({
+          providerName: params.provider,
+        });
+        if (isEtherFi) {
+          // The EtherFi receipt vault never spends deposits. Assets approved here
+          // must also belong to the selected vault's deposit catalog.
+          target =
+            params.networkId === getNetworkIdsMap().eth
+              ? EtherFiLiquidReferContract
+              : undefined;
+          if (
+            params.symbol.toUpperCase() === 'ETH' &&
+            data.deposit?.data?.token?.info.isNative
+          ) {
+            tokenAddress = EthereumWETH;
+          }
+        }
+        if (
+          !sameAddress(tokenAddress, params.tokenAddress) &&
+          (earnUtils.isPendleProvider({ providerName: params.provider }) ||
+            earnUtils.isNativeProvider({ providerName: params.provider }))
+        ) {
+          const assets = await this.getEarnAssetsList({
+            ...query,
+            action: 'stake',
+          });
+          tokenAddress = assets.assets?.find((item) =>
+            sameAddress(item.info.address, params.tokenAddress),
+          )?.info.address;
+        }
+      }
+    }
+    if (
+      !sameAddress(target, params.spenderAddress) ||
+      !sameAddress(tokenAddress, params.tokenAddress)
+    ) {
+      throw new OneKeyLocalError(
+        'Earn approval does not match the selected protocol',
+      );
+    }
+  }
+
   @backgroundMethod()
   async getProtocolDetails(params: {
     accountId?: string;
@@ -765,6 +948,13 @@ class ServiceStaking extends ServiceBase {
       vault?: string;
       kycAccountAddress?: string;
     } = { networkId, ...rest };
+
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
+    if (registeredProtocol)
+      requestParams.vault = registeredProtocol.provider.vault;
 
     const isNoAccount = !accountId && !indexedAccountId;
     if (!isNoAccount) {
@@ -836,6 +1026,11 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     accountId: string;
   }) {
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
+    const protocolVault = registeredProtocol?.provider.vault ?? params.vault;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       networkId: string;
@@ -850,7 +1045,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider.toLowerCase(),
       symbol: params.symbol,
       accountAddress: params.accountAddress,
-      ...(params.vault && { vault: params.vault }),
+      ...(protocolVault && { vault: protocolVault }),
       ...(params.publicKey && { publicKey: params.publicKey }),
     };
 

@@ -47,6 +47,7 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketHighlight,
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
   IMarketStockDetail,
@@ -200,11 +201,9 @@ class ServiceMarketV2 extends ServiceBase {
       assetId: string,
     ): Promise<IMarketListingWatchlistQuote | undefined> => {
       const { asset, market } =
-        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetailForWatchlistQuote(
           assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
+        );
       return {
         ...market,
         symbol: asset.symbol,
@@ -1141,6 +1140,47 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
+  private memoizedFetchMarketHighlights = memoizee(
+    async (locale: string): Promise<IMarketHighlight[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const requestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        headers: { 'x-onekey-request-locale': locale },
+        autoHandleError: false,
+      };
+      const response = await client.get<{
+        code: number;
+        data: { data: IMarketHighlight[] };
+      }>('/utility/v1/market/highlight', requestConfig);
+      const items = response.data.data?.data;
+      if (response.data.code !== 0 || !Array.isArray(items)) {
+        throw new OneKeyLocalError('Invalid market highlights response');
+      }
+      return items.map((item) => ({
+        ...item,
+        assets: item.assets.map((asset) => {
+          // Existing highlights use the documented slug for Bitcoin. Market
+          // detail, candles and favorites use the listing's canonical ID.
+          if (asset.type === 'asset' && asset.assetId === 'bitcoin') {
+            return {
+              ...asset,
+              assetId: 'btc',
+              favorite: { ...asset.favorite, assetId: 'btc' },
+            };
+          }
+          return asset;
+        }),
+      }));
+    },
+    { maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }), promise: true },
+  );
+
+  @backgroundMethod()
+  async fetchMarketHighlights(locale: string): Promise<IMarketHighlight[]> {
+    return this.memoizedFetchMarketHighlights(locale);
+  }
+
   private memoizedFetchMarketBannerData = memoizee(
     async (path: string, locale: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -1316,7 +1356,13 @@ class ServiceMarketV2 extends ServiceBase {
         ),
       ),
     );
-    return responses.flatMap((response) => response.data.data?.items ?? []);
+    return responses.flatMap((response) => {
+      const { code, data } = response.data;
+      if (code !== 0 || !Array.isArray(data?.items)) {
+        throw new OneKeyLocalError('Invalid market stock batch response');
+      }
+      return data.items;
+    });
   }
 
   @backgroundMethod()

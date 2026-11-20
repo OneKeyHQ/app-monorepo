@@ -125,6 +125,9 @@ let mockCanLoadMore = false;
 let mockIsLoadMoreError = false;
 let mockIsNativeAndroid = false;
 let mockEmptyWatchlist = false;
+let mockStoredWatchlistEmpty = false;
+let mockWatchlistMounted = true;
+let mockWatchlistLoading = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockTheme = Object.fromEntries(
@@ -268,8 +271,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [
     {
-      isMounted: true,
-      data: mockWatchlistData.map((item) => ({
+      isMounted: mockWatchlistMounted,
+      data: (mockStoredWatchlistEmpty ? [] : mockWatchlistData).map((item) => ({
         chainId: item.networkId,
         contractAddress: item.address,
         assetId: item.assetId,
@@ -318,7 +321,7 @@ jest.mock('../../../hooks/usePerpsNavigation', () => ({
 }));
 jest.mock('../MarketPerpsList/hooks/useMarketPerpsTokenList', () => ({}));
 jest.mock('../MarketRecommendList', () => ({
-  MarketRecommendList: () => null,
+  MarketRecommendList: () => <div>Recommended tokens</div>,
 }));
 jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
   useMarketStockList: () => ({
@@ -344,13 +347,14 @@ jest.mock('../MarketTokenList/components/InlineActionBar', () => ({
 jest.mock('../MarketTokenList/hooks/useMarketWatchlistTokenList', () => ({
   useMarketWatchlistTokenList: () => ({
     data: mockEmptyWatchlist ? [] : mockWatchlistData,
+    isLoading: mockWatchlistLoading,
     refetch: mockRefetch,
   }),
 }));
 jest.mock('../MarketTokenList/hooks/useWatchlistFilteredGroups', () => ({
-  useWatchlistFilteredGroups: () => ({
-    all: mockWatchlistData,
-    spot: mockWatchlistData,
+  useWatchlistFilteredGroups: (data: IMarketToken[]) => ({
+    all: data,
+    spot: data,
     stocks: [],
     perps: [],
   }),
@@ -669,6 +673,90 @@ it.each([false, true])(
       mockEmptyWatchlist = false;
       mockIsNativeAndroid = false;
     }
+  },
+);
+
+describe.each([false, true])(
+  'native Favorites empty state (Android=%s)',
+  (isAndroid) => {
+    beforeEach(() => {
+      mockIsNativeAndroid = isAndroid;
+      mockEmptyWatchlist = true;
+      mockStoredWatchlistEmpty = true;
+      mockWatchlistLoading = true;
+      mockNativeListMounts = 0;
+      mockNativeSnapshot = undefined;
+    });
+
+    afterEach(() => {
+      mockIsNativeAndroid = false;
+      mockEmptyWatchlist = false;
+      mockStoredWatchlistEmpty = false;
+      mockWatchlistMounted = true;
+      mockWatchlistLoading = false;
+    });
+
+    it('keeps recommendations visible during loading, revalidation and a tab remount', () => {
+      const first = render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      const content = first.getByTestId('market-favorites-empty-scroll');
+      expect(first.getByText('Recommended tokens')).toBeTruthy();
+
+      mockWatchlistLoading = false;
+      first.rerender(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(first.getByTestId('market-favorites-empty-scroll')).toBe(content);
+      mockWatchlistLoading = true;
+      first.rerender(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(first.getByTestId('market-favorites-empty-scroll')).toBe(content);
+      first.unmount();
+
+      const second = render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(second.getByText('Recommended tokens')).toBeTruthy();
+      expect(second.getByTestId('market-favorites-empty-scroll')).toBeTruthy();
+      expect(mockNativeListMounts).toBe(0);
+    });
+
+    it('waits for saved favorites to load and shows skeletons when favorites exist', () => {
+      mockWatchlistMounted = false;
+      const view = render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(view.queryByText('Recommended tokens')).toBeNull();
+      expect(view.queryByTestId('market-favorites-empty-scroll')).toBeNull();
+      expect(mockNativeListMounts).toBe(0);
+
+      mockWatchlistMounted = true;
+      mockStoredWatchlistEmpty = false;
+      view.rerender(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(view.queryByText('Recommended tokens')).toBeNull();
+      expect(mockNativeSnapshot?.rows.length).toBeGreaterThan(0);
+      expect(
+        mockNativeSnapshot?.rows.every(
+          (row) => row.type === 'system' && row.variant === 'loading',
+        ),
+      ).toBe(true);
+    });
   },
 );
 

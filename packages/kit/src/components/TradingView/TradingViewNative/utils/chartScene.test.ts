@@ -1814,6 +1814,179 @@ describe('crosshair in empty chart space', () => {
     expect(rowYByLabel.get('LB')).toBe(rowYByLabel.get('DC'));
   });
 
+  it('moves the indicator legend rows to the top without the OHLC row', () => {
+    const indicatorPoints = buildLinearPoints(30);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['WMA']),
+      indicatorSettings: {},
+      points: indicatorPoints,
+    });
+    const buildScene = (showPriceLegend: boolean) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 240,
+        indicatorSeries,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: indicatorPoints,
+        showPriceLegend,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getLegendText = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) =>
+      scene.commands.flatMap((command) =>
+        command.kind === 'text' && command.font === 'legend' ? [command] : [],
+      );
+    const fullLegend = getLegendText(buildScene(true));
+    const indicatorLegend = getLegendText(buildScene(false));
+    const getY = (
+      legend: ReturnType<typeof getLegendText>,
+      text: string,
+    ): number | undefined => legend.find((command) => command.text === text)?.y;
+
+    expect(fullLegend.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['O', 'H', 'L', 'C', 'WMA5']),
+    );
+    expect(
+      indicatorLegend.filter(({ text }) => ['O', 'H', 'L', 'C'].includes(text)),
+    ).toEqual([]);
+    expect(getY(indicatorLegend, 'WMA5')).toBe(getY(fullLegend, 'O'));
+    expect(getY(fullLegend, 'WMA5')).toBeGreaterThan(
+      getY(fullLegend, 'O') ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it('leaves out legend rows that would run onto the time axis', () => {
+    const indicatorPoints = buildLinearPoints(30);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set([
+        'MA',
+        'EMA',
+        'WMA',
+        'VWMA',
+        'SUPERTREND',
+        'ENV',
+        'VWAP',
+        'DC',
+      ]),
+      indicatorSettings: {},
+      points: indicatorPoints,
+    });
+    // Compact chart settings: no price row, a short canvas, and text as wide
+    // as on a device so the indicator rows wrap.
+    const buildScene = (height: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height,
+        indicatorSeries,
+        measureTextWidth: (text) => text.length * 9,
+        candleLabels: CANDLE_LABELS,
+        points: indicatorPoints,
+        showPriceLegend: false,
+        timeAxisHeight: 20,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getLegendLabels = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) =>
+      scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        command.customPaintId?.startsWith('chart.mainIndicator.') &&
+        /^[A-Z]/.test(command.text)
+          ? [command]
+          : [],
+      );
+    const shortScene = buildScene(158);
+    const shortLabels = getLegendLabels(shortScene);
+    const tallLabels = getLegendLabels(buildScene(480));
+    const mainChartBottom = shortScene.layout?.mainChartBottom ?? 0;
+
+    expect(mainChartBottom).toBeGreaterThan(0);
+    expect(shortLabels.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['MA5', 'EMA5']),
+    );
+    expect(shortLabels.length).toBeLessThan(tallLabels.length);
+    expect(tallLabels.map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['VWAP', 'DC']),
+    );
+    expect(shortLabels.map(({ text }) => text)).not.toContain('DC');
+    for (const label of shortLabels) {
+      expect(label.y).toBeLessThanOrEqual(mainChartBottom);
+    }
+  });
+
+  it('draws the legend rows over the latest price line', () => {
+    // Prices between 90 and 100 closing at 98.6 put the latest price line
+    // across the third legend row of a compact chart.
+    const closes = Array.from({ length: 30 }, (_, index) =>
+      index === 29 ? 98.6 : 91 + (index % 9),
+    );
+    const indicatorPoints = closes.map((close, index) => ({
+      c: close,
+      h: index === 0 ? 100 : Math.min(close + 0.5, 100),
+      l: index === 0 ? 90 : Math.max(close - 0.5, 90),
+      o: close,
+      t: 1_700_000_000 + index * 3600,
+      v: 10,
+    }));
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 158,
+      indicatorSeries: buildTradingViewNativeIndicatorSeries({
+        activeIndicatorValues: new Set(['MA', 'EMA', 'WMA']),
+        indicatorSettings: {},
+        points: indicatorPoints,
+      }),
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: indicatorPoints,
+      showPriceLegend: false,
+      timeAxisHeight: 20,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const lineIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'line' &&
+        (command.paint === 'upCurrentPriceLine' ||
+          command.paint === 'downCurrentPriceLine'),
+    );
+    const line = scene.commands[lineIndex];
+    const backgrounds = scene.commands.flatMap((command, index) =>
+      command.kind === 'rect' && command.paint === 'legendBackground'
+        ? [{ command, index }]
+        : [],
+    );
+    const crossedRow = backgrounds.find(
+      ({ command }) =>
+        line?.kind === 'line' &&
+        line.y1 >= command.y &&
+        line.y1 <= command.y + command.height,
+    );
+
+    expect(backgrounds).toHaveLength(3);
+    expect(crossedRow).toBeDefined();
+    for (const { index } of backgrounds) {
+      expect(index).toBeGreaterThan(lineIndex);
+    }
+  });
+
   it('draws a SuperTrend that flips on the latest candle as a dot', () => {
     // A steady fall, then one candle that closes far above the upper band.
     const closes = [

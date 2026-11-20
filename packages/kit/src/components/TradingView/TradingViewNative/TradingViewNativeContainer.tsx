@@ -281,6 +281,7 @@ const TradingViewNativeContent = memo(
     mobileToolbarExtra,
     initialRightOffset,
     nativeChartDisplayMode,
+    showCompactMainIndicators = false,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
     nativeControlsFlushHorizontalInset,
@@ -485,20 +486,22 @@ const TradingViewNativeContent = memo(
     const timeAxisHeight = isCompactDisplayMode
       ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
       : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+    const showMainIndicators =
+      !isCompactDisplayMode || showCompactMainIndicators;
     const indicatorSeries = useMemo(
       () =>
-        isCompactDisplayMode
-          ? []
-          : buildTradingViewNativeIndicatorSeries({
+        showMainIndicators
+          ? buildTradingViewNativeIndicatorSeries({
               activeIndicatorValues: activeMainIndicatorValues,
               indicatorSettings: mainIndicatorSettings,
               points: primarySeriesPoints,
-            }),
+            })
+          : [],
       [
         activeMainIndicatorValues,
-        isCompactDisplayMode,
         mainIndicatorSettings,
         primarySeriesPoints,
+        showMainIndicators,
       ],
     );
     const visibleSubIndicatorInstances = useMemo(
@@ -1291,7 +1294,10 @@ const TradingViewNativeContent = memo(
               ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
               : undefined
           }
-          showLegend={!isCompactDisplayMode}
+          // A compact chart has no room for the candle's price row; it keeps
+          // the full chart's indicator rows.
+          showLegend={showMainIndicators}
+          showPriceLegend={!isCompactDisplayMode}
           timeAxisFontSize={
             isCompactDisplayMode
               ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE

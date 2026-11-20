@@ -431,6 +431,42 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     ]);
   });
 
+  // Both SDKs and the desktop BLE host report the reason in params; it must
+  // reach the app on both search paths, or "Bluetooth is off" reads as "needs permission".
+  it.each(['searchDevices', 'searchDeviceTargets'] as const)(
+    '%s keeps the reason Bluetooth permission was denied',
+    async (method) => {
+      const denied = Object.assign(new Error('Bluetooth is unavailable'), {
+        code: 10_303,
+        params: { permissionDeniedReason: 'bluetoothTurnedOff' },
+      });
+      const adapter = {
+        [method]: jest.fn().mockRejectedValue(denied),
+      } as unknown as IThirdPartyHardwareAdapter;
+      const service = new ServiceThirdPartyHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      (
+        service as unknown as {
+          thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+        }
+      ).thirdPartyAdapters.set('ledger', adapter);
+
+      const response = await service[method]({
+        vendor: EHardwareVendor.ledger,
+      });
+
+      expect(response).toEqual({
+        success: false,
+        payload: {
+          code: 10_303,
+          error: 'Bluetooth is unavailable',
+          params: { permissionDeniedReason: 'bluetoothTurnedOff' },
+        },
+      });
+    },
+  );
+
   it('filters search targets by transport even when the vendor SDK leaks another channel', async () => {
     const searchDeviceTargets = jest.fn().mockResolvedValue([
       {

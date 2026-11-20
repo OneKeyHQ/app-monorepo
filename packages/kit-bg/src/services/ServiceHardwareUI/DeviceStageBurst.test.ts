@@ -1,4 +1,5 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -1431,6 +1432,58 @@ describe('DeviceStageBurstScope', () => {
       expect(stage?.errorI18n).toBeUndefined();
     },
   );
+
+  // Third-party cancels land what OneKey's do: nothing.
+  it('lands no outcome, ✓ or card, when a third-party call is cancelled', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      vendor: EHardwareVendor.trezor,
+    });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    const seen: Array<IDeviceStageState['step'] | undefined> = [];
+    stageAtom.set.mockImplementation(async (next) => {
+      stage = typeof next === 'function' ? next(stage) : next;
+      seen.push(stage?.step);
+    });
+
+    await scope.end({
+      error: convertDeviceError(
+        { code: ThirdPartyHwErrorCode.UserAborted },
+        { vendor: EHardwareVendor.trezor },
+      ),
+    });
+    await letTheExitRun();
+
+    expect(seen).not.toContain('done');
+    expect(seen).not.toContain('error');
+    expect(stage?.step).toBe('off');
+  });
+
+  it('closes the stage at once when the person declines a third-party pairing', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      connectId: CONNECT_ID,
+      vendor: EHardwareVendor.ledger,
+    });
+    await scope.begin({
+      connectId: CONNECT_ID,
+      vendor: EHardwareVendor.ledger,
+    });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: convertDeviceError(
+        { code: ThirdPartyHwErrorCode.BlePairingCancelled },
+        { vendor: EHardwareVendor.ledger },
+      ),
+    });
+
+    expect(stage?.step).toBe('off');
+    await scope.endExplicit({ token });
+    expect(stage?.step).toBe('off');
+  });
 
   it('releases an explicit holder for the original enable-passphrase dialog', async () => {
     const scope = new DeviceStageBurstScope();

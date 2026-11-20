@@ -423,67 +423,79 @@ export function publicAccountSnapshotToAccount(
   };
 }
 
+function projectPublicAccountIdentity(account: IDBAccount) {
+  let xpub = 'xpub' in account ? account.xpub : undefined;
+  if (!['btc', 'evm', 'sol'].includes(account.impl)) xpub ??= '';
+  let pub = account.pub ?? '';
+  if (account.impl === 'sol' && pub && !/^[\da-f]{64}$/i.test(pub)) {
+    try {
+      const decoded = bs58.decode(pub);
+      if (decoded.length === 32) pub = Buffer.from(decoded).toString('hex');
+    } catch {
+      // Preserve malformed metadata exactly rather than folding distinct keys.
+    }
+  } else if (
+    /^(0x)?([\da-f]{64}|(02|03)[\da-f]{64}|04[\da-f]{128})$/i.test(pub)
+  )
+    pub = pub.toLowerCase();
+  let addresses = 'addresses' in account ? (account.addresses ?? {}) : {};
+  // Older Realm SIMPLE projections omitted this redundant mapping. Only
+  // fold the canonical singleton; different or additional addresses conflict.
+  if (
+    account.type === EDBAccountType.SIMPLE &&
+    ['lightning', 'tlightning', 'scdo'].includes(account.impl) &&
+    (account.impl === 'scdo' || account.relPath === '0/0') &&
+    Object.keys(addresses).length === 1 &&
+    addresses['0/0'] === account.address
+  ) {
+    addresses = {};
+  }
+  return {
+    impl: account.impl,
+    type: account.type,
+    path: account.path,
+    pathIndex: account.pathIndex,
+    template: account.template,
+    idSuffix: accountUtils.parseAccountId({ accountId: account.id }).idSuffix,
+    coinType: account.coinType,
+    address:
+      account.impl === 'evm' ? account.address.toLowerCase() : account.address,
+    pub,
+    xpub,
+    ...(!['btc', 'evm', 'sol'].includes(account.impl)
+      ? {
+          relPath: account.relPath,
+          addresses,
+          xpubSegwit: 'xpubSegwit' in account ? (account.xpubSegwit ?? '') : '',
+        }
+      : {}),
+    networks: account.networks ? [...account.networks].toSorted() : [],
+    createAtNetwork: account.createAtNetwork,
+  };
+}
+
 export function publicAccountIdentityEqual(
   a: IDBAccount,
   b: IDBAccount,
 ): boolean {
-  const project = (account: IDBAccount) => {
-    let xpub = 'xpub' in account ? account.xpub : undefined;
-    if (!['btc', 'evm', 'sol'].includes(account.impl)) xpub ??= '';
-    let pub = account.pub ?? '';
-    if (account.impl === 'sol' && pub && !/^[\da-f]{64}$/i.test(pub)) {
-      try {
-        const decoded = bs58.decode(pub);
-        if (decoded.length === 32) pub = Buffer.from(decoded).toString('hex');
-      } catch {
-        // Preserve malformed metadata exactly rather than folding distinct keys.
-      }
-    } else if (
-      /^(0x)?([\da-f]{64}|(02|03)[\da-f]{64}|04[\da-f]{128})$/i.test(pub)
-    )
-      pub = pub.toLowerCase();
-    let addresses = 'addresses' in account ? (account.addresses ?? {}) : {};
-    // Older Realm SIMPLE projections omitted this redundant mapping. Only
-    // fold the canonical singleton; different or additional addresses conflict.
-    if (
-      account.type === EDBAccountType.SIMPLE &&
-      ['lightning', 'tlightning', 'scdo'].includes(account.impl) &&
-      (account.impl === 'scdo' || account.relPath === '0/0') &&
-      Object.keys(addresses).length === 1 &&
-      addresses['0/0'] === account.address
-    ) {
-      addresses = {};
-    }
-    return {
-      impl: account.impl,
-      type: account.type,
-      path: account.path,
-      pathIndex: account.pathIndex,
-      template: account.template,
-      idSuffix: accountUtils.parseAccountId({ accountId: account.id }).idSuffix,
-      coinType: account.coinType,
-      address:
-        account.impl === 'evm'
-          ? account.address.toLowerCase()
-          : account.address,
-      pub,
-      xpub,
-      ...(!['btc', 'evm', 'sol'].includes(account.impl)
-        ? {
-            relPath: account.relPath,
-            addresses,
-            xpubSegwit:
-              'xpubSegwit' in account ? (account.xpubSegwit ?? '') : '',
-          }
-        : {}),
-      networks: account.networks ? [...account.networks].toSorted() : [],
-      createAtNetwork: account.createAtNetwork,
-    };
-  };
   return (
-    stringUtils.stableStringify(project(a)) ===
-    stringUtils.stableStringify(project(b))
+    stringUtils.stableStringify(projectPublicAccountIdentity(a)) ===
+    stringUtils.stableStringify(projectPublicAccountIdentity(b))
   );
+}
+
+export function getPublicAccountSnapshotIdentityHash(
+  snapshot: ICloudPublicAccountSnapshot,
+): string {
+  // Wallet identity is checked by the snapshot ID; the projection checks
+  // canonical public account fields and does not use the device's local ID.
+  const account = publicAccountSnapshotToAccount(snapshot, 'hd-0');
+  const identity = stringUtils.stableStringify(
+    projectPublicAccountIdentity(account),
+  );
+  return Buffer.from(
+    appCrypto.hash.sha256Sync(Buffer.from(identity, 'utf8')),
+  ).toString('hex');
 }
 
 export function buildPublicAccountSnapshot({

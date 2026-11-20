@@ -5,7 +5,7 @@ import { StrictMode } from 'react';
 
 import { act, render, renderHook } from '@testing-library/react';
 
-import Toaster from '../actions/Toast/Toaster';
+import { ToastHost as Toaster } from '../actions/Toast/ToastHost';
 
 import {
   acquireDeferredGuideBlocker,
@@ -15,23 +15,30 @@ import {
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   getTokens: jest.fn(),
-  useMedia: () => ({ md: false }),
+  useMedia: () => ({ md: false, gtMd: true }),
+  useTheme: () => ({}),
   useThemeName: () => 'light',
 }));
 
-jest.mock('../primitives', () => ({
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  OverlayToastHost: () => <div>Ordinary toast host</div>,
+  overlayToastStore: { configure: jest.fn() },
 }));
 
-jest.mock('sonner', () => ({
-  Toaster: () => <div>Ordinary toast viewport</div>,
+jest.mock('@tamagui/web', () => ({
+  getConfig: () => ({ fontsParsed: {} }),
 }));
 
-jest.mock('react-native-reanimated', () => ({
-  useReducedMotion: () => false,
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+
+jest.mock('./usePage', () => ({ usePageWidth: () => 1280 }));
+
+jest.mock('../utils/getFontSize', () => ({ getFontToken: () => undefined }));
 
 jest.mock('react-native', () => ({
+  I18nManager: { isRTL: false },
   useWindowDimensions: () => ({ width: 1280, height: 800 }),
 }));
 
@@ -113,7 +120,7 @@ describe('overlay guide registration', () => {
     expect(blocked.result.current).toBe(false);
   });
 
-  it('does not register the ordinary toast viewport on mount or unmount', () => {
+  it('does not register the ordinary toast host on mount or unmount', () => {
     const blocked = renderHook(() => useIsDeferredGuideBlocked());
     const toast = render(<Toaster />);
 

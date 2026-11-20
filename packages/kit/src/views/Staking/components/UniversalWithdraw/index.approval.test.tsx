@@ -176,6 +176,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getAccount: jest.fn().mockResolvedValue({ address: '0xaccount' }),
     },
     serviceStaking: {
+      assertEarnApproval: jest.fn().mockResolvedValue(undefined),
       checkAmount: (...args: unknown[]) => mockCheckAmount(...args),
       getTransactionConfirmation: (...args: unknown[]) => mockQuote(...args),
       estimateFee: (...args: unknown[]) => mockEstimateFee(...args),
