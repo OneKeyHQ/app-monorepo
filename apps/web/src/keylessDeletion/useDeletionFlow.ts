@@ -46,6 +46,9 @@ type IReview = IEmail & {
   challenge: IActiveChallenge;
   resendAt: number;
   challengeExpiresAt: number;
+  uncertainDeletion?: 'unconfirmed' | 'not_found';
+  outcomeCheckAfter?: number;
+  outcomeNeedsSignIn?: boolean;
 };
 type IOtpScreen =
   | ({ step: 'email' } & IEmail)
@@ -509,6 +512,7 @@ export function useDeletionFlow(
       return;
     }
     if (
+      (screen.step === 'confirm' && !!screen.uncertainDeletion) ||
       globalThis.performance.now() < (screen.resendAt ?? 0) ||
       !hasActiveInvitation()
     ) {
@@ -605,8 +609,19 @@ export function useDeletionFlow(
           retryAfterSeconds === undefined
             ? attempt.review.deleteRetryAt
             : otpCooldownDeadline(retryAfterSeconds);
-        if (isAuthError(cause)) {
-          setScreen({ step: 'identity', info: attempt.review.info });
+        if (isAuthError(cause) || code === 'IDENTITY_MISMATCH') {
+          if (attempt.review.uncertainDeletion) {
+            setScreen({
+              ...attempt.review,
+              step: 'confirm',
+              proof,
+              deleteRetryAt,
+              outcomeNeedsSignIn: true,
+            });
+          } else {
+            history.delete(token);
+            setScreen({ step: 'identity', info: attempt.review.info });
+          }
           showError(cause);
           return;
         }
@@ -625,12 +640,6 @@ export function useDeletionFlow(
               code === 'OTP_EXPIRED' ? 0 : attempt.review.challengeExpiresAt,
             deleteRetryAt,
           });
-          showError(cause);
-          return;
-        }
-        if (code === 'IDENTITY_MISMATCH') {
-          history.delete(token);
-          setScreen({ step: 'identity', info: attempt.review.info });
           showError(cause);
           return;
         }
@@ -679,6 +688,12 @@ export function useDeletionFlow(
           }
           return;
         }
+        const uncertain =
+          code === 'SERVICE_UNAVAILABLE' ||
+          code === 'IDEMPOTENCY_CONFLICT' ||
+          (!response &&
+            (!(cause instanceof DeletionBusinessError) ||
+              (cause.httpStatusCode ?? 0) >= 500));
         // No confirmed outcome. A manual retry must reuse the request key.
         setScreen({
           ...attempt.review,
@@ -686,6 +701,9 @@ export function useDeletionFlow(
           proof,
           key: attempt.key,
           deleteRetryAt,
+          uncertainDeletion: uncertain
+            ? 'unconfirmed'
+            : attempt.review.uncertainDeletion,
         });
         showError(cause);
         return;
@@ -706,6 +724,7 @@ export function useDeletionFlow(
   function submit(code: string, acknowledgements: IWarningCode[]) {
     if (
       screen.step !== 'confirm' ||
+      screen.outcomeNeedsSignIn ||
       !code ||
       !matchesWarnings(acknowledgements, screen.info.warningCodes) ||
       globalThis.performance.now() < (screen.deleteRetryAt ?? 0) ||
@@ -728,6 +747,75 @@ export function useDeletionFlow(
       },
       proof,
     );
+  }
+
+  function checkDeleteOutcome() {
+    if (
+      screen.step !== 'confirm' ||
+      !screen.uncertainDeletion ||
+      globalThis.performance.now() < (screen.outcomeCheckAfter ?? 0) ||
+      !channel.current ||
+      !hasActiveInvitation()
+    ) {
+      return;
+    }
+    const { client, signal } = channel.current;
+    const previous = screen;
+    run(async (isCurrent) => {
+      try {
+        const proof = previous.outcomeNeedsSignIn
+          ? await authenticate(previous.proof.provider, signal)
+          : previous.proof;
+        if (!isCurrent() || !hasActiveInvitation()) return;
+        const result = await client.getResult(proof);
+        if (!isCurrent() || !hasActiveInvitation()) return;
+        if (result.status === 'not_submitted') {
+          setScreen({
+            ...previous,
+            proof,
+            uncertainDeletion: 'not_found',
+            outcomeNeedsSignIn: false,
+            outcomeCheckAfter: undefined,
+          });
+          return;
+        }
+        remember({
+          step: 'result',
+          provider: proof.provider,
+          proof,
+          result,
+          checkAfter: checkAfter(result),
+        });
+      } catch (cause) {
+        if (!isCurrent() || !hasActiveInvitation()) return;
+        if (
+          cause instanceof DeletionError &&
+          cause.response.code !== 'INVITATION_UNAVAILABLE'
+        ) {
+          const { code, retryAfterSeconds } = cause.response;
+          const retryAfter =
+            retryAfterSeconds ??
+            (code === 'RATE_LIMITED' ? OTP_RESEND_SECONDS : 0);
+          if (
+            isAuthError(cause) ||
+            code === 'IDENTITY_MISMATCH' ||
+            retryAfter
+          ) {
+            setScreen({
+              ...previous,
+              outcomeNeedsSignIn:
+                previous.outcomeNeedsSignIn ||
+                isAuthError(cause) ||
+                code === 'IDENTITY_MISMATCH',
+              outcomeCheckAfter: retryAfter
+                ? otpCooldownDeadline(retryAfter)
+                : previous.outcomeCheckAfter,
+            });
+          }
+        }
+        handleError(cause);
+      }
+    });
   }
 
   function checkStatus() {
@@ -781,6 +869,7 @@ export function useDeletionFlow(
     sendDeletionOtp,
     editCode,
     submit,
+    checkDeleteOutcome,
     checkStatus,
     reauthenticate,
   };

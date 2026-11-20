@@ -107,7 +107,9 @@ function Action({
 function SendCode({ flow }: { flow: IFlow }) {
   const intl = useIntl();
   const { screen, busy } = flow;
-  const visible = screen.step === 'email' || screen.step === 'confirm';
+  const visible =
+    screen.step === 'email' ||
+    (screen.step === 'confirm' && !screen.uncertainDeletion);
   const resend = useOtpResend({
     deadline: visible ? (screen.resendAt ?? 0) : 0,
     busy,
@@ -152,6 +154,7 @@ function ConfirmStep({
   const { screen, busy } = flow;
   const review = screen.step === 'confirm' ? screen : undefined;
   const cooldown = useCountdown(review?.deleteRetryAt ?? 0);
+  const outcomeCooldown = useCountdown(review?.outcomeCheckAfter ?? 0);
   const challenge = review?.challenge;
   const challengeId = challenge?.challengeId;
   const [codeInputState, setCodeInputState] = useState({
@@ -195,6 +198,7 @@ function ConfirmStep({
     busy,
     ready:
       !!challenge &&
+      !review?.outcomeNeedsSignIn &&
       !expired &&
       acknowledged &&
       enteredCode.length > 0 &&
@@ -371,6 +375,25 @@ function ConfirmStep({
       >
         {messages.delete}
       </Action>
+      {review?.uncertainDeletion ? (
+        <YStack gap="$2" testID="uncertain-deletion">
+          <SizableText color="$textSubdued" role="status">
+            {review.uncertainDeletion === 'not_found'
+              ? messages.deleteOutcomeNotFound
+              : messages.deleteOutcomeUnknown}
+          </SizableText>
+          <Action
+            data-testid="check-delete-outcome"
+            variant="secondary"
+            disabled={busy || outcomeCooldown > 0}
+            onClick={flow.checkDeleteOutcome}
+          >
+            {outcomeCooldown > 0
+              ? messages.statusCountdown(outcomeCooldown)
+              : messages.checkDeleteOutcome}
+          </Action>
+        </YStack>
+      ) : null}
       {warnings}
     </YStack>
   );
@@ -396,7 +419,8 @@ function ResultStep({ flow }: { flow: IFlow }) {
   }
   let checkLabel: string = messages.checkStatus;
   if (resultCheckFailed) checkLabel = messages.retryResultCheck;
-  else if (known?.status === 'completed') checkLabel = messages.checkCurrentShare;
+  else if (known?.status === 'completed')
+    checkLabel = messages.checkCurrentShare;
   let scopeDetail: string | undefined;
   if (known?.status === 'completed') {
     if (shareStatus === 'absent') scopeDetail = messages.deletedShare;

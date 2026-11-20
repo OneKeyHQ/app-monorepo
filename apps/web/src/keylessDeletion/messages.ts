@@ -24,6 +24,9 @@ export const messages = {
   confirmationUpdated: '删除说明已更新，请重新确认。',
   newWalletSeparate: '新钱包使用新的助记词和地址，无法找回原地址上的资产。',
   delete: '确认删除',
+  deleteOutcomeUnknown: '未收到删除结果。可先查询，不会再次提交删除。',
+  deleteOutcomeNotFound: '暂未查到删除结果，请稍后再查。',
+  checkDeleteOutcome: '查询删除结果',
   complete: '删除完成',
   originalCompleted: '原删除申请已完成',
   currentSharePresent:
