@@ -53,7 +53,12 @@ function record(dataTime = 200): IDBCloudSyncItem {
 test.each([
   ['previous key known from history', 'history-key', 200, true],
   ['only the stored credential knows the old key', 'stored-key', 200, true],
-  ['current key can still authenticate the deletion', 'current-key', 200, false],
+  [
+    'current key can still authenticate the deletion',
+    'current-key',
+    200,
+    false,
+  ],
   ['a different space is not rewritten', 'foreign-key', 200, false],
   [
     'an ordinary previous-key record has no pending deletion',

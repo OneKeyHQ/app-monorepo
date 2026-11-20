@@ -4363,7 +4363,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         failedCount += 1;
       }
     }
-    console.log('decryptAllLocalSyncItems', { count: items.length, failedCount });
+    console.log('decryptAllLocalSyncItems', {
+      count: items.length,
+      failedCount,
+    });
     return result.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
@@ -4511,7 +4514,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         }
       }
     }
-    console.log('decryptAllServerSyncItems', { count: items.length, failedCount });
+    console.log('decryptAllServerSyncItems', {
+      count: items.length,
+      failedCount,
+    });
     return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
