@@ -1,4 +1,5 @@
 import { CommonActions, StackActions } from '@react-navigation/native';
+import findLastIndex from 'lodash/findLastIndex';
 import { Platform } from 'react-native';
 
 import {
@@ -199,9 +200,19 @@ export function isCurrentlyInUrlAccountPage(): boolean {
 
 export const urlAccountNavigation = {
   returnToHomePage(navigation: IAppNavigation) {
-    navigation.dispatch(({ key, routes }) => {
-      if (routes[0]?.name === ETabHomeRoutes.TabHome) {
-        return { ...StackActions.popToTop(), target: key };
+    navigation.dispatch(({ index, key, routes }) => {
+      // A deep link can add another Home above an in-progress Dust Sweep.
+      const homeIndex = findLastIndex(
+        routes,
+        (route) => route.name === ETabHomeRoutes.TabHome,
+        index,
+      );
+      if (homeIndex >= 0) {
+        return {
+          ...StackActions.pop(index - homeIndex),
+          source: routes[index]?.key,
+          target: key,
+        };
       }
       if (routes.length === 1 && !platformEnv.isNative) {
         return StackActions.replace(ETabHomeRoutes.TabHome);
