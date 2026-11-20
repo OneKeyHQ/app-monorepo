@@ -25,11 +25,38 @@ function createVault() {
 }
 
 it.each([
-  [ESwapQuoteSource.SWEEP, '15.15', '0.01', undefined],
-  [undefined, '15.15', '0.02', '2'],
+  {
+    scenario: 'Dust Sweep',
+    quoteSource: ESwapQuoteSource.SWEEP,
+    payAmount: '15.15',
+    receiveAmount: '0.01',
+  },
+  {
+    scenario: 'scaled Swap',
+    payAmount: '15.15',
+    receiveAmount: '0.02',
+    receiveMultiplier: '2',
+  },
+  {
+    scenario: 'same EVM fee with a differently cased address and no multiplier',
+    payAmount: '33',
+    payMultiplier: '3',
+    feeAmount: '1',
+    feeAddressIsLowercase: true,
+    receiveAmount: '0.02',
+    receiveMultiplier: '2',
+  },
 ])(
-  'decodes the same signed amounts for the saved display basis (%s)',
-  async (quoteSource, amount, receiveAmount, receiveMultiplier) => {
+  'decodes the same signed amounts for $scenario',
+  async ({
+    quoteSource,
+    payAmount,
+    payMultiplier = '1.5',
+    feeAmount = '0.1',
+    feeAddressIsLowercase,
+    receiveAmount,
+    receiveMultiplier,
+  }) => {
     const { vault } = createVault();
     const display = jest
       .spyOn(vault, 'buildTxTransferAssetAction')
@@ -40,9 +67,9 @@ it.each([
     const fromToken = {
       networkId,
       symbol: 'AAPLB',
-      contractAddress: '0xtoken',
+      contractAddress: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
       decimals: 18,
-      balanceMultiplier: '1.5',
+      balanceMultiplier: payMultiplier,
       price: '1',
     };
     const toToken = {
@@ -52,6 +79,16 @@ it.each([
       decimals: 18,
       isNative: !receiveMultiplier,
       balanceMultiplier: receiveMultiplier,
+    };
+    const fee = {
+      amount: feeAmount,
+      token: feeAddressIsLowercase
+        ? {
+            ...fromToken,
+            contractAddress: fromToken.contractAddress.toLowerCase(),
+            balanceMultiplier: undefined,
+          }
+        : fromToken,
     };
     const swapInfo: ISwapTxInfo = {
       quoteSource,
@@ -67,7 +104,7 @@ it.each([
           toTokenInfo: toToken,
           fee: {
             percentageFee: 0,
-            otherFeeInfos: [{ token: fromToken, amount: '0.1' }],
+            otherFeeInfos: [fee],
           },
         },
       },
@@ -75,11 +112,15 @@ it.each([
 
     await vault.buildInternalSwapAction({ swapInfo });
     const { transfers } = display.mock.calls[0][0];
-    expect(transfers).toMatchObject([{ amount }, { amount: receiveAmount }]);
-    expect(transfers[0].balanceMultiplier).toBe('1.5');
+    expect(transfers).toMatchObject([
+      { amount: payAmount },
+      { amount: receiveAmount },
+    ]);
+    expect(transfers[0].balanceMultiplier).toBe(payMultiplier);
     expect(transfers[1].balanceMultiplier).toBe(receiveMultiplier);
     expect(swapInfo.sender.amount).toBe('10');
     expect(swapInfo.receiver.amount).toBe('0.01');
+    expect(fee.amount).toBe(feeAmount);
   },
 );
 

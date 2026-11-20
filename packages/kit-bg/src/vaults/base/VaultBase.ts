@@ -36,6 +36,7 @@ import {
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   buildTxActionDirection,
   getStakingActionLabel,
@@ -1324,7 +1325,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     if (otherFeeInfos) {
       otherFeeInfos.forEach((feeInfo) => {
-        if (feeInfo.token.contractAddress === transfers[0].tokenIdOnNetwork) {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: feeInfo.token,
+            token2: swapSendToken,
+          })
+        ) {
           transfers[0].amount = new BigNumber(transfers[0].amount)
             .plus(feeInfo.amount)
             .toFixed();
