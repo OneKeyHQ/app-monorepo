@@ -2,6 +2,7 @@ import semver from 'semver';
 
 import { ENotificationPushMessageMode } from '../../types/notification';
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
+import platformEnv from '../platformEnv';
 
 export interface IFeaturedItem {
   ctaAction?: 'next';
@@ -78,6 +79,70 @@ export function getFeaturedChangelogForVersion(
     : undefined;
 }
 
+/**
+ * Storage key of the cards for one install target. A full package is keyed by
+ * its app version; an OTA (jsBundle) target by `version+jsBundleVersion`, so an
+ * OTA of the installed app version never reads or overwrites the installed
+ * package's cards.
+ */
+export function getFeaturedChangelogKey(
+  version: string | undefined,
+  jsBundleVersion?: string,
+): string | undefined {
+  if (!version) return undefined;
+  return jsBundleVersion ? `${version}+${jsBundleVersion}` : version;
+}
+
+interface IFeaturedChangelogTargetState extends IFeaturedChangelogState {
+  latestVersion?: string;
+  jsBundleVersion?: string;
+}
+
+/**
+ * Cards for an entry point. Pre-install surfaces describe the pending update
+ * target; post-install surfaces ("What's New", post-update popup) describe the
+ * running app: its OTA bundle entry when one was stored (an explicit `null`
+ * included), otherwise the app package's entry.
+ */
+export function getFeaturedChangelogForEntry(
+  state: IFeaturedChangelogTargetState | null | undefined,
+  isPreInstall: boolean,
+): IFeaturedChangelog | undefined {
+  if (isPreInstall) {
+    return getFeaturedChangelogForVersion(
+      state,
+      getFeaturedChangelogKey(state?.latestVersion, state?.jsBundleVersion),
+    );
+  }
+  const bundleKey = getFeaturedChangelogKey(
+    platformEnv.version,
+    platformEnv.bundleVersion,
+  );
+  const featuredChangelogs = state?.featuredChangelogs;
+  if (
+    bundleKey &&
+    featuredChangelogs &&
+    hasOwnVersion(featuredChangelogs, bundleKey)
+  ) {
+    return getFeaturedChangelogForVersion(state, bundleKey);
+  }
+  return getFeaturedChangelogForVersion(state, platformEnv.version);
+}
+
+/**
+ * Keys a write must keep: the installed package, the installed OTA bundle and
+ * the update target. With MAX_FEATURED_CHANGELOG_VERSIONS = 3 they always fit.
+ */
+export function getFeaturedChangelogPriorityKeys(
+  target: { version?: string; jsBundleVersion?: string } | undefined,
+): Array<string | undefined> {
+  return [
+    getFeaturedChangelogKey(platformEnv.version),
+    getFeaturedChangelogKey(platformEnv.version, platformEnv.bundleVersion),
+    getFeaturedChangelogKey(target?.version, target?.jsBundleVersion),
+  ];
+}
+
 export const MAX_FEATURED_CHANGELOG_VERSIONS = 3;
 
 function compareVersionsDesc(a: string, b: string): number {
@@ -114,7 +179,7 @@ export function buildFeaturedChangelogs(
 
   const others = Object.keys(entries)
     .filter((version) => !priority.includes(version))
-    .sort(compareVersionsDesc);
+    .toSorted(compareVersionsDesc);
   const result: IFeaturedChangelogsByVersion = {};
   for (const version of [...priority, ...others]) {
     if (Object.keys(result).length >= MAX_FEATURED_CHANGELOG_VERSIONS) break;

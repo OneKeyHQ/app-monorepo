@@ -15,6 +15,7 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  getFeaturedChangelogForEntry,
   getFeaturedChangelogForVersion,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
@@ -2408,7 +2409,9 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.featuredChangelog).toBeNull();
       // 9906.15.1 may keep a spare slot: it is only read again once a check
       // selects it, and that check rewrites its entry.
-      expect(atomValue.featuredChangelogs?.['1.0.0']).toEqual(installedFeatured);
+      expect(atomValue.featuredChangelogs?.['1.0.0']).toEqual(
+        installedFeatured,
+      );
       expect(
         getFeaturedChangelogForVersion(mergeWithSnapshot(atomValue), '1.0.0'),
       ).toEqual(installedFeatured);
@@ -2450,6 +2453,63 @@ describe('ServiceAppUpdate state transitions', () => {
         '3.0.0': card('3.0.0'),
         '0.9.0': card('0.9.0'),
       });
+    });
+
+    const otaRelease = (featuredChangelog?: typeof installedFeatured) => ({
+      version: '1.0.0',
+      jsBundleVersion: '5',
+      jsBundleCount: 1,
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/fixture.zip',
+        fileSize: 1024,
+        sha256: 'a'.repeat(64),
+        signature: 'fixture-signature',
+      },
+      ...(featuredChangelog ? { featuredChangelog } : null),
+    });
+
+    test('an OTA of the installed version without cards does not reuse the package cards', async () => {
+      resetAtom({
+        latestVersion: '1.0.0',
+        status: EAppUpdateStatus.done,
+        featuredChangelogs: { '1.0.0': installedFeatured },
+      });
+      mockRelease(otaRelease());
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.jsBundleVersion).toBe('5');
+      expect(atomValue.featuredChangelogs).toEqual({
+        '1.0.0': installedFeatured,
+        '1.0.0+5': null,
+      });
+      // Pre-install falls back to UpdatePreview; What's New keeps the package.
+      expect(getFeaturedChangelogForEntry(atomValue, true)).toBeUndefined();
+      expect(getFeaturedChangelogForEntry(atomValue, false)).toEqual(
+        installedFeatured,
+      );
+    });
+
+    test('stores OTA cards under the OTA key, leaving the package cards intact', async () => {
+      const otaFeatured = {
+        version: '1.0.0',
+        features: [{ ...installedFeatured.features[0], title: 'OTA' }],
+      };
+      resetAtom({
+        latestVersion: '1.0.0',
+        status: EAppUpdateStatus.done,
+        featuredChangelogs: { '1.0.0': installedFeatured },
+      });
+      mockRelease(otaRelease(otaFeatured));
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(getFeaturedChangelogForEntry(atomValue, true)).toEqual(
+        otaFeatured,
+      );
+      expect(atomValue.featuredChangelogs?.['1.0.0']).toEqual(
+        installedFeatured,
+      );
     });
 
     test('stores release cards under the release version', async () => {

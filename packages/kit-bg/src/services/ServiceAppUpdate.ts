@@ -17,12 +17,14 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  buildFeaturedChangelogs,
+  getFeaturedChangelogKey,
+  getFeaturedChangelogPriorityKeys,
   getUpdateFileType,
   isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
   isPlaceholderUpdateDownloadUrl,
   isUsableUpdateDownloadUrl,
-  buildFeaturedChangelogs,
   normalizeFeaturedChangelog,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -314,29 +316,36 @@ function normalizeOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-// /app-update decides the cards of the release it selects. It is not
-// authoritative for the installed version: it can select a hot release of the
-// installed app and omit cards, so those are only refreshed through
-// refreshCurrentFeaturedChangelog. Writing `null` for another version keeps an
-// already open post-install dialog intact.
+// /app-update decides the cards of the target it selects. It is not
+// authoritative for the running app: it can select a hot release of the
+// installed version and omit cards, so the installed package's cards are only
+// refreshed through refreshCurrentFeaturedChangelog. Writing `null` for another
+// target keeps an already open post-install dialog intact, and an OTA target
+// without cards falls back to the plain update preview.
 function buildReleaseFeaturedChangelogs(
   prev: IAppUpdateInfo,
   releaseInfo: IResponseAppUpdateInfo,
+  targetJsBundleVersion: string | undefined,
 ): IFeaturedChangelogsByVersion {
-  const installedVersion = platformEnv.version;
-  const releaseVersion = releaseInfo.version;
+  const priorityKeys = getFeaturedChangelogPriorityKeys(
+    releaseInfo.version
+      ? { version: releaseInfo.version, jsBundleVersion: targetJsBundleVersion }
+      : { version: prev.latestVersion, jsBundleVersion: prev.jsBundleVersion },
+  );
+  const [installedKey, installedBundleKey] = priorityKeys;
+  const targetKey = getFeaturedChangelogKey(
+    releaseInfo.version,
+    targetJsBundleVersion,
+  );
   const updates: IFeaturedChangelogsByVersion = {};
-  if (releaseVersion) {
+  if (targetKey) {
     if (releaseInfo.featuredChangelog) {
-      updates[releaseVersion] = releaseInfo.featuredChangelog;
-    } else if (releaseVersion !== installedVersion) {
-      updates[releaseVersion] = null;
+      updates[targetKey] = releaseInfo.featuredChangelog;
+    } else if (targetKey !== installedKey && targetKey !== installedBundleKey) {
+      updates[targetKey] = null;
     }
   }
-  return buildFeaturedChangelogs(prev, updates, [
-    installedVersion,
-    releaseVersion || prev.latestVersion,
-  ]);
+  return buildFeaturedChangelogs(prev, updates, priorityKeys);
 }
 
 @backgroundClass()
@@ -1555,7 +1564,10 @@ class ServiceAppUpdate extends ServiceBase {
               featuredChangelogs: buildFeaturedChangelogs(
                 prev,
                 { [installedVersion]: featuredChangelog ?? null },
-                [installedVersion],
+                getFeaturedChangelogPriorityKeys({
+                  version: prev.latestVersion,
+                  jsBundleVersion: prev.jsBundleVersion,
+                }),
               ),
             }
           : prev,
@@ -3519,6 +3531,7 @@ class ServiceAppUpdate extends ServiceBase {
             featuredChangelogs: buildReleaseFeaturedChangelogs(
               prev,
               releaseInfo,
+              effectiveJsBundleVersion,
             ),
             latestVersion: releaseInfo.version || prev.latestVersion,
             updateAt: Date.now(),

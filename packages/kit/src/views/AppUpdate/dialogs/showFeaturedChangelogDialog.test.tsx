@@ -104,10 +104,10 @@ jest.mock('@onekeyhq/shared/src/appUpdate', () => ({
   EUpdateFileType: { appShell: 1 },
   getUpdateFileType: () => 1,
   isAllowedFeaturedHref: () => false,
-  getFeaturedChangelogForVersion: jest.requireActual<
+  getFeaturedChangelogForEntry: jest.requireActual<
     typeof import('@onekeyhq/shared/src/appUpdate/featuredChangelog')
   >('@onekeyhq/shared/src/appUpdate/featuredChangelog')
-    .getFeaturedChangelogForVersion,
+    .getFeaturedChangelogForEntry,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { appUpdate: { whatsNewClosed: jest.fn() } } },

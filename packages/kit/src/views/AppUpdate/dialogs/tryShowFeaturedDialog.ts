@@ -1,6 +1,6 @@
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { getFeaturedChangelogForEntry } from '@onekeyhq/shared/src/appUpdate';
 
-import { getFeaturedChangelogForEntry } from './featuredChangelogForEntry';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 /**
  * Returns true when the featured-changelog overlay handled the open, telling

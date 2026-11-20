@@ -1,9 +1,22 @@
 import {
-  getFeaturedChangelogForVersion,
-  normalizeFeaturedChangelog,
   MAX_FEATURED_CHANGELOG_VERSIONS,
   buildFeaturedChangelogs,
+  getFeaturedChangelogForEntry,
+  getFeaturedChangelogForVersion,
+  getFeaturedChangelogKey,
+  normalizeFeaturedChangelog,
 } from './featuredChangelog';
+
+const mockPlatformEnv: { version?: string; bundleVersion?: string } = {
+  version: '1.0.0',
+  bundleVersion: '1',
+};
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  get default() {
+    return mockPlatformEnv;
+  },
+}));
 
 const media = { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' };
 
@@ -144,5 +157,60 @@ describe('versioned Featured Changelog storage', () => {
       '2.0.0': card('2.0.0'),
       '9906.15.1': card('9906.15.1'),
     });
+  });
+});
+
+describe('Featured Changelog entry keys', () => {
+  const card = (title: string) => ({
+    version: '1.0.0',
+    features: [{ title, mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' as const }],
+  });
+
+  it('keys an OTA target by app and bundle version', () => {
+    expect(getFeaturedChangelogKey('1.0.0')).toBe('1.0.0');
+    expect(getFeaturedChangelogKey('1.0.0', '5')).toBe('1.0.0+5');
+    expect(getFeaturedChangelogKey(undefined, '5')).toBeUndefined();
+  });
+
+  it('reads the OTA key for an OTA target and the version key for a package', () => {
+    const featuredChangelogs = { '1.0.0': card('package'), '1.0.0+5': null };
+    expect(
+      getFeaturedChangelogForEntry(
+        { latestVersion: '1.0.0', jsBundleVersion: '5', featuredChangelogs },
+        true,
+      ),
+    ).toBeUndefined();
+    expect(
+      getFeaturedChangelogForEntry(
+        { latestVersion: '1.0.0', featuredChangelogs },
+        true,
+      ),
+    ).toEqual(card('package'));
+  });
+
+  it("What's New prefers the running OTA bundle's entry, including null", () => {
+    expect(
+      getFeaturedChangelogForEntry(
+        {
+          featuredChangelogs: {
+            '1.0.0': card('package'),
+            '1.0.0+1': card('ota'),
+          },
+        },
+        false,
+      ),
+    ).toEqual(card('ota'));
+    expect(
+      getFeaturedChangelogForEntry(
+        { featuredChangelogs: { '1.0.0': card('package'), '1.0.0+1': null } },
+        false,
+      ),
+    ).toBeUndefined();
+    expect(
+      getFeaturedChangelogForEntry(
+        { featuredChangelogs: { '1.0.0': card('package') } },
+        false,
+      ),
+    ).toEqual(card('package'));
   });
 });

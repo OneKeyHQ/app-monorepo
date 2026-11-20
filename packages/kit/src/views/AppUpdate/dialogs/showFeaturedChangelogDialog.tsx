@@ -31,6 +31,7 @@ import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotai
 import {
   EAppUpdateStatus,
   EUpdateFileType,
+  getFeaturedChangelogForEntry,
   getUpdateFileType,
   isAllowedFeaturedHref,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -57,8 +58,6 @@ import {
   useForceUpdateContactSupport,
   waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
-
-import { getFeaturedChangelogForEntry } from './featuredChangelogForEntry';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
