@@ -10,7 +10,6 @@ import {
   Icon,
   Input,
   SizableText,
-  Slider,
   XStack,
   YStack,
   getFontSize,
@@ -172,35 +171,23 @@ const LeverageContent = memo(
               />
             </XStack>
             <XStack
-              testID={
-                platformEnv.isNativeIOS ? PerpTestIDs.LeverageSlider : undefined
-              }
+              testID={PerpTestIDs.LeverageSlider}
               flex={1}
               alignItems="center"
               gap="$4"
             >
-              {platformEnv.isNativeIOS ? (
-                <PerpsSlider
-                  value={value || 1}
-                  onChange={handleSliderChange}
-                  min={1}
-                  max={maxLeverage}
-                  segments={0}
-                  disabled={loading}
-                  showBubble={false}
-                />
-              ) : (
-                <Slider
-                  testID={PerpTestIDs.LeverageSlider}
-                  value={value || 1}
-                  onChange={handleSliderChange}
-                  min={1}
-                  max={maxLeverage}
-                  step={1}
-                  disabled={loading}
-                  flex={1}
-                />
-              )}
+              <PerpsSlider
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.perp_trading_adjust_leverage,
+                })}
+                value={value || 1}
+                onChange={handleSliderChange}
+                min={1}
+                max={maxLeverage}
+                segments={0}
+                disabled={loading}
+                showBubble={false}
+              />
             </XStack>
           </YStack>
           <YStack gap="$2">
