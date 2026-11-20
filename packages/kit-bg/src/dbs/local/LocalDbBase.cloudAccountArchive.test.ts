@@ -15,6 +15,9 @@ import {
 
 import {
   INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+  INDEXED_DB_NAME,
+  INDEXED_DB_VERSION,
+  REALM_DB_VERSION,
   getIndexedLocalDbBucketVersion,
 } from './consts';
 import { IndexedDBAgent } from './indexed/IndexedDBAgent';
@@ -310,6 +313,8 @@ it.each([
 );
 
 it('changes only the account IndexedDB version on the supported platforms', () => {
+  expect(INDEXED_DB_VERSION).toBe(21);
+  expect(REALM_DB_VERSION).toBe(21);
   expect(getIndexedLocalDbBucketVersion(EIndexedDBBucketNames.account)).toBe(
     22,
   );
@@ -401,3 +406,32 @@ it.each([
     );
   },
 );
+
+it('does not create an archive on a future Web account upgrade', async () => {
+  const factory = new IDBFactory();
+  jest.replaceProperty(globalThis, 'indexedDB', factory);
+  platformEnv.isDesktop = false;
+  const underlyingOpen = factory.open.bind(factory);
+  jest
+    .spyOn(factory, 'open')
+    .mockImplementation((name, version) =>
+      underlyingOpen(
+        name,
+        name === INDEXED_DB_NAME(EIndexedDBBucketNames.account) &&
+          version === 21
+          ? 22
+          : version,
+      ),
+    );
+
+  const agent = await new LocalDbIndexed().readyDb;
+  if (!(agent instanceof IndexedDBAgent))
+    throw new OneKeyLocalError('Expected test IndexedDB agent');
+  const account = await agent
+    .getIndexedByBucketName(EIndexedDBBucketNames.account)
+    .open();
+  expect(account.version).toBe(22);
+  expect(
+    account.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
+  ).toBe(false);
+});

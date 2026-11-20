@@ -30,6 +30,7 @@ import {
   INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
   getIndexedLocalDbBucketVersion,
   storeNameSupportCreatedAt,
+  supportsIndexedCloudAccountArchive,
 } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -106,6 +107,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
     if (
       bucketName === EIndexedDBBucketNames.account &&
+      supportsIndexedCloudAccountArchive() &&
       (options.newVersion ?? 0) >= INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION &&
       !nativeDB.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
     ) {

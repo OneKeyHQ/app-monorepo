@@ -9,17 +9,19 @@ export const IS_DB_BUCKET_SUPPORT = Boolean(
 );
 
 const LOCAL_DB_NAME = 'OneKeyV5';
-const LOCAL_DB_VERSION = 21;
+const LOCAL_DB_VERSION = 22;
+// Realm, the legacy IndexedDB, and unchanged IndexedDB buckets keep v21.
+const LOCAL_DB_COMPATIBILITY_VERSION = 21;
 
 // ----------------------------------------------
 
 export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
   `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
 export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
-export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
+export const INDEXED_DB_VERSION = LOCAL_DB_COMPATIBILITY_VERSION;
 // Web tabs still lack a shared Cloud authority transaction. Only production
 // Desktop builds with the Electron preload use the account archive.
-export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION = 22;
+export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION = LOCAL_DB_VERSION;
 export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE = 'CloudSyncAccountArchive';
 
 export function supportsIndexedCloudAccountArchive(): boolean {
@@ -37,7 +39,7 @@ export function getIndexedLocalDbBucketVersion(bucket: EIndexedDBBucketNames) {
     : INDEXED_DB_VERSION;
 }
 export const REALM_DB_NAME = LOCAL_DB_NAME;
-export const REALM_DB_VERSION = LOCAL_DB_VERSION;
+export const REALM_DB_VERSION = LOCAL_DB_COMPATIBILITY_VERSION;
 export const ENABLE_INDEXEDDB_BUCKET = true;
 
 // ---------------------------------------------- const
