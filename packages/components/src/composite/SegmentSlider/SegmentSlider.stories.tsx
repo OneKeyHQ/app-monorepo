@@ -9,15 +9,14 @@ import { YStack } from '@onekeyhq/components/src/primitives/Stack';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // Controlled slider with segment marks (the Perps leverage control). The top
-// padding leaves room for the value bubble shown while dragging; native
-// renders through the @onekeyfe/react-native-segment-slider nitro view.
+// padding leaves room for the value bubble shown while dragging. Rendering
+// lives in @onekeyfe/react-native-segment-slider on every platform.
 function SegmentSliderDemo({
   initialValue = 40,
   segments = 4,
   min = 0,
   max = 100,
-  snapThreshold = 6,
-  forceSnapToStep = false,
+  snapTapToSegment = false,
   centerOrigin = false,
   disabled = false,
   onChange,
@@ -26,8 +25,7 @@ function SegmentSliderDemo({
   segments?: number;
   min?: number;
   max?: number;
-  snapThreshold?: number;
-  forceSnapToStep?: boolean;
+  snapTapToSegment?: boolean;
   centerOrigin?: boolean;
   disabled?: boolean;
   onChange?: (value: number) => void;
@@ -48,8 +46,7 @@ function SegmentSliderDemo({
         segments={segments}
         min={min}
         max={max}
-        snapThreshold={snapThreshold}
-        forceSnapToStep={forceSnapToStep}
+        snapTapToSegment={snapTapToSegment}
         centerOrigin={centerOrigin}
         disabled={disabled}
       />
@@ -81,10 +78,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
 
-// Every drag/tap lands exactly on a segment mark.
-export const ForceSnap: Story = {
+// A quick tap lands on the nearest segment mark; a drag stays free.
+export const SnapTapToSegment: Story = {
   args: {
-    forceSnapToStep: true,
+    snapTapToSegment: true,
   },
 };
 

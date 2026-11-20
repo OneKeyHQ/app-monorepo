@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Я понимаю, что кошелек, созданный позже с этим аккаунтом, будет новым и не получит доступ к активам этого кошелька",
   "keyless_deletion_ack_recovery__action": "Я понимаю, что после удаления не смогу восстановить этот кошелек с помощью входа через Google или Apple и своего PIN-кода",
   "keyless_deletion_automatic_unavailable__msg": "Автоматическое удаление недоступно. Обратитесь в поддержку.",
-  "keyless_deletion_callback__msg": "Вход выполнен. Вернитесь в исходное окно, чтобы продолжить.",
+  "keyless_deletion_callback__msg": "Вернитесь в исходное окно, чтобы продолжить.",
   "keyless_deletion_cannot_continue__desc": "Обратитесь в поддержку для проверки запроса на удаление.",
   "keyless_deletion_cannot_continue__title": "Невозможно продолжить удаление",
   "keyless_deletion_check_countdown__action": "Проверить через {seconds} с",

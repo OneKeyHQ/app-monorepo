@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "이후 이 계정으로 생성하는 월렛은 새 월렛이며 이 월렛의 자산에 접근할 수 없음을 이해했습니다",
   "keyless_deletion_ack_recovery__action": "삭제 후에는 Google 또는 Apple 로그인과 PIN으로 이 월렛을 복원할 수 없음을 이해합니다",
   "keyless_deletion_automatic_unavailable__msg": "자동 삭제를 사용할 수 없습니다. 고객지원에 문의하세요.",
-  "keyless_deletion_callback__msg": "로그인되었습니다. 계속하려면 원래 창으로 돌아가세요.",
+  "keyless_deletion_callback__msg": "계속하려면 원래 창으로 돌아가세요.",
   "keyless_deletion_cannot_continue__desc": "삭제 요청을 확인하려면 고객지원에 문의하세요.",
   "keyless_deletion_cannot_continue__title": "삭제를 계속할 수 없습니다",
   "keyless_deletion_check_countdown__action": "{seconds}초 후 확인",

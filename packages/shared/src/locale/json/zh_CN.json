@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "我了解之后用此账号创建的是新钱包，无法访问此钱包的资产",
   "keyless_deletion_ack_recovery__action": "我了解删除后无法用 Google 或 Apple 登录和 PIN 恢复此钱包",
   "keyless_deletion_automatic_unavailable__msg": "无法自动删除，请联系客服。",
-  "keyless_deletion_callback__msg": "登录完成，请返回原窗口继续。",
+  "keyless_deletion_callback__msg": "请返回原窗口继续。",
   "keyless_deletion_cannot_continue__desc": "请联系客服核实删除申请。",
   "keyless_deletion_cannot_continue__title": "无法继续删除",
   "keyless_deletion_check_countdown__action": "{seconds} 秒后可查询",

@@ -6,6 +6,7 @@ import { getServerApiErrorMessage } from '@onekeyhq/shared/src/errors/utils/serv
 
 import { DeletionBusinessError } from './deletionBusinessError';
 import { otpCooldownDeadline } from './otpInputState';
+import { PopupBlockedError } from './popupBlockedError';
 import {
   DeletionError,
   OTP_RESEND_SECONDS,
@@ -93,7 +94,8 @@ export type IFlowErrorCode =
   | 'UNKNOWN'
   | 'UNSUPPORTED_CONFIRMATION'
   | 'OTP_SEND_RATE_LIMITED'
-  | 'OTP_SEND_UNCERTAIN';
+  | 'OTP_SEND_UNCERTAIN'
+  | 'POPUP_BLOCKED';
 
 type IFlowError = {
   code: IFlowErrorCode;
@@ -234,12 +236,16 @@ export function useDeletionFlow(
       const { retryAfterSeconds = defaultBackoff, supportReference } =
         protocolError?.response ?? {};
       const notice = protocolError?.notice ?? businessError?.notice;
-      const code =
-        codeOverride ??
-        protocolError?.response.code ??
-        (cause instanceof DOMException && cause.name === 'NotSupportedError'
-          ? 'UNSUPPORTED_CONFIRMATION'
-          : 'UNKNOWN');
+      let code: IFlowErrorCode = 'UNKNOWN';
+      if (codeOverride) code = codeOverride;
+      else if (protocolError) code = protocolError.response.code;
+      else if (cause instanceof PopupBlockedError) code = 'POPUP_BLOCKED';
+      else if (
+        cause instanceof DOMException &&
+        cause.name === 'NotSupportedError'
+      ) {
+        code = 'UNSUPPORTED_CONFIRMATION';
+      }
       const usesSharedToast = code === 'UNKNOWN';
       setError({
         code,
