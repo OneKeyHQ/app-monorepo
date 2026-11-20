@@ -752,6 +752,7 @@ export interface ILocalDBTransaction {
   };
   cloudAccountArchive?: {
     retain(record: IDBCloudSyncItem): Promise<void>;
+    clearArchivedRows(): Promise<void>;
   };
   bucketName: EIndexedDBBucketNames;
 }

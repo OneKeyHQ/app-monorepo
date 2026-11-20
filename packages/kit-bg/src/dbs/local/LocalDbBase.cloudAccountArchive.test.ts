@@ -435,3 +435,106 @@ it('does not create an archive on a future Web account upgrade', async () => {
     account.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
   ).toBe(false);
 });
+
+it.each([false, true])(
+  'clears active and archived sync rows, not local wallet metadata (MAS=%s)',
+  async (mas) => {
+    platformEnv.isMas = mas;
+    jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+    const writer = new LocalDbIndexed();
+    const reader = new LocalDbIndexed();
+    const { current } = rows(20);
+    const old = { ...rows(20).old, data: 'a1'.repeat(32) };
+    const otherArchive = { ...rows(22).old, data: 'c3'.repeat(32) };
+    const futureTagged = {
+      id: '00000000-0000-4000-8000-000000000030',
+      kind: 'future-non-cloud-record',
+      record: { ...old, id: 'future' },
+    };
+    const malformed = {
+      id: '00000000-0000-4000-8000-000000000031',
+      record: { ...old, id: 'malformed', data: 'not-ciphertext' },
+    };
+    const walletMetadata = {
+      id: 'wallet-local-metadata:hd-4020' as const,
+      kind: 'wallet-local-metadata' as const,
+      walletNo: 4020,
+      modifiedAt: 20,
+
+      walletType: 'hd' as const,
+      name: 'Synthetic local-only label',
+      avatar: { img: 'bear' as const },
+    };
+    const lock = {
+      ...rows(21).current,
+      dataType: EPrimeCloudSyncDataType.Lock,
+    };
+    await retainFixture(writer, wallet(20), current);
+    await writer.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      if (!tx.cloudAccountArchive || !tx.desktopWalletLocalMetadata)
+        throw new OneKeyLocalError('Expected test archive and local metadata');
+      await tx.cloudAccountArchive.retain(old);
+      await tx.cloudAccountArchive.retain(otherArchive);
+      await tx.desktopWalletLocalMetadata.write(walletMetadata);
+      await writer.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        records: [lock],
+      });
+    });
+
+    const agent = await writer.readyDb;
+    if (!(agent instanceof IndexedDBAgent))
+      throw new OneKeyLocalError('Expected test IndexedDB agent');
+    const accountDb = agent.getIndexedByBucketName(
+      EIndexedDBBucketNames.account,
+    );
+    await accountDb.put(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, futureTagged);
+    await accountDb.put(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, malformed);
+
+    // An archive removal fault must also roll back the already-attempted active
+    // pool clear, not leave half of the debug operation committed.
+    const cursorDelete = jest
+      .spyOn(globalThis.IDBCursor.prototype, 'delete')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('Injected archive removal failure');
+      });
+    await expect(writer.clearAllSyncItems()).rejects.toThrow(
+      'Injected archive removal failure',
+    );
+    cursorDelete.mockRestore();
+    expect(await reader.getSyncItemSafe({ id: current.id })).toEqual(current);
+    expect(await readArchive(reader, old.id)).toEqual([old]);
+
+    await writer.clearAllSyncItems();
+    expect(await reader.getAllSyncItems()).toEqual({ syncItems: [] });
+    expect(await readArchive(reader, old.id)).toEqual([]);
+    expect(await readArchive(reader, otherArchive.id)).toEqual([]);
+    expect(
+      await accountDb.get(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, futureTagged.id),
+    ).toEqual(futureTagged);
+    expect(
+      await accountDb.get(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, malformed.id),
+    ).toEqual(malformed);
+    expect(await reader.getSyncItemSafe({ id: lock.id })).toEqual(lock);
+    await reader.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        expect(
+          await tx.desktopWalletLocalMetadata?.read(walletMetadata.id),
+        ).toEqual(walletMetadata);
+      },
+      { readOnly: true },
+    );
+  },
+);
+
+it('still clears the active v21 pool when the archive is not available', async () => {
+  platformEnv.isDesktop = false;
+  jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+  const writer = new LocalDbIndexed();
+  const { current } = rows(23);
+  await retainFixture(writer, wallet(23), current);
+  await writer.clearAllSyncItems();
+  expect(await writer.getAllSyncItems()).toEqual({ syncItems: [] });
+});

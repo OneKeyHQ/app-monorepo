@@ -5492,16 +5492,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async clearAllSyncItems() {
-    const { syncItems } = await this.getAllSyncItems();
-    // EIndexedDBBucketNames.cloudSync
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        const { records } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.CloudSyncItem,
-          ids: syncItems.map((item) => item.id),
+          ids: records
+            .filter((item) => item.dataType !== EPrimeCloudSyncDataType.Lock)
+            .map((item) => item.id),
         });
+        await tx.cloudAccountArchive?.clearArchivedRows();
       },
     );
   }

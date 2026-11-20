@@ -1,5 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   LocalDBRecordNotFoundError,
   OneKeyLocalError,
@@ -65,6 +66,48 @@ import type {
   ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
 } from '../types';
+
+const LEGACY_CLOUD_ACCOUNT_ARCHIVE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isLegacyCloudAccountArchive(value: unknown): boolean {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    'kind' in value ||
+    Object.keys(value).length !== 2 ||
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !LEGACY_CLOUD_ACCOUNT_ARCHIVE_ID.test(value.id) ||
+    !('record' in value)
+  ) {
+    return false;
+  }
+  const { record } = value;
+  return (
+    !!record &&
+    typeof record === 'object' &&
+    'id' in record &&
+    typeof record.id === 'string' &&
+    !!record.id &&
+    'dataType' in record &&
+    record.dataType === EPrimeCloudSyncDataType.Account &&
+    'data' in record &&
+    typeof record.data === 'string' &&
+    record.data.length >= 32 &&
+    record.data.length % 2 === 0 &&
+    /^[0-9a-f]+$/i.test(record.data) &&
+    'pwdHash' in record &&
+    typeof record.pwdHash === 'string' &&
+    !!record.pwdHash &&
+    'serverUploaded' in record &&
+    record.serverUploaded === true &&
+    'localSceneUpdated' in record &&
+    record.localSceneUpdated === true &&
+    'isDeleted' in record &&
+    record.isDeleted === false
+  );
+}
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(buckets: IIndexedBucketsMap) {
@@ -366,6 +409,19 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
                     INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
                   );
                   await archive.add({ id: generateUUID(), record });
+                },
+                clearArchivedRows: async () => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  let cursor = await archive.openCursor();
+                  while (cursor) {
+                    // Never infer ownership for tagged or malformed rows.
+                    if (isLegacyCloudAccountArchive(cursor.value)) {
+                      await cursor.delete();
+                    }
+                    cursor = await cursor.continue();
+                  }
                 },
               },
             }
