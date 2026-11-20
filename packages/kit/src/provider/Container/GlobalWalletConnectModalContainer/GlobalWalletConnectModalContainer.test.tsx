@@ -9,6 +9,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { trackWalletConnectProposal } from '../../../components/WalletConnect/walletConnectProposalVisibility';
+
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 
 let mockSplitViewType = 'unknown';
@@ -16,7 +18,9 @@ let mockIsNative = true;
 const mockOverlayView = jest.fn(
   ({ children }: { children?: ReactNode; [key: string]: unknown }) => children,
 );
-const mockWalletConnectModalContainer = jest.fn(() => null);
+const mockWalletConnectModalContainer = jest.fn(
+  (_props: { suspended: boolean }) => null,
+);
 
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OverlayView: (props: { children?: ReactNode; [key: string]: unknown }) =>
@@ -44,7 +48,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock(
   '../../../components/WalletConnect/WalletConnectModalContainer',
   () => ({
-    WalletConnectModalContainer: () => mockWalletConnectModalContainer(),
+    WalletConnectModalContainer: (props: { suspended: boolean }) =>
+      mockWalletConnectModalContainer(props),
   }),
 );
 
@@ -116,6 +121,80 @@ describe('GlobalWalletConnectModalContainer', () => {
     expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
 
     view.unmount();
+  });
+
+  it.each(['already open', 'arrives during approval'])(
+    'restores the outgoing picker that was %s after approval exits',
+    async (timing) => {
+      render(<GlobalWalletConnectModalContainer />);
+      const emitPicker = () => {
+        appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
+          uri: 'wc:queued-picker',
+          attemptId: 21,
+        });
+      };
+      let endProposal = () => {};
+      if (timing === 'already open') {
+        act(emitPicker);
+        await waitFor(() =>
+          expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+            suspended: false,
+          }),
+        );
+      }
+      act(() => {
+        endProposal = trackWalletConnectProposal();
+        if (timing === 'arrives during approval') emitPicker();
+      });
+      await waitFor(() =>
+        expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+          suspended: true,
+        }),
+      );
+      expect(mockOverlayView).toHaveBeenLastCalledWith(
+        expect.objectContaining({ visible: false, keepContentMounted: true }),
+      );
+
+      act(endProposal);
+      expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+        suspended: false,
+      });
+      expect(mockOverlayView).toHaveBeenLastCalledWith(
+        expect.objectContaining({ visible: true }),
+      );
+
+      act(() => {
+        appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, {
+          attemptId: 21,
+        });
+      });
+    },
+  );
+
+  it('does not restore a pairing that finished during the proposal', async () => {
+    render(<GlobalWalletConnectModalContainer />);
+    let endProposal = () => {};
+    act(() => {
+      endProposal = trackWalletConnectProposal();
+      appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
+        uri: 'wc:finished-pairing',
+        attemptId: 22,
+      });
+    });
+    await waitFor(() =>
+      expect(mockWalletConnectModalContainer).toHaveBeenLastCalledWith({
+        suspended: true,
+      }),
+    );
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, {
+        attemptId: 22,
+      });
+    });
+    const renderCount = mockOverlayView.mock.calls.length;
+    act(endProposal);
+
+    expect(mockOverlayView).toHaveBeenCalledTimes(renderCount);
   });
 
   it('clears the pairing payload and unmounts the overlay on WalletConnectCloseModal', async () => {

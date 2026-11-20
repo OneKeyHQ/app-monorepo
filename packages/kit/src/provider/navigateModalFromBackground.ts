@@ -1,9 +1,8 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import {
+import type {
   EAppEventBusNames,
-  appEventBus,
+  IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
@@ -30,14 +29,6 @@ export function navigateModalFromBackground(
     void import('../components/WalletConnect/connectWalletConnectToDapp')
       .then(({ closeWalletConnectConnectionProgress }) =>
         closeWalletConnectConnectionProgress(),
-      )
-      .catch(() => undefined);
-    // Close any open DApp-side WalletConnect modal programmatically so its
-    // overlay/backdrop does not cover the incoming proposal without aborting
-    // the pending pairing.
-    void Promise.resolve()
-      .then(() =>
-        appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, undefined),
       )
       .catch(() => undefined);
   }

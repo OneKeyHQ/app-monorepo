@@ -1,16 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 
 import hooks from './WalletConnectModal';
 
 const { useModal } = hooks;
 
-export function WalletConnectModalContainer() {
+export function WalletConnectModalContainer({
+  suspended,
+}: {
+  suspended: boolean;
+}) {
   const { modal, openModal, closeModal } = useModal();
   const activeAttemptIdRef = useRef<number | undefined>(undefined);
 
@@ -56,5 +61,13 @@ export function WalletConnectModalContainer() {
     };
   }, [closeModal, openModal]);
 
-  return modal;
+  useLayoutEffect(() => {
+    if (suspended) {
+      dismissKeyboard();
+    }
+  }, [suspended]);
+
+  // Unmount the view to release AppKit's Android back handler. Keep the
+  // controller subscribed so only real pairing events can close the picker.
+  return suspended ? null : modal;
 }

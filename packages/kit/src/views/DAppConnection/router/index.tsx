@@ -1,8 +1,12 @@
+import { useLayoutEffect } from 'react';
+
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
 import { EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { trackWalletConnectProposal } from '../../../components/WalletConnect/walletConnectProposalVisibility';
 
 const ConnectionList = LazyLoadPage(() => import('../pages/ConnectionList'));
 
@@ -12,9 +16,21 @@ const SignMessageModal = LazyLoadPage(
   () => import('../pages/SignMessageModal'),
 );
 
-const WalletConnectSessionProposalModal = LazyLoadPage(
+const WalletConnectSessionProposalPage = LazyLoadPage(
   () => import('../pages/WalletConnect/WCSessionProposalModal'),
 );
+
+function WalletConnectSessionProposalModal() {
+  // Track the screen itself, including the lazy fallback and nested approvals.
+  // This covers both direct navigation and background-relayed proposals.
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      return trackWalletConnectProposal();
+    }
+  }, []);
+
+  return <WalletConnectSessionProposalPage />;
+}
 
 // For Extension Only
 const CurrentConnectionModal = LazyLoadPage(

@@ -10,6 +10,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  isWalletConnectProposalOpen,
+  subscribeWalletConnectProposalVisibility,
+} from '../../../components/WalletConnect/walletConnectProposalVisibility';
+
 import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
 
 // AppKit's react-native-modal runs its own slide/fade animation inside the host.
@@ -111,11 +116,18 @@ function WalletConnectModalGate() {
     getPendingPayload,
   );
 
+  const proposalOpen = useSyncExternalStore(
+    subscribeWalletConnectProposalVisibility,
+    isWalletConnectProposalOpen,
+    isWalletConnectProposalOpen,
+  );
+  const suspended = Boolean(platformEnv.isNative && proposalOpen);
+
   if (splitViewType === ESplitViewType.MAIN || !payload) return null;
 
   const content = (
     <Suspense fallback={null}>
-      <WalletConnectModalContainerLazy />
+      <WalletConnectModalContainerLazy suspended={suspended} />
       <ReplayWalletConnectEvent payload={payload} />
     </Suspense>
   );
@@ -127,7 +139,8 @@ function WalletConnectModalGate() {
   if (platformEnv.isNative) {
     return (
       <OverlayView
-        visible
+        visible={!suspended}
+        keepContentMounted
         level="modal"
         presentation="fullscreen"
         animation={WALLET_CONNECT_OVERLAY_ANIMATION}

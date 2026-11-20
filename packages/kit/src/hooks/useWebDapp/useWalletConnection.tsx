@@ -14,6 +14,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import {
+  isWalletConnectProposalOpen,
+  subscribeWalletConnectProposalVisibility,
+} from '../../components/WalletConnect/walletConnectProposalVisibility';
 import { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectToWalletDialogContent';
 
 import { useConnectExternalWallet } from './useConnectExternalWallet';
@@ -39,6 +43,7 @@ export function useWalletConnection({
 
   const dialogRef = useRef<IDialogInstance | null>(null);
   const connectionGenerationRef = useRef(0);
+  const preparingDismissalRef = useRef(0);
   const isMountedRef = useRef(true);
   const shouldCancelWalletConnectOnDialogCloseRef = useRef(false);
 
@@ -75,6 +80,16 @@ export function useWalletConnection({
       appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
     };
   }, [hideLoading, isWalletConnect, loading]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative || !isWalletConnect) return;
+    return subscribeWalletConnectProposalVisibility(() => {
+      if (isWalletConnectProposalOpen()) {
+        preparingDismissalRef.current += 1;
+        void closeDialogWithoutCancelling().catch(() => undefined);
+      }
+    });
+  }, [closeDialogWithoutCancelling, isWalletConnect]);
 
   useEffect(() => {
     const fn = async (state: { open: boolean; attemptId?: number }) => {
@@ -118,16 +133,12 @@ export function useWalletConnection({
     }
     connectionGenerationRef.current += 1;
     const generation = connectionGenerationRef.current;
+    const preparingDismissal = preparingDismissalRef.current;
     const closeOwnedDialog = async () => {
       if (generation === connectionGenerationRef.current) {
         await closeDialogWithoutCancelling();
       }
     };
-    let shouldShowDialogLoading = true;
-    if (platformEnv.isNative && isWalletConnect) {
-      // shouldShowDialogLoading = false;
-      shouldShowDialogLoading = true;
-    }
     // Don't check loading state - let user try again if needed
     await closeDialogWithoutCancelling();
 
@@ -144,7 +155,12 @@ export function useWalletConnection({
       return;
     }
 
-    if (shouldShowDialogLoading) {
+    if (
+      !platformEnv.isNative ||
+      !isWalletConnect ||
+      (!isWalletConnectProposalOpen() &&
+        preparingDismissal === preparingDismissalRef.current)
+    ) {
       shouldCancelWalletConnectOnDialogCloseRef.current = true;
       dialogRef.current = Dialog.show({
         title:

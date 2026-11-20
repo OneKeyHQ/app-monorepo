@@ -657,9 +657,8 @@ it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
 
     expect(mockSnapshot.connected).toBe(false);
     expect(dialog.close).toHaveBeenCalledTimes(1);
-    expect(emitSpy).toHaveBeenCalledWith(
+    expect(emitSpy.mock.calls.map(([event]) => event)).not.toContain(
       EAppEventBusNames.WalletConnectCloseModal,
-      undefined,
     );
     emitSpy.mockRestore();
     closing.resolve();
@@ -793,9 +792,8 @@ it.each([
   await act(async () => {});
 
   expect(mockDialogs[0].close).not.toHaveBeenCalled();
-  expect(emitSpy).not.toHaveBeenCalledWith(
+  expect(emitSpy.mock.calls.map(([event]) => event)).not.toContain(
     EAppEventBusNames.WalletConnectCloseModal,
-    expect.anything(),
   );
   emitSpy.mockRestore();
   expect(mockNavigate).toHaveBeenCalledWith(route.screen, navigation.params);
