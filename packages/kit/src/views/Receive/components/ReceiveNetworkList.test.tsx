@@ -38,6 +38,7 @@ let mockAccountsInfo: Array<{
 }> = [];
 let mockSectionListDataSet: Record<string, string> | undefined;
 let mockSectionListNestedScrollEnabled: boolean | undefined;
+let mockSectionListStickyHeaders: boolean | undefined;
 const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
@@ -76,6 +77,7 @@ jest.mock('@onekeyhq/components', () => {
     testID,
     dataSet,
     nestedScrollEnabled,
+    stickySectionHeadersEnabled,
   }: {
     sections: Array<{ title?: string; data: IServerNetwork[] }>;
     renderItem: (info: { item: IServerNetwork }) => ReactNode;
@@ -84,9 +86,11 @@ jest.mock('@onekeyhq/components', () => {
     testID?: string;
     dataSet?: Record<string, string>;
     nestedScrollEnabled?: boolean;
+    stickySectionHeadersEnabled?: boolean;
   }) => {
     mockSectionListDataSet = dataSet;
     mockSectionListNestedScrollEnabled = nestedScrollEnabled;
+    mockSectionListStickyHeaders = stickySectionHeadersEnabled;
     return React.createElement(
       'div',
       { 'data-testid': testID },
@@ -347,6 +351,7 @@ describe('ReceiveNetworkList', () => {
     platformEnv.isNativeAndroid = false;
     mockSectionListDataSet = undefined;
     mockSectionListNestedScrollEnabled = undefined;
+    mockSectionListStickyHeaders = undefined;
     mockAccountsInfo = [
       {
         networkId: 'evm--1',
@@ -409,6 +414,23 @@ describe('ReceiveNetworkList', () => {
         renderList({ mode });
       });
       expect(!!mockSectionListNestedScrollEnabled).toBe(expected);
+    },
+  );
+
+  // A sticky title pins to the top of the list, where the native pager keeps
+  // the search box: iOS draws the title over the box.
+  it.each([
+    [false, 'tab', true],
+    [true, 'selector', true],
+    [true, 'tab', false],
+  ] as const)(
+    'keeps section titles sticky outside the native pager tab with native=%s mode=%s',
+    async (isNative, mode, expected) => {
+      platformEnv.isNative = isNative;
+      await act(async () => {
+        renderList({ mode });
+      });
+      expect(mockSectionListStickyHeaders).toBe(expected);
     },
   );
 

@@ -648,7 +648,10 @@ export function ReceiveNetworkList({
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}
       estimatedItemSize={60}
-      stickySectionHeadersEnabled
+      // A sticky title pins to the top of the list's own frame. Inside the
+      // native pager that edge belongs to the pinned search box: iOS draws
+      // the title over the box, Android hides it behind the box.
+      stickySectionHeadersEnabled={!(platformEnv.isNative && mode === 'tab')}
       sections={sections}
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
