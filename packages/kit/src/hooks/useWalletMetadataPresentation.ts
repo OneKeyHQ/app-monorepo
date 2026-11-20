@@ -25,7 +25,7 @@ export function useWalletMetadataPresentation(
       });
     },
     [walletId, shouldRead],
-    { initResult: undefined },
+    { initResult: undefined, revalidateOnFocus: true },
   );
   useEffect(() => {
     if (!shouldRead) return;
