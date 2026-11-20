@@ -314,11 +314,13 @@ function BaseHomePageView({
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
   const { md: isSmallScreen, gtXl } = useMedia();
-  // Web and desktop dock the trade column on the right from 1280 on, and the
-  // content beside it narrows to the docked width. The extension keeps the
-  // Swap modal.
+  // Web, desktop and the extension's expanded view dock the trade column on
+  // the right from 1280 on, and the content beside it narrows to the docked
+  // width. The extension's popup and side panel keep the Swap modal.
   const canDockTradeColumn = Boolean(
-    platformEnv.isWeb || platformEnv.isDesktop,
+    platformEnv.isWeb ||
+    platformEnv.isDesktop ||
+    platformEnv.isExtensionUiExpandTab,
   );
   const dockTradeColumn = canDockTradeColumn && gtXl;
   const { activeAccount } = useActiveAccount({ num: 0 });
