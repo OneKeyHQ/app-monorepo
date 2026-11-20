@@ -74,6 +74,20 @@ export const findLnurl = memoizee(
   },
 );
 
+// BOLT 11 recommends `lightning:` as the URI prefix of an invoice. It says not
+// to use `lightning://`, which some generators emit anyway.
+const LIGHTNING_URI_SCHEME = /^lightning:(\/\/)?/i;
+// QR codes carry bech32 in upper case. A bech32 string is either all lower or
+// all upper case, so a mixed case one is left as is for the decoder to reject.
+const UPPER_CASE_BECH32 = /^LN[0-9A-Z]+$/;
+
+// Reduces what a user scans or pastes to the bare invoice, LNURL or lightning
+// address it carries.
+export const normalizeLightningInput = (input: string): string => {
+  const payload = input.trim().replace(LIGHTNING_URI_SCHEME, '');
+  return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
+};
+
 export const isReusableLightningRecipient = (input?: string): boolean => {
   if (!input) return false;
   return isLightningAddress(input) || !!findLnurl(input);

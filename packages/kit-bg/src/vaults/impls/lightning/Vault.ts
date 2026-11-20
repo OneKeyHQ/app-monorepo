@@ -34,6 +34,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeLightningInput } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -400,7 +401,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async validateAddress(address: string): Promise<IAddressValidation> {
+  override async validateAddress(input: string): Promise<IAddressValidation> {
+    const address = normalizeLightningInput(input);
     if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
       try {
         const { isTestnet } = await this.getNetwork();
