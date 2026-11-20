@@ -26,12 +26,7 @@ import { KEYLESS_DELETION_SUPPORT_EMAIL } from './paths';
 import { SignInErrorDialog } from './SignInErrorDialog';
 import { useDeletionFlow } from './useDeletionFlow';
 
-import type {
-  IActiveChallenge,
-  IProvider,
-  IResult,
-  IWarningCode,
-} from './protocol';
+import type { IProvider, IResult, IWarningCode } from './protocol';
 import type {
   IBusinessAuth,
   IFlowErrorCode,
@@ -92,14 +87,6 @@ const errorMessages: Partial<Record<IFlowErrorCode, ETranslations>> = {
 
 function platformName(provider: IProvider) {
   return provider === 'google' ? 'Google' : 'Apple';
-}
-
-function challengeMinutes(challenge: IActiveChallenge) {
-  const lifetime =
-    Date.parse(challenge.expiresAt) - Date.parse(challenge.serverTime);
-  return Number.isFinite(lifetime) && lifetime > 0
-    ? Math.max(1, Math.round(lifetime / 60_000))
-    : undefined;
 }
 
 type IActionProps = {
@@ -385,7 +372,8 @@ function ConfirmStep({
       onSubmitEditing={submit}
     />
   );
-  const minutes = challenge ? challengeMinutes(challenge) : undefined;
+  // Remaining validity, not the original lifetime; omitted once expired.
+  const minutes = challengeTime > 0 ? Math.ceil(challengeTime / 60) : 0;
   const delivery = challenge ? (
     <SizableText
       color="$textSubdued"
@@ -546,7 +534,7 @@ function ConfirmStep({
             {intl.formatMessage({
               id:
                 review.uncertainDeletion === 'not_found'
-                  ? ETranslations.keyless_deletion_retry__desc
+                  ? ETranslations.keyless_deletion_status_unknown__desc
                   : ETranslations.keyless_deletion_unknown__desc,
             })}
           </SizableText>

@@ -1123,6 +1123,8 @@ async function main() {
         );
       },
     );
+    const observedMessage =
+      'Unable to process this request. Refresh the page and try again.';
     await scenario(
       'wire HTTP 200 / 90915 reproduces the reported text and retries the same invitation only',
       {
