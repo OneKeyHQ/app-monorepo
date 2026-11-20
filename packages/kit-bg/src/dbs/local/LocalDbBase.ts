@@ -176,6 +176,7 @@ import {
   publicAccountIdentityEqual,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
+  foreignAccountDeletionError,
   getForeignAccountDeletion,
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
@@ -10669,9 +10670,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const first = foreign[0];
     if (!first) return transaction();
     if (foreign.some((intent) => intent.credential !== first.credential))
-      throw new OneKeyLocalError(
-        'Cloud account deletion has inconsistent scope.',
-      );
+      throw foreignAccountDeletionError('scope');
     const keyless = this.backgroundApi.serviceKeylessCloudSync;
     // Public removal is already running under the key lock. Follow the
     // key → import → repair order, and take repair only for the IDB work.
@@ -10685,9 +10684,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ),
     );
     if (!committed) {
-      throw new OneKeyLocalError(
-        'Cloud sync changed before account deletion. Try removing the account again.',
-      );
+      throw foreignAccountDeletionError('session');
     }
   }
 
@@ -10731,9 +10728,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Wallet,
         ids: [walletId],
       });
-      const invalid = new OneKeyLocalError(
-        'Synced account data changed before deletion. Try removing the account again.',
-      );
+      const invalid = foreignAccountDeletionError('local-change');
       if (
         !tx.cloudAccountArchive ||
         !current ||

@@ -41,6 +41,7 @@ import {
   publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
 import {
+  foreignAccountDeletionError,
   rememberForeignAccountDeletion,
   rememberPublicAccountSnapshotWrite,
   removeUnsyncedPublicAccountSnapshot,
@@ -206,9 +207,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
             isInactiveHardwareWalletAccount(existing, credential.pwdHash)
           ) {
             if (!canArchiveForeignAccountCopy(existing, credential.pwdHash)) {
-              throw new OneKeyLocalError(
-                'This account has a pending change in another Cloud space. Its original data has been preserved.',
-              );
+              throw foreignAccountDeletionError('foreign-pending');
             }
             // A foreign row's timestamp and payload do not belong to this
             // space. The tombstone is rebuilt from the local account identity.
@@ -222,9 +221,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
               built.id !== key ||
               built.pwdHash !== credential.pwdHash
             ) {
-              throw new OneKeyLocalError(
-                'Cloud account deletion could not be prepared.',
-              );
+              throw foreignAccountDeletionError('prepare');
             }
             built.rawData = '';
             return rememberForeignAccountDeletion(built, {

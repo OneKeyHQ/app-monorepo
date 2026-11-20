@@ -1,9 +1,18 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { IDBFactory } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
+import { createIntl } from 'react-intl';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { getLocaleMessages } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -325,3 +334,43 @@ it.each([
     expect(h.syncLater).not.toHaveBeenCalled();
   },
 );
+
+it('sends the localized rejection through the account-removal toast path', async () => {
+  const key = ETranslations.global_unknown_error_retry_message;
+  const messages = await getLocaleMessages('zh-CN');
+  const localizedMessage = messages[key];
+  jest.replaceProperty(
+    appLocale,
+    'intl',
+    createIntl({ locale: 'zh-CN', messages }),
+  );
+  const emit = jest.spyOn(appEventBus, 'emit');
+  const h = await fixture({ refuseAuthority: true });
+
+  const error = await h.remove().catch((reason: unknown) => reason);
+  expect(error).toMatchObject({
+    key,
+    message: localizedMessage,
+    cause: { message: 'Cloud account deletion rejected: session' },
+  });
+  errorToastUtils.toastIfError(error);
+  errorToastUtils.showToastOfError(error);
+  errorToastUtils.showToastOfError(error);
+  await Promise.resolve();
+  const toasts = emit.mock.calls.filter(
+    ([event]) => event === EAppEventBusNames.ShowToast,
+  );
+  expect(toasts).toEqual([
+    [
+      EAppEventBusNames.ShowToast,
+      expect.objectContaining({ title: localizedMessage, i18nKey: key }),
+    ],
+  ]);
+  expect(toasts[0]?.[1]).not.toHaveProperty('cause');
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+  expect(await archived(h.other)).toEqual([]);
+  expect(
+    await h.other.getAccountSafe({ accountId: h.account.id }),
+  ).toBeTruthy();
+  expect(h.syncLater).not.toHaveBeenCalled();
+});
