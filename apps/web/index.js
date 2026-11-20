@@ -1,25 +1,41 @@
 import '@onekeyhq/shared/src/polyfills';
 
 import { getKeylessEntry } from './src/keylessDeletion/entry';
-import { messages } from './src/keylessDeletion/messages';
+import { KEYLESS_DELETION_SUPPORT_EMAIL } from './src/keylessDeletion/paths';
 
-function showKeylessLoadError(root) {
+async function showKeylessLoadError(root) {
   const notice = globalThis.document.createElement('p');
   notice.role = 'alert';
-  notice.textContent = messages.linkLoadFailed;
+  // English fallbacks stay visible if the locale catalogue itself fails to load.
+  notice.textContent = 'Unable to Open Deletion Link';
   const retry = globalThis.document.createElement('button');
   retry.type = 'button';
-  retry.textContent = messages.startupRetry;
+  retry.textContent = 'Retry';
   retry.onclick = () => globalThis.location.reload();
-  root.replaceChildren(notice, retry);
-  void import('./src/keylessDeletion/localePreference')
-    .then(({ loadStartupRetryLabel }) => loadStartupRetryLabel())
-    .then((label) => {
-      if (label) retry.textContent = label;
-    })
-    .catch(() => {
-      // Keep the retry action available when translation resources fail to load.
-    });
+  const contact = globalThis.document.createElement('p');
+  const email = globalThis.document.createElement('a');
+  email.href = `mailto:${KEYLESS_DELETION_SUPPORT_EMAIL}`;
+  email.textContent = KEYLESS_DELETION_SUPPORT_EMAIL;
+  contact.append('Need help? Email ', email);
+  root.replaceChildren(notice, retry, contact);
+  try {
+    const [{ readPreferredLocale }, { createSupportContact, loadStartupText }] =
+      await Promise.all([
+        import('./src/keylessDeletion/localePreference'),
+        import('./src/keylessDeletion/startupText'),
+      ]);
+    const locale = await readPreferredLocale();
+    const [title, label, template] = await Promise.all([
+      loadStartupText('loadFailed', locale),
+      loadStartupText('retry', locale),
+      loadStartupText('contact', locale),
+    ]);
+    if (title) notice.textContent = title;
+    if (label) retry.textContent = label;
+    if (template) contact.replaceWith(createSupportContact(template));
+  } catch {
+    // Keep the retry action available when translation resources fail to load.
+  }
 }
 
 async function openKeylessRoute(root, kind) {
@@ -27,15 +43,20 @@ async function openKeylessRoute(root, kind) {
   await import(
     /* webpackMode: "eager" */ '@onekeyhq/shared/src/security/sesHarden/installWeb'
   );
-  if (kind === 'callback') {
-    root.textContent = messages.callback;
-    return;
-  }
-
+  // The callback URL carries the OAuth code, so set this before loading chunks.
   const referrer = globalThis.document.createElement('meta');
   referrer.name = 'referrer';
   referrer.content = 'no-referrer';
   globalThis.document.head.append(referrer);
+  if (kind === 'callback') {
+    // The opener closes this popup; the text only helps if it stays open.
+    root.textContent =
+      (await import('./src/keylessDeletion/startupText')
+        .then(({ loadStartupText }) => loadStartupText('callback'))
+        .catch(() => undefined)) ?? '';
+    return;
+  }
+
   globalThis.document
     .querySelector('meta[name="viewport"]')
     ?.setAttribute(
