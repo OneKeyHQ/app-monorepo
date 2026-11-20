@@ -639,6 +639,11 @@ export function ReceiveNetworkList({
           ? { 'collapsible-pager-scroll': 'true' }
           : undefined
       }
+      // The Android pager collapses its header through nested scrolling,
+      // which a React Native ScrollView joins only when asked to. Left off,
+      // the segment never collapses and the last rows stay cut off below
+      // the screen.
+      nestedScrollEnabled={platformEnv.isNativeAndroid && mode === 'tab'}
       onScroll={listProps?.onScroll}
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}
