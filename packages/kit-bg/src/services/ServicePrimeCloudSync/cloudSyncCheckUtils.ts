@@ -59,7 +59,8 @@ export function isRetainedHardwareCloudCopy(
     isInactiveHardwareWalletAccount(item, activePwdHash) &&
     !!item.data &&
     item.serverUploaded &&
-    !item.isDeleted &&
+    // A tombstone may still need scene application even after server ACK.
+    (!item.isDeleted || item.localSceneUpdated) &&
     !item.pendingPublicAccountDeletionAt
   );
 }

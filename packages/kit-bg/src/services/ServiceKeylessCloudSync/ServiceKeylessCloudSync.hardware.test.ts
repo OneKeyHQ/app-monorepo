@@ -1492,6 +1492,91 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([
+    ['unreadable cache', true, false, true, true, undefined, true],
+    ['settled tombstone', false, true, true, true, undefined, true],
+    ['unapplied tombstone', false, true, false, true, undefined, false],
+    ['unsent tombstone', false, true, true, false, undefined, false],
+    ['pending removal', true, true, true, true, 200, false],
+  ] as const)(
+    'same-source restore preserves %s without treating it as a new upload',
+    async (
+      _scenario,
+      knownHistory,
+      isDeleted,
+      localSceneUpdated,
+      serverUploaded,
+      pendingPublicAccountDeletionAt,
+      canRestore,
+    ) => {
+      const { service, backgroundApi } = setup([
+        {
+          dataType: EPrimeCloudSyncDataType.Account,
+          pwdHash: 'hw-dek-old',
+          data: 'public-test-old-ciphertext',
+          rawData: '{unreadable-cache',
+          isDeleted,
+          localSceneUpdated,
+          serverUploaded,
+          pendingPublicAccountDeletionAt,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: 'public-test-current-key',
+        dekId: 'public-test-dek',
+        pwdHash: 'hw-dek-current',
+        generation: 4,
+        previousPwdHashes: knownHistory ? ['hw-dek-old'] : [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({
+            credential: {
+              ...credential,
+              pwdHash: 'hw-dek-current',
+              signingPrivateKey: '',
+              signingPublicKey: '',
+            },
+            source,
+          }),
+        );
+      const { items } =
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+      const before = structuredClone(items);
+      const write = jest.spyOn(localDb, 'updateSyncItem');
+      try {
+        const restore = service.enableHardwareCloudSync({ connectId });
+        if (canRestore) {
+          await expect(restore).resolves.toBeUndefined();
+          expect(
+            backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+          ).toHaveBeenCalledWith(
+            expect.objectContaining({ onlyAddMissing: true }),
+          );
+          expect(
+            backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+          ).toHaveBeenCalledTimes(1);
+        } else {
+          await expect(restore).rejects.toThrow();
+          expect(
+            keylessSyncCredentialStorage.saveCredential,
+          ).not.toHaveBeenCalled();
+          expect(
+            backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+          ).not.toHaveBeenCalled();
+        }
+        expect(items).toEqual(before);
+        expect(write).not.toHaveBeenCalled();
+      } finally {
+        write.mockRestore();
+      }
+    },
+  );
+
   test('rejects cancelled and failed hardware results before persisting anything', async () => {
     const { service } = setup();
     jest

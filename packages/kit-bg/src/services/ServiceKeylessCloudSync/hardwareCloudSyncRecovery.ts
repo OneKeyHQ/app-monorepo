@@ -60,6 +60,7 @@ export async function prepareHardwareCloudSyncLocalRecovery({
   const recovered: IRecoveredItem[] = [];
   const isKnownOpaqueCopy = (item: IDBCloudSyncItem) =>
     !item.rawData &&
+    !item.isDeleted &&
     !!item.rawKey &&
     item.localSceneUpdated &&
     knownPwdHashes.has(item.pwdHash) &&
@@ -95,6 +96,9 @@ export async function prepareHardwareCloudSyncLocalRecovery({
     const canRetainCiphertext =
       !item.rawData && item.data && knownPwdHashes.has(item.pwdHash);
     return (
+      // An encrypted old-space server copy can have stale or corrupt cached
+      // plaintext. Retain it unless the scoped loader above rebuilt it.
+      !isRetainedHardwareCloudCopy(item, currentHash) &&
       !canRetainCiphertext &&
       (!item.pwdHash ||
         knownPwdHashes.has(item.pwdHash) ||
