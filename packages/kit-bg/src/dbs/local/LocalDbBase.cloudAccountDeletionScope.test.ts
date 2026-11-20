@@ -1,18 +1,9 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { IDBFactory } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
-import { createIntl } from 'react-intl';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { getLocaleMessages } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -70,10 +61,14 @@ const syncCredential: ICloudSyncCredential = {
 
 async function fixture({
   refuseAuthority = false,
+  rejectPreflight = false,
+  missingCredential = false,
   beforeTime,
   foreign,
 }: {
   refuseAuthority?: boolean;
+  rejectPreflight?: boolean;
+  missingCredential?: boolean;
   beforeTime?: (
     db: LocalDbIndexed,
     id: string,
@@ -122,6 +117,8 @@ async function fixture({
     serviceKeylessCloudSync: {
       runWithCloudSyncKeyLock: async <T>(fn: () => Promise<T>) => {
         stages.push('key');
+        if (rejectPreflight)
+          throw new OneKeyLocalError('Fixture storage unreadable');
         return fn();
       },
       runWithCloudAccountImportLock: async <T>(fn: () => Promise<T>) => {
@@ -138,7 +135,8 @@ async function fixture({
       },
     },
     servicePrimeCloudSync: {
-      getSyncCredentialSafe: async () => syncCredential,
+      getSyncCredentialSafe: async () =>
+        missingCredential ? undefined : syncCredential,
       getCloudSyncDataTime,
       startServerSyncFlowSilently: syncLater,
       syncManagers: managers,
@@ -272,12 +270,17 @@ it.each([
   'business-identity-changed',
   'transaction-aborted',
   'prior-intent',
+  'preflight',
+  'missing-credential',
+  'preparation',
 ] as const)(
-  'preserves the original foreign row and does not pretend to delete or upload: %s',
+  'preserves foreign rows and conditionally commits only local removal: %s',
   async (scenario) => {
     let newest: IDBCloudSyncItem | undefined;
     const h = await fixture({
       refuseAuthority: scenario === 'revoked',
+      rejectPreflight: scenario === 'preflight',
+      missingCredential: scenario === 'missing-credential',
       foreign:
         scenario === 'prior-intent'
           ? {
@@ -286,6 +289,8 @@ it.each([
             }
           : undefined,
       beforeTime: async (other, id, accountId) => {
+        if (scenario === 'preparation')
+          throw new OneKeyLocalError('Fixture Cloud preparation failed');
         if (scenario === 'foreign-row-changed') {
           await other.updateSyncItem({
             ids: [id],
@@ -323,54 +328,26 @@ it.each([
           throw new OneKeyLocalError('Forced abort after local account write');
       });
     }
-    await expect(h.remove()).rejects.toThrow();
+    const localCommitted = scenario !== 'transaction-aborted';
+    if (localCommitted) {
+      await expect(h.remove()).resolves.toBeUndefined();
+    } else {
+      await expect(h.remove()).rejects.toThrow(
+        'Forced abort after local account write',
+      );
+    }
     expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(
       newest ?? h.old,
     );
     expect(await archived(h.other)).toEqual([]);
     expect(
-      await h.other.getAccountSafe({ accountId: h.account.id }),
-    ).toBeTruthy();
+      Boolean(await h.other.getAccountSafe({ accountId: h.account.id })),
+    ).toBe(!localCommitted);
+    expect(
+      (await h.other.getWallet({ walletId: h.wallet.id })).accounts.includes(
+        h.account.id,
+      ),
+    ).toBe(!localCommitted);
     expect(h.syncLater).not.toHaveBeenCalled();
   },
 );
-
-it('sends the localized rejection through the account-removal toast path', async () => {
-  const key = ETranslations.global_unknown_error_retry_message;
-  const messages = await getLocaleMessages('zh-CN');
-  const localizedMessage = messages[key];
-  jest.replaceProperty(
-    appLocale,
-    'intl',
-    createIntl({ locale: 'zh-CN', messages }),
-  );
-  const emit = jest.spyOn(appEventBus, 'emit');
-  const h = await fixture({ refuseAuthority: true });
-
-  const error = await h.remove().catch((reason: unknown) => reason);
-  expect(error).toMatchObject({
-    key,
-    message: localizedMessage,
-    cause: { message: 'Cloud account deletion rejected: session' },
-  });
-  errorToastUtils.toastIfError(error);
-  errorToastUtils.showToastOfError(error);
-  errorToastUtils.showToastOfError(error);
-  await Promise.resolve();
-  const toasts = emit.mock.calls.filter(
-    ([event]) => event === EAppEventBusNames.ShowToast,
-  );
-  expect(toasts).toEqual([
-    [
-      EAppEventBusNames.ShowToast,
-      expect.objectContaining({ title: localizedMessage, i18nKey: key }),
-    ],
-  ]);
-  expect(toasts[0]?.[1]).not.toHaveProperty('cause');
-  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
-  expect(await archived(h.other)).toEqual([]);
-  expect(
-    await h.other.getAccountSafe({ accountId: h.account.id }),
-  ).toBeTruthy();
-  expect(h.syncLater).not.toHaveBeenCalled();
-});

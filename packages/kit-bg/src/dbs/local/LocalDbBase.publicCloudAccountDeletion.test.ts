@@ -1,7 +1,10 @@
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectMasterPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -447,13 +450,76 @@ describe('public account deletion tombstones', () => {
     expect(db.syncFlow).not.toHaveBeenCalled();
   });
 
+  test('a stalled Cloud preflight cannot delay or repeat local removal', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    const release = Promise.withResolvers<void>();
+    const finished = Promise.withResolvers<void>();
+    db.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock = async (
+      operation,
+    ) => {
+      await release.promise;
+      try {
+        return await operation();
+      } finally {
+        finished.resolve();
+      }
+    };
+    const transaction = jest.spyOn(db, 'txRemoveRecords');
+    const removal = db.removeAccount({
+      accountId: record.id,
+      walletId: 'hd-1',
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(removal).resolves.toBeUndefined();
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    release.resolve();
+    await finished.promise;
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(db.buildTombstone).not.toHaveBeenCalled();
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test('local deletion without a verified credential leaves the old Cloud row intact', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { xfp: PUBLIC_ACCOUNT_TEST_XFP, accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    const manager = attachRealSnapshotManager(db);
+    const original = await manager.buildSyncItemByDBQuery({
+      dbRecord: record,
+      isDeleted: false,
+      dataTime: undefined,
+      syncCredential: realManagerFixtureCredential,
+    });
+    if (!original) throw new OneKeyLocalError('Missing real manager fixture');
+    const old = { ...original, serverUploaded: true };
+    db.put(ELocalDBStoreNames.CloudSyncItem, old);
+    db.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe = async () =>
+      undefined;
+    await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
+    expect(db.read(ELocalDBStoreNames.CloudSyncItem, old.id)).toEqual(old);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
   test.each([
     'single account',
     'bulk accounts',
     'single index',
     'bulk indexes',
   ] as const)(
-    'a concurrent newer pool row rolls back %s deletion, including other tombstones in the batch',
+    'a concurrent newer pool row rolls back Cloud writes but not %s deletion',
     async (mode) => {
       const db = new DeletionTestDb();
       const records = mode.startsWith('bulk')
@@ -518,31 +584,42 @@ describe('public account deletion tombstones', () => {
             return indexed;
           }),
         });
-      await expect(remove).rejects.toThrow('Synced account data changed');
+      await expect(remove).resolves.toBeUndefined();
+      const removedAccount =
+        mode.endsWith('account') || mode.endsWith('accounts');
       expect(
         db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
-      ).toEqual(records.map((record) => record.id));
+      ).toEqual(removedAccount ? [] : records.map((record) => record.id));
       for (const record of records) {
-        expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
-        expect(
-          db.read(
-            ELocalDBStoreNames.IndexedAccount,
-            record.indexedAccountId ?? '',
-          ),
-        ).toBeDefined();
-      }
-      for (const original of originals)
-        expect(db.read(ELocalDBStoreNames.CloudSyncItem, original.id)).toEqual(
-          original.id === last.id ? newer : original,
+        const localAccount = db.read(ELocalDBStoreNames.Account, record.id);
+        const localIndex = db.read(
+          ELocalDBStoreNames.IndexedAccount,
+          record.indexedAccountId ?? '',
         );
-      if (mode.startsWith('bulk'))
-        expect(db.syncPoolWriteAttempts).toContain(originals[0].id);
+        expect(localAccount).toEqual(removedAccount ? undefined : record);
+        expect(Boolean(localIndex)).toBe(removedAccount);
+      }
+      expect(db.read(ELocalDBStoreNames.CloudSyncItem, last.id)).toEqual(newer);
+      if (mode.startsWith('bulk')) {
+        const retained = db.read<IDBCloudSyncItem>(
+          ELocalDBStoreNames.CloudSyncItem,
+          originals[0].id,
+        );
+        expect(retained).toMatchObject({
+          isDeleted: true,
+          serverUploaded: false,
+        });
+      }
       await jest.advanceTimersByTimeAsync(1000);
-      expect(db.syncFlow).not.toHaveBeenCalled();
+      if (mode.startsWith('bulk')) {
+        expect(db.syncFlow).toHaveBeenCalledTimes(1);
+      } else {
+        expect(db.syncFlow).not.toHaveBeenCalled();
+      }
     },
   );
 
-  test('a tombstone declined by timestamp ordering rolls back a partially written deletion batch', async () => {
+  test('timestamp ordering rolls back a partial Cloud batch but commits local removal', async () => {
     const db = new DeletionTestDb();
     const records = [account('hd-1', 0), account('hd-1', 1)];
     db.put(
@@ -569,18 +646,29 @@ describe('public account deletion tombstones', () => {
     const last = originals[1];
     const newer = { ...last, dataTime: (last.dataTime ?? 0) + 1000 };
     db.put(ELocalDBStoreNames.CloudSyncItem, newer);
+    const deletionTime = 1_750_000_000_123;
+    const dataTime = jest.fn(async () => deletionTime);
+    db.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime = dataTime;
+    db.syncFlow.mockRejectedValueOnce(new OneKeyLocalError('Fixture offline'));
     await expect(
       db.removeAccountsByIds({ ids: records.map((record) => record.id) }),
-    ).rejects.toThrow('Synced account data changed');
-    expect(db.syncPoolWriteAttempts).toEqual(
-      originals.map((record) => record.id),
-    );
-    expect(db.read(ELocalDBStoreNames.CloudSyncItem, originals[0].id)).toEqual(
-      originals[0],
-    );
+    ).resolves.toBeUndefined();
+    expect(db.syncPoolWriteAttempts).toEqual([
+      originals[0].id,
+      last.id,
+      originals[0].id,
+    ]);
+    expect(
+      db.read(ELocalDBStoreNames.CloudSyncItem, originals[0].id),
+    ).toMatchObject({
+      dataTime: deletionTime,
+      isDeleted: true,
+      serverUploaded: false,
+    });
+    expect(dataTime).toHaveBeenCalledTimes(records.length);
     expect(db.read(ELocalDBStoreNames.CloudSyncItem, last.id)).toEqual(newer);
     for (const record of records) {
-      expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+      expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
       expect(
         db.read(
           ELocalDBStoreNames.IndexedAccount,
@@ -590,13 +678,13 @@ describe('public account deletion tombstones', () => {
     }
     expect(
       db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
-    ).toEqual(records.map((record) => record.id));
+    ).toEqual([]);
     await jest.advanceTimersByTimeAsync(1000);
-    expect(db.syncFlow).not.toHaveBeenCalled();
+    expect(db.syncFlow).toHaveBeenCalledTimes(1);
   });
 
   test.each(['account', 'index', 'batch'] as const)(
-    'allows offline %s deletion and preserves encrypted Cloud scope and timestamp',
+    'allows %s deletion and preserves an unreadable matching Cloud version and timestamp',
     async (mode) => {
       const db = new DeletionTestDb();
       const record = account();
@@ -617,7 +705,9 @@ describe('public account deletion tombstones', () => {
       db.put(ELocalDBStoreNames.CloudSyncItem, original);
       const prime = db.backgroundApi.servicePrimeCloudSync;
       const removalTime = 1_750_000_001_000;
-      prime.getSyncCredentialSafe = async () => undefined;
+      const decrypt = jest
+        .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockRejectedValueOnce(new IncorrectMasterPassword());
       prime.getCloudSyncDataTime = async () => removalTime;
       if (mode === 'account')
         await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
@@ -629,6 +719,7 @@ describe('public account deletion tombstones', () => {
           walletId: 'hd-1',
         });
 
+      decrypt.mockRestore();
       const pending = {
         ...original,
         pendingPublicAccountDeletionAt: removalTime,
@@ -686,8 +777,11 @@ describe('public account deletion tombstones', () => {
       const prime = db.backgroundApi.servicePrimeCloudSync;
       const deletedAt = 1_750_000_001_000;
       prime.getCloudSyncDataTime = async () => deletedAt;
-      prime.getSyncCredentialSafe = async () => undefined;
+      const decrypt = jest
+        .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockRejectedValueOnce(new IncorrectMasterPassword());
       await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+      decrypt.mockRestore();
       const pending = db.read<IDBCloudSyncItem>(
         ELocalDBStoreNames.CloudSyncItem,
         original.id,
@@ -788,7 +882,7 @@ describe('public account deletion tombstones', () => {
     ).toBeUndefined();
   });
 
-  test('the real manager refuses an encrypted future-format tombstone target before deleting local data', async () => {
+  test('local removal preserves the encrypted future-format Cloud row', async () => {
     const db = new DeletionTestDb();
     const record = account('hd-1', 0);
     db.put(
@@ -840,11 +934,11 @@ describe('public account deletion tombstones', () => {
     db.put(ELocalDBStoreNames.CloudSyncItem, future);
     await expect(
       db.removeAccount({ accountId: record.id, walletId: 'hd-1' }),
-    ).rejects.toThrow('compatible App version');
+    ).resolves.toBeUndefined();
     expect(db.read(ELocalDBStoreNames.CloudSyncItem, future.id)).toEqual(
       future,
     );
-    expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
     expect(
       db.read(ELocalDBStoreNames.IndexedAccount, record.indexedAccountId ?? ''),
     ).toBeDefined();

@@ -1,6 +1,3 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -117,22 +114,6 @@ const foreignAccountDeletions = new WeakMap<
   IDBCloudSyncItem,
   IForeignAccountDeletion
 >();
-
-export function foreignAccountDeletionError(
-  reason: 'foreign-pending' | 'prepare' | 'scope' | 'session' | 'local-change',
-): OneKeyLocalError {
-  const key = ETranslations.global_unknown_error_retry_message;
-  return Object.assign(
-    new OneKeyLocalError({
-      key,
-      message: appLocale.intl.formatMessage({
-        id: key,
-        defaultMessage: 'An unexpected error occurred. Please try again.',
-      }),
-    }),
-    { cause: new Error(`Cloud account deletion rejected: ${reason}`) },
-  );
-}
 
 export function rememberForeignAccountDeletion(
   tombstone: IDBCloudSyncItem,

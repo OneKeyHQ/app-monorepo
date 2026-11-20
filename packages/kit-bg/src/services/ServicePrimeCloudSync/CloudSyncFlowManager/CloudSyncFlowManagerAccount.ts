@@ -41,7 +41,6 @@ import {
   publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
 import {
-  foreignAccountDeletionError,
   rememberForeignAccountDeletion,
   rememberPublicAccountSnapshotWrite,
   removeUnsyncedPublicAccountSnapshot,
@@ -150,6 +149,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     existing: IDBCloudSyncItem,
     snapshot: ICloudPublicAccountSnapshot,
   ) {
+    if (existing.pendingPublicAccountDeletionAt) return undefined;
     const pendingPublicAccountDeletionAt =
       await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime({
         syncItemKey: existing.id,
@@ -198,6 +198,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           !!existing.pwdHash &&
           cloudSyncItemBuilder.getPwdHash(params.syncCredential) ===
             existing.pwdHash;
+        if (params.isDeleted && existing.pendingPublicAccountDeletionAt)
+          return undefined;
         if (params.isDeleted && !canReadCloudSnapshot) {
           const credential = params.syncCredential?.keylessCredential;
           if (
@@ -207,7 +209,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
             isInactiveHardwareWalletAccount(existing, credential.pwdHash)
           ) {
             if (!canArchiveForeignAccountCopy(existing, credential.pwdHash)) {
-              throw foreignAccountDeletionError('foreign-pending');
+              return undefined;
             }
             // A foreign row's timestamp and payload do not belong to this
             // space. The tombstone is rebuilt from the local account identity.
@@ -221,7 +223,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
               built.id !== key ||
               built.pwdHash !== credential.pwdHash
             ) {
-              throw foreignAccountDeletionError('prepare');
+              return undefined;
             }
             built.rawData = '';
             return rememberForeignAccountDeletion(built, {
@@ -231,8 +233,10 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
               identityHash: getPublicAccountSnapshotIdentityHash(snapshot),
             });
           }
+          // An unreadable scope is not evidence of where to publish a new
+          // deletion. Keep its existing ciphertext and pending edit intact.
           if (existing.data || existing.pwdHash || existing.serverUploaded)
-            return this.deferPublicAccountDeletion(existing, snapshot);
+            return undefined;
           if (!params.syncCredential && !existing.serverUploaded)
             return removeUnsyncedPublicAccountSnapshot(existing);
         }
@@ -250,13 +254,24 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
                   })
                 ).rawDataJson;
           const parsed = normalizePublicAccountSnapshotRecord(raw);
-          if (this.rawKeyToHashKey(parsed.rawKey) !== existing.id)
+          if (
+            this.rawKeyToHashKey(parsed.rawKey) !== existing.id ||
+            (params.isDeleted &&
+              getPublicAccountSnapshotIdentityHash(parsed.snapshot) !==
+                getPublicAccountSnapshotIdentityHash(snapshot))
+          )
             throw new OneKeyLocalError('Invalid public account sync identity');
         } catch (error) {
           if (params.isDeleted) {
-            if (existing.data && error instanceof IncorrectMasterPassword)
+            if (
+              canReadCloudSnapshot &&
+              !existing.isDeleted &&
+              existing.data &&
+              this.rawKeyToHashKey(existing.rawKey) === existing.id &&
+              error instanceof IncorrectMasterPassword
+            )
               return this.deferPublicAccountDeletion(existing, snapshot);
-            throw error;
+            return undefined;
           }
           return undefined;
         }

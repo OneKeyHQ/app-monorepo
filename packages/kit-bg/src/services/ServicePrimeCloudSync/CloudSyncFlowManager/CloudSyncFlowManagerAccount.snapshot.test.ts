@@ -824,7 +824,7 @@ describe('public account snapshot Cloud scene integration', () => {
     expect(encrypt).not.toHaveBeenCalled();
   });
 
-  test('a tombstone is sticky and unknown future records cannot be renamed or deleted', async () => {
+  test('a tombstone is sticky and unknown future Cloud records cannot be replaced', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();
     const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
@@ -855,7 +855,7 @@ describe('public account snapshot Cloud scene integration', () => {
         dataTime: undefined,
         syncCredential: credential,
       }),
-    ).rejects.toThrow('compatible App version');
+    ).resolves.toBeUndefined();
     expect(h.pool.get(item.id)?.data).toBe(future.data);
   });
 

@@ -176,7 +176,6 @@ import {
   publicAccountIdentityEqual,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
-  foreignAccountDeletionError,
   getForeignAccountDeletion,
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
@@ -1020,6 +1019,11 @@ type IResolveExistingDeviceParams = {
   // identity matching misses. OneKey never reaches it.
   vendor?: EHardwareVendor;
 };
+
+// Distinguish a declined optional Cloud write from a real local DB failure.
+const CLOUD_ACCOUNT_DELETE_WRITE_DECLINED = new Error(
+  'Cloud account deletion write declined',
+);
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   // Local optimization only: reset on restart so legacy avatars get a bounded
@@ -10593,9 +10597,52 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  private async runLocalAccountRemoval(
+    operation: (prepareCloud: boolean) => Promise<void>,
+  ): Promise<void> {
+    let allowCloud = true;
+    let started = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const preflightTimeout = new Promise<false>((resolve) => {
+      timeout = setTimeout(() => {
+        allowCloud = false;
+        resolve(false);
+      }, 1000);
+    });
+    const lockedRemoval = async () => {
+      try {
+        await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+          () => {
+            if (!allowCloud) return Promise.resolve();
+            clearTimeout(timeout);
+            started = true;
+            return operation(true);
+          },
+        );
+        return started;
+      } catch (error) {
+        // Never retry a business transaction that actually failed.
+        if (started) throw error;
+        return false;
+      }
+    };
+    try {
+      const committed = await Promise.race([preflightTimeout, lockedRemoval()]);
+      if (!committed) {
+        // A slow or failed Cloud preflight cannot invoke local work later.
+        allowCloud = false;
+        await operation(false);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private async buildPublicAccountDeletionSyncItems(
     accounts: IDBAccount[],
+    prepareCloud: boolean,
   ): Promise<IDBCloudSyncItem[]> {
+    if (!prepareCloud) return [];
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
@@ -10608,7 +10655,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (!supportedAccounts.length) return [];
     const syncService = this.backgroundApi.servicePrimeCloudSync;
-    const syncCredential = await syncService.getSyncCredentialSafe();
+    const syncCredential = await syncService
+      .getSyncCredentialSafe()
+      .catch(() => undefined);
     const items: IDBCloudSyncItem[] = [];
     const indexedNames = new Map<string, string | undefined>();
     for (const account of supportedAccounts) {
@@ -10631,14 +10680,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (account.indexedAccountId &&
             indexedNames.get(account.indexedAccountId)) ||
           account.name;
-        const item =
-          await syncService.syncManagers.account.buildSyncItemByDBQuery({
-            dbRecord: { ...account, name },
-            isDeleted: true,
-            dataTime: undefined,
-            syncCredential,
-          });
-        if (item) items.push(item);
+        try {
+          const item =
+            await syncService.syncManagers.account.buildSyncItemByDBQuery({
+              dbRecord: { ...account, name },
+              isDeleted: true,
+              dataTime: undefined,
+              syncCredential,
+            });
+          if (item) items.push(item);
+        } catch (_error) {
+          // Cloud preparation is best-effort; local reads/writes still fail
+          // normally if the business database itself is unusable.
+        }
       }
     }
     return uniqBy(items, (item) => item.id);
@@ -10660,40 +10714,74 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   private async withPublicAccountDeletionTransaction(
     items: IDBCloudSyncItem[],
     task: (tx: ILocalDBTransaction) => Promise<void>,
-  ) {
-    const transaction = () =>
-      this.withSpaceFreeingTransaction(EIndexedDBBucketNames.account, task);
-    const foreign = items.flatMap((item) => {
-      const intent = getForeignAccountDeletion(item);
-      return intent ? [intent] : [];
-    });
-    const first = foreign[0];
-    if (!first) return transaction();
-    if (foreign.some((intent) => intent.credential !== first.credential))
-      throw foreignAccountDeletionError('scope');
-    const keyless = this.backgroundApi.serviceKeylessCloudSync;
-    // Public removal is already running under the key lock. Follow the
-    // key → import → repair order, and take repair only for the IDB work.
-    const committed = await keyless.runWithCloudAccountImportLock(() =>
-      keyless.runWithVerifiedHardwareAccountArchiveSession(
-        first.credential,
-        async () => {
-          await transaction();
-          return true;
+  ): Promise<boolean> {
+    const declined = new Set<string>();
+    const run = (candidates: IDBCloudSyncItem[]) =>
+      this.withSpaceFreeingTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await this.txWritePublicAccountDeletionSyncItems({
+            tx,
+            items: candidates,
+            declined,
+          });
+          await task(tx);
         },
-      ),
-    );
-    if (!committed) {
-      throw foreignAccountDeletionError('session');
+      );
+    const attempt = async (candidates: IDBCloudSyncItem[]) => {
+      const foreign = candidates.flatMap((item) => {
+        const intent = getForeignAccountDeletion(item);
+        return intent ? [intent] : [];
+      });
+      const first = foreign[0];
+      if (
+        first &&
+        foreign.some((intent) => intent.credential !== first.credential)
+      )
+        return false;
+      let started = false;
+      const transaction = async () => {
+        started = true;
+        await run(candidates);
+        return true;
+      };
+      const keyless = this.backgroundApi.serviceKeylessCloudSync;
+      try {
+        // Public removal already holds the key lock. Observe the
+        // key → import → repair order for the short scoped DB commit.
+        return first
+          ? ((await keyless.runWithCloudAccountImportLock(() =>
+              keyless.runWithVerifiedHardwareAccountArchiveSession(
+                first.credential,
+                transaction,
+              ),
+            )) ?? false)
+          : await transaction();
+      } catch (error) {
+        if (started && error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED)
+          throw error;
+        return false;
+      }
+    };
+    if (items.length && (await attempt(items))) return true;
+    if (declined.size) {
+      // The declined transaction is rolled back. Retry unaffected versions
+      // once with their already-issued times; do not rebase a stale delete.
+      const remaining = items.filter((item) => !declined.has(item.id));
+      if (remaining.length && (await attempt(remaining))) return true;
     }
+    await run([]);
+    return false;
   }
 
   private async txWritePublicAccountDeletionSyncItems({
     tx,
     items,
+    declined,
   }: {
     tx: ILocalDBTransaction;
     items: IDBCloudSyncItem[];
+    declined: Set<string>;
   }) {
     if (!items.length) return;
     const removals = items.filter(isUnsyncedPublicAccountSnapshotRemoval);
@@ -10728,7 +10816,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Wallet,
         ids: [walletId],
       });
-      const invalid = foreignAccountDeletionError('local-change');
+
       if (
         !tx.cloudAccountArchive ||
         !current ||
@@ -10744,8 +10832,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         !wallet ||
         wallet.isMocked ||
         wallet.isTemp
-      )
-        throw invalid;
+      ) {
+        declined.add(item.id);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       if (accountUtils.isHwWallet({ walletId })) {
         const {
           records: [device],
@@ -10758,8 +10849,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           !device ||
           (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
             EHardwareVendor.onekey) !== EHardwareVendor.onekey
-        )
-          throw invalid;
+        ) {
+          declined.add(item.id);
+          // eslint-disable-next-line no-continue
+          continue;
+        }
       }
       const snapshot = buildPublicAccountSnapshot({ wallet, account });
       if (
@@ -10767,8 +10861,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         item.rawKey !==
           `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(snapshot)}` ||
         getPublicAccountSnapshotIdentityHash(snapshot) !== intent.identityHash
-      )
-        throw invalid;
+      ) {
+        declined.add(item.id);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       await tx.cloudAccountArchive.retain(current);
       await this.txUpdateRecords({
         tx,
@@ -10791,24 +10888,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     for (const record of records) {
       if (record) currentById.set(record.id, record);
     }
-    if (
-      removals.some(
-        (item) =>
-          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id)),
-      ) ||
-      writes.some(
-        (item) =>
-          isRejectedPublicAccountSnapshotWrite(item) ||
-          !matchesPublicAccountSnapshotWrite(
-            rememberPublicAccountSnapshotWrite({ ...item }, item),
-            currentById.get(item.id),
-          ),
-      )
-    ) {
-      throw new OneKeyLocalError(
-        'Synced account data changed before deletion. Try removing the account again.',
-      );
+    for (const item of removals) {
+      if (!matchesPublicAccountSnapshotWrite(item, currentById.get(item.id)))
+        declined.add(item.id);
     }
+    for (const item of writes) {
+      if (
+        isRejectedPublicAccountSnapshotWrite(item) ||
+        !matchesPublicAccountSnapshotWrite(
+          rememberPublicAccountSnapshotWrite({ ...item }, item),
+          currentById.get(item.id),
+        )
+      )
+        declined.add(item.id);
+    }
+    if (items.some((item) => declined.has(item.id)))
+      throw CLOUD_ACCOUNT_DELETE_WRITE_DECLINED;
     if (removals.length)
       await this.txRemoveRecords({
         tx,
@@ -10820,30 +10915,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeIndexedAccounts(
     params: Parameters<LocalDbBase['removeIndexedAccountsWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeIndexedAccountsWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeIndexedAccountsWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeIndexedAccountsWithCloudKeyLock({
-    indexedAccounts,
-  }: {
-    indexedAccounts: IDBIndexedAccount[];
-  }) {
+  private async removeIndexedAccountsWithCloudKeyLock(
+    {
+      indexedAccounts,
+    }: {
+      indexedAccounts: IDBIndexedAccount[];
+    },
+    prepareCloud: boolean,
+  ) {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
           indexedAccountIds: new Set(indexedAccounts.map((item) => item.id)),
         }),
+        prepareCloud,
       );
-    await this.withPublicAccountDeletionTransaction(
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
       publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
@@ -10851,7 +10945,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -10860,19 +10954,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeIndexedAccount(
     params: Parameters<LocalDbBase['removeIndexedAccountWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeIndexedAccountWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeIndexedAccountWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeIndexedAccountWithCloudKeyLock({
-    indexedAccountId,
-    walletId,
-  }: {
-    indexedAccountId: string;
-    walletId: string;
-  }) {
+  private async removeIndexedAccountWithCloudKeyLock(
+    {
+      indexedAccountId,
+      walletId,
+    }: {
+      indexedAccountId: string;
+      walletId: string;
+    },
+    prepareCloud: boolean,
+  ) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const indexedAccount = await this.getIndexedAccountSafe({
       id: indexedAccountId,
@@ -10901,15 +10997,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           walletIds: new Set([walletId]),
           indexedAccountIds: new Set([indexedAccountId]),
         }),
+        prepareCloud,
       );
 
-    await this.withPublicAccountDeletionTransaction(
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
       publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
@@ -10925,7 +11018,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         // }
       },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -10933,17 +11026,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccountsByIds(
     params: Parameters<LocalDbBase['removeAccountsByIdsWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeAccountsByIdsWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeAccountsByIdsWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeAccountsByIdsWithCloudKeyLock({
-    ids,
-  }: {
-    ids: string[];
-  }) {
+  private async removeAccountsByIdsWithCloudKeyLock(
+    {
+      ids,
+    }: {
+      ids: string[];
+    },
+    prepareCloud: boolean,
+  ) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
       const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
@@ -10961,6 +11056,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         await this.getPublicAccountDeletionCandidates({
           accountIds: accountIdsToRemove,
         }),
+        prepareCloud,
       );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
@@ -10968,13 +11064,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // disk-full guard was raised, leaving wallets pointing at accounts that
     // no longer exist; and even unguarded, a failure between them left the
     // same inconsistency. `removeAccount` already has this shape.
-    await this.withPublicAccountDeletionTransaction(
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
       publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -11000,7 +11092,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -11014,19 +11106,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccount(
     params: Parameters<LocalDbBase['removeAccountWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeAccountWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeAccountWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeAccountWithCloudKeyLock({
-    accountId,
-    walletId,
-  }: {
-    accountId: string;
-    walletId: string;
-  }): Promise<void> {
+  private async removeAccountWithCloudKeyLock(
+    {
+      accountId,
+      walletId,
+    }: {
+      accountId: string;
+      walletId: string;
+    },
+    prepareCloud: boolean,
+  ): Promise<void> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const account = await this.getAccountSafe({
       accountId,
@@ -11039,24 +11133,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         account && isPublicAccountWallet ? [account] : [],
+        prepareCloud,
       );
-    if (account && !isPublicAccountWallet) {
-      const target = await syncManagers.account.buildSyncTargetByDBQuery({
-        dbRecord: account,
-      });
-      const keyInfo = await syncManagers.account.buildSyncKeyAndPayload({
-        target,
-      });
-      syncItemKey = keyInfo.key;
+    if (prepareCloud && account && !isPublicAccountWallet) {
+      try {
+        const target = await syncManagers.account.buildSyncTargetByDBQuery({
+          dbRecord: account,
+        });
+        const keyInfo = await syncManagers.account.buildSyncKeyAndPayload({
+          target,
+        });
+        syncItemKey = keyInfo.key;
+      } catch (_error) {
+        // Legacy Cloud cleanup never decides whether local removal can run.
+      }
     }
 
-    await this.withPublicAccountDeletionTransaction(
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
       publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -11086,12 +11181,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       },
     );
 
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
 
     if (syncItemKey) {
-      await this.removeCloudSyncPoolItems({ keys: [syncItemKey] });
+      await this.removeCloudSyncPoolItems({ keys: [syncItemKey] }).catch(
+        () => undefined,
+      );
     }
   }
 
