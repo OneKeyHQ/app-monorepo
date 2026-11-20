@@ -169,6 +169,7 @@ import {
 import {
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
+  isUnsyncedPublicAccountSnapshotRemoval,
   matchesPublicAccountSnapshotWrite,
   rejectPublicAccountSnapshotWrite,
   rememberPublicAccountSnapshotWrite,
@@ -5369,6 +5370,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!updateItem) {
       return;
     }
+    // Ordinary pool writes cannot replace a deletion that still needs its
+    // original Cloud key. A validated local edit uses the same snapshot CAS.
+    if (
+      item.pendingPublicAccountDeletionAt &&
+      (item.pwdHash !== updateItem.pwdHash ||
+        !hasPublicAccountSnapshotWriteGuard(updateItem) ||
+        updateItem.serverUploaded ||
+        (updateItem.pendingPublicAccountDeletionAt ??
+          updateItem.dataTime ??
+          0) < item.pendingPublicAccountDeletionAt)
+    ) {
+      rejectPublicAccountSnapshotWrite(updateItem);
+      return;
+    }
     let shouldUpdate =
       item.dataTime &&
       updateItem.dataTime &&
@@ -5433,6 +5448,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       localSceneUpdated: updateItem.localSceneUpdated,
       serverUploaded: updateItem.serverUploaded,
       pwdHash: updateItem.pwdHash,
+      pendingPublicAccountDeletionAt: updateItem.pendingPublicAccountDeletionAt,
+      pendingPublicAccountDeletionHash:
+        updateItem.pendingPublicAccountDeletionHash,
     };
 
     Object.keys(tempUpdateItem).forEach((key) => {
@@ -5634,7 +5652,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // full sync uploads it once sync becomes available.
       this.backgroundApi?.servicePrimeCloudSync
         .apiUploadItems({
-          localItems: writableItems,
+          localItems: writableItems.filter(
+            (item) => !isRejectedPublicAccountSnapshotWrite(item),
+          ),
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
@@ -5681,36 +5701,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     keys: string[];
     expectedItems?: IDBCloudSyncItem[];
   }) {
-    let keysToRemove = keys;
-    if (expectedItems) {
-      const expectedById = new Map(
-        expectedItems.map((item) => [item.id, item]),
-      );
+    try {
+      const expectedById =
+        expectedItems && new Map(expectedItems.map((item) => [item.id, item]));
       const { records } = await this.txGetRecordsByIds({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: keys,
       });
-      // Cleanup follows asynchronous scene replay. Do not delete a local
-      // restore or a newer tombstone that replaced the downloaded version.
-      keysToRemove = records
-        .filter((current): current is IDBCloudSyncItem => {
-          const expected = current && expectedById.get(current.id);
-          return Boolean(
-            current &&
-            expected &&
-            current.isDeleted &&
-            expected.isDeleted &&
-            current.data === expected.data &&
-            current.dataTime === expected.dataTime &&
-            current.dataType === expected.dataType &&
-            current.pwdHash === expected.pwdHash &&
-            (expected.data || current.rawData === expected.rawData),
-          );
-        })
-        .map((item) => item.id);
-    }
-    try {
+      // Cleanup follows asynchronous scene replay. Do not delete a pending
+      // local removal, restore, or a newer tombstone.
+      const keysToRemove = records.flatMap((current) => {
+        if (!current || current.pendingPublicAccountDeletionAt) return [];
+        if (!expectedById) return [current.id];
+        const expected = expectedById.get(current.id);
+        if (
+          expected?.isDeleted &&
+          current.isDeleted &&
+          current.data === expected.data &&
+          current.dataTime === expected.dataTime &&
+          current.dataType === expected.dataType &&
+          current.pwdHash === expected.pwdHash &&
+          (expected.data || current.rawData === expected.rawData)
+        )
+          return [current.id];
+        return [];
+      });
       console.log('txRemoveCloudSyncPoolItems', keysToRemove);
       await this.txRemoveRecords({
         tx,
@@ -8147,6 +8163,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // rename or newer download must not be overwritten by an earlier snapshot.
     if (
       !current ||
+      current.pendingPublicAccountDeletionAt ||
       current.data !== source.data ||
       current.dataTime !== source.dataTime ||
       current.dataType !== source.dataType ||
@@ -8910,6 +8927,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               if (
                 !source ||
                 source.dataType !== EPrimeCloudSyncDataType.Account ||
+                source.pendingPublicAccountDeletionAt ||
                 typeof source.dataTime !== 'number' ||
                 !Number.isFinite(source.dataTime) ||
                 source.dataTime <= 0 ||
@@ -10498,7 +10516,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     items: IDBCloudSyncItem[];
   }) {
     if (!items.length) return;
-    await this.txAddAndUpdateSyncItems({ tx, items, skipUploadToServer: true });
+    const removals = items.filter(isUnsyncedPublicAccountSnapshotRemoval);
+    const writes = items.filter(
+      (item) => !isUnsyncedPublicAccountSnapshotRemoval(item),
+    );
+    await this.txAddAndUpdateSyncItems({
+      tx,
+      items: writes,
+      skipUploadToServer: true,
+    });
     const { records } = await this.txGetRecordsByIds({
       tx,
       name: ELocalDBStoreNames.CloudSyncItem,
@@ -10509,7 +10535,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (record) currentById.set(record.id, record);
     }
     if (
-      items.some(
+      removals.some(
+        (item) =>
+          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id)),
+      ) ||
+      writes.some(
         (item) =>
           isRejectedPublicAccountSnapshotWrite(item) ||
           !matchesPublicAccountSnapshotWrite(
@@ -10522,6 +10552,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         'Synced account data changed before deletion. Try removing the account again.',
       );
     }
+    if (removals.length)
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: removals.map((item) => item.id),
+      });
   }
 
   async removeIndexedAccounts(

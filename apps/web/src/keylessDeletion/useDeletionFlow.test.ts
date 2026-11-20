@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { PopupBlockedError } from './popupBlockedError';
 import {
   CONFIRMATION_VERSION,
   DELETION_SCOPE,
@@ -27,6 +28,14 @@ const expiresAt = '2030-01-01T00:05:00Z';
 const receipt = {
   resultId: 'fixture-operation',
   supportReference: 'CASE-FIXTURE',
+};
+
+const historicalReceipt: ICompleted = {
+  ...receipt,
+  status: 'completed',
+  completedAt: serverTime,
+  deletedScope: [DELETION_SCOPE],
+  retainedScope: [...RETAINED_SCOPE],
 };
 
 function createClientFixture(
@@ -74,117 +83,23 @@ afterAll(() => {
   }
 });
 
-it.each([false, true])(
-  'rejects a different recovery account and preserves the original operation (already accepted: %s)',
-  async (accepted) => {
-    const client = createClientFixture();
-    const error = (code: 'AUTH_EXPIRED' | 'IDENTITY_MISMATCH') =>
-      new DeletionError({ code });
-    const completed: ICompleted = {
-      ...receipt,
-      status: 'completed',
-      completedAt: serverTime,
-      deletedScope: [DELETION_SCOPE],
-      retainedScope: [...RETAINED_SCOPE],
-    };
-    client.deleteShare.mockRejectedValueOnce(
-      accepted
-        ? new DeletionError({
-            code: 'OPERATION_IN_PROGRESS',
-            supportReference: receipt.supportReference,
-          })
-        : error('AUTH_EXPIRED'),
-    );
-    client.deleteShare.mockResolvedValueOnce(completed);
-    if (accepted) client.getResult.mockRejectedValueOnce(error('AUTH_EXPIRED'));
-    client.getResult
-      .mockRejectedValueOnce(error('IDENTITY_MISMATCH'))
-      .mockResolvedValueOnce(
-        accepted ? completed : { status: 'not_submitted' },
-      );
-    jest.mocked(createDeletionClient).mockReturnValue(client);
+it('requires sign-in again when the delete request rejects expired proof', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockRejectedValueOnce(
+    new DeletionError({ code: 'AUTH_EXPIRED' }),
+  );
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
 
-    const authenticate = jest
-      .fn<
-        ReturnType<IBusinessAuth['authenticate']>,
-        Parameters<IBusinessAuth['authenticate']>
-      >()
-      .mockResolvedValueOnce('fixture-expired-proof')
-      .mockResolvedValueOnce('fixture-wrong-account-proof')
-      .mockResolvedValueOnce('fixture-correct-account-proof');
-    const business: IBusinessAuth = {
-      origin: 'https://prime.example.invalid',
-      authenticate,
-      transport: jest.fn(),
-    };
-    const history: IResultHistory = new Map();
-    const { result } = renderHook(() =>
-      useDeletionFlow(token, business, history),
-    );
+  expect(result.current.screen.step).toBe('identity');
+  expect(result.current.error?.code).toBe('AUTH_EXPIRED');
+  expect(history.has(token)).toBe(false);
+  expect(client.getResult).not.toHaveBeenCalled();
+});
 
-    await waitFor(() => expect(result.current.screen.step).toBe('identity'));
-    act(() => result.current.signIn('google'));
-    await waitFor(() => expect(result.current.screen.step).toBe('confirm'));
-    act(() => result.current.submit('01234567', [...WARNING_CODES]));
-    await waitFor(() =>
-      expect(result.current.error?.code).toBe('AUTH_EXPIRED'),
-    );
-    const original = history.get(token);
-    expect(original?.proof).toBeUndefined();
-    expect(original?.attempt?.key).toBeTruthy();
-    expect(original?.accepted?.supportReference).toBe(
-      accepted ? receipt.supportReference : undefined,
-    );
-
-    act(() => result.current.reauthenticate());
-    await waitFor(() =>
-      expect(result.current.error?.code).toBe('IDENTITY_MISMATCH'),
-    );
-    expect(history.get(token)?.proof).toBeUndefined();
-    expect(history.get(token)?.attempt).toBe(original?.attempt);
-    expect(history.get(token)?.accepted).toBe(original?.accepted);
-    expect(history.get(token)?.canRetry).toBe(false);
-    act(() => result.current.checkStatus());
-    expect(client.getResult).toHaveBeenCalledTimes(accepted ? 2 : 1);
-    expect(client.deleteShare).toHaveBeenCalledTimes(1);
-
-    act(() => result.current.reauthenticate());
-    await waitFor(() =>
-      expect(history.get(token)?.proof?.supabaseAccessToken).toBe(
-        'fixture-correct-account-proof',
-      ),
-    );
-    expect(authenticate.mock.calls.map(([provider]) => provider)).toEqual([
-      'google',
-      'google',
-      'google',
-    ]);
-    expect(client.getResult).toHaveBeenLastCalledWith({
-      invitationToken: token,
-      provider: 'google',
-      supabaseAccessToken: 'fixture-correct-account-proof',
-    });
-    if (!accepted) {
-      expect(history.get(token)?.canRetry).toBe(true);
-      act(() => result.current.retrySubmit());
-      await waitFor(() =>
-        expect(history.get(token)?.result?.status).toBe('completed'),
-      );
-      expect(client.deleteShare.mock.calls[1]?.[1]).toBe(
-        original?.attempt?.key,
-      );
-      expect(client.deleteShare.mock.calls[1]?.[0]).toMatchObject({
-        ...original?.attempt?.body,
-        supabaseAccessToken: 'fixture-correct-account-proof',
-      });
-    } else {
-      expect(history.get(token)?.result).toEqual(completed);
-      expect(client.deleteShare).toHaveBeenCalledTimes(1);
-    }
-  },
-);
-
-it('preserves the original request and blocks result sign-in until the server cooldown ends', async () => {
+it('preserves the server acknowledgement and respects the result cooldown', async () => {
   const client = createClientFixture();
   const authenticate = jest.fn().mockResolvedValue('fixture-proof');
   const business: IBusinessAuth = {
@@ -225,10 +140,7 @@ it('preserves the original request and blocks result sign-in until the server co
   await act(async () => result.current.reauthenticate());
   expect(authenticate).toHaveBeenCalledTimes(2);
   expect(client.getResult).toHaveBeenCalledTimes(2);
-  expect(history.get(token)).toMatchObject({
-    attempt: original?.attempt,
-    accepted: original?.accepted,
-  });
+  expect(history.get(token)?.accepted).toEqual(original?.accepted);
   expect(history.get(token)?.proof).toBeUndefined();
   const deadline = history.get(token)?.checkAfter;
   expect(deadline).toBeGreaterThan(globalThis.performance.now());
@@ -279,84 +191,458 @@ it('blocks the old challenge after the server reports expiry and the resend is l
   expect(result.current.screen.step).toBe('email');
 });
 
-it('allows status checks during the deletion cooldown and retries with the original key after it ends', async () => {
+it('reports a delete error directly and respects the server cooldown', async () => {
   const client = createClientFixture();
-  const business: IBusinessAuth = {
-    origin: 'https://prime.example.invalid',
-    authenticate: jest.fn().mockResolvedValue('fixture-proof'),
-    transport: jest.fn(),
-  };
-  const history: IResultHistory = new Map();
-  client.deleteShare.mockRejectedValueOnce(
-    new DeletionError({ code: 'SERVICE_UNAVAILABLE', retryAfterSeconds: 60 }),
-  );
-  client.getResult.mockResolvedValue({ status: 'not_submitted' });
-  jest.mocked(createDeletionClient).mockReturnValue(client);
-  const { result } = renderHook(() =>
-    useDeletionFlow(token, business, history),
-  );
-
+  client.deleteShare
+    .mockRejectedValueOnce(
+      new DeletionError({ code: 'SERVICE_UNAVAILABLE', retryAfterSeconds: 60 }),
+    )
+    .mockResolvedValueOnce(historicalReceipt);
+  client.getResult.mockResolvedValueOnce({
+    ...historicalReceipt,
+    currentShareStatus: 'absent',
+  });
+  const { result, history } = renderFlow(client);
   await waitFor(() => expect(result.current.screen.step).toBe('identity'));
-  act(() => result.current.signIn('google'));
-  await waitFor(() => expect(result.current.screen.step).toBe('confirm'));
-  act(() => result.current.submit('01234567', [...WARNING_CODES]));
-  await waitFor(() => expect(history.get(token)?.canRetry).toBe(true));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
 
+  expect(result.current.error?.code).toBe('SERVICE_UNAVAILABLE');
+  expect(result.current.screen.step).toBe('confirm');
+  expect(history.has(token)).toBe(false);
+  expect(client.getResult).not.toHaveBeenCalled();
   const original = client.deleteShare.mock.calls[0];
-  await act(async () => result.current.retrySubmit());
+
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
   expect(client.deleteShare).toHaveBeenCalledTimes(1);
-  expect(client.getResult).toHaveBeenCalledTimes(1);
-  await act(async () => result.current.checkStatus());
-  expect(client.getResult).toHaveBeenCalledTimes(2);
-  const deadline = history.get(token)?.deleteRetryAt;
-  expect(deadline).toBeGreaterThan(globalThis.performance.now());
+
   const now = jest
     .spyOn(globalThis.performance, 'now')
-    .mockReturnValue(deadline ?? 0);
+    .mockReturnValue(result.current.error?.retryAt ?? 0);
   try {
-    await act(async () => result.current.retrySubmit());
+    await act(async () =>
+      result.current.submit('01234567', [...WARNING_CODES]),
+    );
     expect(client.deleteShare).toHaveBeenCalledTimes(2);
     expect(client.deleteShare.mock.calls[1]).toEqual(original);
+    expect(result.current.screen.step).toBe('result');
   } finally {
     now.mockRestore();
   }
 });
 
-it('preserves the original result context on invitation rejection during first recovery', async () => {
-  const client = createClientFixture('used');
-  const authenticate = jest.fn().mockResolvedValue('fixture-proof');
+it.each([
+  new TypeError('Network unavailable'),
+  new DOMException('Request timed out', 'TimeoutError'),
+  new SyntaxError('Unexpected delete response'),
+])(
+  'stays on confirmation and uses the shared error path for %s',
+  async (error) => {
+    const client = createClientFixture();
+    client.deleteShare.mockRejectedValueOnce(error);
+    const { result, history } = renderFlow(client);
+    await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+    await act(async () => result.current.signIn('google'));
+    await act(async () =>
+      result.current.submit('01234567', [...WARNING_CODES]),
+    );
+
+    expect(result.current.screen.step).toBe('confirm');
+    expect(result.current.error).toMatchObject({ usesSharedToast: true });
+    expect(history.has(token)).toBe(false);
+    expect(client.getResult).not.toHaveBeenCalled();
+  },
+);
+
+function renderFlow(client: jest.Mocked<IDeletionClient>) {
+  const authenticate = jest
+    .fn<
+      ReturnType<IBusinessAuth['authenticate']>,
+      Parameters<IBusinessAuth['authenticate']>
+    >()
+    .mockResolvedValue('fixture-proof');
   const business: IBusinessAuth = {
     origin: 'https://prime.example.invalid',
     authenticate,
     transport: jest.fn(),
   };
   const history: IResultHistory = new Map();
-  const userMessage =
-    'Contact the support agent handling the original request.';
-  client.getResult.mockRejectedValueOnce(
-    new DeletionError(
-      { code: 'INVITATION_UNAVAILABLE' },
-      { userMessage, disableAutoToast: false },
-    ),
-  );
   jest.mocked(createDeletionClient).mockReturnValue(client);
-  const { result } = renderHook(() =>
-    useDeletionFlow(token, business, history),
-  );
+  return {
+    ...renderHook(() => useDeletionFlow(token, business, history)),
+    authenticate,
+    history,
+  };
+}
 
+it('keeps a used invitation on sign-in after a mismatch and retries read-only with the correct account', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockRejectedValueOnce(new DeletionError({ code: 'IDENTITY_MISMATCH' }))
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { authenticate, result, history } = renderFlow(client);
+  authenticate
+    .mockResolvedValueOnce('wrong-account-proof')
+    .mockResolvedValueOnce('correct-account-proof');
   await waitFor(() => expect(result.current.screen.step).toBe('identity'));
   await act(async () => result.current.signIn('google'));
-  expect(result.current.screen.step).toBe('result');
-  expect(result.current.error?.userMessage).toBe(userMessage);
-  expect(history.get(token)).toMatchObject({
-    step: 'result',
-    provider: 'google',
-    recoveryUnavailable: true,
+  expect(result.current).toMatchObject({
+    screen: { step: 'identity', info: { status: 'used' } },
+    error: { code: 'IDENTITY_MISMATCH' },
+    busy: false,
   });
-  expect(history.get(token)?.proof).toBeUndefined();
-  await act(async () => result.current.reauthenticate());
+  expect(history.has(token)).toBe(false);
+
+  await act(async () => result.current.signIn('google'));
+  expect(result.current).toMatchObject({
+    screen: { step: 'result', result: { currentShareStatus: 'absent' } },
+  });
+  expect(result.current.error).toBeUndefined();
+  expect(
+    client.getResult.mock.calls.map(([proof]) => proof.supabaseAccessToken),
+  ).toEqual(['wrong-account-proof', 'correct-account-proof']);
+  expect(history.get(token)?.proof?.supabaseAccessToken).toBe(
+    'correct-account-proof',
+  );
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it.each(['ready', 'used'] as const)(
+  'stops an expired %s invitation before OAuth or any downstream endpoint',
+  async (status) => {
+    const client = createClientFixture(status);
+    const info = await client.getLinkInfo(token);
+    client.getLinkInfo.mockResolvedValue({ ...info, expiresAt: serverTime });
+    const { result, authenticate } = renderFlow(client);
+    await waitFor(() => expect(result.current.screen.step).toBe('unavailable'));
+    await act(async () => {
+      result.current.signIn('google');
+      result.current.reauthenticate();
+      result.current.checkStatus();
+    });
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(client.getResult).not.toHaveBeenCalled();
+    expect(client.sendDeletionOtp).not.toHaveBeenCalled();
+    expect(client.deleteShare).not.toHaveBeenCalled();
+  },
+);
+
+it('does not allow OAuth after a displayed used invitation expires', async () => {
+  const client = createClientFixture('used');
+  const { result, authenticate } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  const now = jest
+    .spyOn(globalThis.performance, 'now')
+    .mockReturnValue(globalThis.performance.now() + 300_001);
+  try {
+    await act(async () => result.current.signIn('google'));
+    expect(result.current.screen.step).toBe('unavailable');
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(client.getResult).not.toHaveBeenCalled();
+  } finally {
+    now.mockRestore();
+  }
+});
+
+it('stops permanently if a previously valid invitation is rejected by /result', async () => {
+  const client = createClientFixture('used');
+  client.getResult.mockRejectedValueOnce(
+    new DeletionError({ code: 'INVITATION_UNAVAILABLE' }),
+  );
+  const { result, authenticate, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(result.current.screen.step).toBe('unavailable');
+  expect(history.has(token)).toBe(false);
+  await act(async () => {
+    result.current.reauthenticate();
+    result.current.checkStatus();
+  });
   expect(authenticate).toHaveBeenCalledTimes(1);
   expect(client.getResult).toHaveBeenCalledTimes(1);
   expect(client.sendDeletionOtp).not.toHaveBeenCalled();
   expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it('keeps a valid used invitation read-only when the share goes from present to absent', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'present',
+    })
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(history.get(token)?.result).toMatchObject({
+    currentShareStatus: 'present',
+  });
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)?.result).toEqual({
+    ...historicalReceipt,
+    currentShareStatus: 'absent',
+  });
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(client.getResult).toHaveBeenCalledTimes(2);
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it('keeps confirmation loading until delete and automatic status lookup finish', async () => {
+  const client = createClientFixture();
+  let resolveDelete: ((value: ICompleted) => void) | undefined;
+  client.deleteShare.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveDelete = resolve;
+    }),
+  );
+  let resolveResult:
+    | ((value: Awaited<ReturnType<IDeletionClient['getResult']>>) => void)
+    | undefined;
+  client.getResult.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveResult = resolve;
+    }),
+  );
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(result.current).toMatchObject({
+    screen: { step: 'confirm' },
+    busy: true,
+    submittingDelete: true,
+  });
+  expect(client.getResult).not.toHaveBeenCalled();
+  await act(async () => resolveDelete?.(historicalReceipt));
+  expect(result.current).toMatchObject({
+    screen: { step: 'confirm' },
+    busy: true,
+    submittingDelete: true,
+  });
+  expect(history.get(token)?.result).toBeUndefined();
+  expect(client.getResult).toHaveBeenCalledWith({
+    invitationToken: token,
+    provider: 'google',
+    supabaseAccessToken: 'fixture-proof',
+  });
+  await act(async () =>
+    resolveResult?.({ ...historicalReceipt, currentShareStatus: 'absent' }),
+  );
+  expect(history.get(token)?.result).toMatchObject({
+    currentShareStatus: 'absent',
+  });
+  expect(result.current).toMatchObject({
+    screen: { step: 'result' },
+    busy: false,
+    submittingDelete: false,
+  });
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the delete receipt without showing success when automatic status lookup fails', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockResolvedValueOnce(historicalReceipt);
+  client.getResult.mockRejectedValueOnce(new TypeError('Network unavailable'));
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(result.current).toMatchObject({
+    screen: {
+      step: 'result',
+      result: { ...historicalReceipt, currentShareStatus: 'unknown' },
+      resultCheckFailed: true,
+    },
+    busy: false,
+    submittingDelete: false,
+  });
+  expect(history.get(token)?.result).toEqual({
+    ...historicalReceipt,
+    currentShareStatus: 'unknown',
+  });
+});
+
+it('clears stale current share certainty on a failed read and keeps the original result', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'present',
+    })
+    .mockRejectedValueOnce(
+      new DeletionError({ code: 'RATE_LIMITED', retryAfterSeconds: 60 }),
+    );
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)).toMatchObject({
+    result: { ...historicalReceipt, currentShareStatus: 'unknown' },
+    resultCheckFailed: true,
+  });
+  await act(async () => result.current.checkStatus());
+  expect(client.getResult).toHaveBeenCalledTimes(2);
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it('distinguishes a failed result request from a successful unknown result', async () => {
+  const client = createClientFixture('used');
+  client.getResult
+    .mockRejectedValueOnce(new TypeError('Network unavailable'))
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'unknown',
+    })
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  expect(history.get(token)).toMatchObject({ resultCheckFailed: true });
+  expect(result.current.error).toMatchObject({ usesSharedToast: true });
+
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)).toMatchObject({
+    resultCheckFailed: false,
+    result: { ...historicalReceipt, currentShareStatus: 'unknown' },
+  });
+  expect(result.current.error).toBeUndefined();
+
+  await act(async () => result.current.checkStatus());
+  expect(history.get(token)).toMatchObject({
+    resultCheckFailed: false,
+    result: { ...historicalReceipt, currentShareStatus: 'absent' },
+  });
+  expect(client.deleteShare).not.toHaveBeenCalled();
+});
+
+it('only checks an uncertain delete when requested and never submits it again', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockRejectedValueOnce(
+    new DOMException('Request timed out', 'TimeoutError'),
+  );
+  client.getResult
+    .mockResolvedValueOnce({ status: 'not_submitted' })
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'absent',
+    });
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  const key = client.deleteShare.mock.calls[0]?.[1];
+
+  expect(client.getResult).not.toHaveBeenCalled();
+  expect(history.has(token)).toBe(false);
+  expect(result.current.screen).toMatchObject({
+    step: 'confirm',
+    key,
+    uncertainDeletion: 'unconfirmed',
+  });
+
+  await act(async () => result.current.checkDeleteOutcome());
+  expect(result.current.screen).toMatchObject({
+    step: 'confirm',
+    key,
+    uncertainDeletion: 'not_found',
+  });
+
+  await act(async () => result.current.sendDeletionOtp());
+  expect(client.sendDeletionOtp).toHaveBeenCalledTimes(1);
+
+  await act(async () => result.current.checkDeleteOutcome());
+  expect(result.current.screen.step).toBe('result');
+  expect(history.get(token)?.result).toMatchObject({
+    currentShareStatus: 'absent',
+  });
+  expect(client.getResult).toHaveBeenCalledTimes(2);
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+});
+
+it('ends an uncertain deletion when a manual result check rejects the link', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockRejectedValueOnce(
+    new TypeError('Network unavailable'),
+  );
+  client.getResult.mockRejectedValueOnce(
+    new DeletionError({ code: 'INVITATION_UNAVAILABLE' }),
+  );
+  const { result, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+
+  await act(async () => result.current.checkDeleteOutcome());
+
+  expect(result.current.screen.step).toBe('unavailable');
+  expect(history.has(token)).toBe(false);
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+});
+
+it('renews expired proof for an outcome check without requesting another code', async () => {
+  const client = createClientFixture();
+  client.deleteShare.mockRejectedValueOnce(
+    new TypeError('Network unavailable'),
+  );
+  client.getResult
+    .mockRejectedValueOnce(new DeletionError({ code: 'AUTH_EXPIRED' }))
+    .mockResolvedValueOnce({
+      ...historicalReceipt,
+      currentShareStatus: 'unknown',
+    });
+  const { result, authenticate, history } = renderFlow(client);
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  await act(async () => result.current.signIn('google'));
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  await act(async () => result.current.checkDeleteOutcome());
+  expect(result.current.screen).toMatchObject({
+    step: 'confirm',
+    outcomeNeedsSignIn: true,
+  });
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+
+  authenticate.mockResolvedValueOnce('fixture-renewed-proof');
+  await act(async () => result.current.checkDeleteOutcome());
+  expect(client.getResult).toHaveBeenLastCalledWith({
+    invitationToken: token,
+    provider: 'google',
+    supabaseAccessToken: 'fixture-renewed-proof',
+  });
+  expect(client.sendDeletionOtp).toHaveBeenCalledTimes(1);
+  expect(history.get(token)?.result).toMatchObject({
+    currentShareStatus: 'unknown',
+  });
+});
+
+it('reports a blocked sign-in popup without sending a code', async () => {
+  const client = createClientFixture();
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate: jest.fn().mockRejectedValue(new PopupBlockedError()),
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  act(() => result.current.signIn('google'));
+  await waitFor(() => expect(result.current.error?.code).toBe('POPUP_BLOCKED'));
+  expect(result.current.error?.usesSharedToast).toBe(false);
+  expect(result.current.screen.step).toBe('identity');
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
 });
