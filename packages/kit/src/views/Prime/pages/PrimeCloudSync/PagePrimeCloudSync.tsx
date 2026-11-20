@@ -284,10 +284,11 @@ function AppDataSection({
       config.currentCloudSyncKeylessWalletId,
     ]);
 
-  const kwExists = keylessWalletResult?.exists ?? false;
+  const kwExists = isKeylessWalletEnabled && !!keylessWalletResult?.exists;
   const keylessWallet = keylessWalletResult?.wallet;
   const hardwareKey = useHardwareCloudSyncKey();
   const hardwareSource = hardwareKey.source;
+  const canEnableSync = isKeylessWalletEnabled || hardwareKey.supported;
   // A selected hardware key stands in for the Keyless wallet.
   const hasSyncKey = kwExists || !!hardwareSource;
 
@@ -321,14 +322,15 @@ function AppDataSection({
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    // With hardware keys the switch's key chooser also creates a Keyless
-    // wallet, so first-time users get the switch instead of Scenario 1.
+    canEnableSync &&
+    // A supported hardware key can enable sync without an existing wallet.
     (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)); // Scenario 2
   const isFormerKwUserNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
     !hasSyncKey &&
+    canEnableSync &&
     hasUsedKeylessSyncBefore; // Scenario 6
   const isSyncOffNoKw =
     !kwLoading &&
@@ -337,6 +339,7 @@ function AppDataSection({
     !hasSyncKey &&
     !hasUsedKeylessSyncBefore &&
     !hasUsedOneKeyIdSyncBefore &&
+    isKeylessWalletEnabled &&
     !hardwareKey.supported; // Scenario 1
 
   // Last update times
@@ -416,6 +419,7 @@ function AppDataSection({
 
   // Navigate to KW creation flow (Scenario 1)
   const handleCreateKeylessWallet = useCallback(() => {
+    if (!isKeylessWalletEnabled) return;
     const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
@@ -439,11 +443,11 @@ function AppDataSection({
     }
 
     navigation.navigate(ERootRoutes.Onboarding, onboardingParams);
-  }, [navigation]);
+  }, [isKeylessWalletEnabled, navigation]);
 
   // Migrate ID → Keyless (Scenario 4 "Switch Now")
   const handleMigrateToKeyless = useCallback(async () => {
-    if (isSubmittingRef.current) return;
+    if (!isKeylessWalletEnabled || isSubmittingRef.current) return;
     if (!kwExists) {
       Dialog.show({
         icon: 'CloudOutline',
@@ -483,7 +487,7 @@ function AppDataSection({
     } finally {
       isSubmittingRef.current = false;
     }
-  }, [kwExists, intl, handleCreateKeylessWallet]);
+  }, [kwExists, intl, handleCreateKeylessWallet, isKeylessWalletEnabled]);
 
   const handleDisableIdSync = useCallback(async (value: boolean) => {
     if (value || isSubmittingRef.current) return;
@@ -514,16 +518,18 @@ function AppDataSection({
     }
   }, []);
 
-  // Turning sync on asks which key to use where hardware keys are supported.
   const handleEnableSync = useCallback(async () => {
-    const choice = hardwareKey.supported
-      ? await chooseCloudSyncKey(intl)
-      : 'keyless';
-    if (choice === 'hardware') {
-      await hardwareKey.openPicker();
-      return;
+    if (hardwareKey.supported) {
+      const choice = isKeylessWalletEnabled
+        ? await chooseCloudSyncKey(intl)
+        : 'hardware';
+      if (choice === 'hardware') {
+        await hardwareKey.openPicker();
+        return;
+      }
+      if (choice !== 'keyless') return;
     }
-    if (choice !== 'keyless') return;
+    if (!isKeylessWalletEnabled) return;
     if (!kwExists) {
       await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
         true,
@@ -540,6 +546,7 @@ function AppDataSection({
     handleToggleKeylessSync,
     hardwareKey,
     intl,
+    isKeylessWalletEnabled,
     hardwareSource,
     kwExists,
   ]);
@@ -688,12 +695,14 @@ function AppDataSection({
       description: intl.formatMessage({
         id: ETranslations.keyless_wallet_removed__desc,
       }),
-      action: {
-        primary: intl.formatMessage({
-          id: ETranslations.restore_keyless_wallet__action,
-        }),
-        onPrimaryPress: handleCreateKeylessWallet,
-      },
+      action: isKeylessWalletEnabled
+        ? {
+            primary: intl.formatMessage({
+              id: ETranslations.restore_keyless_wallet__action,
+            }),
+            onPrimaryPress: handleCreateKeylessWallet,
+          }
+        : undefined,
     };
   } else if (isActiveKwUser && hardwareSource && hardwareKey.keyMissing) {
     syncAlert = {
@@ -723,7 +732,7 @@ function AppDataSection({
     syncAlert = {
       title: intl.formatMessage({ id: ETranslations.global_sync_error }),
     };
-  } else if (isActiveIdUser || isFormerIdUser) {
+  } else if (isKeylessWalletEnabled && (isActiveIdUser || isFormerIdUser)) {
     syncAlert = {
       title: intl.formatMessage({
         id: ETranslations.switch_to_keyless_wallet_sync__title,

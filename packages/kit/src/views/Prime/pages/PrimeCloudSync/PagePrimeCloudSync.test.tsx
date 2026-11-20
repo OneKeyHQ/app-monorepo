@@ -18,6 +18,9 @@ import PagePrimeCloudSync from './PagePrimeCloudSync';
 let mockSettings: IPrimeCloudSyncPersistAtomData;
 let mockHardwareSupported: boolean;
 let mockKeylessExists: boolean;
+let mockKeylessWalletEnabled: boolean;
+const mockNavigate = jest.fn();
+const mockPendingKeyless = jest.fn(async (_enabled: boolean) => undefined);
 const mockLegacyToggle = jest.fn<Promise<boolean>, [{ enabled: boolean }]>();
 const mockOffTelemetry = jest.fn<void, [{ status: string }]>();
 const mockKeylessToggle = jest.fn<Promise<void>, [{ enabled: boolean }]>();
@@ -92,7 +95,7 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
 jest.mock(
   '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet',
   () => ({
-    useKeylessWalletFeatureIsEnabled: () => true,
+    useKeylessWalletFeatureIsEnabled: () => mockKeylessWalletEnabled,
   }),
 );
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -103,7 +106,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ navigate: jest.fn() }),
+  default: () => ({ navigate: mockNavigate }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: false }],
@@ -143,7 +146,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceKeylessCloudSync: {
       toggleCloudSyncKeyless: (params: { enabled: boolean }) =>
         mockKeylessToggle(params),
-      setPendingAutoEnableCloudSyncKeyless: jest.fn(async () => undefined),
+      setPendingAutoEnableCloudSyncKeyless: (enabled: boolean) =>
+        mockPendingKeyless(enabled),
       enableKeylessCloudSyncWithMigrationIfNeeded: () => mockMigrateKeyless(),
     },
   },
@@ -153,6 +157,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockHardwareSupported = false;
   mockKeylessExists = true;
+  mockKeylessWalletEnabled = true;
   mockSettings = {
     isCloudSyncEnabled: false,
     isCloudSyncEnabledKeyless: false,
@@ -160,7 +165,7 @@ beforeEach(() => {
   };
 });
 
-it('shows former ID users the supported hardware chooser rather than legacy reactivation', async () => {
+it('offers the chooser to a former ID user when both key types are supported', async () => {
   mockHardwareSupported = true;
   mockKeylessExists = false;
   mockChoose.mockResolvedValueOnce('hardware');
@@ -170,8 +175,76 @@ it('shows former ID users the supported hardware chooser rather than legacy reac
   ).toBeTruthy();
   fireEvent.click(screen.getByTestId('prime-switch'));
   await waitFor(() => expect(mockPickHardware).toHaveBeenCalledTimes(1));
+  expect(mockChoose).toHaveBeenCalledTimes(1);
   expect(mockLegacyToggle).not.toHaveBeenCalled();
   expect(mockKeylessToggle).not.toHaveBeenCalled();
+});
+
+it('uses the hardware picker directly for a former ID user on a hardware-only platform', async () => {
+  mockHardwareSupported = true;
+  mockKeylessWalletEnabled = false;
+  render(<PagePrimeCloudSync />);
+  expect(
+    screen.queryByRole('button', { name: ETranslations.switch_now__action }),
+  ).toBeNull();
+  await act(async () => fireEvent.click(screen.getByTestId('prime-switch')));
+  expect(mockPickHardware).toHaveBeenCalledTimes(1);
+  expect(mockChoose).not.toHaveBeenCalled();
+  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(mockPendingKeyless).not.toHaveBeenCalled();
+  expect(mockMigrateKeyless).not.toHaveBeenCalled();
+  expect(mockKeylessToggle).not.toHaveBeenCalled();
+  expect(mockLegacyToggle).not.toHaveBeenCalled();
+});
+
+it.each(['former ID', 'former Keyless', 'first-time'] as const)(
+  'offers no unsupported activation for a %s user with neither capability',
+  async (scenario) => {
+    mockKeylessWalletEnabled = false;
+    mockSettings.hasEverEnabledOneKeyIdSync = scenario === 'former ID';
+    mockSettings.hasEverEnabledKeylessSync = scenario === 'former Keyless';
+    render(<PagePrimeCloudSync />);
+    expect(screen.queryByRole('button', { name: 'off' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: ETranslations.switch_now__action }),
+    ).toBeNull();
+    expect(screen.queryByTestId('prime-btn')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockPendingKeyless).not.toHaveBeenCalled();
+  },
+);
+
+it('lets a former Keyless user recover through hardware without a restore-Keyless CTA', async () => {
+  mockHardwareSupported = true;
+  mockKeylessWalletEnabled = false;
+  mockSettings.hasEverEnabledKeylessSync = true;
+  render(<PagePrimeCloudSync />);
+  expect(
+    screen.queryByRole('button', {
+      name: ETranslations.restore_keyless_wallet__action,
+    }),
+  ).toBeNull();
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'off' })),
+  );
+  expect(mockPickHardware).toHaveBeenCalledTimes(1);
+  expect(mockChoose).not.toHaveBeenCalled();
+  expect(mockPendingKeyless).not.toHaveBeenCalled();
+});
+
+it('keeps active Keyless sync off available without a supported Keyless recovery', async () => {
+  mockKeylessWalletEnabled = false;
+  mockSettings.isCloudSyncEnabledKeyless = true;
+  render(<PagePrimeCloudSync />);
+  expect(
+    screen.queryByRole('button', {
+      name: ETranslations.restore_keyless_wallet__action,
+    }),
+  ).toBeNull();
+  await act(async () => fireEvent.click(screen.getByTestId('prime-switch')));
+  expect(mockKeylessToggle).toHaveBeenCalledWith({ enabled: false });
+  expect(mockPendingKeyless).not.toHaveBeenCalled();
+  expect(mockNavigate).not.toHaveBeenCalled();
 });
 
 it('keeps supported Keyless enable and explicit migration available for a former ID user', async () => {
@@ -184,6 +257,7 @@ it('keeps supported Keyless enable and explicit migration available for a former
     screen.getByRole('button', { name: ETranslations.switch_now__action }),
   );
   await waitFor(() => expect(mockMigrateKeyless).toHaveBeenCalledTimes(1));
+  expect(mockChoose).not.toHaveBeenCalled();
   expect(mockLegacyToggle).not.toHaveBeenCalled();
 });
 
@@ -191,8 +265,13 @@ it.each([true, false])(
   'only reports successful legacy disable when the service confirms it (%s)',
   async (disabled) => {
     mockSettings.isCloudSyncEnabled = true;
+    mockHardwareSupported = true;
+    mockKeylessWalletEnabled = false;
     mockLegacyToggle.mockResolvedValueOnce(disabled);
     render(<PagePrimeCloudSync />);
+    expect(
+      screen.queryByRole('button', { name: ETranslations.switch_now__action }),
+    ).toBeNull();
     await act(async () => fireEvent.click(screen.getByTestId('prime-switch')));
     expect(mockLegacyToggle).toHaveBeenCalledWith({ enabled: false });
     if (disabled) {
@@ -201,5 +280,6 @@ it.each([true, false])(
       expect(mockOffTelemetry).not.toHaveBeenCalled();
     }
     expect(mockKeylessToggle).not.toHaveBeenCalled();
+    expect(mockPickHardware).not.toHaveBeenCalled();
   },
 );
