@@ -275,6 +275,7 @@ function SelectContent() {
     placement,
     labelInValue,
     waitForChangeBeforeClose,
+    mountOptionsOnOpen,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
     searchable,
@@ -454,7 +455,7 @@ function SelectContent() {
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      keepChildrenMounted={!platformEnv.isNative}
+      keepChildrenMounted={!platformEnv.isNative && !mountOptionsOnOpen}
       mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
       sheetContentScrollable={!searchable || Boolean(sections)}
@@ -489,6 +490,7 @@ function SelectFrame<
     placement = platformEnv.isNative ? 'bottom-start' : undefined,
     usingPercentSnapPoints,
     waitForChangeBeforeClose,
+    mountOptionsOnOpen,
     searchable,
     searchPlaceholder,
   } = props;
@@ -527,6 +529,7 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      mountOptionsOnOpen,
       searchable,
       searchPlaceholder,
     }),
@@ -547,6 +550,7 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      mountOptionsOnOpen,
       searchable,
       searchPlaceholder,
     ],

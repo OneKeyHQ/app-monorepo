@@ -13,6 +13,7 @@ export type IContextType = {
     value: string | number | boolean | undefined | ISelectItem,
   ) => void | Promise<void>;
   waitForChangeBeforeClose?: boolean;
+  mountOptionsOnOpen?: boolean;
   placeholder?: string;
   title?: string;
   disabled?: boolean;

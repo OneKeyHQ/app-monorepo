@@ -56,6 +56,8 @@ export type ISelectProps<
   onChange?: (value: T) => void | Promise<void>;
   /** Keep the selector open until an asynchronous selection is ready to show. */
   waitForChangeBeforeClose?: boolean;
+  /** Mount the web option list only while the selector is open. */
+  mountOptionsOnOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   defaultTriggerInputProps?: IInputProps;

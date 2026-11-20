@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, IconButton, Select } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   HEADER_ICON_BUTTON_STYLE_PROPS,
@@ -48,6 +49,7 @@ export function ChartTypeSelect({
   return (
     <Select
       testID="trading-view-native-chart-type-select"
+      mountOptionsOnOpen={platformEnv.isWeb}
       title={title}
       items={items}
       value={value}
