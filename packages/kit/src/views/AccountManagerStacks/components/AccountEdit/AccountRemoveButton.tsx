@@ -15,6 +15,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -52,6 +53,8 @@ function useRemoveAccountFn() {
         //     id: ETranslations.feedback_change_saved,
         //   }),
         // });
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
       } finally {
         setLoading(false);
         await closeDialog?.();

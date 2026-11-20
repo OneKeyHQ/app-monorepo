@@ -1,6 +1,8 @@
 import {
   CONFIRMATION_VERSION,
+  CURRENT_SHARE_CAPABILITY,
   DELETION_SCOPE,
+  RESULT_CAPABILITY_HEADER,
   RETAINED_SCOPE,
   UPDATED_CONFIRMATION_VERSION,
   WARNING_CODES,
@@ -77,7 +79,7 @@ it('rejects an unknown confirmation version with an otherwise valid warning set 
   expect(transport).not.toHaveBeenCalled();
 });
 
-it('sends the official deletion payload with the leading zero intact, and limits result requests to proof', async () => {
+it('negotiates current share status only on /result without changing any request body', async () => {
   const sent: Request[] = [];
   const client = createDeletionClient((request) => {
     sent.push(request);
@@ -98,7 +100,61 @@ it('sends the official deletion payload with the leading zero intact, and limits
   expect(sent[0]?.headers.get('Idempotency-Key')).toBe('fixture-key');
   await expect(sent[1]?.json()).resolves.toEqual(proof);
   expect(sent[1]?.headers.has('Idempotency-Key')).toBe(false);
+  expect(sent[0]?.headers.has(RESULT_CAPABILITY_HEADER)).toBe(false);
+  expect(sent[1]?.headers.get(RESULT_CAPABILITY_HEADER)).toBe(
+    CURRENT_SHARE_CAPABILITY,
+  );
 });
+
+it.each(['absent', 'present', 'unknown'])(
+  'accepts the exact extended completed result with current share status %s',
+  async (currentShareStatus) => {
+    const data = { ...receipt, currentShareStatus };
+    const client = returning({ code: 0, message: '', data });
+    await expect(client.getResult(proof)).resolves.toEqual(data);
+    await expect(client.deleteShare(attempt, 'fixture-key')).rejects.toThrow(
+      'Unknown deletion success response.',
+    );
+  },
+);
+
+it.each([
+  { ...receipt, currentShareStatus: 'unexpected' },
+  { ...receipt, currentShareStatus: null },
+  { ...receipt, currentShareStatus: 'absent', extra: 'unexpected' },
+  { ...receipt, extra: 'unexpected' },
+  { status: 'not_submitted', currentShareStatus: 'absent' },
+  {
+    status: 'processing',
+    resultId: 'op',
+    supportReference: 'ref',
+    retryAfterSeconds: 1,
+    currentShareStatus: 'absent',
+  },
+])('rejects malformed or unrelated current share fields %#', async (data) => {
+  await expect(
+    returning({ code: 0, message: '', data }).getResult(proof),
+  ).rejects.toThrow('Unknown deletion success response.');
+});
+
+it.each(['ready', 'used'])(
+  'treats an expired %s link-info result as unavailable',
+  async (status) => {
+    const data = {
+      ...link,
+      status,
+      expiresAt: link.serverTime,
+      confirmationVersion: CONFIRMATION_VERSION,
+    };
+    await expect(
+      returning({ code: 0, message: '', data }).getLinkInfo(
+        proof.invitationToken,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'INVITATION_UNAVAILABLE' },
+    });
+  },
+);
 
 it.each([
   [90_900, 'INVITATION_UNAVAILABLE'],

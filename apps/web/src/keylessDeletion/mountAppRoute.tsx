@@ -39,7 +39,7 @@ import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { exchangeOAuthAccessToken } from './authentication';
 import { createDeletionTransport } from './connection';
-import { DeletionPage } from './DeletionPage';
+import { DeletionPage, SupportContact } from './DeletionPage';
 import { getKeylessEntry, getKeylessSite } from './entry';
 import {
   OPTIONAL_SETTINGS_TIMEOUT_MS,
@@ -47,9 +47,10 @@ import {
   readLocalePreference,
   resolveLocale,
 } from './localePreference';
-import { messages } from './messages';
 import { resetOnHistoryRestore } from './pageLifecycle';
 import { KEYLESS_OAUTH_MARKER } from './paths';
+import { PopupBlockedError } from './popupBlockedError';
+import { createSupportContact, loadStartupText } from './startupText';
 import './styles.css';
 
 import type { IBusinessAuth } from './useDeletionFlow';
@@ -67,11 +68,7 @@ function connect(
         '_blank',
         'popup,width=480,height=660',
       );
-      if (!popup)
-        throw new DOMException(
-          'Unable to open OAuth popup.',
-          'NotAllowedError',
-        );
+      if (!popup) throw new PopupBlockedError();
       try {
         const token = await exchangeOAuthAccessToken(
           {
@@ -156,6 +153,20 @@ function LanguageSelector({
   );
 }
 
+function OpenInvitationNotice() {
+  const intl = useIntl();
+  return (
+    <YStack render="main" gap="$4">
+      <SizableText color="$textSubdued" testID="app-open-invitation">
+        {intl.formatMessage({
+          id: ETranslations.keyless_deletion_open_link__desc,
+        })}
+      </SizableText>
+      <SupportContact centered={false} />
+    </YStack>
+  );
+}
+
 function InviteRoute({
   business,
   invitationToken,
@@ -204,11 +215,7 @@ function InviteRoute({
             invitationToken={invitationToken}
           />
         ) : (
-          <YStack render="main" gap="$4">
-            <SizableText color="$textSubdued" testID="app-open-invitation">
-              {messages.openInvitation}
-            </SizableText>
-          </YStack>
+          <OpenInvitationNotice />
         )}
       </YStack>
     </YStack>
@@ -333,7 +340,15 @@ export async function mount(container: HTMLElement) {
     },
   });
   if (!connection) {
-    container.textContent = messages.serviceClosed;
+    const locale = resolveLocale(initialPreference);
+    const [notice, contact] = await Promise.all([
+      loadStartupText('openLink', locale),
+      loadStartupText('contact', locale),
+    ]);
+    const message = globalThis.document.createElement('p');
+    message.textContent = notice ?? '';
+    container.replaceChildren(message);
+    if (contact) container.append(createSupportContact(contact));
     return;
   }
   const business = connect(connection);

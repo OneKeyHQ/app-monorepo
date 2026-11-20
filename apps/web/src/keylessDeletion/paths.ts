@@ -1,4 +1,5 @@
 export const KEYLESS_OAUTH_MARKER = 'onekey_keyless_deletion';
+export const KEYLESS_DELETION_SUPPORT_EMAIL = 'legal@onekey.so';
 
 export function getKeylessRouteKind(url: URL) {
   const path = url.pathname.replace(/\/$/, '');

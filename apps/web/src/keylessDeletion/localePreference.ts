@@ -4,13 +4,11 @@ import {
   buildJotaiStorageKey,
   onekeyJotaiStorage,
 } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
-import {
-  ETranslations,
-  type ILocaleJSONSymbol,
-  type ILocaleSymbol,
+import type {
+  ILocaleJSONSymbol,
+  ILocaleSymbol,
 } from '@onekeyhq/shared/src/locale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
-import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale/localeOptions';
 import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
@@ -45,8 +43,6 @@ export async function readLocalePreference(): Promise<ILocaleSymbol> {
   return getPreferredLocale(settings?.locale);
 }
 
-export async function loadStartupRetryLabel() {
-  const locale = resolveLocale(await readLocalePreference());
-  const catalog = await loadLocaleMessages(locale);
-  return catalog[ETranslations.global_retry];
+export async function readPreferredLocale() {
+  return resolveLocale(await readLocalePreference());
 }

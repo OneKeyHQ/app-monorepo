@@ -145,9 +145,6 @@ export { PortalProvider } from '@tamagui/portal';
 // Switch
 export { Switch as TMSwitch, SwitchStyledContext } from '@tamagui/switch';
 
-// Slider
-export { Slider as TMSlider } from '@tamagui/slider';
-
 // Separator
 export { Separator } from '@tamagui/separator';
 

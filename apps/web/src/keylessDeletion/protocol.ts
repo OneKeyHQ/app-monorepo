@@ -6,6 +6,8 @@ import {
 } from './deletionBusinessError';
 
 export const API_BASE = '/prime/v1/keyless-deletion';
+export const RESULT_CAPABILITY_HEADER = 'X-OneKey-Keyless-Result';
+export const CURRENT_SHARE_CAPABILITY = 'current-share-status';
 export const DELETION_ROUTES = [
   '/link-info',
   '/otp/send',
@@ -100,6 +102,8 @@ export interface ICompleted {
   supportReference: string;
 }
 
+type ICurrentShareStatus = 'absent' | 'present' | 'unknown';
+
 export type IResult =
   | { status: 'not_submitted' }
   | {
@@ -108,7 +112,7 @@ export type IResult =
       retryAfterSeconds: number;
       supportReference: string;
     }
-  | ICompleted
+  | (ICompleted & { currentShareStatus?: ICurrentShareStatus })
   | {
       status: 'manual_review_required';
       resultId: string;
@@ -225,7 +229,6 @@ function isLinkInfo(data: unknown): data is ILinkInfo {
     PROVIDERS.some((provider) => provider === data.allowedProvider) &&
     isUtcTimestamp(data.expiresAt) &&
     isUtcTimestamp(data.serverTime) &&
-    Date.parse(data.expiresAt) > Date.parse(data.serverTime) &&
     matchesSet(data.deletionScope, [DELETION_SCOPE]) &&
     matchesSet(data.retainedScope, RETAINED_SCOPE) &&
     RECREATION_POLICIES.some((policy) => policy === data.recreationPolicy) &&
@@ -252,15 +255,21 @@ function isChallenge(data: unknown): data is IChallenge {
   );
 }
 
-function isCompleted(data: unknown): data is ICompleted {
+function hasCompletionFields(data: Record<string, unknown>) {
   return (
-    isRecord(data) &&
     data.status === 'completed' &&
     isText(data.resultId) &&
     isText(data.supportReference) &&
     isUtcTimestamp(data.completedAt) &&
     matchesSet(data.deletedScope, [DELETION_SCOPE]) &&
-    matchesSet(data.retainedScope, RETAINED_SCOPE) &&
+    matchesSet(data.retainedScope, RETAINED_SCOPE)
+  );
+}
+
+function isCompleted(data: unknown): data is ICompleted {
+  return (
+    isRecord(data) &&
+    hasCompletionFields(data) &&
     Object.keys(data).length === 6
   );
 }
@@ -270,9 +279,17 @@ function isResult(data: unknown): data is IResult {
     return false;
   }
   if (data.status === 'completed') {
-    return isCompleted(data);
+    if (!('currentShareStatus' in data)) return isCompleted(data);
+    return (
+      hasCompletionFields(data) &&
+      Object.keys(data).length === 7 &&
+      (data.currentShareStatus === 'absent' ||
+        data.currentShareStatus === 'present' ||
+        data.currentShareStatus === 'unknown')
+    );
   }
   if (
+    'currentShareStatus' in data ||
     'completedAt' in data ||
     'deletedScope' in data ||
     'retainedScope' in data
@@ -463,6 +480,9 @@ export function createDeletionClient(
     if (idempotencyKey) {
       headers.set('Idempotency-Key', idempotencyKey);
     }
+    if (route === '/result') {
+      headers.set(RESULT_CAPABILITY_HEADER, CURRENT_SHARE_CAPABILITY);
+    }
     async function readResponse() {
       const response = await transport(
         new Request(`${origin}${API_BASE}${route}`, {
@@ -530,8 +550,13 @@ export function createDeletionClient(
   }
 
   return {
-    getLinkInfo: (invitationToken: string) =>
-      request('/link-info', { invitationToken }, isLinkInfo),
+    getLinkInfo: async (invitationToken: string) => {
+      const info = await request('/link-info', { invitationToken }, isLinkInfo);
+      if (Date.parse(info.expiresAt) <= Date.parse(info.serverTime)) {
+        throw new DeletionError({ code: 'INVITATION_UNAVAILABLE' });
+      }
+      return info;
+    },
     sendDeletionOtp: (body: IProof) =>
       request('/otp/send', proofFields(body), isChallenge),
     deleteShare: async (
