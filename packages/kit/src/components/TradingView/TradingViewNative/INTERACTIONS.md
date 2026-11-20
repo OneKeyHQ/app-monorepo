@@ -25,7 +25,9 @@ under separate owners:
   For the same reason every write of the grid (a selection, a panel's token or
   indicators, the preset, sync options, sizes) starts from the layout the grid
   wrote last until the saved layout has caught up with it, so it cannot undo
-  another write that has not come back yet.
+  another write that has not come back yet. Once the grid is unmounted, a
+  late write, e.g. a selection the host answers then, starts from the latest
+  saved layout, which a grid mounted since may have changed.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
@@ -39,11 +41,12 @@ under separate owners:
   made then saves it there and never over the first panel's own token. A
   selection whose panel the preset hides before the host has followed is
   saved all the same and returns with the preset. If the host turns the switch
-  down for another token, e.g. picked in the first panel, the selected panel
-  takes it only if it was on screen when the host went there; a hidden one
-  keeps its own token and the new one stays with the panel it belonged to. A
-  host back on its own source returns the selection, and the selection
-  returned to follows the host from then on. The
+  down for another token, e.g. from the host's picker while the first panel
+  stands in for a hidden one, the selected panel takes it only if it was on
+  screen when the host went there; a hidden one keeps its own token, and the
+  new one belongs to the panel it belonged to before, also for a selection
+  made before the answer comes. A host back on its own source returns the
+  selection, and the selection returned to follows the host from then on. The
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,
@@ -63,9 +66,9 @@ under separate owners:
   off is null there, and the provider stays mounted, so changing an option
   never remounts a chart.
   - Symbol: the grid renders the selected panel's source, the host's, in
-    every panel and sets `isSymbolSynced` on the panels. The host then lets a
-    pick in any panel change its own source, and selecting another panel
-    changes neither the host's source nor any saved token. A panel keeps its
+    every panel and sets `isSymbolSynced` on the panels. Only the host's own
+    picker changes that source, and selecting another panel changes neither
+    the host's source nor any saved token. A panel keeps its
     saved token for when the option is turned off; turning the option on
     saves the selected panel's, which it showed without storing.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first

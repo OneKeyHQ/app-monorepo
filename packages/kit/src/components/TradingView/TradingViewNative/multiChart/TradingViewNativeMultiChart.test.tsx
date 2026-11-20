@@ -145,6 +145,8 @@ interface IHarness {
   // Another writer, e.g. another window, saves a layout.
   replaceLayout: (layout: ITradingViewNativeMultiChartLayout) => void;
   unmount: () => void;
+  // Mounts a new grid over the same saved layout and host source.
+  remount: () => void;
 }
 
 function renderGrid({
@@ -170,6 +172,7 @@ function renderGrid({
     flushLayout: () => {},
     replaceLayout: () => {},
     unmount: () => {},
+    remount: () => {},
   };
   // As on a split runtime: a write is evaluated at once against the snapshot
   // bg sent last, forwarded as a complete layout and applied when it returns.
@@ -186,24 +189,32 @@ function renderGrid({
       harness.flushLayout();
     }
   };
+  // The saved layout and the host's source outlive a mounted grid.
+  let hostSource = initialActiveSource;
+  let setHostLayout:
+    | ((layout: ITradingViewNativeMultiChartLayout) => void)
+    | undefined;
+  let setHostSource: ((source: ITradingViewNativeSource) => void) | undefined;
+  harness.replaceLayout = (next) => {
+    harness.layout = next;
+    setHostLayout?.(next);
+  };
+  harness.flushLayout = (count = sentLayouts.length) => {
+    const sent = sentLayouts.splice(0, count).at(-1);
+    // As bg sends it back: the way there drops fields set to `undefined`.
+    harness.replaceLayout(
+      sent ? JSON.parse(JSON.stringify(sent)) : harness.layout,
+    );
+  };
+  harness.setActiveSource = (source) => {
+    hostSource = source;
+    setHostSource?.(source);
+  };
   function Host() {
-    const [layout, setLayout] = useState(initialLayout);
-    const [activeSource, setActiveSource] = useState(initialActiveSource);
-    harness.layout = layout;
-    harness.setActiveSource = setActiveSource;
-    harness.flushLayout = (count = sentLayouts.length) => {
-      const sent = sentLayouts.splice(0, count).at(-1);
-      // As bg sends it back: the way there drops fields set to `undefined`.
-      const next: ITradingViewNativeMultiChartLayout = sent
-        ? JSON.parse(JSON.stringify(sent))
-        : harness.layout;
-      harness.layout = next;
-      setLayout(next);
-    };
-    harness.replaceLayout = (next) => {
-      harness.layout = next;
-      setLayout(next);
-    };
+    const [layout, setLayout] = useState(() => harness.layout);
+    const [activeSource, setActiveSource] = useState(() => hostSource);
+    setHostLayout = setLayout;
+    setHostSource = setActiveSource;
     return (
       <TradingViewNativeMultiChart
         layout={layout}
@@ -216,7 +227,15 @@ function renderGrid({
       />
     );
   }
-  harness.unmount = render(<Host />).unmount;
+  harness.remount = () => {
+    const { unmount } = render(<Host />);
+    harness.unmount = () => {
+      setHostLayout = undefined;
+      setHostSource = undefined;
+      unmount();
+    };
+  };
+  harness.remount();
   return harness;
 }
 
@@ -1169,6 +1188,98 @@ it('starts from an outside change once its own writes have come back from a spli
     preset: '4',
     activePanelId: 'panel-2',
     sync: { symbol: true },
+  });
+});
+
+it('keeps a token traded past a hidden pending panel with its own panel for the next selection', async () => {
+  const finishes: ((switched: boolean) => void)[] = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finishes.push(resolve);
+      }),
+  });
+  const setPreset = (preset: '2h' | '4') => {
+    act(() => {
+      fireEvent.click(screen.getByTestId(`preset-${preset}`));
+    });
+  };
+
+  // The host is still switching to HYPE when the layout shrinks and the
+  // page's token picker, shown by the first panel, trades DOGE instead.
+  act(() => press('panel-4'));
+  setPreset('2h');
+  act(() => harness.setActiveSource(coin('DOGE')));
+  // Another chart is pressed before the HYPE switch is answered.
+  act(() => press('panel-2'));
+  await act(async () => {
+    finishes[0](false);
+    harness.setActiveSource(coin('ETH'));
+    finishes[1](true);
+  });
+
+  // DOGE stays with the first panel, and the fourth keeps its HYPE.
+  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'panel-2');
+  setPreset('4');
+  expectScreen(
+    { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
+    'panel-2',
+  );
+});
+
+it('lands a selection answered after the grid is gone on the layout saved since', async () => {
+  let finish: (switched: boolean) => void = () => {};
+  const harness = renderGrid({
+    deferLayoutWrites: true,
+    layout: {
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  const setPreset = (preset: '2h' | '4') => {
+    act(() => {
+      fireEvent.click(screen.getByTestId(`preset-${preset}`));
+    });
+  };
+
+  // The layout shrinks while the host is switching, and the page drops the
+  // grid, e.g. below the desktop breakpoint, before bg sends that back.
+  act(() => press('panel-4'));
+  setPreset('2h');
+  harness.unmount();
+  act(() => harness.flushLayout());
+
+  // A new grid grows the layout again, which comes back from bg.
+  harness.remount();
+  setPreset('4');
+  act(() => harness.flushLayout());
+
+  // Only now does the switch land.
+  await act(async () => {
+    harness.setActiveSource(coin('HYPE'));
+    finish(true);
+  });
+  act(() => harness.flushLayout());
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    activePanelId: 'panel-4',
+    panels: { main: { source: coin('BTC') } },
   });
 });
 

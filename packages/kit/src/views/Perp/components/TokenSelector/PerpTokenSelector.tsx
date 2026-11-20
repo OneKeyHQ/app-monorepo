@@ -381,19 +381,7 @@ function TokenListHeader({
   );
 }
 
-export interface IPerpTokenSelection {
-  coin: string;
-  mode: 'perp' | 'spot';
-  spotUniverse?: ISpotUniverse;
-}
-
-function BasePerpTokenSelectorContent({
-  onSelectToken,
-}: {
-  // Receives the pick instead of switching the trade instrument, for pickers
-  // that choose a token for something else, such as a split-view chart.
-  onSelectToken?: (selection: IPerpTokenSelection) => void | Promise<void>;
-}) {
+function BasePerpTokenSelectorContent() {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -609,13 +597,7 @@ function BasePerpTokenSelectorContent({
         if (isSpotToken && !spotUniverse) {
           return;
         }
-        if (onSelectToken) {
-          await onSelectToken({
-            coin: symbol,
-            mode: isSpotToken ? 'spot' : 'perp',
-            spotUniverse,
-          });
-        } else if (spotUniverse) {
+        if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
             coin: symbol,
@@ -637,7 +619,6 @@ function BasePerpTokenSelectorContent({
       closePopover,
       actions,
       displayActiveTab,
-      onSelectToken,
       selectorConfig,
       spotUniverses,
     ],

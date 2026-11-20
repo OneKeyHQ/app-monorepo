@@ -294,6 +294,15 @@ export function TradingViewNativeMultiChart({
       writtenLayout.current = null;
     }
   }, [savedLayout]);
+  useEffect(
+    () => () => {
+      // Without the grid nothing tells when the saved layout catches up, and
+      // another grid can change it meanwhile. A write made from here on, e.g. a
+      // selection the host answers late, starts from the latest saved layout.
+      writtenLayout.current = null;
+    },
+    [],
+  );
   // Every write of the grid. On a split runtime `current` is the snapshot bg
   // sent last and can miss writes still on their way there; a write worked out
   // from it, e.g. a selection saved after the preset changed, would undo them.
@@ -340,12 +349,28 @@ export function TradingViewNativeMultiChart({
     selection.activeSourceKey === activeSourceKey;
   const isWaitingForHost = awaitsHost && selection.panelId === activePanelId;
   const shownActiveSource = isWaitingForHost ? selection.source : activeSource;
+  // Whether the selected panel was on screen when the host went to its
+  // current source.
+  const wasShownOnHostMove =
+    selection?.hostMove?.sourceKey === activeSourceKey
+      ? selection.hostMove.isShown
+      : selection?.panelId === activePanelId;
+  // The host went to another token than the one it was asked for while the
+  // selected panel was off screen, e.g. from its picker in the first panel
+  // standing in for a hidden one: the token is not that panel's.
+  const hostPassedSelection =
+    selection !== null &&
+    !selection.isSaved &&
+    selection.activeSourceKey !== activeSourceKey &&
+    activeSourceKey !== getTradingViewNativeSourceKey(selection.source) &&
+    !wasShownOnHostMove;
   // The panel the host's own source belongs to: the selected one, also while
   // the preset hides it and the first panel stands in for it, but not one the
-  // host has yet to follow.
-  const hostPanelId = awaitsHost
-    ? selection.hostPanelId
-    : getTradingViewNativeMultiChartSourceOwnerPanelId(layout);
+  // host has yet to follow or has passed by.
+  const hostPanelId =
+    selection && (awaitsHost || hostPassedSelection)
+      ? selection.hostPanelId
+      : getTradingViewNativeMultiChartSourceOwnerPanelId(layout);
   const saveSelection = useCallback(
     (target: IPanelSelection) => {
       onLayoutChange((current) =>
@@ -368,15 +393,7 @@ export function TradingViewNativeMultiChart({
       // the panel was on screen as the host went there; a panel the preset
       // hid then showed none, so the token stays with the panel it belonged
       // to. A host back on its source returns the selection.
-      const wasShown =
-        selection.hostMove?.sourceKey === activeSourceKey
-          ? selection.hostMove.isShown
-          : selection.panelId === activePanelId;
-      if (
-        hostMoved &&
-        (activeSourceKey === getTradingViewNativeSourceKey(selection.source) ||
-          wasShown)
-      ) {
+      if (hostMoved && !hostPassedSelection) {
         saveSelection(selection);
         setSelection({ ...selection, isRejected: false, isSaved: true });
       } else {
@@ -405,6 +422,7 @@ export function TradingViewNativeMultiChart({
   }, [
     activePanelId,
     activeSourceKey,
+    hostPassedSelection,
     layout,
     saveSelection,
     savedLayout,
