@@ -64,13 +64,22 @@ function WorkspaceTabButton({
 }) {
   return (
     <XStack
+      render={
+        platformEnv.isNative ? undefined : (
+          <button type="button" aria-label={label} />
+        )
+      }
       role="tab"
       aria-selected={active}
       focusable
       width={fullWidth ? '50%' : undefined}
       h="100%"
+      p="$0"
+      bg="transparent"
       alignItems="center"
       justifyContent="center"
+      borderWidth={0}
+      borderStyle="solid"
       borderBottomWidth={fullWidth ? '$px' : '$0.5'}
       borderBottomColor={active ? '$borderActive' : 'transparent'}
       onPress={onPress}

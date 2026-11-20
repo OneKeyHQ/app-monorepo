@@ -196,18 +196,24 @@ function RecentTradesList({
   inline,
   active,
   visible,
+  loadingMinHeight,
 }: {
   coin: string;
   szDecimals?: number;
   inline: boolean;
   active: boolean;
   visible: boolean;
+  loadingMinHeight?: number;
 }) {
   const intl = useIntl();
   const { trades, isLoading, isError, isDisconnected, retry } =
     usePerpPublicTrades(coin, active);
   if (!visible) return null;
   const hasStatus = isError || isDisconnected;
+  const showInitialLoading =
+    active && isLoading && trades.length === 0 && !hasStatus;
+  const inlineMinHeight =
+    showInitialLoading && loadingMinHeight ? loadingMinHeight : '$20';
   const rows = trades.map((trade) => (
     <TradeRow
       key={`${trade.time}:${trade.tid}`}
@@ -231,7 +237,7 @@ function RecentTradesList({
   return (
     <YStack
       flex={inline ? undefined : 1}
-      minHeight={inline ? '$20' : 0}
+      minHeight={inline ? inlineMinHeight : 0}
       testID="perp-recent-trades"
       aria-busy={active && isLoading}
     >
@@ -288,10 +294,12 @@ export function PerpRecentTrades({
   inline = false,
   active = true,
   visible = true,
+  loadingMinHeight,
 }: {
   inline?: boolean;
   active?: boolean;
   visible?: boolean;
+  loadingMinHeight?: number;
 }) {
   const [instrument] = useActiveTradeInstrumentAtom();
   const isFocused = useIsFocused();
@@ -305,6 +313,7 @@ export function PerpRecentTrades({
       inline={inline}
       active={active && isVisible && isFocused}
       visible={visible}
+      loadingMinHeight={loadingMinHeight}
     />
   ) : null;
 }

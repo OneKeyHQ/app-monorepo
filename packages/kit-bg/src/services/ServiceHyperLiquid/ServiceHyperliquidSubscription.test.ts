@@ -640,7 +640,9 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       coin: 'BTC',
       px: '64001',
       time: 1_700_000_000_987,
+      tid: 100,
     } as IRecentTrade;
+    const sameTimeTrade = { ...newerTrade, px: '64002', tid: 200 };
     const perps = { coin: 'BTC', limit: PERPS_RECENT_TRADES_LIMIT };
 
     try {
@@ -669,6 +671,7 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       emit.mockClear();
       listener([olderTrade]);
       listener([newerTrade]);
+      listener([sameTimeTrade]);
       jest.advanceTimersByTime(999);
       expect(emit).not.toHaveBeenCalled();
       jest.advanceTimersByTime(1);
@@ -677,12 +680,53 @@ describe('ServiceHyperliquidSubscription public trades', () => {
         {
           type: 'market',
           subType: ESubscriptionType.TRADES,
-          data: [newerTrade, olderTrade],
+          data: [newerTrade, sameTimeTrade, olderTrade],
         },
       );
     } finally {
       emit.mockRestore();
       await service.unsubscribePublicTrades({ coin: 'BTC' });
+      jest.useRealTimers();
+    }
+  });
+
+  it('flushes accepted trades across a socket close but drops them after the final release', async () => {
+    jest.useFakeTimers();
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const market = { coin: 'BTC' };
+    const trade = { ...market, px: '64000', time: 123 } as IRecentTrade;
+    const nextTrade = { ...trade, px: '64001', time: 456 };
+    try {
+      await service.subscribePublicTrades(market);
+      const firstListener = trades.mock.calls[0][1] as (
+        rows: IRecentTrade[],
+      ) => void;
+      firstListener([trade]);
+      socket.dispatchEvent(new Event('close'));
+      emit.mockClear();
+      jest.advanceTimersByTime(1000);
+      expect(emit.mock.calls).toMatchObject([
+        [EAppEventBusNames.HyperliquidDataUpdate, { data: [trade] }],
+      ]);
+
+      socket.dispatchEvent(new Event('open'));
+      firstListener([trade]);
+      await service.unsubscribePublicTrades(market);
+      await service.subscribePublicTrades(market);
+      const secondListener = trades.mock.calls[1][1] as (
+        rows: IRecentTrade[],
+      ) => void;
+      emit.mockClear();
+      firstListener([trade]);
+      secondListener([nextTrade]);
+      jest.advanceTimersByTime(1000);
+      expect(emit.mock.calls).toMatchObject([
+        [EAppEventBusNames.HyperliquidDataUpdate, { data: [nextTrade] }],
+      ]);
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades(market);
       jest.useRealTimers();
     }
   });

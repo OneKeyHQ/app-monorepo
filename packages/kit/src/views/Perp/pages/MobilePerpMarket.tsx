@@ -247,25 +247,13 @@ function MobilePerpMarketBookPanel({
       tradesVisible || opened === coin ? coin : undefined,
     );
   }, [coin, tradesVisible]);
-  const panelHeight = useRef(0);
-  const [minPanelHeight, setMinPanelHeight] = useState(0);
-  const { height: windowHeight } = useWindowDimensions();
-  const handlePanelLayout = useCallback((event: LayoutChangeEvent) => {
-    panelHeight.current = event.nativeEvent.layout.height;
+  const [orderBookHeight, setOrderBookHeight] = useState(0);
+  const handleOrderBookLayout = useCallback((event: LayoutChangeEvent) => {
+    setOrderBookHeight(event.nativeEvent.layout.height);
   }, []);
-  const selectTab = (showTrades: boolean) => {
-    if (showTrades === showRecentTrades) return;
-    // Keep the parent scroller's offset while the incoming tab loads.
-    setMinPanelHeight(Math.min(panelHeight.current, windowHeight));
-    setShowRecentTrades(showTrades);
-  };
 
   return (
-    <YStack
-      bg="$bgApp"
-      onLayout={handlePanelLayout}
-      minHeight={Math.min(minPanelHeight, windowHeight)}
-    >
+    <YStack bg="$bgApp">
       <XStack role="tablist" px="$4" py="$1.5" gap="$1">
         {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
           const selected = showRecentTrades === showTrades;
@@ -284,7 +272,7 @@ function MobilePerpMarketBookPanel({
               py="$0"
               bg={selected ? '$bgActive' : '$transparent'}
               color={selected ? '$text' : '$textSubdued'}
-              onPress={() => selectTab(showTrades)}
+              onPress={() => setShowRecentTrades(showTrades)}
             >
               {intl.formatMessage({ id: title })}
             </Button>
@@ -292,9 +280,18 @@ function MobilePerpMarketBookPanel({
         })}
       </XStack>
       {tradesVisible || openedTradesCoin === coin ? (
-        <PerpRecentTrades key={coin} inline visible={tradesVisible} />
+        <PerpRecentTrades
+          key={coin}
+          inline
+          visible={tradesVisible}
+          loadingMinHeight={orderBookHeight}
+        />
       ) : null}
-      {!showRecentTrades ? <PerpOrderBook entry="perpMobileMarket" /> : null}
+      {!showRecentTrades ? (
+        <YStack onLayout={handleOrderBookLayout}>
+          <PerpOrderBook entry="perpMobileMarket" />
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

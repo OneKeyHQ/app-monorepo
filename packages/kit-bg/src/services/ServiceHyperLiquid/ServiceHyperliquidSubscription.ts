@@ -1999,7 +1999,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesTransport = transport;
     transport.socket.addEventListener('close', () => {
       if (this._publicTradesTransport !== transport) return;
-      this._clearAllPublicTradesBatches();
       this._publicTradesSubscriptions.forEach((entry) => {
         entry.connected = false;
       });
@@ -2056,9 +2055,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
-    const entry = this._publicTradesSubscriptions.get(coin);
-    if (!entry || trades.length === 0) {
+  private _queuePublicTradesUpdate(
+    coin: string,
+    entry: IPublicTradesSubscription,
+    trades: IWsTrades,
+  ): void {
+    if (
+      this._publicTradesSubscriptions.get(coin) !== entry ||
+      trades.length === 0
+    ) {
       return;
     }
 
@@ -2069,8 +2074,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     const batchedTrades = orderBy(
       [...(currentBatch?.trades ?? []), ...trades],
-      ['time', 'tid'],
-      ['desc', 'desc'],
+      ['time'],
+      ['desc'],
     ).slice(0, limit);
     // The Perps tape requests the full window and follows the exchange's frame
     // cadence. Include any pending Swap batch when it joins the same market.
@@ -2087,11 +2092,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const batch: IPublicTradesBatch = {
       trades: batchedTrades,
       timer: setTimeout(() => {
-        this._publicTradesBatches.delete(coin);
         if (
-          this._publicTradesSubscriptions.has(coin) &&
-          batch.trades.length > 0
+          this._publicTradesSubscriptions.get(coin) !== entry ||
+          this._publicTradesBatches.get(coin) !== batch
         ) {
+          return;
+        }
+        this._publicTradesBatches.delete(coin);
+        if (batch.trades.length > 0) {
           this._emitHyperliquidDataUpdate(
             ESubscriptionType.TRADES,
             batch.trades,
@@ -2146,7 +2154,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           subscriptionPromise: client.trades(
             { coin: normalizedCoin },
             (trades: IWsTrades) => {
-              this._queuePublicTradesUpdate(normalizedCoin, trades);
+              this._queuePublicTradesUpdate(normalizedCoin, entry, trades);
             },
             {
               onError: (error) => {
