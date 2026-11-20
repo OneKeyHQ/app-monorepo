@@ -3463,6 +3463,165 @@ describe('hardware reset session and local data races', () => {
     expect(newer.dataTime).toBe(2);
   });
 
+  test.each(['rename first', 'rotation first'] as const)(
+    'wallet rename shares the key lock from credential read through commit: %s',
+    async (order) => {
+      const { service, backgroundApi } = setup();
+      const wallet = { id: 'hd-1', name: 'Original name' };
+      const record: IDBCloudSyncItem = {
+        id: 'wallet-metadata-sync-id',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawKey: 'Wallet >> test-wallet',
+        rawData: 'Original name',
+        data: 'original-ciphertext',
+        pwdHash: current.pwdHash,
+        dataTime: 1,
+        isDeleted: false,
+        localSceneUpdated: true,
+        serverUploaded: true,
+      };
+      let release = () => {};
+      let entered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const getSyncCredential = jest.fn(async () => mockStored);
+      const buildSyncItemByDBQuery = jest.fn(
+        async ({
+          dbRecord,
+          syncCredential,
+        }: {
+          dbRecord: { name: string };
+          syncCredential: IKeylessCloudSyncCredential;
+        }): Promise<IDBCloudSyncItem> => ({
+          ...record,
+          rawData: dbRecord.name,
+          data: `rename-ciphertext:${syncCredential.pwdHash}`,
+          pwdHash: syncCredential.pwdHash,
+          dataTime: 2,
+          serverUploaded: false,
+        }),
+      );
+      const txAddAndUpdateFreshSyncItems = jest.fn(
+        async ({ items }: { items: IDBCloudSyncItem[] }) => {
+          if (order === 'rename first') {
+            entered();
+            await paused;
+          }
+          Object.assign(record, items[0]);
+        },
+      );
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: {
+            serviceKeylessCloudSync: service,
+            servicePrimeCloudSync: {
+              syncManagers: {
+                wallet: { getSyncCredential, buildSyncItemByDBQuery },
+              },
+            },
+          },
+          getWallet: async () => ({ ...wallet }),
+          withTransaction: async (
+            _bucket: EIndexedDBBucketNames,
+            fn: (tx: object) => Promise<unknown>,
+          ) => fn({}),
+          txAssertCloudSyncMetadataSource: async () => undefined,
+          txAddAndUpdateFreshSyncItems,
+          txUpdateWallet: async ({
+            updater,
+          }: {
+            updater: (value: typeof wallet) => typeof wallet;
+          }) => updater(wallet),
+        },
+      );
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
+        async () => ({ items: [{ ...record }] }),
+      );
+      jest
+        .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+        .mockImplementationOnce(async ({ items }) => {
+          if (order === 'rotation first') {
+            entered();
+            await paused;
+          }
+          return items.map((item) => ({
+            ...item,
+            data: `rotate-ciphertext:${item.data}`,
+            pwdHash: next.pwdHash,
+          }));
+        });
+      jest
+        .spyOn(localDb, 'updateSyncItem')
+        .mockImplementation(async ({ updater }) => {
+          await updater(record);
+        });
+      const rename = () =>
+        db.setWalletNameAndAvatar({
+          walletId: wallet.id,
+          name: 'New wallet name',
+        });
+      const rotate = () => service['commitHardwareDataKey'](current, next);
+      const first = order === 'rename first' ? rename() : rotate();
+      await ready;
+      const second = order === 'rename first' ? rotate() : rename();
+      try {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (order === 'rename first') {
+          expect(
+            backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems,
+          ).not.toHaveBeenCalled();
+        } else {
+          expect(getSyncCredential).not.toHaveBeenCalled();
+        }
+      } finally {
+        release();
+        await Promise.all([first, second]);
+      }
+      expect(txAddAndUpdateFreshSyncItems).toHaveBeenCalledTimes(1);
+      expect(wallet.name).toBe('New wallet name');
+      expect(record).toMatchObject({
+        rawData: 'New wallet name',
+        data:
+          order === 'rename first'
+            ? `rotate-ciphertext:rename-ciphertext:${current.pwdHash}`
+            : `rename-ciphertext:${next.pwdHash}`,
+        pwdHash: next.pwdHash,
+        dataTime: 2,
+        localSceneUpdated: true,
+        serverUploaded: false,
+      });
+    },
+  );
+
+  test.each([
+    { skipSaveLocalSyncItem: true },
+    { applyRestoreSyncPolicy: true },
+  ])(
+    'wallet metadata without a new sync item does not reacquire the key lock: %j',
+    async (options) => {
+      const { service } = setup();
+      const lock = jest.spyOn(service, 'runWithCloudSyncKeyLock');
+      const wallet = { id: 'hd-1', name: 'Local name' };
+      const write = jest.fn(async () => wallet);
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: { serviceKeylessCloudSync: service },
+          setWalletNameAndAvatarInternal: write,
+        },
+      );
+      const params = { walletId: wallet.id, name: 'Cloud name', ...options };
+      await expect(db.setWalletNameAndAvatar(params)).resolves.toBe(wallet);
+      expect(write).toHaveBeenCalledWith(params);
+      expect(lock).not.toHaveBeenCalled();
+    },
+  );
+
   test('scene account rename does not reacquire the key lock', async () => {
     const { service } = setup();
     const lock = jest.spyOn(service, 'runWithCloudSyncKeyLock');

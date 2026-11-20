@@ -8190,6 +8190,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
   ): Promise<IDBWallet> {
+    // Replay and restore policy never create a new sync item. They must
+    // not reacquire this lock from within a Cloud sync operation.
+    if (params.skipSaveLocalSyncItem || params.applyRestoreSyncPolicy) {
+      return this.setWalletNameAndAvatarInternal(params);
+    }
+    // Keep credential selection, encryption and the wallet write together.
+    // This lock coordinates writers in this runtime, not other Web tabs.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.setWalletNameAndAvatarInternal(params),
+    );
+  }
+
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+  ): Promise<IDBWallet> {
     const { walletId } = params;
     let wallet = await this.getWallet({ walletId });
 
