@@ -1253,6 +1253,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     provider,
     vault,
     includeAccountContext,
+    revalidateOnFocus: showWideCampaignBonus,
   });
   const wideBonusProgress = showWideCampaignBonus
     ? detailInfo?.bonusProgress

@@ -109,6 +109,19 @@ describe('Earn approval boundary', () => {
       expect.objectContaining({ params: expect.objectContaining({ vault }) }),
     );
   });
+
+  it('cancels an account-scoped detail request when its expected address cannot be resolved', async () => {
+    const { service, get } = harness();
+
+    await expect(
+      service.getProtocolDetailsV2({
+        ...query,
+        expectedAccountAddress: account,
+      }),
+    ).rejects.toMatchObject({ code: 'ERR_CANCELED' });
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it.each([
     { enabled: false, group: EStakeProtocolGroupEnum.Available },
     { enabled: true, group: EStakeProtocolGroupEnum.WithdrawOnly },

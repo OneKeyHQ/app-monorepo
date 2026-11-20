@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   buildEarnProtocolInfo,
   buildEarnTokenInfo,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IEarnTokenInfo,
@@ -24,6 +25,7 @@ export function useProtocolDetailData({
   provider,
   vault,
   includeAccountContext = false,
+  revalidateOnFocus = false,
 }: {
   accountId: string;
   networkId: string;
@@ -36,6 +38,7 @@ export function useProtocolDetailData({
   // refresh. The phone Portfolio and the wide EtherFi campaign card consume
   // these details. The wide deposit form gets its data from /earn/v1/manage-page.
   includeAccountContext?: boolean;
+  revalidateOnFocus?: boolean;
 }) {
   const { locale } = useIntl();
   const { id: currencyId } = useCurrency();
@@ -50,11 +53,18 @@ export function useProtocolDetailData({
     btcOnlyTaproot: true,
   });
 
-  // Identifies whose balances a response describes. Kept out of the request
-  // itself so an account switch produces a different cache entry instead of
-  // reusing the previous account's numbers.
+  const expectedAccountAddress = includeAccountContext
+    ? earnAccount?.accountAddress || undefined
+    : undefined;
+  const isAccountScopePending =
+    includeAccountContext &&
+    Boolean(accountId || indexedAccountId) &&
+    isAccountLoading === true &&
+    !expectedAccountAddress;
+  // An indexed account can keep the same ID while its derived address changes.
+  // Scope both the visible result and in-flight requests to the resolved address.
   const accountScopeKey = includeAccountContext
-    ? `${accountId || ''}|${indexedAccountId || ''}`
+    ? [accountId, indexedAccountId, expectedAccountAddress].join('|')
     : undefined;
 
   // One request identity per set of fetch inputs. usePromiseResult resets the
@@ -83,6 +93,9 @@ export function useProtocolDetailData({
     run,
   } = usePromiseResult(
     async () => {
+      if (isAccountScopePending) {
+        return undefined;
+      }
       const startedRequestKey = requestKeyRef.current;
       try {
         const result =
@@ -91,16 +104,28 @@ export function useProtocolDetailData({
             symbol,
             provider,
             vault,
-            ...(includeAccountContext ? { accountId, indexedAccountId } : {}),
+            ...(expectedAccountAddress
+              ? { accountId, indexedAccountId, expectedAccountAddress }
+              : {}),
           });
-        settledRequestKeyRef.current = startedRequestKey;
-        if (failedRequestKeyRef.current === startedRequestKey) {
+        if (requestKeyRef.current === startedRequestKey) {
+          settledRequestKeyRef.current = startedRequestKey;
           failedRequestKeyRef.current = undefined;
         }
         return result;
       } catch (error) {
-        settledRequestKeyRef.current = startedRequestKey;
-        failedRequestKeyRef.current = startedRequestKey;
+        const canceled = isRequestCanceledError(error);
+        if (requestKeyRef.current === startedRequestKey) {
+          settledRequestKeyRef.current = canceled
+            ? undefined
+            : startedRequestKey;
+          failedRequestKeyRef.current = canceled
+            ? undefined
+            : startedRequestKey;
+        }
+        if (canceled) {
+          return undefined;
+        }
         throw error;
       }
     },
@@ -114,11 +139,12 @@ export function useProtocolDetailData({
       vault,
       locale,
       currencyId,
-      includeAccountContext,
       accountScopeKey,
+      isAccountScopePending,
     ],
     {
       watchLoading: true,
+      revalidateOnFocus: revalidateOnFocus && Boolean(expectedAccountAddress),
       swrKey: swrKeys.earnProtocolDetail({
         networkId,
         symbol,
@@ -133,26 +159,9 @@ export function useProtocolDetailData({
       // response.
       swrShouldPersist: (result) =>
         !includeAccountContext &&
-        Boolean(result.protocol || result.subscriptionValue?.token),
+        Boolean(result?.protocol || result?.subscriptionValue?.token),
     },
   );
-
-  // For an indexed account, useEarnAccount re-resolves the address after a
-  // GlobalDeriveTypeUpdate / NetworkDeriveTypeChanged, but the request above
-  // only carries the unchanged accountId/indexedAccountId, so nothing would
-  // refetch: protocolInfo below would move to the new address while
-  // mobilePortfolio, balances and rewards still described the old one.
-  // Guarded on a previous value so the initial undefined -> resolved
-  // transition does not fire a second request on every cold open.
-  const derivedAddress = earnAccount?.accountAddress;
-  const lastDerivedAddressRef = useRef(derivedAddress);
-  useEffect(() => {
-    const previous = lastDerivedAddressRef.current;
-    lastDerivedAddressRef.current = derivedAddress;
-    if (previous && derivedAddress && previous !== derivedAddress) {
-      void run();
-    }
-  }, [derivedAddress, run]);
 
   // Shared with the positions card's Redeem, which reads the detail itself
   // to open the order picker.
