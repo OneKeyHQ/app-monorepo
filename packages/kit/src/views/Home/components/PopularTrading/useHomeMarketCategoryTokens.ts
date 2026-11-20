@@ -56,10 +56,12 @@ function useHomeMarketCategoryTokens({
   minLiquidity,
   selectedMarketCategoryId,
   marketCategories = EMPTY_HOME_MARKET_CATEGORIES,
+  isActive = true,
 }: {
   minLiquidity: number;
   selectedMarketCategoryId?: string;
   marketCategories?: IMarketCategoryItem[];
+  isActive?: boolean;
 }) {
   const locale = useLocaleVariant();
   const categoryCacheRef = useRef(new Map<string, ICategoryTokensResult>());
@@ -159,12 +161,16 @@ function useHomeMarketCategoryTokens({
       },
       [marketCategories, minLiquidity, selectedMarketCategoryId, locale],
       {
-        pollingInterval: HOME_MARKET_CATEGORY_POLLING_INTERVAL,
+        pollingInterval:
+          isActive && selectedMarketCategoryId
+            ? HOME_MARKET_CATEGORY_POLLING_INTERVAL
+            : undefined,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         undefinedResultIfReRun: false,
         // Home keeps its state when React reconnects effects after an update.
         resumeOnEffectReconnect: true,
+        overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
       },
     );
 

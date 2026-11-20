@@ -65,7 +65,11 @@ export function buildHomeTokenListCacheIngestRound({
       smallBalanceTokenList,
       visibleTokenListMap,
     ).toFixed(),
-    storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+    storeData: {
+      storeName:
+        EJotaiContextStoreNames?.homeTokenList ??
+        ('homeTokenList' as EJotaiContextStoreNames),
+    },
     keepDefault,
     homeDefaultTokenMap,
     customTokens,

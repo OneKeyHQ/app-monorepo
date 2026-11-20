@@ -365,7 +365,23 @@ function readThroughToStore<T>(key: string): ISWREntry<T> | undefined {
     return undefined;
   }
   const entry = { d: stored.d, t: stored.t } as ISWREntry<T>;
-  const serialized = serializeSWRCacheEntry(key, entry);
+  let serialized: ISerializedSWRCacheEntry<ISWREntry<T>> | undefined;
+  if (
+    typeof stored.serializedChars === 'number' &&
+    stored.serializedChars > 0
+  ) {
+    const entrySerializedChars = stored.serializedChars;
+    serialized = {
+      entry,
+      entrySerializedChars,
+      index: 0,
+      key,
+      serializedChars: key.length + 3 + entrySerializedChars,
+      updatedAt: entry.t,
+    };
+  } else {
+    serialized = serializeSWRCacheEntry(key, entry);
+  }
   if (!serialized) {
     return undefined;
   }
@@ -735,13 +751,10 @@ function set<T>(key: string, data: T): void {
   const store = loadStore();
   const now = Date.now();
   const existing = lookupEntry(key);
-  // An unchanged result only refreshes the timestamp: the key stays pending
-  // so the fresher timestamp rides along with the next flush, but it never
-  // starts one.
+  // An unchanged result only refreshes the in-memory timestamp so session
+  // freshness checks stay current without rewriting unchanged payloads to disk.
   if (existing && isEqual(existing.d, data)) {
     existing.t = now;
-    _updatedKeys.add(key);
-    _dirty = true;
     return;
   }
   const entry = { d: data, t: now };
@@ -1706,7 +1719,12 @@ function getFreshPerpsL2BookSnapshot({
     (!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) &&
     shouldReloadForTarget(targetKey, reloadIfOlderThanMs)
   ) {
-    reloadFromStorage();
+    const store = loadStore();
+    for (const key of keys) {
+      if (!_updatedKeys.has(key)) {
+        removeCachedEntry(store, key);
+      }
+    }
     markReloadForTarget(targetKey, reloadIfOlderThanMs);
     const reloadedEntry = findEntry();
     entry = reloadedEntry ?? entry;

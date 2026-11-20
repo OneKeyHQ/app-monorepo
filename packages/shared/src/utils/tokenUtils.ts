@@ -2180,3 +2180,57 @@ export function calculateAccountTotalValue(params: {
   );
   return sumAll.plus(deFi).toFixed();
 }
+
+export function mergeTokenMetadataWithCustomDataSync<T extends IToken>({
+  token,
+  customTokens,
+  networkId,
+}: {
+  token: T;
+  customTokens: IAccountToken[];
+  networkId: string;
+}): T {
+  if (!token.symbol || !token.name) {
+    const tokenNetworkId =
+      (token as { networkId?: string }).networkId || networkId;
+    const customToken = customTokens.find(
+      (t) =>
+        t.address?.toLowerCase() === token.address?.toLowerCase() &&
+        (t.networkId === networkId || t.networkId === tokenNetworkId),
+    );
+    if (customToken) {
+      const nextSymbol = token.symbol || customToken.symbol;
+      const nextName = token.name || customToken.name;
+      if (nextSymbol === token.symbol && nextName === token.name) {
+        return token;
+      }
+      return {
+        ...token,
+        symbol: nextSymbol,
+        name: nextName,
+      };
+    }
+  }
+  return token;
+}
+
+export function mergeTokenMetadataWithCustomDataBatchSync<T extends IToken>({
+  tokens,
+  customTokens,
+  networkId,
+}: {
+  tokens: T[];
+  customTokens: IAccountToken[];
+  networkId: string;
+}): T[] {
+  if (!tokens.length || !customTokens.length) {
+    return tokens;
+  }
+  return tokens.map((token) =>
+    mergeTokenMetadataWithCustomDataSync({
+      token,
+      customTokens,
+      networkId,
+    }),
+  );
+}

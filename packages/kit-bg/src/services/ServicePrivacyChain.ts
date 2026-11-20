@@ -1,5 +1,5 @@
 import { Mutex } from 'async-mutex';
-import { uniq } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
@@ -605,7 +605,9 @@ class ServicePrivacyChain extends ServiceBase {
         // eslint-disable-next-line no-await-in-loop
         (await this.doLocalWalletPasswordWork({ networkId, accountIds }))
       ) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: accountIds.map((accountId) => ({ accountId, networkId })),
+        });
       }
     }
   }
@@ -659,7 +661,11 @@ class ServicePrivacyChain extends ServiceBase {
         accountIds: [params.accountId],
       });
       if (changed) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: [
+            { accountId: params.accountId, networkId: params.networkId },
+          ],
+        });
       }
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
@@ -689,7 +695,9 @@ class ServicePrivacyChain extends ServiceBase {
         () => vault.localWalletDoDeviceWork({ deviceParams }),
         { deviceParams, debugMethodName: 'privacyChain.syncKeyImages' },
       );
-      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId, networkId }],
+      });
       return;
     }
     if (!(await vault.localWalletHasPasswordWork())) {
@@ -701,7 +709,9 @@ class ServicePrivacyChain extends ServiceBase {
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     await vault.localWalletDoPasswordWork({ password });
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+      accounts: [{ accountId, networkId }],
+    });
   }
 
   // Finishes password-gated work with a cached password only; never prompts. A failure is logged,
@@ -885,6 +895,7 @@ class ServicePrivacyChain extends ServiceBase {
     } else {
       return;
     }
+    this.clearInFlightLocalWalletReads({ networkId });
     try {
       await this.backgroundApi.simpleDb.privacyChainState.setNetworkPaused({
         networkId,
@@ -1308,6 +1319,54 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
+  private inFlightLocalWalletReads?: Map<string, Promise<unknown>>;
+
+  private coalesceInFlightLocalWalletRead<T>(
+    key: string,
+    read: () => Promise<T>,
+  ): Promise<T> {
+    const reads = (this.inFlightLocalWalletReads ??= new Map());
+    const existing = reads.get(key) as Promise<T> | undefined;
+    if (existing) {
+      return existing;
+    }
+    const promise = read().finally(() => {
+      if (this.inFlightLocalWalletReads?.get(key) === promise) {
+        this.inFlightLocalWalletReads.delete(key);
+      }
+    });
+    reads.set(key, promise);
+    return promise;
+  }
+
+  private clearInFlightLocalWalletReads({
+    networkId,
+    accountIds,
+  }: {
+    networkId: string;
+    accountIds?: string[];
+  }) {
+    const reads = this.inFlightLocalWalletReads;
+    if (!reads?.size) return;
+    if (!accountIds?.length) {
+      const marker = `:${networkId}:`;
+      for (const key of reads.keys()) {
+        if (key.includes(marker)) {
+          reads.delete(key);
+        }
+      }
+      return;
+    }
+    for (const accountId of accountIds) {
+      const suffix = `:${networkId}:${accountId}`;
+      for (const key of reads.keys()) {
+        if (key.endsWith(suffix)) {
+          reads.delete(key);
+        }
+      }
+    }
+  }
+
   @backgroundMethod()
   async getLocalWalletLastSyncedAt({
     networkId,
@@ -1316,19 +1375,24 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<number | undefined> {
-    const record =
-      await this.backgroundApi.simpleDb.privacyChainCache.getLastSync({
-        accountId,
-      });
-    if (
-      record?.networkId !== networkId ||
-      !(await this.backgroundApi.simpleDb.privacyChainState.isAccountSyncCurrent(
-        { accountId, epoch: record.epoch, allowPaused: true },
-      ))
-    ) {
-      return undefined;
-    }
-    return record.syncedAt;
+    return this.coalesceInFlightLocalWalletRead(
+      `lastSyncedAt:${networkId}:${accountId}`,
+      async () => {
+        const record =
+          await this.backgroundApi.simpleDb.privacyChainCache.getLastSync({
+            accountId,
+          });
+        if (
+          record?.networkId !== networkId ||
+          !(await this.backgroundApi.simpleDb.privacyChainState.isAccountSyncCurrent(
+            { accountId, epoch: record.epoch, allowPaused: true },
+          ))
+        ) {
+          return undefined;
+        }
+        return record.syncedAt;
+      },
+    );
   }
 
   async onLocalWalletAccountsChanged({
@@ -1342,6 +1406,7 @@ class ServicePrivacyChain extends ServiceBase {
     backfillActive: boolean;
     change?: 'syncState';
   }): Promise<void> {
+    this.clearInFlightLocalWalletReads({ networkId, accountIds });
     appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
       networkId,
       accountIds,
@@ -1369,7 +1434,17 @@ class ServicePrivacyChain extends ServiceBase {
     }
     await this.init();
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      accountIds.length
+        ? {
+            accounts: accountIds.map((accountId) => ({
+              accountId,
+              networkId,
+            })),
+          }
+        : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 
@@ -1857,7 +1932,22 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    const refreshAccounts =
+      targets.length > 0 &&
+      targets.every(
+        ({ networkId, accountIds }) =>
+          Boolean(networkId) && accountIds.length > 0,
+      )
+        ? targets.flatMap(({ networkId, accountIds }) =>
+            networkId
+              ? accountIds.map((accountId) => ({ accountId, networkId }))
+              : [],
+          )
+        : undefined;
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      refreshAccounts?.length ? { accounts: refreshAccounts } : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 
@@ -2067,6 +2157,10 @@ class ServicePrivacyChain extends ServiceBase {
     this.presetLocalWalletNetworkIds ??= (async () => {
       const ids: string[] = [];
       for (const network of getPresetNetworks()) {
+        if (!networkUtils.isLocalWalletNetwork({ networkId: network.id })) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         try {
           // eslint-disable-next-line no-await-in-loop
           const settings = await getVaultSettings({ networkId: network.id });
@@ -2174,6 +2268,8 @@ class ServicePrivacyChain extends ServiceBase {
 
   localWalletNetworkIdsCacheAt = 0;
 
+  localWalletNetworkIdsPending: Promise<string[]> | undefined;
+
   // The networks that scan: listed, with privacy not switched off by the server.
   @backgroundMethod()
   async getLocalWalletNetworkIds(): Promise<string[]> {
@@ -2189,21 +2285,36 @@ class ServicePrivacyChain extends ServiceBase {
       Date.now() - this.localWalletNetworkIdsCacheAt >
         timerUtils.getTimeDurationMs({ minute: 1 })
     ) {
-      const { networks } =
-        await this.backgroundApi.serviceNetwork.getAllNetworks();
-      const ids: string[] = [];
-      for (const network of networks) {
+      this.localWalletNetworkIdsPending ??= (async () => {
         try {
-          const settings = await getVaultSettings({ networkId: network.id });
-          if (settings.localWallet) {
-            ids.push(network.id);
+          const { networks } =
+            await this.backgroundApi.serviceNetwork.getAllNetworks();
+          const ids: string[] = [];
+          for (const network of networks) {
+            if (!networkUtils.isLocalWalletNetwork({ networkId: network.id })) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const settings = await getVaultSettings({
+                networkId: network.id,
+              });
+              if (settings.localWallet) {
+                ids.push(network.id);
+              }
+            } catch {
+              // Not a candidate.
+            }
           }
-        } catch {
-          // Not a candidate.
+          this.localWalletNetworkIdsCache = ids;
+          this.localWalletNetworkIdsCacheAt = Date.now();
+          return ids;
+        } finally {
+          this.localWalletNetworkIdsPending = undefined;
         }
-      }
-      this.localWalletNetworkIdsCache = ids;
-      this.localWalletNetworkIdsCacheAt = Date.now();
+      })();
+      return this.localWalletNetworkIdsPending;
     }
     return this.localWalletNetworkIdsCache;
   }
@@ -2716,19 +2827,34 @@ class ServicePrivacyChain extends ServiceBase {
           canPruneNetwork(networkId) && !seenAccountIds.has(accountId),
       );
       await privacyChainAtom.set((value) => {
-        const syncErrorByNetworkId = Object.fromEntries(
-          Object.entries(value.syncErrorByNetworkId).filter(
-            ([networkId]) =>
-              !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
-          ),
+        const entries = Object.entries(value.syncErrorByNetworkId);
+        const filtered = entries.filter(
+          ([networkId]) =>
+            !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
         );
-        return { ...value, syncErrorByNetworkId };
+        if (filtered.length === entries.length) {
+          return value;
+        }
+        return {
+          ...value,
+          syncErrorByNetworkId: Object.fromEntries(filtered),
+        };
       });
       if (boostStateChanged) {
         await this.publishBoostingNetworks();
       }
       if (anyStateChanged) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(
+          EAppEventBusNames.RefreshTokenList,
+          candidate?.accountIds.length
+            ? {
+                accounts: candidate.accountIds.map((accountId) => ({
+                  accountId,
+                  networkId: candidate.networkId,
+                })),
+              }
+            : undefined,
+        );
       }
       if (runnableCandidates.length > 1) {
         continueDelayMs = timerUtils.getTimeDurationMs({ seconds: 1 });
@@ -3307,7 +3433,17 @@ class ServicePrivacyChain extends ServiceBase {
       this.backfillActiveByAccount[accountId] = true;
     }
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      accountIds.length
+        ? {
+            accounts: accountIds.map((accountId) => ({
+              accountId,
+              networkId,
+            })),
+          }
+        : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 
@@ -3574,18 +3710,23 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<ILocalWalletAccountSupport> {
-    const settings = await getVaultSettings({ networkId });
-    if (!settings.localWallet) {
-      return 'unsupported';
-    }
-    const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    if (!vault.supportsAccountWalletType({ accountId })) {
-      return 'unsupported';
-    }
-    if (await this.isTempWalletAccount({ accountId })) {
-      return 'tempWallet';
-    }
-    return 'supported';
+    return this.coalesceInFlightLocalWalletRead(
+      `support:${networkId}:${accountId}`,
+      async () => {
+        const settings = await getVaultSettings({ networkId });
+        if (!settings.localWallet) {
+          return 'unsupported';
+        }
+        const vault = await vaultFactory.getChainOnlyVault({ networkId });
+        if (!vault.supportsAccountWalletType({ accountId })) {
+          return 'unsupported';
+        }
+        if (await this.isTempWalletAccount({ accountId })) {
+          return 'tempWallet';
+        }
+        return 'supported';
+      },
+    );
   }
 
   @backgroundMethod()
@@ -3596,27 +3737,32 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<ILocalWalletAccountState> {
-    await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
-    const capability = await this.requireAccountCapability(networkId);
-    const state = await capability.getAccountState({ accountId });
-    // Reads as off: the scheduler skips it, so nothing would back "on".
-    if (
-      (state.enabled || state.paused) &&
-      (await this.isTempWalletAccount({ accountId }))
-    ) {
-      return { ...state, enabled: false, paused: false };
-    }
-    // A server disable is unavailable, not a user pause that offers Resume.
-    if (isLocalWalletPrivacyDisabled(networkId)) {
-      return {
-        ...state,
-        enabled: false,
-        paused: false,
-        pendingOperation: undefined,
-        privacyDisabled: true,
-      };
-    }
-    return state;
+    return this.coalesceInFlightLocalWalletRead(
+      `state:${networkId}:${accountId}`,
+      async () => {
+        await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+        const capability = await this.requireAccountCapability(networkId);
+        const state = await capability.getAccountState({ accountId });
+        // Reads as off: the scheduler skips it, so nothing would back "on".
+        if (
+          (state.enabled || state.paused) &&
+          (await this.isTempWalletAccount({ accountId }))
+        ) {
+          return { ...state, enabled: false, paused: false };
+        }
+        // A server disable is unavailable, not a user pause that offers Resume.
+        if (isLocalWalletPrivacyDisabled(networkId)) {
+          return {
+            ...state,
+            enabled: false,
+            paused: false,
+            pendingOperation: undefined,
+            privacyDisabled: true,
+          };
+        }
+        return state;
+      },
+    );
   }
 
   enableMutexByNetwork = new Map<string, Mutex>();
@@ -4487,25 +4633,30 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<ILocalWalletAccountAddresses | undefined> {
-    const settings = await getVaultSettings({ networkId });
-    if (!settings.localWallet) {
-      return undefined;
-    }
-    const capability = await this.requireAccountCapability(networkId);
-    const addresses = await capability.getAccountAddresses({ accountId });
-    if (!addresses) {
-      return undefined;
-    }
-    // Paused accounts and chains still hold address material, but handing it out would
-    // let a payment land in a pool nothing is scanning -- gate on scan state.
-    const state = await this.getLocalWalletAccountState({
-      networkId,
-      accountId,
-    });
-    if (!state.enabled || this.boostPausedByNetwork[networkId]) {
-      return { ...addresses, privateAddress: undefined };
-    }
-    return addresses;
+    return this.coalesceInFlightLocalWalletRead(
+      `addresses:${networkId}:${accountId}`,
+      async () => {
+        const settings = await getVaultSettings({ networkId });
+        if (!settings.localWallet) {
+          return undefined;
+        }
+        const capability = await this.requireAccountCapability(networkId);
+        const addresses = await capability.getAccountAddresses({ accountId });
+        if (!addresses) {
+          return undefined;
+        }
+        // Paused accounts and chains still hold address material, but handing it out would
+        // let a payment land in a pool nothing is scanning -- gate on scan state.
+        const state = await this.getLocalWalletAccountState({
+          networkId,
+          accountId,
+        });
+        if (!state.enabled || this.boostPausedByNetwork[networkId]) {
+          return { ...addresses, privateAddress: undefined };
+        }
+        return addresses;
+      },
+    );
   }
 
   // Private addresses of every scanning account on the network, in one call
@@ -4546,8 +4697,13 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<ILocalWalletAccountBalance | null> {
-    const capability = await this.requireAccountCapability(networkId);
-    return capability.getAccountBalance({ accountId });
+    return this.coalesceInFlightLocalWalletRead(
+      `balance:${networkId}:${accountId}`,
+      async () => {
+        const capability = await this.requireAccountCapability(networkId);
+        return capability.getAccountBalance({ accountId });
+      },
+    );
   }
 
   // Persist the stopped intent before handing cleanup to the background.
@@ -4572,6 +4728,7 @@ class ServicePrivacyChain extends ServiceBase {
       accountId,
       ...(await this.listLocalWalletAccountTwins({ networkId, accountId })),
     ];
+    this.clearInFlightLocalWalletReads({ networkId, accountIds });
     const requests: IPrivacyChainPendingAccountDeletion[] = [];
     for (const id of accountIds) {
       requests.push(
@@ -4953,23 +5110,28 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<ILocalWalletSyncProgress | undefined> {
-    // Reading progress never starts a boost session. Returns the last published value first: a live
-    // read queues behind the scan.
-    const published = (await privacyChainAtom.get()).progress[
-      `${networkId}:${accountId}`
-    ];
-    if (published) {
-      return published;
-    }
-    // Nothing published yet (cold start, or an account still preparing). The runtime may be starting
-    // or busy: ask it, but never wait longer than a page may; the scheduler publishes from then on.
-    const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const capability = requireLocalWalletCapability(vault);
-    return readLocalWalletForDisplay({
-      key: `${networkId}:${accountId}:progress`,
-      read: () => capability.getSyncProgress({ accountId }),
-      remember: false,
-    });
+    return this.coalesceInFlightLocalWalletRead(
+      `progress:${networkId}:${accountId}`,
+      async () => {
+        // Reading progress never starts a boost session. Returns the last published value first: a live
+        // read queues behind the scan.
+        const published = (await privacyChainAtom.get()).progress[
+          `${networkId}:${accountId}`
+        ];
+        if (published) {
+          return published;
+        }
+        // Nothing published yet (cold start, or an account still preparing). The runtime may be starting
+        // or busy: ask it, but never wait longer than a page may; the scheduler publishes from then on.
+        const vault = await vaultFactory.getChainOnlyVault({ networkId });
+        const capability = requireLocalWalletCapability(vault);
+        return readLocalWalletForDisplay({
+          key: `${networkId}:${accountId}:progress`,
+          read: () => capability.getSyncProgress({ accountId }),
+          remember: false,
+        });
+      },
+    );
   }
 
   // Progress for a chain held back by metered data. No network call: reads
@@ -5299,13 +5461,23 @@ class ServicePrivacyChain extends ServiceBase {
       deviceIsCellular: this.deviceIsCellular,
       allowPrivacySyncOnCellular: this.allowCellularSyncCache,
     });
-    await privacyChainAtom.set((v) => ({
-      ...v,
-      boostingNetworkIds,
-      dataBlockedNetworkIds,
-      pausedNetworkIds,
-      scanAllowed,
-    }));
+    await privacyChainAtom.set((v) => {
+      if (
+        v.scanAllowed === scanAllowed &&
+        isEqual(v.boostingNetworkIds, boostingNetworkIds) &&
+        isEqual(v.dataBlockedNetworkIds, dataBlockedNetworkIds) &&
+        isEqual(v.pausedNetworkIds, pausedNetworkIds)
+      ) {
+        return v;
+      }
+      return {
+        ...v,
+        boostingNetworkIds,
+        dataBlockedNetworkIds,
+        pausedNetworkIds,
+        scanAllowed,
+      };
+    });
   }
 
   // Foreground pace derived from the just-published position. Skips the metered-data check: a boost

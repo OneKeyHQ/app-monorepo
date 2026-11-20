@@ -50,6 +50,7 @@ import {
   getOwnerReplayCacheSize,
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
+  tryBuildHomeSnapshotFromOwnerReplay,
 } from '../cells/ownerFrameReplayCache';
 import {
   replayOwnerFrames,
@@ -63,6 +64,10 @@ import {
   meta,
   subcell,
 } from '../cells/projection';
+import {
+  clearHomeTokenListSnapshotCache,
+  fetchHomeTokenListSnapshot,
+} from '../cells/useHomeTokenListSnapshot';
 
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 import type { IApplyDeps } from '../cells/apply';
@@ -87,6 +92,15 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
 jest.mock('@onekeyhq/shared/src/storage/coldStartFlushTrigger', () => ({
   __esModule: true,
   registerColdStartFlushTrigger: () => () => undefined,
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceTokenViewModel: {
+      getRawTokenList: jest.fn(),
+      getAllTokenListMap: jest.fn(),
+    },
+  },
 }));
 
 // In-memory stand-in for the per-owner MMKV namespace so the test observes the
@@ -374,6 +388,177 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
     expect(
       getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: 'acc1__net' }),
     ).toBeUndefined();
+  });
+
+  it('folds base-versioned delta structure and valuation frames into the full cached snapshot and ignores mismatched baseVersions', () => {
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['a', 'b'],
+          metaPatch: {
+            a: makeToken({ symbol: 'A' }),
+            b: makeToken({ symbol: 'B' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '10' }),
+            b: makeFiat({ fiatValue: '20' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    // Fold v0 -> v1 delta where `c` is added and only `a` + `c` fiat are sent
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 0,
+        isDelta: true,
+        structureVersion: 1,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 1,
+          orderedIds: ['a', 'b', 'c'],
+          metaPatch: {
+            c: makeToken({ symbol: 'C' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 0,
+        isDelta: true,
+        valuationVersion: 1,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '15' }),
+            c: makeFiat({ fiatValue: '30' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    // Mismatched baseVersion (baseVersion: 5 when cached is 1) is ignored
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 5,
+        isDelta: true,
+        valuationVersion: 6,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '999' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const cached = getOwnerReplayFrames({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    expect(cached?.structure?.structureVersion).toBe(1);
+    expect(cached?.structure?.isDelta).toBeUndefined();
+    expect(Object.keys(cached?.structure?.structure.metaPatch ?? {})).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+    expect(cached?.valuation?.valuationVersion).toBe(1);
+    expect(cached?.valuation?.isDelta).toBeUndefined();
+    expect(cached?.valuation?.valuation.changedFiatById.a.fiatValue).toBe('15');
+    expect(cached?.valuation?.valuation.changedFiatById.b.fiatValue).toBe('20');
+    expect(cached?.valuation?.valuation.changedFiatById.c.fiatValue).toBe('30');
+
+    // Fold v1 -> v2 where `b` is removed from structure: `b` must be pruned from valuation too
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 1,
+        isDelta: true,
+        structureVersion: 2,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 2,
+          orderedIds: ['a', 'c'],
+          metaPatch: {},
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 1,
+        isDelta: true,
+        valuationVersion: 2,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '18' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const afterPrune = getOwnerReplayFrames({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    expect(
+      Object.keys(afterPrune?.valuation?.valuation.changedFiatById ?? {}),
+    ).toEqual(['a', 'c']);
+    expect(afterPrune?.valuation?.valuation.changedFiatById.b).toBeUndefined();
   });
 
   // PR #13695 review: the background pushes no structure frame when a
@@ -1087,5 +1272,361 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('reconstructs IHomeTokenListSnapshot directly from ownerFrameReplayCache without cross-bridge pulls when riskyCount is 0', () => {
+    clearOwnerReplayCache();
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['eth'],
+          smallBalanceIds: ['usdc'],
+          metaPatch: {
+            eth: makeToken({ symbol: 'ETH' }),
+            usdc: makeToken({ symbol: 'USDC' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc_',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {
+            eth: makeFiat({ fiatValue: '2000' }),
+            usdc: makeFiat({ fiatValue: '1' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const snapshot = tryBuildHomeSnapshotFromOwnerReplay({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      generation: 0,
+    });
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.tokens.map((t) => t.$key)).toEqual(['eth', 'usdc']);
+    expect(snapshot?.keys).toBe('eth_usdc_');
+    expect(snapshot?.accountId).toBe('acc-1');
+    expect(snapshot?.networkId).toBe('evm--1');
+    expect(snapshot?.map.eth?.fiatValue).toBe('2000');
+    expect(snapshot?.map.usdc?.fiatValue).toBe('1');
+  });
+
+  it('reconstructs aggregate member per-network balances and falls back when risky frame arrives without structure bump or when slotId is rebuilt', async () => {
+    clearOwnerReplayCache();
+    clearHomeTokenListSnapshotCache();
+
+    // 1. All-Networks owner with aggregate group `aggregate_ETH_` across 2 networks
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['aggregate_ETH_'],
+          smallBalanceIds: [],
+          aggMembership: {
+            aggregate_ETH_: ['evm--1', 'evm--42161'],
+          },
+          ownedAggregateTokenListMap: {
+            aggregate_ETH_: {
+              tokens: [
+                {
+                  ...makeToken({ symbol: 'ETH', networkId: 'evm--1' }),
+                  $key: 'eth_mainnet',
+                },
+                {
+                  ...makeToken({ symbol: 'ETH', networkId: 'evm--42161' }),
+                  $key: 'eth_arb',
+                },
+              ],
+            },
+          },
+          metaPatch: {
+            aggregate_ETH_: makeToken({
+              symbol: 'ETH',
+              isAggregateToken: true,
+            }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'all--0',
+          rawKeys: 'aggregate_ETH__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {},
+          changedAggFiat: {
+            aggregate_ETH_: {
+              'evm--1': makeFiat({ balance: '1', fiatValue: '2000' }),
+              'evm--42161': makeFiat({ balance: '0.5', fiatValue: '1000' }),
+            },
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const aggSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    // Both per-network member keys and the flattened aggregate total are present
+    expect(aggSnapshot.map.eth_mainnet?.fiatValue).toBe('2000');
+    expect(aggSnapshot.map.eth_arb?.fiatValue).toBe('1000');
+    expect(aggSnapshot.map.aggregate_ETH_?.fiatValue).toBe('3000');
+    expect(aggSnapshot.slotId).toBe('slot-1');
+
+    // 2. A risky frame arrives in a later round without bumping structure.riskyCount:
+    // fast path must return undefined AND fetchHomeTokenListSnapshot must invalidate
+    // the cached `OWNER_A@0` promise and fall back to the BG pull.
+    const bgProxy = jest.requireMock(
+      '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+    ) as {
+      default: {
+        serviceTokenViewModel: {
+          getRawTokenList: jest.Mock;
+          getAllTokenListMap: jest.Mock;
+        };
+      };
+    };
+    bgProxy.default.serviceTokenViewModel.getRawTokenList.mockResolvedValueOnce(
+      {
+        ownerKey: OWNER_A,
+        tokens: [
+          { ...makeToken({ symbol: 'ETH' }), $key: 'aggregate_ETH_' },
+          { ...makeToken({ symbol: 'SCAM' }), $key: 'scam_1' },
+        ],
+        keys: 'aggregate_ETH___scam_1',
+        accountId: 'acc-1',
+        networkId: 'all--0',
+      },
+    );
+    bgProxy.default.serviceTokenViewModel.getAllTokenListMap.mockResolvedValueOnce(
+      {
+        aggregate_ETH_: makeFiat({ balance: '1.5', fiatValue: '3000' }),
+        scam_1: makeFiat({ balance: '100', fiatValue: '0' }),
+      },
+    );
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'risky',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        riskyVersion: 0,
+        riskyTokens: [
+          {
+            ...makeToken({ symbol: 'SCAM' }),
+            $key: 'scam_1',
+          },
+        ],
+        riskyMap: {
+          scam_1: makeFiat({ balance: '100', fiatValue: '0' }),
+        },
+      },
+      currencyId: CURRENCY,
+    });
+    expect(
+      tryBuildHomeSnapshotFromOwnerReplay({
+        storeName: STORE_NAME,
+        ownerKey: OWNER_A,
+        generation: 0,
+      }),
+    ).toBeUndefined();
+    const afterRiskySnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    expect(afterRiskySnapshot.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_ETH_',
+      'scam_1',
+    ]);
+
+    // 3. BG slot is evicted by LRU prewarm and recreated as `slot-2` at generation 0
+    // (with no risky tokens and updated balance):
+    // rememberOwnerReplayFrame drops slot-1's risky frame and fetchHomeTokenListSnapshot
+    // invalidates the cached `OWNER_A@0` snapshot from `slot-1`.
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['eth'],
+          smallBalanceIds: [],
+          metaPatch: {
+            eth: makeToken({ symbol: 'ETH' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {
+            eth: makeFiat({ fiatValue: '4500' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const rebuiltSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    expect(rebuiltSnapshot.slotId).toBe('slot-2');
+    expect(rebuiltSnapshot.tokens.map((t) => t.$key)).toEqual(['eth']);
+    expect(rebuiltSnapshot.map.eth?.fiatValue).toBe('4500');
+
+    // 4. Still-listed token whose fiat is omitted in a refresh does not retain stale balance in replay snapshot
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 0,
+        isDelta: true,
+        structureVersion: 1,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 1,
+          orderedIds: ['eth', 'usdc'],
+          fundedIds: ['eth', 'usdc'],
+          metaPatch: {
+            usdc: makeToken({ symbol: 'USDC' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 0,
+        isDelta: true,
+        valuationVersion: 1,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 1,
+          changedFiatById: {
+            eth: makeFiat({ balance: '1', fiatValue: '4500' }),
+            usdc: makeFiat({ balance: '50', fiatValue: '50' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 1,
+        isDelta: true,
+        structureVersion: 2,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 2,
+          orderedIds: ['eth', 'usdc'],
+          fundedIds: ['eth'],
+          metaPatch: {},
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 1,
+        isDelta: true,
+        valuationVersion: 2,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 2,
+          changedFiatById: {},
+          removedFiatIds: ['usdc'],
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    const omittedFiatSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 2);
+    expect(omittedFiatSnapshot.tokens.map((t) => t.$key)).toEqual([
+      'eth',
+      'usdc',
+    ]);
+    expect(omittedFiatSnapshot.map.eth?.fiatValue).toBe('4500');
+    expect(omittedFiatSnapshot.map.usdc).toBeUndefined();
   });
 });

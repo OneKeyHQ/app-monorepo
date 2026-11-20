@@ -13,7 +13,11 @@
  * `appEventBus.emit` is mocked to capture payloads.
  */
 import type { IAllNetworkSnapshotRound } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IHomeTokenRequest,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { settingsPersistAtom } from '../states/jotai/atoms';
 
@@ -28,11 +32,17 @@ import type {
 
 interface IStructureFramePayload {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   structureVersion: number;
   structure: IStructureSnapshot;
 }
 interface IValuationFramePayload {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   valuationVersion: number;
   valuation: IValuationFrame;
 }
@@ -243,7 +253,7 @@ describe('Home token round references', () => {
     ).resolves.toBe(false);
   });
 
-  it('bounds each source to two versions and the active-owner directory to 128 references', async () => {
+  it('bounds each source to two versions and the active-owner directory to 1024 references', async () => {
     const svc = makeService();
     const first = svc.retainHomeTokenRound({
       homeRequest: request(1),
@@ -270,7 +280,7 @@ describe('Home token round references', () => {
       }),
     ).resolves.toBe(true);
     let last = '';
-    for (let index = 0; index < 129; index += 1) {
+    for (let index = 0; index < 1025; index += 1) {
       last = svc.retainHomeTokenRound({
         homeRequest: request(1),
         round: round(`v${index}`, `network-${index}`),
@@ -492,6 +502,174 @@ describe('ServiceTokenViewModel', () => {
     expect(unknown.valuation).toBeUndefined();
     expect(unknown.structureVersion).toBe(-1);
     expect(unknown.valuationVersion).toBe(-1);
+  });
+
+  it('omits unchanged structure/valuation/risky payloads on conditional getTokenListFrames pull and returns full frames after eviction', async () => {
+    const svc = makeService();
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ balance: '3', fiatValue: '30' }) },
+        riskyTokens: [makeToken('risk1')],
+        riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+      }),
+    );
+
+    const initial = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
+    expect(initial.slotId).toBeDefined();
+    expect(initial.structure?.orderedIds).toEqual(['a']);
+    expect(initial.valuation?.changedFiatById.a.fiatValue).toBe('30');
+    expect(initial.riskyTokens.map((t) => t.$key)).toEqual(['risk1']);
+
+    // Conditional pull with matching slotId and versions omits all three frame payloads.
+    const unchanged = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: initial.structureVersion,
+        structureGeneration: initial.structure?.generation,
+        valuationVersion: initial.valuationVersion,
+        riskyVersion: initial.riskyVersion,
+      },
+    });
+    expect(unchanged.structureUnchanged).toBe(true);
+    expect(unchanged.structure).toBeUndefined();
+    expect(unchanged.valuationUnchanged).toBe(true);
+    expect(unchanged.valuation).toBeUndefined();
+    expect(unchanged.riskyUnchanged).toBe(true);
+    expect(unchanged.riskyTokens).toEqual([]);
+    expect(unchanged.riskyMap).toEqual({});
+
+    // Pure price tick advances valuationVersion only; conditional pull returns only valuation.
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ balance: '3', fiatValue: '36' }) },
+        riskyTokens: [makeToken('risk1')],
+        riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+      }),
+    );
+    const valuationOnly = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: initial.structureVersion,
+        structureGeneration: initial.structure?.generation,
+        valuationVersion: initial.valuationVersion,
+        riskyVersion: initial.riskyVersion,
+      },
+    });
+    expect(valuationOnly.structureUnchanged).toBe(true);
+    expect(valuationOnly.structure).toBeUndefined();
+    expect(valuationOnly.valuationUnchanged).toBeUndefined();
+    expect(valuationOnly.valuation?.changedFiatById.a.fiatValue).toBe('36');
+    expect(valuationOnly.riskyUnchanged).toBe(true);
+
+    // Evict acc0__net and recreate it at version 0; old slotId must NOT match.
+    for (let i = 1; i <= OWNER_VM_CAP; i += 1) {
+      void svc.ingestRound(
+        makeRound({
+          ownerKey: `acc${i}__net`,
+          orderedTokens: [makeToken('x')],
+          tokenListMap: { x: makeFiat({ fiatValue: '1' }) },
+        }),
+      );
+    }
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('b')],
+        tokenListMap: { b: makeFiat({ balance: '9', fiatValue: '90' }) },
+      }),
+    );
+    const recreated = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: 0,
+        structureGeneration: 0,
+        valuationVersion: 0,
+      },
+    });
+    expect(recreated.slotId).not.toBe(initial.slotId);
+    expect(recreated.structureUnchanged).toBeUndefined();
+    expect(recreated.structure?.orderedIds).toEqual(['b']);
+    expect(recreated.valuation?.changedFiatById.b.fiatValue).toBe('90');
+  });
+
+  it('pushes full frames on v0 and base-versioned delta patches on v1+ while retaining full snapshots in BG for PULLs', async () => {
+    const svc = makeService();
+    // Round 1 (v0): full snapshot
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '10', fiatValue: '100', price: 10 }),
+          b: makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        },
+      }),
+    );
+    expect(structureEmits()[0].isDelta).toBeUndefined();
+    expect(Object.keys(structureEmits()[0].structure.metaPatch)).toEqual([
+      'a',
+      'b',
+    ]);
+    expect(valuationEmits()[0].isDelta).toBeUndefined();
+    expect(Object.keys(valuationEmits()[0].valuation.changedFiatById)).toEqual([
+      'a',
+      'b',
+    ]);
+    mockEmit.mockClear();
+
+    // Round 2 (v1): only `a` balance changes (10 -> 8, fiat 100 -> 80), `b` is unchanged
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '8', fiatValue: '80', price: 10 }),
+          b: makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        },
+      }),
+    );
+    const structDelta = structureEmits()[0];
+    expect(structDelta.isDelta).toBe(true);
+    expect(structDelta.baseVersion).toBe(0);
+    expect(structDelta.structureVersion).toBe(1);
+    // Neither `a` nor `b` changed metadata, so delta metaPatch is empty!
+    expect(structDelta.structure.metaPatch).toEqual({});
+
+    const valDelta = valuationEmits()[0];
+    expect(valDelta.isDelta).toBe(true);
+    expect(valDelta.baseVersion).toBe(0);
+    expect(valDelta.valuationVersion).toBe(1);
+    // Only `a` fiat changed; `b` is omitted from the wire delta!
+    expect(Object.keys(valDelta.valuation.changedFiatById)).toEqual(['a']);
+    expect(valDelta.valuation.changedFiatById.a.fiatValue).toBe('80');
+
+    // Meanwhile BG's stored PULL snapshot still holds both `a` and `b` in full!
+    const pulled = await svc.getTokenListFrames({ ownerKey: 'accDelta__net' });
+    expect(Object.keys(pulled.structure?.metaPatch ?? {})).toEqual(['a', 'b']);
+    expect(pulled.valuation?.changedFiatById.a.fiatValue).toBe('80');
+    expect(pulled.valuation?.changedFiatById.b.fiatValue).toBe('50');
+
+    // Round 3 (v2): `b` remains listed in `orderedTokens`, but its fiat entry is omitted from `tokenListMap`
+    mockEmit.mockClear();
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '8', fiatValue: '80', price: 10 }),
+        },
+      }),
+    );
+    const valDeltaRemoved = valuationEmits()[0];
+    expect(valDeltaRemoved.isDelta).toBe(true);
+    expect(valDeltaRemoved.valuation.removedFiatIds).toEqual(['b']);
   });
 
   it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {
@@ -1051,6 +1229,81 @@ describe('ServiceTokenViewModel', () => {
 
       expect(result?.frames.structure?.orderedIds).toEqual(['live']);
       expect(result?.worth).toBeUndefined();
+    });
+
+    it('persists aggregate maps in BG and inherits nonZeroInputs on ingestHomeTokenRounds', async () => {
+      const updateLocalAggregateTokenMap = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const updateLocalAggregateTokenListMap = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const svc = new ServiceTokenViewModel({
+        backgroundApi: {
+          serviceToken: {
+            updateLocalAggregateTokenMap,
+            updateLocalAggregateTokenListMap,
+          },
+        },
+      } as unknown as ConstructorParameters<typeof ServiceTokenViewModel>[0]);
+      const homeRequest: IHomeTokenRequest = {
+        mainRuntimeId: 'main-1',
+        generation: 1,
+        ownerKey: 'acc1__onekeyall',
+      };
+      const ref = svc.retainHomeTokenRound({
+        homeRequest,
+        origin: 'live',
+        round: {
+          accountId: 'acc1',
+          networkId: 'evm--1',
+          tokens: {
+            data: [makeToken('eth', { isNative: true })],
+            keys: 'eth',
+            map: {
+              eth: makeFiat({ balance: '1', fiatValue: '2000', price: 2000 }),
+            },
+          },
+          smallBalanceTokens: { data: [], keys: '', map: {} },
+          riskTokens: { data: [], keys: '', map: {} },
+          aggregateTokenListMap: {
+            agg_eth: { tokens: [makeToken('eth', { networkId: 'evm--1' })] },
+          },
+          aggregateTokenMap: {
+            agg_eth: makeFiat({ balance: '1', fiatValue: '2000', price: 2000 }),
+          },
+        },
+      });
+      await svc.ingestHomeTokenRounds({
+        homeRequest,
+        ownerKey: 'acc1__onekeyall',
+        accountId: 'acc1',
+        networkId: 'onekeyall',
+        storeData: STORE_DATA,
+        keepDefault: true,
+        homeDefaultTokenMap: {
+          eth: { networkId: 'evm--1', logoURI: '', symbol: 'ETH', order: 0 },
+        },
+        roundRefs: [ref],
+        source: 'progPaint',
+        homePublication: 1,
+      });
+      expect(updateLocalAggregateTokenMap).not.toHaveBeenCalled();
+
+      await svc.ingestHomeTokenRounds({
+        homeRequest,
+        ownerKey: 'acc1__onekeyall',
+        accountId: 'acc1',
+        networkId: 'onekeyall',
+        storeData: STORE_DATA,
+        keepDefault: true,
+        roundRefs: [ref],
+        source: 'authoritative',
+        homePublication: 2,
+        persistAggregateMaps: true,
+      });
+      expect(updateLocalAggregateTokenMap).toHaveBeenCalledTimes(1);
+      expect(updateLocalAggregateTokenListMap).toHaveBeenCalledTimes(1);
     });
   });
 });

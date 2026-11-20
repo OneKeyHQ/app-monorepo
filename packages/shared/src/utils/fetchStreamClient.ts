@@ -44,6 +44,7 @@ export function createFetchStream(
         method: request.method,
         headers: Array.from(request.headers.entries()),
         b64,
+        ...(request.method === 'HEAD' ? {} : { inline: true }),
       });
       // Cancel promptly while waiting for headers, then release any late handle.
       const result = await new Promise<IFetchStreamResult>(
@@ -55,7 +56,11 @@ export function createFetchStream(
             (reply) => {
               signal.removeEventListener('abort', onOpenAbort);
               if (signal.aborted) {
-                if (reply.ok && 'response' in reply) {
+                if (
+                  reply.ok &&
+                  'response' in reply &&
+                  !reply.response.chunk?.done
+                ) {
                   void requester({
                     action: 'cancel',
                     id: reply.response.id,
@@ -76,7 +81,8 @@ export function createFetchStream(
       if (!('response' in result)) {
         throw new OneKeyLocalError('invalid fetch stream response');
       }
-      id = result.response.id;
+      let inlineChunk = result.response.chunk;
+      id = inlineChunk?.done ? undefined : result.response.id;
       if (signal.aborted)
         throw new DOMException('Fetch request aborted', 'AbortError');
       if (
@@ -91,6 +97,21 @@ export function createFetchStream(
           try {
             if (signal.aborted)
               throw new DOMException('Fetch request aborted', 'AbortError');
+            if (inlineChunk) {
+              const firstChunk = inlineChunk;
+              inlineChunk = undefined;
+              if (firstChunk.b64) {
+                controller.enqueue(
+                  new Uint8Array(bufferUtils.base64ToBytes(firstChunk.b64)),
+                );
+              }
+              if (firstChunk.done) {
+                signal.removeEventListener('abort', onAbort);
+                id = undefined;
+                controller.close();
+              }
+              return;
+            }
             if (!id) throw new OneKeyLocalError('fetch stream cancelled');
             const chunk = await requester({ action: 'read', id });
             if (signal.aborted)
@@ -99,14 +120,15 @@ export function createFetchStream(
             if (!('chunk' in chunk)) {
               throw new OneKeyLocalError('invalid fetch stream chunk');
             }
+            if (chunk.chunk.b64) {
+              controller.enqueue(
+                new Uint8Array(bufferUtils.base64ToBytes(chunk.chunk.b64)),
+              );
+            }
             if (chunk.chunk.done) {
               signal.removeEventListener('abort', onAbort);
               id = undefined;
               controller.close();
-            } else {
-              controller.enqueue(
-                new Uint8Array(bufferUtils.base64ToBytes(chunk.chunk.b64)),
-              );
             }
           } catch (error) {
             controller.error(error);

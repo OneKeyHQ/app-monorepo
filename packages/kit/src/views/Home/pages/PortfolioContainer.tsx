@@ -132,7 +132,10 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   const otherBlocks = (
     <>
       <DeFiListBlock refreshCacheOnly />
-      <PopularTrading tableLayout={tableLayout || undefined} />
+      <PopularTrading
+        tableLayout={tableLayout || undefined}
+        isActive={isEarnListActive}
+      />
       <EarnListView isActive={isEarnListActive} />
       <Upgrade />
       <SupportHub />

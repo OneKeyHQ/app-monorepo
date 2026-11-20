@@ -2095,10 +2095,12 @@ class ServiceDApp extends ServiceBase {
       | ProviderApiPrivate
       | undefined;
     const ready = privateProvider?.getWebEmbedApiReadyState().ready;
-    defaultLogger.app.webembed.privateProviderStatus({
-      init: Boolean(privateProvider),
-      isWebEmbedApiReady: ready,
-    });
+    if (!ready) {
+      defaultLogger.app.webembed.privateProviderStatus({
+        init: Boolean(privateProvider),
+        isWebEmbedApiReady: ready,
+      });
+    }
     return Promise.resolve(ready);
   }
 

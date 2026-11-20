@@ -8,6 +8,7 @@ import type {
   IAccountSelectorValueItem,
   IAccountSelectorValuesMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 
 import { buildAccountSelectorAccountsValuesDataOnce } from './accountSelectorValuesRequest';
 
@@ -19,6 +20,7 @@ type IBuildValues =
 type ILoadParams = {
   num: number;
   accountsForValuesQuery: Parameters<IBuildValues>[0]['accounts'] | undefined;
+  valuesQueryId?: string;
   linkedNetworkId?: string;
 };
 type IAtomWriter<T> = { set: (update: (previous: T) => T) => Promise<unknown> };
@@ -84,7 +86,7 @@ function mergeValues<T>(
 }
 
 export async function loadAccountSelectorValuesV2(
-  { num, accountsForValuesQuery, linkedNetworkId }: ILoadParams,
+  { num, accountsForValuesQuery, valuesQueryId, linkedNetworkId }: ILoadParams,
   {
     isCancelled,
     valuesAtom = accountSelectorValuesMapAtom,
@@ -132,15 +134,50 @@ export async function loadAccountSelectorValuesV2(
     hasPending = false;
   };
 
+  let activeQueryId = valuesQueryId;
   for (let start = 0; start < accounts.length; start += BATCH_SIZE) {
     if (isCancelled()) return false;
     const batch = accounts.slice(start, start + BATCH_SIZE);
     try {
-      const { accountsValue, accountsDeFiOverview } = await buildValues({
-        accounts: batch,
-        linkedNetworkId,
-      });
+      let response = await buildValues(
+        activeQueryId
+          ? {
+              accounts: [],
+              queryId: activeQueryId,
+              offset: start,
+              limit: batch.length,
+              linkedNetworkId,
+            }
+          : {
+              accounts: batch,
+              linkedNetworkId,
+            },
+      );
       if (isCancelled()) return false;
+      if (
+        activeQueryId &&
+        response &&
+        (('queryExpired' in response && response.queryExpired) ||
+          ('querySliceKey' in response &&
+            typeof response.querySliceKey === 'string' &&
+            response.querySliceKey !==
+              accountSelectorUtils.buildValuesQuerySliceKey(
+                batch,
+                linkedNetworkId,
+              )) ||
+          response.accountsValue?.length !== batch.length ||
+          response.accountsValue.some(
+            (v, idx) => v && v.accountId !== batch[idx]?.accountId,
+          ))
+      ) {
+        activeQueryId = undefined;
+        response = await buildValues({
+          accounts: batch,
+          linkedNetworkId,
+        });
+        if (isCancelled()) return false;
+      }
+      const { accountsValue, accountsDeFiOverview } = response;
       const loadedById = new Map(
         batch.map((account, index) => [
           account.accountId,
@@ -197,6 +234,7 @@ export async function loadAccountSelectorValuesV2(
 export function useAccountSelectorValuesLoaderV2({
   num,
   accountsForValuesQuery,
+  valuesQueryId,
   linkedNetworkId,
 }: ILoadParams) {
   const loadingIdRef = useRef(0);
@@ -208,7 +246,7 @@ export function useAccountSelectorValuesLoaderV2({
     const loadId = loadingIdRef.current;
     const isCancelled = () => loadId !== loadingIdRef.current;
     void loadAccountSelectorValuesV2(
-      { num, accountsForValuesQuery, linkedNetworkId },
+      { num, accountsForValuesQuery, valuesQueryId, linkedNetworkId },
       { isCancelled },
     ).then((completed) => {
       if (completed && !isCancelled()) {
@@ -219,7 +257,7 @@ export function useAccountSelectorValuesLoaderV2({
     return () => {
       loadingIdRef.current += 1;
     };
-  }, [num, accountsForValuesQuery, linkedNetworkId]);
+  }, [num, accountsForValuesQuery, valuesQueryId, linkedNetworkId]);
   // Every batch of the current account set has been published.
   return {
     valuesLoaded:

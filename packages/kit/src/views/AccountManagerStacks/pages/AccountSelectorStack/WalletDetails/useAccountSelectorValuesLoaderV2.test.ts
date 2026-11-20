@@ -359,4 +359,140 @@ describe('account V2 balance scheduling', () => {
       jest.useRealTimers();
     }
   });
+
+  it('uses valuesQueryId to avoid sending account batches back to BG and falls back when queryExpired is returned', async () => {
+    const deps = dependencies();
+    const listAccounts = accounts(60);
+    deps.buildValues.mockImplementation(async (params) => {
+      const offset = params.offset ?? 0;
+      const limit = params.limit ?? listAccounts.length;
+      const slice = params.queryId
+        ? listAccounts.slice(offset, offset + limit)
+        : params.accounts;
+      return result({
+        accounts: slice,
+        linkedNetworkId: params.linkedNetworkId,
+      });
+    });
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 0,
+        accountsForValuesQuery: listAccounts,
+        valuesQueryId: 'acct-values-query-1',
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[0][0]).toEqual({
+      accounts: [],
+      queryId: 'acct-values-query-1',
+      offset: 0,
+      limit: 50,
+      linkedNetworkId: undefined,
+    });
+    expect(deps.buildValues.mock.calls[1][0]).toEqual({
+      accounts: [],
+      queryId: 'acct-values-query-1',
+      offset: 50,
+      limit: 10,
+      linkedNetworkId: undefined,
+    });
+    expect(Object.keys(deps.valuesAtom.read()[0] ?? {})).toHaveLength(60);
+
+    // Simulate cache eviction in BG (`queryExpired: true`) -> retries with full batch.
+    deps.buildValues.mockReset();
+    deps.buildValues
+      .mockResolvedValueOnce({
+        queryExpired: true,
+        accountsValue: [],
+        accountsDeFiOverview: [],
+      } as Awaited<ReturnType<IBuildValues>>)
+      .mockImplementation(result);
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 1,
+        accountsForValuesQuery: accounts(2, 'fallback'),
+        valuesQueryId: 'evicted-query',
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[1][0].accounts).toHaveLength(2);
+    expect(Object.keys(deps.valuesAtom.read()[1] ?? {})).toEqual([
+      'fallback-0',
+      'fallback-1',
+    ]);
+
+    // Simulate a colliding `queryId` from another network/address scope (same `accountId` and length,
+    // different `querySliceKey`) -> falls back to sending full `accounts` batch.
+    deps.buildValues.mockReset();
+    deps.buildValues
+      .mockResolvedValueOnce({
+        querySliceKey: 'evm--1|hd-1--0:evm--1:hd-1--0:0x111:',
+        accountsValue: [
+          {
+            accountId: 'hd-1--0',
+            currency: 'usd',
+            value: { 'hd-1--0_evm--1': '10' },
+          },
+        ],
+        accountsDeFiOverview: [
+          {
+            overview: {},
+            perpsNetWorthUsd: '10',
+          },
+        ],
+      } as Awaited<ReturnType<IBuildValues>>)
+      .mockResolvedValueOnce({
+        accountsValue: [
+          {
+            accountId: 'hd-1--0',
+            currency: 'usd',
+            value: { 'hd-1--0_all--0': '30' },
+          },
+        ],
+        accountsDeFiOverview: [
+          {
+            overview: {},
+            perpsNetWorthUsd: '30',
+          },
+        ],
+      } as Awaited<ReturnType<IBuildValues>>);
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 2,
+        accountsForValuesQuery: [
+          {
+            accountId: 'hd-1--0',
+            networkId: 'all--0',
+            indexedAccountId: 'hd-1--0',
+            accountAddress: '',
+            xpub: '',
+          },
+        ],
+        valuesQueryId: 'acct-values-query-1',
+        linkedNetworkId: undefined,
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[1][0]).toEqual({
+      accounts: [
+        {
+          accountId: 'hd-1--0',
+          networkId: 'all--0',
+          indexedAccountId: 'hd-1--0',
+          accountAddress: '',
+          xpub: '',
+        },
+      ],
+      linkedNetworkId: undefined,
+    });
+    expect(deps.valuesAtom.read()[2]?.['hd-1--0']?.deFi?.perpsNetWorthUsd).toBe(
+      '30',
+    );
+  });
 });

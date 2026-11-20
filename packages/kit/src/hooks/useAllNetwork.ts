@@ -598,6 +598,16 @@ function useAllNetworkRequests<T>(params: {
   // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
   const alwaysSetStateRef = useRef(false);
   const lastRunSignatureRef = useRef<string | null>(null);
+  const coldLiveFanOutGenerationRef = useRef(0);
+  const pendingColdAccountRequestsRef = useRef<{
+    ownerKey: string;
+    generation: number;
+    accounts: Map<string, { accountId: string; networkId: string }>;
+  } | null>(null);
+  const runAccountRequestsRef = useRef<
+    | ((accounts: { accountId: string; networkId: string }[]) => Promise<void>)
+    | undefined
+  >(undefined);
   const abortSupersededRequestsRef = useRef(abortSupersededRequests);
   abortSupersededRequestsRef.current = abortSupersededRequests;
   // Hands the fan-out over to the run started right after this; see
@@ -607,6 +617,8 @@ function useAllNetworkRequests<T>(params: {
       return;
     }
     activeRunGenerationRef.current = 0;
+    coldLiveFanOutGenerationRef.current = 0;
+    pendingColdAccountRequestsRef.current = null;
     isFetching.current = false;
     // The fresh run covers anything queued behind the superseded one.
     rerunAfterCurrentRef.current = false;
@@ -712,6 +724,8 @@ function useAllNetworkRequests<T>(params: {
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
       allNetworkDataInit.current = false;
+      coldLiveFanOutGenerationRef.current = 0;
+      pendingColdAccountRequestsRef.current = null;
       runCountRef.current = 0;
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
@@ -779,21 +793,32 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      const scheduleQueuedRerun = () => {
+      const willQueuedRerunSupersedeResult = () => {
         const hasQueuedRerun = rerunAfterCurrentRef.current;
         if (!hasQueuedRerun) {
           return false;
         }
+        const rerunConfig = rerunConfigRef.current;
+        const hasQueuedMustRun =
+          !!rerunConfig?.alwaysSetState ||
+          !!rerunConfig?.skipAccountsCache ||
+          !!rerunConfig?.ignoreDisabled;
+        return clearRetainedResultOnAcceptedRun
+          ? hasQueuedMustRun
+          : hasQueuedRerun;
+      };
+
+      const scheduleQueuedRerun = () => {
+        if (!rerunAfterCurrentRef.current) {
+          return false;
+        }
+        const shouldSupersedeResult = willQueuedRerunSupersedeResult();
         rerunAfterCurrentRef.current = false;
         // Preserve the explicit refresh flags from runWithQueue. A queue set
         // by an internal dependency runner has no config and must still pass
         // through the redundant-run gate; otherwise every render churn could
         // be promoted to another forced fan-out.
         const rerunConfig = rerunConfigRef.current;
-        const hasQueuedMustRun =
-          !!rerunConfig?.alwaysSetState ||
-          !!rerunConfig?.skipAccountsCache ||
-          !!rerunConfig?.ignoreDisabled;
         rerunConfigRef.current = undefined;
         setTimeout(() => {
           void runWithQueueRef.current?.(rerunConfig);
@@ -801,9 +826,7 @@ function useAllNetworkRequests<T>(params: {
         // Only an explicit must-run refresh supersedes the result that just
         // completed. A dependency-triggered duplicate is still drained, but
         // its preceding result remains publishable while the gate skips it.
-        return clearRetainedResultOnAcceptedRun
-          ? hasQueuedMustRun
-          : hasQueuedRerun;
+        return shouldSupersedeResult;
       };
 
       // A runner resumed from the debounce window may belong to a previous
@@ -1376,91 +1399,98 @@ function useAllNetworkRequests<T>(params: {
             }
           }
         } else {
+          coldLiveFanOutGenerationRef.current = runGeneration;
           const respTemp: Array<T> = [];
-          if (allNetworkRequestsBatch) {
-            // Planned over the full set so cold and warm runs chunk identically
-            // (backend cache keys are the sorted set per request); the two
-            // phases only order the batches.
-            const { indexed, notIndexed } = partitionAllNetworkRequestBatches(
-              buildAllNetworkRequestBatches(accountsInfo, {
-                maxBatchSize: requestBatchSize,
-              }),
-            );
-            for (const phase of [indexed, notIndexed]) {
-              const batchFactories = phase.map(makeBatchFactory);
-              fanOutRequestCount += countBatchNetworks(phase);
-              try {
-                const r = await promiseAllSettledEnhanced(batchFactories, {
-                  continueOnError: true,
-                  concurrency: getAllNetworkTaskConcurrencyLimit(
-                    batchFactories.length,
-                  ),
+          try {
+            if (allNetworkRequestsBatch) {
+              // Planned over the full set so cold and warm runs chunk identically
+              // (backend cache keys are the sorted set per request); the two
+              // phases only order the batches.
+              const { indexed, notIndexed } = partitionAllNetworkRequestBatches(
+                buildAllNetworkRequestBatches(accountsInfo, {
+                  maxBatchSize: requestBatchSize,
+                }),
+              );
+              for (const phase of [indexed, notIndexed]) {
+                const batchFactories = phase.map(makeBatchFactory);
+                fanOutRequestCount += countBatchNetworks(phase);
+                try {
+                  const r = await promiseAllSettledEnhanced(batchFactories, {
+                    continueOnError: true,
+                    concurrency: getAllNetworkTaskConcurrencyLimit(
+                      batchFactories.length,
+                    ),
+                  });
+                  respTemp.push(
+                    ...r.flatMap((settledBatch) => settledBatch ?? []),
+                  );
+                } catch (e) {
+                  console.error(e);
+                  fanOutHadError = true;
+                }
+              }
+            } else {
+              // Fix A: the COLD path must feed the progressive-paint pipeline the
+              // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
+              // has no `onSettled`, so each factory calls `onRequestSettled` itself
+              // when it resolves (see `makeColdRequestFactory` for the full rationale
+              // + the placeholder filter — extracted there so it is unit-tested).
+              const makeColdFactory = (
+                networkDataString: IAllNetworkAccountInfo,
+              ) =>
+                makeColdRequestFactory<T>({
+                  networkInfo: networkDataString,
+                  allNetworkRequests: requestIfCurrent,
+                  onRequestSettled: publishRequestResult,
+                  runGeneration,
+                  getAllNetworkDataInit: () => allNetworkDataInit.current,
                 });
-                respTemp.push(
-                  ...r.flatMap((settledBatch) => settledBatch ?? []),
+              try {
+                const factories = Array.from(accountsInfoBackendIndexed).map(
+                  makeColdFactory,
                 );
+                fanOutRequestCount += factories.length;
+                const r = (
+                  await promiseAllSettledEnhanced(factories, {
+                    continueOnError: true,
+                    concurrency: getAllNetworkTaskConcurrencyLimit(
+                      factories.length,
+                    ),
+                  })
+                ).filter(Boolean) as Array<T>;
+                respTemp.push(...r);
               } catch (e) {
                 console.error(e);
                 fanOutHadError = true;
+                // pass
+              }
+
+              try {
+                const factories = Array.from(accountsInfoBackendNotIndexed).map(
+                  makeColdFactory,
+                );
+                fanOutRequestCount += factories.length;
+                const r = (
+                  await promiseAllSettledEnhanced(factories, {
+                    continueOnError: true,
+                    concurrency: getAllNetworkTaskConcurrencyLimit(
+                      factories.length,
+                    ),
+                  })
+                ).filter(Boolean) as Array<T>;
+                respTemp.push(...r);
+              } catch (e) {
+                console.error(e);
+                fanOutHadError = true;
+                // pass
               }
             }
-          } else {
-            // Fix A: the COLD path must feed the progressive-paint pipeline the
-            // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
-            // has no `onSettled`, so each factory calls `onRequestSettled` itself
-            // when it resolves (see `makeColdRequestFactory` for the full rationale
-            // + the placeholder filter — extracted there so it is unit-tested).
-            const makeColdFactory = (
-              networkDataString: IAllNetworkAccountInfo,
-            ) =>
-              makeColdRequestFactory<T>({
-                networkInfo: networkDataString,
-                allNetworkRequests: requestIfCurrent,
-                onRequestSettled: publishRequestResult,
-                runGeneration,
-                getAllNetworkDataInit: () => allNetworkDataInit.current,
-              });
-            try {
-              const factories = Array.from(accountsInfoBackendIndexed).map(
-                makeColdFactory,
-              );
-              fanOutRequestCount += factories.length;
-              const r = (
-                await promiseAllSettledEnhanced(factories, {
-                  continueOnError: true,
-                  concurrency: getAllNetworkTaskConcurrencyLimit(
-                    factories.length,
-                  ),
-                })
-              ).filter(Boolean) as Array<T>;
-              respTemp.push(...r);
-            } catch (e) {
-              console.error(e);
-              fanOutHadError = true;
-              // pass
-            }
-
-            try {
-              const factories = Array.from(accountsInfoBackendNotIndexed).map(
-                makeColdFactory,
-              );
-              fanOutRequestCount += factories.length;
-              const r = (
-                await promiseAllSettledEnhanced(factories, {
-                  continueOnError: true,
-                  concurrency: getAllNetworkTaskConcurrencyLimit(
-                    factories.length,
-                  ),
-                })
-              ).filter(Boolean) as Array<T>;
-              respTemp.push(...r);
-            } catch (e) {
-              console.error(e);
-              fanOutHadError = true;
-              // pass
+            completedResult = respTemp.length ? respTemp : null;
+          } finally {
+            if (coldLiveFanOutGenerationRef.current === runGeneration) {
+              coldLiveFanOutGenerationRef.current = 0;
             }
           }
-          completedResult = respTemp.length ? respTemp : null;
         }
         if (!isCurrentRun()) {
           traceRunSkipped('stale-owner-after-live', runGeneration);
@@ -1468,6 +1498,34 @@ function useAllNetworkRequests<T>(params: {
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
           markDataInitialized();
+        }
+        const pendingCold = pendingColdAccountRequestsRef.current;
+        if (
+          pendingCold &&
+          pendingCold.ownerKey === runnerOwnerKey &&
+          pendingCold.generation === runGeneration
+        ) {
+          pendingColdAccountRequestsRef.current = null;
+          const isFanOutExhausted =
+            clearRetainedResultOnAcceptedRun &&
+            isAllNetworkFanOutExhausted({
+              requestCount: fanOutRequestCount,
+              resultCount: completedResult?.length ?? 0,
+            });
+          if (
+            allNetworkDataInit.current &&
+            pendingCold.accounts.size > 0 &&
+            !isFanOutExhausted &&
+            !willQueuedRerunSupersedeResult()
+          ) {
+            await runAccountRequestsRef.current?.([
+              ...pendingCold.accounts.values(),
+            ]);
+            if (!isCurrentRun()) {
+              traceRunSkipped('stale-owner-after-live', runGeneration);
+              return;
+            }
+          }
         }
 
         didComplete = !fanOutHadError;
@@ -1741,7 +1799,7 @@ function useAllNetworkRequests<T>(params: {
   // row and worth.
   const runAccountRequests = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      if (!isAllNetworks || !allNetworkDataInit.current) {
+      if (!isAllNetworks) {
         return;
       }
       const ownerKey = liveRunOwnerKeyRef.current;
@@ -1750,6 +1808,34 @@ function useAllNetworkRequests<T>(params: {
       // covers the batch.
       const runAccountKeys = activeRunAccountKeysRef.current;
       if (!runAccountKeys || runAccountKeys.generation !== generation) {
+        return;
+      }
+      if (!allNetworkDataInit.current) {
+        if (
+          !isFetching.current ||
+          coldLiveFanOutGenerationRef.current !== generation
+        ) {
+          return;
+        }
+        const pendingAccounts =
+          pendingColdAccountRequestsRef.current &&
+          pendingColdAccountRequestsRef.current.ownerKey === ownerKey &&
+          pendingColdAccountRequestsRef.current.generation === generation
+            ? pendingColdAccountRequestsRef.current.accounts
+            : new Map<string, { accountId: string; networkId: string }>();
+        for (const item of accounts) {
+          const key = buildRunAccountKey(item);
+          if (runAccountKeys.keys.has(key)) {
+            pendingAccounts.set(key, item);
+          }
+        }
+        if (pendingAccounts.size > 0) {
+          pendingColdAccountRequestsRef.current = {
+            ownerKey,
+            generation,
+            accounts: pendingAccounts,
+          };
+        }
         return;
       }
       const isRequestCurrent = () =>
@@ -1803,6 +1889,7 @@ function useAllNetworkRequests<T>(params: {
   });
   liveRunOwnerKeyRef.current = currentOwnerKey;
   runWithQueueRef.current = runWithQueue;
+  runAccountRequestsRef.current = runAccountRequests;
   // A new owner is unknown until its own run resolves, so the flag is false for
   // it even while the previous owner's stamp is still stored.
   const isEmptyAccount =

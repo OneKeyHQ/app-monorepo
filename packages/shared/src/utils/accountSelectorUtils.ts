@@ -7,6 +7,24 @@ import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import uriUtils from './uriUtils';
 
+function buildValuesQuerySliceKey(
+  accounts: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    accountAddress?: string;
+    xpub?: string;
+  }[],
+  linkedNetworkId?: string,
+): string {
+  return `${linkedNetworkId ?? ''}|${accounts
+    .map(
+      (a) =>
+        `${a.accountId}:${a.networkId}:${a.indexedAccountId ?? ''}:${a.accountAddress ?? ''}:${a.xpub ?? ''}`,
+    )
+    .join(',')}`;
+}
+
 function buildWalletConnectSceneUrl(
   params: { topic: string } | { proposalId: number },
 ) {
@@ -289,6 +307,7 @@ function shouldResetDeriveTypeFromGlobal({
 }
 
 export default {
+  buildValuesQuerySliceKey,
   buildWalletConnectSceneUrl,
   isEqualAccountSelectorScene,
   hasOthersWalletAccountNetworkPair,

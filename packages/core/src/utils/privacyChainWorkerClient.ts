@@ -189,14 +189,19 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
               throw new OneKeyLocalError('host stream channel unavailable');
             result = await hostStreamRequest(request);
             if (result.ok && 'response' in result) {
+              const alreadyClosed = result.response.chunk?.done === true;
               if (current.disposed) {
-                await hostStreamRequest({
-                  action: 'cancel',
-                  id: result.response.id,
-                });
+                if (!alreadyClosed) {
+                  await hostStreamRequest({
+                    action: 'cancel',
+                    id: result.response.id,
+                  });
+                }
                 return;
               }
-              current.hostStreams.add(result.response.id);
+              if (!alreadyClosed) {
+                current.hostStreams.add(result.response.id);
+              }
             } else {
               const streamEnded =
                 !result.ok ||
@@ -561,7 +566,11 @@ export function createWorkerHostStreamRequester(
     if (resolve) {
       pending.delete(data.requestId);
       resolve(data.result);
-    } else if (data.result.ok && 'response' in data.result) {
+    } else if (
+      data.result.ok &&
+      'response' in data.result &&
+      !data.result.response.chunk?.done
+    ) {
       // A caller timed out before headers arrived; release the late stream.
       void requester({ action: 'cancel', id: data.result.response.id }).catch(
         () => undefined,

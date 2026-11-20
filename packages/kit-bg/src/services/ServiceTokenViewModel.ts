@@ -53,6 +53,10 @@ import {
   metaByKeyFromTokens,
 } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
+import {
+  fiatEqual,
+  metaEqual,
+} from '../states/jotai/contexts/tokenList/cellsPure/pure';
 import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { getVaultSettings } from '../vaults/settings';
 
@@ -84,11 +88,16 @@ type ITokenFramePayloads = {
 
 /** The per-owner diff `prev` the domain feeds `buildFrames` (a pull-blob). */
 interface IDomainPrev {
+  slotId: string;
   lastStructure: IBuildFramesPrev['structure'];
   lastScalar: string;
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
   /** Raw balance by list id as of the last structure frame. */
   lastBalanceByKey: Record<ITokenKey, string | undefined>;
+  /** Full normal-token fiat map as of the last valuation frame, for delta calculation. */
+  lastFiatByKey: Record<ITokenKey, ITokenFiat | undefined>;
+  /** Full aggregate per-network fiat map as of the last valuation frame. */
+  lastAggFiatByKey: Record<IAggKey, Record<INetworkId, ITokenFiat> | undefined>;
 }
 
 /** The minimal previously-emitted risky shape the change-gate compares against. */
@@ -133,6 +142,8 @@ interface IRawTokenListData {
   riskyMap: Record<ITokenKey, ITokenFiat>;
   /** nested aggregate map `aggKey -> networkId -> ITokenFiat` (for flatten). */
   aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  /** Last ingest params for this owner so late-arriving nonZero inputs can re-ingest in BG. */
+  lastIngestParams?: IIngestRoundParams;
 }
 
 /**
@@ -189,19 +200,38 @@ export interface IIngestRoundParams {
   source?: string;
 }
 
+/**
+ * Known frame versions already cached in the UI's per-owner replay cache.
+ * When `slotId` matches the BG owner slot's incarnation and a frame's version
+ * matches what `main` already holds, `getTokenListFrames` omits the large frame
+ * payload and sets the corresponding `*Unchanged` flag to avoid re-serializing
+ * 100KB–350KB of identical frame JSON across the bridge.
+ */
+export interface ITokenListKnownVersions {
+  slotId?: string;
+  structureVersion?: number;
+  structureGeneration?: number;
+  valuationVersion?: number;
+  riskyVersion?: number;
+}
+
 /** Result of a PULL — the authoritative full frames for an owner. */
 export interface ITokenListFramesPullResult {
   ownerKey: string;
+  slotId?: string;
   structureVersion: number;
   valuationVersion: number;
   structure: IStructureSnapshot | undefined;
+  structureUnchanged?: boolean;
   valuation: IValuationFrame | undefined;
+  valuationUnchanged?: boolean;
   /** monotonic risky version (-1 when the owner is unknown / has no risky set). */
   riskyVersion: number;
   /** full current risky list (empty when unknown). */
   riskyTokens: IAccountToken[];
   /** full current risky `$key -> ITokenFiat` map (empty when unknown). */
   riskyMap: Record<ITokenKey, ITokenFiat>;
+  riskyUnchanged?: boolean;
   /** identity-check payload for the risky frame apply (undefined when unknown). */
   storeData: IJotaiContextStoreData | undefined;
 }
@@ -231,11 +261,13 @@ export const OWNER_VM_CAP = 32;
 /** pull-blob key for the per-owner diff `prev`. */
 const PREV_BLOB_KEY = 'prev';
 /** pull-blob key for the per-owner merged raw list. */
+const MAX_RETAINED_HOME_ROUNDS = 1024;
 const RAW_BLOB_KEY = 'raw';
 
 /** A fresh diff `prev` (generation starts at -1, like the UI producer). */
-function freshPrev(): IDomainPrev {
+function freshPrev(slotId: string): IDomainPrev {
   return {
+    slotId,
     lastStructure: {
       orderedIds: [],
       smallBalanceIds: [],
@@ -249,6 +281,8 @@ function freshPrev(): IDomainPrev {
     lastScalar: '0',
     lastMetaByKey: {},
     lastBalanceByKey: {},
+    lastFiatByKey: {},
+    lastAggFiatByKey: {},
   };
 }
 
@@ -257,6 +291,8 @@ class ServiceTokenViewModel extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  private ownerSlotSequence = 0;
 
   private homeRounds:
     | {
@@ -335,7 +371,7 @@ class ServiceTokenViewModel extends ServiceBase {
     this.homeRoundSequence += 1;
     const ref = `${this.homeRoundPrefix}:${this.homeRoundSequence}`;
     entries.set(ref, { source, round });
-    if (entries.size > 128) {
+    if (entries.size > MAX_RETAINED_HOME_ROUNDS) {
       const oldest = entries.keys().next().value;
       if (oldest) entries.delete(oldest);
     }
@@ -357,6 +393,7 @@ class ServiceTokenViewModel extends ServiceBase {
     homeRequest,
     roundRefs,
     createAtNetwork,
+    persistAggregateMaps,
     ...inputs
   }: Pick<
     IIngestRoundParams,
@@ -373,6 +410,7 @@ class ServiceTokenViewModel extends ServiceBase {
     homeRequest: IHomeTokenRequest;
     roundRefs: string[];
     createAtNetwork?: string;
+    persistAggregateMaps?: boolean;
   }): Promise<boolean> {
     homeTokenRequestRegistry.assertCurrent(homeRequest, inputs.ownerKey);
     if (!this.acceptHomePublication(homeRequest, inputs.homePublication))
@@ -397,10 +435,22 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId: inputs.accountId,
       createAtNetwork,
     });
+    const prevRaw = this.frames.getPullBlob<IRawTokenListData>(
+      inputs.ownerKey,
+      RAW_BLOB_KEY,
+    );
+    const resolvedInputs = {
+      ...inputs,
+      homeDefaultTokenMap:
+        inputs.homeDefaultTokenMap ??
+        prevRaw?.lastIngestParams?.homeDefaultTokenMap,
+      customTokens:
+        inputs.customTokens ?? prevRaw?.lastIngestParams?.customTokens,
+    };
     // Call synchronously so frame production retains the existing no-yield
     // contract. Only the RPC acknowledgement resolves asynchronously.
     return this.ingestRound({
-      ...inputs,
+      ...resolvedInputs,
       homeRequest,
       orderedTokens: snapshot.orderedTokens,
       smallBalanceTokens: snapshot.smallBalanceTokens,
@@ -411,7 +461,34 @@ class ServiceTokenViewModel extends ServiceBase {
       riskyTokens: snapshot.riskyTokens,
       riskyMap: snapshot.riskyTokenListMap,
       rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-    }).then(() => true);
+    }).then(() => {
+      if (
+        persistAggregateMaps &&
+        inputs.networkId &&
+        inputs.accountId &&
+        this.backgroundApi?.serviceToken
+      ) {
+        if ('updateLocalAggregateTokenMap' in this.backgroundApi.serviceToken) {
+          void this.backgroundApi.serviceToken.updateLocalAggregateTokenMap({
+            networkId: inputs.networkId,
+            accountId: inputs.accountId,
+            aggregateTokenMap: snapshot.aggregateTokenMap,
+          });
+        }
+        if (
+          'updateLocalAggregateTokenListMap' in this.backgroundApi.serviceToken
+        ) {
+          void this.backgroundApi.serviceToken.updateLocalAggregateTokenListMap(
+            {
+              networkId: inputs.networkId,
+              accountId: inputs.accountId,
+              aggregateTokenListMap: snapshot.aggregateTokenListMap,
+            },
+          );
+        }
+      }
+      return true;
+    });
   }
 
   /**
@@ -499,9 +576,20 @@ class ServiceTokenViewModel extends ServiceBase {
     // whole current list, not one incremental round.
     this.frames.touchOwner(ownerKey);
 
-    const prevBlob =
-      this.frames.getPullBlob<IDomainPrev>(ownerKey, PREV_BLOB_KEY) ??
-      freshPrev();
+    const existingPrevBlob = this.frames.getPullBlob<IDomainPrev>(
+      ownerKey,
+      PREV_BLOB_KEY,
+    );
+    if (!existingPrevBlob) {
+      this.ownerSlotSequence += 1;
+    }
+    const slotId =
+      existingPrevBlob?.slotId ??
+      `${this.homeRoundPrefix}-slot-${this.ownerSlotSequence}`;
+    const prevBlob = existingPrevBlob ?? freshPrev(slotId);
+    if (!existingPrevBlob) {
+      this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, prevBlob);
+    }
 
     const input: IBuildFramesInput = {
       orderedTokens,
@@ -530,47 +618,184 @@ class ServiceTokenViewModel extends ServiceBase {
     homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
+      structure.settledAccountId = accountId;
+      structure.settledNetworkId = networkId;
+      structure.rawKeys = rawKeys;
+      structure.riskyCount = riskyTokens.length;
     }
     valuation.provisional = provisional;
+    valuation.structureGeneration =
+      structure?.generation ?? prevBlob.lastStructure.generation;
 
     // Structure FIRST (preserve the legacy emit order), then valuation.
+    let nextStructurePrev = prevBlob.lastStructure;
+    let nextScalarPrev = prevBlob.lastScalar;
+    let nextMetaByKeyPrev = prevBlob.lastMetaByKey;
+    let nextBalanceByKeyPrev = prevBlob.lastBalanceByKey ?? {};
+
     if (structure) {
+      const deltaMetaPatch: Record<ITokenKey, IToken> = {};
+      for (const key of Object.keys(structure.metaPatch)) {
+        const nextMeta = structure.metaPatch[key];
+        if (!metaEqual(prevBlob.lastMetaByKey[key], nextMeta)) {
+          deltaMetaPatch[key] = nextMeta;
+        }
+      }
+
       // Structural change — push the frame (version == the structure's own
-      // generation, domain-supplied) and advance the diff `prev` blob so the
-      // next round compares against what we just emitted.
+      // generation, domain-supplied). On subsequent frames (prevVersion >= 0),
+      // emit only the changed/added `metaPatch` entries with `baseVersion` so
+      // `main` applies an O(delta) patch while the BG host slot retains the
+      // full snapshot for PULL backstops.
       this.frames.pushFrame(
         'structure',
         ownerKey,
-        (version) => ({ ownerKey, structureVersion: version, structure }),
-        { version: structure.generation },
-      );
-      this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
-        lastStructure: {
-          orderedIds: structure.orderedIds,
-          smallBalanceIds: structure.smallBalanceIds,
-          nonZeroIds: structure.nonZeroIds,
-          fundedIds: structure.fundedIds,
-          aggMembership: structure.aggMembership,
-          ownerKey: structure.ownerKey,
-          generation: structure.generation,
-          ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
+        (version, prevVersion) =>
+          prevVersion >= 0
+            ? {
+                ownerKey,
+                slotId,
+                baseVersion: prevVersion,
+                isDelta: true,
+                structureVersion: version,
+                structure: {
+                  ...structure,
+                  metaPatch: deltaMetaPatch,
+                },
+              }
+            : {
+                ownerKey,
+                slotId,
+                structureVersion: version,
+                structure,
+              },
+        {
+          version: structure.generation,
+          storedPayload: (version) => ({
+            ownerKey,
+            slotId,
+            structureVersion: version,
+            structure,
+          }),
         },
-        lastScalar: structure.smallBalanceFiatValue,
-        lastMetaByKey: metaByKeyFromTokens([
-          ...orderedTokens,
-          ...smallBalanceTokens,
-        ]),
-        lastBalanceByKey: balanceByKey,
-      } satisfies IDomainPrev);
+      );
+      nextStructurePrev = {
+        orderedIds: structure.orderedIds,
+        smallBalanceIds: structure.smallBalanceIds,
+        nonZeroIds: structure.nonZeroIds,
+        fundedIds: structure.fundedIds,
+        aggMembership: structure.aggMembership,
+        ownerKey: structure.ownerKey,
+        generation: structure.generation,
+        ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
+      };
+      nextScalarPrev = structure.smallBalanceFiatValue;
+      nextMetaByKeyPrev = metaByKeyFromTokens([
+        ...orderedTokens,
+        ...smallBalanceTokens,
+      ]);
+      nextBalanceByKeyPrev = balanceByKey;
     }
 
-    // Valuation is emitted on EVERY round (the full current fiat map is
-    // idempotent + self-healing); the increment kind bumps its version each time.
-    this.frames.pushFrame('valuation', ownerKey, (version) => ({
+    const prevFiatByKey = prevBlob.lastFiatByKey ?? {};
+    const prevAggFiatByKey = prevBlob.lastAggFiatByKey ?? {};
+    const deltaChangedFiatById: Record<ITokenKey, ITokenFiat> = {};
+    for (const key of Object.keys(valuation.changedFiatById)) {
+      const nextFiat = valuation.changedFiatById[key];
+      const isNewlyAddedKey = !(key in prevBlob.lastMetaByKey);
+      if (isNewlyAddedKey || !fiatEqual(prevFiatByKey[key], nextFiat)) {
+        deltaChangedFiatById[key] = nextFiat;
+      }
+    }
+    const removedFiatIds: ITokenKey[] = [];
+    for (const key of Object.keys(prevFiatByKey)) {
+      if (!(key in valuation.changedFiatById)) {
+        removedFiatIds.push(key);
+      }
+    }
+    const deltaChangedAggFiat: Record<
+      IAggKey,
+      Record<INetworkId, ITokenFiat>
+    > = {};
+    for (const aggKey of Object.keys(valuation.changedAggFiat)) {
+      const nextByNet = valuation.changedAggFiat[aggKey];
+      const prevByNet = prevAggFiatByKey[aggKey];
+      let changedNetEntries: Record<INetworkId, ITokenFiat> | undefined;
+      for (const netId of Object.keys(nextByNet)) {
+        const nextFiat = nextByNet[netId];
+        if (!prevByNet || !fiatEqual(prevByNet[netId], nextFiat)) {
+          changedNetEntries ??= {};
+          changedNetEntries[netId] = nextFiat;
+        }
+      }
+      if (changedNetEntries) {
+        deltaChangedAggFiat[aggKey] = changedNetEntries;
+      }
+    }
+    const removedAggFiat: Record<IAggKey, INetworkId[]> = {};
+    for (const aggKey of Object.keys(prevAggFiatByKey)) {
+      const prevByNet = prevAggFiatByKey[aggKey];
+      const nextByNet = valuation.changedAggFiat[aggKey];
+      if (prevByNet && nextByNet) {
+        const missingNets = Object.keys(prevByNet).filter(
+          (netId) => !(netId in nextByNet) || !nextByNet[netId],
+        );
+        if (missingNets.length > 0) {
+          removedAggFiat[aggKey] = missingNets;
+        }
+      }
+    }
+
+    // Valuation is emitted on EVERY round: first round (prevVersion < 0) emits
+    // the full baseline; subsequent rounds (prevVersion >= 0) emit only the
+    // changed/newly-added fiat entries with `baseVersion`, while `storedPayload`
+    // keeps the full map in the BG slot for `getTokenListFrames` PULLs.
+    this.frames.pushFrame(
+      'valuation',
       ownerKey,
-      valuationVersion: version,
-      valuation,
-    }));
+      (version, prevVersion) =>
+        prevVersion >= 0
+          ? {
+              ownerKey,
+              slotId,
+              baseVersion: prevVersion,
+              isDelta: true,
+              valuationVersion: version,
+              valuation: {
+                ...valuation,
+                changedFiatById: deltaChangedFiatById,
+                changedAggFiat: deltaChangedAggFiat,
+                ...(removedFiatIds.length > 0 ? { removedFiatIds } : undefined),
+                ...(Object.keys(removedAggFiat).length > 0
+                  ? { removedAggFiat }
+                  : undefined),
+              },
+            }
+          : {
+              ownerKey,
+              slotId,
+              valuationVersion: version,
+              valuation,
+            },
+      {
+        storedPayload: (version) => ({
+          ownerKey,
+          slotId,
+          valuationVersion: version,
+          valuation,
+        }),
+      },
+    );
+
+    this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
+      slotId,
+      lastStructure: nextStructurePrev,
+      lastScalar: nextScalarPrev,
+      lastMetaByKey: nextMetaByKeyPrev,
+      lastBalanceByKey: nextBalanceByKeyPrev,
+      lastFiatByKey: valuation.changedFiatById,
+      lastAggFiatByKey: valuation.changedAggFiat,
+    } satisfies IDomainPrev);
 
     const framesNow = this.frames.getFrames(ownerKey);
 
@@ -587,6 +812,7 @@ class ServiceTokenViewModel extends ServiceBase {
       tokenListMap,
       riskyMap,
       aggregateTokensMap,
+      lastIngestParams: params,
     } satisfies IRawTokenListData);
 
     // --- risky frame (design §R0 #2) ---------------------------------------
@@ -598,12 +824,50 @@ class ServiceTokenViewModel extends ServiceBase {
     if (this.riskyChanged(prevRisky, riskyTokens, riskyMap)) {
       this.frames.pushFrame('risky', ownerKey, (version) => ({
         ownerKey,
+        slotId,
         riskyVersion: version,
         riskyTokens,
         riskyMap,
         storeData,
       }));
     }
+  }
+
+  /**
+   * Re-runs `ingestRound` for an already-settled owner when asynchronous
+   * hideZero inputs (`homeDefaultTokenMap` or `customTokens`) resolve or change
+   * after the initial single-network ingest.
+   */
+  @backgroundMethod()
+  async refreshOwnerNonZeroInputs({
+    homeRequest,
+    ownerKey,
+    keepDefault,
+    homeDefaultTokenMap,
+    customTokens,
+  }: {
+    homeRequest?: IHomeTokenRequest;
+    ownerKey: string;
+    keepDefault?: boolean;
+    homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+    customTokens?: ICustomTokenItem[];
+  }): Promise<void> {
+    homeTokenRequestRegistry.assertCurrent(homeRequest, ownerKey);
+    const raw = this.frames.getPullBlob<IRawTokenListData>(
+      ownerKey,
+      RAW_BLOB_KEY,
+    );
+    if (!raw?.lastIngestParams) {
+      return;
+    }
+    await this.ingestRound({
+      ...raw.lastIngestParams,
+      homeRequest: homeRequest ?? raw.lastIngestParams.homeRequest,
+      keepDefault: keepDefault ?? raw.lastIngestParams.keepDefault,
+      homeDefaultTokenMap:
+        homeDefaultTokenMap ?? raw.lastIngestParams.homeDefaultTokenMap,
+      customTokens: customTokens ?? raw.lastIngestParams.customTokens,
+    });
   }
 
   /**
@@ -651,27 +915,62 @@ class ServiceTokenViewModel extends ServiceBase {
   @backgroundMethod()
   async getTokenListFrames({
     ownerKey,
+    knownVersions,
   }: {
     ownerKey: string;
+    knownVersions?: ITokenListKnownVersions;
   }): Promise<ITokenListFramesPullResult> {
     const frames = this.frames.getFrames(ownerKey);
+    const prevBlob = this.frames.getPullBlob<IDomainPrev>(
+      ownerKey,
+      PREV_BLOB_KEY,
+    );
+    const slotId = prevBlob?.slotId;
     const structureP = frames.structure.payload;
     const valuationP = frames.valuation.payload;
     const riskyP = frames.risky.payload;
+    const sameSlot = Boolean(
+      slotId && knownVersions?.slotId && knownVersions.slotId === slotId,
+    );
+    const structureUnchanged = Boolean(
+      sameSlot &&
+      frames.structure.version >= 0 &&
+      structureP?.structure &&
+      knownVersions?.structureVersion === frames.structure.version &&
+      knownVersions?.structureGeneration === structureP.structure.generation,
+    );
+    const valuationUnchanged = Boolean(
+      sameSlot &&
+      frames.valuation.version >= 0 &&
+      valuationP?.valuation &&
+      knownVersions?.valuationVersion === frames.valuation.version,
+    );
+    const riskyUnchanged = Boolean(
+      sameSlot &&
+      frames.risky.version >= 0 &&
+      riskyP &&
+      knownVersions?.riskyVersion === frames.risky.version,
+    );
     return {
       ownerKey,
+      ...(slotId ? { slotId } : undefined),
       structureVersion: frames.structure.version,
       valuationVersion: frames.valuation.version,
-      structure: structureP?.structure,
-      valuation: valuationP?.valuation,
+      structure: structureUnchanged ? undefined : structureP?.structure,
+      ...(structureUnchanged ? { structureUnchanged: true } : undefined),
+      valuation: valuationUnchanged ? undefined : valuationP?.valuation,
+      ...(valuationUnchanged ? { valuationUnchanged: true } : undefined),
       riskyVersion: frames.risky.version,
-      riskyTokens: riskyP?.riskyTokens ?? [],
-      riskyMap: riskyP?.riskyMap ?? {},
+      riskyTokens: riskyUnchanged ? [] : (riskyP?.riskyTokens ?? []),
+      riskyMap: riskyUnchanged ? {} : (riskyP?.riskyMap ?? {}),
+      ...(riskyUnchanged ? { riskyUnchanged: true } : undefined),
       // The risky frame apply needs the owner's storeData for the identity check;
       // the structure/valuation snapshots already carry it, so reuse whichever is
       // present (both are stamped for the same owner).
       storeData:
-        structureP?.structure.storeData ?? valuationP?.valuation.storeData,
+        riskyP?.storeData ??
+        structureP?.structure.storeData ??
+        valuationP?.valuation.storeData,
     };
   }
 

@@ -33,12 +33,16 @@ export function wrapAtomPro(
     [update: unknown],
     Promise<void> | undefined
   >,
+  options?: { syncAcrossRuntimes?: boolean },
 ) {
-  const shouldProxyStateUpdateFromUiToBg = shouldProxyAtomUpdateFromUiToBg();
+  const syncAcrossRuntimes = options?.syncAcrossRuntimes !== false;
+  const shouldProxyStateUpdateFromUiToBg =
+    syncAcrossRuntimes && shouldProxyAtomUpdateFromUiToBg();
   const shouldBroadcastStateUpdateFromBgToUi =
-    platformEnv.isExtensionBackground ||
-    (platformEnv.isNativeBackgroundThread &&
-      platformEnv.enableNativeBackgroundThread);
+    syncAcrossRuntimes &&
+    (platformEnv.isExtensionBackground ||
+      (platformEnv.isNativeBackgroundThread &&
+        platformEnv.enableNativeBackgroundThread));
 
   const doSet = async ({
     payload,
