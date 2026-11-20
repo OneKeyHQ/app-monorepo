@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "मैं समझता हूं कि इस अकाउंट से बाद में बनाया गया वॉलेट नया होगा और इस वॉलेट की संपत्तियों तक नहीं पहुंच पाएगा",
   "keyless_deletion_ack_recovery__action": "मैं समझता हूँ कि हटाने के बाद मैं Google या Apple साइन-इन और अपने PIN से इस वॉलेट को पुनर्स्थापित नहीं कर सकूँगा",
   "keyless_deletion_automatic_unavailable__msg": "स्वचालित हटाना उपलब्ध नहीं है। सहायता से संपर्क करें।",
-  "keyless_deletion_callback__msg": "साइन इन हो गया। जारी रखने के लिए मूल विंडो पर लौटें।",
+  "keyless_deletion_callback__msg": "जारी रखने के लिए मूल विंडो पर वापस जाएं।",
   "keyless_deletion_cannot_continue__desc": "हटाने के अनुरोध को सत्यापित करने के लिए सहायता से संपर्क करें।",
   "keyless_deletion_cannot_continue__title": "हटाना जारी नहीं रखा जा सका",
   "keyless_deletion_check_countdown__action": "{seconds} सेकंड में जांचें",

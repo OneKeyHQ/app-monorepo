@@ -2510,7 +2510,7 @@
   "keyless_deletion_ack_new_wallet__action": "Tôi hiểu rằng ví được tạo sau này bằng tài khoản này là ví mới và không thể truy cập tài sản của ví này",
   "keyless_deletion_ack_recovery__action": "Tôi hiểu rằng sau khi xóa, tôi không thể khôi phục ví này bằng đăng nhập Google hoặc Apple và mã PIN của mình",
   "keyless_deletion_automatic_unavailable__msg": "Không thể xóa tự động. Vui lòng liên hệ bộ phận hỗ trợ.",
-  "keyless_deletion_callback__msg": "Đã đăng nhập. Quay lại cửa sổ ban đầu để tiếp tục.",
+  "keyless_deletion_callback__msg": "Quay lại cửa sổ ban đầu để tiếp tục.",
   "keyless_deletion_cannot_continue__desc": "Hãy liên hệ bộ phận hỗ trợ để xác minh yêu cầu xóa.",
   "keyless_deletion_cannot_continue__title": "Không thể tiếp tục xóa",
   "keyless_deletion_check_countdown__action": "Kiểm tra sau {seconds} giây",

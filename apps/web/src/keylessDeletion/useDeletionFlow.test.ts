@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { PopupBlockedError } from './popupBlockedError';
 import {
   CONFIRMATION_VERSION,
   DELETION_SCOPE,
@@ -624,4 +625,24 @@ it('renews expired proof for an outcome check without requesting another code', 
   expect(history.get(token)?.result).toMatchObject({
     currentShareStatus: 'unknown',
   });
+});
+
+it('reports a blocked sign-in popup without sending a code', async () => {
+  const client = createClientFixture();
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate: jest.fn().mockRejectedValue(new PopupBlockedError()),
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  act(() => result.current.signIn('google'));
+  await waitFor(() => expect(result.current.error?.code).toBe('POPUP_BLOCKED'));
+  expect(result.current.error?.usesSharedToast).toBe(false);
+  expect(result.current.screen.step).toBe('identity');
+  expect(client.sendDeletionOtp).not.toHaveBeenCalled();
 });

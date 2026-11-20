@@ -12,6 +12,15 @@ const { KEYLESS_SUPABASE_PUBLIC_API_KEY } = load(
 const { LOCALES_OPTION } = load(
   '../../../packages/shared/src/locale/localeOptions',
 );
+const enUS = require('../../../packages/shared/src/locale/json/en_US.json');
+const jaJP = require('../../../packages/shared/src/locale/json/ja_JP.json');
+const zhCN = require('../../../packages/shared/src/locale/json/zh_CN.json');
+
+const zh = (key, values = {}) =>
+  Object.entries(values).reduce(
+    (text, [name, value]) => text.replace(`{${name}}`, value),
+    zhCN[key],
+  );
 const local = `http://127.0.0.1:${Number(process.env.KEYLESS_APP_WEB_E2E_PORT ?? '3003')}`;
 const app = 'https://app.onekeytest.com';
 const productionApp = 'https://app.onekey.so';
@@ -76,7 +85,7 @@ async function main() {
       const cors = {
         'access-control-allow-origin': appOrigin,
         'access-control-allow-headers':
-          'content-type,idempotency-key,apikey,authorization,x-client-info,x-supabase-api-version',
+          'content-type,idempotency-key,apikey,authorization,x-client-info,x-supabase-api-version,x-onekey-keyless-result',
         'access-control-allow-methods': 'POST,OPTIONS',
         'access-control-expose-headers': 'Retry-After',
       };
@@ -239,8 +248,13 @@ async function main() {
               };
               break;
             case '/delete':
-            case '/result':
               data = receipt;
+              break;
+            case '/result':
+              data =
+                headers['x-onekey-keyless-result'] === 'current-share-status'
+                  ? { ...receipt, currentShareStatus: 'absent' }
+                  : receipt;
               break;
             default:
               throw new TypeError('Unexpected Prime route.');
@@ -399,20 +413,65 @@ async function main() {
       {},
       async ({ page, id, verify, deleteKeys }) => {
         await verify();
+        await page
+          .getByRole('heading', { name: zh('keyless_deletion_confirm__title') })
+          .waitFor();
+        assert.equal(
+          await id('otp-delivery-status').textContent(),
+          zh('keyless_deletion_code_sent__desc', {
+            email: 'd***@example.invalid',
+            minutes: 10,
+          }),
+        );
+        // Code entry comes first; warnings sit right above the consent checkboxes.
+        const order = await page.evaluate(() =>
+          [
+            '#deletion-code-input',
+            '[data-testid="send-code"]',
+            '#deletion-warnings',
+            '[data-testid="acknowledge"]',
+            '[data-testid="acknowledge-new-wallet"]',
+            '[data-testid="submit-deletion"]',
+          ].map(
+            (selector) =>
+              document.querySelector(selector)?.getBoundingClientRect().top,
+          ),
+        );
+        assert.ok(
+          order.every(
+            (top, index) =>
+              Number.isFinite(top) && (index === 0 || top > order[index - 1]),
+          ),
+          `unexpected confirm order ${order.join(',')}`,
+        );
         await id('submit-deletion').evaluate((button) => {
           button.click();
           button.click();
         });
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
         assert.equal(deleteKeys().length, 1);
         assert.equal(await id('support-reference').textContent(), reference);
+        assert.ok(await id('copy-support-reference').isVisible());
+        assert.ok(await id('keep-wallet-hint').isVisible());
+        assert.equal(
+          await id('support-contact').locator('a').getAttribute('href'),
+          'mailto:legal@onekey.so',
+        );
       },
     );
     await scenario(
       'loopback Apple uses the shared OAuth project and only queries test Prime',
       { appOrigin: local, provider: 'apple', status: 'used' },
       async ({ page, id, calls }) => {
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
         assert.deepEqual(calls(), [
           '/link-info',
           'oauth-authorize',
@@ -426,9 +485,23 @@ async function main() {
     await scenario(
       'a hosted production invitation reads only from the configured production Prime',
       { appOrigin: productionApp, linkOnly: true },
-      async ({ id, step, calls }) => {
+      async ({ page, id, step, calls }) => {
         await step('identity');
         assert.ok(await id('sign-in-google').isVisible());
+        await page
+          .getByRole('heading', { name: zh('keyless_deletion__title') })
+          .waitFor();
+        await id('sign-in-scope')
+          .getByText(zh('keyless_deletion_will_delete__desc'))
+          .waitFor();
+        await id('sign-in-scope')
+          .getByText(zh('keyless_deletion_not_affected__desc'))
+          .waitFor();
+        await id('sign-in-intro')
+          .getByText(
+            zh('keyless_deletion_sign_in__desc', { platform: 'Google' }),
+          )
+          .waitFor();
         assert.deepEqual(calls(), ['/link-info']);
       },
     );
@@ -444,7 +517,7 @@ async function main() {
         const dialog = page.getByRole('dialog');
         await dialog.getByText('请切换到原钱包账号。').waitFor();
         assert.equal(await id('deletion-code').count(), 0);
-        await dialog.getByRole('button', { name: '我明白了' }).click();
+        await dialog.getByRole('button', { name: zh('global.got_it') }).click();
         assert.ok(await id('sign-in-google').isEnabled());
       },
     );
@@ -482,7 +555,7 @@ async function main() {
       },
       async ({ page, id, calls }) => {
         await page
-          .getByText('验证码发送结果待确认。请稍后重新申请验证码。')
+          .getByText(zh('keyless_deletion_code_uncertain__msg'))
           .waitFor();
         assert.ok(await id('send-code').isDisabled());
         assert.ok(await id('deletion-code').isDisabled());
@@ -523,11 +596,16 @@ async function main() {
         assert.ok(await id('acknowledge-new-wallet').isChecked());
         assert.ok(await id('submit-deletion').isEnabled());
         await id('submit-deletion').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
-        assert.deepEqual(calls().slice(-3), [
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
+        assert.deepEqual(calls().slice(-4), [
           '/otp/send',
           '/otp/send',
           '/delete',
+          '/result',
         ]);
       },
     );
@@ -624,238 +702,80 @@ async function main() {
       },
     );
     await scenario(
-      'HTTP 200 confirmation change queries result before using a new key',
+      'a confirmation change keeps the form and shows the server message',
       {
-        reply: (endpoint, calls, updateVersion) => {
-          const attempts = calls.filter(
-            (call) => call.endpoint === '/delete',
-          ).length;
-          if (endpoint === '/delete' && attempts === 1)
-            return { json: { code: 90_908, message: '确认版本已更新。' } };
-          if (endpoint === '/result') {
-            updateVersion('keyless-server-share-deletion/v2');
-            return { json: success({ status: 'not_submitted' }) };
-          }
-          return undefined;
-        },
+        reply: (endpoint) =>
+          endpoint === '/delete'
+            ? { json: { code: 90_908, message: '确认版本已更新。' } }
+            : undefined,
       },
-      async ({ page, id, verify, calls, deleteKeys }) => {
+      async ({ id, step, verify, calls }) => {
         await verify();
         await id('submit-deletion').click();
-        await id('confirmation-updated').waitFor();
-        assert.deepEqual(calls().slice(-3), [
-          '/delete',
-          '/result',
-          '/link-info',
-        ]);
-        assert.equal(
-          await id('acknowledge').getAttribute('aria-checked'),
-          'false',
-        );
-        assert.equal(
-          await id('acknowledge-new-wallet').getAttribute('aria-checked'),
-          'false',
-        );
-        await id('deletion-code').fill('01234567');
-        await id('acknowledge').check();
-        await id('acknowledge-new-wallet').check();
-        await id('submit-deletion').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
-        assert.equal(deleteKeys().length, 2);
-        assert.notEqual(...deleteKeys());
-      },
-    );
-    await scenario(
-      'unknown confirmation versions are blocked after a server version change',
-      {
-        reply: (endpoint, _calls, updateVersion) => {
-          if (endpoint === '/delete') {
-            return { json: { code: 90_908, message: '确认版本已更新。' } };
-          }
-          if (endpoint === '/result') {
-            updateVersion('keyless-server-share-deletion/v3');
-            return { json: success({ status: 'not_submitted' }) };
-          }
-          return undefined;
-        },
-      },
-      async ({ id, verify, calls, deleteKeys }) => {
-        await verify();
-        await id('submit-deletion').click();
-        await id('flow-error').waitFor();
-        assert.deepEqual(calls().slice(-3), [
-          '/delete',
-          '/result',
-          '/link-info',
-        ]);
-        assert.equal(await id('submit-deletion').count(), 0);
-        assert.equal(await id('retry-original').count(), 0);
-        assert.equal(deleteKeys().length, 1);
-      },
-    );
-    await scenario(
-      'a wrong recovery account allows another sign-in and retains the original idempotency key',
-      {
-        recoveryProofs: [
-          'fixture-wrong-account-proof',
-          'fixture-right-account-proof',
-        ],
-        reply: (endpoint, calls) => {
-          if (
-            endpoint === '/delete' &&
-            calls.filter((call) => call.endpoint === endpoint).length === 1
-          ) {
-            return { json: { code: 90_902, message: '登录已过期。' } };
-          }
-          if (endpoint === '/result') {
-            return calls.filter((call) => call.endpoint === endpoint).length ===
-              1
-              ? {
-                  json: {
-                    code: 90_903,
-                    message: '请使用邀请绑定的 Google 账号。',
-                  },
-                }
-              : { json: success({ status: 'not_submitted' }) };
-          }
-          return undefined;
-        },
-      },
-      async ({ page, id, verify, calls, deleteKeys }) => {
-        await verify();
-        await id('submit-deletion').click();
-        const signIn = id('reauthenticate');
-        const dialog = page.getByRole('dialog');
-        await dialog.getByText('登录已过期。').waitFor();
-        await dialog.getByRole('button', { name: '我明白了' }).click();
-        await signIn.click();
-        await dialog.getByText('请使用邀请绑定的 Google 账号。').waitFor();
-        await dialog.getByRole('button', { name: '我明白了' }).click();
-        assert.equal(await id('check-status').count(), 0);
-        assert.equal(await id('retry-original').count(), 0);
-        await signIn.click();
-        await id('retry-original').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
-        assert.equal(deleteKeys().length, 2);
-        assert.equal(...deleteKeys());
-        assert.deepEqual(
-          calls().filter((call) => call.startsWith('/')),
-          [
-            '/link-info',
-            '/otp/send',
-            '/delete',
-            '/result',
-            '/result',
-            '/delete',
-          ],
-        );
-      },
-    );
-    await scenario(
-      'a deletion Retry-After blocks only resubmission and preserves the original key',
-      {
-        reply: (endpoint, calls) => {
-          const attempts = calls.filter(
-            (call) => call.endpoint === '/delete',
-          ).length;
-          if (endpoint === '/delete' && attempts === 1) {
-            return {
-              status: 503,
-              headers: { 'Retry-After': '3' },
-              json: { code: 90_914, message: '稍后重试删除。' },
-            };
-          }
-          if (endpoint === '/result') {
-            return { json: success({ status: 'not_submitted' }) };
-          }
-          return undefined;
-        },
-      },
-      async ({ page, id, verify, calls, deleteKeys }) => {
-        await verify();
-        await id('submit-deletion').click();
-        await id('flow-error').getByText('稍后重试删除。').waitFor();
-        const retry = id('retry-original');
-        const check = id('check-status');
-        assert.ok(await retry.isDisabled());
-        assert.match(await retry.innerText(), /秒后可重试/);
-        assert.ok(await check.isEnabled());
-        await Promise.all([
-          page.waitForResponse(
-            (response) => response.url() === `${prime}${base}/result`,
-          ),
-          check.click(),
-        ]);
-        assert.equal(deleteKeys().length, 1);
-        assert.ok(await retry.isDisabled());
-        await retry.click({ timeout: 6000 });
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
-        assert.deepEqual(
-          calls()
-            .filter((call) => call.startsWith('/'))
-            .slice(-4),
-          ['/delete', '/result', '/result', '/delete'],
-        );
-        assert.equal(deleteKeys().length, 2);
-        assert.equal(...deleteKeys());
-      },
-    );
-    await scenario(
-      'result sign-in waits for HTTP 429 Retry-After and recovers the original request',
-      {
-        reply: (endpoint, calls) => {
-          if (endpoint === '/delete') {
-            return { json: { code: 90_902, message: '登录已过期。' } };
-          }
-          if (endpoint !== '/result') return undefined;
-          const first =
-            calls.filter((call) => call.endpoint === endpoint).length === 1;
-          return first
-            ? {
-                status: 429,
-                headers: {
-                  'Retry-After': '3',
-                  'Access-Control-Expose-Headers': 'Retry-After',
-                },
-                json: { code: 90_906, message: '稍后查询。' },
-              }
-            : undefined;
-        },
-      },
-      async ({ page, id, verify, calls }) => {
-        await verify();
-        await id('submit-deletion').click();
-        const dialog = page.getByRole('dialog');
-        await dialog.getByText('登录已过期。').waitFor();
-        await dialog.getByRole('button', { name: '我明白了' }).click();
-        const signIn = id('reauthenticate');
-        await signIn.click();
-        await id('flow-error').getByText('稍后查询。').waitFor();
-        assert.ok(await signIn.isDisabled());
-        assert.match(await signIn.innerText(), /秒后可查询/);
-        assert.equal(
-          calls().filter((endpoint) => endpoint === 'oauth-authorize').length,
-          2,
-        );
+        await id('flow-error').getByText('确认版本已更新。').waitFor();
+        await step('confirm');
+        assert.equal(calls().at(-1), '/delete');
         assert.equal(
           calls().filter((endpoint) => endpoint === '/result').length,
-          1,
+          0,
         );
-        await signIn.click({ timeout: 6000 });
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+      },
+    );
+    await scenario(
+      'an expired sign-in during deletion returns to sign-in without a second delete',
+      {
+        reply: (endpoint) =>
+          endpoint === '/delete'
+            ? { json: { code: 90_902, message: '登录已过期。' } }
+            : undefined,
+      },
+      async ({ page, id, step, verify, calls }) => {
+        await verify();
+        await id('submit-deletion').click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByText('登录已过期。').waitFor();
+        await dialog.getByRole('button', { name: zh('global.got_it') }).click();
+        await step('identity');
+        assert.ok(await id('sign-in-google').isEnabled());
         assert.equal(
           calls().filter((endpoint) => endpoint === '/delete').length,
           1,
         );
-        assert.equal(
-          calls().filter((endpoint) => endpoint === '/result').length,
-          2,
-        );
+      },
+    );
+    await scenario(
+      'a deletion Retry-After blocks resubmission and reuses the original key',
+      {
+        reply: (endpoint, calls) =>
+          endpoint === '/delete' &&
+          calls.filter((call) => call.endpoint === endpoint).length === 1
+            ? {
+                status: 503,
+                headers: { 'Retry-After': '3' },
+                json: { code: 90_914, message: '稍后重试删除。' },
+              }
+            : undefined,
+      },
+      async ({ page, id, step, verify, calls, deleteKeys }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await id('flow-error').getByText('稍后重试删除。').waitFor();
+        await step('confirm');
+        assert.ok(await id('submit-deletion').isDisabled());
+        await id('submit-deletion').click({ timeout: 6000 });
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
+        assert.equal(deleteKeys().length, 2);
+        assert.equal(...deleteKeys());
+        assert.deepEqual(calls().slice(-3), ['/delete', '/delete', '/result']);
       },
     );
     for (const expired of [false, true]) {
       await scenario(
-        `first result refusal keeps original application guidance (${expired ? 'expired' : 'used'} invitation)`,
+        `an unavailable invitation ends without exposing past results (${expired ? 'expired' : 'used'} invitation)`,
         {
           status: 'used',
           linkOnly: expired,
@@ -868,9 +788,6 @@ async function main() {
                 json: {
                   code: 90_900,
                   message: '<b>UNSAFE_RECOVERY_MESSAGE</b>',
-                  translatedMessage: expired
-                    ? undefined
-                    : '客服可按原记录核对。',
                 },
               };
             }
@@ -878,39 +795,69 @@ async function main() {
           },
         },
         async ({ page, id, calls }) => {
-          if (expired) {
-            await id('open-recovery').click();
-            await id('recover-google').click();
-          }
-          await page.getByRole('heading', { name: '结果待确认' }).waitFor();
-          await page.getByText('请联系原客服核实申请的处理状态。').waitFor();
-          if (expired) assert.equal(await id('flow-error').count(), 0);
-          else
-            await id('flow-error').getByText('客服可按原记录核对。').waitFor();
+          await page
+            .getByRole('heading', {
+              name: zh('keyless_deletion_link_unavailable__title'),
+            })
+            .waitFor();
+          await page
+            .getByText(zh('keyless_deletion_link_unavailable__desc'))
+            .waitFor();
           assert.equal(
-            await page
-              .getByText(/UNSAFE_RECOVERY_MESSAGE|获取新的专属邀请/)
-              .count(),
+            await page.getByText(/UNSAFE_RECOVERY_MESSAGE/).count(),
             0,
           );
-          assert.equal(await id('open-recovery').count(), 0);
+          assert.ok(await id('support-contact').isVisible());
           assert.equal(await id('reauthenticate').count(), 0);
           assert.deepEqual(
             calls().filter((call) => call.startsWith('/')),
-            ['/link-info', '/result'],
+            expired ? ['/link-info'] : ['/link-info', '/result'],
           );
         },
       );
     }
     await scenario(
-      'lost delete response reads the original result and preserves processing after 90900',
+      'a lost delete response keeps the form and retries with the same key',
+      {
+        reply: (endpoint, calls) =>
+          endpoint === '/delete' &&
+          calls.filter((call) => call.endpoint === endpoint).length === 1
+            ? 'disconnect'
+            : undefined,
+      },
+      async ({ page, id, step, verify, deleteKeys }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await page.getByTestId('onekey-toast-messages').waitFor();
+        await step('confirm');
+        await id('submit-deletion').click();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
+        assert.equal(deleteKeys().length, 2);
+        assert.equal(...deleteKeys());
+      },
+    );
+    await scenario(
+      'a failed result check keeps the known processing state',
       {
         reply: (endpoint, calls) => {
+          if (endpoint === '/delete') {
+            return {
+              json: {
+                code: 90_912,
+                message: '删除申请正在处理中。',
+                data: { supportReference: reference },
+              },
+            };
+          }
+          if (endpoint !== '/result') return undefined;
           const reads = calls.filter(
-            (call) => call.endpoint === '/result',
+            (call) => call.endpoint === endpoint,
           ).length;
-          if (endpoint === '/delete') return 'disconnect';
-          if (endpoint === '/result' && reads === 1)
+          if (reads === 1)
             return {
               json: success({
                 status: 'processing',
@@ -919,62 +866,28 @@ async function main() {
                 retryAfterSeconds: 0,
               }),
             };
-          if (endpoint === '/result' && reads === 2)
-            return { json: { code: 90_900, message: '请向客服核实原申请。' } };
+          if (reads === 2) return 'disconnect';
           return undefined;
         },
       },
       async ({ page, id, verify, calls, deleteKeys }) => {
         await verify();
         await id('submit-deletion').click();
-        await page.getByRole('heading', { name: '处理中' }).waitFor();
-        assert.deepEqual(calls().slice(-2), ['/delete', '/result']);
-        await id('check-status').click();
-        await page.getByText('请向客服核实原申请。').waitFor();
-        assert.equal(await id('support-reference').textContent(), reference);
-        assert.equal(await id('retry-original').count(), 0);
-        await id('check-status').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
-        assert.equal(deleteKeys().length, 1);
-      },
-    );
-    await scenario(
-      'result connection failure is shown inline without losing the known processing state',
-      {
-        reply: (endpoint, calls) => {
-          if (endpoint === '/delete') return 'disconnect';
-          if (endpoint === '/result') {
-            const reads = calls.filter(
-              (call) => call.endpoint === endpoint,
-            ).length;
-            if (reads === 1)
-              return {
-                json: success({
-                  status: 'processing',
-                  resultId: receipt.resultId,
-                  supportReference: reference,
-                  retryAfterSeconds: 0,
-                }),
-              };
-            if (reads === 2) return 'disconnect';
-          }
-          return undefined;
-        },
-      },
-      async ({ page, id, verify, calls }) => {
-        await verify();
-        await id('submit-deletion').click();
         const processing = page.getByRole('heading', { name: '处理中' });
         await processing.waitFor();
         await id('check-status').click();
-        await id('flow-error')
-          .getByText('暂时无法查询处理状态，请稍后再查。')
+        await page
+          .getByText(zh('keyless_deletion_status_unknown__desc'))
           .waitFor();
         assert.ok(await processing.isVisible());
         assert.equal(await id('support-reference').textContent(), reference);
-        assert.equal(await id('retry-original').count(), 0);
         await id('check-status').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_complete__title'),
+          })
+          .waitFor();
+        assert.equal(deleteKeys().length, 1);
         assert.deepEqual(calls().slice(-4), [
           '/delete',
           '/result',
@@ -1000,7 +913,11 @@ async function main() {
       async ({ page, id, verify, calls }) => {
         await verify();
         await id('submit-deletion').click();
-        await page.getByRole('heading', { name: '需要人工核查' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_manual_review__title'),
+          })
+          .waitFor();
         assert.equal(await id('support-reference').textContent(), reference);
         assert.equal(await id('retry-original').count(), 0);
         assert.equal(calls().at(-1), '/delete');
@@ -1055,15 +972,29 @@ async function main() {
         await search.fill('ja-JP');
         await id('select-item-ja-JP').click();
         await page.getByPlaceholder('認証コードを入力してください').waitFor();
+        // The remaining minutes count down in real time; only the localized
+        // template and the recipient are checked here.
+        const [beforeMinutes, afterMinutes] =
+          jaJP.keyless_deletion_code_sent__desc
+            .replace('{email}', 'd***@example.invalid')
+            .split('{minutes}');
+        const delivery = await id('otp-delivery-status').textContent();
+        assert.ok(delivery.startsWith(beforeMinutes), delivery);
+        assert.ok(delivery.endsWith(afterMinutes), delivery);
         assert.match(
-          await id('otp-delivery-status').textContent(),
-          /に送信されました/,
+          delivery.slice(
+            beforeMinutes.length,
+            -afterMinutes.length || undefined,
+          ),
+          /^\d+$/,
         );
         assert.match(await id('send-code').textContent(), /再送/);
         await page
-          .getByText('仅删除 OneKey 服务端恢复分片', { exact: true })
+          .getByText(jaJP.keyless_deletion_scope__title, { exact: true })
           .waitFor();
-        await page.getByRole('button', { name: '确认删除' }).waitFor();
+        await page
+          .getByRole('button', { name: jaJP.keyless_deletion_delete__action })
+          .waitFor();
         assert.equal(await id('deletion-code').inputValue(), '01234567');
         assert.ok(await id('acknowledge').isChecked());
         assert.ok(await id('acknowledge-new-wallet').isChecked());
@@ -1077,13 +1008,17 @@ async function main() {
           0,
         );
         await id('submit-deletion').click();
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        await page
+          .getByRole('heading', { name: jaJP.keyless_deletion_complete__title })
+          .waitFor();
         await id('keyless-language-button').click();
         await id('select-item-en').click();
         await page.waitForFunction(
           () => document.documentElement.lang === 'en',
         );
-        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        await page
+          .getByRole('heading', { name: enUS.keyless_deletion_complete__title })
+          .waitFor();
         assert.equal(page.url(), initialUrl);
         assert.deepEqual(calls(), [
           '/link-info',
@@ -1092,6 +1027,7 @@ async function main() {
           'oauth-exchange',
           '/otp/send',
           '/delete',
+          '/result',
         ]);
         for (const hash of [
           '#token=obsolete-alias',
@@ -1101,7 +1037,7 @@ async function main() {
           await page.goto(`${local}/keyless-deletion${hash}`);
           await id('app-open-invitation').waitFor();
         }
-        assert.deepEqual(calls(), [...beforeSwitch, '/delete']);
+        assert.deepEqual(calls(), [...beforeSwitch, '/delete', '/result']);
         assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
       },
     );
@@ -1114,6 +1050,87 @@ async function main() {
           .waitFor();
         assert.equal(await id('deletion-otp-form').count(), 0);
         assert.deepEqual(calls(), ['/link-info', 'oauth-authorize']);
+      },
+    );
+    await scenario(
+      'a blocked OAuth popup explains how to continue and offers the page link',
+      {
+        appOrigin: local,
+        linkOnly: true,
+        prepare: (page) =>
+          page.addInitScript(() => {
+            globalThis.open = () => null;
+          }),
+      },
+      async ({ page, id, step, calls }) => {
+        await step('identity');
+        await id('sign-in-google').click();
+        const error = id('flow-error');
+        await error
+          .getByText(zh('keyless_deletion_popup_blocked__msg'))
+          .waitFor();
+        assert.equal(
+          await error.getAttribute('data-error-code'),
+          'POPUP_BLOCKED',
+        );
+        assert.equal(
+          await page.getByTestId('onekey-toast-messages').count(),
+          0,
+        );
+        await page
+          .context()
+          .grantPermissions(['clipboard-read', 'clipboard-write'], {
+            origin: local,
+          });
+        await id('copy-page-link').click();
+        await page.waitForFunction(
+          async () => (await navigator.clipboard.readText()) === location.href,
+        );
+        assert.equal(await id('page-link-fallback').count(), 0);
+        await page.evaluate(() => {
+          navigator.clipboard.writeText = () =>
+            Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+        });
+        await id('copy-page-link').click();
+        await id('page-link-fallback').waitFor();
+        assert.equal(
+          await id('page-link-fallback').textContent(),
+          await page.evaluate(() => location.href),
+        );
+        assert.ok(await id('sign-in-google').isEnabled());
+        assert.deepEqual(calls(), ['/link-info']);
+      },
+    );
+    await scenario(
+      'a blocked popup during result sign-in is explained on the result screen',
+      {
+        status: 'used',
+        reply: (endpoint) =>
+          endpoint === '/result'
+            ? { json: { code: 90_902, message: '登录已过期。' } }
+            : undefined,
+      },
+      async ({ page, id, calls }) => {
+        const dialog = page.getByRole('dialog');
+        await dialog.getByText('登录已过期。').waitFor();
+        await dialog.getByRole('button', { name: zh('global.got_it') }).click();
+        await page.evaluate(() => {
+          globalThis.open = () => null;
+        });
+        await id('reauthenticate').click();
+        const error = id('flow-error');
+        await error
+          .getByText(zh('keyless_deletion_popup_blocked__msg'))
+          .waitFor();
+        assert.equal(
+          await error.getAttribute('data-error-code'),
+          'POPUP_BLOCKED',
+        );
+        assert.ok(await id('copy-page-link').isVisible());
+        assert.equal(
+          calls().filter((endpoint) => endpoint === '/delete').length,
+          0,
+        );
       },
     );
     const observedMessage =
@@ -1132,7 +1149,11 @@ async function main() {
         }),
       },
       async ({ page, id, calls }) => {
-        await page.getByRole('heading', { name: '暂时无法打开邀请' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_link_load_failed__title'),
+          })
+          .waitFor();
         await id('flow-error').getByText(observedMessage).waitFor();
         assert.equal(
           await id('flow-error').getAttribute('data-error-code'),
@@ -1164,9 +1185,19 @@ async function main() {
         }),
       },
       async ({ page, id, calls }) => {
-        await page.getByRole('heading', { name: '此邀请已失效' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_link_unavailable__title'),
+          })
+          .waitFor();
+        await page
+          .getByText(zh('keyless_deletion_link_unavailable__desc'))
+          .waitFor();
         assert.equal(await id('sign-in-google').count(), 0);
-        assert.ok(await id('open-recovery').isVisible());
+        assert.equal(
+          await id('support-contact').locator('a').getAttribute('href'),
+          'mailto:legal@onekey.so',
+        );
         assert.deepEqual(calls(), ['/link-info']);
       },
     );
@@ -1184,7 +1215,11 @@ async function main() {
         }),
       },
       async ({ page, id, calls }) => {
-        await page.getByRole('heading', { name: '暂时无法打开邀请' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_link_load_failed__title'),
+          })
+          .waitFor();
         await id('flow-error').getByText('请检查必填参数。').waitFor();
         assert.equal(await id('sign-in-google').count(), 0);
         assert.deepEqual(calls(), ['/link-info']);
@@ -1209,7 +1244,11 @@ async function main() {
           .getByText('服务暂时不可用，请稍后重试。', { exact: true });
         await toast.waitFor();
         assert.equal(await toast.count(), 1);
-        await page.getByRole('heading', { name: '暂时无法打开邀请' }).waitFor();
+        await page
+          .getByRole('heading', {
+            name: zh('keyless_deletion_link_load_failed__title'),
+          })
+          .waitFor();
         assert.deepEqual(calls(), ['/link-info']);
       },
     );
