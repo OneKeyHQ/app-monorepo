@@ -88,7 +88,6 @@ type ICommittedKeys = {
 
 const MAX_NATIVE_TEXT_LENGTH = 4096;
 
-
 // Legacy ListItem height: py 8 around a 24 + 20 text block. React Native on iOS
 // rounds each text box up to the next physical pixel, adding one pixel per line.
 const TOKEN_ROW_HEIGHT =
