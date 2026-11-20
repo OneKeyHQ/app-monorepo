@@ -1,6 +1,6 @@
-import { hasFeaturedChangelog } from '@onekeyhq/shared/src/appUpdate';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+import { getFeaturedChangelogForEntry } from './featuredChangelogForEntry';
 
 /**
  * Returns true when the featured-changelog overlay handled the open, telling
@@ -11,7 +11,7 @@ export async function tryShowFeaturedDialog(
   isPreInstall: boolean,
 ): Promise<boolean> {
   const currentInfo = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-  if (!hasFeaturedChangelog(currentInfo.featuredChangelog)) return false;
+  if (!getFeaturedChangelogForEntry(currentInfo, isPreInstall)) return false;
   const { showFeaturedChangelogDialog } =
     await import('./showFeaturedChangelogDialog');
   showFeaturedChangelogDialog({ isPreInstall });

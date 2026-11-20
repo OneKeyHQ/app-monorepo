@@ -33,7 +33,11 @@ let mockNative = false;
 let mockContainerProps: IDialogContainerProps;
 const initialUpdateInfo: Pick<
   IAppUpdateInfo,
-  'latestVersion' | 'updateStrategy' | 'featuredChangelog' | 'storeUrl'
+  | 'latestVersion'
+  | 'updateStrategy'
+  | 'featuredChangelog'
+  | 'featuredChangelogs'
+  | 'storeUrl'
 > = {
   latestVersion: '99.0.0',
   updateStrategy: 1,
@@ -50,6 +54,16 @@ const initialUpdateInfo: Pick<
   },
 };
 let mockUpdateInfo = initialUpdateInfo;
+const installedFeatured = {
+  version: '1.0.0',
+  features: [
+    {
+      title: 'Installed update',
+      mediaUrl: 'https://example.com/installed.png',
+      mediaType: 'image' as const,
+    },
+  ],
+};
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -90,6 +104,10 @@ jest.mock('@onekeyhq/shared/src/appUpdate', () => ({
   EUpdateFileType: { appShell: 1 },
   getUpdateFileType: () => 1,
   isAllowedFeaturedHref: () => false,
+  getFeaturedChangelogForVersion: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/appUpdate/featuredChangelog')
+  >('@onekeyhq/shared/src/appUpdate/featuredChangelog')
+    .getFeaturedChangelogForVersion,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { appUpdate: { whatsNewClosed: jest.fn() } } },
@@ -97,6 +115,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    version: '1.0.0',
     get isNative() {
       return mockNative;
     },
@@ -196,6 +215,29 @@ describe.each([false, true])(
         useSystemBrowser: true,
       });
       expect(mockClose).not.toHaveBeenCalled();
+    });
+
+    it('keeps the installed cards when the next check selects a release without cards', () => {
+      mockUpdateInfo = {
+        latestVersion: '1.0.0',
+        updateStrategy: 0,
+        featuredChangelogs: { '1.0.0': installedFeatured },
+      };
+      showFeaturedChangelogDialog({ isPreInstall: false });
+      const props = jest.mocked(Dialog.show).mock.calls[0][0];
+      const { rerender } = render(
+        <>{props.dialogContainer?.({ ref: { current: null } })}</>,
+      );
+      expect(screen.getByText('Installed update')).toBeTruthy();
+
+      mockUpdateInfo = {
+        latestVersion: '2.0.0',
+        updateStrategy: 0,
+        featuredChangelogs: { '1.0.0': installedFeatured, '2.0.0': null },
+      };
+      rerender(<>{props.dialogContainer?.({ ref: { current: null } })}</>);
+
+      expect(screen.getByText('Installed update')).toBeTruthy();
     });
 
     it('waits for the dialog exit, transfers the force lock, then opens support', async () => {

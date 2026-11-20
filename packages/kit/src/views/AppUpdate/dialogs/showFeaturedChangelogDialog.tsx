@@ -58,6 +58,8 @@ import {
   waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
 
+import { getFeaturedChangelogForEntry } from './featuredChangelogForEntry';
+
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
 // Injected payload for the ops-only Featured Changelog preview page.
@@ -274,9 +276,13 @@ function useFeaturedCta({
   return { ctaText, onCtaPress };
 }
 
-function useFeatures(): IFeaturedItem[] {
+function useFeatures(isPreInstall: boolean): IFeaturedItem[] {
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const featuredChangelog = getFeaturedChangelogForEntry(
+    appUpdateInfo,
+    isPreInstall,
+  );
   // Memoize so a fresh `?? []` reference doesn't ripple through downstream
   // effects on every unrelated atom-field change. Preview payload wins so the
   // carousel renders the previewed changelog, not the persisted one.
@@ -284,8 +290,8 @@ function useFeatures(): IFeaturedItem[] {
     () =>
       preview
         ? preview.featuredChangelog.features
-        : (appUpdateInfo.featuredChangelog?.features ?? []),
-    [preview, appUpdateInfo.featuredChangelog?.features],
+        : (featuredChangelog?.features ?? []),
+    [preview, featuredChangelog?.features],
   );
 }
 
@@ -303,7 +309,7 @@ function FeaturedChangelogContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
-  const features = useFeatures();
+  const features = useFeatures(isPreInstall);
   const {
     updateInfo,
     isForceUpdate: isLiveLocked,
@@ -493,7 +499,7 @@ export function showFeaturedChangelogDialog(
     : jotaiDefaultStore.get(appUpdatePersistAtom.atom());
   const features = previewData
     ? previewData.featuredChangelog.features
-    : (atomInfo?.featuredChangelog?.features ?? []);
+    : (getFeaturedChangelogForEntry(atomInfo, isPreInstall)?.features ?? []);
   if (features.length === 0) return undefined;
 
   // Prevent dismissal when a force-update is pending pre-install. Never lock

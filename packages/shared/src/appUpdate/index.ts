@@ -24,8 +24,11 @@ export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) =>
 export {
   type IFeaturedItem,
   type IFeaturedChangelog,
+  type IFeaturedChangelogsByVersion,
+  getFeaturedChangelogForVersion,
   hasFeaturedChangelog,
   isAllowedFeaturedHref,
+  pickFeaturedChangelogs,
   normalizeFeaturedChangelog,
 } from './featuredChangelog';
 

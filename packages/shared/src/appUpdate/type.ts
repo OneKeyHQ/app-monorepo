@@ -1,4 +1,7 @@
-import type { IFeaturedChangelog } from './featuredChangelog';
+import type {
+  IFeaturedChangelog,
+  IFeaturedChangelogsByVersion,
+} from './featuredChangelog';
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 import type { IUpdateErrorDTO } from '../modules3rdParty/auto-update/error';
@@ -182,10 +185,18 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
-  // Cleared with `null`, never `undefined`: on native the UI runtime folds a
-  // cold-start snapshot into this atom's initialValue and lodash-merges every
-  // write with it, which skips `undefined` and would restore stale cards.
+  /**
+   * @deprecated Single slot written by builds before `featuredChangelogs`.
+   * Only read as a fallback for the first launch after upgrading from such a
+   * build; every new write sets it to `null`.
+   */
   featuredChangelog?: IFeaturedChangelog | null;
+  // Featured Changelog cards keyed by the exact version they describe, so the
+  // installed version and a pending update target never overwrite each other.
+  // Removal is written as `null`, never `undefined`: on native the UI runtime
+  // folds a cold-start snapshot into this atom's initialValue and lodash-merges
+  // every write with it, which skips `undefined` and would restore stale cards.
+  featuredChangelogs?: IFeaturedChangelogsByVersion | null;
   // In-flight attemptId for the current update cycle. Persisted (rather than
   // module-memory only) so the post-install / post-relaunch
   // `firstLaunchAfterUpdated` success event can re-emit the same id as the

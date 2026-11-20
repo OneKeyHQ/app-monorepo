@@ -6,6 +6,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
   IAppUpdateInfo,
   IFeaturedChangelog,
+  IFeaturedChangelogsByVersion,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -22,6 +23,7 @@ import {
   isPlaceholderUpdateDownloadUrl,
   isUsableUpdateDownloadUrl,
   normalizeFeaturedChangelog,
+  pickFeaturedChangelogs,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -310,6 +312,31 @@ function normalizeOptionalNumber(value: unknown): number | undefined {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+// /app-update decides the cards of the release it selects. It is not
+// authoritative for the installed version: it can select a hot release of the
+// installed app and omit cards, so those are only refreshed through
+// refreshCurrentFeaturedChangelog. Writing `null` for another version keeps an
+// already open post-install dialog intact.
+function buildReleaseFeaturedChangelogs(
+  prev: IAppUpdateInfo,
+  releaseInfo: IResponseAppUpdateInfo,
+): IFeaturedChangelogsByVersion {
+  const installedVersion = platformEnv.version;
+  const releaseVersion = releaseInfo.version;
+  const featuredChangelogs = pickFeaturedChangelogs(prev, [
+    installedVersion,
+    releaseVersion || prev.latestVersion,
+  ]);
+  if (releaseVersion) {
+    if (releaseInfo.featuredChangelog) {
+      featuredChangelogs[releaseVersion] = releaseInfo.featuredChangelog;
+    } else if (releaseVersion !== installedVersion) {
+      featuredChangelogs[releaseVersion] = null;
+    }
+  }
+  return featuredChangelogs;
 }
 
 @backgroundClass()
@@ -1522,7 +1549,14 @@ class ServiceAppUpdate extends ServiceBase {
       if (data.featuredChangelog && !featuredChangelog) return;
       await appUpdatePersistAtom.set((prev) =>
         prev.latestVersion === installedVersion && !prev.jsBundleVersion
-          ? { ...prev, featuredChangelog: featuredChangelog ?? null }
+          ? {
+              ...prev,
+              featuredChangelog: null,
+              featuredChangelogs: {
+                ...pickFeaturedChangelogs(prev, [installedVersion]),
+                [installedVersion]: featuredChangelog ?? null,
+              },
+            }
           : prev,
       );
     } catch {
@@ -2808,8 +2842,9 @@ class ServiceAppUpdate extends ServiceBase {
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
       lastUpdateDialogShownAt: 0,
-      // `null`, not omitted: see IAppUpdateInfo.featuredChangelog.
+      // `null`, not omitted: see IAppUpdateInfo.featuredChangelogs.
       featuredChangelog: null,
+      featuredChangelogs: null,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -3479,9 +3514,11 @@ class ServiceAppUpdate extends ServiceBase {
             jsBundleVersion: effectiveJsBundleVersion,
             jsBundle: effectiveJsBundle,
             summary: releaseInfo?.summary || '',
-            // A release without cards must clear the cached ones explicitly;
-            // see IAppUpdateInfo.featuredChangelog.
-            featuredChangelog: releaseInfo.featuredChangelog ?? null,
+            featuredChangelog: null,
+            featuredChangelogs: buildReleaseFeaturedChangelogs(
+              prev,
+              releaseInfo,
+            ),
             latestVersion: releaseInfo.version || prev.latestVersion,
             updateAt: Date.now(),
             errorText:

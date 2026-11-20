@@ -15,6 +15,7 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  getFeaturedChangelogForVersion,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
@@ -2345,39 +2346,119 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       ],
     };
-    const mergeWithSnapshot = (value: IAppUpdateInfo) =>
-      merge({}, { featuredChangelog: staleFeatured }, value);
+    const installedFeatured = {
+      version: '1.0.0',
+      features: [
+        {
+          title: 'Installed',
+          mediaUrl: 'https://cdn.onekey.so/b.png',
+          mediaType: 'image' as const,
+        },
+      ],
+    };
+    const snapshot = {
+      featuredChangelog: staleFeatured,
+      featuredChangelogs: { '9906.15.1': staleFeatured },
+    };
+    const mergeWithSnapshot = (value: IAppUpdateInfo): IAppUpdateInfo =>
+      merge({}, snapshot, value);
+    const mockRelease = (release: Record<string, unknown>) => {
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+        updateStrategy: EUpdateStrategy.manual,
+        ...release,
+      });
+    };
 
-    test('clears featuredChangelog with null so a native UI snapshot cannot restore it (OK-54862)', async () => {
+    test('clears both featured fields with null so a native UI snapshot cannot restore them (OK-54862)', async () => {
       resetAtom({
         latestVersion: '9906.15.1',
         status: EAppUpdateStatus.notify,
-        featuredChangelog: staleFeatured,
+        ...snapshot,
       });
       jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
 
       await service.clearCache();
 
       expect(atomValue.featuredChangelog).toBeNull();
-      expect(mergeWithSnapshot(atomValue).featuredChangelog).toBeNull();
+      expect(atomValue.featuredChangelogs).toBeNull();
+      expect(
+        getFeaturedChangelogForVersion(
+          mergeWithSnapshot(atomValue),
+          '9906.15.1',
+        ),
+      ).toBeUndefined();
     });
 
-    test('a release without cards clears cached ones with null (OK-54862)', async () => {
+    test("after a cleared, withdrawn target What's New keeps the installed cards (OK-54862)", async () => {
+      // State right after reset(): status is done, so the next check publishes.
       resetAtom({
-        latestVersion: platformEnv.version,
+        latestVersion: '1.0.0',
         status: EAppUpdateStatus.done,
         featuredChangelog: staleFeatured,
+        featuredChangelogs: {
+          '1.0.0': installedFeatured,
+          '9906.15.1': staleFeatured,
+        },
       });
-      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
-      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
-        version: platformEnv.version,
-        updateStrategy: EUpdateStrategy.manual,
-      });
+      mockRelease({ version: '1.0.0' });
 
       await service.fetchAppUpdateInfo(true);
 
       expect(atomValue.featuredChangelog).toBeNull();
-      expect(mergeWithSnapshot(atomValue).featuredChangelog).toBeNull();
+      expect(atomValue.featuredChangelogs).toEqual({
+        '1.0.0': installedFeatured,
+      });
+      expect(
+        getFeaturedChangelogForVersion(mergeWithSnapshot(atomValue), '1.0.0'),
+      ).toEqual(installedFeatured);
+    });
+
+    test('a newer release without cards leaves the installed cards intact', async () => {
+      resetAtom({
+        latestVersion: '1.0.0',
+        status: EAppUpdateStatus.done,
+        featuredChangelogs: { '1.0.0': installedFeatured },
+      });
+      mockRelease({ version: '2.0.0' });
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.featuredChangelogs).toEqual({
+        '1.0.0': installedFeatured,
+        '2.0.0': null,
+      });
+    });
+
+    test('stores release cards under the release version', async () => {
+      const targetFeatured = { ...installedFeatured, version: '2.0.0' };
+      resetAtom({ latestVersion: '1.0.0', status: EAppUpdateStatus.done });
+      mockRelease({ version: '2.0.0', featuredChangelog: targetFeatured });
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(getFeaturedChangelogForVersion(atomValue, '2.0.0')).toEqual(
+        targetFeatured,
+      );
+      expect(
+        getFeaturedChangelogForVersion(atomValue, '1.0.0'),
+      ).toBeUndefined();
+    });
+
+    test('migrates legacy cards for the installed version and retires the legacy slot', async () => {
+      resetAtom({
+        latestVersion: '1.0.0',
+        status: EAppUpdateStatus.done,
+        featuredChangelog: installedFeatured,
+      });
+      mockRelease({ version: '2.0.0' });
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.featuredChangelog).toBeNull();
+      expect(atomValue.featuredChangelogs?.['1.0.0']).toEqual(
+        installedFeatured,
+      );
     });
   });
 
@@ -5937,7 +6018,10 @@ describe('Featured Changelog preview and post-install refresh', () => {
       }),
     );
     await service.refreshCurrentFeaturedChangelog();
-    expect(atomValue.featuredChangelog?.features[0].ctaAction).toBe('next');
+    expect(
+      getFeaturedChangelogForVersion(atomValue, '6.6.0')?.features[0].ctaAction,
+    ).toBe('next');
+    expect(atomValue.featuredChangelog).toBeNull();
     expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
     expect(get).toHaveBeenCalledWith(
       '/utility/v1/app-update/featured-changelog-preview',
@@ -5947,7 +6031,7 @@ describe('Featured Changelog preview and post-install refresh', () => {
   test('preserves cache when offline or when a different version is returned', async () => {
     get.mockRejectedValueOnce(new Error('offline'));
     await service.refreshCurrentFeaturedChangelog();
-    expect(atomValue.featuredChangelog).toEqual(cached);
+    expect(getFeaturedChangelogForVersion(atomValue, '6.6.0')).toEqual(cached);
     get.mockResolvedValueOnce({
       data: {
         code: 0,
@@ -5958,17 +6042,18 @@ describe('Featured Changelog preview and post-install refresh', () => {
       },
     });
     await service.refreshCurrentFeaturedChangelog();
-    expect(atomValue.featuredChangelog).toEqual(cached);
+    expect(getFeaturedChangelogForVersion(atomValue, '6.6.0')).toEqual(cached);
   });
   test('clears cards on a valid empty response and ignores an update-state race', async () => {
     get.mockResolvedValueOnce({
       data: { code: 0, data: { version: '6.6.0' } },
     });
     await service.refreshCurrentFeaturedChangelog();
-    expect(atomValue.featuredChangelog).toBeNull();
+    expect(atomValue.featuredChangelogs?.['6.6.0']).toBeNull();
+    expect(getFeaturedChangelogForVersion(atomValue, '6.6.0')).toBeUndefined();
     resetAtom({ latestVersion: '6.7.0', featuredChangelog: cached });
     await service.refreshCurrentFeaturedChangelog();
-    expect(atomValue.featuredChangelog).toEqual(cached);
+    expect(getFeaturedChangelogForVersion(atomValue, '6.6.0')).toEqual(cached);
   });
   test('does not attach full-release cards when the update state changes to a hot update', async () => {
     get.mockImplementationOnce(() => {

@@ -34,6 +34,66 @@ export function hasFeaturedChangelog(
   );
 }
 
+export type IFeaturedChangelogsByVersion = Record<
+  string,
+  IFeaturedChangelog | null
+>;
+
+interface IFeaturedChangelogState {
+  featuredChangelog?: IFeaturedChangelog | null;
+  featuredChangelogs?: IFeaturedChangelogsByVersion | null;
+}
+
+function hasOwnVersion(
+  featuredChangelogs: IFeaturedChangelogsByVersion,
+  version: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(featuredChangelogs, version);
+}
+
+// An explicit `null` entry means the cards were removed and must not fall back
+// to the legacy slot.
+function lookupFeaturedChangelog(
+  state: IFeaturedChangelogState | null | undefined,
+  version: string,
+): IFeaturedChangelog | null | undefined {
+  const featuredChangelogs = state?.featuredChangelogs;
+  if (featuredChangelogs && hasOwnVersion(featuredChangelogs, version)) {
+    return featuredChangelogs[version] ?? null;
+  }
+  const legacy = state?.featuredChangelog;
+  return legacy?.version === version ? legacy : undefined;
+}
+
+export function getFeaturedChangelogForVersion(
+  state: IFeaturedChangelogState | null | undefined,
+  version: string | undefined,
+): IFeaturedChangelog | undefined {
+  if (!version) return undefined;
+  const featuredChangelog = lookupFeaturedChangelog(state, version);
+  return hasFeaturedChangelog(featuredChangelog)
+    ? featuredChangelog
+    : undefined;
+}
+
+// Keeps only the requested versions (migrating a matching legacy slot) so the
+// map stays bounded to the installed version and the pending update target.
+export function pickFeaturedChangelogs(
+  state: IFeaturedChangelogState | null | undefined,
+  versions: Array<string | undefined>,
+): IFeaturedChangelogsByVersion {
+  const result: IFeaturedChangelogsByVersion = {};
+  for (const version of versions) {
+    if (version && !hasOwnVersion(result, version)) {
+      const featuredChangelog = lookupFeaturedChangelog(state, version);
+      if (featuredChangelog !== undefined) {
+        result[version] = featuredChangelog;
+      }
+    }
+  }
+  return result;
+}
+
 const VALID_MODE_VALUES = new Set<number>([
   ENotificationPushMessageMode.page,
   ENotificationPushMessageMode.dialog,

@@ -1,4 +1,8 @@
-import { normalizeFeaturedChangelog } from './featuredChangelog';
+import {
+  getFeaturedChangelogForVersion,
+  normalizeFeaturedChangelog,
+  pickFeaturedChangelogs,
+} from './featuredChangelog';
 
 const media = { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' };
 
@@ -57,5 +61,52 @@ describe('Featured Changelog action normalization', () => {
     expect(result?.features).toHaveLength(10);
     expect(result?.features[0].title).toBe('Feature 0');
     expect(result?.features[9].title).toBe('Feature 9');
+  });
+});
+
+describe('versioned Featured Changelog storage', () => {
+  const card = (version: string) => ({
+    version,
+    features: [
+      {
+        mediaUrl: `https://cdn.onekey.so/${version}.png`,
+        mediaType: 'image' as const,
+      },
+    ],
+  });
+
+  it('reads the entry for the exact version', () => {
+    const state = { featuredChangelogs: { '1.0.0': card('1.0.0') } };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toEqual(
+      card('1.0.0'),
+    );
+    expect(getFeaturedChangelogForVersion(state, '2.0.0')).toBeUndefined();
+    expect(getFeaturedChangelogForVersion(state, undefined)).toBeUndefined();
+  });
+
+  it('falls back to the legacy slot only when its version matches', () => {
+    const state = { featuredChangelog: card('1.0.0') };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toEqual(
+      card('1.0.0'),
+    );
+    expect(getFeaturedChangelogForVersion(state, '9906.15.1')).toBeUndefined();
+  });
+
+  it('treats an explicit null entry as removed, without legacy fallback', () => {
+    const state = {
+      featuredChangelog: card('1.0.0'),
+      featuredChangelogs: { '1.0.0': null },
+    };
+    expect(getFeaturedChangelogForVersion(state, '1.0.0')).toBeUndefined();
+  });
+
+  it('keeps only the requested versions and migrates a matching legacy slot', () => {
+    const state = {
+      featuredChangelog: card('1.0.0'),
+      featuredChangelogs: { '2.0.0': null, '9906.15.1': card('9906.15.1') },
+    };
+    expect(
+      pickFeaturedChangelogs(state, ['1.0.0', '2.0.0', '3.0.0', undefined]),
+    ).toEqual({ '1.0.0': card('1.0.0'), '2.0.0': null });
   });
 });
