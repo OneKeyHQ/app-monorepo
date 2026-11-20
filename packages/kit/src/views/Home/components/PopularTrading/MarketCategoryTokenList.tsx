@@ -188,6 +188,37 @@ function usePopularTradingNativeRowPress({
   };
 }
 
+function PopularTradingRowFrame({
+  shouldUseTableLayout,
+  bg,
+  pressProps,
+  children,
+}: PropsWithChildren<{
+  shouldUseTableLayout: boolean;
+  bg: IXStackProps['bg'];
+  pressProps?: { onPress: () => void } & typeof listItemPressStyle;
+}>) {
+  return (
+    <XStack
+      minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+      mx="$2"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      alignItems="center"
+      gap={shouldUseTableLayout ? undefined : '$2'}
+      bg={bg}
+      {...pressProps}
+      {...(shouldUseTableLayout
+        ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
+        : undefined)}
+    >
+      {children}
+    </XStack>
+  );
+}
+
 function PopularTradingNativeRowContainer({
   symbol,
   onPress,
@@ -213,22 +244,12 @@ function PopularTradingNativeRowContainer({
       onTouchCancel={handleTouchEnd}
       unstable_pressDelay={50}
     >
-      <XStack
-        minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
-        mx="$2"
-        px="$3"
-        py="$2"
-        borderRadius="$3"
-        borderCurve="continuous"
-        alignItems="center"
-        gap={shouldUseTableLayout ? undefined : '$2'}
+      <PopularTradingRowFrame
+        shouldUseTableLayout={shouldUseTableLayout}
         bg={nativePressed ? '$bgActive' : '$bgApp'}
-        {...(shouldUseTableLayout
-          ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
-          : undefined)}
       >
         {children}
-      </XStack>
+      </PopularTradingRowFrame>
     </Pressable>
   );
 }
@@ -239,24 +260,13 @@ function PopularTradingWebRowContainer({
   children,
 }: IPopularTradingRowContainerProps) {
   return (
-    <XStack
-      minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
-      mx="$2"
-      px="$3"
-      py="$2"
-      borderRadius="$3"
-      borderCurve="continuous"
-      alignItems="center"
-      gap={shouldUseTableLayout ? undefined : '$2'}
+    <PopularTradingRowFrame
+      shouldUseTableLayout={shouldUseTableLayout}
       bg="$bgApp"
-      onPress={onPress}
-      {...listItemPressStyle}
-      {...(shouldUseTableLayout
-        ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
-        : undefined)}
+      pressProps={{ onPress, ...listItemPressStyle }}
     >
       {children}
-    </XStack>
+    </PopularTradingRowFrame>
   );
 }
 
