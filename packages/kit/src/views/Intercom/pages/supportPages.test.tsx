@@ -114,6 +114,7 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
     global_search: 'Search',
     global_no_data: 'No data',
     global_refresh: 'Refresh',
+    support_collaboration__action: 'Collaboration in the app language',
   },
 }));
 jest.mock('../utils/pickSupportImage', () => ({
@@ -1444,6 +1445,48 @@ it('keeps the loaded home in place while a failed section retries', async () => 
   await act(async () => retry.resolve());
   await waitFor(() => expect(screen.queryByText('Loading')).toBeNull());
   expect(screen.queryByTestId('support-retry')).toBeNull();
+});
+
+it('labels a known help article link in the app language and other links as served', async () => {
+  mockRoute.name = 'IntercomHome';
+  // The backend answers with the same English label in every language.
+  const collaboration = {
+    label: 'Looking for collaboration?',
+    href: 'https://help.onekey.so/en/articles/13405885',
+  };
+  const links = [
+    collaboration,
+    {
+      label: 'Titled path',
+      href: 'https://help.onekey.so/zh-CN/articles/13405885-collaboration',
+    },
+    { label: 'No language', href: 'https://help.onekey.so/articles/13405885' },
+    {
+      label: 'Another article',
+      href: 'https://help.onekey.so/en/articles/134058850',
+    },
+    {
+      label: 'Another site',
+      href: 'https://example.com/en/articles/13405885',
+    },
+  ];
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'home'
+      ? { cards: [{ type: 'external_links', links }] }
+      : original?.(path, parameters),
+  );
+  render(<SupportScreen />);
+  const rows = await screen.findAllByTestId('support-home-external-link');
+  expect(rows.map((row) => row.textContent)).toEqual([
+    'Collaboration in the app language',
+    'Collaboration in the app language',
+    'Collaboration in the app language',
+    'Another article',
+    'Another site',
+  ]);
+  fireEvent.click(rows[0]);
+  expect(openUrlExternal).toHaveBeenCalledWith(collaboration.href);
 });
 
 it('offers a retry instead of placeholders when the support session fails', async () => {
