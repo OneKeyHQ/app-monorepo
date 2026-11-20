@@ -280,11 +280,20 @@ describe('native log upload transport', () => {
       error: { message: 'Network request failed' },
     },
     { event: 'abort', reason: 'network', error: { name: 'AbortError' } },
-    { event: 'timeout', reason: 'timeout', error: { name: 'TimeoutError' } },
+    {
+      event: 'native timeout',
+      reason: 'timeout',
+      error: { name: 'TimeoutError' },
+    },
+    {
+      event: 'JS timeout',
+      reason: 'timeout',
+      error: { name: 'TimeoutError' },
+    },
   ])(
     'reports XHR $event through the availability classifier once',
     async ({ event, reason, error }) => {
-      if (event === 'timeout') jest.useFakeTimers();
+      if (reason === 'timeout') jest.useFakeTimers();
       mockedUploadViaIpTable.mockResolvedValue({
         route: 'skipped',
         reason: 'sni_unsupported',
@@ -299,12 +308,19 @@ describe('native log upload transport', () => {
         upload: { onprogress: null },
         onerror: null as (() => void) | null,
         onabort: null as (() => void) | null,
+        ontimeout: null as (() => void) | null,
+        readyState: 1,
+        DONE: 4,
         send: jest.fn<void, []>(),
         abort: jest.fn<void, []>(),
       };
       request.send.mockImplementation(() => {
         if (event === 'error') request.onerror?.();
         if (event === 'abort') request.onabort?.();
+        if (event === 'native timeout') {
+          request.readyState = request.DONE;
+          request.ontimeout?.();
+        }
       });
       request.abort.mockImplementation(() => {
         request.onabort?.();
@@ -321,9 +337,14 @@ describe('native log upload transport', () => {
           uploadToken: 'token',
           digest: nativeDigest(),
         }).catch((failure: unknown) => failure);
-        if (event === 'timeout') {
+        if (event === 'JS timeout') {
           await jest.advanceTimersByTimeAsync(LOG_UPLOAD_TIMEOUT_MS);
           expect(request.abort).toHaveBeenCalledTimes(1);
+        }
+        if (event === 'native timeout') {
+          await jest.advanceTimersByTimeAsync(0);
+          expect(reportApiAvailabilityError).toHaveBeenCalledTimes(1);
+          expect(request.abort).not.toHaveBeenCalled();
         }
         await expect(settled).resolves.toMatchObject({ reason });
         expect(reportApiAvailabilityError).toHaveBeenCalledTimes(1);
@@ -335,7 +356,7 @@ describe('native log upload transport', () => {
       } finally {
         append.mockRestore();
         globalThis.XMLHttpRequest = previousRequest;
-        if (event === 'timeout') jest.useRealTimers();
+        if (reason === 'timeout') jest.useRealTimers();
       }
     },
   );

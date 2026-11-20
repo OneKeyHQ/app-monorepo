@@ -321,6 +321,13 @@ const uploadViaUploadTask = async ({
       };
       request.onerror = () =>
         reject(new OneKeyLocalError('Network request failed'));
+      request.ontimeout = () =>
+        reject(
+          new LogUploadError({
+            reason: 'timeout',
+            message: 'Log upload timed out',
+          }),
+        );
       request.onabort = () => {
         const error = new Error('Upload cancelled');
         error.name = 'AbortError';
@@ -340,7 +347,9 @@ const uploadViaUploadTask = async ({
         name: 'TimeoutError',
         message: error.message,
       });
-      request.abort();
+      if (request.readyState !== request.DONE) {
+        request.abort();
+      }
       throw error;
     }
     reportApiAvailabilityError(availabilityTiming, error);

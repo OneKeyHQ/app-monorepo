@@ -12,6 +12,7 @@
 // pulled well after the file could have been drained — exactly the production
 // timing. TLS verification is relaxed for THIS process only.
 
+import { channel } from 'diagnostics_channel';
 import { once } from 'events';
 import fs from 'fs';
 import https from 'https';
@@ -344,7 +345,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     deleteBeforeFetch = undefined;
   });
 
-  it('streams the whole archive after a delayed connection and reports progress', async () => {
+  it('streams the whole archive after a delayed connection and reports success', async () => {
     const { api, events } = makeApi();
 
     await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-test' });
@@ -366,23 +367,6 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(request.receivedBytes).toBe(ARCHIVE_SIZE);
     expect(request.completed).toBe(true);
 
-    // Progress reports archive bytes written to the socket.
-    expect(events[0]).toMatchObject({
-      stage: ELogUploadStage.Uploading,
-      requestId: 'domain-progress-test',
-      bytesSent: expect.any(Number),
-      totalBytes: ARCHIVE_SIZE,
-    });
-    const uploading = uploadingEvents(events);
-    expect(uploading[0].bytesSent).toBeLessThan(ARCHIVE_SIZE);
-    expect(uploading.length).toBeGreaterThan(1);
-    for (let i = 1; i < uploading.length; i += 1) {
-      expect(uploading[i].bytesSent).toBeGreaterThanOrEqual(
-        uploading[i - 1].bytesSent ?? 0,
-      );
-    }
-    expect(uploading[uploading.length - 1].bytesSent).toBe(ARCHIVE_SIZE);
-    expect(uploading[uploading.length - 1].progressPercent).toBe(99);
     expect(events[events.length - 1]).toMatchObject({
       stage: ELogUploadStage.Success,
       progressPercent: 100,
@@ -396,6 +380,61 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(mockOpenedStreams).toHaveLength(1);
     await waitForClose(mockOpenedStreams[0]);
     expect(mockOpenedStreams[0].closed).toBe(true);
+  });
+
+  it('reports bytes written for the current upload and caps progress until success', async () => {
+    const { api, events } = makeApi();
+    const firstChunkSize = SMALL_ARCHIVE_SIZE / 4;
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = () => {
+      const requestCreated = channel('undici:request:create');
+      const chunkSent = channel('undici:request:bodyChunkSent');
+      const request = { method: 'POST', path: '/wallet/v1/client/log' };
+      const firstChunk = Buffer.alloc(firstChunkSize);
+      requestCreated.publish({ request });
+      chunkSent.publish({ request: { ...request }, chunk: firstChunk });
+      chunkSent.publish({ request, chunk: firstChunk });
+      chunkSent.publish({
+        request,
+        chunk: Buffer.alloc(SMALL_ARCHIVE_SIZE - firstChunkSize),
+      });
+      return Promise.resolve(new hostGlobal.Response('{"code":0}'));
+    };
+
+    try {
+      await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-small' });
+      await api.uploadLoggerBundle({
+        uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
+        filePath: SMALL_ARCHIVE_FILE,
+        sizeBytes: SMALL_ARCHIVE_SIZE,
+        requestId: 'diagnostic-progress-test',
+        headers: uploadHeaders(SMALL_ARCHIVE_SIZE),
+      });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+
+    expect(events).toMatchObject([
+      {
+        stage: ELogUploadStage.Uploading,
+        requestId: 'diagnostic-progress-test',
+        bytesSent: firstChunkSize,
+        totalBytes: SMALL_ARCHIVE_SIZE,
+        progressPercent: 25,
+      },
+      {
+        stage: ELogUploadStage.Uploading,
+        requestId: 'diagnostic-progress-test',
+        bytesSent: SMALL_ARCHIVE_SIZE,
+        totalBytes: SMALL_ARCHIVE_SIZE,
+        progressPercent: 99,
+      },
+      {
+        stage: ELogUploadStage.Success,
+        requestId: 'diagnostic-progress-test',
+        progressPercent: 100,
+      },
+    ]);
   });
 
   it('never opens the archive or advances progress when the connection fails', async () => {
