@@ -2713,6 +2713,12 @@ class ServicePrimeCloudSync extends ServiceBase {
         skipUploadToServer: true, // will call server sync flow later
       });
 
+      const generation = this.publicAccountSnapshotImportGeneration;
+      const keyless = this.backgroundApi.serviceKeylessCloudSync;
+      const keyGeneration = keyless.getCloudAccountImportGeneration();
+      const isCurrent = () =>
+        generation === this.publicAccountSnapshotImportGeneration &&
+        keyGeneration === keyless.getCloudAccountImportGeneration();
       let { items: localItems } = await this.getAllLocalSyncItems();
       const allLocalItems = localItems;
       const totalItemsCount = allLocalItems.length;
@@ -2742,10 +2748,29 @@ class ServicePrimeCloudSync extends ServiceBase {
               item.pwdHash !== pwdHash,
           );
           if (removedItems.length) {
-            void localDb.removeCloudSyncPoolItems({
-              keys: removedItems.map((item) => item.id).filter(Boolean),
-              expectedItems: removedItems,
-            });
+            const syncMode = await this.getActiveSyncMode();
+            const canContinue = await keyless.runWithCloudSyncKeyLock(
+              async () => {
+                const currentMode = await this.getActiveSyncMode();
+                const currentCredential = await this.getSyncCredentialSafe();
+                if (
+                  !isCurrent() ||
+                  currentMode === ECloudSyncMode.None ||
+                  currentMode !== syncMode ||
+                  !currentCredential ||
+                  cloudSyncItemBuilder.getPwdHash(currentCredential) !== pwdHash
+                )
+                  return false;
+                await this.assertSyncCredentialUnchanged(credential);
+                await localDb.pruneWrongKeyCloudSyncPoolItems({
+                  expectedItems: removedItems,
+                  activePwdHash: pwdHash,
+                  isCurrent,
+                });
+                return isCurrent();
+              },
+            );
+            if (!canContinue || !isCurrent()) return false;
           }
         }
       }

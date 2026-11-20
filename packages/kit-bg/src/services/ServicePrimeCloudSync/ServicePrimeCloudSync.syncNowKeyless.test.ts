@@ -1464,6 +1464,7 @@ describe('Cloud sync records from opaque server storage', () => {
       addAndUpdateSyncItems: jest.Mock;
       getRecordsByIds: jest.Mock;
       removeCloudSyncPoolItems: jest.Mock;
+      pruneWrongKeyCloudSyncPoolItems: jest.Mock;
     };
   }>('../../dbs/local/localDb').default;
 
@@ -1474,12 +1475,14 @@ describe('Cloud sync records from opaque server storage', () => {
     db.addAndUpdateSyncItems = jest.fn(async () => undefined);
     db.getRecordsByIds = jest.fn(async () => ({ records: [valid] }));
     db.removeCloudSyncPoolItems = jest.fn(async () => undefined);
+    db.pruneWrongKeyCloudSyncPoolItems = jest.fn(async () => undefined);
     jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
       isCloudSyncEnabled: true,
       isCloudSyncEnabledKeyless: false,
     });
     const service = new ServicePrimeCloudSync({
       backgroundApi: {
+        serviceApp: { showToast: jest.fn() },
         serviceKeylessCloudSync: {
           getCloudAccountImportGeneration: () => 0,
           runWithCloudSyncKeyLock: <T>(operation: () => Promise<T>) =>
@@ -1552,8 +1555,80 @@ describe('Cloud sync records from opaque server storage', () => {
       expect.objectContaining({ localItems: [active] }),
     );
     expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+    expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
     expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
   });
+
+  test.each(['unchanged', 'changed-key', 'changed-mode', 'unavailable-key'])(
+    'legacy flush only prunes live wrong-key copies with the same ready scope: %s',
+    async (scope) => {
+      const service = build();
+      const active = { ...valid, pwdHash: 'synthetic-active-key' };
+      const legacy = {
+        ...active,
+        id: 'synthetic-legacy-bookmark',
+        pwdHash: 'previous-key',
+      };
+      const selected = { ...credential, masterPasswordUUID: active.pwdHash };
+      db.getAllSyncItems.mockResolvedValue({ syncItems: [active, legacy] });
+      jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+      jest
+        .spyOn(service, 'ensureCloudSyncIsAvailable')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'getActiveSyncMode')
+        .mockResolvedValue(ECloudSyncMode.OnekeyId)
+        .mockResolvedValueOnce(ECloudSyncMode.OnekeyId)
+        .mockResolvedValueOnce(
+          scope === 'changed-mode'
+            ? ECloudSyncMode.Keyless
+            : ECloudSyncMode.OnekeyId,
+        );
+      jest
+        .spyOn(service, 'fillingSyncItemsMissingDataFromRawData')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'getSyncCredentialSafe')
+        .mockResolvedValue(selected)
+        .mockResolvedValueOnce(selected)
+        .mockResolvedValueOnce(
+          scope === 'unavailable-key'
+            ? undefined
+            : {
+                ...selected,
+                masterPasswordUUID:
+                  scope === 'changed-key'
+                    ? 'synthetic-new-key'
+                    : active.pwdHash,
+              },
+        );
+      jest
+        .spyOn(service, 'syncPendingItemsToScene')
+        .mockResolvedValue(undefined);
+      const flush = jest
+        .spyOn(service, 'startServerSyncFlowForItems')
+        .mockResolvedValue(undefined);
+
+      const completed = await service.startServerSyncFlowSilently({
+        isFlush: true,
+        throwError: true,
+      });
+
+      expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+      if (scope === 'unchanged') {
+        expect(db.pruneWrongKeyCloudSyncPoolItems).toHaveBeenCalledWith({
+          expectedItems: [legacy],
+          activePwdHash: active.pwdHash,
+          isCurrent: expect.any(Function),
+        });
+        expect(flush).toHaveBeenCalledTimes(1);
+      } else {
+        expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
+        expect(flush).not.toHaveBeenCalled();
+        expect(completed).toBe(false);
+      }
+    },
+  );
 
   test('key safety checks can read unsupported local records without exposing them to business sync', async () => {
     const service = build();

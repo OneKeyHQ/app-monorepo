@@ -161,6 +161,10 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import {
+  isInactiveHardwareWalletAccount,
+  isSupportedCloudSyncDataType,
+} from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   normalizePublicAccountWalletXfp,
@@ -5697,6 +5701,80 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       EIndexedDBBucketNames.account,
       async (tx) => {
         await this.txRemoveCloudSyncPoolItems({ tx, keys, expectedItems });
+      },
+    );
+  }
+
+  async pruneWrongKeyCloudSyncPoolItems({
+    expectedItems,
+    activePwdHash,
+    isCurrent,
+  }: {
+    expectedItems: IDBCloudSyncItem[];
+    activePwdHash: string;
+    isCurrent: () => boolean;
+  }) {
+    if (!activePwdHash || !expectedItems.length) return;
+
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        if (!isCurrent()) return;
+        const expectedById = new Map(
+          expectedItems.map((item) => [item.id, item]),
+        );
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [...expectedById.keys()],
+        });
+        if (!isCurrent()) return;
+
+        const ids = records.flatMap((current) => {
+          if (
+            !current ||
+            !current.pwdHash ||
+            current.pwdHash === activePwdHash ||
+            current.rawData ||
+            current.pendingPublicAccountDeletionAt ||
+            !isSupportedCloudSyncDataType(current.dataType) ||
+            isInactiveHardwareWalletAccount(current, activePwdHash)
+          )
+            return [];
+          const expected = expectedById.get(current.id);
+          if (
+            !expected ||
+            current.pwdHash !== expected.pwdHash ||
+            current.dataType !== expected.dataType ||
+            current.data !== expected.data ||
+            current.dataTime !== expected.dataTime ||
+            current.rawKey !== expected.rawKey ||
+            current.rawData !== expected.rawData ||
+            current.isDeleted !== expected.isDeleted ||
+            current.localSceneUpdated !== expected.localSceneUpdated ||
+            current.serverUploaded !== expected.serverUploaded ||
+            current.pendingPublicAccountDeletionAt !==
+              expected.pendingPublicAccountDeletionAt ||
+            current.pendingPublicAccountDeletionHash !==
+              expected.pendingPublicAccountDeletionHash
+          )
+            return [];
+          return [current.id];
+        });
+        if (!ids.length) return;
+
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ignoreNotFound: true,
+          ids,
+        });
+        if (!isCurrent()) {
+          throw new OneKeyLocalError({
+            message: 'Cloud sync cleanup was cancelled',
+            autoToast: false,
+          });
+        }
       },
     );
   }
