@@ -2833,14 +2833,21 @@ class ServicePrimeCloudSync extends ServiceBase {
       const recordTransportFailure = (error: unknown) => {
         const failure = error as {
           code?: string;
+          className?: string;
+          httpStatusCode?: number;
           response?: { status?: number };
         };
-        const status = failure?.response?.status;
-        if (failure?.code === 'ERR_NETWORK' || failure?.code === 'ETIMEDOUT')
+        // The app Axios interceptor can replace the raw transport error.
+        const status = failure?.httpStatusCode ?? failure?.response?.status;
+        if (
+          failure?.className === EOneKeyErrorClassNames.AxiosNetworkError ||
+          failure?.code === 'ERR_NETWORK' ||
+          failure?.code === 'ETIMEDOUT'
+        )
           transportFailure = 'network-unavailable';
         else if (status === 401) transportFailure = 'session-unavailable';
         else if (status === 403) transportFailure = 'sync-blocked';
-        else if (typeof status === 'number' && status >= 500)
+        else if (typeof status === 'number' && status >= 500 && status < 600)
           transportFailure = 'server-unavailable';
         else transportFailure = undefined;
       };

@@ -1,11 +1,17 @@
 import { Semaphore } from 'async-mutex';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
+
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 
 import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import '@onekeyhq/shared/src/request/axiosInterceptor';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
@@ -37,6 +43,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
     toastIfError: passthroughDecorator,
   };
 });
+
+jest.mock('@onekeyhq/shared/src/request/Interceptor', () => ({
+  ...jest.requireActual<object>('@onekeyhq/shared/src/request/Interceptor'),
+  getRequestHeaders: async () => ({}),
+}));
 
 jest.mock('../ServiceBase', () => ({
   __esModule: true,
@@ -510,18 +521,51 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       });
       await expect(invoke()).resolves.toBe('completed');
 
-      const unavailable = Object.assign(
-        new OneKeyLocalError('Synthetic server error'),
-        {
-          response: { status: 502 },
-        },
-      );
-      h.check.mockRejectedValue(unavailable);
-      const failed = invoke();
-      await Promise.all([
-        expect(failed).resolves.toBe('server-unavailable'),
-        jest.advanceTimersByTimeAsync(3000),
-      ]);
+      jest
+        .spyOn(requestHelper, 'checkIsOneKeyDomain')
+        .mockImplementation(async (url) => url === endpointsMap.prod.prime);
+      const failRequest = (path: string, status?: number) =>
+        axios
+          .create({
+            baseURL: endpointsMap.prod.prime,
+            adapter: async (config) => {
+              throw new AxiosError(
+                status === undefined ? 'Network Error' : 'Synthetic HTTP error',
+                status === undefined ? AxiosError.ERR_NETWORK : undefined,
+                config,
+                undefined,
+                status === undefined
+                  ? undefined
+                  : {
+                      status,
+                      statusText: '',
+                      headers: new AxiosHeaders(),
+                      config,
+                      data: {},
+                    },
+              );
+            },
+          })
+          .post(path);
+      for (const [status, outcome] of [
+        [403, 'sync-blocked'],
+        [502, 'server-unavailable'],
+      ] as const) {
+        // Walk the real response interceptor before the manual runner receives
+        // the failure. The custom adapter never makes a network request.
+        const failure: unknown = await failRequest(
+          '/prime/v1/sync/check',
+          status,
+        ).catch((error: unknown) => error);
+        expect(failure).toMatchObject({ httpStatusCode: status });
+        expect(failure).not.toHaveProperty('response');
+        h.check.mockRejectedValue(failure);
+        const failed = invoke();
+        await Promise.all([
+          expect(failed).resolves.toBe(outcome),
+          jest.advanceTimersByTimeAsync(3000),
+        ]);
+      }
 
       h.check.mockResolvedValue(
         reply({
@@ -529,12 +573,13 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           reconciliation: undefined,
         }),
       );
-      const uploadError = Object.assign(
-        new OneKeyLocalError('Synthetic upload interruption'),
-        {
-          code: 'ERR_NETWORK',
-        },
-      );
+      const uploadError: unknown = await failRequest(
+        '/prime/v1/sync/upload',
+      ).catch((error: unknown) => error);
+      expect(uploadError).toMatchObject({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+      });
+      expect(uploadError).not.toHaveProperty('code', 'ERR_NETWORK');
       jest
         .spyOn(h.service, '_callApiUploadItems')
         .mockRejectedValue(uploadError);
