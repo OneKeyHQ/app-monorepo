@@ -3,6 +3,8 @@ import { bech32 } from 'bech32';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import stringUtils from './stringUtils';
+
 export function bech32Decode(
   input: string,
   encoding: BufferEncoding = 'utf-8',
@@ -213,7 +215,7 @@ function readReusableLightningRecipient(
   // Payment text can contain an LNURL as a separate token. Keep QR detection
   // strict so a scan cannot interpret arbitrary text as a payment.
   const candidates = address.matchAll(
-    /(^|[\s<("':：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
+    /(^|[\s<("':：;；])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？;；])/gi,
   );
   const lineBreaks = address.matchAll(new RegExp(LNURL_LINE_BREAK.source, 'g'));
   let lineBreak = lineBreaks.next().value;
@@ -312,13 +314,28 @@ function readReusableLightningRecipient(
 }
 
 export const parseReusableLightningRecipient = memoizee(
-  readReusableLightningRecipient,
+  (address: string): IReusableLightningRecipient | undefined => {
+    const recipient = readReusableLightningRecipient(address);
+    if (recipient || !LNURL_LINE_BREAK.test(address)) return recipient;
+
+    const singleLine = stringUtils.stripLineBreaks(address);
+    if (singleLine === address) return undefined;
+    const joined = readReusableLightningRecipient(singleLine);
+    // Clipboard cleanup can rejoin a verified Bech32 code, but a URI has no
+    // checksum to confirm that joining its lines preserves the destination.
+    if (
+      joined?.kind === 'recipient' &&
+      LNURL_URI_SCHEME.test(normalizeLightningInput(joined.address))
+    ) {
+      return { kind: 'ambiguous' };
+    }
+  },
   { max: 4, maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }) },
 );
 
 export function isAmbiguousLnurl(input: string): boolean {
   return (
-    /lnurl(?:[pwc]:|1)/i.test(input) &&
+    (LNURL_LINE_BREAK.test(input) || /lnurl(?:[pwc]:|1)/i.test(input)) &&
     parseReusableLightningRecipient(input)?.kind === 'ambiguous'
   );
 }

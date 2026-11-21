@@ -256,6 +256,32 @@ it('compares LNURL scheme casing without folding the path or query', () => {
   ).toBe(true);
 });
 
+it.each([';', '；'])(
+  'counts checksum-validated LNURLs next to the %s delimiter',
+  (separator) => {
+    const uri = 'lnurlp://merchant.example/pay';
+    expect(
+      parseReusableLightningRecipient(`Pay ${LNURL}${separator} or <${uri}>.`),
+    ).toEqual({ kind: 'ambiguous' });
+    expect(
+      parseReusableLightningRecipient(`Pay ${LNURL}${separator}${uri}`),
+    ).toEqual({ kind: 'ambiguous' });
+    expect(
+      parseReusableLightningRecipient(
+        `Pay ${LNURL}${separator} details follow`,
+      ),
+    ).toEqual({ kind: 'recipient', address: LNURL });
+  },
+);
+
+it.each([
+  'Pay lnu\nrlp://merchant.example/pay',
+  'Pay here: <LIGHTNING:LNURL\r\nP://merchant.example/pay>',
+])('rejects %s when line-break removal would create an LNURL URI', (text) => {
+  expect(isAmbiguousLnurl(text)).toBe(true);
+  expect(parseReusableLightningRecipient(text)).toEqual({ kind: 'ambiguous' });
+});
+
 it('keeps repeated wrapped references to one LNURL in long payment instructions', () => {
   const uri = 'lnurlp://merchant.example/checkout?order=12';
   const text = `Please pay (${`(${uri}) then `.repeat(512)}save the receipt).`;

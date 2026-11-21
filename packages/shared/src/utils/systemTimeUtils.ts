@@ -60,6 +60,7 @@ const refreshServerTimeTimeout = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
 const freshEstimateRetryDelayMs = 1000;
+const healthRetryWithoutTimeMs = timerUtils.getTimeDurationMs({ seconds: 30 });
 // Allow an IP-table attempt, its domain fallback, and interceptor overhead.
 const freshResponseMaxDuration = refreshServerTimeTimeout * 3;
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
@@ -645,7 +646,21 @@ class SystemTimeUtils {
         return refreshed;
       }
     } catch (error) {
-      ({ delayMs } = getRetryAfterOnError(error, freshEstimateRetryDelayMs));
+      const estimated = this.getContinuousEstimatedServerTime();
+      const retryAfter = getRetryAfterOnError(
+        error,
+        freshEstimateRetryDelayMs,
+        estimated,
+      );
+      delayMs = retryAfter.delayMs;
+      if (
+        retryAfter.absoluteAt !== undefined &&
+        retryAfter.responseTime === undefined &&
+        estimated === undefined
+      ) {
+        // An unresolved HTTP-date cannot set this clock's own retry deadline.
+        delayMs = healthRetryWithoutTimeMs;
+      }
     }
     const monotonicAt = (getMonotonicTimeNow() ?? Date.now()) + delayMs;
     const uptime = await getDesktopSystemUptimeMs();

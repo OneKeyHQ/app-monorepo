@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const LNURL =
   'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns';
+const LNURL_URI = 'lnurlp://merchant.example/pay';
 const mockQuery = jest.fn<Promise<{ input: string }>, [{ address: string }]>();
 
 jest.mock('react-native', () => ({
@@ -100,6 +101,9 @@ it.each([
   '(lnurlp://merchant.example/checkout?order=12\n)34)',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
+  'Pay lnu\nrlp://merchant.example/pay',
+  'Pay here: <LIGHTNING:LNURL\nP://merchant.example/pay>',
+  `Pay ${LNURL}; or <${LNURL_URI}>.`,
 ])(
   'uses the existing invalid-address error without sending an ambiguous LNURL to validation',
   async (text) => {

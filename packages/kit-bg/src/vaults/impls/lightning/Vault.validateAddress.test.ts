@@ -14,6 +14,7 @@ const TESTNET_INVOICE =
 
 const LNURL =
   'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns';
+const LNURL_URI = 'lnurlp://merchant.example/pay';
 
 function vaultDecodingWith(decode: jest.Mock, isTestnet = false) {
   return Object.assign(Object.create(LightningVault.prototype), {
@@ -109,6 +110,8 @@ describe('LightningVault.validateAddress', () => {
     'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\nby Friday).',
     'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
     '(lnurlp://merchant.example/checkout?order=12\n)34)',
+    'Pay lnu\nrlp://merchant.example/pay',
+    `Pay ${LNURL}; or <${LNURL_URI}>.`,
   ])(
     'rejects an ambiguous LNURL without sending it to the invoice decoder',
     async (text) => {
