@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -270,3 +271,135 @@ it.each([
       expect((await db.getSyncItem({ id: key })).localSceneUpdated).toBe(true);
   }
 });
+
+it.each(['hw', 'qr'] as const)(
+  'retains the removed %s proxy and checks its pending name using its existing upload eligibility',
+  async (type) => {
+    const isQr = type === 'qr';
+    const db = new LocalDbIndexed();
+    const id = `fixture-name-upload-removed-proxy-${type}`;
+    const wallet: IDBWallet = {
+      id: `${type}-${id}`,
+      name: 'Pending hardware name',
+      type,
+      associatedDevice: id,
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 8124,
+    };
+    const device: IDBDevice = {
+      id,
+      name: 'Synthetic device',
+      connectId: id,
+      deviceId: id,
+      uuid: id,
+      deviceType: EDeviceType.Pro,
+      vendor: EHardwareVendor.onekey,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const api = {
+      localDb: db,
+      servicePrimeCloudSync: {
+        syncManagers: {},
+        getCloudSyncDataTime: async () => 100,
+      },
+    } as unknown as IBackgroundApi;
+    db.setBackgroundApi(api);
+    const manager = new CloudSyncFlowManagerWallet({ backgroundApi: api });
+    api.servicePrimeCloudSync.syncManagers.wallet = manager;
+
+    const credential: ICloudSyncCredential = {
+      keylessCredential: {
+        ...(await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: Buffer.alloc(32, 62),
+          keylessWalletId: 'hw-fixture-removed-proxy-scope',
+        })),
+        pwdHash: 'hw-dek-fixture-removed-proxy-scope',
+      },
+      primeAccountSalt: '',
+      masterPasswordUUID: '',
+      securityPasswordR1: '',
+    };
+    const target = await manager.buildSyncTargetByDBQuery({
+      dbRecord: wallet,
+      allDevices: [device],
+    });
+    const item = await manager.buildSyncItem({
+      target,
+      syncCredential: credential,
+      dataTime: 100,
+    });
+    if (!item?.data)
+      throw new OneKeyLocalError('Missing encrypted Wallet fixture');
+    expect(item.serverUploaded).toBeFalsy();
+
+    await db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [device],
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [item],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    const onReadFailure = jest.fn();
+    const onVerifiedWallet = jest.fn();
+    const uploadCandidate = { item, syncCredential: credential };
+    await expect(
+      manager.canUploadPendingWalletName({
+        ...uploadCandidate,
+        onReadFailure,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      manager.canUploadPendingWalletName({
+        ...uploadCandidate,
+        onVerifiedWallet,
+      }),
+    ).resolves.toBe(true);
+    expect(onVerifiedWallet).toHaveBeenCalledTimes(1);
+
+    await db.removeWallet({ walletId: wallet.id, isRemoveToMocked: true });
+    expect(
+      await db.getRecordById({
+        name: ELocalDBStoreNames.Wallet,
+        id: wallet.id,
+      }),
+    ).toMatchObject({ id: wallet.id, name: wallet.name, isMocked: true });
+    await expect(
+      manager.canUploadPendingWalletName({
+        ...uploadCandidate,
+        onReadFailure,
+      }),
+    ).resolves.toBe(isQr);
+    await expect(
+      manager.canUploadPendingWalletName({
+        ...uploadCandidate,
+        onVerifiedWallet,
+      }),
+    ).resolves.toBe(isQr);
+    expect(onReadFailure).not.toHaveBeenCalled();
+    expect(onVerifiedWallet).toHaveBeenCalledTimes(isQr ? 2 : 1);
+    expect(await db.getSyncItem({ id: item.id })).toMatchObject({
+      data: item.data,
+      dataTime: item.dataTime,
+      serverUploaded: false,
+    });
+  },
+);

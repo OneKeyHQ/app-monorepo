@@ -256,7 +256,13 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
             walletId: target.wallet.id,
             withoutRefill: true,
           });
-      if (!wallet) return false;
+      // Removing a standard hardware wallet can retain a mocked proxy for
+      // hidden wallets, but that proxy cannot authorize an old name upload.
+      if (
+        !wallet ||
+        (wallet.type === WALLET_TYPE_HW && wallet.isMocked === true)
+      )
+        return false;
       const nameMatches = !payload.name?.trim() || wallet.name === payload.name;
       if (!nameMatches || !onVerifiedWallet) return nameMatches;
       // Retrying a previously boxed version must not carry a stale sibling
