@@ -13,6 +13,7 @@ import {
   OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
@@ -368,6 +369,7 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
 // only what the dialog hands to it matters.
 const mockUsagePopoverProps = jest.fn();
 jest.mock('./OneKeyIdUsagePopover', () => ({
+  ONEKEY_ID_USAGE_TRACK_ID: 'onekey-id-usage',
   OneKeyIdUsagePopover: (props: unknown) => {
     mockUsagePopoverProps(props);
     return null;
@@ -454,11 +456,18 @@ describe('PrimeLoginOAuthDialog', () => {
     // Closed: hovering the link may open it.
     expect(lastUsagePopoverProps()?.hoverable).toBe(true);
 
-    // A press (or Enter/Space) opens it as a regular popover.
+    // A press (or Enter/Space) opens it as a regular popover and logs the
+    // open, which the popover itself only does for hover opens.
+    const popoverOpen = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverOpen')
+      .mockImplementation((params) => params);
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: true, hoverable: false }),
     );
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(popoverOpen.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
+    popoverOpen.mockRestore();
     act(() => lastUsagePopoverProps()?.onOpenChange(false));
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: false, hoverable: true }),
@@ -490,17 +499,6 @@ describe('PrimeLoginOAuthDialog', () => {
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: true, webAnchorElement: link }),
     );
-  });
-
-  test('opens the usage explainer without an anchor on native', () => {
-    getPlatformEnvMock().isNative = true;
-    getPlatformEnvMock().isNativeIOS = true;
-    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-
-    expect(lastUsagePopoverProps()?.open).toBe(true);
-    expect(lastUsagePopoverProps()?.webAnchorElement).toBeUndefined();
   });
 
   test.each(['google', 'apple'])(

@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+export const ONEKEY_ID_USAGE_TRACK_ID = 'onekey-id-usage';
+
 function OneKeyIdUsageItem({
   icon,
   title,
@@ -68,9 +70,11 @@ export function OneKeyIdUsagePopover({
       renderTrigger={null}
       webAnchorElement={webAnchorElement}
       hoverable={hoverable}
+      // Escape closes it also as a hover panel, instead of the login dialog.
+      dismissOnEscape
       nativePresentation="sheet"
       placement="bottom-start"
-      trackID="onekey-id-usage"
+      trackID={ONEKEY_ID_USAGE_TRACK_ID}
       renderContent={
         <YStack
           testID="onekey-id-usage-content"

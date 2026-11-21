@@ -38,6 +38,11 @@ export interface IPopoverProps {
    * `webAnchorElement` opens it.
    */
   hoverable?: IPopoverHoverable;
+  /**
+   * Web anchored panel: Escape closes it. Defaults to true, and to false for
+   * hover panels, which close when the pointer leaves.
+   */
+  dismissOnEscape?: boolean;
   /** Keep the content mounted (hidden) while closed. */
   keepChildrenMounted?: boolean | 'lazy';
   /** Styles the anchored panel. */

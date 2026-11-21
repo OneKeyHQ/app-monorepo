@@ -65,7 +65,11 @@ import {
   type IOneKeyIdLoginMethod,
   getOneKeyIdLoginMethods,
 } from './oneKeyIdLoginMethods';
-import { OneKeyIdUsagePopover } from './OneKeyIdUsagePopover';
+import { OneKeyIdUsageLink } from './OneKeyIdUsageLink';
+import {
+  ONEKEY_ID_USAGE_TRACK_ID,
+  OneKeyIdUsagePopover,
+} from './OneKeyIdUsagePopover';
 
 const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
 
@@ -616,14 +620,17 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
-  // A press or key opens the panel as a regular popover (outside press and
-  // Escape close it); only a hover open closes when the pointer leaves. The
-  // mode is set together with `open`, never while the panel is shown.
+  // A press or key opens the panel as a regular popover (outside press
+  // closes it); only a hover open closes when the pointer leaves. The mode is
+  // set together with `open`, never while the panel is shown.
   const handleShowUsage = useCallback(() => {
-    setUsagePopover((prev) =>
-      prev.open ? prev : { open: true, openedByHover: false },
-    );
-  }, []);
+    if (usagePopover.open) {
+      return;
+    }
+    // Hover opens go through the popover, which logs them itself.
+    defaultLogger.ui.popover.popoverOpen({ trackId: ONEKEY_ID_USAGE_TRACK_ID });
+    setUsagePopover({ open: true, openedByHover: false });
+  }, [usagePopover.open]);
   // The code step drops the header and its link: a panel left open there would
   // have nothing to anchor to or hover away from.
   useEffect(() => {
@@ -640,21 +647,6 @@ function PrimeLoginOAuthDialog(props: {
       return prev.open ? prev : { open: true, openedByHover: true };
     });
   }, []);
-  const handleUsageLinkRef = useCallback((node: unknown) => {
-    setUsageLinkElement(node instanceof HTMLElement ? node : undefined);
-  }, []);
-  // The inline link is a text span on web: make it focusable and let Enter
-  // and Space open it like a native link.
-  const handleUsageLinkKeyDown = useCallback(
-    (event: { key: string; preventDefault: () => void }) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-      event.preventDefault();
-      handleShowUsage();
-    },
-    [handleShowUsage],
-  );
 
   const renderOAuthLoginMethod = (method: IOneKeyIdLoginMethod) => {
     const providerName =
@@ -702,30 +694,13 @@ function PrimeLoginOAuthDialog(props: {
       { id: ETranslations.onekey_id_purpose__desc },
       {
         link: (chunks: ReactNode[]) => (
-          <SizableText
+          <OneKeyIdUsageLink
             key="usage-link"
-            ref={platformEnv.isNative ? undefined : handleUsageLinkRef}
-            testID="prime-login-usage-link"
-            size="$bodyLg"
-            color="$textSubdued"
-            cursor="pointer"
-            role="link"
             onPress={handleShowUsage}
-            {...(platformEnv.isNative
-              ? {}
-              : {
-                  tabIndex: 0,
-                  onKeyDown: handleUsageLinkKeyDown,
-                  focusVisibleStyle: {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: 2,
-                  },
-                })}
+            onElementChange={setUsageLinkElement}
           >
             {chunks}
-          </SizableText>
+          </OneKeyIdUsageLink>
         ),
       },
     ),

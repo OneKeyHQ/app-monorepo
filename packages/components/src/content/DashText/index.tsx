@@ -67,7 +67,9 @@ export interface IDashTextProps extends ISizableTextProps {
 
 type ITextLine = { x: number; y: number; width: number; height: number };
 
-// The parts of the paragraph lines that follow the leading text (LTR).
+// The parts of the paragraph lines that follow the leading text (LTR text).
+// The leading text's last line holds the same run as that paragraph line, so
+// its width says where the dashed text starts, whatever the line alignment.
 function getTrailingLines(
   lines: ITextLine[],
   leadingLines: ITextLine[],
@@ -76,11 +78,10 @@ function getTrailingLines(
   if (!leadingEnd) {
     return [];
   }
-  const startX = leadingEnd.x + leadingEnd.width;
   return lines
     .slice(leadingLines.length - 1)
     .map((line, index) => {
-      const x = index === 0 ? Math.max(line.x, startX) : line.x;
+      const x = index === 0 ? line.x + leadingEnd.width : line.x;
       return { ...line, x, width: line.x + line.width - x };
     })
     .filter((line) => line.width >= 1);

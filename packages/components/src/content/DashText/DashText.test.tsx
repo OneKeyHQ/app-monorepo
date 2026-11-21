@@ -271,6 +271,20 @@ it('dashes only the text after the leading sentence on native', () => {
     expect.objectContaining({ start: 80, top: 22, width: 20 }),
     expect.objectContaining({ start: 0, top: 42, width: 30 }),
   ]);
+
+  // Right-aligned lines (an RTL app layout): both measurements end at the
+  // same edge, and the dashes still start after the sentence.
+  layout(true, [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 60, y: 20, width: 40, height: 20 },
+  ]);
+  layout(false, [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 10, y: 20, width: 90, height: 20 },
+  ]);
+  expect(layouts()).toEqual([
+    expect.objectContaining({ start: 50, top: 42, width: 50 }),
+  ]);
 });
 
 it('keeps multiline labels in the requested tooltip and native popover', () => {
