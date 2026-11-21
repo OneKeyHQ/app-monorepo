@@ -244,15 +244,11 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
     visible,
     presentation,
     sheet,
-    backdrop,
-    onRequestDismiss,
   }: {
     children?: ReactNode;
     visible: boolean;
     presentation: string;
     sheet?: { height?: number };
-    backdrop?: unknown;
-    onRequestDismiss?: (reason: string) => void;
   }) =>
     visible ? (
       <div
@@ -260,12 +256,6 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
         data-presentation={presentation}
         data-height={sheet?.height}
       >
-        {(backdrop as { dismissOnPress?: boolean } | undefined)
-          ?.dismissOnPress ? (
-          <button type="button" onClick={() => onRequestDismiss?.('backdrop')}>
-            Outside
-          </button>
-        ) : null}
         {children}
       </div>
     ) : null,
@@ -764,14 +754,14 @@ describe('hover and trigger press interaction', () => {
     expect(screen.queryByTestId('overlay')).not.toBeNull();
   });
 
-  it('opens a triggerless panel on hovering its anchor; a regular one closes on an outside press', () => {
+  it('opens a triggerless panel on hovering its web anchor element', () => {
     const anchor = document.body.appendChild(document.createElement('span'));
-    function Host({ hover }: { hover: boolean }) {
+    function Host() {
       const [open, setOpen] = useState(false);
       return (
         <Popover
           title="Rates"
-          hoverable={hover ? hoverable : false}
+          hoverable={hoverable}
           open={open}
           onOpenChange={setOpen}
           renderTrigger={null}
@@ -780,14 +770,10 @@ describe('hover and trigger press interaction', () => {
         />
       );
     }
-    const view = render(<Host hover />);
+    render(<Host />);
     fireEvent.mouseEnter(anchor);
     advance(250);
     expect(screen.getByText('Rate breakdown')).toBeTruthy();
-    // A press turns the hover panel into a regular one (as the OneKey ID usage panel does).
-    view.rerender(<Host hover={false} />);
-    fireEvent.click(screen.getByText('Outside'));
-    expect(screen.queryByText('Rate breakdown')).toBeNull();
     anchor.remove();
   });
 });

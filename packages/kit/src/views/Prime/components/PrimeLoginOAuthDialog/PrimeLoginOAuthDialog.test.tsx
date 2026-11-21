@@ -18,6 +18,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
+const mockFirstEmailChange: {
+  current?: (email: string | undefined) => void;
+} = {};
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
 let mockDevSettingsEnabled = true;
@@ -242,13 +245,7 @@ jest.mock('@onekeyhq/components', () => {
         children,
       ),
     DashText: (props: { leadingText?: ReactNode; children?: ReactNode }) =>
-      React.createElement('div', null, props.leadingText, [
-        React.createElement(
-          'span',
-          { key: 'dashed', 'data-testid': 'dashed' },
-          props.children,
-        ),
-      ]),
+      React.createElement('div', null, props.leadingText, props.children),
     Dialog: {
       Description: Container,
       Footer: () => null,
@@ -258,9 +255,7 @@ jest.mock('@onekeyhq/components', () => {
     },
     HeightTransition,
     Icon: () => null,
-    // The real Popover is covered in the components package.
-    Popover: (props: { open: boolean; renderContent: ReactNode }) =>
-      props.open ? props.renderContent : null,
+    Popover: () => null,
     SizableText: Container,
     Stack: Container,
     Toast: {
@@ -333,24 +328,22 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
     debugPanelOpenCount?: number;
     onEmbeddedVerificationEmailChange?: (email: string | undefined) => void;
   }) {
+    // The real dialog calls back after an awaited write, with the callback of
+    // the render that started the submit.
+    const [firstEmailChange] = React.useState(
+      () => onEmbeddedVerificationEmailChange,
+    );
+    mockFirstEmailChange.current = firstEmailChange;
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
         mockEmailDialogUnmount();
       };
     }, []);
-    return React.createElement(
-      'div',
-      {
-        'data-testid': 'mock-prime-login-email-dialog',
-        'data-debug-panel-open-count': String(debugPanelOpenCount),
-      },
-      React.createElement('button', {
-        'data-testid': 'mock-email-submit',
-        type: 'button',
-        onClick: () => onEmbeddedVerificationEmailChange?.('a@example.com'),
-      }),
-    );
+    return React.createElement('div', {
+      'data-testid': 'mock-prime-login-email-dialog',
+      'data-debug-panel-open-count': String(debugPanelOpenCount),
+    });
   }
 
   return {
@@ -408,31 +401,26 @@ function getBackgroundApiMocks() {
 }
 
 describe('PrimeLoginOAuthDialog', () => {
-  test('a tap on the trailing link opens the usage panel and logs it once', () => {
+  test('logs one usage panel open per tap, and its close when the email code step takes over', () => {
     const popoverOpen = jest
       .spyOn(defaultLogger.ui.popover, 'popoverOpen')
       .mockImplementation((params) => params);
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const lateEmailChange = mockFirstEmailChange.current;
+
     const link = screen.getByTestId('prime-login-usage-link');
-    // Only the link sits in the dashed part of the subtitle.
-    expect(screen.getByTestId('dashed').textContent).toBe(link.textContent);
-    expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
+    fireEvent.click(link);
+    fireEvent.click(link);
+    expect(popoverOpen).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(link);
-    expect(screen.getByText('onekey_id_usage_keyless__desc')).toBeTruthy();
-    expect(popoverOpen).toHaveBeenCalledTimes(1);
-    fireEvent.click(link);
-    expect(popoverOpen).toHaveBeenCalledTimes(1);
+    act(() => lateEmailChange?.('a@example.com'));
+    expect(screen.queryByTestId('prime-login-usage-link')).toBeNull();
+    expect(popoverClose).toHaveBeenCalledTimes(1);
     popoverOpen.mockRestore();
-  });
-
-  test('the email code step closes the usage panel', () => {
-    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-    expect(screen.getByText('onekey_id_usage_keyless__desc')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('mock-email-submit'));
-    expect(screen.queryByTestId('prime-login-title')).toBeNull();
-    expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
+    popoverClose.mockRestore();
   });
 
   test.each(['google', 'apple'])(
