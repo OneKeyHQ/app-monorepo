@@ -68,17 +68,25 @@ describe('LightningVault.validateAddress', () => {
     expect(decode).not.toHaveBeenCalled();
   });
 
-  it('extracts a valid LNURL from pasted payment text before validation', async () => {
-    const decode = jest.fn(async () => ({}));
-    const vault = vaultDecodingWith(decode);
-    const address = 'lnurlp://example.com/pay';
-    await expect(
-      vault.validateAddress(`Pay here: (${address}).`),
-    ).resolves.toEqual({
-      isValid: true,
-      normalizedAddress: address,
-      displayAddress: address,
-    });
-    expect(decode).not.toHaveBeenCalled();
-  });
+  it.each([
+    ['Pay here: (lnurlp://example.com/pay).', 'lnurlp://example.com/pay'],
+    [
+      'Pay here: lnurlp://example.com/pay?note=thanks!',
+      'lnurlp://example.com/pay?note=thanks!',
+    ],
+  ])(
+    'preserves the LNURL recipient from pasted payment text: %s',
+    async (input, address) => {
+      const decode = jest.fn(async () => ({}));
+      const vault = vaultDecodingWith(decode);
+      const validation = {
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      };
+      await expect(vault.validateAddress(input)).resolves.toEqual(validation);
+      await expect(vault.validateAddress(address)).resolves.toEqual(validation);
+      expect(decode).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -1,6 +1,7 @@
 import { bech32 } from 'bech32';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { RetryableLightningInvoiceDecodeError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   findLnurl,
@@ -10,11 +11,10 @@ import {
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
-import { RetryableLightningInvoiceDecodeError } from '../errors';
-
 import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
 const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
+const DEFAULT_INVOICE_EXPIRY_SECONDS = 3600;
 
 const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
   value,
@@ -63,6 +63,16 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
         return undefined;
       });
     if (!decodedInvoice?.paymentRequest) {
+      return null;
+    }
+    const { timeExpireDate, timestamp, tagsObject } = decodedInvoice;
+    const expiresAt =
+      timeExpireDate ??
+      (timestamp === undefined
+        ? undefined
+        : timestamp +
+          (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
+    if (expiresAt !== undefined && expiresAt <= Date.now() / 1000) {
       return null;
     }
   }

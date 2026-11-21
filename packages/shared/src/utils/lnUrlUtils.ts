@@ -97,16 +97,15 @@ export const resolveReusableLightningRecipient = (address: string) => {
     /(^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
   for (const [, opener, input] of candidates) {
-    // The token already stops at double quotes and angle brackets.
-    const token =
-      opener === '"' || opener === '<'
-        ? input
-        : input.replace(/[.,!?，。！？]+$/u, '');
-    const closer = opener === '(' ? ')' : "'";
-    const uri =
-      (opener === '(' || opener === "'") && token.endsWith(closer)
-        ? token.slice(0, -1)
-        : token;
+    // Strip adjacent prose only when the end of the wrapper identifies it.
+    let uri = input;
+    if (opener === '(' || opener === "'") {
+      const closer = opener === '(' ? ')' : "'";
+      const token = input.replace(/[.,!?，。！？]+$/u, '');
+      if (token.endsWith(closer)) {
+        uri = token.slice(0, -1);
+      }
+    }
     const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
       return candidate;

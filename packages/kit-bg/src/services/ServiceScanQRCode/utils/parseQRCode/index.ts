@@ -1,13 +1,15 @@
 // The bounds module alone, so parsing does not pull the whole QR wallet SDK in.
 import { UrScanRejectedError } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
-import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapInvalidQrCode,
+  RetryableLightningInvoiceDecodeError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EQRCodeHandlerType,
   PARSE_HANDLER_NAMES,
 } from '@onekeyhq/shared/types/qrCode';
 
-import { RetryableLightningInvoiceDecodeError } from './errors';
 import { getParseHandler } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';

@@ -1111,6 +1111,8 @@ export class InvalidLightningPaymentRequest extends OneKeyAppError {
   }
 }
 
+export class RetryableLightningInvoiceDecodeError extends OneKeyAppError {}
+
 export class InvoiceAlreadyPaid extends OneKeyAppError {
   constructor(props?: IOneKeyError) {
     super(

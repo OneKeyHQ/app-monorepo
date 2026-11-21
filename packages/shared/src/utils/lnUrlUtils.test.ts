@@ -73,14 +73,23 @@ it('extracts a complete LNURL from pasted text while keeping QR recognition stri
   ).toBeNull();
 });
 
-it.each([
-  'Pay here: lnurlp://example.com/pay.',
-  'Pay here: (lnurlp://example.com/pay).',
-  '请支付 lnurlp://example.com/pay。',
-])('excludes sentence punctuation from a pasted LNURL URI: %s', (text) => {
-  expect(resolveReusableLightningRecipient(text)).toBe(
-    'lnurlp://example.com/pay',
-  );
+it('excludes a surrounding wrapper and adjacent sentence punctuation', () => {
+  expect(
+    resolveReusableLightningRecipient('Pay here: (lnurlp://example.com/pay).'),
+  ).toBe('lnurlp://example.com/pay');
+  expect(resolveReusableLightningRecipient(`请支付 ${LNURL}。`)).toBe(LNURL);
+});
+
+it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(
+  'preserves the entire URI when pasted without a wrapper: %s',
+  (uri) => {
+    expect(resolveReusableLightningRecipient(`Pay here: ${uri}`)).toBe(uri);
+  },
+);
+
+it('preserves punctuation within the URI when stripping an outer wrapper', () => {
+  const uri = 'lnurlp://example.com/pay(weekly)?note=thanks!';
+  expect(resolveReusableLightningRecipient(`Pay here: (${uri}).`)).toBe(uri);
 });
 
 it('preserves punctuation inside standalone or explicitly delimited LNURL URIs', () => {

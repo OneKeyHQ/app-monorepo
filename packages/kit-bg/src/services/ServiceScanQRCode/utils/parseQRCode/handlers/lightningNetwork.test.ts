@@ -1,6 +1,8 @@
 import { bech32 } from 'bech32';
 
+import ClientLightning from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
 import {
   EQRCodeHandlerNames,
   EQRCodeHandlerType,
@@ -11,6 +13,7 @@ import { parseQRCode } from '..';
 import lightningNetwork from './lightningNetwork';
 
 import type { IQRCodeHandlerOptions } from '../type';
+import type { AxiosInstance } from 'axios';
 
 // BOLT 11 example invoices (mainnet and testnet) and the LUD-01 example LNURL.
 const INVOICE =
@@ -25,9 +28,13 @@ function setup() {
     tag: 'payRequest',
     url: 'https://example.com/pay',
   }));
-  const decodedInvoice = jest.fn(async (address: string) => ({
-    paymentRequest: address,
-  }));
+  const decodedInvoice = jest.fn(
+    async (address: string): Promise<IInvoiceDecodedResponse> => ({
+      paymentRequest: address,
+      tags: [],
+      tagsObject: {},
+    }),
+  );
   const getLnClient = jest.fn(async (_isTestnet: boolean) => ({
     decodedInvoice,
   }));
@@ -141,10 +148,63 @@ it.each(['lntbs', 'lnbcrt'])(
 
 it('requires a decoded invoice even when the checksum is valid', async () => {
   const { options, decodedInvoice, getNetwork } = setup();
-  decodedInvoice.mockResolvedValueOnce({ paymentRequest: '' });
+  decodedInvoice.mockResolvedValueOnce({
+    paymentRequest: '',
+    tags: [],
+    tagsObject: {},
+  });
   await expect(lightningNetwork(INVOICE, options)).resolves.toBeNull();
   expect(getNetwork).not.toHaveBeenCalled();
 });
+
+it.each([
+  ['absolute expiry', { timeExpireDate: 1_900_000_000 }],
+  ['expiry tag', { timestamp: 1_899_999_940, tagsObject: { expire_time: 60 } }],
+  ['default expiry', { timestamp: 1_899_996_400 }],
+])(
+  'uses the current time for a cached invoice with %s',
+  async (_label, expiry) => {
+    const { options, decodedInvoice, getNetwork } = setup();
+    const request = {
+      get: jest.fn(async () => ({
+        data: {
+          data: {
+            paymentRequest: INVOICE,
+            tags: [],
+            tagsObject: {},
+            ...expiry,
+          },
+        },
+      })),
+    };
+    const client = new ClientLightning(
+      options.backgroundApi,
+      request as unknown as AxiosInstance,
+      false,
+    );
+    decodedInvoice.mockImplementation((address) =>
+      client.decodedInvoice(address),
+    );
+    const parseOptions = {
+      ...options,
+      handlers: [EQRCodeHandlerNames.lightningNetwork],
+    };
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_899_999_999_000);
+    try {
+      await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
+        type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      });
+      now.mockReturnValue(1_900_000_000_000);
+      await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
+        type: EQRCodeHandlerType.UNKNOWN,
+      });
+      expect(request.get).toHaveBeenCalledTimes(1);
+      expect(getNetwork).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+    }
+  },
+);
 
 it('resolves a recognized LNURL URI and preserves its scheme for validation', async () => {
   const { options, findAndValidateLnurl } = setup();
