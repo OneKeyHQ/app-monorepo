@@ -18,6 +18,7 @@ import { NativeScroller } from 'react-native-pager-view';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
+  Button,
   Icon,
   Page,
   ScrollView,
@@ -58,6 +59,7 @@ import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketInt
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpRecentTrades } from '../components/PerpRecentTrades';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import {
   FavoriteButton,
@@ -213,6 +215,84 @@ function MobilePerpMarketPageContent({
     <ScrollView flex={1} minHeight={0} showsVerticalScrollIndicator={false}>
       {children}
     </ScrollView>
+  );
+}
+
+const MOBILE_MARKET_BOOK_TABS = [
+  {
+    testID: 'perp-market-order-book-tab',
+    title: ETranslations.perps_order_book,
+    showTrades: false,
+  },
+  {
+    testID: 'perp-market-recent-trades-tab',
+    title: ETranslations.swap_page_recent_trade,
+    showTrades: true,
+  },
+] as const;
+
+function MobilePerpMarketBookPanel({
+  coin,
+  isChartActive,
+}: {
+  coin: string;
+  isChartActive: boolean;
+}) {
+  const intl = useIntl();
+  const [showRecentTrades, setShowRecentTrades] = useState(false);
+  const [openedTradesCoin, setOpenedTradesCoin] = useState<string>();
+  const tradesVisible = showRecentTrades && isChartActive;
+  useEffect(() => {
+    setOpenedTradesCoin((opened) =>
+      tradesVisible || opened === coin ? coin : undefined,
+    );
+  }, [coin, tradesVisible]);
+  const [orderBookHeight, setOrderBookHeight] = useState(0);
+  const handleOrderBookLayout = useCallback((event: LayoutChangeEvent) => {
+    setOrderBookHeight(event.nativeEvent.layout.height);
+  }, []);
+
+  return (
+    <YStack bg="$bgApp">
+      <XStack role="tablist" px="$4" py="$1.5" gap="$1">
+        {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
+          const selected = showRecentTrades === showTrades;
+          return (
+            <Button
+              key={testID}
+              testID={testID}
+              role="tab"
+              aria-selected={selected}
+              size="small"
+              variant="tertiary"
+              h={28}
+              mx="$0"
+              my="$0"
+              px="$2.5"
+              py="$0"
+              bg={selected ? '$bgActive' : '$transparent'}
+              color={selected ? '$text' : '$textSubdued'}
+              onPress={() => setShowRecentTrades(showTrades)}
+            >
+              {intl.formatMessage({ id: title })}
+            </Button>
+          );
+        })}
+      </XStack>
+      {tradesVisible || openedTradesCoin === coin ? (
+        <PerpRecentTrades
+          key={coin}
+          inline
+          visible={tradesVisible}
+          loadingMinHeight={orderBookHeight}
+        />
+      ) : null}
+      {!showRecentTrades ? (
+        <YStack onLayout={handleOrderBookLayout}>
+          <PerpOrderBook entry="perpMobileMarket" />
+        </YStack>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -690,13 +770,20 @@ function MobilePerpMarket() {
     [handleInteractionOverlayOpenChange],
   );
 
+  const isChartActive = activeTab === 'orderbook';
   const orderBookContent = useMemo(
-    () => (
-      <YStack bg="$bgApp">
-        <PerpOrderBook entry="perpMobileMarket" />
-      </YStack>
-    ),
-    [],
+    () =>
+      mode === 'perp' && (platformEnv.isNative || platformEnv.isWeb) ? (
+        <MobilePerpMarketBookPanel
+          coin={activeTradeInstrument.coin}
+          isChartActive={isChartActive}
+        />
+      ) : (
+        <YStack bg="$bgApp">
+          <PerpOrderBook entry="perpMobileMarket" />
+        </YStack>
+      ),
+    [activeTradeInstrument.coin, isChartActive, mode],
   );
   const infoContent = useMemo(
     () => (
