@@ -227,6 +227,10 @@ it.each([
     'lnurlp://merchant.example/pay',
   ],
   [
+    'Please pay (use (lnurlp://merchant.example/pay) before Friday).\r\n1) Keep the receipt.\r\n2) Print the receipt.',
+    'lnurlp://merchant.example/pay',
+  ],
+  [
     'Please pay (the invoice (use (lnurlp://merchant.example/pay)weekly?order=1234)) before Friday).\n1) Keep the receipt.',
     'lnurlp://merchant.example/pay)weekly?order=1234',
   ],
@@ -242,6 +246,13 @@ it.each([
   });
 });
 
+it('keeps a trailing literal parenthesis when the link has an explicit angle wrapper', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12)';
+  expect(
+    parseReusableLightningRecipient(`Pay <${uri}>\n123) before Friday.`),
+  ).toEqual({ kind: 'recipient', address: uri });
+});
+
 it.each([
   '(lnurlp://merchant.example/pay),weekly)',
   'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
@@ -252,6 +263,9 @@ it.each([
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n  123) before Friday.',
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order (before Friday).\n123) Keep the receipt.',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12))\n123) before Friday.',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12)).\n123) before Friday.',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12))\n1) before Friday.',
 ])('rejects a wrapper with two plausible closing parentheses', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(parseReusableLightningRecipient(text)).toEqual({ kind: 'ambiguous' });
@@ -285,6 +299,29 @@ it('rejects multiple distinct LNURL destinations in payment instructions', () =>
     bech32.toWords(Buffer.from('https://merchant.example/pay?order=3')),
   );
   expect(isAmbiguousLnurl(`Pay (${LNURL}) or (${otherCode}).`)).toBe(true);
+});
+
+it.each([
+  '<lnu\nrlp://merchant.example/checkout?order=1>;lnurlp://merchant.example/checkout?order=2',
+  '<lnurlp://merchant.example/checkout?order=2>; <LNURL\r\nP://merchant.example/checkout?order=1>',
+  '<lnurlp://merchant.example/checkout?order=2>; <lnu\u2028rlp://merchant.example/checkout?order=1>',
+])(
+  'rejects a complete LNURL beside a different address with a split scheme',
+  (text) => {
+    expect(isAmbiguousLnurl(text)).toBe(true);
+    expect(parseReusableLightningRecipient(text)).toEqual({
+      kind: 'ambiguous',
+    });
+  },
+);
+
+it('keeps the original complete link when a split duplicate has the same destination', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=2';
+  const text = `<LNURL\nP://merchant.example/checkout?order=2>;${uri}`;
+  expect(parseReusableLightningRecipient(text)).toEqual({
+    kind: 'recipient',
+    address: uri,
+  });
 });
 
 it('compares LNURL scheme casing without folding the path or query', () => {

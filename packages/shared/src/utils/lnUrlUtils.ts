@@ -103,8 +103,10 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
 
 const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
 const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
+const LNURL_SCHEME_WITH_LINE_BREAKS =
+  /l[\r\n\u2028\u2029]*n[\r\n\u2028\u2029]*u[\r\n\u2028\u2029]*r[\r\n\u2028\u2029]*l[\r\n\u2028\u2029]*[pwc][\r\n\u2028\u2029]*:/gi;
 const LNURL_NUMBERED_LIST_MARKER =
-  /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*\d+\)(?=\s|$)/gu;
+  /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(\d+)\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
 const LNURL_TAB_ORDER_LABEL =
   /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] *)(?=\S)/iy;
@@ -126,6 +128,41 @@ type IClosingParenthesis = {
   count: number;
   sameLineCount: number;
 };
+
+function getNumberedListClosers(text: string) {
+  const closers = new Set<number>();
+  const nextLineBreak = new RegExp(LNURL_LINE_BREAK.source, 'g');
+  let nextItemLine = -1;
+  let nextItemNumber = 0;
+  for (const match of text.matchAll(LNURL_NUMBERED_LIST_MARKER)) {
+    const [marker, ordinal] = match;
+    let previousEnd = match.index;
+    while (
+      previousEnd > 0 &&
+      /[^\S\r\n\u2028\u2029]/u.test(text[previousEnd - 1])
+    ) {
+      previousEnd -= 1;
+    }
+    const beginsList =
+      ordinal === '1' && /[.!?。！？]/u.test(text[previousEnd - 1] ?? '');
+    const continuesList =
+      match.index === nextItemLine && ordinal === String(nextItemNumber);
+    if (beginsList || continuesList) {
+      const markerEnd = match.index + marker.length;
+      closers.add(markerEnd - 1);
+      nextLineBreak.lastIndex = markerEnd;
+      nextItemLine = nextLineBreak.exec(text)?.index ?? -1;
+      nextItemNumber = Number(ordinal) + 1;
+    }
+  }
+  return closers;
+}
+
+function lightningRecipientKey(address: string) {
+  return normalizeLightningInput(address).replace(LNURL_URI_SCHEME, (scheme) =>
+    scheme.toLowerCase(),
+  );
+}
 
 function indexClosingParentheses(text: string, ignoredClosers?: Set<number>) {
   const closers: IClosingParenthesis[] = [];
@@ -313,12 +350,7 @@ function readReusableLightningRecipient(
         // The link and enclosing prose can both close on this line. If any
         // plausible closer splits the link token, a later line can still matter.
         if (!closingWithoutListMarkers) {
-          const listClosers = new Set(
-            Array.from(
-              address.matchAll(LNURL_NUMBERED_LIST_MARKER),
-              ({ index, 0: marker }) => index + marker.length - 1,
-            ),
-          );
+          const listClosers = getNumberedListClosers(address);
           closingWithoutListMarkers = listClosers.size
             ? indexClosingParentheses(address, listClosers)
             : closingParentheses;
@@ -358,9 +390,7 @@ function readReusableLightningRecipient(
       }
     }
     if (candidate !== undefined) {
-      const key = candidate.replace(LNURL_URI_SCHEME, (scheme) =>
-        scheme.toLowerCase(),
-      );
+      const key = lightningRecipientKey(candidate);
       if (recipientKey !== undefined && recipientKey !== key) {
         return { kind: 'ambiguous' };
       }
@@ -374,7 +404,29 @@ function readReusableLightningRecipient(
 export const parseReusableLightningRecipient = memoizee(
   (address: string): IReusableLightningRecipient | undefined => {
     const recipient = readReusableLightningRecipient(address);
-    if (recipient || !LNURL_LINE_BREAK.test(address)) return recipient;
+    if (recipient?.kind === 'ambiguous' || !LNURL_LINE_BREAK.test(address)) {
+      return recipient;
+    }
+
+    // Check a split scheme for a competing destination before using any
+    // intact address. This check never uses the repaired address as a recipient.
+    const restoredSchemes = address.replace(
+      LNURL_SCHEME_WITH_LINE_BREAKS,
+      (scheme) => scheme.replace(/[\r\n\u2028\u2029]+/g, ''),
+    );
+    if (restoredSchemes !== address) {
+      const restored = readReusableLightningRecipient(restoredSchemes);
+      if (
+        restored?.kind === 'ambiguous' ||
+        (restored?.kind === 'recipient' &&
+          (recipient === undefined ||
+            lightningRecipientKey(restored.address) !==
+              lightningRecipientKey(recipient.address)))
+      ) {
+        return { kind: 'ambiguous' };
+      }
+    }
+    if (recipient) return recipient;
 
     const singleLine = stringUtils.stripLineBreaks(address);
     if (singleLine === address) return undefined;
