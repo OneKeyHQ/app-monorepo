@@ -201,6 +201,61 @@ describe('useAccountSelectorCreateAddress', () => {
     },
   );
 
+  it.each([true, false])(
+    'refreshes the created address and only selects it for the current request (active: %s)',
+    async (stillActive) => {
+      const created = {
+        walletId: 'hd-wallet-1',
+        indexedAccountId: 'hd-wallet-1--0',
+        accounts: [{ id: 'created-1' }],
+      };
+      let finishCreation: (result: typeof created) => void = () => {};
+      mockAddAccounts.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishCreation = resolve;
+        }),
+      );
+      const { result } = renderHook(() => useAccountSelectorCreateAddress());
+      let active = true;
+      const canStartAddressCreation = () => active;
+      const creating = result.current.createAddress({
+        num: 0,
+        selectAfterCreate: true,
+        account: {
+          walletId: created.walletId,
+          networkId: 'lightning--0',
+          indexedAccountId: created.indexedAccountId,
+          deriveType: 'default',
+        },
+        canStartAddressCreation,
+      });
+      expect(mockAddAccounts).toHaveBeenCalledTimes(1);
+      expect(mockCallAccountSelectorAction).not.toHaveBeenCalled();
+
+      active = stillActive;
+      finishCreation(created);
+      await expect(creating).resolves.toEqual(created);
+
+      expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+        1,
+        'refresh',
+        {
+          num: 0,
+        },
+      );
+      expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(
+        stillActive ? 2 : 1,
+      );
+      if (stillActive) {
+        expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+          2,
+          'updateSelectedAccountForHdOrHwAccount',
+          expect.objectContaining({ shouldCommit: canStartAddressCreation }),
+        );
+      }
+    },
+  );
+
   it('closes the failed QR-address dialog before opening support', async () => {
     let finishClose: () => void = () => {};
     const close = jest.fn(

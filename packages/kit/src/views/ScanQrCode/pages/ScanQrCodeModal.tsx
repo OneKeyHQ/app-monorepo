@@ -386,6 +386,10 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
+  const photoValidation = useRef<{
+    signal: AbortSignal | undefined;
+    generation: number;
+  } | null>(null);
   const submitPhoto = useCallback(
     async function submitPhoto(
       data: string,
@@ -397,9 +401,21 @@ export default function ScanQrCodeModal() {
         photoAttemptId.current === attemptId &&
         !handoffOwner.current &&
         isScanActive(signal);
-      const { retry } = await callback(data, signal, generation);
-      if (!retry || scanGeneration.current !== generation || !canRetry())
+      if (scanGeneration.current !== generation || !canRetry()) return;
+
+      const validation = { signal, generation };
+      photoValidation.current = validation;
+      let retry: boolean | undefined;
+      try {
+        ({ retry } = await callback(data, signal, generation));
+      } finally {
+        if (photoValidation.current === validation) {
+          photoValidation.current = null;
+        }
+      }
+      if (!retry || scanGeneration.current !== generation || !canRetry()) {
         return;
+      }
 
       Toast.error({
         toastId: photoRetryToastId,
@@ -408,20 +424,15 @@ export default function ScanQrCodeModal() {
           label: intl.formatMessage({ id: ETranslations.global_try_again }),
           onPress: async () => {
             if (isPickingImage.current || !canRetry()) return;
-            isPickingImage.current = true;
             scanGeneration.current += 1;
             photoAttemptId.current += 1;
             Toast.dismiss(photoRetryToastId);
-            try {
-              await submitPhoto(
-                data,
-                signal,
-                photoAttemptId.current,
-                scanGeneration.current,
-              );
-            } finally {
-              isPickingImage.current = false;
-            }
+            await submitPhoto(
+              data,
+              signal,
+              photoAttemptId.current,
+              scanGeneration.current,
+            );
           },
         },
       });
@@ -441,15 +452,16 @@ export default function ScanQrCodeModal() {
     isPickingImage.current = true;
     scanGeneration.current += 1;
     const generation = scanGeneration.current;
+    let data: string | null = null;
+    let attemptId: number;
     try {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
 
       photoAttemptId.current += 1;
-      const attemptId = photoAttemptId.current;
+      attemptId = photoAttemptId.current;
       Toast.dismiss(photoRetryToastId);
       const { uri } = result;
-      let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
       } catch {
@@ -457,20 +469,17 @@ export default function ScanQrCodeModal() {
       } finally {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
-      if (data) {
-        await submitPhoto(data, signal, attemptId, generation);
-      } else if (
-        generation === scanGeneration.current &&
-        isScanActive(signal)
-      ) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.scan_no_recognizable_qr_code_found,
-          }),
-        });
-      }
     } finally {
       isPickingImage.current = false;
+    }
+    if (data) {
+      await submitPhoto(data, signal, attemptId, generation);
+    } else if (generation === scanGeneration.current && isScanActive(signal)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.scan_no_recognizable_qr_code_found,
+        }),
+      });
     }
   }, [intl, isScanActive, photoRetryToastId, submitPhoto]);
 
@@ -478,7 +487,13 @@ export default function ScanQrCodeModal() {
     async (value: string) => {
       // Camera teardown is independent of the result and modal lifecycle.
       if (!value) return {};
-      if (isPickingImage.current || handoffOwner.current) {
+      const validation = photoValidation.current;
+      if (
+        isPickingImage.current ||
+        handoffOwner.current ||
+        (validation?.generation === scanGeneration.current &&
+          validation.signal === scanScope.current?.signal)
+      ) {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);

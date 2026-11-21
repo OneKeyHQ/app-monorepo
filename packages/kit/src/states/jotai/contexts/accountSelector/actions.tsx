@@ -2105,12 +2105,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         walletId: string | undefined;
         indexedAccountId: string | undefined;
+        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, walletId, indexedAccountId } = payload;
+      const { num, walletId, indexedAccountId, shouldCommit } = payload;
       await this.updateSelectedAccount.call(set, {
         num,
         reason: 'updateSelectedAccountForHdOrHwAccount',
+        shouldCommit,
         builder: (v) => ({
           ...v,
           walletId,

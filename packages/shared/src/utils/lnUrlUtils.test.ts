@@ -87,6 +87,11 @@ it.each([
   'Pay here:\r\nLIGHTNING:lnurlp://merchant.example/checkout?order=12\r\n  34',
   '请支付：lnurlp://merchant.example/checkout?order=12 \t\n34',
   'lnurlp://merchant.example/checkout?order=12 \r\n34',
+  'Pay: lnurlp://merchant.example/checkout?order=12\u202834',
+  'Pay: lnurlp://merchant.example/checkout?order=12\u202934',
+  '<lnurlp://merchant.example/checkout?order=12\n\n34>',
+  'Pay:\n"lnurlp://merchant.example/checkout?order=12\r\n \r\n34"',
+  'Pay: (lnurlp://merchant.example/checkout?order=12\u2028\u202934)',
 ])(
   'rejects an open-ended LNURL that could continue on the next line',
   (text) => {
@@ -114,6 +119,11 @@ it('uses explicit wrappers and checksum validation as recipient boundaries', () 
       token === LNURL ? LNURL : uri,
     );
   }
+});
+
+it('preserves a wrapped link when only whitespace separates it from the closer', () => {
+  const uri = 'lnurlp://example.com/pay';
+  expect(resolveReusableLightningRecipient(`<${uri}\n\n>\nThanks`)).toBe(uri);
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(

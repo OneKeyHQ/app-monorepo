@@ -1044,6 +1044,31 @@ describe('useAccountSelectorActions', () => {
     expect(store.get(selectedAccountsAtom())[0]).toBe(previous);
   });
 
+  it('keeps the selected wallet when a pending address-creation selection is cancelled', async () => {
+    const { store, Wrapper } = createWrapper();
+    const currentSelection = {
+      ...createHdSelectedAccount('hd-2--0'),
+      walletId: 'hd-2',
+      focusedWallet: 'hd-2',
+    };
+    store.set(selectedAccountsAtom(), { 0: currentSelection });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    let ownsSelection = true;
+    await act(async () => {
+      const updating = result.current.updateSelectedAccountForHdOrHwAccount({
+        num: 0,
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        shouldCommit: () => ownsSelection,
+      });
+      ownsSelection = false;
+      await updating;
+    });
+    expect(store.get(selectedAccountsAtom())[0]).toBe(currentSelection);
+  });
+
   it('drops a selection update when its final commit guard is stale', async () => {
     const { store, Wrapper } = createWrapper();
     const previous = store.get(selectedAccountsAtom())[0];

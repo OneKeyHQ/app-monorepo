@@ -122,16 +122,16 @@ export function useAccountSelectorCreateAddress() {
             }
           | undefined,
       ) => {
-        // await refreshCurrentAccount();
         await callAccountSelectorAction('refresh', { num });
 
-        if (selectAfterCreate) {
+        if (selectAfterCreate && canStartAddressCreation?.() !== false) {
           await callAccountSelectorAction(
             'updateSelectedAccountForHdOrHwAccount',
             {
               num,
               walletId: result?.walletId,
               indexedAccountId: result?.indexedAccountId,
+              shouldCommit: canStartAddressCreation,
             },
           );
         }

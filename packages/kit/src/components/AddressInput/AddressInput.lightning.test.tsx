@@ -87,6 +87,9 @@ it.each([
   'lnurlp://example.com/pay\nThanks',
   'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
   '请支付：lnurlp://merchant.example/checkout?order=12 \t\n34',
+  'Pay: lnurlp://merchant.example/checkout?order=12\u202834',
+  'Pay: lnurlp://merchant.example/checkout?order=12\u202934',
+  '<lnurlp://merchant.example/checkout?order=12\n\n34>',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(

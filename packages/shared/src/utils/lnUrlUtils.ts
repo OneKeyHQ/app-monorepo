@@ -100,6 +100,7 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
 };
 
 const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
+const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '(': ')',
   '<': '>',
@@ -119,7 +120,7 @@ function readReusableLightningRecipient(
   }
   const standaloneLines = normalizeLightningInput(address)
     .trim()
-    .split(/\r\n?|\n/);
+    .split(LNURL_LINE_BREAK);
   if (
     standaloneLines[1]?.trim() &&
     /^lnurl[pwc]:\S+$/i.test(standaloneLines.join(''))
@@ -140,18 +141,22 @@ function readReusableLightningRecipient(
     const uri = closedInToken ? token.slice(0, -1) : input;
     const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
-      const suffix = address.slice(match.index + matchedText.length);
-      const [sameLine, followingLine = ''] = suffix.split(/\r\n?|\n/, 2);
-      const nextLine = followingLine.trim();
-      // A blank line separates paragraphs. Trailing spaces on the URI line do not.
-      if (
-        LNURL_URI_SCHEME.test(candidate) &&
-        !sameLine.trim() &&
-        nextLine &&
-        !closedInToken &&
-        !(closer && nextLine.startsWith(closer))
-      ) {
-        return { kind: 'ambiguous' };
+      if (LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
+        const suffix = address.slice(match.index + matchedText.length);
+        if (closer) {
+          if (!suffix.trimStart().startsWith(closer)) {
+            return { kind: 'ambiguous' };
+          }
+        } else {
+          // A blank line can separate paragraphs outside an explicit wrapper.
+          const [sameLine, followingLine = ''] = suffix.split(
+            LNURL_LINE_BREAK,
+            2,
+          );
+          if (!sameLine.trim() && followingLine.trim()) {
+            return { kind: 'ambiguous' };
+          }
+        }
       }
       return { kind: 'recipient', address: candidate };
     }
@@ -160,7 +165,7 @@ function readReusableLightningRecipient(
 
 export function isAmbiguousMultilineLnurl(input: string): boolean {
   return (
-    /[\r\n]/.test(input.trim()) &&
+    LNURL_LINE_BREAK.test(input.trim()) &&
     readReusableLightningRecipient(input)?.kind === 'ambiguous'
   );
 }

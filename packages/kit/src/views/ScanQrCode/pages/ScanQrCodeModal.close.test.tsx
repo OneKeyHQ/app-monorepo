@@ -576,6 +576,48 @@ test('only the most recently selected photo can be retried', async () => {
   ]);
 });
 
+test('a photo can replace a photo whose validation is still pending', async () => {
+  const picker = jest.mocked(PhotoLibrary.pickImage).mockClear();
+  picker
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://slow-photo' })
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://new-photo' });
+  const scanImage = jest.mocked(scanFromURLAsync);
+  scanImage
+    .mockResolvedValueOnce('slow invoice')
+    .mockResolvedValueOnce('replacement invoice');
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
+  let finishPending: (result: { retry: boolean }) => void = () => {};
+  const pending = new Promise<{ retry: boolean }>((resolve) => {
+    finishPending = resolve;
+  });
+  mockRouteCallback.mockReturnValueOnce(pending);
+  render(<ScanQrCodeModal />);
+
+  const pickerButton = screen.getByRole('button', { name: 'Pick image' });
+  fireEvent.click(pickerButton);
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [[first]] = mockRouteCallback.mock.calls;
+  expect(first.canApplyScanResult()).toBe(true);
+
+  try {
+    fireEvent.click(pickerButton);
+    expect(picker).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
+    const [, [second]] = mockRouteCallback.mock.calls;
+    expect(second.value).toBe('replacement invoice');
+    expect(second.canApplyScanResult()).toBe(true);
+    expect(first.canApplyScanResult()).toBe(false);
+  } finally {
+    await act(async () => {
+      finishPending({ retry: true });
+      await pending;
+    });
+    picker.mockReset();
+    scanImage.mockReset();
+  }
+  expect(Toast.error).not.toHaveBeenCalled();
+});
+
 test('cancelling the picker preserves the previous photo retry once', async () => {
   const picker = jest.mocked(PhotoLibrary.pickImage);
   picker

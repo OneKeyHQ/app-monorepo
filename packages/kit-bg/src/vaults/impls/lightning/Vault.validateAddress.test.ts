@@ -94,6 +94,9 @@ describe('LightningVault.validateAddress', () => {
     'lightning:lnurlp://example.com/pay\nThanks',
     'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
     '请支付：lnurlp://merchant.example/checkout?order=12 \r\n34',
+    'Pay: lnurlp://merchant.example/checkout?order=12\u202834',
+    'Pay: lnurlp://merchant.example/checkout?order=12\u202934',
+    '<lnurlp://merchant.example/checkout?order=12\n\n34>',
   ])(
     'rejects an ambiguous multiline LNURL without sending it to the invoice decoder',
     async (text) => {
