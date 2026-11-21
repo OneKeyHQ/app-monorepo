@@ -30,6 +30,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
@@ -3732,6 +3734,118 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async getSigningAccountRole({ accountAddress }: { accountAddress: IHex }) {
+    const { infoClient } = hyperLiquidApiClients;
+    const [role, multiSig] = await Promise.all([
+      infoClient.userRole({ user: accountAddress }),
+      infoClient.userToMultiSigSigners({ user: accountAddress }),
+    ]);
+    return multiSig ? ('multiSig' as const) : role.role;
+  }
+
+  @backgroundMethod()
+  async getActiveAgentInfo({
+    accountId,
+    accountAddress,
+  }: {
+    accountId: string;
+    accountAddress: IHex;
+  }) {
+    await this.assertAgentManagementAccount({ accountId, accountAddress });
+    // Display local metadata without waiting for remote authorization checks.
+    // Trading and rotation still validate the agent against Hyperliquid.
+    const credentials = await Promise.all(
+      Object.values(EHyperLiquidAgentName).map((agentName) =>
+        this.backgroundApi.serviceAccount.getHyperLiquidAgentCredentialInfo({
+          userAddress: accountAddress,
+          agentName,
+        }),
+      ),
+    );
+    const credential = credentials
+      .filter(Boolean)
+      .toSorted((a, b) => b.validUntil - a.validUntil)[0];
+    // Return only public metadata across the main/background runtime boundary.
+    return credential
+      ? {
+          accountId,
+          accountAddress,
+          agentAddress: credential.agentAddress,
+          agentName: credential.agentName,
+          validUntil: credential.validUntil,
+        }
+      : null;
+  }
+
+  private async assertAgentManagementAccount({
+    accountId,
+    accountAddress,
+  }: {
+    accountId: string;
+    accountAddress: IHex;
+  }) {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount.accountId !== accountId ||
+      activeAccount.accountAddress?.toLowerCase() !==
+        accountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
+      );
+    }
+    await this.exchangeService.checkAccountCanTrade();
+  }
+
+  private agentRotationPending = false;
+
+  @backgroundMethod()
+  @toastIfError()
+  async rotateActiveAgent(params: {
+    accountId: string;
+    accountAddress: IHex;
+    agentName: EHyperLiquidAgentName;
+    agentAddress: string;
+  }) {
+    if (this.agentRotationPending) {
+      throw new OneKeyLocalError(
+        'An agent replacement is already in progress.',
+      );
+    }
+    this.agentRotationPending = true;
+    try {
+      await this.assertAgentManagementAccount(params);
+      await this.waitForPerpsAccountStatusCheckIdle();
+      await this.assertAgentManagementAccount(params);
+      this.fetchExtraAgentsWithCache.clear();
+      const credential = await this.checkAgentStatus({
+        accountId: params.accountId,
+        accountAddress: params.accountAddress,
+        isEnableTradingTrigger: true,
+        statusDetails: buildPerpsAccountStatusCheckInitialDetails(),
+        replaceAgent: params,
+        includeExpiringAgent: true,
+      });
+      if (
+        !credential ||
+        credential.agentAddress.toLowerCase() ===
+          params.agentAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          'Agent replacement was not confirmed. Refresh and try again.',
+        );
+      }
+    } finally {
+      this.agentRotationPending = false;
+      this.fetchExtraAgentsWithCache.clear();
+      // Reconcile chain state even after an ambiguous transport failure.
+      await this.checkPerpsAccountStatus();
+    }
+  }
+
   fetchExtraAgentsWithCache = cacheUtils.memoizee(
     async ({ user }: { user: IHex }) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -3771,11 +3885,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     accountId,
     isEnableTradingTrigger,
     statusDetails,
+    replaceAgent,
+    includeExpiringAgent = false,
   }: {
     accountAddress: IHex;
     accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
+    replaceAgent?: { agentName: EHyperLiquidAgentName; agentAddress: string };
+    includeExpiringAgent?: boolean;
   }) {
     let agentCredential: IHyperLiquidAgentCredentialInfo | undefined;
     const extraAgents = await this.fetchExtraAgentsWithCache({
@@ -3825,7 +3943,7 @@ export default class ServiceHyperliquid extends ServiceBase {
               return null;
             }
             const validUntil = agent.validUntil ?? Number.MAX_SAFE_INTEGER;
-            if (validUntil <= validThreshold) {
+            if (!includeExpiringAgent && validUntil <= validThreshold) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_near_expiry',
                 accountAddress,
@@ -3907,6 +4025,20 @@ export default class ServiceHyperliquid extends ServiceBase {
           !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
       );
     }
+    if (replaceAgent) {
+      if (
+        !accountId ||
+        !agentCredential ||
+        agentCredential.agentName !== replaceAgent.agentName ||
+        agentCredential.agentAddress.toLowerCase() !==
+          replaceAgent.agentAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          'The active agent changed. Refresh and try again.',
+        );
+      }
+      agentCredential = undefined;
+    }
     if (!agentCredential && isEnableTradingTrigger) {
       await this.backgroundApi.servicePassword.ensureHyperLiquidAgentPasswordSessionReady();
       this.fetchExtraAgentsWithCache.clear();
@@ -3916,8 +4048,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         privateKeyBytes.fill(0);
         const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
-        let agentNameToApprove: EHyperLiquidAgentName | undefined;
-        if (extraAgents.length === 3) {
+        let agentNameToApprove = replaceAgent?.agentName;
+        if (!replaceAgent && extraAgents.length === 3) {
           const nonOneKeyAgents = extraAgents.filter(
             (agent) =>
               !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
@@ -4009,13 +4141,18 @@ export default class ServiceHyperliquid extends ServiceBase {
         // {name} valid_until 1765710491688
         const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
         const approveAgentFn = () =>
-          this.exchangeService.approveAgent({
-            agent: agentAddress,
-            agentName:
-              agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
-            // agentName: EHyperLiquidAgentName.Official,
-            authorize: true,
-          });
+          this.exchangeService.approveAgent(
+            {
+              agent: agentAddress,
+              agentName:
+                agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+              // agentName: EHyperLiquidAgentName.Official,
+              authorize: true,
+            },
+            replaceAgent && accountId
+              ? { accountId, accountAddress }
+              : undefined,
+          );
         let retryTimes = 5;
         let approveAgentResult: IApiRequestResult | undefined;
         while (retryTimes >= 0) {
