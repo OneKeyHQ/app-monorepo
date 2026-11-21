@@ -90,6 +90,7 @@ it.each([
   'Pay: lnurlp://merchant.example/checkout?order=12\u202834',
   'Pay: lnurlp://merchant.example/checkout?order=12\u202934',
   '<lnurlp://merchant.example/checkout?order=12\n\n34>',
+  '(lnurlp://merchant.example/pay(weekly)\n?order=1234)',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(

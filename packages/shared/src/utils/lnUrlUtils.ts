@@ -102,7 +102,6 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
 const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
 const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
-  '(': ')',
   '<': '>',
   '"': '"',
   "'": "'",
@@ -111,6 +110,36 @@ const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
 type IReusableLightningRecipient =
   | { kind: 'recipient'; address: string }
   | { kind: 'ambiguous' };
+
+function readParenthesizedLnurl(
+  input: string,
+  suffix: string,
+  sameLine: string,
+): string | null {
+  const text =
+    input +
+    (!sameLine.trim() && suffix.trimStart().startsWith(')') ? ')' : sameLine);
+  let depth = 1;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '(') depth += 1;
+    if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        const next = text[index + 1];
+        if (
+          index < input.length &&
+          next &&
+          !/[\s.,!?，。！？;；:：)>"']/u.test(next)
+        ) {
+          return null;
+        }
+        return input.slice(0, index);
+      }
+    }
+  }
+  return null;
+}
 
 function readReusableLightningRecipient(
   address: string,
@@ -134,6 +163,18 @@ function readReusableLightningRecipient(
   );
   for (const match of candidates) {
     const [matchedText, opener, input] = match;
+    const suffix = address.slice(match.index + matchedText.length);
+    const [sameLine, followingLine = ''] = suffix.split(LNURL_LINE_BREAK, 2);
+    if (
+      opener === '(' &&
+      LNURL_URI_SCHEME.test(normalizeLightningInput(input))
+    ) {
+      const uri = readParenthesizedLnurl(input, suffix, sameLine);
+      const candidate = uri && normalizeLightningInput(uri);
+      return candidate && findLnurl(candidate)
+        ? { kind: 'recipient', address: candidate }
+        : { kind: 'ambiguous' };
+    }
     // Strip adjacent prose only when the end of the wrapper identifies it.
     const closer = LNURL_WRAPPER_CLOSERS[opener];
     const token = input.replace(/[.,!?，。！？]+$/u, '');
@@ -142,18 +183,8 @@ function readReusableLightningRecipient(
     const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
       if (LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
-        const suffix = address.slice(match.index + matchedText.length);
-        const [sameLine, followingLine = ''] = suffix.split(
-          LNURL_LINE_BREAK,
-          2,
-        );
         if (closer) {
-          const closesParentheticalOnSameLine =
-            opener === '(' && sameLine.includes(closer);
-          if (
-            !closesParentheticalOnSameLine &&
-            !suffix.trimStart().startsWith(closer)
-          ) {
+          if (!suffix.trimStart().startsWith(closer)) {
             return { kind: 'ambiguous' };
           }
         } else {

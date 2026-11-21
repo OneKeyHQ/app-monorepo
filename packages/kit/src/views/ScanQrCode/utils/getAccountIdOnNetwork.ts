@@ -17,7 +17,7 @@ const activeAddressCreationRequests = new Map<
     holdForChildScan?: () => () => void;
   }
 >();
-const scansCreatingAddress = new WeakSet<AbortSignal>();
+const addressCreationRequestByScan = new WeakMap<AbortSignal, string>();
 
 export function getAddressCreationRequestState(
   request?: IAddressCreationRequest,
@@ -87,10 +87,15 @@ export const getAccountIdOnNetwork = async ({
       let addressCreationRequest: IAddressCreationRequest | undefined;
       let detachScanAbort: (() => void) | undefined;
       if (canApplyScanResult) {
+        const previousRequestId =
+          scanSignal && addressCreationRequestByScan.get(scanSignal);
+        const previousRequest = previousRequestId
+          ? activeAddressCreationRequests.get(previousRequestId)
+          : undefined;
         if (
           scanSignal?.aborted ||
           !canApplyScanResult() ||
-          (scanSignal && scansCreatingAddress.has(scanSignal))
+          previousRequest?.canApplyScanResult()
         ) {
           throw new OneKeyErrorScanQrCodeCancel();
         }
@@ -107,7 +112,13 @@ export const getAccountIdOnNetwork = async ({
           controller,
           holdForChildScan,
         });
-        if (scanSignal) scansCreatingAddress.add(scanSignal);
+        if (scanSignal) {
+          addressCreationRequestByScan.set(
+            scanSignal,
+            addressCreationRequest.id,
+          );
+        }
+        previousRequest?.controller.abort();
       }
       try {
         const newAccount =
@@ -130,7 +141,13 @@ export const getAccountIdOnNetwork = async ({
         detachScanAbort?.();
         if (addressCreationRequest) {
           activeAddressCreationRequests.delete(addressCreationRequest.id);
-          if (scanSignal) scansCreatingAddress.delete(scanSignal);
+          if (
+            scanSignal &&
+            addressCreationRequestByScan.get(scanSignal) ===
+              addressCreationRequest.id
+          ) {
+            addressCreationRequestByScan.delete(scanSignal);
+          }
         }
       }
     }

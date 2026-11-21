@@ -93,6 +93,7 @@ it.each([
   '<lnurlp://merchant.example/checkout?order=12\n\n34>',
   'Pay:\n"lnurlp://merchant.example/checkout?order=12\r\n \r\n34"',
   'Pay: (lnurlp://merchant.example/checkout?order=12\u2028\u202934)',
+  '(lnurlp://merchant.example/pay(weekly)\n?order=1234)',
 ])(
   'rejects an open-ended LNURL that could continue on the next line',
   (text) => {
@@ -132,6 +133,14 @@ it('extracts a complete link followed by prose in the same parenthetical', () =>
   expect(resolveReusableLightningRecipient(`Pay (${uri} before Friday).`)).toBe(
     uri,
   );
+});
+
+it('recognizes the outer parenthesis before attached punctuation and prose', () => {
+  const uri = 'lnurlp://example.com/pay(weekly)';
+  expect(
+    resolveReusableLightningRecipient(`Pay (${uri}),then retry (if needed).`),
+  ).toBe(uri);
+  expect(resolveReusableLightningRecipient(`Pay (${uri})\nThanks`)).toBe(uri);
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(

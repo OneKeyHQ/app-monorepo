@@ -11,6 +11,7 @@ import {
   isLightningAddress,
   normalizeLightningInput,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
@@ -64,7 +65,12 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
         ? undefined
         : timestamp +
           (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
-    if (expiresAt !== undefined && expiresAt <= Date.now() / 1000) {
+    const serverTime = systemTimeUtils.getEstimatedServerTime();
+    if (
+      expiresAt !== undefined &&
+      serverTime !== undefined &&
+      expiresAt <= serverTime / 1000
+    ) {
       throw new InvoiceExpiredError({ autoToast: false });
     }
   }

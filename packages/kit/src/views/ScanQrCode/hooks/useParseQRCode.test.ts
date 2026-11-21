@@ -6,6 +6,7 @@ import {
   navigateFromOverlayToTab,
   resetAboveMainRoute,
 } from '@onekeyhq/components';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import ServiceNetwork from '@onekeyhq/kit-bg/src/services/ServiceNetwork/ServiceNetwork';
 import lightningSettings from '@onekeyhq/kit-bg/src/vaults/impls/lightning/settings';
 import {
@@ -16,6 +17,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
+import { getAddressCreationRequestSignal } from '../utils/getAccountIdOnNetwork';
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
 
 import { parseQRCodeWithDeps } from './useParseQRCode';
@@ -27,7 +29,7 @@ const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNetworkSafe = jest.fn<Promise<unknown>, unknown[]>();
 const mockCreateAddressIfNotExists = jest.fn<
   Promise<{ id: string } | undefined>,
-  []
+  Parameters<IBackgroundApi['serviceAccount']['createAddressIfNotExists']>
 >(async () => undefined);
 const mockGetCompatibleNetworks = jest.fn<
   ReturnType<ServiceNetwork['getNetworkIdsCompatibleWithWalletId']>,
@@ -66,7 +68,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceAccount: {
       getAccountsInSameIndexedAccountId: async () => ({ accounts: [] }),
-      createAddressIfNotExists: () => mockCreateAddressIfNotExists(),
+      createAddressIfNotExists: (
+        ...args: Parameters<typeof mockCreateAddressIfNotExists>
+      ) => mockCreateAddressIfNotExists(...args),
     },
     serviceToken: {
       getNativeToken: (...args: unknown[]) => mockGetNativeToken(...args),
@@ -102,29 +106,36 @@ function parseFrame() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCreateAddressIfNotExists.mockReset().mockResolvedValue(undefined);
   mockGetCompatibleNetworks.mockReset().mockResolvedValue({
     networkIdsCompatible: [],
     networkIdsIncompatible: [],
   });
 });
 
-it('gives one result per scan scope ownership of address creation until it settles', async () => {
+it('gives the current result ownership of address creation within its scan scope', async () => {
   const network = { id: 'lightning--0', impl: 'lightning' };
   const scope = new AbortController();
   const otherScope = new AbortController();
-  let signalAddressRequestStarted: () => void = () => {};
-  const addressRequestStarted = new Promise<void>((resolve) => {
-    signalAddressRequestStarted = resolve;
-  });
-  let finishAddressRequest: () => void = () => {};
-  const result = new Promise<undefined>((resolve) => {
-    finishAddressRequest = () => resolve(undefined);
-  });
-  mockCreateAddressIfNotExists.mockImplementationOnce(() => {
-    signalAddressRequestStarted();
-    return result;
-  });
-  function scan(address: string, scanScope: AbortController) {
+  function holdNextAddressRequest() {
+    const started = Promise.withResolvers<AbortSignal | undefined>();
+    const response = Promise.withResolvers<undefined>();
+    mockCreateAddressIfNotExists.mockImplementationOnce((_params, options) => {
+      started.resolve(
+        getAddressCreationRequestSignal(options.addressCreationRequest),
+      );
+      return response.promise;
+    });
+    return {
+      started: started.promise,
+      finish: () => response.resolve(undefined),
+    };
+  }
+  function scan(
+    address: string,
+    scanScope: AbortController,
+    canApplyScanResult = () => !scanScope.signal.aborted,
+  ) {
     mockParse.mockResolvedValueOnce({
       type: EQRCodeHandlerType.LIGHTNING_NETWORK,
       data: { address, network },
@@ -143,13 +154,17 @@ it('gives one result per scan scope ownership of address creation until it settl
       {
         ...deps,
         scanSignal: scanScope.signal,
-        canApplyScanResult: () => !scanScope.signal.aborted,
+        canApplyScanResult,
       },
     );
   }
 
-  const first = scan('first invoice', scope);
-  await addressRequestStarted;
+  const firstRequest = holdNextAddressRequest();
+  let firstIsCurrent = true;
+  const first = scan('first invoice', scope, () => firstIsCurrent).catch(
+    (error: unknown) => error,
+  );
+  const firstSignal = await firstRequest.started;
   try {
     await expect(scan('another invoice', scope)).rejects.toBeInstanceOf(
       OneKeyErrorScanQrCodeCancel,
@@ -157,12 +172,31 @@ it('gives one result per scan scope ownership of address creation until it settl
     expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(1);
     await scan('invoice from another scope', otherScope);
     expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(2);
+
+    firstIsCurrent = false;
+    const replacementRequest = holdNextAddressRequest();
+    const replacement = scan('replacement invoice', scope);
+    try {
+      await Promise.race([replacementRequest.started, replacement]);
+      expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(3);
+      expect(firstSignal?.aborted).toBe(true);
+
+      firstRequest.finish();
+      await expect(first).resolves.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+      await expect(scan('another invoice', scope)).rejects.toBeInstanceOf(
+        OneKeyErrorScanQrCodeCancel,
+      );
+      expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(3);
+    } finally {
+      replacementRequest.finish();
+    }
+    await replacement;
   } finally {
-    finishAddressRequest();
+    firstRequest.finish();
     await first;
   }
   await scan('invoice after cancellation', scope);
-  expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(3);
+  expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(4);
 });
 
 it.each([

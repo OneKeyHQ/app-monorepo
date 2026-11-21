@@ -12,6 +12,7 @@ import {
   RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
 import {
   EQRCodeHandlerNames,
@@ -202,7 +203,7 @@ it.each([
   ['expiry tag', { timestamp: 1_899_999_940, tagsObject: { expire_time: 60 } }],
   ['default expiry', { timestamp: 1_899_996_400 }],
 ])(
-  'uses the current time for a cached invoice with %s',
+  'uses the current server time for a cached invoice with %s',
   async (_label, expiry) => {
     const { options, decodedInvoice, getNetwork } = setup();
     const request = {
@@ -229,7 +230,9 @@ it.each([
       ...options,
       handlers: [EQRCodeHandlerNames.lightningNetwork],
     };
-    const now = jest.spyOn(Date, 'now').mockReturnValue(1_899_999_999_000);
+    const now = jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(1_899_999_999_000);
     try {
       await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
         type: EQRCodeHandlerType.LIGHTNING_NETWORK,
@@ -258,6 +261,31 @@ it('resolves a recognized LNURL URI and preserves its scheme for validation', as
     forScan: true,
   });
 });
+
+it.each([1_900_000_000_000, undefined])(
+  'does not expire a scan using an ahead-of-server wall clock (server time: %s)',
+  async (serverTime) => {
+    const { options, decodedInvoice } = setup();
+    const localNow = jest.spyOn(Date, 'now').mockReturnValue(1_900_000_120_000);
+    const estimatedNow = jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(serverTime);
+    decodedInvoice.mockResolvedValueOnce({
+      paymentRequest: INVOICE,
+      timeExpireDate: 1_900_000_060,
+      tags: [],
+      tagsObject: {},
+    });
+    try {
+      await expect(lightningNetwork(INVOICE, options)).resolves.toMatchObject({
+        type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      });
+    } finally {
+      estimatedNow.mockRestore();
+      localNow.mockRestore();
+    }
+  },
+);
 
 it.each([
   ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
