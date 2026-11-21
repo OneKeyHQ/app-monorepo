@@ -91,7 +91,7 @@ jest.mock('@onekeyhq/components', () => {
     TextAreaInput: Box,
     XStack: Box,
     YStack: Box,
-    Toast: { error: jest.fn() },
+    Toast: { error: jest.fn(), dismiss: jest.fn() },
     rootNavigationRef: {
       current: {
         getCurrentRoute: () => ({ key: mockCurrentRouteKey }),
@@ -340,6 +340,7 @@ test('a retryable photo result can be submitted again without reopening the phot
 
   await waitFor(() =>
     expect(Toast.error).toHaveBeenCalledWith({
+      toastId: 'scan-route:photo-retry',
       title: ETranslations.global_server_error,
       actions: expect.objectContaining({
         label: ETranslations.global_try_again,
@@ -356,4 +357,39 @@ test('a retryable photo result can be submitted again without reopening the phot
     'invoice from photo',
   ]);
   expect(PhotoLibrary.pickImage).toHaveBeenCalledTimes(1);
+});
+
+test('only the most recently selected photo can be retried', async () => {
+  jest
+    .mocked(PhotoLibrary.pickImage)
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://first-photo' })
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://second-photo' });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
+  jest
+    .mocked(scanFromURLAsync)
+    .mockResolvedValueOnce('first invoice')
+    .mockResolvedValueOnce('second invoice');
+  mockRouteCallback
+    .mockResolvedValueOnce({ retry: true })
+    .mockResolvedValueOnce({ retry: true });
+  render(<ScanQrCodeModal />);
+
+  const picker = screen.getByRole('button', { name: 'Pick image' });
+  fireEvent.click(picker);
+  await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+  fireEvent.click(picker);
+  await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(2));
+
+  const [first, second] = jest.mocked(Toast.error).mock.calls.map(([toast]) => {
+    return Array.isArray(toast.actions) ? toast.actions[0] : toast.actions;
+  });
+  await first?.onPress?.();
+  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
+
+  await second?.onPress?.();
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'first invoice',
+    'second invoice',
+    'second invoice',
+  ]);
 });

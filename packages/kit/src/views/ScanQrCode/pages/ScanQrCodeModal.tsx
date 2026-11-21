@@ -326,21 +326,30 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
+  const photoSelectionId = useRef(0);
+  const photoRetryToastId = `${route.key}:photo-retry`;
   const submitPhoto = useCallback(
-    async function submitPhoto(data: string, signal: AbortSignal | undefined) {
+    async function submitPhoto(
+      data: string,
+      signal: AbortSignal | undefined,
+      selectionId: number,
+    ) {
+      const canRetry = () =>
+        photoSelectionId.current === selectionId && isScanActive(signal);
       const { retry } = await callback(data, signal);
-      if (!retry || !isScanActive(signal)) return;
+      if (!retry || !canRetry()) return;
 
-      const toast = Toast.error({
+      Toast.error({
+        toastId: photoRetryToastId,
         title: intl.formatMessage({ id: ETranslations.global_server_error }),
         actions: {
           label: intl.formatMessage({ id: ETranslations.global_try_again }),
           onPress: async () => {
-            if (isPickingImage.current || !isScanActive(signal)) return;
+            if (isPickingImage.current || !canRetry()) return;
             isPickingImage.current = true;
-            toast?.close();
+            Toast.dismiss(photoRetryToastId);
             try {
-              await submitPhoto(data, signal);
+              await submitPhoto(data, signal, selectionId);
             } finally {
               isPickingImage.current = false;
             }
@@ -348,7 +357,7 @@ export default function ScanQrCodeModal() {
         },
       });
     },
-    [callback, intl, isScanActive],
+    [callback, intl, isScanActive, photoRetryToastId],
   );
 
   const pickImage = useCallback(async () => {
@@ -358,6 +367,9 @@ export default function ScanQrCodeModal() {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
 
+      const selectionId = photoSelectionId.current + 1;
+      photoSelectionId.current = selectionId;
+      Toast.dismiss(photoRetryToastId);
       const { uri } = result;
       const signal = scanScope.current?.signal;
       let data: string | null = null;
@@ -369,7 +381,7 @@ export default function ScanQrCodeModal() {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data) {
-        await submitPhoto(data, signal);
+        await submitPhoto(data, signal, selectionId);
       } else if (isScanActive(signal)) {
         Toast.error({
           title: intl.formatMessage({
@@ -380,7 +392,7 @@ export default function ScanQrCodeModal() {
     } finally {
       isPickingImage.current = false;
     }
-  }, [intl, isScanActive, submitPhoto]);
+  }, [intl, isScanActive, photoRetryToastId, submitPhoto]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {

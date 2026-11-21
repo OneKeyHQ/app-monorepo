@@ -4,8 +4,8 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   InvoiceExpiredError,
   RetryableLightningInvoiceDecodeError,
+  isRetryableLightningInvoiceDecodeFailure,
 } from '@onekeyhq/shared/src/errors';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   findLnurl,
   hasLightningUriScheme,
@@ -51,13 +51,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
     const decodedInvoice = await client
       .decodedInvoice(address)
       .catch((error: unknown) => {
-        const status = (error as IOneKeyError | undefined)?.httpStatusCode;
-        if (
-          status === undefined ||
-          status >= 500 ||
-          status === 408 ||
-          status === 429
-        ) {
+        if (isRetryableLightningInvoiceDecodeFailure(error)) {
           throw new RetryableLightningInvoiceDecodeError({
             message: 'Lightning invoice decoding temporarily unavailable',
             autoToast: false,

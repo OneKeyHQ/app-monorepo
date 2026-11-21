@@ -107,9 +107,9 @@ describe('Lightning read authorization without wallet interaction', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
-  test('the shared invoice decoder allows retry after rejection', async () => {
+  test('permanent invoice rejections are not cached for automatic retry', async () => {
     const { client, get } = harness();
-    const failure = new OneKeyLocalError('Synthetic decode response failure');
+    const failure = new OneKeyServerApiError({ httpStatusCode: 400 });
     get.mockRejectedValueOnce(failure);
     await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
     await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
@@ -149,9 +149,12 @@ describe('Lightning read authorization without wallet interaction', () => {
     },
   );
 
-  test('backs off repeated HTTP 503 responses that have no Retry-After', async () => {
+  test.each([
+    ['transport failure', new OneKeyLocalError('Synthetic decode timeout')],
+    ['HTTP 408', new OneKeyServerApiError({ httpStatusCode: 408 })],
+    ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
+  ])('backs off repeated %s without Retry-After', async (_label, failure) => {
     const { client, get } = harness();
-    const failure = new OneKeyServerApiError({ httpStatusCode: 503 });
     get.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
     const time = 1_900_000_000_000;
     const now = jest.spyOn(Date, 'now').mockReturnValue(time);

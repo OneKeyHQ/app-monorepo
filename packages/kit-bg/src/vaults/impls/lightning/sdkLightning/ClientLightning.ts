@@ -2,7 +2,10 @@ import { isAxiosError } from 'axios';
 
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  isRetryableLightningInvoiceDecodeFailure,
+} from '@onekeyhq/shared/src/errors';
 import type {
   OneKeyError,
   OneKeyServerApiError,
@@ -39,15 +42,9 @@ function invoiceDecodeCooldownMs(
   error: unknown,
   fallbackMs: number,
 ): number | undefined {
+  if (!isRetryableLightningInvoiceDecodeFailure(error)) return undefined;
   const response = isAxiosError(error) ? error.response : undefined;
   const serverError = error as OneKeyServerApiError | undefined;
-  const status = serverError?.httpStatusCode ?? response?.status;
-  if (
-    status !== 429 &&
-    !(status !== undefined && status >= 500 && status < 600)
-  ) {
-    return undefined;
-  }
   const retryAfter =
     serverError?.retryAfter ?? response?.headers['retry-after'];
   if (typeof retryAfter !== 'string') return fallbackMs;
