@@ -181,6 +181,48 @@ describe('system time error notifications', () => {
     },
   );
 
+  it('opens a desktop health retry after system uptime advances through sleep', async () => {
+    const api = Object.getOwnPropertyDescriptor(globalThis, 'desktopApi');
+    let uptimeMs = 40_000;
+    Object.defineProperty(globalThis, 'desktopApi', {
+      configurable: true,
+      value: { getSystemUptimeMs: async () => uptimeMs },
+    });
+    try {
+      const initial = BASE_TIME + SLEEP_TIME;
+      jest.setSystemTime(initial);
+      mockGet.mockRejectedValueOnce(
+        Object.assign(new Error('Synthetic 429'), {
+          isAxiosError: true,
+          response: { status: 429, headers: { 'retry-after': '10' } },
+        }),
+      );
+      const read = () => systemTimeUtils.getFreshEstimatedServerTime();
+      await expect(read()).resolves.toBeUndefined();
+
+      jest.setSystemTime(initial + 60_000);
+      await expect(read()).resolves.toBeUndefined();
+      uptimeMs += 10_000;
+      await expect(read()).resolves.toBeUndefined();
+      expect(mockGet).toHaveBeenCalledTimes(1);
+
+      uptimeMs += 5000;
+      jest.setSystemTime(initial - 60_000);
+      const sample = initial + 15_000;
+      mockGet.mockResolvedValue({
+        headers: { date: new Date(sample).toUTCString() },
+      });
+      await expect(Promise.all([read(), read()])).resolves.toEqual([
+        sample,
+        sample,
+      ]);
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    } finally {
+      if (api) Object.defineProperty(globalThis, 'desktopApi', api);
+      else Reflect.deleteProperty(globalThis, 'desktopApi');
+    }
+  });
+
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
       monotonicTime += 1000;

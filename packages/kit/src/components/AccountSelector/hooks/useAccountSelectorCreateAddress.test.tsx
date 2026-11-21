@@ -14,6 +14,7 @@ import {
 import { Dialog, Toast } from '@onekeyhq/components';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -45,6 +46,8 @@ const mockGetIndexedAccounts = jest.fn<
   [unknown]
 >();
 const mockVerifyPassword = jest.fn<Promise<void>, [unknown]>();
+const mockImportQrAccount = jest.fn<Promise<void>, [unknown]>();
+const mockWaitForAddressCreationFocus = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -112,7 +115,12 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actionsLazy', () => ({
 }));
 
 jest.mock('./useCreateQrWallet', () => ({
-  useCreateQrWallet: () => ({ createQrWalletAccount: jest.fn() }),
+  useCreateQrWallet: () => ({ createQrWalletAccount: mockImportQrAccount }),
+}));
+
+jest.mock('../../../views/ScanQrCode/utils/getAccountIdOnNetwork', () => ({
+  waitForAddressCreationRequestFocus: (request: unknown) =>
+    mockWaitForAddressCreationFocus(request),
 }));
 
 jest.mock('../../TutorialsList', () => ({ TutorialsList: () => null }));
@@ -161,6 +169,52 @@ describe('useAccountSelectorCreateAddress', () => {
       addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
       failedAccounts: [pathForbidden],
     });
+  });
+
+  it('retries the missing address after the legacy scanner owner regains focus', async () => {
+    const imported = Promise.withResolvers<void>();
+    const waiting = Promise.withResolvers<void>();
+    const refocused = Promise.withResolvers<void>();
+    const request = { id: 'qr-parent', nodeId: 'node', promiseId: 42 };
+    let active = true;
+    mockAddAccounts
+      .mockRejectedValueOnce(new OneKeyErrorAirGapAccountNotFound())
+      .mockResolvedValueOnce({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        accounts: [{ id: 'created-address' }],
+      });
+    mockImportQrAccount.mockImplementationOnce(async () => {
+      active = false;
+      imported.resolve();
+    });
+    mockWaitForAddressCreationFocus.mockImplementationOnce(async () => {
+      waiting.resolve();
+      await refocused.promise;
+    });
+    const { result } = renderHook(() => useAccountSelectorCreateAddress());
+    const creation = result.current.createAddress({
+      num: 0,
+      selectAfterCreate: false,
+      account: {
+        walletId: 'qr-1',
+        networkId: 'btc--0',
+        indexedAccountId: 'qr-1--0',
+        deriveType: 'default',
+      },
+      addressCreationRequest: request,
+      canStartAddressCreation: () => active,
+    });
+    await imported.promise;
+    await Promise.race([waiting.promise, creation]);
+    expect(mockWaitForAddressCreationFocus).toHaveBeenCalledWith(request);
+    expect(mockAddAccounts).toHaveBeenCalledTimes(1);
+    active = true;
+    refocused.resolve();
+    await expect(creation).resolves.toMatchObject({
+      accounts: [{ id: 'created-address' }],
+    });
+    expect(mockAddAccounts).toHaveBeenCalledTimes(2);
   });
 
   it.each([true, false])(

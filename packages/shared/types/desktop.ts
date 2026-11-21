@@ -118,6 +118,7 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   /** Privacy-chain node requests from the main process (no renderer CORS). */
   fetchStream: IFetchStreamRequester;
   getCpuUsage: () => Promise<{ usage: number }>;
+  getSystemUptimeMs?: () => Promise<number | undefined>;
   getMemoryUsage: () => Promise<{
     private: number;
     residentSet: number | undefined;

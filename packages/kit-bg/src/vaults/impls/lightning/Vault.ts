@@ -509,7 +509,10 @@ export default class Vault extends VaultBase {
     return invoice;
   }
 
-  async exchangeToken(account?: INetworkAccount) {
+  async exchangeToken(
+    account?: INetworkAccount,
+    assertCanContinueAccountCreation?: () => void,
+  ) {
     const { isTestnet } = await this.getNetwork();
     const usedAccount = account || (await this.getAccount());
     const address = usedAccount.addressDetail.normalizedAddress;
@@ -541,6 +544,7 @@ export default class Vault extends VaultBase {
       deviceId = deviceParams?.dbDevice?.deviceId;
       deviceCommonParams = deviceParams?.deviceCommonParams;
     }
+    assertCanContinueAccountCreation?.();
     const sign = await keyring.signApiMessage({
       msgPayload: {
         ...signTemplate,
@@ -558,6 +562,7 @@ export default class Vault extends VaultBase {
       deviceId,
       deviceCommonParams,
     });
+    assertCanContinueAccountCreation?.();
     const res = await client.refreshAccessToken({
       hashPubKey,
       address,
@@ -565,9 +570,11 @@ export default class Vault extends VaultBase {
       timestamp,
       randomSeed: signTemplate.randomSeed,
     });
+    assertCanContinueAccountCreation?.();
     await this.backgroundApi.simpleDb.lightning.updateCredential({
       address,
       credential: res.accessToken,
+      assertCanCommit: assertCanContinueAccountCreation,
     });
     return res;
   }

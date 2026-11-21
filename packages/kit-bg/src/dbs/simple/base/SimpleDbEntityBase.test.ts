@@ -5,6 +5,8 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { TravelModeManager } from '@onekeyhq/shared/src/travelMode/TravelModeManager';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
+import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
+
 import {
   UNREADABLE_SELF_HEAL_MAX_RETRIES,
   getUnreadableSelfHealDelayMs,
@@ -79,6 +81,35 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
 const expectedHealGetItemCalls = 1 + UNREADABLE_SELF_HEAL_MAX_RETRIES;
 
 describe('SimpleDbEntityBase request commit guard', () => {
+  it('rejects a queued Lightning credential after the scan expires', async () => {
+    const entity = new SimpleDbEntityLightning();
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => null),
+      setItem,
+    };
+    const [, release] = await entity.mutex.acquire();
+    const expired = new CanceledError('invoice expired');
+    let active = true;
+    const pending = entity.updateCredential({
+      address: 'fixture-address',
+      credential: 'fixture-token',
+      assertCanCommit: () => {
+        if (!active) throw expired;
+      },
+    });
+    active = false;
+    release();
+    await expect(pending).rejects.toBe(expired);
+    expect(setItem).not.toHaveBeenCalled();
+    await entity.updateCredential({
+      address: 'fixture-address',
+      credential: 'fixture-token',
+    });
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a stale queued writer after acquiring the entity lock', async () => {
     const entity = new TestEntity();
     const setItem = jest.fn(async () => undefined);

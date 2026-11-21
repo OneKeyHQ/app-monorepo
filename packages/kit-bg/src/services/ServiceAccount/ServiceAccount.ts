@@ -224,6 +224,7 @@ import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycle
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 import {
+  assertPublicAccountCreationCanContinue,
   isPublicAccountCreationContext,
   withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
@@ -1309,6 +1310,7 @@ class ServiceAccount extends ServiceBase {
       hideCheckingDeviceLoading,
       skipWaitingAnimationAtFirst,
       oneKeyOperationLease,
+      publicAccountCreationContext,
     } = params;
 
     const { prepareParams, deviceParams, networkId, walletId } =
@@ -1324,11 +1326,23 @@ class ServiceAccount extends ServiceBase {
         walletId,
       });
 
+      const assertCanContinueAccountCreation = isPublicAccountCreationContext(
+        publicAccountCreationContext,
+      )
+        ? () =>
+            assertPublicAccountCreationCanContinue(publicAccountCreationContext)
+        : undefined;
       const r =
         await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
           async () => {
             // addHDOrHWAccounts
-            const accounts = await vault.keyring.prepareAccounts(prepareParams);
+            assertCanContinueAccountCreation?.();
+            const accounts = await vault.keyring.prepareAccounts(
+              assertCanContinueAccountCreation &&
+                networkUtils.isLightningNetworkByNetworkId(networkId)
+                ? { ...prepareParams, assertCanContinueAccountCreation }
+                : prepareParams,
+            );
             return {
               vault,
               accounts,

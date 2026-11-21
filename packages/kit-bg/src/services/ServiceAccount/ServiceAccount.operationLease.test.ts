@@ -11,6 +11,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../../dbs/local/localDb';
+import { vaultFactory } from '../../vaults/factory';
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import {
   HardwareProcessingManager,
@@ -19,6 +20,7 @@ import {
 import {
   assertPublicAccountCreationCanContinue,
   isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import ServicePromise from '../ServicePromise';
 
@@ -70,6 +72,50 @@ describe('explicit account creation capability entry', () => {
     await service.addHDOrHWAccounts(params);
     expect(active).toEqual([true, false]);
     inner.mockRestore();
+  });
+
+  test('passes scan ownership into background Lightning keyring preparation', async () => {
+    let active = true;
+    const prepareAccounts = jest.fn(
+      async (params: { assertCanContinueAccountCreation?: () => void }) => {
+        active = false;
+        params.assertCanContinueAccountCreation?.();
+        return [];
+      },
+    );
+    const getWalletOnlyVault = jest.spyOn(vaultFactory, 'getWalletOnlyVault');
+    getWalletOnlyVault.mockResolvedValueOnce({
+      keyring: { prepareAccounts },
+    } as unknown as Awaited<
+      ReturnType<typeof vaultFactory.getWalletOnlyVault>
+    >);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: async (operation: () => Promise<unknown>) =>
+            operation(),
+        },
+      },
+    });
+    service.getPrepareHDOrHWAccountsParams = jest.fn().mockResolvedValue({
+      prepareParams: {},
+      networkId: 'lightning--0',
+      walletId: 'hd-1',
+    });
+    await expect(
+      withPublicAccountCreationContext(
+        (publicAccountCreationContext) =>
+          service.prepareHdOrHwAccounts({
+            publicAccountCreationContext,
+            walletId: 'hd-1',
+            networkId: 'lightning--0',
+            deriveType: 'default',
+            indexedAccountId: 'hd-1--0',
+          }),
+        () => active,
+      ),
+    ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    expect(prepareAccounts).toHaveBeenCalledTimes(1);
   });
 
   test('stops QR import and skips wallet update when its callback settles during background work', async () => {

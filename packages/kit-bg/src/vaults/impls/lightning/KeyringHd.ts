@@ -83,6 +83,7 @@ export class KeyringHd extends KeyringHdBase {
       }
       const accountExist = await client.checkAccountExist(account.address);
       if (!accountExist) {
+        params.assertCanContinueAccountCreation?.();
         const hashPubKey = bufferUtils.bytesToHex(sha256(account.pub));
         const signTemplate = await client.fetchSignTemplate(
           account.address,
@@ -92,6 +93,7 @@ export class KeyringHd extends KeyringHdBase {
           throw new OneKeyLocalError('Wrong signature type');
         }
 
+        params.assertCanContinueAccountCreation?.();
         const signature = await this.signApiMessage({
           msgPayload: {
             ...signTemplate,
@@ -103,6 +105,7 @@ export class KeyringHd extends KeyringHdBase {
           path: account.path,
         });
 
+        params.assertCanContinueAccountCreation?.();
         await client.createUser({
           hashPubKey,
           address: account.address,

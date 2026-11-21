@@ -36,6 +36,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
+import { waitForAddressCreationRequestFocus } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 import { TutorialsList } from '../../TutorialsList';
 import { AccountSelectorTestIDs } from '../testIDs';
 
@@ -332,6 +333,7 @@ export function useAccountSelectorCreateAddress() {
           });
 
           try {
+            await waitForAddressCreationRequestFocus(addressCreationRequest);
             return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {

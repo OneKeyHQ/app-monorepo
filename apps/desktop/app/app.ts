@@ -1108,6 +1108,21 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_UPTIME);
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_UPTIME, (event) => {
+    if (
+      event.sender.isDestroyed() ||
+      !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+        event.sender.id,
+        event.senderFrame,
+        event.sender.mainFrame,
+      )
+    ) {
+      return undefined;
+    }
+    const seconds = os.uptime();
+    return seconds > 0 ? seconds * 1000 : undefined;
+  });
   ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
     try {
       const cpuUsage = process.getCPUUsage();

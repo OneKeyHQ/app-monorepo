@@ -1,3 +1,4 @@
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
@@ -15,6 +16,7 @@ const activeAddressCreationRequests = new Map<
     canApplyScanResult: () => boolean;
     controller: AbortController;
     holdForChildScan?: () => () => void;
+    awaitingLinkedScannerFocus?: boolean;
   }
 >();
 const addressCreationRequestByScan = new WeakMap<AbortSignal, string>();
@@ -55,7 +57,50 @@ export function holdAddressCreationForChildScan(
   if (getAddressCreationRequestState(request) !== 'active') {
     throw new OneKeyErrorScanQrCodeCancel();
   }
-  return activeAddressCreationRequests.get(request.id)?.holdForChildScan?.();
+  const active = activeAddressCreationRequests.get(request.id);
+  const release = active?.holdForChildScan?.();
+  if (release && active) active.awaitingLinkedScannerFocus = true;
+  return release;
+}
+
+export async function waitForAddressCreationRequestFocus(
+  request?: IAddressCreationRequest,
+) {
+  if (!request) return;
+  const active =
+    request.nodeId === appEventBus.nodeId
+      ? activeAddressCreationRequests.get(request.id)
+      : undefined;
+  if (!active || active.controller.signal.aborted) {
+    throw new OneKeyErrorScanQrCodeCancel();
+  }
+  if (!active.canApplyScanResult()) {
+    const navigation = rootNavigationRef.current;
+    if (!active.awaitingLinkedScannerFocus || !navigation) {
+      throw new OneKeyErrorScanQrCodeCancel();
+    }
+    const signal = active.controller.signal;
+    const focused = Promise.withResolvers<void>();
+    const cancel = () => focused.reject(new OneKeyErrorScanQrCodeCancel());
+    const onNavigationState = () => {
+      if (activeAddressCreationRequests.get(request.id) !== active) {
+        cancel();
+      } else if (active.canApplyScanResult()) {
+        focused.resolve();
+      }
+    };
+    const unsubscribe = navigation.addListener('state', onNavigationState);
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      if (signal.aborted) cancel();
+      else onNavigationState();
+      await focused.promise;
+    } finally {
+      unsubscribe();
+      signal.removeEventListener('abort', cancel);
+    }
+  }
+  active.awaitingLinkedScannerFocus = false;
 }
 
 export const getAccountIdOnNetwork = async ({

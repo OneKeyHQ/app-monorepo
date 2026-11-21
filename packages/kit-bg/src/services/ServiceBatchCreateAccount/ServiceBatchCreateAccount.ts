@@ -2126,6 +2126,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           });
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
+              publicAccountCreationContext,
               walletId,
               networkId,
               deriveType,

@@ -94,6 +94,12 @@ function getMonotonicTimeNow(): number | undefined {
   return time;
 }
 
+async function getDesktopSystemUptimeMs() {
+  if (platformEnv.isDesktop) {
+    return globalThis.desktopApi?.getSystemUptimeMs?.().catch(() => undefined);
+  }
+}
+
 function normalizeTimestamp(time: number | undefined): number | undefined {
   if (!isNumber(time) || isNaN(time) || isNil(time)) {
     return undefined;
@@ -171,7 +177,9 @@ class SystemTimeUtils {
 
   private _freshEstimatePromise: Promise<number | undefined> | undefined;
 
-  private _freshEstimateRetryAt = 0;
+  private _freshEstimateRetry:
+    | { monotonicAt: number; uptimeAt?: number }
+    | undefined;
 
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
@@ -610,32 +618,42 @@ class SystemTimeUtils {
   async getFreshEstimatedServerTime(): Promise<number | undefined> {
     const estimated = this.getContinuousEstimatedServerTime();
     if (estimated !== undefined) return estimated;
-    const now = getMonotonicTimeNow() ?? Date.now();
-    if (now < this._freshEstimateRetryAt) return undefined;
-    this._freshEstimatePromise ??= this.refreshServerTimeOnce()
-      .then((success) => {
-        const refreshed = success
-          ? this.getContinuousEstimatedServerTime()
-          : undefined;
-        this._freshEstimateRetryAt =
-          refreshed === undefined
-            ? (getMonotonicTimeNow() ?? Date.now()) + freshEstimateRetryDelayMs
-            : 0;
-        return refreshed;
-      })
-      .catch((error: unknown) => {
-        const { delayMs } = getRetryAfterOnError(
-          error,
-          freshEstimateRetryDelayMs,
-        );
-        this._freshEstimateRetryAt =
-          (getMonotonicTimeNow() ?? Date.now()) + delayMs;
-        return undefined;
-      })
-      .finally(() => {
+    this._freshEstimatePromise ??=
+      this.refreshMissingContinuousEstimate().finally(() => {
         this._freshEstimatePromise = undefined;
       });
     return this._freshEstimatePromise;
+  }
+
+  private async refreshMissingContinuousEstimate(): Promise<
+    number | undefined
+  > {
+    const retry = this._freshEstimateRetry;
+    if (retry && (getMonotonicTimeNow() ?? Date.now()) < retry.monotonicAt) {
+      if (retry.uptimeAt === undefined) return undefined;
+      const uptime = await getDesktopSystemUptimeMs();
+      if (uptime === undefined || uptime < retry.uptimeAt) return undefined;
+    }
+    let delayMs = freshEstimateRetryDelayMs;
+    try {
+      const success = await this.refreshServerTimeOnce();
+      const refreshed = success
+        ? this.getContinuousEstimatedServerTime()
+        : undefined;
+      if (refreshed !== undefined) {
+        this._freshEstimateRetry = undefined;
+        return refreshed;
+      }
+    } catch (error) {
+      ({ delayMs } = getRetryAfterOnError(error, freshEstimateRetryDelayMs));
+    }
+    const monotonicAt = (getMonotonicTimeNow() ?? Date.now()) + delayMs;
+    const uptime = await getDesktopSystemUptimeMs();
+    this._freshEstimateRetry = {
+      monotonicAt,
+      // System uptime counts suspend and can be rounded to whole seconds.
+      uptimeAt: uptime === undefined ? undefined : uptime + delayMs + 1000,
+    };
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {

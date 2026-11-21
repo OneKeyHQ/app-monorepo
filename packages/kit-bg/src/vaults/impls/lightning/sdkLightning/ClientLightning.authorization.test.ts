@@ -1,12 +1,15 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import ServiceLightning from '@onekeyhq/kit-bg/src/services/ServiceLightning';
 import {
+  OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import { vaultFactory } from '../../../factory';
+import { KeyringHardware } from '../KeyringHardware';
+import { KeyringHd } from '../KeyringHd';
 import LightningVault from '../Vault';
 
 import ClientLightning from './ClientLightning';
@@ -234,6 +237,7 @@ describe('Lightning read authorization without wallet interaction', () => {
       const time = 1_900_000_000_000;
       const serverError = new OneKeyServerApiError({ httpStatusCode: status });
       serverError.retryAfter = new Date(time + 5000).toUTCString();
+      serverError.retryAfterResponseDate = new Date(time).toUTCString();
       const failure =
         status === 503
           ? serverError
@@ -356,6 +360,41 @@ describe('Lightning read authorization without wallet interaction', () => {
       }
     },
   );
+
+  test('keeps an absolute Retry-After deadline without trusting a fast local clock', async () => {
+    const { client, get } = harness();
+    const serverTime = 1_900_000_000_000;
+    const deadline = serverTime + 120_000;
+    const failure = Object.assign(
+      new OneKeyServerApiError({ httpStatusCode: 429 }),
+      {
+        retryAfter: new Date(deadline).toUTCString(),
+      },
+    );
+    get.mockRejectedValueOnce(failure);
+    jest.useFakeTimers({ now: serverTime + 3_600_000 });
+    const clock = jest
+      .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+      .mockReturnValue(undefined);
+    const refresh = jest
+      .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
+      .mockResolvedValue(undefined);
+    try {
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      jest.advanceTimersByTime(1000);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      refresh.mockResolvedValue(deadline - 1);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+      clock.mockReturnValue(deadline);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      refresh.mockRestore();
+      clock.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 
   test.each([
     ['transport failure', new OneKeyLocalError('Synthetic decode timeout')],
@@ -488,6 +527,154 @@ describe('Lightning read authorization without wallet interaction', () => {
 });
 
 describe('explicit Lightning actions retain authorization and cancellation', () => {
+  test.each([
+    ['hd', 'lookup'],
+    ['hardware', 'lookup'],
+    ['hd', 'template'],
+    ['hardware', 'template'],
+    ['hd', 'signing'],
+    ['hardware', 'signing'],
+  ])(
+    'stops %s registration if ownership ends during %s',
+    async (walletType, stage) => {
+      const waiting = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      const pause = async () => {
+        waiting.resolve();
+        await finish.promise;
+      };
+      const createUser = jest.fn(async () => undefined);
+      const exchangeToken = jest.fn(async () => undefined);
+      const signApiMessage = jest.fn(async () => {
+        if (stage === 'signing') await pause();
+        return 'synthetic-signature';
+      });
+      const client = {
+        checkAccountExist: async () => {
+          if (stage === 'lookup') await pause();
+          return false;
+        },
+        fetchSignTemplate: async () => {
+          if (stage === 'template') await pause();
+          return { type: 'register', randomSeed: 1 };
+        },
+        createUser,
+      };
+      const account = {
+        id: 'hd-1--0',
+        pub: 'fixture-xpub',
+        path: "m/84'/0'/0'",
+        address: 'fixture-address',
+      };
+      const isHd = walletType === 'hd';
+      const keyring = Object.assign(
+        Object.create(isHd ? KeyringHd.prototype : KeyringHardware.prototype),
+        {
+          backgroundApi: {
+            serviceLightning: { getLnClient: async () => client },
+          },
+          getCoreApiNetworkInfo: async () => ({}),
+          baseGetCredentialsInfo: async () => ({}),
+          basePrepareHdNormalAccounts: async (
+            _params: unknown,
+            options: {
+              buildAddressesInfo: (payload: {
+                usedIndexes: number[];
+              }) => Promise<unknown[]>;
+            },
+          ) =>
+            isHd ? [account] : options.buildAddressesInfo({ usedIndexes: [0] }),
+          baseGetDeviceAccountPublicKeys: async () => [
+            { path: account.path, xpub: account.pub },
+          ],
+          coreApi: {
+            getAddressFromXpub: async () => ({ '0/0': account.address }),
+          },
+          vault: { exchangeToken },
+          signApiMessage,
+        },
+      ) as KeyringHd | KeyringHardware;
+      const cancelled = new OneKeyErrorScanQrCodeCancel();
+      let current = true;
+      const params = {
+        password: 'synthetic',
+        indexes: [0],
+        deriveInfo: {},
+        deviceParams: {
+          dbDevice: { connectId: 'fixture-device', deviceId: 'fixture-device' },
+        },
+        assertCanContinueAccountCreation: () => {
+          if (!current) throw cancelled;
+        },
+      } as unknown as Parameters<KeyringHd['prepareAccounts']>[0] &
+        Parameters<KeyringHardware['prepareAccounts']>[0];
+      const preparing = keyring.prepareAccounts(params);
+      await waiting.promise;
+      current = false;
+      finish.resolve();
+      await expect(preparing).rejects.toBe(cancelled);
+      expect(signApiMessage).toHaveBeenCalledTimes(stage === 'signing' ? 1 : 0);
+      expect(createUser).not.toHaveBeenCalled();
+      expect(exchangeToken).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['signing', 'refresh', 'storage'])(
+    'stops hardware account authorization when the invoice expires during %s',
+    async (stage) => {
+      const expired = new OneKeyLocalError('Synthetic expired invoice');
+      const expiresAt = 100;
+      let now = 99;
+      const assertCanContinue = () => {
+        if (now >= expiresAt) throw expired;
+      };
+      const signApiMessage = jest.fn(async () => {
+        if (stage === 'signing') now = expiresAt;
+        return 'synthetic-signature';
+      });
+      const refreshAccessToken = jest.fn(async () => {
+        if (stage === 'refresh') now = expiresAt;
+        return { accessToken: localToken };
+      });
+      const write = jest.fn();
+      const updateCredential = jest.fn(
+        async (params: { assertCanCommit?: () => void }) => {
+          now = expiresAt;
+          params.assertCanCommit?.();
+          write();
+        },
+      );
+      const vault = Object.assign(Object.create(LightningVault.prototype), {
+        walletId: 'hw-test',
+        getNetwork: async () => ({ isTestnet: false }),
+        getAccount: async () => ({
+          addressDetail: { normalizedAddress: address },
+          pub: 'fixture-xpub',
+          path: "m/84'/0'/0'",
+        }),
+        getClient: async () => ({
+          fetchSignTemplate: async () => ({ type: 'auth', randomSeed: 1 }),
+          refreshAccessToken,
+        }),
+        keyring: { signApiMessage },
+        backgroundApi: {
+          serviceAccount: { getWalletDeviceParams: async () => ({}) },
+          simpleDb: { lightning: { updateCredential } },
+        },
+      }) as LightningVault;
+      await expect(
+        vault.exchangeToken(undefined, assertCanContinue),
+      ).rejects.toBe(expired);
+      expect(refreshAccessToken).toHaveBeenCalledTimes(
+        stage === 'signing' ? 0 : 1,
+      );
+      expect(updateCredential).toHaveBeenCalledTimes(
+        stage === 'storage' ? 1 : 0,
+      );
+      expect(write).not.toHaveBeenCalled();
+    },
+  );
+
   test('an explicit invoice action authorizes once then sends its request', async () => {
     const h = harness();
     await h.client.createInvoice({ ...h.params, amount: '1' });

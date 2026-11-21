@@ -15,10 +15,16 @@ import {
   OneKeyLocalError,
   RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
+import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
-import { getAddressCreationRequestSignal } from '../utils/getAccountIdOnNetwork';
+import {
+  getAccountIdOnNetwork,
+  getAddressCreationRequestSignal,
+  holdAddressCreationForChildScan,
+  waitForAddressCreationRequestFocus,
+} from '../utils/getAccountIdOnNetwork';
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
 
 import { parseQRCodeWithDeps } from './useParseQRCode';
@@ -44,6 +50,8 @@ const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
 >();
+const mockNavigationStateListeners = new Set<() => void>();
+let mockHasRootNavigation = false;
 
 jest.mock('@react-navigation/native', () => ({
   StackActions: { push: jest.fn() },
@@ -51,7 +59,19 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { confirm: jest.fn() },
   Toast: { error: jest.fn(), success: jest.fn() },
-  rootNavigationRef: { current: undefined },
+  rootNavigationRef: {
+    get current() {
+      if (!mockHasRootNavigation) return undefined;
+      return {
+        addListener: (_event: string, listener: () => void) => {
+          mockNavigationStateListeners.add(listener);
+          return () => {
+            mockNavigationStateListeners.delete(listener);
+          };
+        },
+      };
+    },
+  },
   useClipboard: jest.fn(),
   resetAboveMainRoute: jest.fn(),
   navigateFromOverlayToTab: jest.fn(),
@@ -113,6 +133,8 @@ function parseFrame() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockHasRootNavigation = false;
+  mockNavigationStateListeners.clear();
   mockEnsureLightningInvoiceIsCurrent.mockReset().mockResolvedValue(undefined);
   mockCreateAddressIfNotExists.mockReset().mockResolvedValue(undefined);
   mockGetCompatibleNetworks.mockReset().mockResolvedValue({
@@ -120,6 +142,58 @@ beforeEach(() => {
     networkIdsIncompatible: [],
   });
 });
+
+it.each([false, true])(
+  'handles return to the parent after a linked QR scan (cancelled: %s)',
+  async (cancelled) => {
+    mockHasRootNavigation = true;
+    const scanner = new AbortController();
+    const request = Promise.withResolvers<IAddressCreationRequest>();
+    const finish = Promise.withResolvers<undefined>();
+    const release = jest.fn();
+    let focused = true;
+    mockCreateAddressIfNotExists.mockImplementationOnce((_params, options) => {
+      if (options.addressCreationRequest)
+        request.resolve(options.addressCreationRequest);
+      return finish.promise;
+    });
+    const creating = getAccountIdOnNetwork({
+      account: {
+        id: 'hd-1--0',
+        indexedAccountId: 'hd-1--0',
+      } as NonNullable<Parameters<typeof getAccountIdOnNetwork>[0]['account']>,
+      network: {
+        id: 'btc--0',
+        impl: 'btc',
+      } as Parameters<typeof getAccountIdOnNetwork>[0]['network'],
+      scanSignal: scanner.signal,
+      canApplyScanResult: () => focused,
+      holdForChildScan: () => release,
+    });
+    const owner = await request.promise;
+    const releaseChild = holdAddressCreationForChildScan(owner);
+    focused = false;
+    releaseChild?.();
+    try {
+      const wait = waitForAddressCreationRequestFocus(owner);
+      expect(mockNavigationStateListeners.size).toBe(1);
+      mockNavigationStateListeners.forEach((listener) => listener());
+      expect(mockNavigationStateListeners.size).toBe(1);
+      if (cancelled) {
+        scanner.abort();
+        await expect(wait).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+      } else {
+        focused = true;
+        mockNavigationStateListeners.forEach((listener) => listener());
+        await expect(wait).resolves.toBeUndefined();
+      }
+      expect(mockNavigationStateListeners.size).toBe(0);
+    } finally {
+      finish.resolve(undefined);
+      await creating;
+    }
+  },
+);
 
 it('gives the current result ownership of address creation within its scan scope', async () => {
   const network = { id: 'lightning--0', impl: 'lightning' };

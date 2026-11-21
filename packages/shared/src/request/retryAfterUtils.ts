@@ -17,11 +17,21 @@ export function getRetryAfterOnError(
     typeof responseDate === 'string' ? Date.parse(responseDate) : NaN;
   const responseTime = Number.isFinite(parsedDate) ? parsedDate : undefined;
   const header = typeof retryAfter === 'string' ? retryAfter.trim() : '';
-  const delay = /^\d+$/.test(header)
-    ? Number(header) * 1000
-    : Date.parse(header) - (responseTime ?? estimatedServerTime ?? Date.now());
+  const isRelative = /^\d+$/.test(header);
+  const parsedDeadline = isRelative ? NaN : Date.parse(header);
+  const absoluteAt = Number.isFinite(parsedDeadline)
+    ? parsedDeadline
+    : undefined;
+  const referenceTime = responseTime ?? estimatedServerTime;
+  let delay = minimumDelayMs;
+  if (isRelative) {
+    delay = Number(header) * 1000;
+  } else if (absoluteAt !== undefined && referenceTime !== undefined) {
+    delay = absoluteAt - referenceTime;
+  }
   return {
     responseTime,
+    absoluteAt,
     delayMs: Number.isFinite(delay)
       ? Math.max(minimumDelayMs, delay)
       : minimumDelayMs,

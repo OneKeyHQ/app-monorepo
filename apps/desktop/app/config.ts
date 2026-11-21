@@ -106,6 +106,7 @@ export const ipcMessageKeys = {
   SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
   FETCH_STREAM: 'fetch/stream',
   SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
+  SYSTEM_GET_UPTIME: 'system/getUptime',
 
   // Boot Recovery
   MARK_BOOT_SUCCESS: 'recovery/markBootSuccess',

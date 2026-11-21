@@ -180,6 +180,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
           const accountExist = await client.checkAccountExist(address);
           if (!accountExist) {
+            params.assertCanContinueAccountCreation?.();
             const hashPubKey = bufferUtils.bytesToHex(sha256(xpub));
             const signTemplate = await client.fetchSignTemplate(
               address,
@@ -188,6 +189,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             if (signTemplate.type !== 'register') {
               throw new OneKeyLocalError('Wrong signature type');
             }
+            params.assertCanContinueAccountCreation?.();
             const sign = await this.signApiMessage({
               connectId,
               deviceId,
@@ -200,6 +202,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               address,
               path,
             });
+            params.assertCanContinueAccountCreation?.();
             await client.createUser({
               hashPubKey,
               address,
@@ -220,19 +223,23 @@ export class KeyringHardware extends KeyringHardwareBase {
               [addressRelPath]: address,
             },
           };
-          await (this.vault as LightningVault).exchangeToken({
-            pub: xpub,
-            path,
-            addressDetail: {
-              isValid: true,
-              networkId: '',
-              baseAddress: '',
-              displayAddress: '',
-              address: '',
-              normalizedAddress: address,
-              allowEmptyAddress: true,
-            },
-          } as INetworkAccount);
+          params.assertCanContinueAccountCreation?.();
+          await (this.vault as LightningVault).exchangeToken(
+            {
+              pub: xpub,
+              path,
+              addressDetail: {
+                isValid: true,
+                networkId: '',
+                baseAddress: '',
+                displayAddress: '',
+                address: '',
+                normalizedAddress: address,
+                allowEmptyAddress: true,
+              },
+            } as INetworkAccount,
+            params.assertCanContinueAccountCreation,
+          );
           ret.push(addressInfo);
         }
         return ret;

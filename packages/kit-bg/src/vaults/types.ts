@@ -485,6 +485,7 @@ export type IPrepareHdAccountsParamsBase = {
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
   isVerifyAddressAction?: boolean;
+  assertCanContinueAccountCreation?: () => void;
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
