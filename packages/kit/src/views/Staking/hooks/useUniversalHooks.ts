@@ -2060,9 +2060,33 @@ export function useUniversalWithdraw({
         networkUtils.isEvmNetwork({ networkId })
           ? (value ?? '').toLowerCase()
           : (value ?? '');
+      const lookupAttempt = resultAttemptRef.current;
+      const ethenaScopeAddress = useEthenaCooldown
+        ? await getTaskAccountAddress({ accountId, networkId })
+        : undefined;
+      if (
+        useEthenaCooldown &&
+        (!isOwnerCurrent() ||
+          resultAttemptRef.current !== lookupAttempt ||
+          signal?.aborted ||
+          !(isActionCurrent?.() ?? true) ||
+          !(isResultCurrent?.() ?? true) ||
+          !(isTaskIntentCurrent?.() ?? true))
+      )
+        return false;
+      if (
+        ethenaScopeAddress &&
+        taskAccountAddress &&
+        !isTaskAccountAddress(
+          { accountAddress: taskAccountAddress, networkId },
+          ethenaScopeAddress,
+        )
+      )
+        throw new OneKeyLocalError('Task account changed before withdrawal');
       const ethenaScope = JSON.stringify([
         accountId,
         networkId,
+        normalizeScopeAddress(ethenaScopeAddress),
         provider.toLowerCase(),
         symbol.toUpperCase(),
         normalizeScopeAddress(protocolVault),
@@ -3377,11 +3401,16 @@ export function useUniversalWithdraw({
           });
           if (pendingEthenaSwap && !isResultOwnerCurrent()) return false;
           if (
-            pendingEthenaSwap &&
-            !isTaskAccountAddress(
-              { accountAddress: pendingEthenaSwap.accountAddress, networkId },
-              ethenaAccountAddress,
-            )
+            (ethenaScopeAddress &&
+              !isTaskAccountAddress(
+                { accountAddress: ethenaScopeAddress, networkId },
+                ethenaAccountAddress,
+              )) ||
+            (pendingEthenaSwap &&
+              !isTaskAccountAddress(
+                { accountAddress: pendingEthenaSwap.accountAddress, networkId },
+                ethenaAccountAddress,
+              ))
           )
             throw new OneKeyLocalError(
               'Task account changed before withdrawal',

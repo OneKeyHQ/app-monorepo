@@ -122,6 +122,10 @@ export function createBorrowConfirmationAdapter<
   let cancelled = false;
   let sendObserved = false;
   let beforeSendPending = false;
+  let safePreSendFailure = false;
+  let uncertainSend = false;
+  let blockedRetry = false;
+  let safeFailureFlight: Promise<void> | undefined;
   let acceptedLateTxid: string | undefined;
   let successTxid: string | undefined;
   let lateRecord: Promise<void> | undefined;
@@ -240,15 +244,37 @@ export function createBorrowConfirmationAdapter<
         onFail: onFail
           ? (error) => {
               cancelled = true;
+              if (sendObserved) uncertainSend = true;
               callbacks.onFail(error);
             }
           : undefined,
         onConfirmationFail: (error) => {
           cancelled = true;
+          if (sendObserved) uncertainSend = true;
           callbacks.onFail(error);
+        },
+        onSafePreSendFail: (error) => {
+          cancelled = true;
+          if (safeFailureFlight) return;
+          const canRelease =
+            !blockedRetry && !uncertainSend && pendingFundingFacts.size === 0;
+          safeFailureFlight = (async () => {
+            try {
+              if (canRelease) await fundingGuard?.onSafeCancel();
+              safePreSendFailure = canRelease;
+            } catch {
+              console.error('Unable to release unsubmitted Borrow funding');
+            }
+            try {
+              callbacks.onFail(error);
+            } finally {
+              safePreSendFailure = false;
+            }
+          })();
         },
         onCancel: () => {
           cancelled = true;
+          if (sendObserved) uncertainSend = true;
           if (!sendObserved && !beforeSendPending) releaseSafeFunding();
           callbacks.onCancel();
         },
@@ -259,6 +285,7 @@ export function createBorrowConfirmationAdapter<
             return;
           }
           if (beforeSendPending || sendObserved) {
+            blockedRetry = true;
             throw new OneKeyLocalError(
               'Borrow confirmation is already sending',
             );
@@ -327,7 +354,7 @@ export function createBorrowConfirmationAdapter<
       console.error('Unable to update Borrow task state');
     },
     getTxid: getBorrowTxid,
-    failureCertainty: () => 'unknown',
+    failureCertainty: () => (safePreSendFailure ? 'beforeSend' : 'unknown'),
     cancellationCertainty: () => 'unknown',
   });
   return confirmation;

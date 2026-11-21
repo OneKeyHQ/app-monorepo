@@ -1431,7 +1431,82 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     });
   });
 
-  it.each(['direct-route', 'late-success'] as const)(
+  it.each([false, true])(
+    'only switches to direct repayment after setup cancellation if send was not observed (sent=%s)',
+    async (sent) => {
+      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'setup-order' },
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'repay-order' },
+      );
+      const confirmations: {
+        onBeforeSend: () => Promise<void>;
+        onCancel: () => void;
+      }[] = [];
+      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async (params: {
+          onBeforeSend: () => Promise<void>;
+          onCancel: () => void;
+        }) => {
+          confirmations.push(params);
+        },
+      );
+      const { result } = renderHook(() =>
+        useUniversalBorrowRepayWithCollateral({
+          networkId: 'sol--101',
+          accountId: 'account-a',
+        }),
+      );
+      const params = {
+        amount: '1',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        collateralReserveAddress: 'collateral-a',
+        needsSetupLut: true,
+      };
+      let first: Promise<boolean> | undefined;
+      act(() => {
+        first = result.current(params);
+      });
+      await waitFor(() => expect(confirmations).toHaveLength(1));
+      await act(async () => {
+        if (sent) await confirmations[0].onBeforeSend();
+        confirmations[0].onCancel();
+        expect(await first).toBe(false);
+      });
+      let second: Promise<boolean> | undefined;
+      act(() => {
+        second = result.current({
+          ...params,
+          collateralReserveAddress: 'collateral-b',
+          needsSetupLut: false,
+        });
+      });
+      if (sent) {
+        await act(async () => expect(await second).toBe(false));
+        expect(confirmations).toHaveLength(1);
+        expect(
+          backgroundMock.serviceStaking
+            .borrowBuildRepayWithCollateralTransaction,
+        ).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() => expect(confirmations).toHaveLength(2));
+        expect(
+          backgroundMock.serviceStaking
+            .borrowBuildRepayWithCollateralTransaction,
+        ).toHaveBeenCalledTimes(1);
+        await expect(confirmations[0].onBeforeSend()).rejects.toThrow();
+        await act(async () => {
+          confirmations[1].onCancel();
+          expect(await second).toBe(false);
+        });
+      }
+    },
+  );
+
+  it.each(['late-success'] as const)(
     'keeps the existing setup reservation for %s after cancellation',
     async (scenario) => {
       backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
@@ -1498,7 +1573,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
           await result.current({
             ...params,
             collateralReserveAddress: 'collateral-b',
-            needsSetupLut: scenario !== 'direct-route',
+            needsSetupLut: true,
           }),
         ).toBe(false);
       });
@@ -2571,6 +2646,8 @@ describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
   type ISupplyConfirmation = {
     onBeforeSend: () => Promise<void>;
     onCancel: () => void;
+    onSafePreSendFail?: (error: Error) => void;
+    onConfirmationFail: (error: Error) => void;
     onSuccess: (
       data: { signedTx: { txid: string }; decodedTx: { txid: string } }[],
     ) => Promise<void> | void;
@@ -2692,6 +2769,90 @@ describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
     expect(fundingGuard.beforeSend).toHaveBeenCalledTimes(1);
     expect(fundingGuard.onAccepted).toHaveBeenCalledWith('supply-tx');
     expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
+  });
+
+  it('releases funding after a verified local signing cancellation and allows another supply', async () => {
+    const getConfirmation = captureSupplyConfirmation();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'supply-order' },
+    );
+    const fundingGuard = {
+      beforeSend: jest.fn(async () => undefined),
+      onAccepted: jest.fn(async () => undefined),
+      onSafeCancel: jest.fn(async () => undefined),
+    };
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+    const params = {
+      amount: '1',
+      provider: 'aave',
+      marketAddress: 'market',
+      reserveAddress: 'reserve',
+      fundingGuard,
+    };
+    await act(async () => {
+      await result.current(params);
+    });
+    const confirmation = getConfirmation();
+    await act(async () => {
+      await confirmation.onBeforeSend();
+      expect(confirmation.onSafePreSendFail).toBeDefined();
+      confirmation.onSafePreSendFail?.(new Error('signing cancelled'));
+    });
+    expect(fundingGuard.onSafeCancel).toHaveBeenCalledTimes(1);
+    expect(fundingGuard.onAccepted).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current(params);
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not release an uncertain earlier send when a repeated send is rejected safely', async () => {
+    const getConfirmation = captureSupplyConfirmation();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'supply-order' },
+    );
+    const fundingGuard = {
+      beforeSend: jest.fn(async () => undefined),
+      onAccepted: jest.fn(async () => undefined),
+      onSafeCancel: jest.fn(async () => undefined),
+    };
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        fundingGuard,
+      });
+    });
+    const confirmation = getConfirmation();
+    await act(async () => {
+      await confirmation.onBeforeSend();
+      confirmation.onConfirmationFail(new Error('broadcast outcome unknown'));
+      await expect(confirmation.onBeforeSend()).rejects.toThrow();
+      confirmation.onSafePreSendFail?.(new Error('repeated send blocked'));
+      await confirmation.onSuccess([
+        {
+          signedTx: { txid: 'late-supply' },
+          decodedTx: { txid: 'late-supply' },
+        },
+      ]);
+    });
+    expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
+    expect(fundingGuard.onAccepted).toHaveBeenCalledWith('late-supply');
   });
 
   it('waits for an in-flight funding claim before releasing on cancellation', async () => {

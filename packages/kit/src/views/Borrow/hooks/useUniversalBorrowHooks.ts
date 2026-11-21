@@ -988,7 +988,6 @@ export function useUniversalBorrowRepayWithCollateral({
           if (setup.steps.some((step) => step.id === 'setup')) {
             const setupStep = setup.steps.find((step) => step.id === 'setup');
             const cancelledBeforeSend =
-              needsSetupLut &&
               setupStep?.status.type === 'cancelled' &&
               setup.facts?.recording === 'notStarted' &&
               setup.facts.finality === 'notQueried';

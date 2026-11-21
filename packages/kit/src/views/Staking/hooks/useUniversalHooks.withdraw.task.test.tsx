@@ -1565,6 +1565,53 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     expect(mockBuildUnstake).toHaveBeenCalledTimes(3);
   });
 
+  it('keeps same-account Ethena recovery scoped to the verified wallet address', async () => {
+    const other = '0x2222222222222222222222222222222222222222';
+    mockWaitFinality.mockResolvedValueOnce(undefined);
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = {
+      ...params,
+      provider: 'pendle',
+      useEthenaCooldown: true,
+      taskAccountAddress: owner,
+    };
+    await expect(result.current(ethena)).resolves.toBe(false);
+    mockGetAccount.mockResolvedValue({ address: other });
+    await expect(
+      result.current({ ...ethena, taskAccountAddress: other }),
+    ).resolves.toBe(false);
+    expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
+    mockGetAccount.mockResolvedValue({ address: owner.toUpperCase() });
+    await expect(result.current({ ...ethena, amount: '2.5' })).resolves.toBe(
+      false,
+    );
+    expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects stale Ethena wallet addresses before building a withdrawal', async () => {
+    mockGetAccount.mockResolvedValue({
+      address: '0x2222222222222222222222222222222222222222',
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'pendle',
+        useEthenaCooldown: true,
+        taskAccountAddress: owner,
+      }),
+    ).rejects.toThrow('Task account changed before withdrawal');
+    expect(mockBuildUnstake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('waits for the decoded transaction id if the signed id is empty', async () => {
     const data = submittedData();
     data[0].signedTx.txid = '';
@@ -1805,7 +1852,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     );
   });
 
-  it('keeps an Ethena swap blocked when the address or withdrawal intent changes', async () => {
+  it('keeps an Ethena swap blocked when the withdrawal intent changes', async () => {
     mockWaitFinality.mockResolvedValueOnce(undefined);
     mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
       await onSuccess?.(submittedData());
@@ -1822,8 +1869,6 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     await expect(result.current({ ...ethena, amount: '3' })).resolves.toBe(
       false,
     );
-    mockGetAccount.mockResolvedValue({ address: '0xother' });
-    await expect(result.current(ethena)).resolves.toBe(false);
     expect(mockWaitFinality).toHaveBeenCalledTimes(1);
     expect(mockBuildUnstake).toHaveBeenCalledTimes(1);
     expect(ready).not.toHaveBeenCalled();
@@ -2485,15 +2530,13 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
     const first = result.current(ethena);
     const second = result.current(ethena);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
     const firstConfirm = mockNavigate.mock.calls[0][0];
-    const secondConfirm = mockNavigate.mock.calls[1][0];
-    await expect(firstConfirm.onBeforeSend?.()).resolves.toBeUndefined();
-    await expect(secondConfirm.onBeforeSend?.()).rejects.toThrow();
-    firstConfirm.onCancel?.();
-    secondConfirm.onCancel?.();
-    await expect(first).resolves.toBe(false);
     await expect(second).resolves.toBe(false);
+    await expect(firstConfirm.onBeforeSend?.()).resolves.toBeUndefined();
+    firstConfirm.onCancel?.();
+    await expect(first).resolves.toBe(false);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('records a verified late Ethena swap without starting the second transaction', async () => {
