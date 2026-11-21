@@ -94,10 +94,20 @@ export const resolveReusableLightningRecipient = (address: string) => {
   // Payment text can contain an LNURL as a separate token. Keep QR detection
   // strict so a scan cannot interpret arbitrary text as a payment.
   const candidates = address.matchAll(
-    /(?:^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?])/gi,
+    /(^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
-  for (const [, input] of candidates) {
-    const candidate = normalizeLightningInput(input);
+  for (const [, opener, input] of candidates) {
+    // The token already stops at double quotes and angle brackets.
+    const token =
+      opener === '"' || opener === '<'
+        ? input
+        : input.replace(/[.,!?，。！？]+$/u, '');
+    const closer = opener === '(' ? ')' : "'";
+    const uri =
+      (opener === '(' || opener === "'") && token.endsWith(closer)
+        ? token.slice(0, -1)
+        : token;
+    const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
       return candidate;
     }

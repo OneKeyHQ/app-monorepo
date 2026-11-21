@@ -73,7 +73,7 @@ describe('LightningVault.validateAddress', () => {
     const vault = vaultDecodingWith(decode);
     const address = 'lnurlp://example.com/pay';
     await expect(
-      vault.validateAddress(`Pay here: ${address}`),
+      vault.validateAddress(`Pay here: (${address}).`),
     ).resolves.toEqual({
       isValid: true,
       normalizedAddress: address,

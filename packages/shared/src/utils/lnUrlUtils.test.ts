@@ -72,3 +72,20 @@ it('extracts a complete LNURL from pasted text while keeping QR recognition stri
     resolveReusableLightningRecipient(`Email: ${LNURL}@example.com`),
   ).toBeNull();
 });
+
+it.each([
+  'Pay here: lnurlp://example.com/pay.',
+  'Pay here: (lnurlp://example.com/pay).',
+  '请支付 lnurlp://example.com/pay。',
+])('excludes sentence punctuation from a pasted LNURL URI: %s', (text) => {
+  expect(resolveReusableLightningRecipient(text)).toBe(
+    'lnurlp://example.com/pay',
+  );
+});
+
+it('preserves punctuation inside standalone or explicitly delimited LNURL URIs', () => {
+  const uri = 'lnurlp://example.com/pay(weekly)?note=thanks!';
+  expect(resolveReusableLightningRecipient(uri)).toBe(uri);
+  expect(resolveReusableLightningRecipient(`Pay here: "${uri}".`)).toBe(uri);
+  expect(resolveReusableLightningRecipient(`Pay here: '${uri}'.`)).toBe(uri);
+});
