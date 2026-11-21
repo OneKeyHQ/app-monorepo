@@ -25,7 +25,7 @@ import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBWallet } from '../../dbs/local/types';
+import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -83,11 +83,15 @@ it.each([
   'canonical-scene-read-immediate-recovers',
   'canonical-scene-read-cancelled',
   'canonical-scene-read-missing',
+  'push-name-history-deferred',
+  'push-name-history-retained',
+  'push-name-history-source-changed',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const historyFails = scenario.startsWith('history-failure');
     const canonicalSceneRead = scenario.startsWith('canonical-scene-read');
+    const pushNameHistory = scenario.startsWith('push-name-history');
     const restart = scenario === 'history-failure-restart';
     const finalReadSkipped = scenario === 'history-failure-final-read-skipped';
     const finalInspectionUnavailable =
@@ -277,7 +281,7 @@ it.each([
       .mockResolvedValue(undefined);
     const replay = jest.spyOn(prime, 'syncPendingItemsToScene');
 
-    if (canonicalSceneRead) {
+    if (canonicalSceneRead || pushNameHistory) {
       const remoteName = 'Cloud Wallet name';
       const pending = {
         ...(await makeItem(remoteName, 'cat', baseTime + 100)),
@@ -339,6 +343,86 @@ it.each([
         },
         { skipCloudCredentialWarmup: true },
       );
+      if (pushNameHistory) {
+        const retained = scenario === 'push-name-history-retained';
+        const sourceChanged = scenario === 'push-name-history-source-changed';
+        let rereadReached = false;
+        if (!retained)
+          jest
+            .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+            .mockResolvedValue(false);
+        const toPush = (item: IDBCloudSyncItem) => {
+          const remote = prime.convertLocalItemToServerItem({
+            localItem: item,
+          });
+          if (!remote)
+            throw new OneKeyLocalError('Missing synthetic push item');
+          return remote;
+        };
+        if (sourceChanged) {
+          const getRecordsByIds = localDb.getRecordsByIds.bind(localDb);
+          jest
+            .spyOn(localDb, 'getRecordsByIds')
+            .mockImplementation(async (options) => {
+              const result = await getRecordsByIds(options);
+              if (
+                options.name === ELocalDBStoreNames.CloudSyncItem &&
+                options.ids.length === 1 &&
+                options.ids[0] === pending.id &&
+                !rereadReached
+              ) {
+                rereadReached = true;
+                config = {
+                  ...config,
+                  currentCloudSyncKeylessWalletId: 'hd-another-space',
+                };
+                await prime.cancelPublicAccountSnapshotImport();
+                // Simulate the old exact row settling while the read was in
+                // flight. Success must not be credited to the new source.
+                return {
+                  ...result,
+                  records: result.records.map((row) =>
+                    row ? { ...row, localSceneUpdated: true } : row,
+                  ),
+                };
+              }
+              return result;
+            });
+        }
+        await prime.saveServerSyncItemsToLocal({
+          serverItems: [toPush(pending), toPush(siblingPending)],
+          shouldSyncToScene: true,
+          syncCredential: credential,
+          serverPwdHash: scope,
+          deferPushBatchLastSyncTime: true,
+        });
+        expect(await readWallet()).toMatchObject({
+          name: retained ? remoteName : wallet.name,
+        });
+        expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+          data: pending.data,
+          serverUploaded: true,
+          localSceneUpdated: retained,
+        });
+        expect(
+          await localDb.getWallet({
+            walletId: sibling.id,
+            withoutRefill: true,
+          }),
+        ).toMatchObject({ name: sibling.name, avatar: '{"img":"cat"}' });
+        expect(
+          await localDb.getSyncItem({ id: siblingPending.id }),
+        ).toMatchObject({
+          localSceneUpdated: true,
+        });
+        expect(rereadReached).toBe(sourceChanged);
+        if (retained)
+          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+        else expect(config.lastSyncTimeKeyless).toBeUndefined();
+        expect(check).not.toHaveBeenCalled();
+        expect(upload).not.toHaveBeenCalled();
+        return;
+      }
       if (immediateRecovers) {
         // Keep the stored predecessor and deliver the qualified newer row
         // in /check; initial read rejects, final replay may recover.

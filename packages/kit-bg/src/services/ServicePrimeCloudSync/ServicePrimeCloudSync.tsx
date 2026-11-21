@@ -2715,6 +2715,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverPwdHash,
     isCurrent,
     onWalletNameHistoryDeferred,
+    deferPushBatchLastSyncTime = false,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
@@ -2722,7 +2723,18 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverPwdHash: string;
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
+    deferPushBatchLastSyncTime?: boolean;
   }) {
+    const pushGeneration = this.publicAccountSnapshotImportGeneration;
+    const keyGeneration = deferPushBatchLastSyncTime
+      ? this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration()
+      : undefined;
+    const pushBatchIsCurrent = deferPushBatchLastSyncTime
+      ? () =>
+          pushGeneration === this.publicAccountSnapshotImportGeneration &&
+          keyGeneration ===
+            this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration()
+      : undefined;
     const config = await primeCloudSyncPersistAtom.get();
     if (
       config.hardwareCloudSyncKeySource &&
@@ -2771,6 +2783,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       isCurrent,
       captureFreshWalletAvatar: !!isCurrent && shouldSyncToScene,
       onWalletNameHistoryDeferred,
+      pushBatchIsCurrent,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2827,6 +2840,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     allowSettledAccountHandoff = false,
     captureFreshWalletAvatar = false,
     onWalletNameHistoryDeferred,
+    pushBatchIsCurrent,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
@@ -2835,6 +2849,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     allowSettledAccountHandoff?: boolean;
     captureFreshWalletAvatar?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
+    pushBatchIsCurrent?: () => boolean;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -3065,6 +3080,21 @@ class ServicePrimeCloudSync extends ServiceBase {
           walletAvatarPredecessors.set(item.id, versions.prior);
       }
       await this.assertSyncCredentialUnchanged(syncCredential);
+      const pushDeferredWalletNames = new Map<string, IDBCloudSyncItem>();
+      const observeWalletNameDeferred: IWalletNameDeferredObserver = (
+        item,
+        reason,
+      ) => {
+        onWalletNameHistoryDeferred?.(item, reason);
+        if (
+          item.serverUploaded &&
+          item.data &&
+          !item.isDeleted &&
+          !item.localSceneUpdated &&
+          item.pwdHash === activePwdHash
+        )
+          pushDeferredWalletNames.set(item.id, item);
+      };
       // Collisions go through the normal verification and matching scene;
       // their canonical DB rows change only in the Account apply transaction.
       await this.syncToSceneWithLocalSyncItems({
@@ -3073,7 +3103,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         isCurrent,
         ...(foreignAccountsByWireId.size ? { foreignAccountsByWireId } : {}),
         ...(walletAvatarPredecessors.size ? { walletAvatarPredecessors } : {}),
-        onWalletNameHistoryDeferred,
+        onWalletNameHistoryDeferred: pushBatchIsCurrent
+          ? observeWalletNameDeferred
+          : onWalletNameHistoryDeferred,
       });
       const deletedItems = items.filter(Boolean).filter((item) => {
         if (item && item.isDeleted) {
@@ -3092,7 +3124,61 @@ class ServicePrimeCloudSync extends ServiceBase {
           expectedItems: cleanupSources,
         });
       }
-      void this.updateLastSyncTime();
+      if (pushBatchIsCurrent) {
+        if (
+          pushBatchIsCurrent() &&
+          !(await this.hasDurableDeferredWalletName(pushDeferredWalletNames)) &&
+          pushBatchIsCurrent()
+        )
+          await this.updateLastSyncTimeInternal({
+            isCurrent: pushBatchIsCurrent,
+          });
+      } else void this.updateLastSyncTime();
+    }
+  }
+
+  private async hasDurableDeferredWalletName(
+    deferredWalletNames: Map<string, IDBCloudSyncItem>,
+  ) {
+    if (!deferredWalletNames.size) return false;
+    try {
+      const check = await resolveBeforeTimeout(
+        localDb.getRecordsByIds({
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [...deferredWalletNames.keys()],
+        }),
+        1500,
+      );
+      return (
+        !check ||
+        check.records.length !== deferredWalletNames.size ||
+        check.records.some((current) => {
+          if (!current) return false;
+          const observed = deferredWalletNames.get(current.id);
+          if (!observed) return true;
+          if (
+            current.dataType !== EPrimeCloudSyncDataType.Wallet ||
+            current.pwdHash !== observed.pwdHash
+          )
+            return true;
+          if (
+            current.data === observed.data &&
+            current.dataTime === observed.dataTime &&
+            !current.isDeleted
+          )
+            return !current.serverUploaded || !current.localSceneUpdated;
+          const timestamp = current.dataTime;
+          return !(
+            (current.data || current.isDeleted) &&
+            typeof timestamp === 'number' &&
+            Number.isSafeInteger(timestamp) &&
+            timestamp > (observed.dataTime ?? 0)
+          );
+        })
+      );
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      return true;
     }
   }
 
@@ -3895,46 +3981,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         !deferredLocalWalletName &&
         deferredWalletNames.size
       ) {
-        // An authenticated downloaded scene deferred before or during the
-        // final replay. Clear the observation only with a durable row read.
-        try {
-          const check = await resolveBeforeTimeout(
-            localDb.getRecordsByIds({
-              name: ELocalDBStoreNames.CloudSyncItem,
-              ids: [...deferredWalletNames.keys()],
-            }),
-            1500,
-          );
-          deferredLocalWalletName =
-            !check ||
-            check.records.length !== deferredWalletNames.size ||
-            check.records.some((current) => {
-              if (!current) return false;
-              const observed = deferredWalletNames.get(current.id);
-              if (!observed) return true;
-              if (
-                current.dataType !== EPrimeCloudSyncDataType.Wallet ||
-                current.pwdHash !== observed.pwdHash
-              )
-                return true;
-              if (
-                current.data === observed.data &&
-                current.dataTime === observed.dataTime &&
-                !current.isDeleted
-              )
-                return !current.serverUploaded || !current.localSceneUpdated;
-              const timestamp = current.dataTime;
-              return !(
-                (current.data || current.isDeleted) &&
-                typeof timestamp === 'number' &&
-                Number.isSafeInteger(timestamp) &&
-                timestamp > (observed.dataTime ?? 0)
-              );
-            });
-        } catch (error) {
-          errorUtils.autoPrintErrorIgnore(error);
-          deferredLocalWalletName = true;
-        }
+        deferredLocalWalletName =
+          await this.hasDurableDeferredWalletName(deferredWalletNames);
       }
       if (!isSourceCurrent()) return false;
       const currentConfig = await primeCloudSyncPersistAtom.get();
@@ -4999,6 +5047,16 @@ class ServicePrimeCloudSync extends ServiceBase {
   }: {
     syncMode?: ECloudSyncMode;
   } = {}) {
+    await this.updateLastSyncTimeInternal({ syncMode });
+  }
+
+  private async updateLastSyncTimeInternal({
+    syncMode,
+    isCurrent,
+  }: {
+    syncMode?: ECloudSyncMode;
+    isCurrent?: () => boolean;
+  }) {
     if (
       (await primeCloudSyncPersistAtom.get()).cloudSyncReconciliation
         ?.unfinished
@@ -5006,8 +5064,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       return;
     const activeSyncMode = syncMode ?? (await this.getActiveSyncMode());
     const now = Date.now();
-    await primeCloudSyncPersistAtom.set(
-      (v): IPrimeCloudSyncPersistAtomData => ({
+    await primeCloudSyncPersistAtom.set((v): IPrimeCloudSyncPersistAtomData => {
+      if (isCurrent && (!isCurrent() || v.cloudSyncReconciliation?.unfinished))
+        return v;
+      return {
         ...v,
         lastSyncTime: now,
         lastSyncTimeOneKeyId:
@@ -5018,8 +5078,8 @@ class ServicePrimeCloudSync extends ServiceBase {
           activeSyncMode === ECloudSyncMode.Keyless
             ? now
             : v.lastSyncTimeKeyless,
-      }),
-    );
+      };
+    });
   }
 
   // TODO use jotai for Extension working
