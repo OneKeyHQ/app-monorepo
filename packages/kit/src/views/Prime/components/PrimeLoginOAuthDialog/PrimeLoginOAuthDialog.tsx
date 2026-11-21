@@ -624,6 +624,13 @@ function PrimeLoginOAuthDialog(props: {
       prev.open ? prev : { open: true, openedByHover: false },
     );
   }, []);
+  // The code step drops the header and its link: a panel left open there would
+  // have nothing to anchor to or hover away from.
+  useEffect(() => {
+    if (isEmailVerificationStep) {
+      setUsagePopover({ open: false, openedByHover: false });
+    }
+  }, [isEmailVerificationStep]);
   // The popover reports hover opens and every close.
   const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
     setUsagePopover((prev) => {
@@ -893,7 +900,7 @@ function PrimeLoginOAuthDialog(props: {
       {/* Kept outside Dialog.Header, which hands its children to the dialog
           frame through context. */}
       <OneKeyIdUsagePopover
-        open={usagePopover.open}
+        open={usagePopover.open && !isEmailVerificationStep}
         onOpenChange={handleUsagePopoverOpenChange}
         hoverable={!usagePopover.open || usagePopover.openedByHover}
         webAnchorElement={usageLinkElement}

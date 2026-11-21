@@ -328,8 +328,10 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
 
   function MockPrimeLoginEmailDialog({
     debugPanelOpenCount = 0,
+    onEmbeddedVerificationEmailChange,
   }: {
     debugPanelOpenCount?: number;
+    onEmbeddedVerificationEmailChange?: (email: string | undefined) => void;
   }) {
     React.useEffect(() => {
       mockEmailDialogMount();
@@ -337,10 +339,23 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
         mockEmailDialogUnmount();
       };
     }, []);
-    return React.createElement('div', {
-      'data-testid': 'mock-prime-login-email-dialog',
-      'data-debug-panel-open-count': String(debugPanelOpenCount),
-    });
+    return React.createElement(
+      'div',
+      {
+        'data-testid': 'mock-prime-login-email-dialog',
+        'data-debug-panel-open-count': String(debugPanelOpenCount),
+      },
+      React.createElement('button', {
+        'data-testid': 'mock-email-submit',
+        type: 'button',
+        onClick: () => onEmbeddedVerificationEmailChange?.('a@example.com'),
+      }),
+      React.createElement('button', {
+        'data-testid': 'mock-email-back',
+        type: 'button',
+        onClick: () => onEmbeddedVerificationEmailChange?.(undefined),
+      }),
+    );
   }
 
   return {
@@ -420,7 +435,21 @@ describe('PrimeLoginOAuthDialog', () => {
         }
       | undefined;
 
-  test('keeps a pressed usage panel closable by outside press and Escape', () => {
+  test('closes the usage panel on the email code step and keeps it closed after', () => {
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    act(() => lastUsagePopoverProps()?.onOpenChange(true));
+    expect(lastUsagePopoverProps()?.open).toBe(true);
+
+    fireEvent.click(screen.getByTestId('mock-email-submit'));
+    expect(screen.queryByTestId('prime-login-usage-link')).toBeNull();
+    expect(lastUsagePopoverProps()?.open).toBe(false);
+
+    fireEvent.click(screen.getByTestId('mock-email-back'));
+    expect(screen.getByTestId('prime-login-usage-link')).toBeTruthy();
+    expect(lastUsagePopoverProps()?.open).toBe(false);
+  });
+
+  test('opens a pressed usage panel as a regular popover and a hovered one as a hover panel', () => {
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
     // Closed: hovering the link may open it.
     expect(lastUsagePopoverProps()?.hoverable).toBe(true);
