@@ -14,6 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const ONEKEY_ID_USAGE_TRACK_ID = 'onekey-id-usage';
 
@@ -75,6 +76,9 @@ export function OneKeyIdUsagePopover({
     }
     wasAnchoredPanelRef.current = isAnchoredPanel;
     if (open) {
+      defaultLogger.ui.popover.popoverClose({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
       onOpenChange(false);
     }
   }, [isAnchoredPanel, onOpenChange, open]);

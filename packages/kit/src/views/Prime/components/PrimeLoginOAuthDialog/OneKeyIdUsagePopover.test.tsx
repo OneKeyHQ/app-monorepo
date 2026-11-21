@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { OneKeyIdUsagePopover } from './OneKeyIdUsagePopover';
 
 // The real Popover's presentation is covered in the components package; here
@@ -43,12 +45,18 @@ beforeEach(() => {
 });
 
 it('closes an open panel when the window crosses the breakpoint', () => {
+  const popoverClose = jest
+    .spyOn(defaultLogger.ui.popover, 'popoverClose')
+    .mockImplementation((params) => params);
   const { rerender, onOpenChange } = renderPanel(true);
   mockMd = true;
   rerender(
     <OneKeyIdUsagePopover open onOpenChange={onOpenChange} hoverable={false} />,
   );
   expect(onOpenChange).toHaveBeenCalledWith(false);
+  // The popover does not see this close, so the panel logs it.
+  expect(popoverClose.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
+  popoverClose.mockRestore();
 });
 
 it('leaves a closed panel alone when the window crosses the breakpoint', () => {

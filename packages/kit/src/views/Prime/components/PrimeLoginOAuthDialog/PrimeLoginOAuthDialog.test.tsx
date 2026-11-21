@@ -442,9 +442,15 @@ describe('PrimeLoginOAuthDialog', () => {
     act(() => lastUsagePopoverProps()?.onOpenChange(true));
     expect(lastUsagePopoverProps()?.open).toBe(true);
 
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
     fireEvent.click(screen.getByTestId('mock-email-submit'));
     expect(screen.queryByTestId('prime-login-usage-link')).toBeNull();
     expect(lastUsagePopoverProps()?.open).toBe(false);
+    // The popover does not see this close, so the dialog logs it.
+    expect(popoverClose.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
+    popoverClose.mockRestore();
 
     fireEvent.click(screen.getByTestId('mock-email-back'));
     expect(screen.getByTestId('prime-login-usage-link')).toBeTruthy();

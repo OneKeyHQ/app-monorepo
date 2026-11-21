@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
+import { Platform } from 'react-native';
+
 import { SizableText } from '@onekeyhq/components';
 
-// Web: hands its span to the anchored panel, which anchors to it and opens on
-// hovering it.
 export function OneKeyIdUsageLink({
   children,
   onPress,
@@ -22,11 +22,14 @@ export function OneKeyIdUsageLink({
   );
   return (
     <SizableText
-      ref={handleRef}
+      // Web: the wide-window panel anchors to the span and opens on hovering
+      // it; native opens a sheet and needs neither.
+      {...Platform.select({
+        web: { ref: handleRef, cursor: 'pointer' as const },
+      })}
       testID="prime-login-usage-link"
       size="$bodyLg"
       color="$textSubdued"
-      cursor="pointer"
       onPress={onPress}
     >
       {children}
