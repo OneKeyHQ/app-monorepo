@@ -1559,7 +1559,29 @@ describe('hardware Cloud key source lifecycle', () => {
     mockConfig.isCloudSyncEnabledKeyless = true;
     mockStored = credential;
     service.setKeylessCloudSyncCredentialCache(credential);
-    await service.setCloudSyncEnabledKeyless(false);
+    const revoking = Promise.withResolvers<void>();
+    const finishRevocation = Promise.withResolvers<void>();
+    jest
+      .mocked(keylessSyncCredentialStorage.removeAllCredentials)
+      .mockImplementationOnce(async () => {
+        revoking.resolve();
+        await finishRevocation.promise;
+        mockStored = undefined;
+      });
+    await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(
+      false,
+    );
+    const disable = service.setCloudSyncEnabledKeyless(false);
+    try {
+      await revoking.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(
+        false,
+      );
+    } finally {
+      finishRevocation.resolve();
+      await disable;
+    }
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
     expect(
       service.getKeylessCloudSyncCredentialCacheSync(source.credentialId),
@@ -1570,6 +1592,10 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(mockStored).toBeUndefined();
     // The source stays selected so the same wallet can sign again.
     expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+    expect(mockConfig.currentCloudSyncKeylessWalletId).toBe(
+      source.credentialId,
+    );
+    await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(true);
     expect(await service.getKeylessCloudSyncCredential()).toBeNull();
     expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
   });
@@ -4004,6 +4030,7 @@ describe('hardware reset session and local data races', () => {
           backgroundApi: {
             serviceKeylessCloudSync: service,
             servicePrimeCloudSync: {
+              apiUploadItems: jest.fn(async () => undefined),
               syncManagers: {
                 wallet: { getSyncCredential, buildSyncItemByDBQuery },
               },
@@ -4015,6 +4042,7 @@ describe('hardware reset session and local data races', () => {
             fn: (tx: object) => Promise<unknown>,
           ) => fn({}),
           txAssertCloudSyncMetadataSource: async () => undefined,
+          txGetRecordsByIds: async () => ({ records: [{ ...record }] }),
           txAddAndUpdateFreshSyncItems,
           txUpdateWallet: async ({
             updater,

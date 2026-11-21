@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -9,7 +10,7 @@ import { LocalDbIndexed } from './indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { EIndexedDBBucketNames } from './types';
 
-import type { IDBDevice, IDBWallet } from './types';
+import type { IDBCloudSyncItem, IDBDevice, IDBWallet } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 afterEach(() => jest.restoreAllMocks());
@@ -219,6 +220,141 @@ it.each([
       expect(prime.apiUploadItems).not.toHaveBeenCalled();
     } finally {
       recovery.resolve();
+    }
+  },
+);
+
+it.each([
+  'retained-off',
+  'different-key',
+  'without-key',
+  'same-key-without-data',
+  'same-key',
+  'missing-row',
+  'local-error',
+] as const)(
+  'preserves a bound Wallet copy without pretending the local edit synced (%s)',
+  async (scenario) => {
+    const db = new LocalDbIndexed();
+    const wallet: IDBWallet = {
+      id: `hd-retained-wallet-${scenario}`,
+      name: 'Previous name',
+      type: 'hd',
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 501,
+    };
+    const original: IDBCloudSyncItem = {
+      id: `fixture-wallet-pool-${scenario}`,
+      data: 'ab'.repeat(48),
+      dataTime: 2000,
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawKey: 'Wallet >> synthetic-same-wallet',
+      rawData: '',
+      pwdHash: 'hw-dek-original-fixture',
+      // The status bit is not evidence of whether the key owns the ciphertext.
+      serverUploaded: false,
+      localSceneUpdated: true,
+      isDeleted: false,
+    };
+    let pwdHash = original.pwdHash;
+    if (scenario === 'without-key') pwdHash = '';
+    if (scenario === 'different-key' || scenario === 'retained-off')
+      pwdHash = 'hw-dek-different-fixture';
+    const candidate: IDBCloudSyncItem = {
+      ...original,
+      pwdHash,
+      data:
+        scenario === 'without-key' || scenario === 'same-key-without-data'
+          ? ''
+          : 'cd'.repeat(48),
+      dataTime: 3000,
+    };
+    await db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        if (scenario !== 'missing-row')
+          await db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            records: [original],
+          });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    const before = await db.getSyncItemSafe({ id: original.id });
+    const apiUploadItems = jest.fn(async () => undefined);
+    const buildSyncItemByDBQuery = jest.fn(async () => candidate);
+    const runWithCloudSyncKeyLock = jest.fn(async <T>(work: () => Promise<T>) =>
+      work(),
+    );
+    db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        isExplicitWalletMetadataSyncOff: async () =>
+          scenario === 'retained-off',
+        runWithCloudSyncKeyLock,
+      },
+      servicePrimeCloudSync: {
+        apiUploadItems,
+        syncManagers: {
+          wallet: {
+            getSyncCredential: jest.fn(async () => undefined),
+            buildSyncItemByDBQuery,
+          },
+        },
+      },
+    } as unknown as IBackgroundApi);
+    if (scenario === 'local-error') {
+      jest
+        .spyOn(db, 'txUpdateWallet')
+        .mockRejectedValueOnce(
+          new OneKeyLocalError('Synthetic real wallet write error'),
+        );
+    }
+    const rename = db.setWalletNameAndAvatar({
+      walletId: wallet.id,
+      name: `New local ${scenario}`,
+      avatar: { img: 'bear' },
+      allowDesktopLocalMetadata: true,
+    });
+    if (scenario === 'local-error') {
+      await expect(rename).rejects.toThrow('Synthetic real wallet write error');
+    } else {
+      await expect(rename).resolves.toMatchObject({
+        name: `New local ${scenario}`,
+      });
+    }
+    await expect(
+      new LocalDbIndexed().getWallet({
+        walletId: wallet.id,
+        withoutRefill: true,
+      }),
+    ).resolves.toMatchObject({
+      name: scenario === 'local-error' ? wallet.name : `New local ${scenario}`,
+    });
+    if (scenario === 'same-key' || scenario === 'missing-row') {
+      await expect(db.getSyncItem({ id: original.id })).resolves.toMatchObject({
+        data: candidate.data,
+        pwdHash: original.pwdHash,
+        dataTime: candidate.dataTime,
+      });
+      expect(apiUploadItems).toHaveBeenCalledTimes(1);
+      expect(apiUploadItems).toHaveBeenCalledWith({ localItems: [candidate] });
+    } else {
+      await expect(db.getSyncItem({ id: original.id })).resolves.toEqual(
+        before,
+      );
+      expect(apiUploadItems).not.toHaveBeenCalled();
+    }
+    if (scenario === 'retained-off') {
+      expect(runWithCloudSyncKeyLock).not.toHaveBeenCalled();
+      expect(buildSyncItemByDBQuery).not.toHaveBeenCalled();
     }
   },
 );

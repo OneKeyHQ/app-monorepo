@@ -9158,11 +9158,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           )
             throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
         }
+        if (syncItem && !verifiedCredential) {
+          const {
+            records: [current],
+          } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [syncItem.id],
+          });
+          if (
+            current?.dataType === EPrimeCloudSyncDataType.Wallet &&
+            current.data &&
+            current.pwdHash &&
+            (!syncItem.data || current.pwdHash !== syncItem.pwdHash)
+          ) {
+            // An ordinary local edit cannot displace a bound encrypted copy.
+            // Keep the bytes unchanged and do not send the rejected candidate.
+            syncItem = undefined;
+          }
+        }
         if (syncItem) {
           await this.txAddAndUpdateFreshSyncItems({
             tx,
             items: [syncItem],
-            skipUploadToServer: !!verifiedCredential,
+            skipUploadToServer: true,
           });
           if (verifiedCredential) {
             const [accepted] = await this.txGetRecordById({
@@ -9289,7 +9308,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       },
     );
 
-    if (verifiedCredential && syncItem) {
+    if (syncItem) {
       void this.backgroundApi.servicePrimeCloudSync
         .apiUploadItems({ localItems: [syncItem] })
         .catch((error) => errorUtils.autoPrintErrorIgnore(error));

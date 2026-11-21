@@ -369,6 +369,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
           timer = setTimeout(() => resolve(undefined), 200);
         }),
       ]);
+      const source = config?.hardwareCloudSyncKeySource;
+      const selected = config?.currentCloudSyncKeylessWalletId;
+      const settledSelection =
+        (!source && !selected) ||
+        (source?.type === 'hardware' &&
+          !!source.credentialId &&
+          selected === source.credentialId &&
+          !this.cloudSyncKeyMutex.isLocked());
       return (
         generation === this.hardwareCloudKeyGeneration &&
         importGeneration === this.cloudAccountImportGeneration &&
@@ -377,8 +385,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         !this.hardwareSessionEnding &&
         config?.isCloudSyncEnabled === false &&
         config.isCloudSyncEnabledKeyless === false &&
-        !config.hardwareCloudSyncKeySource &&
-        !config.currentCloudSyncKeylessWalletId
+        settledSelection
       );
     } catch {
       // Unknown is not an explicit Off choice.
