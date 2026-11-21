@@ -10,7 +10,10 @@ import {
 } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import type { IEarnDesktopAccountMarket } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopHomeData';
 import type { IStakePendingTx } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
-import { parseBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import {
+  normalizeBorrowMarketAddress,
+  parseBorrowTag,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 import type {
   IEarnPortfolioPosition,
@@ -58,6 +61,7 @@ export type IEarnLendingMarketRef = {
   market: IBorrowMarketItem;
   /** The account's own account on the market's network */
   accountId: string;
+  accountAddress?: string;
   indexedAccountId?: string;
   summary?: IEarnLendingMarketSummary;
 };
@@ -248,7 +252,8 @@ export function withLendingMarketPositions({
 }): IEarnPortfolioPositionsResponse {
   const reported = Object.values(response.positions).flat();
   const added: IEarnPortfolioPosition[] = [];
-  entries.forEach(({ market, accountId, reserves, healthFactor }) => {
+  entries.forEach((entry) => {
+    const { market, accountId, accountAddress, reserves, healthFactor } = entry;
     if (!reserves) {
       return;
     }
@@ -256,6 +261,7 @@ export function withLendingMarketPositions({
       ? {
           market,
           accountId,
+          accountAddress,
           indexedAccountId,
           summary: buildLendingMarketSummary({ reserves, healthFactor }),
         }
@@ -398,8 +404,8 @@ export function lendingSupplyPositionOf({
 
 /**
  * The account's Borrow transactions still out in one market, which its
- * card counts beside its name. A market is told by its network and its
- * provider: the transactions' tags name no market
+ * card counts beside its name. Scoped tags identify a market; older tags
+ * retain their provider-level behavior.
  */
 export function lendingPendingTxsOf({
   pendingTxs,
@@ -416,11 +422,27 @@ export function lendingPendingTxsOf({
     ) {
       return false;
     }
-    const providers = (tx.stakingInfo.tags ?? [])
-      .map((tag) => parseBorrowTag(tag)?.provider.toLowerCase())
-      .filter(Boolean);
-    // One tagged with the bare Borrow label is the network's market's
-    return providers.length === 0 || providers.includes(provider);
+    const tags = (tx.stakingInfo.tags ?? [])
+      .map(parseBorrowTag)
+      .filter((tag) => tag !== null);
+    if (!tags.length) return true;
+    const matching = tags.filter(
+      (tag) => tag.provider.toLowerCase() === provider,
+    );
+    if (!matching.length) return false;
+    const scopes = matching
+      .map((tag) => tag.claimScope ?? tag.setCollateralScope)
+      .filter((scope) => scope !== undefined);
+    if (!scopes.length) return true;
+    const marketAddress = normalizeBorrowMarketAddress({
+      networkId: market.market.networkId,
+      marketAddress: market.market.marketAddress,
+    });
+    return scopes.some(
+      (scope) =>
+        scope.networkId === market.market.networkId &&
+        normalizeBorrowMarketAddress(scope) === marketAddress,
+    );
   });
 }
 

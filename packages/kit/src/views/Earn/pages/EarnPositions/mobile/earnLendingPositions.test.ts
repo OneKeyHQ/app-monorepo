@@ -155,6 +155,19 @@ describe('withLendingMarketPositions', () => {
     expect(added.earn.vault).toBe(AAVE_CORE.marketAddress);
   });
 
+  it('keeps the address that owns the market reserves on the lending position', () => {
+    const merged = withLendingMarketPositions({
+      response: EMPTY,
+      entries: [{ ...loan, accountId: 'account-1', accountAddress: '0xOwner' }],
+    });
+    const { protocols } = buildEarnPortfolioView({
+      response: merged,
+      translate,
+    });
+    const [card] = protocols.flatMap((protocol) => protocol.positions);
+    expect(lendingMarketOf(card)?.accountAddress).toBe('0xOwner');
+  });
+
   it('totals as the home does: the API, plus the supply, less the loan', () => {
     const api: IEarnPortfolioPositionsResponse = {
       ...EMPTY,
@@ -370,6 +383,57 @@ describe('lendingPendingTxsOf', () => {
       pendingTxs[0],
       pendingTxs[1],
     ]);
+  });
+
+  it('filters scoped pending transactions by market and retains legacy provider tags', () => {
+    const pendingTxs = [
+      tx({ tags: ['borrow:aave:claim:reward:v1:evm--1:0xaaa'] }),
+      tx({ tags: ['borrow:aave:claim:reward:v1:evm--1:0xbbb'] }),
+      tx({ tags: ['borrow:aave:repay'] }),
+    ];
+    const scopedMarket = {
+      ...market,
+      market: { ...market.market, marketAddress: '0xAAA' },
+    };
+    expect(lendingPendingTxsOf({ pendingTxs, market: scopedMarket })).toEqual([
+      pendingTxs[0],
+      pendingTxs[2],
+    ]);
+  });
+
+  it('does not let a legacy collateral tag override the scoped market', () => {
+    const pending = tx({
+      tags: [
+        'borrow:aave:setCollateral',
+        'borrow:aave:setCollateral:v1:evm--1:0xbbb:0xreserve',
+      ],
+    });
+    const scopedMarket = {
+      ...market,
+      market: { ...market.market, marketAddress: '0xaaa' },
+    };
+    expect(
+      lendingPendingTxsOf({ pendingTxs: [pending], market: scopedMarket }),
+    ).toEqual([]);
+  });
+
+  it('keeps non-EVM market addresses case sensitive', () => {
+    const pending = tx({
+      networkId: 'sol--101',
+      tags: ['borrow:kamino:claim:reward:v1:sol--101:PoolABC'],
+    });
+    const solMarket = {
+      ...market,
+      market: {
+        ...market.market,
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'poolabc',
+      },
+    };
+    expect(
+      lendingPendingTxsOf({ pendingTxs: [pending], market: solMarket }),
+    ).toEqual([]);
   });
 });
 

@@ -4,6 +4,11 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IEarnRewardClaimItem,
   IEarnRewardsDetails,
@@ -248,5 +253,26 @@ describe('BorrowClaimRewardsDialog risk disclaimer', () => {
     expect(
       screen.getByTestId<HTMLButtonElement>('borrow-claim-all-btn').disabled,
     ).toBe(false);
+  });
+
+  it('closes an open rewards snapshot when the account changes', () => {
+    renderClaimDialog(jest.fn(async () => false));
+    act(() => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: { isAccountDataChanged: true },
+      });
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes when a claim discovers that its account has changed', async () => {
+    renderClaimDialog(async () => {
+      throw new OneKeyLocalError('Borrow transaction confirmation expired');
+    });
+    await act(async () => {
+      await getFooterOnConfirm()();
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
   });
 });

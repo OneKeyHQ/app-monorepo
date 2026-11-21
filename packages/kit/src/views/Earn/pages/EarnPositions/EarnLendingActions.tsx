@@ -140,6 +140,8 @@ export function LendingCardScope({
     provider: market.market.provider,
     marketAddress: market.market.marketAddress,
     accountId: market.accountId,
+    accountAddress: market.accountAddress,
+    enabled: Boolean(market.accountAddress),
   });
   const refreshRewards = useCallback(() => {
     void runRewardsRefresh();
@@ -509,6 +511,7 @@ export function useLendingCardRewards():
   const { openRewardsDialog, pendingClaimIds } = useBorrowRewardsClaimDialog({
     market: card?.market.market,
     accountId: card?.market.accountId,
+    accountAddress: card?.market.accountAddress,
     borrowRewards: card?.borrowRewards,
     pendingTxs: actions?.pendingTxs ?? NO_PENDING_TXS,
     onClaimed: handleClaimed,

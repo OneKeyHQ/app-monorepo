@@ -702,6 +702,18 @@ describe('Borrow claim handoff', () => {
     expect(mockNavigation).not.toHaveBeenCalled();
   });
 
+  it('does not build a claim for stale rewards when the same account ID resolves to a new address', async () => {
+    mockAccountAddress.mockResolvedValue('0xBbB');
+    const { result } = renderHook(() =>
+      useUniversalBorrowClaim({ ...owner, accountAddress: '0xAaA' }),
+    );
+    await expect(result.current(claim)).rejects.toThrow(
+      'Borrow transaction confirmation expired',
+    );
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockNavigation).not.toHaveBeenCalled();
+  });
+
   it('checks a bound claim address before sending while keeping later callbacks', async () => {
     const onSuccess = jest.fn();
     const { result } = renderHook(() =>

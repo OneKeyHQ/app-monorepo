@@ -48,6 +48,96 @@ describe('borrowActionServiceUtils', () => {
     getClient.mockResolvedValue({ get, post } as unknown as AxiosInstance);
   });
 
+  it.each(['claim', 'rewards'] as const)(
+    'rejects a changed account before a %s request',
+    async (kind) => {
+      getAccountAddressForApi.mockResolvedValue('0xNew');
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        accountId: 'same-account',
+        expectedAccountAddress: '0xOld',
+      };
+      const call =
+        kind === 'claim'
+          ? borrowBuildClaimTransaction(service, {
+              ...params,
+              ids: ['old-reward'],
+            })
+          : getBorrowRewards(service, params);
+      await expect(call).rejects.toThrow('Borrow account changed');
+      expect(getClient).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+      expect(get).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['claim', 'rewards'] as const)(
+    'accepts the same EVM account with different casing for %s',
+    async (kind) => {
+      getAccountAddressForApi.mockResolvedValue('0xaBc');
+      post.mockResolvedValue({ data: { data: transaction } });
+      get.mockResolvedValue({ data: { data: {} } });
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        accountId: 'same-account',
+        expectedAccountAddress: '0xAbC',
+      };
+      const call =
+        kind === 'claim'
+          ? borrowBuildClaimTransaction(service, { ...params, ids: ['reward'] })
+          : getBorrowRewards(service, params);
+      await expect(call).resolves.toBeDefined();
+    },
+  );
+
+  it('rejects a non-EVM account with different casing', async () => {
+    getAccountAddressForApi.mockResolvedValue('abc');
+    await expect(
+      getBorrowRewards(service, {
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'market',
+        accountId: 'same-account',
+        expectedAccountAddress: 'Abc',
+      }),
+    ).rejects.toThrow('Borrow account changed');
+    expect(getClient).not.toHaveBeenCalled();
+  });
+
+  it.each(['claim', 'rewards'] as const)(
+    'rejects a %s result when the account changes during the request',
+    async (kind) => {
+      getAccountAddressForApi
+        .mockResolvedValueOnce('0xOld')
+        .mockResolvedValueOnce('0xNew');
+      post.mockResolvedValue({ data: { data: transaction } });
+      get.mockResolvedValue({ data: { data: {} } });
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xmarket',
+        accountId: 'same-account',
+        expectedAccountAddress: '0xOld',
+      };
+      const call =
+        kind === 'claim'
+          ? borrowBuildClaimTransaction(service, {
+              ...params,
+              ids: ['old-reward'],
+            })
+          : getBorrowRewards(service, params);
+      await expect(call).rejects.toThrow('Borrow account changed');
+      const sent =
+        kind === 'claim' ? post.mock.calls[0][1] : get.mock.calls[0][1].params;
+      expect(sent).not.toHaveProperty('expectedAccountAddress');
+      expect(sent.accountAddress).toBe('0xOld');
+    },
+  );
+
   it.each(['emode', 'collateral', 'check'] as const)(
     'rejects a transient A to B to A address change before the %s request',
     async (action) => {

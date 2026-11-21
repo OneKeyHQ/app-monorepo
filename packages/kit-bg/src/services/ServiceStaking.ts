@@ -3951,6 +3951,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     ids: string[];
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
@@ -4083,6 +4084,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowRewards(this, params),

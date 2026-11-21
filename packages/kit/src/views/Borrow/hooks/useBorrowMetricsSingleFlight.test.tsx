@@ -31,6 +31,7 @@ const mockPromiseResults: {
   method: () => Promise<IScopedResult>;
   deps: unknown[];
   swrShouldPersist?: (result: IScopedResult) => boolean;
+  swrKey?: string;
 }[] = [];
 let mockResultSnapshot: IScopedResult | null = null;
 
@@ -59,12 +60,16 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
     method: () => Promise<IScopedResult>,
     deps: unknown[],
-    options: { swrShouldPersist?: (result: IScopedResult) => boolean },
+    options: {
+      swrShouldPersist?: (result: IScopedResult) => boolean;
+      swrKey?: string;
+    },
   ) => {
     mockPromiseResults.push({
       method,
       deps,
       swrShouldPersist: options.swrShouldPersist,
+      swrKey: options.swrKey,
     });
     return {
       result: mockResultSnapshot,
@@ -142,6 +147,32 @@ describe('Borrow metric request reuse', () => {
     mockGetRewards.mockReset();
     mockGetEModeStatus.mockReset();
     mockResultSnapshot = null;
+  });
+
+  it('separates reward requests and cached snapshots for addresses on the same account ID', async () => {
+    const first = deferred<IBorrowRewards>();
+    const second = deferred<IBorrowRewards>();
+    mockGetRewards
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const firstView = renderHook(() =>
+      useBorrowRewards({ ...baseParams, accountAddress: '0xAAA' }),
+    );
+    const firstOptions = mockPromiseResults.at(-1);
+    const secondView = renderHook(() =>
+      useBorrowRewards({ ...baseParams, accountAddress: '0xBBB' }),
+    );
+    const secondOptions = mockPromiseResults.at(-1);
+    expect(firstOptions?.swrKey).not.toBe(secondOptions?.swrKey);
+    const firstRequest = firstOptions?.method();
+    const secondRequest = secondOptions?.method();
+    await Promise.resolve();
+    expect(mockGetRewards).toHaveBeenCalledTimes(2);
+    first.resolve(rewards);
+    second.resolve(rewards);
+    await Promise.all([firstRequest, secondRequest]);
+    firstView.unmount();
+    secondView.unmount();
   });
 
   it.each(cases)(

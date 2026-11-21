@@ -1,10 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { shouldInvalidateAccountScopedData } from '@onekeyhq/kit/src/utils/accountUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -201,6 +206,18 @@ function BorrowClaimRewardsDialogContent({
   const { gtMd } = useMedia();
   const listMaxHeight = gtMd ? 520 : 360;
 
+  useEffect(() => {
+    const onAccountUpdate = (payload: unknown) => {
+      if (shouldInvalidateAccountScopedData(payload)) {
+        void dialogInstance.close();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+    };
+  }, [dialogInstance]);
+
   const claimableGroups = useMemo(
     () => rewardsDetails.data.rewardsDetail.claimable ?? [],
     [rewardsDetails.data.rewardsDetail.claimable],
@@ -218,6 +235,16 @@ function BorrowClaimRewardsDialogContent({
         const started = await onClaimItem(item);
         if (started !== false) {
           void dialogInstance.close();
+        }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.message === 'Borrow transaction confirmation expired' ||
+            error.message === 'Borrow account changed')
+        ) {
+          void dialogInstance.close();
+        } else {
+          throw error;
         }
       } finally {
         setClaimingItemId(null);
@@ -261,6 +288,16 @@ function BorrowClaimRewardsDialogContent({
       const started = await onClaimAll();
       if (started !== false) {
         void dialogInstance.close();
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === 'Borrow transaction confirmation expired' ||
+          error.message === 'Borrow account changed')
+      ) {
+        void dialogInstance.close();
+      } else {
+        throw error;
       }
     } finally {
       setLoading(false);

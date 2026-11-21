@@ -602,15 +602,18 @@ export async function borrowBuildClaimTransaction(
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     ids: string[];
   },
 ) {
-  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
-  const accountAddress =
-    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
-      networkId: params.networkId,
-      accountId,
-    });
+  const { expectedAccountAddress, ...request } = params;
+  const { accountId, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(request);
+  const accountAddress = await resolveBorrowActionAccount(service, {
+    networkId: params.networkId,
+    accountId,
+    expectedAccountAddress,
+  });
   const client = await service.getClient(EServiceEndpointEnum.Earn);
   const response = await client.post<{
     data: IBorrowUnsignedTransaction;
@@ -618,6 +621,12 @@ export async function borrowBuildClaimTransaction(
     ...rest,
     accountAddress,
   });
+  if (expectedAccountAddress !== undefined)
+    await resolveBorrowActionAccount(service, {
+      networkId: params.networkId,
+      accountId,
+      expectedAccountAddress,
+    });
   return response.data.data;
 }
 
@@ -687,14 +696,17 @@ export async function getBorrowRewards(
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   },
 ) {
-  const { accountId, ...rest } = earnUtils.normalizeBorrowAddressParams(params);
-  const accountAddress =
-    await service.backgroundApi.serviceAccount.getAccountAddressForApi({
-      networkId: params.networkId,
-      accountId,
-    });
+  const { expectedAccountAddress, ...request } = params;
+  const { accountId, ...rest } =
+    earnUtils.normalizeBorrowAddressParams(request);
+  const accountAddress = await resolveBorrowActionAccount(service, {
+    networkId: params.networkId,
+    accountId,
+    expectedAccountAddress,
+  });
   const client = await service.getClient(EServiceEndpointEnum.Earn);
   const response = await client.get<{
     data: IBorrowRewards;
@@ -704,5 +716,11 @@ export async function getBorrowRewards(
       accountAddress,
     },
   });
+  if (expectedAccountAddress !== undefined)
+    await resolveBorrowActionAccount(service, {
+      networkId: params.networkId,
+      accountId,
+      expectedAccountAddress,
+    });
   return response.data.data;
 }

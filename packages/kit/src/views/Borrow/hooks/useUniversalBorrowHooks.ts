@@ -1393,6 +1393,9 @@ export function useUniversalBorrowClaim({
           backgroundApiProxy.serviceStaking.borrowBuildClaimTransaction({
             networkId,
             accountId,
+            ...(accountAddress
+              ? { expectedAccountAddress: accountAddress }
+              : {}),
             provider,
             marketAddress,
             ids: selectedIds,
@@ -1400,6 +1403,7 @@ export function useUniversalBorrowClaim({
         stakingInfo,
         navigationToTxConfirm,
         isCurrent,
+        verifyAccountBeforeBuild: Boolean(accountAddress),
         onSuccess,
         onFail,
       });
