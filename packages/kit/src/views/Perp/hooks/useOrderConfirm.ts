@@ -283,7 +283,7 @@ function useOrderConfirmWithMarketDataFreshness({
           const snapshotError = getReduceOnlyPositionSnapshotError({
             reduceOnly: formDataSnapshot.scaleReduceOnly,
             accountAddress: currentUser?.accountAddress,
-            positionsAccountAddress: activePositionsValue.accountAddress,
+            positions: activePositionsValue,
           });
           if (snapshotError) {
             Toast.error({
@@ -474,7 +474,7 @@ function useOrderConfirmWithMarketDataFreshness({
           const snapshotError = getReduceOnlyPositionSnapshotError({
             reduceOnly: formDataSnapshot.twapReduceOnly,
             accountAddress: currentUser?.accountAddress,
-            positionsAccountAddress: activePositionsValue.accountAddress,
+            positions: activePositionsValue,
           });
           if (snapshotError) {
             Toast.error({

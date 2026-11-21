@@ -99,4 +99,21 @@ describe('buildPerpAccountStatusAnalyticsParams', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('reports zero positions only after the account confirms its empty snapshot', () => {
+    const params = buildReadyParams();
+    const empty = { accountAddress, activePositions: [] };
+    expect(
+      buildPerpAccountStatusAnalyticsParams({
+        ...params,
+        positionsState: { ...empty, isPending: true },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildPerpAccountStatusAnalyticsParams({
+        ...params,
+        positionsState: empty,
+      }),
+    ).toMatchObject({ snapshotStatus: 'ready', positionCount: 0 });
+  });
 });
