@@ -101,7 +101,7 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
 
 const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
 const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
-const LNURL_QUERY_CONTINUATION = /^\s*[?&#]\S/u;
+const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
   '"': '"',
@@ -112,68 +112,77 @@ type IReusableLightningRecipient =
   | { kind: 'recipient'; address: string }
   | { kind: 'ambiguous' };
 
-function readParenthesizedLnurl(
-  prefix: string,
-  input: string,
-  suffix: string,
-  sameLine: string,
-): string | null {
-  let enclosingDepth = 0;
-  for (const char of prefix) {
-    if (char === '(') enclosingDepth += 1;
-    if (char === ')' && enclosingDepth > 0) enclosingDepth -= 1;
-  }
-  const trimmedSuffix = suffix.trimStart();
-  const directSuffixLength =
-    !sameLine.trim() && trimmedSuffix.startsWith(')')
-      ? suffix.length - trimmedSuffix.length + 1
-      : sameLine.length;
-  const directEnd = input.length + directSuffixLength;
-  // Enclosing prose can close on a later line. It can disambiguate punctuation
-  // but cannot supply the only evidence for the end of a URL token.
-  const text =
-    input + (enclosingDepth ? suffix : suffix.slice(0, directSuffixLength));
+type IClosingParenthesis = {
+  index: number;
+  outer: IClosingParenthesis | undefined;
+  count: number;
+};
 
-  const unmatchedClosers: number[] = [];
-  let depth = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    if (char === '(') {
-      depth += 1;
-    } else if (char === ')') {
-      if (depth > 0) {
-        depth -= 1;
-      } else {
-        unmatchedClosers.push(index);
-      }
+function indexClosingParentheses(text: string) {
+  const closers: IClosingParenthesis[] = [];
+  const matching = new Map<number, IClosingParenthesis>();
+  for (let index = text.length - 1; index >= 0; index -= 1) {
+    if (text[index] === ')') {
+      const outer = closers.at(-1);
+      closers.push({ index, outer, count: (outer?.count ?? 0) + 1 });
+    } else if (text[index] === '(') {
+      const closer = closers.pop();
+      if (closer) matching.set(index, closer);
     }
   }
+  return matching;
+}
+
+function readParenthesizedLnurl({
+  address,
+  tokenStart,
+  tokenEnd,
+  directEnd,
+  enclosingDepth,
+  firstCloser,
+  hasQueryContinuation,
+}: {
+  address: string;
+  tokenStart: number;
+  tokenEnd: number;
+  directEnd: number;
+  enclosingDepth: number;
+  firstCloser: IClosingParenthesis | undefined;
+  hasQueryContinuation: boolean;
+}): string | null {
+  if (!firstCloser) return null;
   // Reserve closers for enclosing prose only when all openers can be paired.
-  const linkCloserCount =
-    unmatchedClosers.length > enclosingDepth
-      ? unmatchedClosers.length - enclosingDepth
-      : unmatchedClosers.length;
+  const reserved = firstCloser.count > enclosingDepth ? enclosingDepth : 0;
   let wrapperEnd: number | undefined;
-  for (const index of unmatchedClosers.slice(0, linkCloserCount)) {
-    const next = text[index + 1];
+  for (
+    let closer: IClosingParenthesis | undefined = firstCloser;
+    closer && closer.count > reserved;
+    closer = closer.outer
+  ) {
+    const { index } = closer;
+    if (!enclosingDepth && index >= directEnd) break;
+    const next = address[index + 1];
     if (
-      index >= input.length ||
+      index >= tokenEnd ||
       !next ||
       /[\s.,!?，。！？;；:：)>"']/u.test(next)
     ) {
+      // Prose on later lines can close enclosing parentheses but does not
+      // supply the only evidence for the end of this URL.
       if (index >= directEnd && wrapperEnd === undefined) return null;
-      const end = Math.min(index, input.length);
+      const end = Math.min(index, tokenEnd);
       if (wrapperEnd !== undefined && wrapperEnd !== end) return null;
       wrapperEnd = end;
+      if (end === tokenEnd) break;
     }
   }
   if (
     wrapperEnd === undefined ||
-    (wrapperEnd === input.length && LNURL_QUERY_CONTINUATION.test(suffix))
+    (wrapperEnd === tokenEnd && hasQueryContinuation)
   ) {
     return null;
   }
-  return input.slice(0, wrapperEnd);
+  return address.slice(tokenStart, wrapperEnd);
 }
 
 function readReusableLightningRecipient(
@@ -196,19 +205,56 @@ function readReusableLightningRecipient(
   const candidates = address.matchAll(
     /(^|[\s<("':：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
+  const lineBreaks = address.matchAll(new RegExp(LNURL_LINE_BREAK.source, 'g'));
+  let lineBreak = lineBreaks.next().value;
+  let followingBreak = lineBreaks.next().value;
+  let firstAfter = 0;
+  let prefixCursor = 0;
+  let enclosingDepth = 0;
+  let closingParentheses: Map<number, IClosingParenthesis> | undefined;
   let recipient: string | undefined;
   for (const match of candidates) {
-    const [matchedText, opener, input] = match;
-    const suffix = address.slice(match.index + matchedText.length);
-    const [sameLine, followingLine = ''] = suffix.split(LNURL_LINE_BREAK, 2);
+    const [, opener, input] = match;
+    const tokenStart = match.index + opener.length;
+    const tokenEnd = tokenStart + input.length;
+    while (lineBreak && lineBreak.index < tokenEnd) {
+      lineBreak = followingBreak;
+      followingBreak = lineBreaks.next().value;
+    }
+    const lineEnd = lineBreak?.index ?? address.length;
+    firstAfter = Math.max(firstAfter, tokenEnd);
+    while (firstAfter < address.length && /\s/u.test(address[firstAfter])) {
+      firstAfter += 1;
+    }
+    const noSameLineSuffix = firstAfter >= lineEnd;
+    const hasQueryContinuation = LNURL_QUERY_CONTINUATION.test(
+      address.slice(firstAfter, firstAfter + 2),
+    );
     let candidate: string | undefined;
     if (
       opener === '(' &&
       LNURL_URI_SCHEME.test(normalizeLightningInput(input))
     ) {
-      const prefix =
-        address.slice(0, match.index).split(LNURL_LINE_BREAK).at(-1) ?? '';
-      const uri = readParenthesizedLnurl(prefix, input, suffix, sameLine);
+      closingParentheses ??= indexClosingParentheses(address);
+      while (prefixCursor < match.index) {
+        const char = address[prefixCursor];
+        if (LNURL_LINE_BREAK.test(char)) enclosingDepth = 0;
+        else if (char === '(') enclosingDepth += 1;
+        else if (char === ')' && enclosingDepth > 0) enclosingDepth -= 1;
+        prefixCursor += 1;
+      }
+      const uri = readParenthesizedLnurl({
+        address,
+        tokenStart,
+        tokenEnd,
+        directEnd:
+          noSameLineSuffix && address[firstAfter] === ')'
+            ? firstAfter + 1
+            : lineEnd,
+        enclosingDepth,
+        firstCloser: closingParentheses.get(match.index),
+        hasQueryContinuation,
+      });
       if (!uri) return { kind: 'ambiguous' };
       const normalized = normalizeLightningInput(uri);
       if (!findLnurl(normalized)) return { kind: 'ambiguous' };
@@ -223,14 +269,15 @@ function readReusableLightningRecipient(
       if (findLnurl(normalized)) candidate = normalized;
       if (candidate && LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
         if (closer) {
-          if (!suffix.trimStart().startsWith(closer)) {
+          if (address[firstAfter] !== closer) {
             return { kind: 'ambiguous' };
           }
         } else {
           // A blank line can separate paragraphs outside an explicit wrapper.
           if (
-            (!sameLine.trim() && followingLine.trim()) ||
-            LNURL_QUERY_CONTINUATION.test(suffix)
+            (noSameLineSuffix &&
+              firstAfter < (followingBreak?.index ?? address.length)) ||
+            hasQueryContinuation
           ) {
             return { kind: 'ambiguous' };
           }
@@ -247,14 +294,19 @@ function readReusableLightningRecipient(
   if (recipient !== undefined) return { kind: 'recipient', address: recipient };
 }
 
+export const parseReusableLightningRecipient = memoizee(
+  readReusableLightningRecipient,
+  { max: 4, maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }) },
+);
+
 export function isAmbiguousLnurl(input: string): boolean {
   return (
     /lnurl(?:[pwc]:|1)/i.test(input) &&
-    readReusableLightningRecipient(input)?.kind === 'ambiguous'
+    parseReusableLightningRecipient(input)?.kind === 'ambiguous'
   );
 }
 
 export const resolveReusableLightningRecipient = (input: string) => {
-  const result = readReusableLightningRecipient(input);
+  const result = parseReusableLightningRecipient(input);
   return result?.kind === 'recipient' ? result.address : null;
 };

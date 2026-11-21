@@ -95,6 +95,7 @@ describe('LightningVault.validateAddress', () => {
 
   it.each([
     'lightning:lnurlp://example.com/pay\nThanks',
+    'lightning:lnurlp://merchant.example/pay)weekly?order=12<',
     'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
     '请支付：lnurlp://merchant.example/checkout?order=12 \r\n34',
     'Pay: lnurlp://merchant.example/checkout?order=12\u202834',

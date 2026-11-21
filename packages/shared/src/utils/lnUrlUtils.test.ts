@@ -209,6 +209,12 @@ it('rejects multiple distinct LNURL destinations in payment instructions', () =>
   expect(isAmbiguousLnurl(`Pay (${LNURL}) or (${otherCode}).`)).toBe(true);
 });
 
+it('keeps repeated wrapped references to one LNURL in long payment instructions', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12';
+  const text = `Please pay (${`(${uri}) then `.repeat(512)}save the receipt).`;
+  expect(resolveReusableLightningRecipient(text)).toBe(uri);
+});
+
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(
   'preserves the entire URI when pasted without a wrapper: %s',
   (uri) => {

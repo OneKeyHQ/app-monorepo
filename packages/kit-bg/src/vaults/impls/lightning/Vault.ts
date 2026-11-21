@@ -38,7 +38,7 @@ import {
   getLightningInvoiceNetwork,
   isAmbiguousLnurl,
   normalizeLightningInput,
-  resolveReusableLightningRecipient,
+  parseReusableLightningRecipient,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -406,10 +406,15 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(input: string): Promise<IAddressValidation> {
-    if (isAmbiguousLnurl(input)) {
+    const address = normalizeLightningInput(input);
+    const recipient = parseReusableLightningRecipient(address);
+    const isAmbiguous =
+      address === input
+        ? recipient?.kind === 'ambiguous'
+        : isAmbiguousLnurl(input);
+    if (isAmbiguous) {
       return { isValid: false, normalizedAddress: '', displayAddress: '' };
     }
-    const address = normalizeLightningInput(input);
     if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
       try {
         const { isTestnet } = await this.getNetwork();
@@ -422,12 +427,11 @@ export default class Vault extends VaultBase {
       }
     }
 
-    const reusableRecipient = resolveReusableLightningRecipient(address);
-    if (reusableRecipient) {
+    if (recipient?.kind === 'recipient') {
       return {
         isValid: true,
-        normalizedAddress: reusableRecipient,
-        displayAddress: reusableRecipient,
+        normalizedAddress: recipient.address,
+        displayAddress: recipient.address,
       };
     }
 
