@@ -226,19 +226,32 @@ it('dashes only the text after the leading sentence on native', () => {
       Learn more
     </DashText>,
   );
+  type ILines = { x: number; y: number; width: number; height: number }[];
   const calls = jest.mocked(SizableText).mock.calls;
-  const layout = (
-    isLeading: boolean,
-    lines: { x: number; y: number; width: number; height: number }[],
-  ) => {
-    const call = [...calls]
-      .toReversed()
-      .find(([props]) => (props.opacity === 0) === isLeading);
+  // The paragraph, the leading text alone, or the leading text ending in a
+  // word joiner.
+  const layoutOf = (kind: 'paragraph' | 'leading' | 'withSpace', lines: ILines) => {
+    const call = [...calls].toReversed().find(([props]) => {
+      if (kind === 'paragraph') {
+        return props.opacity !== 0;
+      }
+      const endsWithJoiner =
+        Array.isArray(props.children) && props.children.includes('\u2060');
+      return props.opacity === 0 && endsWithJoiner === (kind === 'withSpace');
+    });
     const callback = call?.[0].onTextLayout;
     if (typeof callback !== 'function') {
       throw new OneKeyLocalError('Missing native text layout handler');
     }
     void act(() => callback({ nativeEvent: { lines } } as TextLayoutEvent));
+  };
+  const layout = (isLeading: boolean, lines: ILines) => {
+    if (!isLeading) {
+      layoutOf('paragraph', lines);
+      return;
+    }
+    layoutOf('leading', lines);
+    layoutOf('withSpace', lines);
   };
   const layouts = () =>
     underlines(view.container).map(
@@ -284,6 +297,27 @@ it('dashes only the text after the leading sentence on native', () => {
   ]);
   expect(layouts()).toEqual([
     expect.objectContaining({ start: 50, top: 42, width: 50 }),
+  ]);
+
+  // The joiner copy wraps its last word to a line of its own while the
+  // paragraph keeps that word and moves only the link down: the start comes
+  // from the plain copy, which breaks like the paragraph.
+  layoutOf('leading', [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 90, height: 20 },
+  ]);
+  layoutOf('withSpace', [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 70, height: 20 },
+    { x: 0, y: 40, width: 25, height: 20 },
+  ]);
+  layoutOf('paragraph', [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 90, height: 20 },
+    { x: 0, y: 40, width: 30, height: 20 },
+  ]);
+  expect(layouts()).toEqual([
+    expect.objectContaining({ start: 0, top: 62, width: 30 }),
   ]);
 });
 

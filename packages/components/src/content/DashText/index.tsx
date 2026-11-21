@@ -68,23 +68,73 @@ export interface IDashTextProps extends ISizableTextProps {
 type ITextLine = { x: number; y: number; width: number; height: number };
 
 // The parts of the paragraph lines that follow the leading text (LTR text).
-// The leading text's last line holds the same run as that paragraph line, so
-// its width says where the dashed text starts, whatever the line alignment.
+// The leading text laid out alone breaks like the paragraph, so its last line
+// is the paragraph line where the dashed text starts, and its width says where
+// on that line, whatever the alignment. That width leaves out a trailing
+// space; the copy ending in a word joiner keeps it, when that copy breaks the
+// same way (it can wrap one word earlier).
 function getTrailingLines(
   lines: ITextLine[],
   leadingLines: ITextLine[],
+  leadingLinesWithSpace: ITextLine[],
 ): ITextLine[] {
   const leadingEnd = leadingLines[leadingLines.length - 1];
   if (!leadingEnd) {
     return [];
   }
+  const startWidth =
+    leadingLinesWithSpace.length === leadingLines.length
+      ? leadingLinesWithSpace[leadingLinesWithSpace.length - 1].width
+      : leadingEnd.width;
   return lines
     .slice(leadingLines.length - 1)
     .map((line, index) => {
-      const x = index === 0 ? line.x + leadingEnd.width : line.x;
+      const x = index === 0 ? line.x + startWidth : line.x;
       return { ...line, x, width: line.x + line.width - x };
     })
     .filter((line) => line.width >= 1);
+}
+
+type ITextLayoutHandler = Exclude<
+  ISizableTextProps['onTextLayout'],
+  'unset' | undefined
+>;
+
+// An invisible copy of the text at the paragraph's width, laid out only to
+// read its lines; it gets just the props that affect layout.
+function TextLayoutProbe({
+  textProps,
+  onTextLayout,
+  children,
+}: {
+  textProps: ISizableTextProps;
+  onTextLayout: ITextLayoutHandler;
+  children: ReactNode;
+}) {
+  return (
+    <SizableText
+      size={textProps.size}
+      fontSize={textProps.fontSize}
+      fontFamily={textProps.fontFamily}
+      fontWeight={textProps.fontWeight}
+      fontStyle={textProps.fontStyle}
+      fontVariant={textProps.fontVariant}
+      lineHeight={textProps.lineHeight}
+      letterSpacing={textProps.letterSpacing}
+      textTransform={textProps.textTransform}
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      opacity={0}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onTextLayout={onTextLayout}
+    >
+      {children}
+    </SizableText>
+  );
 }
 
 function DashTextCore({
@@ -113,11 +163,18 @@ function DashTextCore({
   const [textWidth, setTextWidth] = useState(0);
   const [textLines, setTextLines] = useState<ITextLine[]>([]);
   const [leadingLines, setLeadingLines] = useState<ITextLine[]>([]);
-  const handleLeadingTextLayout = useCallback<
-    Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
-  >((event) => {
+  const [leadingLinesWithSpace, setLeadingLinesWithSpace] = useState<
+    ITextLine[]
+  >([]);
+  const handleLeadingTextLayout = useCallback<ITextLayoutHandler>((event) => {
     setLeadingLines(event.nativeEvent.lines);
   }, []);
+  const handleLeadingTextWithSpaceLayout = useCallback<ITextLayoutHandler>(
+    (event) => {
+      setLeadingLinesWithSpace(event.nativeEvent.lines);
+    },
+    [],
+  );
   const handleTextLayout = useCallback<
     Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
   >(
@@ -247,7 +304,7 @@ function DashTextCore({
     const dashedLines =
       leadingText === undefined
         ? textLines
-        : getTrailingLines(textLines, leadingLines);
+        : getTrailingLines(textLines, leadingLines, leadingLinesWithSpace);
     return (
       <YStack
         maxWidth="100%"
@@ -260,32 +317,24 @@ function DashTextCore({
           {children}
         </SizableText>
         {leadingText === undefined ? null : (
-          // Lays out the leading text alone at the same width, to find where
-          // `children` starts in the paragraph. The word joiner keeps a
-          // trailing space inside the measured line width.
-          <SizableText
-            size={textProps.size}
-            fontSize={textProps.fontSize}
-            fontFamily={textProps.fontFamily}
-            fontWeight={textProps.fontWeight}
-            fontStyle={textProps.fontStyle}
-            fontVariant={textProps.fontVariant}
-            lineHeight={textProps.lineHeight}
-            letterSpacing={textProps.letterSpacing}
-            textTransform={textProps.textTransform}
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            opacity={0}
-            pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            onTextLayout={handleLeadingTextLayout}
-          >
-            {leadingText}
-            {'\u2060'}
-          </SizableText>
+          // Where `children` starts in the paragraph: the leading text alone,
+          // and once more with a word joiner that keeps a trailing space in
+          // the measured width.
+          <>
+            <TextLayoutProbe
+              textProps={textProps}
+              onTextLayout={handleLeadingTextLayout}
+            >
+              {leadingText}
+            </TextLayoutProbe>
+            <TextLayoutProbe
+              textProps={textProps}
+              onTextLayout={handleLeadingTextWithSpaceLayout}
+            >
+              {leadingText}
+              {'\u2060'}
+            </TextLayoutProbe>
+          </>
         )}
         {length > 0
           ? dashedLines.map((line, lineIndex) => (
