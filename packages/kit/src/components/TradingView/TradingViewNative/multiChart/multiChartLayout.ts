@@ -225,6 +225,10 @@ export function normalizeTradingViewNativeMultiChartLayout(
     input.revision > 0
       ? input.revision
       : undefined;
+  const writeId =
+    typeof input.writeId === 'string' && input.writeId
+      ? input.writeId
+      : undefined;
   return {
     preset: isTradingViewNativeMultiChartPreset(input.preset)
       ? input.preset
@@ -234,6 +238,7 @@ export function normalizeTradingViewNativeMultiChartLayout(
     ...(Object.keys(sizes).length ? { sizes } : {}),
     ...(Object.keys(sync).length ? { sync } : {}),
     ...(revision ? { revision } : {}),
+    ...(writeId ? { writeId } : {}),
   };
 }
 

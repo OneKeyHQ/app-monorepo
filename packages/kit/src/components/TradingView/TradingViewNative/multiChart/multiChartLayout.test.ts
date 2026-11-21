@@ -371,6 +371,18 @@ describe('sync options', () => {
       ).toEqual(layout);
     }
   });
+
+  it('keeps the ID of the last write and drops one that is no string', () => {
+    expect(
+      normalizeTradingViewNativeMultiChartLayout({ ...layout, writeId: 'w1' })
+        .writeId,
+    ).toBe('w1');
+    for (const writeId of ['', 7, null, {}]) {
+      expect(
+        normalizeTradingViewNativeMultiChartLayout({ ...layout, writeId }),
+      ).toEqual(layout);
+    }
+  });
 });
 
 describe('panel selection', () => {

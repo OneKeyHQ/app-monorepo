@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   ITradingViewNativeIndicatorSettings,
   ITradingViewNativeMultiChartLayout,
@@ -72,27 +73,51 @@ function isOnPanel(panel: Element, target: EventTarget): target is Element {
   return target instanceof Element && panel.contains(target);
 }
 
+interface IPendingSwitch {
+  answer: Promise<boolean>;
+  /** The host's source when the switch was asked for. */
+  fromKey: string;
+  /**
+   * The host's source if the switch is turned down: the one it showed
+   * before the switches still on their way.
+   */
+  returnKey: string;
+}
+
 interface ILayoutChannel {
-  /** The layout written last, until the saved one has reached its revision. */
+  /** The layout written last, until the saved layout has it. */
   written: ITradingViewNativeMultiChartLayout | null;
   /** The latest selection made in any grid of the layout. */
   selectionSeq: number;
+  /** Switches the host was asked for and has not answered yet, by token. */
+  switches: Map<string, IPendingSwitch>;
+}
+
+function createLayoutChannel(): ILayoutChannel {
+  return { written: null, selectionSeq: 0, switches: new Map() };
 }
 
 // What the grids of one saved layout share, by `layoutKey`. One unmounted and
 // the next mounted, e.g. across a breakpoint, build on each other's writes
-// still on their way, and a newer selection in either outdates the answer the
-// other is waiting for.
+// still on their way, wait for the switches the other asked for, and a newer
+// selection in either outdates the answer the other is waiting for.
 const layoutChannels = new Map<string, ILayoutChannel>();
 
 function getRevision(layout: ITradingViewNativeMultiChartLayout) {
   return layout.revision ?? 0;
 }
 
-interface IPendingSwitch {
-  answer: Promise<boolean>;
-  /** The host's source when the switch was asked for. */
-  fromKey: string;
+// Whether the saved layout has a write: it is that write, or has a newer
+// revision. Another window can save the same revision without it, e.g. when
+// both windows wrote over the same layout.
+function hasWrite(
+  saved: ITradingViewNativeMultiChartLayout,
+  written: ITradingViewNativeMultiChartLayout,
+) {
+  return (
+    getRevision(saved) > getRevision(written) ||
+    (saved.writeId !== undefined && saved.writeId === written.writeId)
+  );
 }
 
 // Gives the chart inside an extra panel its own indicator settings, stored in
@@ -251,6 +276,12 @@ interface IPanelSelection {
   /** The host's source when the panel was selected. */
   activeSourceKey: string;
   /**
+   * Where a turned-down switch leaves the host: the source it showed before
+   * the switches still on their way, which can be other than the one it
+   * showed when the panel was selected.
+   */
+  returnSourceKey: string;
+  /**
    * The panel the host's source belonged to when this one was selected, and
    * goes on belonging to until the host follows.
    */
@@ -303,26 +334,20 @@ export function TradingViewNativeMultiChart({
     setSelectionState(next);
   }, []);
   // What the grid shares with the other grids of its layout key.
-  const [ownChannel] = useState<ILayoutChannel>(() => ({
-    written: null,
-    selectionSeq: 0,
-  }));
+  const [ownChannel] = useState(createLayoutChannel);
   const channel = useMemo(() => {
     if (!layoutKey) return ownChannel;
     let shared = layoutChannels.get(layoutKey);
     if (!shared) {
-      shared = { written: null, selectionSeq: 0 };
+      shared = createLayoutChannel();
       layoutChannels.set(layoutKey, shared);
     }
     return shared;
   }, [layoutKey, ownChannel]);
-  // A write is on its way until the saved layout has reached its revision,
-  // whoever saved that, e.g. another window.
+  // A write is on its way until the saved layout has it: the write came back,
+  // or a newer revision was saved over it, e.g. by another window.
   useEffect(() => {
-    if (
-      channel.written &&
-      getRevision(savedLayout) >= getRevision(channel.written)
-    ) {
+    if (channel.written && hasWrite(savedLayout, channel.written)) {
       channel.written = null;
     }
   }, [channel, savedLayout]);
@@ -339,21 +364,19 @@ export function TradingViewNativeMultiChart({
   // Every write of the grid. On a split runtime `current` is the snapshot bg
   // sent last and can miss writes still on their way there; a write worked out
   // from it, e.g. a selection saved after the preset changed, would undo them.
-  // So each write starts from the layout written last while the saved one has
-  // not reached it, and carries the next revision.
+  // So each write starts from the layout written last while the saved one does
+  // not have it, and carries the next revision and an ID of its own.
   const onLayoutChange = useCallback<IOnLayoutChange>(
     (update) =>
       onSavedLayoutChange((current) => {
         const pending = channel.written;
-        const base =
-          pending && getRevision(pending) > getRevision(current)
-            ? pending
-            : current;
+        const base = pending && !hasWrite(current, pending) ? pending : current;
         const next = update(base);
         if (next === base) return current;
         const written: ITradingViewNativeMultiChartLayout = {
           ...normalizeTradingViewNativeMultiChartLayout(next),
           revision: Math.max(getRevision(base), getRevision(current)) + 1,
+          writeId: generateUUID(),
         };
         channel.written = written;
         return written;
@@ -433,8 +456,12 @@ export function TradingViewNativeMultiChart({
       // selected panel follows it when it is the panel's own token, or when
       // the panel was on screen as the host went there; a panel the preset
       // hid then showed none, so the token stays with the panel it belonged
-      // to. A host back on its source returns the selection.
-      if (hostMoved && !hostPassedSelection) {
+      // to. A host back where the turned-down switches leave it returns the
+      // selection.
+      if (
+        activeSourceKey !== selection.returnSourceKey &&
+        !hostPassedSelection
+      ) {
         saveSelection(selection);
         setSelection({ ...selection, isRejected: false, isSaved: true });
       } else {
@@ -491,8 +518,6 @@ export function TradingViewNativeMultiChart({
     selection,
     shownActiveSource,
   };
-  // Switches the host was asked for and has not answered yet, by token.
-  const pendingSwitches = useRef(new Map<string, IPendingSwitch>());
   // `picked` is a token picked in the panel, which it takes on with the
   // selection; without one the panel keeps its own.
   const handleSelectPanel = useCallback(
@@ -525,12 +550,17 @@ export function TradingViewNativeMultiChart({
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
       const sourceKey = getTradingViewNativeSourceKey(source);
-      // A switch to this token is on its way already, e.g. from the press that
-      // opened a picker in the panel, and the host may show the token before
-      // it lands. That switch's answer decides this selection too: asking
-      // again would drop it for one that finds the host halfway there.
-      const pending = pendingSwitches.current.get(sourceKey);
+      const { switches } = channel;
+      // The switch on its way to the token the host shows, which may show a
+      // token before it lands. With this token, e.g. asked for by the press
+      // that opened a picker in the panel, that switch's answer decides this
+      // selection too: asking again would drop it for one that finds the host
+      // halfway there. A switch the host has left for another token is
+      // turned down, so this token is asked for anew.
+      const shownSwitch = switches.get(state.activeSourceKey);
+      const pending = sourceKey === state.activeSourceKey ? shownSwitch : null;
       const fromKey = pending?.fromKey ?? state.activeSourceKey;
+      const returnKey = shownSwitch?.returnKey ?? state.activeSourceKey;
       const waitsForHost = sourceKey !== fromKey;
       channel.selectionSeq += 1;
       const seq = channel.selectionSeq;
@@ -540,6 +570,7 @@ export function TradingViewNativeMultiChart({
         keptSources,
         source,
         activeSourceKey: fromKey,
+        returnSourceKey: returnKey,
         hostPanelId: keptPanelId,
         waitsForHost,
         isSaved: !waitsForHost,
@@ -553,7 +584,7 @@ export function TradingViewNativeMultiChart({
         saveSelection(next);
         // The host shows this token already, but an earlier switch may still
         // land on another one: asking again makes the host drop that switch.
-        if (pendingSwitches.current.size > 0) {
+        if (switches.size > 0) {
           void state.onSelectPanel(source).catch(() => false);
         }
         return;
@@ -561,10 +592,10 @@ export function TradingViewNativeMultiChart({
       let answer = pending?.answer;
       if (!answer) {
         const asked = state.onSelectPanel(source).catch(() => false);
-        pendingSwitches.current.set(sourceKey, { answer: asked, fromKey });
+        switches.set(sourceKey, { answer: asked, fromKey, returnKey });
         void asked.then(() => {
-          if (pendingSwitches.current.get(sourceKey)?.answer === asked) {
-            pendingSwitches.current.delete(sourceKey);
+          if (switches.get(sourceKey)?.answer === asked) {
+            switches.delete(sourceKey);
           }
         });
         answer = asked;

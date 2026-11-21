@@ -343,10 +343,15 @@ export type ITradingViewNativeMultiChartLayout = {
   /**
    * Counts the split view's writes: each one carries the revision of the
    * layout it was worked out from, plus one. A write is no longer on its way
-   * once the saved layout has reached its revision, also when another window
-   * saved a newer layout over it meanwhile.
+   * once the saved layout is that write, or has a newer revision, e.g. one
+   * another window saved over it meanwhile.
    */
   revision?: number;
+  /**
+   * Tells a write from another one of the same revision, e.g. made in another
+   * window over the same layout.
+   */
+  writeId?: string;
 };
 
 export function createTradingViewNativeMultiChartLayout(): ITradingViewNativeMultiChartLayout {

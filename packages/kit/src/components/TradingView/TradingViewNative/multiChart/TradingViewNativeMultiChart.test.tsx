@@ -952,35 +952,181 @@ it('returns a selection that waited for a switch on its way when that switch fai
   expect(harness.layout.activePanelId).toBeUndefined();
 });
 
-it('leaves a selection made in a newer grid of the layout to the late answer of an older one', async () => {
-  let finish: (switched: boolean) => void = () => {};
+it.each([
+  ['lands', true],
+  ['fails', false],
+])(
+  'decides a selection made in a newer grid of the layout by the switch an older one asked for, when it %s',
+  async (_, switched) => {
+    let finish: (result: boolean) => void = () => {};
+    const onSelectPanel = jest.fn(
+      (source: ITradingViewNativeSource, { setActiveSource }: IHarness) => {
+        setActiveSource(source);
+        return new Promise<boolean>((resolve) => {
+          finish = (result) => {
+            // A failed switch puts the page back on the token it showed.
+            if (!result) setActiveSource(coin('BTC'));
+            resolve(result);
+          };
+        });
+      },
+    );
+    const harness = renderGrid({
+      layoutKey: `newer-selection-${String(switched)}`,
+      layout: {
+        preset: '2h',
+        sync: { symbol: true },
+        panels: { 'panel-2': { source: coin('SOL'), indicatorSettings } },
+      },
+      onSelectPanel,
+    });
+    const saved = harness.layout;
+
+    // ETH is picked in the first chart, and the page crosses the breakpoint
+    // twice while the host loads it.
+    act(() => mockPanels.get('main')?.selectSource(coin('ETH')));
+    harness.unmount();
+    harness.remount();
+    // Every chart shows ETH already, but the switch to it is still on its
+    // way: selecting the second chart waits for that switch.
+    await act(async () => press('panel-2'));
+    expectScreen({ main: 'ETH', 'panel-2': 'ETH' }, 'panel-2');
+    expect(harness.layout).toBe(saved);
+    expect(onSelectPanel).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish(switched));
+    if (switched) {
+      expect(harness.layout.activePanelId).toBe('panel-2');
+    } else {
+      // The first chart stays the selected one.
+      expectScreen({ main: 'BTC', 'panel-2': 'BTC' }, 'main');
+      expect(harness.layout).toBe(saved);
+    }
+  },
+);
+
+it('asks again for the token of a panel selected again after the switch to it was superseded', async () => {
+  const answers: Array<(switched: boolean) => void> = [];
+  const asked: string[] = [];
   const harness = renderGrid({
-    layoutKey: 'newer-selection',
     layout: {
-      preset: '2h',
-      sync: { symbol: true },
-      panels: { 'panel-2': { source: coin('SOL'), indicatorSettings } },
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: (source, { setActiveSource }) => {
+      asked.push(source.kind === 'hyperliquid' ? source.coin : '');
+      // The host shows a token before its switch has landed.
+      setActiveSource(source);
+      return new Promise((resolve) => {
+        answers.push(resolve);
+      });
+    },
+  });
+  const charts = {
+    main: 'BTC',
+    'panel-2': 'ETH',
+    'panel-3': 'SOL',
+    'panel-4': 'HYPE',
+  };
+
+  // panel-2 is selected again while the host heads for SOL, before the
+  // switch to ETH has been turned down.
+  act(() => press('panel-2'));
+  act(() => press('panel-3'));
+  act(() => press('panel-2'));
+  expect(asked).toEqual(['ETH', 'SOL', 'ETH']);
+
+  // The switches it superseded are turned down first.
+  await act(async () => {
+    answers[0](false);
+    answers[1](false);
+  });
+  expectScreen(charts, 'panel-2');
+  await act(async () => answers[2](true));
+  expectScreen(charts, 'panel-2');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-2',
+    panels: {
+      main: { source: coin('BTC') },
+      'panel-3': { source: coin('SOL') },
+    },
+  });
+});
+
+it('returns to the last saved panel when a switch asked while another was on its way fails', async () => {
+  const answers: Array<(switched: boolean) => void> = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
     },
     onSelectPanel: (source, { setActiveSource }) => {
       setActiveSource(source);
       return new Promise((resolve) => {
-        finish = resolve;
+        answers.push(resolve);
       });
     },
   });
+  const saved = harness.layout;
 
-  // ETH is picked in the first chart, and the page crosses the breakpoint
-  // twice while the host loads it.
-  act(() => mockPanels.get('main')?.selectSource(coin('ETH')));
-  harness.unmount();
-  harness.remount();
-  // Every chart shows ETH already, so selecting the second one is saved at
-  // once.
-  await act(async () => press('panel-2'));
-  expect(harness.layout.activePanelId).toBe('panel-2');
+  // panel-3 is selected while the host still heads for ETH.
+  act(() => press('panel-2'));
+  act(() => press('panel-3'));
+  await act(async () => answers[0](false));
+  // The switch to SOL fails, and the page goes back to the token it showed
+  // before either switch.
+  await act(async () => {
+    harness.setActiveSource(coin('BTC'));
+    answers[1](false);
+  });
 
-  await act(async () => finish(true));
-  expect(harness.layout.activePanelId).toBe('panel-2');
+  expectScreen(
+    { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
+    'main',
+  );
+  expect(harness.layout).toBe(saved);
+});
+
+it('keeps building on its own write when another window saves the same revision first', () => {
+  const harness = renderGrid({
+    layoutKey: 'same-revision',
+    deferLayoutWrites: true,
+    onSelectPanel: async () => true,
+  });
+  const initial = harness.layout;
+
+  // Four charts, on their way to bg.
+  act(() => {
+    fireEvent.click(screen.getByTestId('preset-4'));
+  });
+  // Another window wrote over the same layout, and bg sends its write back
+  // before this one.
+  act(() =>
+    harness.replaceLayout({
+      ...initial,
+      sync: { crosshair: true },
+      revision: 1,
+      writeId: 'other-window',
+    }),
+  );
+  // A sync option changes before this window's write is back.
+  act(() => {
+    fireEvent.click(screen.getByTestId('sync-symbol'));
+  });
+  act(() => harness.flushLayout());
+
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    sync: { symbol: true },
+  });
 });
 
 it('builds on a newer layout another window saved over a write the grid kept when it went', () => {

@@ -24,19 +24,27 @@ under separate owners:
   write against the snapshot bg sent last, which can miss the selection before.
   For the same reason every write of the grid (a selection, a panel's token or
   indicators, the preset, sync options, sizes) carries the next `revision` and
-  starts from the layout the grid wrote last until the saved layout has
-  reached its revision, so it cannot undo another write that has not come
-  back yet; a newer layout another window saved meanwhile also reaches it.
+  a `writeId` of its own, and starts from the layout the grid wrote last until
+  the saved layout is that write or has a newer revision, so it cannot undo
+  another write that has not come back yet; a newer layout another window
+  saved meanwhile also has it. Another window can save the same revision
+  without the write, e.g. when both wrote over one layout, so that one does
+  not count.
   Grids of one `layoutKey`, e.g. one unmounted and the next mounted, share
-  those writes and their selections: a late write of a grid that is gone,
-  e.g. a selection the host answers then, builds on the writes still on their
-  way and on those of a grid mounted since, and a newer selection in either
-  outdates the answer the other waits for. Without a key it starts from the
-  latest saved layout.
+  those writes, their selections and the switches they asked for: a late
+  write of a grid that is gone, e.g. a selection the host answers then, builds
+  on the writes still on their way and on those of a grid mounted since, a
+  newer selection in either outdates the answer the other waits for, and a
+  selection in either of a token the other asked for waits for that switch.
+  Without a key it starts from the latest saved layout.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch. A
-  selection of a token whose switch is on its way already, which the host
-  may show before it lands, waits for that switch's answer instead.
+  selection of the token the host is switching to, which it may show before
+  the switch lands, waits for that switch's answer instead; a switch the host
+  has left for another token is turned down, so its token is asked for anew.
+  A turned-down switch leaves the host on the source it showed before the
+  switches on their way, also one asked for while another was still on its
+  way, and the selection returns there.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
   not select. A token picked in a panel, e.g. from the picker Perps puts in
   each header, selects the panel with that token (`selectSource`): the host

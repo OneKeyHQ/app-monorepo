@@ -210,16 +210,24 @@ keep the single chart.
   never flashes the loading mask and its quote stays. That metadata is for
   display only: the order menu and the cancel and drag of order lines wait
   until the panel's switch has landed and the trade instrument has its own
-  precision. A perp switch the background fails puts the trade mode and
-  instrument back to what the last switch that landed published (kept per
-  context store, across switches that overlap), unless a newer switch owns
-  them, so the selection returns and the page does not stay on the failed
-  token. The perp switch's same-coin shortcut needs the asset's metadata, so
-  a coin whose loading a superseded switch cut short is loaded again.
+  precision. A perp switch the background fails puts the page back, unless a
+  newer switch owns it by then, including one made while the page goes back:
+  to the spot token of the last switch that landed (kept per context store,
+  across switches that overlap), or else to the perp asset the background
+  rolled back to. The subscriptions follow the background's mode and assets,
+  so those go back with the page, also a spot asset that a switch cut short
+  had moved on. A token the background could not load, e.g. one no longer
+  listed, is shown without its metadata, but its switch reports that it is
+  not done, and a failed switch never goes back to it. The perp switch's
+  same-coin shortcut needs the asset's metadata, so a coin whose loading a
+  superseded switch cut short is loaded again.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
   Selecting the traded token's panel again drops a switch still on its way.
+  Selecting a panel again after its switch was superseded asks for its token
+  anew, and a selection made while another switch is on its way returns to
+  the last saved panel if it fails.
   Enter or Space on a panel's focused chart selects it like a press, so the
   controls row can be moved from the keyboard; the keys of the panel's own
   controls, e.g. a drawing tool's style list, do not select.
@@ -262,7 +270,9 @@ keep the single chart.
   never starts a drawing. The column has one collapse state, and collapsing
   it never rescales a chart's candles. The split view passes
   `layoutKey="perps"`, so a selection the trade instrument answers after the
-  view is gone lands on the layout changes still on their way. Drawings are saved per token, not
+  view is gone lands on the layout changes still on their way, and a split
+  view mounted again, e.g. across the breakpoint, waits for a switch the one
+  before asked for. Drawings are saved per token, not
   per panel: panels showing the same token share them live, including undo,
   and a token keeps its drawings when it moves between panels.
 - A new panel starts on a liquid token that is not on screen yet and copies the

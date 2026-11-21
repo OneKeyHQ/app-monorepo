@@ -21,14 +21,17 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
+  spotAssetCtxsMapAtom,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusAtom,
   IPerpsActiveAssetAtom,
+  IPerpsActiveOrderBookOptionsAtom,
   ISpotActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -207,6 +210,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       refreshHyperLiquidAgentPasswordStatus: () =>
         mockRefreshHyperLiquidAgentPasswordStatus(),
     },
+    simpleDb: {
+      perp: {
+        getOrderBookTickOptions: async () => ({}),
+      },
+    },
   },
 }));
 
@@ -325,7 +333,6 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     mockChangeActiveAsset.mockReset();
     // The service rolls its own active asset back when a change fails.
     jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue(btc);
-    jest.spyOn(spotActiveAssetAtom, 'get').mockResolvedValue(spot);
     for (const atom of [
       perpsActiveAssetCtxAtom,
       perpsActiveAssetCtxDisplayAtom,
@@ -342,12 +349,36 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
 
   function setup(mode: 'perp' | 'spot') {
     let currentMode = mode;
+    let spotAsset = spot;
+    let orderBookOptions: IPerpsActiveOrderBookOptionsAtom;
     jest
       .spyOn(tradingModeAtom, 'get')
       .mockImplementation(async () => currentMode);
     jest.spyOn(tradingModeAtom, 'set').mockImplementation(async (next) => {
       currentMode = next as typeof currentMode;
     });
+    jest
+      .spyOn(spotActiveAssetAtom, 'get')
+      .mockImplementation(async () => spotAsset);
+    jest.spyOn(spotActiveAssetAtom, 'set').mockImplementation(async (next) => {
+      spotAsset = next as ISpotActiveAssetAtom;
+    });
+    // What the order book subscription is for.
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+      .mockImplementation(async () => orderBookOptions);
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'set')
+      .mockImplementation(async (update) => {
+        orderBookOptions =
+          typeof update === 'function'
+            ? (
+                update as (
+                  prev: IPerpsActiveOrderBookOptionsAtom,
+                ) => IPerpsActiveOrderBookOptionsAtom
+              )(orderBookOptions)
+            : (update as IPerpsActiveOrderBookOptionsAtom);
+      });
     const store = createStore();
     store.set(
       activeTradeInstrumentAtom(),
@@ -368,7 +399,13 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     const { result } = renderHook(() => useHyperliquidActions(), {
       wrapper: createWrapper(store),
     });
-    return { store, result, getMode: () => currentMode };
+    return {
+      store,
+      result,
+      getMode: () => currentMode,
+      getSpotAsset: () => spotAsset,
+      getOrderBookCoin: () => orderBookOptions?.coin,
+    };
   }
 
   it.each(['perp', 'spot'] as const)(
@@ -498,6 +535,161 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
     expect(getMode()).toBe('perp');
   });
+
+  it('points the background back at the spot token when a failed perp switch interrupted a spot one', async () => {
+    const { store, result, getMode, getSpotAsset, getOrderBookCoin } =
+      setup('spot');
+    // The spot switch is still seeding its quotes when the perp switch
+    // supersedes it.
+    jest
+      .spyOn(spotAssetCtxsMapAtom, 'get')
+      .mockImplementation(() => new Promise(() => {}));
+    mockChangeActiveAsset.mockRejectedValue(
+      new OneKeyLocalError('Network error'),
+    );
+
+    await act(async () => {
+      void result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@150',
+        spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+      });
+    });
+    expect(getSpotAsset().coin).toBe('@150');
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'ETH',
+        }),
+      ).rejects.toThrow('Network error');
+    });
+
+    // The subscriptions follow the background's spot token, which goes back
+    // with the page.
+    expect(getMode()).toBe('spot');
+    expect(getSpotAsset()).toMatchObject({ coin: '@107', assetId: 10_107 });
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'spot',
+      coin: '@107',
+    });
+    await waitFor(() => expect(getOrderBookCoin()).toBe('@107'));
+  });
+
+  it('follows the perp token the service rolled back to when a perp switch fails', async () => {
+    const { store, result, getOrderBookCoin } = setup('perp');
+    // The last token the service loaded, e.g. for a switch the page dropped
+    // before it heard back.
+    const sol: IPerpsActiveAssetAtom = {
+      coin: 'SOL',
+      assetId: 5,
+      universe: {
+        assetId: 5,
+        name: 'SOL',
+        szDecimals: 2,
+        maxLeverage: 20,
+      } as IPerpsUniverse,
+      margin: undefined,
+    };
+    mockChangeActiveAsset.mockImplementation(async () => {
+      jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue(sol);
+      throw new OneKeyLocalError('Network error');
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'ETH',
+        }),
+      ).rejects.toThrow('Network error');
+    });
+
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'SOL',
+      assetId: 5,
+    });
+    await waitFor(() => expect(getOrderBookCoin()).toBe('SOL'));
+  });
+
+  it('leaves the page to a newer switch made while a failed one goes back', async () => {
+    const { store, result } = setup('perp');
+    mockChangeActiveAsset
+      .mockRejectedValueOnce(new OneKeyLocalError('Network error'))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    // On a split runtime the way back waits for bg to take the mode.
+    const modeWrite = createDeferred<void>();
+    jest
+      .mocked(tradingModeAtom.set)
+      .mockImplementationOnce(async () => undefined)
+      .mockImplementationOnce(() => modeWrite.promise);
+
+    let failed: Promise<boolean> | undefined;
+    await act(async () => {
+      failed = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    await act(async () => {
+      void result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'SOL',
+      });
+    });
+    await act(async () => {
+      modeWrite.resolve();
+      await expect(failed).rejects.toThrow('Network error');
+    });
+
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
+  });
+
+  it.each(['perp', 'spot'] as const)(
+    'goes back past a perp token the service could not load to the %s token before it',
+    async (mode) => {
+      const { store, result, getMode } = setup(mode);
+      // No longer listed: the service names it without its metadata.
+      mockChangeActiveAsset
+        .mockResolvedValueOnce({
+          coin: 'XYZ',
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        })
+        .mockRejectedValueOnce(new OneKeyLocalError('Network error'));
+
+      let switched: boolean | undefined;
+      await act(async () => {
+        switched = await result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'XYZ',
+        });
+      });
+      // Shown, but the switch is not done.
+      expect(switched).toBe(false);
+      expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+        mode: 'perp',
+        coin: 'XYZ',
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: 'ETH',
+          }),
+        ).rejects.toThrow('Network error');
+      });
+      expect(getMode()).toBe(mode);
+      expect(store.get(activeTradeInstrumentAtom())).toMatchObject(
+        mode === 'perp'
+          ? { mode: 'perp', coin: 'BTC', assetId: 0 }
+          : { mode: 'spot', coin: '@107', assetId: 10_107 },
+      );
+    },
+  );
 });
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {
