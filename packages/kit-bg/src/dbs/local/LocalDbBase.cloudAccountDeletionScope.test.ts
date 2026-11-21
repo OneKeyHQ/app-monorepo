@@ -7,14 +7,20 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
 import { CloudSyncFlowManagerAccount } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import {
+  buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
   normalizePublicAccountSnapshotRecord,
   publicAccountSnapshotToAccount,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
+import {
+  publicAccountAllChainFixtures,
+  publicAccountAllChainWallet,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.allChains.test-utils';
 import {
   PUBLIC_ACCOUNT_TEST_XFP,
   publicAccountTestSnapshot,
@@ -75,6 +81,7 @@ async function fixture({
   missingCredential = false,
   beforeTime,
   foreign,
+  snapshotOverride,
 }: {
   refuseAuthority?: boolean;
   rejectPreflight?: boolean;
@@ -88,6 +95,7 @@ async function fixture({
     accountId: string,
   ) => Promise<void>;
   foreign?: Partial<IDBCloudSyncItem>;
+  snapshotOverride?: ICloudPublicAccountSnapshot;
 } = {}) {
   const db = new LocalDbIndexed();
   const other = new LocalDbIndexed();
@@ -102,7 +110,7 @@ async function fixture({
     backuped: true,
   };
   const snapshot = {
-    ...publicAccountTestSnapshot(),
+    ...(snapshotOverride ?? publicAccountTestSnapshot()),
     wallet: {
       kind: 'hd' as const,
       xfp: PUBLIC_ACCOUNT_TEST_XFP,
@@ -546,6 +554,57 @@ it.each([
       (await h.other.getAccountSafe({ accountId: h.account.id }))
         ?.createAtNetwork,
     ).toBe(createAtNetwork);
+  },
+);
+
+it.each([
+  { relPath: null, matches: true },
+  { relPath: '0/0', matches: false },
+  { relPath: '', matches: false },
+])(
+  'only treats an absent Realm TRON relative path as matching: $relPath',
+  async ({ relPath, matches }) => {
+    const tron = (await publicAccountAllChainFixtures()).find(
+      (item) => item.impl === 'tron' && item.kind === 'hd',
+    );
+    if (!tron) throw new OneKeyLocalError('Missing public TRON fixture');
+    const snapshot = buildPublicAccountSnapshot({
+      wallet: publicAccountAllChainWallet('hd'),
+      account: tron.account,
+    });
+    if (!snapshot) throw new OneKeyLocalError('Missing public TRON snapshot');
+    expect(snapshot.version).toBe(2);
+    expect(snapshot.account.relPath).toBeUndefined();
+
+    const h = await fixture({ unsent: true, snapshotOverride: snapshot });
+    const realmRecord = Object.assign(
+      Object.create(RealmSchemaAccount.prototype) as RealmSchemaAccount,
+      h.account,
+      { relPath },
+    ).record;
+    expect(realmRecord.relPath).toBe(relPath);
+    await h.db.withTransaction(
+      EIndexedDBBucketNames.account,
+      (tx) =>
+        h.db.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: [h.account.id],
+          updater: (row) => Object.assign(row, realmRecord),
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+    const fill = await h.buildFill();
+    await h.other.addAndUpdateSyncItems({
+      items: [fill],
+      skipUploadToServer: true,
+    });
+    expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(
+      matches ? fill : h.old,
+    );
+    expect(
+      (await h.other.getAccountSafe({ accountId: h.account.id }))?.relPath,
+    ).toBe(relPath);
   },
 );
 

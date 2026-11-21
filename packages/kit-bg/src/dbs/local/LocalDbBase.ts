@@ -5688,6 +5688,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const liveAccount = {
         ...account,
         createAtNetwork: account.createAtNetwork ?? undefined,
+        relPath: account.relPath ?? undefined,
       };
       if (!publicAccountIdentityEqual(liveAccount, match.expected))
         return false;
