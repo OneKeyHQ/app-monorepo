@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import type { ReactNode } from 'react';
+
 import {
   act,
   fireEvent,
@@ -239,19 +241,14 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
-    DashText: ({
-      leadingText,
-      children,
-    }: {
-      leadingText?: import('react').ReactNode;
-      children?: import('react').ReactNode;
-    }) =>
-      React.createElement(
-        'div',
-        null,
-        leadingText,
-        React.createElement('span', { 'data-testid': 'dashed' }, children),
-      ),
+    DashText: (props: { leadingText?: ReactNode; children?: ReactNode }) =>
+      React.createElement('div', null, props.leadingText, [
+        React.createElement(
+          'span',
+          { key: 'dashed', 'data-testid': 'dashed' },
+          props.children,
+        ),
+      ]),
     Dialog: {
       Description: Container,
       Footer: () => null,
@@ -262,13 +259,8 @@ jest.mock('@onekeyhq/components', () => {
     HeightTransition,
     Icon: () => null,
     // The real Popover is covered in the components package.
-    Popover: ({
-      open,
-      renderContent,
-    }: {
-      open: boolean;
-      renderContent: import('react').ReactNode;
-    }) => (open ? renderContent : null),
+    Popover: (props: { open: boolean; renderContent: ReactNode }) =>
+      props.open ? props.renderContent : null,
     SizableText: Container,
     Stack: Container,
     Toast: {

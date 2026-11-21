@@ -262,11 +262,7 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
       >
         {(backdrop as { dismissOnPress?: boolean } | undefined)
           ?.dismissOnPress ? (
-          <button
-            type="button"
-            data-testid="overlay-backdrop"
-            onClick={() => onRequestDismiss?.('backdrop')}
-          >
+          <button type="button" onClick={() => onRequestDismiss?.('backdrop')}>
             Outside
           </button>
         ) : null}
@@ -769,9 +765,7 @@ describe('hover and trigger press interaction', () => {
   });
 
   it('opens a triggerless panel on hovering its anchor; a regular one closes on an outside press', () => {
-    const anchor = document.createElement('span');
-    document.body.appendChild(anchor);
-    // Like the OneKey ID usage panel: a press turns a hover panel regular.
+    const anchor = document.body.appendChild(document.createElement('span'));
     function Host({ hover }: { hover: boolean }) {
       const [open, setOpen] = useState(false);
       return (
@@ -787,15 +781,13 @@ describe('hover and trigger press interaction', () => {
       );
     }
     const view = render(<Host hover />);
-    try {
-      fireEvent.mouseEnter(anchor);
-      advance(250);
-      expect(screen.getByText('Rate breakdown')).toBeTruthy();
-      view.rerender(<Host hover={false} />);
-      fireEvent.click(screen.getByTestId('overlay-backdrop'));
-      expect(screen.queryByText('Rate breakdown')).toBeNull();
-    } finally {
-      anchor.remove();
-    }
+    fireEvent.mouseEnter(anchor);
+    advance(250);
+    expect(screen.getByText('Rate breakdown')).toBeTruthy();
+    // A press turns the hover panel into a regular one (as the OneKey ID usage panel does).
+    view.rerender(<Host hover={false} />);
+    fireEvent.click(screen.getByText('Outside'));
+    expect(screen.queryByText('Rate breakdown')).toBeNull();
+    anchor.remove();
   });
 });

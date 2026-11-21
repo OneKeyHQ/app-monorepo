@@ -226,21 +226,19 @@ it('dashes only the trailing link on native, also when it wraps', () => {
       Learn more
     </DashText>,
   );
-  // Lays out the paragraph or one of its two leading-text probes (the second
-  // ends in a word joiner), one 20pt line per width.
-  const layout = (
-    text: 'paragraph' | 'leading' | 'withSpace',
-    ...widths: number[]
-  ) => {
+  // Lays out the paragraph (index 0) or a leading-text probe: plain (1) or
+  // ending in a word joiner (2); one 20pt line per width.
+  const layout = (probe: 0 | 1 | 2, ...widths: number[]) => {
     const call = jest
       .mocked(SizableText)
       .mock.calls.toReversed()
-      .find(([props]) => {
-        if (text === 'paragraph') return props.opacity !== 0;
-        const endsWithJoiner =
-          Array.isArray(props.children) && props.children.includes('\u2060');
-        return props.opacity === 0 && endsWithJoiner === (text === 'withSpace');
-      });
+      .find(([p]) =>
+        probe === 0
+          ? p.opacity !== 0
+          : p.opacity === 0 &&
+            (Array.isArray(p.children) && p.children.includes('\u2060')) ===
+              (probe === 2),
+      );
     const lines = widths.map((width, i) => ({
       x: 0,
       y: i * 20,
@@ -255,35 +253,29 @@ it('dashes only the trailing link on native, also when it wraps', () => {
     }
   };
   const dashes = () =>
-    underlines(view.container).map(
-      (node) => JSON.parse(node.dataset.layout ?? '{}') as object,
-    );
+    underlines(view.container).map((node) => {
+      const { start, top, width } = JSON.parse(node.dataset.layout ?? '{}');
+      return [start, top, width] as number[];
+    });
 
-  // On the sentence's last line: from after the space to the line end.
-  layout('leading', 100, 40);
-  layout('withSpace', 100, 45);
-  layout('paragraph', 100, 90);
+  // Same line as the sentence end, starting after the space.
+  layout(1, 100, 40);
+  layout(2, 100, 45);
+  layout(0, 100, 90);
+  expect(dashes()).toEqual([[45, 42, 45]]);
+  // The link wraps across two lines.
+  layout(1, 80);
+  layout(2, 85);
+  layout(0, 100, 30);
   expect(dashes()).toEqual([
-    expect.objectContaining({ start: 45, top: 42, width: 45 }),
+    [85, 22, 15],
+    [0, 42, 30],
   ]);
-
-  // The link itself wraps: each of its parts gets dashes.
-  layout('leading', 80);
-  layout('withSpace', 85);
-  layout('paragraph', 100, 30);
-  expect(dashes()).toEqual([
-    expect.objectContaining({ start: 85, top: 22, width: 15 }),
-    expect.objectContaining({ start: 0, top: 42, width: 30 }),
-  ]);
-
-  // The link moves to a line of its own while the joiner probe wraps a word
-  // earlier: the plain probe decides, and only the link is dashed.
-  layout('leading', 100, 90);
-  layout('withSpace', 100, 70, 25);
-  layout('paragraph', 100, 90, 30);
-  expect(dashes()).toEqual([
-    expect.objectContaining({ start: 0, top: 62, width: 30 }),
-  ]);
+  // The link alone on the next line while the joiner probe wraps earlier.
+  layout(1, 100, 90);
+  layout(2, 100, 70, 25);
+  layout(0, 100, 90, 30);
+  expect(dashes()).toEqual([[0, 62, 30]]);
 });
 
 it('keeps multiline labels in the requested tooltip and native popover', () => {
