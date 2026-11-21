@@ -75,7 +75,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: () => void;
+    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
     previousAppliedWalletSource?: {
       item: IDBCloudSyncItem;
       credential: ICloudSyncCredential;
@@ -87,7 +87,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: () => void;
+    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
     previousAppliedWalletSource?: {
       item: IDBCloudSyncItem;
       credential: ICloudSyncCredential;
@@ -722,7 +722,7 @@ export abstract class CloudSyncFlowManagerBase<
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: () => void;
+    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
     walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!items.length) {

@@ -74,19 +74,34 @@ it.each([
   'history-failure-fresh-avatar-cancelled',
   'history-failure-fresh-avatar-stale',
   'history-failure-fresh-avatar-foreign',
+  'history-failure-final-read-skipped',
+  'history-failure-final-inspection-unavailable',
+  'history-failure-final-recovered',
+  'history-failure-final-superseded',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const historyFails = scenario.startsWith('history-failure');
     const restart = scenario === 'history-failure-restart';
-    if (restart)
+    const finalReadSkipped = scenario === 'history-failure-final-read-skipped';
+    const finalInspectionUnavailable =
+      scenario === 'history-failure-final-inspection-unavailable';
+    const finalRecovered = scenario === 'history-failure-final-recovered';
+    const finalSuperseded = scenario === 'history-failure-final-superseded';
+    const manualHistory =
+      finalReadSkipped ||
+      finalInspectionUnavailable ||
+      finalRecovered ||
+      finalSuperseded;
+    if (restart || manualHistory)
       jest
         .spyOn(systemTimeUtils, 'ensureFreshServerTime')
         .mockResolvedValue(true);
     const noLocalAvatar =
       scenario === 'history-failure-missing-avatar' || restart;
     const losesServerAck = scenario === 'history-failure-flag-change';
-    const freshAvatar = scenario.startsWith('history-failure-fresh-avatar');
+    const freshAvatar =
+      manualHistory || scenario.startsWith('history-failure-fresh-avatar');
     const avatarDiverged =
       scenario === 'history-failure-fresh-avatar-local-diverged';
     const priorPending = scenario === 'history-failure-fresh-avatar-pending';
@@ -168,7 +183,7 @@ it.each([
     jest
       .spyOn(keyless, 'hydrateKeylessSyncCredentialFromStorageIfNeeded')
       .mockResolvedValue(undefined);
-    jest
+    const getSyncCredentialSafe = jest
       .spyOn(prime, 'getSyncCredentialSafe')
       .mockImplementation(async () =>
         config.isCloudSyncEnabledKeyless ? credential : undefined,
@@ -407,6 +422,91 @@ it.each([
           pwdHash: scope,
           serverTime: Date.now(),
         });
+        if (manualHistory) {
+          const replacement = finalSuperseded
+            ? await makeItem('Later cloud name', 'bear', nextTime + 100)
+            : undefined;
+          let recoveredHistoryCalls = 0;
+          const actualReplay =
+            ServicePrimeCloudSync.prototype.syncPendingItemsToScene.bind(prime);
+          replay.mockImplementationOnce(async (options) => {
+            // The exact freshly downloaded Wallet must already have tried to
+            // preserve its name before this final replay is reached.
+            expect(failedHistory).toHaveBeenCalledTimes(1);
+            if (replacement) {
+              const remoteReplacement = prime.convertLocalItemToServerItem({
+                localItem: replacement,
+              });
+              if (!remoteReplacement)
+                throw new OneKeyLocalError(
+                  'Missing superseding Wallet fixture',
+                );
+              await prime.saveServerSyncItemsToLocal({
+                serverItems: [remoteReplacement],
+                shouldSyncToScene: false,
+                syncCredential: credential,
+                serverPwdHash: scope,
+              });
+            }
+            if (!finalRecovered)
+              getSyncCredentialSafe.mockResolvedValueOnce(undefined);
+            if (finalRecovered) {
+              failedHistory.mockRestore();
+              const recoveredHistory = jest.spyOn(
+                SimpleDbEntityChangeHistory.prototype,
+                'retainWalletName',
+              );
+              await actualReplay(options);
+              recoveredHistoryCalls = recoveredHistory.mock.calls.length;
+              return;
+            }
+            await actualReplay(options);
+            if (finalInspectionUnavailable)
+              jest
+                .spyOn(localDb, 'getRecordsByIds')
+                .mockRejectedValueOnce(
+                  new OneKeyLocalError(
+                    'Synthetic final Wallet DAO unavailable',
+                  ),
+                );
+          });
+          jest
+            .spyOn(prime, 'resolveInitLocalSyncItemsPassword')
+            .mockResolvedValue('');
+          jest.spyOn(prime, 'prepareLocalSyncWallets').mockResolvedValue();
+          jest.spyOn(prime, 'initLocalSyncItemsDB').mockResolvedValue({
+            allWallets: [],
+            allDevices: [],
+            allAccounts: [],
+            allIndexedAccounts: [],
+          });
+          config = { ...config, isCloudSyncEnabledKeyless: true };
+          await expect(prime.syncNowKeylessWithResult()).resolves.toBe(
+            finalRecovered || finalSuperseded ? 'completed' : 'local-deferred',
+          );
+          expect(await readWallet()).toMatchObject({
+            name: finalRecovered ? 'Remote name awaiting history' : offlineName,
+            avatar: '{"img":"cat"}',
+            firstEvmAddress: remoteAddress.toLowerCase(),
+          });
+          expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+            data: (replacement ?? next).data,
+            dataTime: (replacement ?? next).dataTime,
+            localSceneUpdated: finalRecovered,
+          });
+          expect(recoveredHistoryCalls).toBe(finalRecovered ? 1 : 0);
+          if (finalRecovered || finalSuperseded)
+            expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+          else expect(config.lastSyncTimeKeyless).toBeUndefined();
+          expect(config.cloudSyncReconciliation).toMatchObject({
+            status: 'complete',
+            unfinished: false,
+            nextRetryAt: undefined,
+          });
+          expect(check).toHaveBeenCalledTimes(1);
+          expect(upload).not.toHaveBeenCalled();
+          return;
+        }
         const updateWallet = localDb.txUpdateWallet.bind(localDb);
         const stop = cancelFreshAvatar
           ? jest
