@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import { getAccountIdOnNetwork } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
+import {
+  getAccountIdOnNetwork,
+  getAddressCreationRequestSignal,
+} from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 const mockCreateAddress = jest.fn<
   Promise<{ id: string } | undefined>,
@@ -128,6 +131,60 @@ jest.mock(
 jest.mock('../../../states/jotai/contexts/accountSelector/atoms', () => ({
   useActiveAccount: jest.fn(),
 }));
+
+it('aborts the QR wallet request as soon as its dialog is dismissed', async () => {
+  jest.clearAllMocks();
+  const scanController = new AbortController();
+  let dialogReady: (signal: AbortSignal | undefined) => void = () => {};
+  const opened = new Promise<AbortSignal | undefined>((resolve) => {
+    dialogReady = resolve;
+  });
+  let finishLookup: () => void = () => {};
+  mockCreateAddress.mockImplementationOnce(
+    async (_params, { addressCreationRequest }) =>
+      new Promise((resolve) => {
+        finishLookup = () => resolve(undefined);
+        appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+          networkId: 'eth--1',
+          indexedAccountId: 'qr-1--0',
+          deriveType: 'default',
+          promiseId: 3,
+          autoCreateAddress: false,
+          addressCreationRequest,
+        });
+        dialogReady(getAddressCreationRequestSignal(addressCreationRequest));
+      }),
+  );
+  jest.mocked(Dialog.show).mockReturnValueOnce({
+    close: jest.fn(async () => undefined),
+    getForm: () => undefined,
+    isExist: () => true,
+  });
+  render(<CreateAddressContainer />);
+  const lookup = getAccountIdOnNetwork({
+    account: { id: 'qr-1--0', indexedAccountId: 'qr-1--0' } as INetworkAccount,
+    network: { id: 'eth--1', impl: 'evm' } as Parameters<
+      typeof getAccountIdOnNetwork
+    >[0]['network'],
+    canApplyScanResult: () => true,
+    scanSignal: scanController.signal,
+  });
+
+  const requestSignal = await opened;
+  expect(requestSignal?.aborted).toBe(false);
+  const [{ onCloseStart, onClose }] = jest.mocked(Dialog.show).mock.calls[0];
+  try {
+    onCloseStart?.();
+    await onClose?.();
+    expect(requestSignal?.aborted).toBe(true);
+    expect(scanController.signal.aborted).toBe(false);
+    expect(mockResolveCallback).toHaveBeenCalledTimes(1);
+    expect(mockResolveCallback).toHaveBeenCalledWith({ id: 3, data: false });
+  } finally {
+    finishLookup();
+    await lookup;
+  }
+});
 
 it.each([true, false])(
   'only opens the missing address dialog for its active scanner (%s)',

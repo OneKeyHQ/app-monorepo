@@ -31,7 +31,6 @@ import type {
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -45,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -54,6 +54,7 @@ import { marketNavigation } from '../../Market/marketUtils';
 import { openWcPayDialog } from '../../WalletConnectPay/dialog/wcPayDialogStore';
 import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
 import {
+  isExpiredInvoiceScanError,
   isInvalidQrCodeError,
   markRetryableQrParseFailure,
 } from '../utils/isInvalidQrCodeError';
@@ -158,10 +159,7 @@ export async function parseQRCodeWithDeps(
   } catch (error) {
     ensureScanIsActive();
     if (isInvalidQrCodeError(error)) {
-      if (
-        (error as IOneKeyError | undefined)?.key ===
-        ETranslations.send_the_invoice_has_expired
-      ) {
+      if (isExpiredInvoiceScanError(error)) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.send_the_invoice_has_expired,
@@ -311,13 +309,23 @@ export async function parseQRCodeWithDeps(
 
         let accountId = account.id;
         if (account.impl !== network.impl) {
-          const newAccountId = await getAccountIdOnNetwork({
-            account,
-            network,
-            canApplyScanResult,
-            scanSignal,
-            holdForChildScan,
-          });
+          const qrWalletUnsupported =
+            result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
+            accountUtils.isQrAccount({ accountId }) &&
+            !(
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId,
+              })
+            ).qrAccountEnabled;
+          const newAccountId = qrWalletUnsupported
+            ? undefined
+            : await getAccountIdOnNetwork({
+                account,
+                network,
+                canApplyScanResult,
+                scanSignal,
+                holdForChildScan,
+              });
           if (newAccountId) {
             accountId = newAccountId;
           } else {

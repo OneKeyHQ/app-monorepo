@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, IconButton } from '@onekeyhq/components';
 import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
+import { isExpiredInvoiceScanError } from '@onekeyhq/kit/src/views/ScanQrCode/utils/isInvalidQrCodeError';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -34,7 +35,7 @@ export function ScanPlugin({
   const { start } = useScanQrCodeLazy();
   const intl = useIntl();
   const onPress = useCallback(async () => {
-    const result = (await start({
+    const scanResult = await start({
       handlers: [
         EQRCodeHandlerNames.bitcoin,
         EQRCodeHandlerNames.ethereum,
@@ -44,7 +45,12 @@ export function ScanPlugin({
         EQRCodeHandlerNames.lightningNetwork,
       ],
       autoExecuteParsedAction: false,
-    })) as IQRCodeHandlerParseResult<IChainValue>;
+    }).catch((error: unknown) => {
+      if (isExpiredInvoiceScanError(error)) return undefined;
+      throw error;
+    });
+    if (!scanResult) return;
+    const result = scanResult as IQRCodeHandlerParseResult<IChainValue>;
     console.log('scaned result', result);
     onChange?.({
       text:

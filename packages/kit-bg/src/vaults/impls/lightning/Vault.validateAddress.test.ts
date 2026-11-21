@@ -90,8 +90,20 @@ describe('LightningVault.validateAddress', () => {
     expect(decode).not.toHaveBeenCalled();
   });
 
+  it('rejects an ambiguous multiline LNURL without sending it to the invoice decoder', async () => {
+    const decode = jest.fn();
+    const vault = vaultDecodingWith(decode);
+    await expect(
+      vault.validateAddress('lightning:lnurlp://example.com/pay\nThanks'),
+    ).resolves.toMatchObject({
+      isValid: false,
+    });
+    expect(decode).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['Pay here: (lnurlp://example.com/pay).', 'lnurlp://example.com/pay'],
+    ['(lnurlp://example.com/pay)\nThanks', 'lnurlp://example.com/pay'],
     [
       'Pay here: lnurlp://example.com/pay?note=thanks!',
       'lnurlp://example.com/pay?note=thanks!',

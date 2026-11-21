@@ -82,6 +82,14 @@ export const normalizeLightningInput = (input: string): string => {
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
 };
 
+export function isAmbiguousMultilineLnurl(input: string): boolean {
+  const address = normalizeLightningInput(input).trim();
+  return (
+    /[\r\n]/.test(address) &&
+    /^lnurl[pwc]:\S+$/i.test(address.replace(/[\r\n]+/g, ''))
+  );
+}
+
 const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
 
 export function getLightningInvoiceNetwork(

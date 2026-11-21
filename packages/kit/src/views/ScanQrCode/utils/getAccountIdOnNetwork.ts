@@ -13,7 +13,7 @@ const activeAddressCreationRequests = new Map<
   string,
   {
     canApplyScanResult: () => boolean;
-    signal?: AbortSignal;
+    controller: AbortController;
     holdForChildScan?: () => () => void;
   }
 >();
@@ -24,7 +24,9 @@ export function getAddressCreationRequestState(
   if (!request) return 'active';
   if (request.nodeId !== appEventBus.nodeId) return 'foreign';
   const active = activeAddressCreationRequests.get(request.id);
-  return !active?.signal?.aborted && active?.canApplyScanResult()
+  return active &&
+    !active.controller.signal.aborted &&
+    active.canApplyScanResult()
     ? 'active'
     : 'inactive';
 }
@@ -33,7 +35,15 @@ export function getAddressCreationRequestSignal(
   request?: IAddressCreationRequest,
 ) {
   if (request?.nodeId === appEventBus.nodeId) {
-    return activeAddressCreationRequests.get(request.id)?.signal;
+    return activeAddressCreationRequests.get(request.id)?.controller.signal;
+  }
+}
+
+export function cancelAddressCreationRequest(
+  request?: IAddressCreationRequest,
+) {
+  if (request?.nodeId === appEventBus.nodeId) {
+    activeAddressCreationRequests.get(request.id)?.controller.abort();
   }
 }
 
@@ -74,15 +84,22 @@ export const getAccountIdOnNetwork = async ({
     // need create account on network
     if (account?.id) {
       let addressCreationRequest: IAddressCreationRequest | undefined;
+      let detachScanAbort: (() => void) | undefined;
       if (canApplyScanResult) {
-        if (!canApplyScanResult()) throw new OneKeyErrorScanQrCodeCancel();
+        if (scanSignal?.aborted || !canApplyScanResult()) {
+          throw new OneKeyErrorScanQrCodeCancel();
+        }
         addressCreationRequest = {
           nodeId: appEventBus.nodeId,
           id: generateUUID(),
         };
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        scanSignal?.addEventListener('abort', abort, { once: true });
+        detachScanAbort = () => scanSignal?.removeEventListener('abort', abort);
         activeAddressCreationRequests.set(addressCreationRequest.id, {
           canApplyScanResult,
-          signal: scanSignal,
+          controller,
           holdForChildScan,
         });
       }
@@ -104,6 +121,7 @@ export const getAccountIdOnNetwork = async ({
           );
         return newAccount?.id;
       } finally {
+        detachScanAbort?.();
         if (addressCreationRequest) {
           activeAddressCreationRequests.delete(addressCreationRequest.id);
         }

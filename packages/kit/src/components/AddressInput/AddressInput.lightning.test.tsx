@@ -5,6 +5,7 @@ import { AddressInput } from '.';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const LNURL =
   'lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhvgcxxcmyxymnserxfq5fns';
@@ -41,8 +42,13 @@ jest.mock('./AddressInputHyperlinkText', () => ({
 jest.mock('./AddressInputWarnings', () => ({
   AddressInputWarnings: jest.fn(),
 }));
-jest.mock('./utils', () => ({
-  queryAddressWithFallback: (params: { address: string }) => mockQuery(params),
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceAccountProfile: {
+      queryAddress: (params: { address: string }) => mockQuery(params),
+    },
+  },
 }));
 
 it.each([
@@ -78,19 +84,13 @@ it.each([
 );
 
 it.each([
-  [
-    'lnurlp://example.com/rece\nive?mode=once',
-    'lnurlp://example.com/receive?mode=once',
-  ],
-  [
-    'lightning:lnurlp://example.com/receive?ref=abc\ndef',
-    'lightning:lnurlp://example.com/receive?ref=abcdef',
-  ],
+  'lnurlp://example.com/pay\nThanks',
+  'lnurlp://example.com/rece\nive?mode=once',
+  'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(
-  'sends a wrapped standalone Lightning URI to validation in full',
-  async (text, address) => {
+  'uses the existing invalid-address error without sending an ambiguous LNURL to validation',
+  async (text) => {
     mockQuery.mockClear();
-    mockQuery.mockResolvedValueOnce({ input: '' });
     const networkId = getNetworkIdsMap().lightning;
     const onChange = jest.fn();
     render(
@@ -105,11 +105,44 @@ it.each([
       target: { value: text },
     });
 
-    expect(onChange).toHaveBeenCalledWith({ raw: address, pending: true });
+    expect(onChange).toHaveBeenCalledWith({ raw: text, pending: true });
     await waitFor(() => {
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ address, networkId }),
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          raw: text,
+          pending: false,
+          validateError: expect.objectContaining({
+            type: 'invalid',
+            translationId: ETranslations.send_address_invalid,
+          }),
+        }),
       );
     });
+    expect(mockQuery).not.toHaveBeenCalled();
   },
 );
+
+it('joins a wrapped LNURL with a valid checksum before validating it', async () => {
+  mockQuery.mockClear();
+  mockQuery.mockResolvedValueOnce({ input: '' });
+  const networkId = getNetworkIdsMap().lightning;
+  const onChange = jest.fn();
+  render(
+    <AddressInput
+      name="to"
+      accountId="account-id"
+      networkId={networkId}
+      onChange={onChange}
+    />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Recipient' }), {
+    target: { value: `${LNURL.slice(0, 28)}\n${LNURL.slice(28)}` },
+  });
+
+  expect(onChange).toHaveBeenCalledWith({ raw: LNURL, pending: true });
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ address: LNURL, networkId }),
+    ),
+  );
+});

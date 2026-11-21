@@ -21,6 +21,7 @@ import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNetworkSafe = jest.fn<Promise<unknown>, unknown[]>();
+const mockCreateAddressIfNotExists = jest.fn(async () => undefined);
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
@@ -48,6 +49,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceNetwork: {
       getVaultSettings: async () => ({ isSingleToken: true }),
       getNetworkSafe: (...args: unknown[]) => mockGetNetworkSafe(...args),
+    },
+    serviceAccount: {
+      getAccountsInSameIndexedAccountId: async () => ({ accounts: [] }),
+      createAddressIfNotExists: () => mockCreateAddressIfNotExists(),
     },
     serviceToken: {
       getNativeToken: (...args: unknown[]) => mockGetNativeToken(...args),
@@ -84,6 +89,37 @@ function parseFrame() {
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+it.each(['lightning--0', 'tlightning--0'])(
+  'copies the invoice instead of trying to create a QR-wallet address on %s',
+  async (networkId) => {
+    const pushModal = jest.fn();
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: {
+        address: 'invoice',
+        network: { id: networkId, impl: networkId.split('--')[0] },
+      },
+    });
+    await parseQRCodeWithDeps(
+      'lightning:invoice',
+      {
+        popNavigation: true,
+        autoExecuteParsedAction: true,
+        account: {
+          id: 'qr-1--0',
+          indexedAccountId: 'qr-1--0',
+          impl: 'btc',
+        } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+      },
+      { ...deps, navigation: { ...deps.navigation, pushModal } },
+    );
+
+    expect(mockCreateAddressIfNotExists).not.toHaveBeenCalled();
+    expect(Dialog.confirm).toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  },
+);
 
 it('keeps the scan page open after a transient parse failure', async () => {
   const transient = new OneKeyLocalError('bridge hiccup');

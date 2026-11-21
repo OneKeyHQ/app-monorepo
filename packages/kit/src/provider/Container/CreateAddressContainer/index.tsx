@@ -20,6 +20,7 @@ import { useAccountSelectorTrigger } from '../../../components/AccountSelector/h
 import { LazyAccountSelectorCreateAddressButton } from '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import {
+  cancelAddressCreationRequest,
   getAddressCreationRequestSignal,
   getAddressCreationRequestState,
 } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
@@ -207,7 +208,7 @@ function BasicCreateAddressContainer() {
         });
         return;
       }
-      const scanSignal = getAddressCreationRequestSignal(
+      const requestSignal = getAddressCreationRequestSignal(
         addressCreationRequest,
       );
       let settled = false;
@@ -218,7 +219,8 @@ function BasicCreateAddressContainer() {
       const settle = async (created: boolean) => {
         if (settled) return;
         settled = true;
-        scanSignal?.removeEventListener('abort', cancel);
+        requestSignal?.removeEventListener('abort', cancel);
+        if (!created) cancelAddressCreationRequest(addressCreationRequest);
         await backgroundApiProxy.servicePromise.resolveCallback({
           id: promiseId,
           data: created,
@@ -259,7 +261,7 @@ function BasicCreateAddressContainer() {
               const isCreated = Boolean(params?.accounts.length);
               await settle(isCreated);
               await dialog.close();
-              if (isCreated && !scanSignal?.aborted) {
+              if (isCreated && !requestSignal?.aborted) {
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.swap_page_toast_address_generated,
@@ -280,10 +282,10 @@ function BasicCreateAddressContainer() {
         void settle(false);
         void dialog.close();
       };
-      if (scanSignal?.aborted) {
+      if (requestSignal?.aborted) {
         cancel();
       } else {
-        scanSignal?.addEventListener('abort', cancel, { once: true });
+        requestSignal?.addEventListener('abort', cancel, { once: true });
       }
     },
     [intl],

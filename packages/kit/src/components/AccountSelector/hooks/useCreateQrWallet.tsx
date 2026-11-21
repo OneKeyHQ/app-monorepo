@@ -200,14 +200,14 @@ export function useCreateQrWallet() {
         throw new OneKeyErrorScanQrCodeCancel();
       }
       const { serviceQrWallet } = backgroundApiProxy;
-      const scanSignal = getAddressCreationRequestSignal(
+      const requestSignal = getAddressCreationRequestSignal(
         addressCreationRequest,
       );
       const assertCanCreate = addressCreationRequest
         ? () => {
             // The legacy child may finish before navigation restores scanner focus.
             if (
-              scanSignal?.aborted ??
+              requestSignal?.aborted ??
               getAddressCreationRequestState(addressCreationRequest) !==
                 'active'
             ) {
@@ -222,7 +222,7 @@ export function useCreateQrWallet() {
             .catch(() => undefined);
         }
       };
-      scanSignal?.addEventListener('abort', cancel, { once: true });
+      requestSignal?.addEventListener('abort', cancel, { once: true });
       let urJson: IAirGapUrJson;
       try {
         urJson = await serviceQrWallet.prepareQrcodeWalletAddressCreate({
@@ -237,7 +237,7 @@ export function useCreateQrWallet() {
           }),
         });
       } finally {
-        scanSignal?.removeEventListener('abort', cancel);
+        requestSignal?.removeEventListener('abort', cancel);
       }
       assertCanCreate?.();
       const result = await createQrWalletByUr({
