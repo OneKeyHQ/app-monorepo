@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 
@@ -315,6 +316,40 @@ test('opening the photo picker permanently discards a camera frame already being
   expect(canApplyPhoto()).toBe(true);
   expect(cameraOwnsResultWhilePicking).toBe(false);
   expect(canApplyCameraFrame()).toBe(false);
+});
+
+test('a broken photo shows the QR error and leaves photo and camera scanning usable', async () => {
+  const picker = jest.mocked(PhotoLibrary.pickImage);
+  picker.mockClear();
+  picker
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://broken-image' })
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://valid-image' });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
+  jest
+    .mocked(scanFromURLAsync)
+    .mockRejectedValueOnce(new OneKeyLocalError('Synthetic image load failure'))
+    .mockResolvedValueOnce('invoice from good photo');
+
+  render(<ScanQrCodeModal />);
+  const pickImage = screen.getByRole('button', { name: 'Pick image' });
+  fireEvent.click(pickImage);
+  await waitFor(() =>
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.scan_no_recognizable_qr_code_found,
+    }),
+  );
+  expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
+    'test://broken-image',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  fireEvent.click(pickImage);
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'lightning:example',
+    'invoice from good photo',
+  ]);
+  expect(picker).toHaveBeenCalledTimes(2);
 });
 
 test('a successful photo keeps its result when the camera unmounts during navigation', async () => {
