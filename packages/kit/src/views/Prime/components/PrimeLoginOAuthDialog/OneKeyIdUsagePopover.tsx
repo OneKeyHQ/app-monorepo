@@ -1,3 +1,4 @@
+/* cspell:ignore hoverable */
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';

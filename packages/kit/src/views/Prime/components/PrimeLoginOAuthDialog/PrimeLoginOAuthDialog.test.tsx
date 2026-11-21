@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+/* cspell:ignore hoverable */
 
 import {
   act,
