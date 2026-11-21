@@ -144,7 +144,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // Keep the explicit "Switch Now" intent in memory until the keyless wallet is created.
   private pendingAutoEnableCloudSyncKeyless = false;
 
-  private keylessSyncEnableAttempts = 0;
+  private keylessSyncSettingAttempts = 0;
 
   private async updateHardwareCloudSyncDeviceName(
     source: Pick<
@@ -358,11 +358,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   isKeylessSyncOffStateSettled(): boolean {
     return (
-      this.keylessSyncEnableAttempts === 0 &&
+      this.keylessSyncSettingAttempts === 0 &&
       !this.hardwareCloudKeyPending &&
       !this.hardwareCloudKeyCommitting &&
-      !this.hardwareSessionEnding &&
-      !this.cloudSyncKeyMutex.isLocked()
+      !this.hardwareSessionEnding
     );
   }
 
@@ -1086,32 +1085,38 @@ class ServiceKeylessCloudSync extends ServiceBase {
       const selected = (await primeCloudSyncPersistAtom.get())
         .hardwareCloudSyncKeySource;
       if (!selected) return;
-      const wallet = await this.backgroundApi.serviceAccount.getKeylessWallet();
-      if (!wallet)
-        throw new HardwareCloudSyncError(
-          ETranslations.create_keyless_wallet_first__desc,
-          'A keyless wallet is required to encrypt and sync your data.',
+      this.keylessSyncSettingAttempts += 1;
+      try {
+        const wallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+        if (!wallet)
+          throw new HardwareCloudSyncError(
+            ETranslations.create_keyless_wallet_first__desc,
+            'A keyless wallet is required to encrypt and sync your data.',
+          );
+        // Enabling Keyless rebuilds the records from local data: init writes
+        // them with the Keyless key and the sync flow re-encrypts the rest
+        // (fillingSyncItemsMissingDataFromRawData), as OneKey ID migration does.
+        // Data only on the hardware space and never synced here is not carried.
+        await this.assertCloudKeySelectionCanChange(wallet.id, {
+          rebuildsLocalItems: true,
+        });
+        // Do not keep the hardware key after leaving it; Keyless repairs its own.
+        await this.repairCredentialMutex.runExclusive(() =>
+          keylessSyncCredentialStorage.removeAllCredentials(),
         );
-      // Enabling Keyless rebuilds the records from local data: init writes
-      // them with the Keyless key and the sync flow re-encrypts the rest
-      // (fillingSyncItemsMissingDataFromRawData), as OneKey ID migration does.
-      // Data only on the hardware space and never synced here is not carried.
-      await this.assertCloudKeySelectionCanChange(wallet.id, {
-        rebuildsLocalItems: true,
-      });
-      // Do not keep the hardware key after leaving it; Keyless repairs its own.
-      await this.repairCredentialMutex.runExclusive(() =>
-        keylessSyncCredentialStorage.removeAllCredentials(),
-      );
-      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-      await primeCloudSyncPersistAtom.set((value) => ({
-        ...value,
-        hardwareCloudSyncKeySource: undefined,
-        currentCloudSyncKeylessWalletId: wallet.id,
-        lastSyncTimeKeyless: undefined,
-      }));
-      this.cloudAccountImportGeneration += 1;
-      this.currentCloudSyncKeylessWalletIdCache = wallet.id;
+        await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+        await primeCloudSyncPersistAtom.set((value) => ({
+          ...value,
+          hardwareCloudSyncKeySource: undefined,
+          currentCloudSyncKeylessWalletId: wallet.id,
+          lastSyncTimeKeyless: undefined,
+        }));
+        this.cloudAccountImportGeneration += 1;
+        this.currentCloudSyncKeylessWalletIdCache = wallet.id;
+      } finally {
+        this.keylessSyncSettingAttempts -= 1;
+      }
     });
   }
 
@@ -3413,8 +3418,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
       onlyIfSyncOff
         ? this.setCloudSyncEnabledKeyless(value, { onlyIfSyncOff: true })
         : this.setCloudSyncEnabledKeyless(value);
-    // Software enable prepares and prompts before acquiring the key lock.
-    if (enabled) this.keylessSyncEnableAttempts += 1;
+    // Track the setting change, not the key lock shared with ordinary writers.
+    this.keylessSyncSettingAttempts += 1;
     try {
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({
@@ -3489,7 +3494,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       throw error;
     } finally {
-      if (enabled) this.keylessSyncEnableAttempts -= 1;
+      this.keylessSyncSettingAttempts -= 1;
       void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     }
   }
@@ -3520,7 +3525,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         return;
       }
       // Keyless can still be Off while an admitted migration syncs the old mode.
-      this.keylessSyncEnableAttempts += 1;
+      this.keylessSyncSettingAttempts += 1;
       try {
         if (isCloudSyncEnabled) {
           try {
@@ -3545,7 +3550,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           onlyIfSyncOff,
         });
       } finally {
-        this.keylessSyncEnableAttempts -= 1;
+        this.keylessSyncSettingAttempts -= 1;
       }
     };
 

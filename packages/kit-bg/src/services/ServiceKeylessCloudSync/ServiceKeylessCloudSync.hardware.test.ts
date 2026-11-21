@@ -948,6 +948,103 @@ describe('hardware Cloud key source lifecycle', () => {
     );
   });
 
+  test('allows confirmed Off while an ordinary local writer holds the key lock', async () => {
+    const { service } = setup();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const write = service.runWithCloudSyncKeyLock(async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    try {
+      await entered.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+    } finally {
+      release.resolve();
+      await write;
+    }
+  });
+
+  test('allows confirmed Off during steady-state hardware credential cleanup', async () => {
+    const { service } = setup();
+    await service.runWithCloudSyncKeyLock(async () => undefined);
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    jest
+      .mocked(keylessSyncCredentialStorage.removeAllCredentials)
+      .mockImplementationOnce(async () => {
+        entered.resolve();
+        await release.promise;
+      });
+
+    const sweep = service.sweepHardwareCloudKeyIfSyncOff();
+    try {
+      await entered.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+    } finally {
+      release.resolve();
+      await expect(sweep).resolves.toBe(true);
+    }
+  });
+
+  test('does not report Off while switching from a retained hardware source to Keyless', async () => {
+    const { service } = setup();
+    await service.runWithCloudSyncKeyLock(async () => undefined);
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    jest
+      .mocked(keylessSyncCredentialStorage.removeAllCredentials)
+      .mockImplementationOnce(async () => {
+        entered.resolve();
+        await release.promise;
+      });
+
+    const changeSource = service.selectKeylessCloudSyncKey();
+    try {
+      await entered.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+    } finally {
+      release.resolve();
+      await changeSource;
+    }
+    expect(mockConfig.hardwareCloudSyncKeySource).toBeUndefined();
+    expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+  });
+
+  test('does not report Off while a software disable is settling credentials', async () => {
+    const { service } = setup();
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockConfig.currentCloudSyncKeylessWalletId = 'hd-software';
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    jest
+      .mocked(keylessSyncCredentialStorage.removeAllCredentials)
+      .mockImplementationOnce(async () => {
+        entered.resolve();
+        await release.promise;
+      });
+
+    const disable = service.toggleCloudSyncKeyless({ enabled: false });
+    try {
+      await entered.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+    } finally {
+      release.resolve();
+      await disable;
+    }
+    expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+  });
+
   test('does not report Off while overlapping software enable calls prepare outside the key lock', async () => {
     const { service } = setup();
     const firstEntered = Promise.withResolvers<void>();
