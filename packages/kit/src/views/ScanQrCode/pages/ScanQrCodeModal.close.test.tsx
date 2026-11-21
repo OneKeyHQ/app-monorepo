@@ -185,13 +185,13 @@ jest.mock('../components', () => {
         }: { handleBarCodeScanned: (value: string) => void },
         ref,
       ) => {
-        const hasFrame = React.useRef(false);
+        const frameCount = React.useRef(0);
         React.useImperativeHandle(ref, () => ({
           dispose: () => mockCloseOrder.push('dispose'),
         }));
         React.useEffect(
           () => () => {
-            if (!hasFrame.current) handleBarCodeScanned('');
+            if (!frameCount.current) handleBarCodeScanned('');
           },
           [handleBarCodeScanned],
         );
@@ -200,8 +200,12 @@ jest.mock('../components', () => {
             type="button"
             aria-label="Scan frame"
             onClick={() => {
-              hasFrame.current = true;
-              handleBarCodeScanned('lightning:example');
+              frameCount.current += 1;
+              handleBarCodeScanned(
+                frameCount.current === 1
+                  ? 'lightning:example'
+                  : 'lightning:another-example',
+              );
             }}
           />
         );
@@ -277,6 +281,41 @@ test.each([false, true])(
     expect(scanSignal?.aborted).toBe(true);
   },
 );
+
+test('only the frame that starts the linked child can apply after it returns', async () => {
+  let finishFrames: () => void = () => {};
+  const frames = new Promise<{ retry?: boolean }>((resolve) => {
+    finishFrames = () => resolve({});
+  });
+  mockRouteCallback.mockReturnValueOnce(frames).mockReturnValueOnce(frames);
+  render(<ScanQrCodeModal />);
+  const scan = screen.getByRole('button', { name: 'Scan frame' });
+  fireEvent.click(scan);
+  fireEvent.click(scan);
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
+
+  const [[unrelated], [owner]] = mockRouteCallback.mock.calls;
+  expect(unrelated.value).not.toBe(owner.value);
+  expect(unrelated.canApplyScanResult()).toBe(true);
+  expect(owner.canApplyScanResult()).toBe(true);
+  const release = owner.holdForChildScan?.();
+  mockCurrentRouteKey = 'child-scan-route';
+  mockBlur?.();
+  mockCurrentRouteKey = 'scan-route';
+  release?.();
+  mockRefocus?.();
+
+  expect(owner.canApplyScanResult()).toBe(true);
+  expect(unrelated.canApplyScanResult()).toBe(false);
+  fireEvent.click(scan);
+  await Promise.resolve();
+  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
+  finishFrames();
+  await frames;
+  expect(unrelated.canApplyScanResult()).toBe(false);
+  fireEvent.click(scan);
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(3));
+});
 
 test('resumes the camera and cancels on close after a photo result is discarded', async () => {
   let completeImageScan: (value: string) => void = () => {};

@@ -245,6 +245,8 @@ export default function ScanQrCodeModal() {
     released: boolean;
   } | null>(null);
   const isFocused = useRef(false);
+  const scanGeneration = useRef(0);
+  const handoffOwner = useRef<symbol | undefined>(undefined);
   const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
   const route =
     useRoute<
@@ -315,10 +317,14 @@ export default function ScanQrCodeModal() {
     async (
       value: string,
       signal = scanScope.current?.signal,
-      isCurrent?: () => boolean,
+      generation = scanGeneration.current,
     ) => {
+      const resultOwner = Symbol('scan result');
+      let resultGeneration = generation;
       const canApplyScanResult = () =>
-        isScanActive(signal) && (isCurrent?.() ?? true);
+        isScanActive(signal) &&
+        resultGeneration === scanGeneration.current &&
+        (!handoffOwner.current || handoffOwner.current === resultOwner);
       if (value && !canApplyScanResult()) {
         return { retry: true };
       }
@@ -338,6 +344,9 @@ export default function ScanQrCodeModal() {
         }
         const retained = { controller, released: false };
         childScanScope.current = retained;
+        handoffOwner.current = resultOwner;
+        scanGeneration.current += 1;
+        resultGeneration = scanGeneration.current;
         return () => {
           if (childScanScope.current !== retained) return;
           if (isFocused.current) {
@@ -348,15 +357,21 @@ export default function ScanQrCodeModal() {
           }
         };
       };
-      return routeCallback({
-        value,
-        popNavigation: true,
-        canApplyScanResult,
-        scanSignal: signal,
-        holdForChildScan,
-        isScanOpen,
-        onResultWillClose,
-      });
+      try {
+        return await routeCallback({
+          value,
+          popNavigation: true,
+          canApplyScanResult,
+          scanSignal: signal,
+          holdForChildScan,
+          isScanOpen,
+          onResultWillClose,
+        });
+      } finally {
+        if (handoffOwner.current === resultOwner) {
+          handoffOwner.current = undefined;
+        }
+      }
     },
     [isScanActive, isScanOpen, onResultWillClose, routeCallback],
   );
@@ -369,17 +384,20 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
-  const cameraGeneration = useRef(0);
   const photoSelectionId = useRef(0);
   const submitPhoto = useCallback(
     async function submitPhoto(
       data: string,
       signal: AbortSignal | undefined,
       selectionId: number,
+      generation: number,
     ) {
       const canRetry = () =>
-        photoSelectionId.current === selectionId && isScanActive(signal);
-      const { retry } = await callback(data, signal);
+        photoSelectionId.current === selectionId &&
+        scanGeneration.current === generation &&
+        !handoffOwner.current &&
+        isScanActive(signal);
+      const { retry } = await callback(data, signal, generation);
       if (!retry || !canRetry()) return;
 
       Toast.error({
@@ -390,10 +408,15 @@ export default function ScanQrCodeModal() {
           onPress: async () => {
             if (isPickingImage.current || !canRetry()) return;
             isPickingImage.current = true;
-            cameraGeneration.current += 1;
+            scanGeneration.current += 1;
             Toast.dismiss(photoRetryToastId);
             try {
-              await submitPhoto(data, signal, selectionId);
+              await submitPhoto(
+                data,
+                signal,
+                selectionId,
+                scanGeneration.current,
+              );
             } finally {
               isPickingImage.current = false;
             }
@@ -406,9 +429,16 @@ export default function ScanQrCodeModal() {
 
   const pickImage = useCallback(async () => {
     const signal = scanScope.current?.signal;
-    if (isPickingImage.current || !isScanActive(signal)) return;
+    if (
+      isPickingImage.current ||
+      handoffOwner.current ||
+      !isScanActive(signal)
+    ) {
+      return;
+    }
     isPickingImage.current = true;
-    cameraGeneration.current += 1;
+    scanGeneration.current += 1;
+    const generation = scanGeneration.current;
     try {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
@@ -426,8 +456,11 @@ export default function ScanQrCodeModal() {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data) {
-        await submitPhoto(data, signal, selectionId);
-      } else if (isScanActive(signal)) {
+        await submitPhoto(data, signal, selectionId, generation);
+      } else if (
+        generation === scanGeneration.current &&
+        isScanActive(signal)
+      ) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
@@ -443,16 +476,11 @@ export default function ScanQrCodeModal() {
     async (value: string) => {
       // Camera teardown is independent of the result and modal lifecycle.
       if (!value) return {};
-      if (isPickingImage.current) {
+      if (isPickingImage.current || handoffOwner.current) {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const generation = cameraGeneration.current;
-      return callback(
-        value,
-        scanScope.current?.signal,
-        () => generation === cameraGeneration.current,
-      );
+      return callback(value);
     },
     [callback],
   );
