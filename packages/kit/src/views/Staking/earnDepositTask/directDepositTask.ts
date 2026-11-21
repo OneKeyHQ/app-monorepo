@@ -1,12 +1,16 @@
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import {
+  isTaskAccountAddress,
+  isTaskAccountCurrent,
+  isTaskEncodedTxOwner,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -15,17 +19,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { createLateDepositOrderRecorder } from './lateDepositOrder';
 import { createDepositRecording, runDepositTask } from './runDepositTask';
-import {
-  createDepositTask,
-  createDepositTaskState,
-  isDepositRecordingBound,
-  isSameDepositTaskIdentity,
-} from './state';
-import {
-  isTaskAccountAddress,
-  isTaskAccountCurrent,
-  isTaskEncodedTxOwner,
-} from './taskAccount';
+import { createDepositTask, isSameDepositTaskIdentity } from './state';
 import { waitForDepositTaskTxStatus } from './waitForDepositTaskTxStatus';
 
 import type { IDepositTaskAdapter } from './controller';
@@ -53,6 +47,7 @@ export async function runDirectDepositTask({
   identity,
   token,
   requiresAllowanceReset,
+  allowanceVerificationMode,
   signal,
   isCurrent,
   canRecoverRecording,
@@ -64,6 +59,7 @@ export async function runDirectDepositTask({
   onTaskReady,
   onTaskChange,
   onTaskSettled,
+  onDepositSubmitted,
   resumeTaskState,
   onDepositSuccess,
   onFail,
@@ -72,6 +68,7 @@ export async function runDirectDepositTask({
   identity: IDepositTaskIdentity;
   token: IToken;
   requiresAllowanceReset: boolean;
+  allowanceVerificationMode?: 'legacy';
   signal: AbortSignal;
   isCurrent: () => boolean;
   canRecoverRecording?: () => boolean;
@@ -89,6 +86,7 @@ export async function runDirectDepositTask({
   onTaskReady?: (handle: IDepositTaskHandle) => boolean | void;
   onTaskChange?: (task: IDepositTask) => void;
   onTaskSettled?: (taskId: string, txid: string) => void | Promise<void>;
+  onDepositSubmitted?: (txid: string) => void;
   resumeTaskState?: IDepositTaskState;
   onDepositSuccess: (
     data: ISendTxOnSuccessData[],
@@ -102,6 +100,13 @@ export async function runDirectDepositTask({
   formatMessage: (id: ETranslations) => string;
 }): Promise<boolean> {
   const { accountId, networkId, amount, spenderAddress } = identity;
+  const retryPolicy = getEarnProtocol(
+    identity.provider,
+  ).getConfirmationRetryPolicy({
+    task: 'direct',
+    networkId,
+    allowanceVerificationMode,
+  });
   const amountBN = new BigNumber(amount);
   const decimals = amountBN.decimalPlaces();
   if (
@@ -139,7 +144,6 @@ export async function runDirectDepositTask({
   const task =
     retainedTask ??
     createDepositTask({ taskId: generateUUID(), identity, steps });
-  const taskState = resumeTaskState ?? createDepositTaskState(task);
   const isTaskCurrent = () => !signal.aborted && isCurrent();
   const recordLateOrder = createLateDepositOrderRecorder();
   const recording = createDepositRecording({
@@ -165,7 +169,13 @@ export async function runDirectDepositTask({
     return value;
   };
   const adapter: IDepositTaskAdapter<IPrepared> = {
-    prepare: async ({ step, isRetry, signal: taskSignal, onResetRequired }) => {
+    prepare: async ({
+      step,
+      isRetry,
+      signal: taskSignal,
+      onResetRequired,
+      onUserCancel,
+    }) => {
       const isStepCurrent = () => !taskSignal.aborted && isTaskCurrent();
       if (!isStepCurrent()) return { type: 'cancelled' };
       if (step.kind === 'deposit') {
@@ -199,8 +209,10 @@ export async function runDirectDepositTask({
         if (allowance.isZero() || allowance.gte(amountBN))
           return { type: 'skip' };
         if (!onResetRequired()) return { type: 'cancelled' };
-        if (confirmReset && !(await confirmReset(taskSignal)))
+        if (confirmReset && !(await confirmReset(taskSignal))) {
+          if (isStepCurrent()) onUserCancel();
           return { type: 'cancelled' };
+        }
         if (!isStepCurrent()) return { type: 'cancelled' };
       } else {
         if (allowance.gte(amountBN)) return { type: 'skip' };
@@ -282,9 +294,8 @@ export async function runDirectDepositTask({
         feeInfoEditable: payload?.feeInfoEditable,
         approvesInfo:
           prepared.kind === 'approval' ? prepared.approvesInfo : undefined,
-        allowDeviceRejectionRetry:
-          networkId === getNetworkIdsMap().eth &&
-          earnUtils.isEtherFiProvider({ providerName: identity.provider }),
+        allowDeviceRejectionRetry: retryPolicy.allowDeviceRejectionRetry,
+        allowManualResubmission: retryPolicy.allowManualResubmission,
         isNavigationCurrent: isTaskCurrent,
         signal: taskSignal,
         canSendNow: canSendNow ? () => canSendNow(kind) : undefined,
@@ -299,7 +310,11 @@ export async function runDirectDepositTask({
               formatMessage(ETranslations.privacy_error_review_expired__msg),
             );
           }
-          if (kind === 'deposit' || requiresAllowanceReset) {
+          if (
+            kind === 'deposit' ||
+            requiresAllowanceReset ||
+            (kind === 'approve' && allowanceVerificationMode === 'legacy')
+          ) {
             const allowance = await fetchAllowance();
             if (!isTaskCurrent() || taskSignal.aborted) {
               throw new OneKeyLocalError(
@@ -309,6 +324,15 @@ export async function runDirectDepositTask({
             if (kind === 'deposit' && allowance.lt(amountBN)) {
               throw new OneKeyLocalError(
                 'Token allowance changed before deposit',
+              );
+            }
+            if (
+              kind === 'approve' &&
+              allowanceVerificationMode === 'legacy' &&
+              allowance.gte(amountBN)
+            ) {
+              throw new OneKeyLocalError(
+                'Token allowance changed before approval',
               );
             }
             if (
@@ -346,21 +370,16 @@ export async function runDirectDepositTask({
             return;
           if (kind === 'deposit' && !depositReported) {
             depositReported = true;
+            onDepositSubmitted?.(fact.txid);
             recordPromise = recording.start(
               fact.txid,
               () =>
-                isDepositRecordingBound(
-                  taskState.getTask(),
-                  { taskId, stepId: step.id, attemptId },
-                  fact.txid,
-                )
-                  ? recordLateOrder({
-                      fact,
-                      accountId,
-                      networkId,
-                      stakeInfo: payload?.stakeInfoWithOrderId,
-                    })
-                  : Promise.resolve('remoteUnknown' as const),
+                recordLateOrder({
+                  fact,
+                  accountId: identity.accountId,
+                  networkId: identity.networkId,
+                  stakeInfo: payload?.stakeInfoWithOrderId,
+                }),
               () => undefined,
               { taskId, stepId: step.id, attemptId },
             );
@@ -375,21 +394,14 @@ export async function runDirectDepositTask({
           const accepted = onSubmitted(txid);
           if (kind === 'deposit' && txid && accepted && !depositReported) {
             depositReported = true;
+            onDepositSubmitted?.(txid);
             recordPromise = recording.start(
               txid,
               () =>
-                isDepositRecordingBound(
-                  taskState.getTask(),
-                  { taskId, stepId: step.id, attemptId },
-                  txid,
-                )
-                  ? onDepositSuccess(data, payload?.stakeInfoWithOrderId, {
-                      lateAfterSettlement: Boolean(
-                        options?.lateAfterSettlement || !isTaskCurrent(),
-                      ),
-                      isRecordingCurrent: recording.isActive,
-                    })
-                  : Promise.resolve('remoteUnknown' as const),
+                onDepositSuccess(data, payload?.stakeInfoWithOrderId, {
+                  lateAfterSettlement: Boolean(options?.lateAfterSettlement),
+                  isRecordingCurrent: recording.isActive,
+                }),
               () => onTaskSettled?.(task.taskId, txid),
               { taskId, stepId: step.id, attemptId },
             );
@@ -400,7 +412,28 @@ export async function runDirectDepositTask({
       if (recordPromise) await recordPromise;
       return { type: 'submitted' };
     },
-    waitForFinalStatus: async ({ txid, signal: taskSignal }) => {
+    waitForFinalStatus: async ({ txid, step, signal: taskSignal }) => {
+      if (
+        allowanceVerificationMode === 'legacy' &&
+        (step.kind === 'resetApproval' || step.kind === 'approve')
+      ) {
+        const isReset = step.kind === 'resetApproval';
+        const attempts = isReset ? 10 : 15;
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+          if (isReset || attempt > 0)
+            await timerUtils.wait(isReset ? 3000 : 2000);
+          if (taskSignal.aborted || !isTaskCurrent()) return 'unknown';
+          try {
+            const allowance = await fetchAllowance();
+            if (taskSignal.aborted || !isTaskCurrent()) return 'unknown';
+            if (isReset ? allowance.isZero() : allowance.gte(amountBN))
+              return 'allowanceSatisfied';
+          } catch (error) {
+            if (isReset) throw error;
+          }
+        }
+        return 'unknown';
+      }
       return waitForDepositTaskTxStatus({
         identity: task.identity,
         txid,
@@ -431,7 +464,7 @@ export async function runDirectDepositTask({
   };
   return runDepositTask({
     task,
-    taskState,
+    taskState: resumeTaskState,
     resume: Boolean(resumeTaskState),
     adapter,
     signal,

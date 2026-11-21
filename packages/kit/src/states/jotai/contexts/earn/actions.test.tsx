@@ -6,7 +6,12 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
+import type {
+  IAvailableAsset,
+  IRecommendAsset,
+} from '@onekeyhq/shared/types/staking';
 
 import { useEarnActions } from './actions';
 import {
@@ -99,6 +104,48 @@ describe('useEarnActions', () => {
     );
   });
 
+  it('writes recommendation tokens and their account scope together', async () => {
+    const tokens: IRecommendAsset[] = [
+      {
+        name: 'Ether',
+        symbol: 'ETH',
+        logoURI: '',
+        protocols: [{ networkId: 'evm--1', provider: 'native' }],
+        aprWithoutFee: '1',
+        aprInfo: {},
+        bgColor: '$bg',
+        available: { text: '10', color: '$text' },
+        isRecommended: true,
+        isPinedRecommend: false,
+        badges: [],
+      },
+    ];
+    const { result } = renderHook(
+      () => {
+        const actions = useEarnActions().current;
+        const [earnState] = useEarnAtom();
+        return { actions, earnState };
+      },
+      { wrapper: createWrapper() },
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() =>
+      result.current.actions.updateRecommendedTokens(tokens, 'scope-a'),
+    );
+
+    expect(result.current.earnState.recommendedTokens).toEqual(tokens);
+    expect(result.current.earnState.recommendedTokensScope).toBe('scope-a');
+    expect(mockSetRawData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        recommendedTokens: tokens,
+        recommendedTokensScope: 'scope-a',
+      }),
+    );
+  });
+
   it('does not reuse EtherFi permits across deposit attempts', () => {
     const { result } = renderHook(() => useEarnActions().current, {
       wrapper: createWrapper(),
@@ -158,5 +205,117 @@ describe('useEarnActions', () => {
       });
     });
     expect(result.current.getPermitCache(key)?.signature).toBe('signature');
+  });
+
+  it('removes only the matching old Permit and keeps a newer same-key signature', () => {
+    const { result } = renderHook(() => useEarnActions().current, {
+      wrapper: createWrapper(),
+    });
+    const key = {
+      accountId: 'account',
+      networkId: 'evm--1',
+      providerName: 'Morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xtoken',
+      amount: '1',
+    };
+    const old = {
+      ...key,
+      accountAddress: '0xowner',
+      signature: 'old',
+      expiredAt: Date.now() + 60_000,
+    };
+    act(() => result.current.updatePermitCache(old));
+    act(() =>
+      result.current.removePermitCache({
+        ...key,
+        expectedSignature: 'old',
+        expectedAccountAddress: '0xowner',
+      }),
+    );
+    expect(result.current.getPermitCache(key)).toBeNull();
+    act(() => result.current.updatePermitCache({ ...old, signature: 'new' }));
+    act(() =>
+      result.current.removePermitCache({
+        ...key,
+        expectedSignature: 'new',
+        expectedAccountAddress: '0xother',
+      }),
+    );
+    expect(result.current.getPermitCache(key)?.signature).toBe('new');
+    act(() =>
+      result.current.removePermitCache({
+        ...key,
+        expectedSignature: 'old',
+        expectedAccountAddress: '0xowner',
+      }),
+    );
+    expect(result.current.getPermitCache(key)?.signature).toBe('new');
+    act(() => result.current.removePermitCache(key));
+    expect(result.current.getPermitCache(key)).toBeNull();
+  });
+
+  it('keeps the stored asset list when a refetch answers with an equal one', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useEarnActions().current;
+        const [earnState] = useEarnAtom();
+
+        return {
+          actions,
+          earnState,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const assets: IAvailableAsset[] = [
+      {
+        name: 'USD Coin',
+        symbol: 'USDC',
+        logoURI: '',
+        apr: '2',
+        aprWithoutFee: '2',
+        tags: [],
+        rewardUnit: 'APY',
+        protocols: [],
+      },
+    ];
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        assets,
+      );
+    });
+    const stored = result.current.earnState.availableAssetsByType;
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        structuredClone(assets),
+      );
+    });
+    expect(result.current.earnState.availableAssetsByType).toBe(stored);
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        [...assets, ...assets],
+      );
+    });
+    expect(
+      result.current.earnState.availableAssetsByType?.[
+        EAvailableAssetsTypeEnum.SimpleEarn
+      ],
+    ).toHaveLength(2);
+    expect(mockSetRawData).toHaveBeenCalledTimes(2);
   });
 });

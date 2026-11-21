@@ -1,7 +1,16 @@
+import type { EModalSwapRoutes, IModalSwapParamList } from './swap';
+import type { IBorrowReserveFormTab } from './tabEarn';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnAvailableAsset,
 } from '../../types/earn';
+import type {
+  IEarnAssetClass,
+  IEarnAssetPick,
+  IEarnAssetSelectNetwork,
+  IEarnAssetSelectPurpose,
+  IEarnAssetSelectToken,
+} from '../../types/earn/earnAssetSelect';
 import type {
   EManagePositionType,
   IBorrowAsset,
@@ -13,6 +22,7 @@ import type {
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
+import type { ISwapToken } from '../../types/swap/types';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
@@ -37,6 +47,17 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   EarnAssetSearch = 'EarnAssetSearch',
+  // Desktop Earn home guide for a wallet without positions (demo 10-22)
+  EarnGuide = 'EarnGuide',
+  // Pay with's token picker: Swap's, kept to the deposit's network (demo 10-25)
+  EarnPayWithTokenSelect = 'EarnPayWithTokenSelect',
+  // Swap's risk reminder, pushed in the picker's own modal as Swap does
+  EarnPayWithTokenRisk = 'EarnPayWithTokenRisk',
+  // A Loans row's pair in every market that takes it (demo 10-27)
+  EarnLoanRouter = 'EarnLoanRouter',
+  // The routers' token selector: what to earn on, a loan's two sides, one
+  // token or a kind of token (demo 10-29)
+  EarnRouterAssetSelect = 'EarnRouterAssetSelect',
 }
 
 type IBaseRouteParams = {
@@ -61,6 +82,9 @@ type IBorrowManagePositionRouteParams = IBaseRouteParams & {
   providerDisplayName?: string;
   providerLogoURI?: string;
   type?: EManagePositionType;
+  // Withdraw alone, with no Supply tab (the Earn lending details page's own
+  // Withdraw, demo 10-27)
+  withdrawOnly?: boolean;
 };
 
 type IBorrowTokenSelectAction =
@@ -113,12 +137,41 @@ export type IModalStakingParamList = {
     provider: string;
     details?: IStakeProtocolDetails;
     vault?: string;
+    // The side the modal shows, alone: every entry is a Deposit/Buy or a
+    // Withdraw/Redeem. Without one (USDe's Manage) both sides show
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
     // Campaign attribution from the Earn link that opened the detail page;
     // rides along into the stake / withdraw request.
     utm?: IEarnUtmParams;
+    // Deposit only, choosing among the token's offers on this network (a row
+    // of the desktop Earn home, demo 10-22): the offer to start on, the best
+    // rate otherwise, and an amount of the token to start on. offerOnly keeps
+    // to that offer, with none to switch to (a details page's own deposit);
+    // wide opens the modal wide, the offers beside the form (more than one)
+    earnOffers?: {
+      offerKey?: string;
+      amount?: string;
+      offerOnly?: boolean;
+      // The full router: the Earn router's fixed size, its offers listed
+      // beside the form where the window holds them. Unset, one offer in a
+      // modal as tall as its form
+      wide?: boolean;
+      // The window can't hold the offers beside the form: the full router
+      // at the usual width, its offers under the form
+      narrow?: boolean;
+      // Every token of the kind compared, the symbol's among them (the Earn
+      // button opens the most valuable holding's kind)
+      assetClass?: IEarnAssetClass;
+      // The pick's networks: every network (a home row, by token since
+      // 11-05), or the route's network alone (unset). Offers on another
+      // network than Pay with's bridge first
+      allNetworks?: boolean;
+      // Pay with's token, with the amount typed in it (back from the page
+      // the window's Details opened: the window as it was left)
+      payKey?: string;
+    };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
     // opened as a modal there is no other way back to the caller. Same shape as
@@ -126,6 +179,74 @@ export type IModalStakingParamList = {
     onStakeWithdrawSuccess?: () => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
+  [EModalStakingRoutes.EarnGuide]: undefined;
+  [EModalStakingRoutes.EarnPayWithTokenSelect]: {
+    accountId: string;
+    networkId: string;
+    // Pay with's own tokens by address, listed also where Swap files them
+    // under DeFi tokens
+    payTokenAddresses?: string[];
+    // Wide windows: over a taller modal (the desktop Earn guide), its height
+    modalHeight?: number;
+    // The token paying now, checked in the list as the other pickers check
+    // theirs
+    selectedToken?: { address: string; isNative: boolean; networkId?: string };
+    // Swap's network column too: a token on any network, bridged to the
+    // deposit's network first (11-05). Unset, networkId's tokens alone
+    acrossNetworks?: boolean;
+    // Across networks: the wallet's tokens on every network (All Networks
+    // lists them, the column sums them), values in USD, and its account on
+    // each network
+    heldTokens?: ISwapToken[];
+    accountIdByNetwork?: Record<string, string>;
+    // Called with the pick after the picker closes
+    onSelect: (token: ISwapToken) => void;
+  };
+  [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder] & {
+    // The picker's height, which the reminder keeps (see the picker's)
+    modalHeight?: number;
+  };
+  // A collateral and a loan, and every market that takes the pair, opened
+  // from a Loans row on the desktop DeFi home. routeKey is the row's pair
+  // key, the market it showed. Wide, with the markets beside the form, until
+  // the done view sets wide to false
+  [EModalStakingRoutes.EarnLoanRouter]: {
+    collateral: string;
+    borrow: string;
+    // A kind of token on that side in place of the token: its every token
+    // compared (the Loans button opens the loan side on Stable Tokens)
+    collateralClass?: IEarnAssetClass;
+    borrowClass?: IEarnAssetClass;
+    // The one network both sides are on (a loan is one market's); unset,
+    // every network ("All Networks", 11-05)
+    networkId?: string;
+    routeKey?: string;
+    wide?: boolean;
+    // Back from the market's page Manage opened: the window as it was left.
+    // What the first box held (in Pay with's token), the loan typed by hand
+    // (an emptied box included) or where the LTV bar was dragged
+    collateralAmount?: string;
+    borrowAmount?: string;
+    ltv?: number;
+    payKey?: string;
+  };
+  [EModalStakingRoutes.EarnRouterAssetSelect]: {
+    purpose: IEarnAssetSelectPurpose;
+    title: string;
+    tokens: IEarnAssetSelectToken[];
+    // What the window is on: a token or a kind, on one network or on all
+    // (the pick's networkId), which the list opens on
+    selected?: IEarnAssetPick;
+    // The network column's networks, in the order shown after All Networks;
+    // unset, every network the tokens are on
+    networks?: IEarnAssetSelectNetwork[];
+    // Deprecated with the network column (11-05): the one network's name
+    networkName?: string;
+    // Wide windows: over a taller modal, its height (as Pay with's picker)
+    modalHeight?: number;
+    // Called with the pick after the list closes
+    onSelect: (pick: IEarnAssetPick) => void;
+  };
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
@@ -163,6 +284,8 @@ export type IModalStakingParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
+    tab?: IBorrowReserveFormTab;
+    amount?: string;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

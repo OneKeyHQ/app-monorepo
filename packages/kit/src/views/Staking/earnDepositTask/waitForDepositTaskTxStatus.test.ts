@@ -59,6 +59,7 @@ it('continues only when the speed-up reaches a successful chain status', async (
     expect.objectContaining({
       accountId: 'account',
       networkId: 'evm--1',
+      expectedAccountAddress: identity.accountAddress,
       txid: 'new',
     }),
   );

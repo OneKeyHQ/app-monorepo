@@ -20,9 +20,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnRewardNum,
   IEarnTokenItem,
@@ -227,7 +226,6 @@ type IPortfolioInfoProps = {
     amount: string;
     claimTokenAddress?: string;
     isReward?: boolean;
-    isMorphoClaim?: boolean;
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
@@ -415,11 +413,13 @@ function PortfolioInfo({
     minClaimableNum && rewards && Number(rewards) < Number(minClaimableNum),
   );
 
-  const isFalconProvider = earnUtils.isFalconProvider({
-    providerName: details?.provider.name ?? '',
+  const { activePositions } = getEarnProtocol(
+    details?.provider.name ?? '',
+  ).getDetailsPortfolioPresentation({
+    symbol: details?.token.info.symbol ?? '',
   });
   const renderFalconPortfolio = useCallback(() => {
-    if (!isFalconProvider) {
+    if (activePositions !== 'split-falcon') {
       return null;
     }
 
@@ -469,7 +469,7 @@ function PortfolioInfo({
     token.logoURI,
     token.symbol,
     details,
-    isFalconProvider,
+    activePositions,
   ]);
 
   if (!showPortfolio) {
@@ -506,7 +506,7 @@ function PortfolioInfo({
               })}
             />
           ) : null}
-          {active && Number(active) && !isFalconProvider ? (
+          {active && Number(active) && activePositions === 'standard' ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
@@ -658,7 +658,6 @@ function PortfolioInfo({
                     onPress={() =>
                       onClaim?.({
                         amount,
-                        isMorphoClaim: true,
                         claimTokenAddress: rewardTokenAddress,
                       })
                     }
@@ -736,11 +735,10 @@ export const PortfolioSection = ({
   let pendingActiveTooltip: string | undefined;
   let labelForClaimable: string | undefined;
   let tooltipForClaimable: string | undefined;
-  if (
-    details.provider.name.toLowerCase() ===
-      EEarnProviderEnum.Everstake.toLowerCase() &&
-    details.token.info.symbol.toLowerCase() === 'eth'
-  ) {
+  const presentation = getEarnProtocol(
+    details.provider.name,
+  ).getDetailsPortfolioPresentation({ symbol: details.token.info.symbol });
+  if (presentation.pendingActivationTooltip === 'everstake-eth') {
     pendingActiveTooltip = intl.formatMessage({
       id: ETranslations.earn_pending_activation_tooltip_eth,
     });
@@ -756,20 +754,12 @@ export const PortfolioSection = ({
       },
     );
   }
-  if (
-    details.provider.name.toLowerCase() ===
-      EEarnProviderEnum.Everstake.toLowerCase() &&
-    details.token.info.symbol.toLowerCase() === 'atom'
-  ) {
+  if (presentation.claimableTooltip === 'claim-together') {
     tooltipForClaimable = intl.formatMessage({
       id: ETranslations.earn_claim_together_tooltip,
     });
   }
-  if (
-    details.provider.name.toLowerCase() ===
-      EEarnProviderEnum.Everstake.toLowerCase() &&
-    details.token.info.symbol.toLowerCase() === 'pol'
-  ) {
+  if (presentation.claimableLabel === 'withdrawn') {
     labelForClaimable = intl.formatMessage({
       id: ETranslations.earn_withdrawn,
     });

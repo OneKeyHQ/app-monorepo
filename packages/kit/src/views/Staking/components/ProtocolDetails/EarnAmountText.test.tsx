@@ -60,7 +60,19 @@ jest.mock('@onekeyhq/shared/types/qrCode', () => ({
 
 import { render } from '@testing-library/react';
 
-import { EarnAmountText } from './EarnAmountText';
+import { EarnAmountText, readEarnAmountToken } from './EarnAmountText';
+
+describe('readEarnAmountToken', () => {
+  it.each([
+    ['0.038 USDC', 'USDC'],
+    ['0.0<subscripts>5</subscripts>2948 PT', 'PT'],
+    ['≈ 1,234.56 SY-uniBTC', 'SY-uniBTC'],
+    ['< $0.01', undefined],
+    ['0.5 <bold>USDC</bold>', undefined],
+  ])('extracts the token suffix from %s', (text, token) => {
+    expect(readEarnAmountToken(text)).toBe(token);
+  });
+});
 
 describe('EarnAmountText', () => {
   it('renders server subscript markup as rich text instead of a literal tag', () => {

@@ -1,4 +1,4 @@
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import type {
   IEarnToken,
   IEarnTokenInfo,
@@ -42,7 +42,7 @@ export function resolveWithdrawShareToken({
 } {
   if (
     withdrawType === 'cancel' ||
-    !earnUtils.isEtherFiProvider({ providerName: provider })
+    getEarnProtocol(provider).getWithdrawAmountUnit() !== 'shares'
   ) {
     return { ready: true, tokenInfo, initialAmount };
   }

@@ -1,4 +1,4 @@
-import { normalizeTaskAccountAddress } from './taskAddress';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 
 import type { IRecoverableDepositTaskHandle } from './runDepositTask';
 import type { IDepositTask, IDepositTaskState } from './state';
@@ -11,6 +11,28 @@ type IEntry = {
   detached: boolean;
   recordingHandle?: IRecoverableDepositTaskHandle;
 };
+
+export function getDepositTaskOwnerKey({
+  accountId,
+  accountAddress,
+  networkId,
+  provider,
+  vault,
+}: {
+  accountId: string;
+  accountAddress?: string;
+  networkId: string;
+  provider?: string;
+  vault?: string;
+}) {
+  return JSON.stringify([
+    accountId,
+    normalizeTaskAccountAddress(networkId, accountAddress),
+    networkId,
+    provider?.toLowerCase(),
+    normalizeTaskAccountAddress(networkId, vault),
+  ]);
+}
 
 function conflicts(a: IDepositTask, b: IDepositTask) {
   const left = a.identity;

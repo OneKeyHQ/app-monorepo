@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,7 +18,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -56,7 +56,11 @@ const WithdrawOptionsContent = ({
   const isEtherFi = earnUtils.isEtherFiProvider({
     providerName: protocolInfo?.provider || routeProvider || '',
   });
-  const isEtherFiCancellation = isCancelWithdrawal && isEtherFi;
+  const isEtherFiCancellation =
+    isCancelWithdrawal &&
+    getEarnProtocol(
+      protocolInfo?.provider || routeProvider || '',
+    ).getCancelWithdrawalRoute() === 'withdraw-options';
   const symbol = isEtherFiCancellation
     ? routeSymbol || protocolInfo?.symbol || tokenInfo?.token.symbol || ''
     : tokenInfo?.token.symbol || '';
@@ -96,7 +100,7 @@ const WithdrawOptionsContent = ({
           symbol,
           provider,
           vault: protocolInfo?.vault,
-          ...(isEtherFi ? { expectedAccountAddress: address } : {}),
+          ...(isEtherFi ? { expectedAccountAddress: address } : undefined),
         });
       }),
     [
@@ -147,8 +151,6 @@ const WithdrawOptionsContent = ({
       accountId,
       networkId,
       protocolInfo?.earnAccount?.accountAddress,
-      protocolInfo?.earnAccount?.accountId,
-      protocolInfo?.earnAccount?.networkId,
       provider,
       symbol,
       protocolInfo?.vault,
@@ -182,13 +184,17 @@ const WithdrawOptionsContent = ({
           // The displayed share amount never replaces the selected request identity.
           await handleWithdraw({
             amount: '0',
-            taskAccountAddress: protocolInfo?.earnAccount?.accountAddress,
             identity: item.id,
             symbol,
             provider,
             protocolVault: protocolInfo?.vault,
             withdrawAll: false,
             withdrawType: 'cancel',
+            taskAccountAddress:
+              protocolInfo?.earnAccount?.accountId === accountId &&
+              protocolInfo.earnAccount.networkId === networkId
+                ? protocolInfo.earnAccount.accountAddress
+                : undefined,
             isActionCurrent,
             isSendCurrent: isActionCurrent,
             stakingInfo: {
@@ -263,7 +269,8 @@ const WithdrawOptionsContent = ({
 
   if (
     !isCancelWithdrawal &&
-    provider.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+    getEarnProtocol(provider).getWithdrawOrderPresentation() ===
+      'early-withdrawal'
   ) {
     title = intl.formatMessage({
       id: ETranslations.earn_select_for_early_withdrawal,
@@ -388,8 +395,6 @@ const WithdrawOptions = () => {
     params.accountId,
     params.networkId,
     params.protocolInfo?.earnAccount?.accountAddress,
-    params.protocolInfo?.earnAccount?.accountId,
-    params.protocolInfo?.earnAccount?.networkId,
     params.provider,
     params.protocolInfo?.provider,
     params.symbol,

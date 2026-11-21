@@ -34,6 +34,7 @@ import { useBorrowApproval } from '@onekeyhq/kit/src/views/Borrow/components/Man
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import { isSamePositiveAmount } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowAction';
+import type { IBorrowWorkflowHandoff } from '@onekeyhq/kit/src/views/Borrow/hooks/borrowConfirmationTask';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
@@ -1353,18 +1354,33 @@ function ProtocolLendingActionBorrowContent({
     protocolInfo?.approveAsset,
   ]);
 
+  const actionAccountAddress =
+    protocolInfo?.earnAccount?.accountId === accountId &&
+    protocolInfo.earnAccount.networkId === networkId
+      ? protocolInfo.earnAccount.accountAddress
+      : undefined;
   const handleBorrowWithdraw = useUniversalBorrowWithdraw({
     accountId,
     networkId,
+    accountAddress: actionAccountAddress,
   });
-  const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
+  const handleBorrowRepay = useUniversalBorrowRepay({
+    accountId,
+    networkId,
+    accountAddress: actionAccountAddress,
+  });
   const closeRef = useRef<(() => void | Promise<void>) | undefined>(undefined);
   const isActionDialogClosedRef = useRef(false);
   const businessSubmitCounterRef = useRef(0);
   const closeActionDialogBeforeConfirm = useCallback(async () => {
     if (isActionDialogClosedRef.current) return;
     isActionDialogClosedRef.current = true;
-    await closeRef.current?.();
+    try {
+      await closeRef.current?.();
+    } catch (error) {
+      isActionDialogClosedRef.current = false;
+      throw error;
+    }
   }, []);
   const startSubmitGuard = useCallback(() => {
     submittingRef.current = true;
@@ -1381,57 +1397,121 @@ function ProtocolLendingActionBorrowContent({
     }
   }, []);
 
-  const submitBorrowTx = useCallback(async () => {
-    businessSubmitCounterRef.current += 1;
-    startSubmitGuard();
-    const wasActionDialogClosedAtSubmitStart = isActionDialogClosedRef.current;
-    const submitGuard = createProtocolLendingSubmitGuard({
-      isActionDialogClosed: () => isActionDialogClosedRef.current,
-      isUserRejectedError: (error) =>
-        isUserRejectedErrorMessage({ error, intl }),
-      isErrorAlreadyReported: errorToastUtils.wasAutoToastShown,
-      shouldShowInlineError: shouldShowProtocolPositionActionInlineSubmitError,
-      onInlineError: (error) => {
-        setSubmitError(getErrorMessage(error));
-      },
-      onPostCloseError: showProtocolPositionActionErrorToast,
-      onRelease: releaseSubmitGuard,
-    });
-    try {
-      const { provider, marketAddress } = source;
-      const tags: string[] = [
-        EEarnLabels.Borrow,
-        buildBorrowTag({ provider, action: actionType }),
-      ];
-      if (protocolInfo?.stakeTag) {
-        tags.push(protocolInfo.stakeTag);
-      }
-      const protocolLogoURI =
-        source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
-      const protocolLabel = getProtocolProviderDisplayName({
-        provider,
-        providerDisplayName: source.providerDisplayName,
-        providerDetailName: protocolInfo?.providerDetail.name,
+  const submitBorrowTx = useCallback(
+    async (
+      approvalAccountAddress?: string,
+      workflowHandoff?: IBorrowWorkflowHandoff,
+    ) => {
+      businessSubmitCounterRef.current += 1;
+      startSubmitGuard();
+      const wasActionDialogClosedAtSubmitStart =
+        isActionDialogClosedRef.current;
+      const submitGuard = createProtocolLendingSubmitGuard({
+        isActionDialogClosed: () => isActionDialogClosedRef.current,
+        isUserRejectedError: (error) =>
+          isUserRejectedErrorMessage({ error, intl }),
+        isErrorAlreadyReported: errorToastUtils.wasAutoToastShown,
+        shouldShowInlineError:
+          shouldShowProtocolPositionActionInlineSubmitError,
+        onInlineError: (error) => {
+          setSubmitError(getErrorMessage(error));
+        },
+        onPostCloseError: showProtocolPositionActionErrorToast,
+        onRelease: releaseSubmitGuard,
       });
-      if (actionType === 'repay') {
-        const repayStarted = await handleBorrowRepay({
+      try {
+        const { provider, marketAddress } = source;
+        const tags: string[] = [
+          EEarnLabels.Borrow,
+          buildBorrowTag({ provider, action: actionType }),
+        ];
+        if (protocolInfo?.stakeTag) {
+          tags.push(protocolInfo.stakeTag);
+        }
+        const protocolLogoURI =
+          source.providerLogoURI ?? protocolInfo?.providerDetail.logoURI;
+        const protocolLabel = getProtocolProviderDisplayName({
+          provider,
+          providerDisplayName: source.providerDisplayName,
+          providerDetailName: protocolInfo?.providerDetail.name,
+        });
+        if (actionType === 'repay') {
+          const repayStarted = await handleBorrowRepay({
+            amount,
+            accountAddress: approvalAccountAddress,
+            workflowHandoff,
+            provider,
+            marketAddress,
+            reserveAddress,
+            repayAll: isFullClose,
+            stakingInfo: effectiveToken
+              ? {
+                  label: EEarnLabels.Repay,
+                  protocol: protocolLabel,
+                  protocolLogoURI,
+                  send: { token: effectiveToken, amount },
+                  tags,
+                }
+              : undefined,
+            // Same as withdraw: close the repay input dialog before navigating
+            // to the tx confirm page, so dialogs don't stack (OK-58105).
+            onBeforeNavigate: closeActionDialogBeforeConfirm,
+            canContinueAfterOwnerClose: () => isActionDialogClosedRef.current,
+            onSuccess: (data) => {
+              submitGuard.release();
+              void onSuccess?.({ accountId, networkId, data });
+            },
+            onSettleResult: async () => {
+              submitGuard.release();
+              await closeActionDialogBeforeConfirm();
+            },
+            onFail: (error) => {
+              submitGuard.releaseWithError(error);
+            },
+            onCancel: () => {
+              submitGuard.release();
+            },
+          });
+          // false means the flow never started (the risk disclaimer was declined,
+          // say): no callback fires and nothing throws, so the guard taken above
+          // is ours to release or the footer stays stuck loading forever.
+          if (repayStarted === false) {
+            submitGuard.release();
+          }
+          return;
+        }
+        const receiveToken = shouldUnwrapNativeAaveReserve
+          ? buildAaveNativeGatewayReceiveToken({
+              token: effectiveToken,
+              nativeToken: tokenInfo?.nativeToken?.info,
+              networkId,
+            })
+          : effectiveToken;
+        const withdrawStarted = await handleBorrowWithdraw({
           amount,
+          accountAddress: approvalAccountAddress,
+          workflowHandoff,
           provider,
           marketAddress,
           reserveAddress,
-          repayAll: isFullClose,
+          withdrawAll: isFullClose,
+          ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
           stakingInfo: effectiveToken
             ? {
-                label: EEarnLabels.Repay,
+                label: EEarnLabels.Withdraw,
                 protocol: protocolLabel,
                 protocolLogoURI,
-                send: { token: effectiveToken, amount },
+                receive: { token: receiveToken ?? effectiveToken, amount },
                 tags,
               }
             : undefined,
-          // Same as withdraw: close the repay input dialog before navigating
-          // to the tx confirm page, so dialogs don't stack (OK-58105).
+          // Close the withdraw input dialog before navigating to the tx confirm
+          // page, so the confirm page / "transaction submitted" dialog doesn't
+          // stack on top of a lingering input dialog (OK-58105). onSettleResult
+          // fires only after the confirm succeeds — too late; onBeforeNavigate
+          // runs right before navigationToTxConfirm ("close first, then open").
           onBeforeNavigate: closeActionDialogBeforeConfirm,
+          canContinueAfterOwnerClose: () => isActionDialogClosedRef.current,
           onSuccess: (data) => {
             submitGuard.release();
             void onSuccess?.({ accountId, networkId, data });
@@ -1447,98 +1527,48 @@ function ProtocolLendingActionBorrowContent({
             submitGuard.release();
           },
         });
-        // false means the flow never started (the risk disclaimer was declined,
-        // say): no callback fires and nothing throws, so the guard taken above
-        // is ours to release or the footer stays stuck loading forever.
-        if (repayStarted === false) {
+        // Same "never started" release as the repay branch above.
+        if (withdrawStarted === false) {
           submitGuard.release();
         }
-        return;
+      } catch (error) {
+        const shouldPropagate = submitGuard.releaseWithError(error, {
+          // A detached approval has no owning input surface, so its build
+          // rejection belongs to useBorrowApproval's operation-level fallback.
+          // A direct submission that closed later reports here instead because
+          // its footer catch no longer has a mounted inline surface.
+          postCloseErrorMode: wasActionDialogClosedAtSubmitStart
+            ? 'propagate'
+            : 'report',
+        });
+        if (shouldPropagate) {
+          throw error;
+        }
       }
-      const receiveToken = shouldUnwrapNativeAaveReserve
-        ? buildAaveNativeGatewayReceiveToken({
-            token: effectiveToken,
-            nativeToken: tokenInfo?.nativeToken?.info,
-            networkId,
-          })
-        : effectiveToken;
-      const withdrawStarted = await handleBorrowWithdraw({
-        amount,
-        provider,
-        marketAddress,
-        reserveAddress,
-        withdrawAll: isFullClose,
-        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
-        stakingInfo: effectiveToken
-          ? {
-              label: EEarnLabels.Withdraw,
-              protocol: protocolLabel,
-              protocolLogoURI,
-              receive: { token: receiveToken ?? effectiveToken, amount },
-              tags,
-            }
-          : undefined,
-        // Close the withdraw input dialog before navigating to the tx confirm
-        // page, so the confirm page / "transaction submitted" dialog doesn't
-        // stack on top of a lingering input dialog (OK-58105). onSettleResult
-        // fires only after the confirm succeeds — too late; onBeforeNavigate
-        // runs right before navigationToTxConfirm ("close first, then open").
-        onBeforeNavigate: closeActionDialogBeforeConfirm,
-        onSuccess: (data) => {
-          submitGuard.release();
-          void onSuccess?.({ accountId, networkId, data });
-        },
-        onSettleResult: async () => {
-          submitGuard.release();
-          await closeActionDialogBeforeConfirm();
-        },
-        onFail: (error) => {
-          submitGuard.releaseWithError(error);
-        },
-        onCancel: () => {
-          submitGuard.release();
-        },
-      });
-      // Same "never started" release as the repay branch above.
-      if (withdrawStarted === false) {
-        submitGuard.release();
-      }
-    } catch (error) {
-      const shouldPropagate = submitGuard.releaseWithError(error, {
-        // A detached approval has no owning input surface, so its build
-        // rejection belongs to useBorrowApproval's operation-level fallback.
-        // A direct submission that closed later reports here instead because
-        // its footer catch no longer has a mounted inline surface.
-        postCloseErrorMode: wasActionDialogClosedAtSubmitStart
-          ? 'propagate'
-          : 'report',
-      });
-      if (shouldPropagate) {
-        throw error;
-      }
-    }
-  }, [
-    accountId,
-    actionType,
-    amount,
-    effectiveToken,
-    handleBorrowRepay,
-    handleBorrowWithdraw,
-    isFullClose,
-    intl,
-    networkId,
-    onSuccess,
-    protocolInfo?.providerDetail.logoURI,
-    protocolInfo?.providerDetail.name,
-    protocolInfo?.stakeTag,
-    reserveAddress,
-    closeActionDialogBeforeConfirm,
-    releaseSubmitGuard,
-    shouldUnwrapNativeAaveReserve,
-    source,
-    startSubmitGuard,
-    tokenInfo?.nativeToken?.info,
-  ]);
+    },
+    [
+      accountId,
+      actionType,
+      amount,
+      effectiveToken,
+      handleBorrowRepay,
+      handleBorrowWithdraw,
+      isFullClose,
+      intl,
+      networkId,
+      onSuccess,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.providerDetail.name,
+      protocolInfo?.stakeTag,
+      reserveAddress,
+      closeActionDialogBeforeConfirm,
+      releaseSubmitGuard,
+      shouldUnwrapNativeAaveReserve,
+      source,
+      startSubmitGuard,
+      tokenInfo?.nativeToken?.info,
+    ],
+  );
 
   // Shared Borrow approval engine (same as the manage page): brings full-close
   // max-approve semantics and the mainnet-USDT reset-to-zero step (see
@@ -1556,12 +1586,14 @@ function ProtocolLendingActionBorrowContent({
       // metadata is normalized to Legacy on the manage page as well.
       approveType: EApproveType.Legacy,
       approveTarget,
+      accountAddress: actionAccountAddress,
       // The manage-page allowance can lag after an approval transaction. Keep
       // it as the first-paint value, then reconcile with the current chain
       // allowance before deciding whether approval is needed.
       currentAllowance: protocolInfo?.approve?.allowance,
       refreshAllowanceOnMount: true,
       onApprovedSubmit: submitBorrowTx,
+      onApprovedTaskSubmit: submitBorrowTx,
       onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
       // close() destroys a static dialog after its exit animation. Keep only
       // this in-flight approval alive so it can launch the business transaction.

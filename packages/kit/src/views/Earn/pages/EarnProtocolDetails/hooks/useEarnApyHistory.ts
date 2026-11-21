@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 
 type IEarnApyHistoryParams = {
   networkId: string;
@@ -16,9 +16,9 @@ async function fetchApyHistory({
   symbol,
   provider,
   vault,
-  isPendleProvider,
-}: IEarnApyHistoryParams & { isPendleProvider: boolean }) {
-  if (isPendleProvider) {
+  historySource,
+}: IEarnApyHistoryParams & { historySource: 'underlying' | 'standard' }) {
+  if (historySource === 'underlying') {
     // underlying-history returns both impliedApy and underlyingApy, single request suffices
     const underlyingApyHistoryData =
       await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
@@ -101,10 +101,8 @@ export function useEarnApyHistory({
   /** Requests wait for this. Once it has been true for a market, they don't. */
   enabled: boolean;
 }) {
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName: provider }),
-    [provider],
-  );
+  const historySource =
+    getEarnProtocol(provider).getApyHistoryPresentation().source;
 
   // The inputs can change without a remount, and the previous result stays
   // until the next request lands. Each result carries the inputs it was
@@ -135,7 +133,7 @@ export function useEarnApyHistory({
             symbol,
             provider,
             vault,
-            isPendleProvider,
+            historySource,
           }),
         };
       } finally {
@@ -145,7 +143,7 @@ export function useEarnApyHistory({
         }
       }
     },
-    [networkId, symbol, provider, vault, isPendleProvider, isEnabled],
+    [networkId, symbol, provider, vault, historySource, isEnabled],
     // Re-renders when the request fails too, so a chart waiting on the
     // history can leave its skeleton.
     { watchLoading: true },

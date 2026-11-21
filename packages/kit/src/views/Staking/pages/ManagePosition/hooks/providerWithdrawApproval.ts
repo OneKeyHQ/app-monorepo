@@ -1,9 +1,9 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnManagePageResponse,
   IProtocolInfo,
@@ -35,7 +35,7 @@ export async function resolveProviderWithdrawApproval({
   withdrawApprove: IProtocolInfo['withdrawApprove'];
   withdrawApprovalUnavailable: boolean;
 }> {
-  if (provider.toLowerCase() !== EEarnProviderEnum.EtherFi.toLowerCase()) {
+  if (getEarnProtocol(provider).getWithdrawApprovalSource() !== 'detail') {
     return {
       withdrawApprove: managePageData.withdrawApprove,
       withdrawApprovalUnavailable: false,

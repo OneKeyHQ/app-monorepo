@@ -14,10 +14,15 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
 import { EarnTestIDs } from '../testIDs';
 import { getNumberColor } from '../utils/getNumberColor';
+import {
+  earnPortfolioDataScope,
+  getScopedPortfolioEarnAccount,
+} from '../utils/portfolioAccountScope';
 
 const OverviewComponent = ({
   isLoading,
@@ -33,16 +38,24 @@ const OverviewComponent = ({
   onPressTotalValue?: () => void;
 }) => {
   const totalFiatMapKey = useEarnAccountKey();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountScope = earnPortfolioDataScope({
+    earnAccountKey: totalFiatMapKey,
+    account: activeAccount.account,
+    indexedAccountId: activeAccount.indexedAccount?.id,
+  });
   const [{ earnAccount }] = useEarnAtom();
+  const overview = earnAccount?.[totalFiatMapKey];
+  const scopedOverview = getScopedPortfolioEarnAccount(overview, accountScope);
   const [settings] = useSettingsPersistAtom();
   const rawTotalFiatValue = useMemo(
-    () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
-    [earnAccount, totalFiatMapKey],
+    () => scopedOverview?.totalFiatValue || '0',
+    [scopedOverview],
   );
   const totalFiatValue = displayTotalFiatValue ?? rawTotalFiatValue;
   const rawEarnings24h = useMemo(
-    () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
-    [earnAccount, totalFiatMapKey],
+    () => scopedOverview?.earnings24h || '0',
+    [scopedOverview],
   );
   const earnings24h = displayEarnings24h ?? rawEarnings24h;
   const intl = useIntl();

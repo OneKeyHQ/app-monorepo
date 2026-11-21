@@ -243,13 +243,13 @@ describe('BorrowCard reserve balance presentation', () => {
       platform: 'mobile',
       gtMd: false,
       columnIndex: 0,
-      expectedLabel: 'global_asset / global_balance',
+      expectedLabel: 'global_asset / global_available',
     },
     {
       platform: 'desktop',
       gtMd: true,
       columnIndex: 1,
-      expectedLabel: 'global_balance',
+      expectedLabel: 'global_available',
     },
   ] as const)(
     'uses the reserve available field for $platform balance display and sorting',
@@ -284,7 +284,7 @@ describe('BorrowCard reserve balance presentation', () => {
         expect(comparator?.(higher, lower)).toBeGreaterThan(0);
       } else {
         expect(renderedCell?.props.amountLabel).toEqual({
-          text: 'global_balance:',
+          text: 'global_available:',
         });
       }
     },

@@ -8,9 +8,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { FALCON_DOCS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
@@ -19,7 +19,9 @@ export function RiskSection({ details }: { details?: IStakeProtocolDetails }) {
 
   const { provider } = details ?? {};
 
-  if (!earnUtils.isFalconProvider({ providerName: provider?.name ?? '' })) {
+  if (
+    getEarnProtocol(provider?.name ?? '').getDetailsRiskSection() !== 'usdf'
+  ) {
     return null;
   }
 

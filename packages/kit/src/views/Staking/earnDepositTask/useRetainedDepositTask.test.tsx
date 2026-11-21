@@ -12,7 +12,7 @@ import { useRetainedDepositTask } from './useRetainedDepositTask';
 import type { IDepositRecordingStatus, IDepositTaskState } from './state';
 
 const mockAccountCurrent = jest.fn<Promise<boolean>, [unknown]>();
-jest.mock('./taskAccount', () => ({
+jest.mock('@onekeyhq/kit/src/views/Earn/tasks/taskAccount', () => ({
   isTaskAccountCurrent: (identity: unknown) => mockAccountCurrent(identity),
 }));
 
@@ -56,7 +56,7 @@ function makeState(
 
 function reserve(owner: string, id: string, status: IDepositRecordingStatus) {
   const state = makeState(id, status);
-  const token = depositTaskRegistry.reserve(owner, state);
+  const token = reserveDetached(owner, state);
   expect(token).toBeDefined();
   return { state, token };
 }
@@ -81,6 +81,7 @@ function reserveDetached(owner: string, state: IDepositTaskState) {
     true,
   );
   expect(depositTaskRegistry.detach(owner, token, handle)).toBe(true);
+  return token;
 }
 
 beforeEach(() => {
@@ -121,7 +122,7 @@ it('releases a retained deposit after its pending order recording succeeds', asy
       status: 'pending',
     }),
   ).toBe(true);
-  expect(depositTaskRegistry.reserve(owners[0], state)).toBeDefined();
+  expect(reserveDetached(owners[0], state)).toBeDefined();
   const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
   await waitFor(() => expect(result.current.status).toBe('ready'));
   expect(depositTaskRegistry.find(owners[0])).toBeDefined();
@@ -135,6 +136,47 @@ it('releases a retained deposit after its pending order recording succeeds', asy
   });
   await waitFor(() => expect(result.current.status).toBe('none'));
   expect(depositTaskRegistry.find(owners[0])).toBeUndefined();
+});
+
+it('finishes a detached recorded deposit whose late transaction remains unknown', async () => {
+  const initial = makeState('late-recorded', 'succeeded').getTask();
+  const state = createDepositTaskState({
+    ...initial,
+    currentStepIndex: 0,
+    steps: initial.steps.map((step) => ({
+      ...step,
+      status: { type: 'unknown', txid: 'tx', chainConfirmed: false },
+    })),
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(result.current.status).toBe('none'));
+  expect(depositTaskRegistry.find(owners[0])).toBeUndefined();
+});
+
+it('does not release a recording reattached during final account validation', async () => {
+  let resolveCheck: (value: boolean) => void = () => undefined;
+  mockAccountCurrent.mockResolvedValueOnce(true).mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveCheck = resolve;
+    }),
+  );
+  const entry = reserve(owners[0], 'reattached', 'succeeded');
+  const onFinished = jest.fn();
+  const { result } = renderHook(() =>
+    useRetainedDepositTask(owners[0], onFinished),
+  );
+  await waitFor(() => expect(mockAccountCurrent).toHaveBeenCalledTimes(2));
+  act(() => {
+    expect(depositTaskRegistry.reserve(owners[0], entry.state)).toBe(
+      entry.token,
+    );
+  });
+  await act(async () => resolveCheck(true));
+  expect(depositTaskRegistry.find(owners[0])?.state).toBe(entry.state);
+  expect(depositTaskRegistry.find(owners[0])?.detached).toBe(false);
+  expect(result.current.status).toBe('ready');
+  expect(onFinished).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -167,7 +209,7 @@ it.each([{ recordingTxid: 'other-tx' }, { noAttempt: true }])(
   'keeps a completed recording when its transaction binding is invalid: %o',
   async (options) => {
     const state = makeState('invalid-binding', 'succeeded', options);
-    expect(depositTaskRegistry.reserve(owners[0], state)).toBeDefined();
+    expect(reserveDetached(owners[0], state)).toBeDefined();
     const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(depositTaskRegistry.find(owners[0])?.state).toBe(state);

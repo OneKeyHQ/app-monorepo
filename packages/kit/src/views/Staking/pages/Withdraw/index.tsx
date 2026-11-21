@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
@@ -27,6 +28,7 @@ import { resolveStakeTokenAddress } from '../../utils/utils';
 import { resolveWithdrawShareToken } from './withdrawShareTokenUtils';
 
 import type { IManagePageV2ReceiveInputConfig } from '../../components/ManagePageV2ReceiveInput';
+import type { IUniversalWithdrawWorkflowHandoff } from '../../earnWithdrawTask/types';
 
 const WithdrawPage = () => {
   const intl = useIntl();
@@ -51,9 +53,10 @@ const WithdrawPage = () => {
 
   const providerName = protocolInfo?.provider || provider || '';
   const isCancelWithdrawal = withdrawType === 'cancel';
-  const amountUnit = earnUtils.isEtherFiProvider({ providerName })
-    ? 'shares'
-    : undefined;
+  const amountUnit =
+    getEarnProtocol(providerName).getWithdrawAmountUnit() === 'shares'
+      ? 'shares'
+      : undefined;
   const shareInput = useMemo(
     () =>
       resolveWithdrawShareToken({
@@ -185,9 +188,9 @@ const WithdrawPage = () => {
   }, [
     amountUnit,
     isCancelWithdrawal,
-    shareInput.ready,
     protocolInfo?.protocolInputDecimals,
     protocolInfo?.withdrawApprove,
+    shareInput.ready,
     token,
   ]);
   const withdrawApproveSpender = protocolInfo?.withdrawApprove?.approveTarget;
@@ -225,39 +228,54 @@ const WithdrawPage = () => {
       withdrawAll,
       signature,
       message,
+      isTaskIntentCurrent,
       effectiveApy,
       useEthenaCooldown,
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      onEthenaCooldownUnstakeCompleted,
       withdrawType: confirmWithdrawType,
       isActionCurrent,
       isSendCurrent,
       isResultCurrent,
+      taskAccountAddress,
+      workflowHandoff,
     }: {
       amount: string;
       withdrawAll: boolean;
       // Stakefish: signature and message for withdraw all
       signature?: string;
       message?: string;
+      isTaskIntentCurrent?: () => boolean;
       effectiveApy?: string | number;
       useEthenaCooldown?: boolean;
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      onEthenaCooldownUnstakeCompleted?: () => void;
       withdrawType?: IEarnWithdrawType;
       isActionCurrent?: () => boolean;
       isSendCurrent?: () => boolean;
       isResultCurrent?: () => boolean;
+      taskAccountAddress?: string;
+      workflowHandoff?: IUniversalWithdrawWorkflowHandoff;
     }) => {
       if (amountUnit === 'shares' && !withdrawAssetsReady) return false;
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
+      const notifySuccess = () => {
+        appNavigation.pop();
+        defaultLogger.staking.page.unstaking({
+          token,
+          stakingProtocol: providerName,
+        });
+        onSuccess?.();
+      };
 
       return handleWithdraw({
         amount,
-        taskAccountAddress: protocolInfo?.earnAccount?.accountAddress,
         identity,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
@@ -287,28 +305,35 @@ const WithdrawPage = () => {
         // Signature and message for withdraw all
         withdrawSignature: signature,
         withdrawMessage: message,
+        isTaskIntentCurrent,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
         withdrawType: confirmWithdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
+        onEthenaCooldownUnstakeCompleted: () => {
+          onEthenaCooldownUnstakeCompleted?.();
+          notifySuccess();
+        },
         signal: abortController.signal,
         isActionCurrent,
         isSendCurrent,
         isResultCurrent,
-        onSuccess: () => {
-          appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
-            token,
-            stakingProtocol: providerName,
-          });
-          onSuccess?.();
-        },
+        taskAccountAddress:
+          taskAccountAddress ??
+          (protocolInfo?.earnAccount?.accountId === accountId &&
+          protocolInfo.earnAccount.networkId === networkId
+            ? protocolInfo.earnAccount.accountAddress
+            : undefined),
+        workflowHandoff,
+        onSuccess: notifySuccess,
       });
     },
     [
       handleWithdraw,
-      protocolInfo?.earnAccount?.accountAddress,
+      protocolInfo?.earnAccount,
+      accountId,
+      networkId,
       identity,
       providerName,
       vault,
@@ -401,7 +426,6 @@ const WithdrawPage = () => {
           }
           receiveInputConfig={receiveInputConfig}
           tokenImageUri={token?.logoURI}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           protocolInfo={protocolInfo}
           tokenInfo={effectiveTokenInfo}

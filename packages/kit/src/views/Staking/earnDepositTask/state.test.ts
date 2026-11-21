@@ -5,11 +5,7 @@ import {
   reduceDepositTask,
 } from './state';
 
-import type {
-  IDepositTask,
-  IDepositTaskAction,
-  IDepositTaskStepStatus,
-} from './state';
+import type { IDepositTask, IDepositTaskAction } from './state';
 
 const identity = {
   accountId: 'account-1',
@@ -76,46 +72,6 @@ function createTask(): IDepositTask {
   });
 }
 
-it('retains a verified late deposit as unknown and binds recording to its attempt', () => {
-  const task = createDepositTask({
-    taskId: 'task-1',
-    identity,
-    steps: [{ id: 'deposit', kind: 'deposit' }],
-  });
-  const state = createDepositTaskState(task);
-  const event = { taskId: 'task-1', stepId: 'deposit', attemptId: 'a1' };
-  expect(state.dispatch({ ...event, type: 'start' })).toBe(true);
-  expect(state.dispatch({ ...event, type: 'confirmationOpened' })).toBe(true);
-  expect(state.dispatch({ ...event, type: 'sendStarted' })).toBe(true);
-  expect(state.dispatch({ ...event, type: 'cancel' })).toBe(true);
-  expect(
-    state.dispatch({
-      ...event,
-      attemptId: 'old',
-      type: 'lateBroadcastAccepted',
-      txid: 'tx',
-    }),
-  ).toBe(false);
-  expect(
-    state.dispatch({ ...event, type: 'lateBroadcastAccepted', txid: 'tx' }),
-  ).toBe(true);
-  expect(state.getTask().steps[0].status).toEqual({
-    type: 'unknown',
-    txid: 'tx',
-    chainConfirmed: false,
-  });
-  const owner = Symbol('recording');
-  expect(
-    state.setRecording(owner, event, { txid: 'different', status: 'pending' }),
-  ).toBe(false);
-  expect(
-    state.setRecording(owner, event, { txid: 'tx', status: 'pending' }),
-  ).toBe(true);
-  expect(
-    state.dispatch({ ...event, type: 'lateBroadcastAccepted', txid: 'other' }),
-  ).toBe(false);
-});
-
 function dispatch(
   task: IDepositTask,
   event: IDepositTaskAction & {
@@ -130,6 +86,57 @@ function dispatch(
     ...event,
   });
 }
+
+it('marks a reset as required only for the current preparing attempt', () => {
+  let task = createDepositTask({
+    taskId: 'task-1',
+    identity,
+    steps: [
+      { id: 'reset', kind: 'resetApproval' },
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  task = dispatch(task, { type: 'start', stepId: 'reset' });
+  expect(
+    dispatch(task, {
+      type: 'resetRequired',
+      stepId: 'reset',
+      attemptId: 'stale',
+    }),
+  ).toBe(task);
+  task = dispatch(task, { type: 'resetRequired', stepId: 'reset' });
+  expect(task.steps[0].resetRequired).toBe(true);
+  task = dispatch(task, { type: 'cancel', stepId: 'reset' });
+  task = dispatch(task, {
+    type: 'retry',
+    stepId: 'reset',
+    attemptId: 'attempt-2',
+  });
+  expect(task.steps[0].resetRequired).toBeUndefined();
+});
+
+it('keeps a reset unresolved when its allowance preparation fails', () => {
+  let task = createDepositTask({
+    taskId: 'task-1',
+    identity,
+    steps: [
+      { id: 'reset', kind: 'resetApproval' },
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  task = dispatch(task, { type: 'start', stepId: 'reset' });
+  task = dispatch(task, { type: 'preparationFailed', stepId: 'reset' });
+  expect(task.steps[0].status).toEqual({
+    type: 'failed',
+    stage: 'beforeSend',
+    preparationFailed: true,
+  });
+  expect(task.steps[0].resetPreparationFailed).toBe(true);
+  expect(task.steps[0].resetRequired).toBeUndefined();
+  expect(task.steps[0].resetSendStarted).toBeUndefined();
+});
 
 function createRetryingApprovalWithConfirmedReset(): IDepositTask {
   let task = createDepositTask({
@@ -187,93 +194,6 @@ function createRetryingDeposit(): IDepositTask {
 }
 
 describe('Earn deposit task state', () => {
-  it.each<{
-    name: string;
-    status: IDepositTaskStepStatus;
-    retainPriorAttempt: boolean;
-    resetRequired?: true;
-    resetSendStarted?: true;
-  }>([
-    {
-      name: 'an old on-chain failure',
-      status: { type: 'failed', stage: 'onChain', txid: 'old-tx' },
-      retainPriorAttempt: true,
-    },
-    {
-      name: 'an old cancellation of unknown origin',
-      status: { type: 'cancelled' },
-      retainPriorAttempt: true,
-    },
-    {
-      name: 'an old before-send failure of unknown origin',
-      status: { type: 'failed', stage: 'beforeSend' },
-      retainPriorAttempt: true,
-    },
-    {
-      name: 'a proven preparation-only failure',
-      status: {
-        type: 'failed',
-        stage: 'beforeSend',
-        preparationFailed: true,
-      },
-      retainPriorAttempt: false,
-    },
-    {
-      name: 'a cancelled new reset before sending',
-      status: { type: 'cancelled' },
-      resetRequired: true,
-      retainPriorAttempt: false,
-    },
-    {
-      name: 'a new reset whose send was started',
-      status: { type: 'failed', stage: 'beforeSend' },
-      resetSendStarted: true,
-      retainPriorAttempt: false,
-    },
-  ])(
-    'tracks $name conservatively while retrying reset',
-    ({ status, retainPriorAttempt, resetRequired, resetSendStarted }) => {
-      const task = createDepositTask({
-        taskId: 'task-1',
-        identity,
-        steps: [
-          { id: 'reset', kind: 'resetApproval' },
-          { id: 'approve', kind: 'approve' },
-          { id: 'deposit', kind: 'deposit' },
-        ],
-      });
-      const previous = {
-        ...task,
-        steps: task.steps.map((step, index) =>
-          index === 0
-            ? {
-                ...step,
-                attemptId: 'old-attempt',
-                status,
-                ...(resetRequired ? { resetRequired } : {}),
-                ...(resetSendStarted ? { resetSendStarted } : {}),
-              }
-            : step,
-        ),
-      };
-      const updated = dispatch(previous, {
-        type: 'retry',
-        stepId: 'reset',
-        attemptId: 'new-attempt',
-      });
-      expect(updated.steps[0]).toMatchObject({
-        id: 'reset',
-        attemptId: 'new-attempt',
-        status: { type: 'preparing' },
-      });
-      expect(updated.steps[0].resetPriorAttempt).toBe(
-        retainPriorAttempt ? true : undefined,
-      );
-      expect(updated.steps[0].resetSendStarted).toBe(resetSendStarted);
-      expect(updated.steps[0].resetRequired).toBeUndefined();
-    },
-  );
-
   it.each([false, true])(
     'inserts a renewed approval before a retried deposit (reset: %s)',
     (needsReset) => {
@@ -579,6 +499,17 @@ describe('Earn deposit task state', () => {
     expect(task.steps[1].status).toEqual({ type: 'ready' });
   });
 
+  it('retains unchanged step references when a task event advances', () => {
+    const task = createTask();
+    const updated = dispatch(task, { type: 'start' });
+    expect(updated).not.toBe(task);
+    expect(updated.steps[1]).toBe(task.steps[1]);
+    expect(updated.steps[2]).toBe(task.steps[2]);
+    expect(dispatch(updated, { type: 'confirmed', attemptId: 'stale' })).toBe(
+      updated,
+    );
+  });
+
   it('skips a step only while preparing, preserving its explicit skipped status', () => {
     let task = createDepositTask({
       taskId: 'task-1',
@@ -736,6 +667,34 @@ describe('Earn deposit task state', () => {
     expect(dispatch(task, { type: 'submitted', txid: 'different' })).toBe(task);
   });
 
+  it('continues a late deposit submission without changing its published step shape', () => {
+    let task = createDepositTask({
+      taskId: 'task-1',
+      identity,
+      steps: [{ id: 'deposit', kind: 'deposit' }],
+    });
+    for (const action of [
+      { type: 'start' },
+      { type: 'confirmationOpened' },
+      { type: 'sendStarted' },
+      { type: 'cancel' },
+      { type: 'submitted', txid: 'late-deposit' },
+    ] as const) {
+      task = dispatch(task, { ...action, stepId: 'deposit' });
+    }
+    expect(task.steps[0]).toEqual({
+      id: 'deposit',
+      kind: 'deposit',
+      attemptId: 'attempt-1',
+      status: { type: 'confirming', txid: 'late-deposit' },
+    });
+    task = dispatch(task, { type: 'handoff', stepId: 'deposit' });
+    expect(task.steps[0].status).toEqual({
+      type: 'handedOff',
+      txid: 'late-deposit',
+    });
+  });
+
   it('retries a cancelled approval without repeating a completed wrap', () => {
     let task = createTask();
     for (const event of [
@@ -886,8 +845,16 @@ it('accepts recording updates only from the bound deposit attempt and owner', ()
   const state = createDepositTaskState(task);
   const listener = jest.fn();
   const owner = Symbol('recording');
+  const otherOwner = Symbol('other recording');
   const pending = { txid: 'tx', status: 'pending' as const };
   state.subscribe(listener);
+  const reentrantUpdate = jest.fn(() =>
+    state.setRecording(otherOwner, event, {
+      txid: 'tx',
+      status: 'succeeded',
+    }),
+  );
+  state.subscribe(reentrantUpdate);
 
   expect(
     state.setRecording(owner, { ...event, attemptId: 'old' }, pending),
@@ -897,6 +864,9 @@ it('accepts recording updates only from the bound deposit attempt and owner', ()
   );
   expect(listener).not.toHaveBeenCalled();
   expect(state.setRecording(owner, event, pending)).toBe(true);
+  expect(state.setRecording(owner, event, pending)).toBe(true);
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(reentrantUpdate).toHaveReturnedWith(false);
   expect(
     state.setRecording(Symbol('other'), event, {
       txid: 'tx',
@@ -909,6 +879,46 @@ it('accepts recording updates only from the bound deposit attempt and owner', ()
   ).toBe(true);
   expect(state.getTask().recording?.status).toBe('succeeded');
   expect(listener).toHaveBeenCalledTimes(2);
+});
+
+it('allows the original owner to record a late accepted deposit without handing off', () => {
+  let task = createDepositTask({
+    taskId: 'task-1',
+    identity,
+    steps: [{ id: 'deposit', kind: 'deposit' }],
+  });
+  const event = {
+    taskId: task.taskId,
+    stepId: 'deposit',
+    attemptId: 'attempt',
+  };
+  task = reduceDepositTask(task, { ...event, type: 'start' });
+  task = reduceDepositTask(task, { ...event, type: 'confirmationOpened' });
+  task = reduceDepositTask(task, { ...event, type: 'outcomeUnknown' });
+  task = reduceDepositTask(task, {
+    ...event,
+    type: 'lateBroadcastAccepted',
+    txid: 'tx',
+  });
+  const state = createDepositTaskState(task);
+  expect(
+    state.setRecording(Symbol('owner'), event, {
+      txid: 'tx',
+      status: 'pending',
+    }),
+  ).toBe(true);
+  expect(state.getTask().steps[0].status).toEqual({
+    type: 'unknown',
+    txid: 'tx',
+    chainConfirmed: false,
+  });
+  const before = state.getTask();
+  expect(state.dispatch({ ...event, type: 'retryStatus' })).toBe(true);
+  expect(state.getTask().recording).toBe(before.recording);
+  expect(state.getTask().steps[0].status).toEqual({
+    type: 'confirming',
+    txid: 'tx',
+  });
 });
 
 it('publishes a batch only if every transition is valid', () => {

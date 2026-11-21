@@ -7,10 +7,16 @@ import { act, cleanup, render } from '@testing-library/react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { createDepositTaskController } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/controller';
+import { runDirectDepositTask } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/directDepositTask';
 import { createDepositTask } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/state';
 import { waitForEarnTransactionConfirm } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/transactionConfirm';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IDepositTaskHandle } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/types';
+import {
+  OneKeyLocalError,
+  PasswordPromptDialogCancel,
+} from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { UserCancel } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { createSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   EAppEventBusNames,
@@ -600,6 +606,89 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
 
+  it.each([new PasswordPromptDialogCancel(), new UserCancel()])(
+    'releases an Earn send after a local signing cancellation: %s',
+    async (error) => {
+      mockPayer = 'native';
+      mockBatchSend.mockRejectedValueOnce(error);
+      const blocked = jest.fn();
+      const uncertain = jest.fn();
+      const operation = waitForEarnTransactionConfirm({
+        navigationToTxConfirm: async (params) => {
+          render(
+            <TxConfirmActions
+              accountId="hd-1--0"
+              networkId="evm--1"
+              securityCheckConfirmation="none"
+              securityCheckAcknowledgementKey="tx-1"
+              onBeforeSend={params.onBeforeSend}
+              onSafePreSendFail={params.onSafePreSendFail}
+              onFail={params.onFail}
+              onCancel={params.onCancel}
+              onSuccess={params.onSuccess}
+            />,
+          );
+        },
+        expiredMessage: 'expired',
+        onSendBlocked: blocked,
+        onUncertainFailure: uncertain,
+      });
+      const outcome = operation.catch((failure: unknown) => failure);
+      await act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toBe(error);
+      });
+      await expect(outcome).resolves.toBe(error);
+      expect(blocked).toHaveBeenCalledTimes(1);
+      expect(uncertain).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['batch', 'pre-send', 'external', 'unknown'] as const)(
+    'keeps %s failures on the uncertain failure path',
+    async (scenario) => {
+      mockPayer = 'native';
+      const error =
+        scenario === 'unknown' ? new Error('RPC timeout') : new UserCancel();
+      mockBatchSend.mockRejectedValueOnce(error);
+      if (scenario === 'batch')
+        jest
+          .spyOn(
+            backgroundApiProxy.serviceSend,
+            'updateUnSignedTxBeforeSending',
+          )
+          .mockResolvedValueOnce([
+            ...mockUnsignedTxs,
+            { ...mockUnsignedTxs[0], uuid: 'tx-2' },
+          ]);
+      if (scenario === 'pre-send')
+        jest
+          .spyOn(
+            backgroundApiProxy.serviceSignatureConfirm,
+            'preActionsBeforeSending',
+          )
+          .mockResolvedValueOnce({ preSendTx: { txid: 'pre-send-tx' } });
+      const onFail = jest.fn();
+      const onSafePreSendFail = jest.fn();
+      render(
+        <TxConfirmActions
+          accountId={
+            scenario === 'external' ? 'external--wallet--0' : 'hd-1--0'
+          }
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onFail={onFail}
+          onSafePreSendFail={onSafePreSendFail}
+        />,
+      );
+      await act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toBe(error);
+      });
+      expect(onFail).toHaveBeenCalledWith(error);
+      expect(onSafePreSendFail).not.toHaveBeenCalled();
+    },
+  );
+
   it('retries an Earn confirmation after a safe precheck failure and submits once', async () => {
     mockGetWallet.mockResolvedValue(undefined);
     mockGetDevice.mockResolvedValue(undefined);
@@ -760,6 +849,61 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
 
+  it('passes the transactions actually rebuilt for sending to the send guard', async () => {
+    const rebuilt = mockUnsignedTxs.map((tx) => ({
+      ...tx,
+      uuid: 'rebuilt-id',
+    }));
+    jest
+      .spyOn(backgroundApiProxy.serviceSend, 'updateUnSignedTxBeforeSending')
+      .mockResolvedValueOnce(rebuilt);
+    const onBeforeSend = jest.fn(() => {
+      throw new OneKeyLocalError('stop before send');
+    });
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onBeforeSend={onBeforeSend}
+        onFail={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+        'stop before send',
+      );
+    });
+    expect(onBeforeSend).toHaveBeenCalledWith({
+      preSendTx: undefined,
+      unsignedTxs: rebuilt,
+    });
+    expect(mockBatchSend).not.toHaveBeenCalled();
+  });
+
+  it('forwards opt-in batch identity protection to the background send', async () => {
+    mockBatchSend.mockRejectedValueOnce(new Error('stop after send starts'));
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        preserveBatchTxIds
+        onFail={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+        'stop after send starts',
+      );
+    });
+    expect(mockBatchSend).toHaveBeenCalledWith(
+      expect.objectContaining({ preserveBatchTxIds: true }),
+    );
+  });
+
   it.each([
     { legacyScanner: false, userCancelled: false },
     { legacyScanner: false, userCancelled: true },
@@ -860,6 +1004,136 @@ describe('TxConfirmActions Gas Account failure exit', () => {
         jest.advanceTimersByTime(1000);
       });
       expect(onCancel).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    { code: 40_202, retry: 'valid' },
+    { code: 40_213, retry: 'valid' },
+    { code: 40_202, retry: 'account' },
+    { code: 40_213, retry: 'allowance' },
+    { code: 40_213, retry: 'approve-allowance' },
+  ] as const)(
+    'rechecks the direct legacy reset before manual retry after Gas Account error $code: $retry',
+    async ({ code, retry }) => {
+      mockBatchSend.mockReset();
+      const ownerAddressSpy = jest.spyOn(
+        backgroundApiProxy.serviceAccount,
+        'getAccountAddressForApi',
+      );
+      ownerAddressSpy.mockReset().mockResolvedValue('0xpayer');
+      let rejectSend: (error: Error) => void = () => undefined;
+      mockBatchSend.mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectSend = reject;
+          }),
+      );
+      mockBatchSend.mockRejectedValueOnce(
+        Object.assign(new Error('Gas Account failed'), { code }),
+      );
+      mockAllowance.mockResolvedValue({
+        allowanceParsed: retry === 'approve-allowance' ? '0' : '4',
+      });
+      let handle: IDepositTaskHandle | undefined;
+      let operation: Promise<boolean> | undefined;
+      await act(async () => {
+        operation = runDirectDepositTask({
+          identity: {
+            accountId: 'hd-1--0',
+            accountAddress: '0xpayer',
+            networkId: 'evm--1',
+            provider: 'aave',
+            vault: 'vault',
+            inputTokenAddress: 'token',
+            depositTokenAddress: 'token',
+            amount: '10',
+            spenderAddress: 'spender',
+          },
+          token: {
+            address: 'token',
+            name: 'Token',
+            symbol: 'TOKEN',
+            decimals: 6,
+            isNative: false,
+          },
+          requiresAllowanceReset: retry !== 'approve-allowance',
+          allowanceVerificationMode: 'legacy',
+          signal: new AbortController().signal,
+          isCurrent: () => true,
+          confirmReset: async () => true,
+          prepareDeposit: async () => ({ type: 'cancelled' }),
+          confirm: (params) =>
+            waitForEarnTransactionConfirm({
+              ...params,
+              navigationToTxConfirm: async (options) => {
+                render(
+                  <TxConfirmActions
+                    accountId="hd-1--0"
+                    networkId="evm--1"
+                    securityCheckConfirmation="none"
+                    securityCheckAcknowledgementKey="tx-1"
+                    onBeforeSend={options.onBeforeSend}
+                    onFail={options.onFail}
+                    onCancel={options.onCancel}
+                    onSuccess={options.onSuccess}
+                  />,
+                );
+              },
+              expiredMessage: 'expired',
+            }),
+          onTaskReady: (value) => {
+            handle = value;
+          },
+          onDepositSuccess: async () => undefined,
+          formatMessage: (id) => id,
+        });
+      });
+      let first: Promise<void> | undefined;
+      await act(async () => {
+        first = getFooterActions().onConfirm?.();
+      });
+      await act(async () => {
+        await getFooterActions().onConfirm?.();
+      });
+      expect(mockBatchSend).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        rejectSend(Object.assign(new Error('Gas Account failed'), { code }));
+        await first;
+      });
+      expect(handle?.getTask().steps[0].status.type).toBe('sending');
+      const callsBeforeRetry = mockAllowance.mock.calls.length;
+      if (retry === 'account')
+        ownerAddressSpy
+          .mockResolvedValueOnce('0xother')
+          .mockResolvedValueOnce('0xother');
+      if (retry === 'allowance')
+        mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+      if (retry === 'approve-allowance')
+        mockAllowance.mockResolvedValue({ allowanceParsed: '10' });
+      if (retry === 'valid') {
+        await act(async () => {
+          await getFooterActions().onConfirm?.();
+        });
+        expect(mockBatchSend).toHaveBeenCalledTimes(2);
+        expect(mockAllowance.mock.calls.length).toBeGreaterThan(
+          callsBeforeRetry,
+        );
+        expect(handle?.getTask().steps[0].status.type).toBe('sending');
+        await act(async () => {
+          getFooterActions().onCancel(jest.fn(), jest.fn());
+          await operation;
+        });
+      } else {
+        await act(async () => {
+          await expect(getFooterActions().onConfirm?.()).rejects.toThrow();
+          await expect(operation).rejects.toThrow();
+        });
+        expect(mockBatchSend).toHaveBeenCalledTimes(1);
+      }
+      expect(handle?.getTask().steps[0].status.type).toBe('unknown');
+      ownerAddressSpy.mockReset().mockResolvedValue('0xpayer');
+      mockBatchSend.mockReset();
     },
   );
 

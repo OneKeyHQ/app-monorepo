@@ -181,6 +181,182 @@ describe('web cold network fixtures', () => {
     expect(recordRefusal(request)).toBeNull();
   });
 
+  test('replays the public DeFi startup requests and market reserves', () => {
+    const store = createFixtureStore(readFixtureFile(DEFAULT_FIXTURE_PATH));
+    const publicMarkets = new Set();
+    const readEarnData = (pathName, postData) => {
+      const request = {
+        method: postData ? 'POST' : 'GET',
+        url: `https://earn.onekeycn.com${pathName}`,
+        postData,
+      };
+      expect(recordRefusal({ ...request, publicMarkets })).toBeNull();
+      const { entry } = store.lookup(request);
+      expect(entry).toMatchObject({
+        status: 200,
+        scenarios: ['defi'],
+        json: { code: 0 },
+      });
+      return entry.json.data;
+    };
+
+    expect(readEarnData('/earn/v1/banner/list')).toEqual([]);
+    expect(
+      readEarnData('/earn/v1/available-assets?type=stableCoins').assets.map(
+        ({ symbol }) => symbol,
+      ),
+    ).toContain('USDC');
+    expect(readEarnData('/earn/v2/available-assets').assets[0]).toMatchObject({
+      type: 'normal',
+    });
+    expect(
+      readEarnData('/earn/v2/stake-protocol/list', '{}').protocols[0],
+    ).toMatchObject({ symbol: expect.any(String) });
+    const { marketAddress, networkId, provider } = readEarnData(
+      '/earn/v1/borrow/markets',
+    ).markets[0];
+    publicMarkets.add(JSON.stringify([marketAddress, networkId, provider]));
+    const reservesQuery = new URLSearchParams({
+      provider,
+      networkId,
+      marketAddress,
+    });
+    const reserves = readEarnData(`/earn/v1/borrow/reserves?${reservesQuery}`);
+    expect(reserves.supply.assets[0].token.networkId).toBe(networkId);
+    expect(reserves.borrow.assets[0].token.networkId).toBe(networkId);
+
+    const accountScopedRequests = [
+      {
+        method: 'GET',
+        url: `https://earn.onekeycn.com/earn/v1/borrow/reserves?${reservesQuery}&accountAddress=0x1`,
+      },
+      {
+        method: 'POST',
+        url: 'https://earn.onekeycn.com/earn/v2/stake-protocol/list',
+        postData: '{"accountAddress":"0x1"}',
+      },
+    ];
+    for (const request of accountScopedRequests) {
+      expect(recordRefusal(request)).toMatch(/not allowed/);
+      expect(store.lookup(request).entry).toBeNull();
+    }
+  });
+
+  test('records only anonymous reserves from the current public market list', () => {
+    const fixturePath = tempFixturePath();
+    const recorder = createRecorder({
+      fixturePath,
+      source: 'test',
+      fresh: true,
+      log: jest.fn(),
+    });
+    const markets = [
+      { marketAddress: '0x123', networkId: 'evm--1', provider: 'aave' },
+      { marketAddress: '0xAbCd', networkId: 'evm--42161', provider: 'aave' },
+      {
+        marketAddress: 'MarketSolana',
+        networkId: 'sol--101',
+        provider: 'kamino',
+      },
+    ];
+    expect(
+      recorder.add({
+        key: 'GET earn.onekeycn.com/earn/v1/borrow/markets',
+        label: 'markets',
+        status: 200,
+        body: Buffer.from(JSON.stringify({ code: 0, data: { markets } })),
+        scenario: 'defi',
+      }),
+    ).toBe(true);
+    for (const market of markets) {
+      const query = {
+        ...market,
+        marketAddress: market.networkId.startsWith('evm--')
+          ? market.marketAddress.toLowerCase()
+          : market.marketAddress,
+      };
+      const url = `https://earn.onekeycn.com/earn/v1/borrow/reserves?${new URLSearchParams(query)}`;
+      const request = {
+        method: 'GET',
+        url,
+        publicMarkets: recorder.publicMarkets,
+      };
+      expect(recordRefusal(request)).toBeNull();
+      expect(
+        recordRefusal({ ...request, url: `${url}&accountAddress=private` }),
+      ).toMatch(/not allowed/);
+      expect(
+        recordRefusal({ ...request, url: `${url}&provider=aave` }),
+      ).toMatch(/market not/);
+      expect(
+        recorder.add({
+          key: requestKey(request),
+          label: 'reserves',
+          status: 200,
+          body: Buffer.from('{}'),
+          scenario: 'defi',
+        }),
+      ).toBe(true);
+    }
+    expect(
+      recordRefusal({
+        method: 'GET',
+        url: 'https://earn.onekeycn.com/earn/v1/borrow/reserves?marketAddress=marketsolana&networkId=sol--101&provider=kamino',
+        publicMarkets: recorder.publicMarkets,
+      }),
+    ).toMatch(/market not/);
+    expect(
+      recordRefusal({
+        method: 'GET',
+        url: 'https://earn.onekeycn.com/earn/v1/borrow/reserves?marketAddress=0x123&networkId=evm--42161&provider=aave',
+        publicMarkets: recorder.publicMarkets,
+      }),
+    ).toMatch(/market not/);
+    recorder.write();
+    expect(readFixtureFile(fixturePath).entries).toHaveLength(4);
+  });
+
+  test('refuses to write when the public market list is malformed or changes', () => {
+    for (const payloads of [
+      [{ code: 0, data: { markets: [{ marketAddress: '0x1' }] } }],
+      [
+        {
+          code: 0,
+          data: {
+            markets: [
+              { marketAddress: '0x1', networkId: 'evm--1', provider: 'aave' },
+            ],
+          },
+        },
+        {
+          code: 0,
+          data: {
+            markets: [
+              { marketAddress: '0x2', networkId: 'evm--1', provider: 'aave' },
+            ],
+          },
+        },
+      ],
+    ]) {
+      const recorder = createRecorder({
+        fixturePath: tempFixturePath(),
+        source: 'test',
+        fresh: true,
+        log: jest.fn(),
+      });
+      for (const payload of payloads) {
+        recorder.add({
+          key: 'GET earn.onekeycn.com/earn/v1/borrow/markets',
+          label: 'markets',
+          status: 200,
+          body: Buffer.from(JSON.stringify(payload)),
+          scenario: 'defi',
+        });
+      }
+      expect(() => recorder.write()).toThrow(/refusing to write/);
+    }
+  });
+
   test('keys GET requests by host, path and sorted query without volatile params', () => {
     expect(
       requestKey({

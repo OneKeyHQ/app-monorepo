@@ -1,6 +1,20 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { normalizeTaskAccountAddress } from './taskAddress';
+import { createEarnTaskStore } from '../../Earn/tasks/createEarnTaskStore';
+import { getEarnTaskStepIdentityError } from '../../Earn/tasks/earnTaskPlan';
+import { reduceEarnWorkflowTask } from '../../Earn/tasks/earnWorkflowTaskState';
+import { normalizeTaskAccountAddress } from '../../Earn/tasks/taskAddress';
+
+import type { IEarnTask, IEarnTaskStep } from '../../Earn/tasks/earnTaskPlan';
+import type {
+  IEarnWorkflowTask,
+  IEarnWorkflowTaskEvent,
+  IEarnWorkflowTaskStep,
+} from '../../Earn/tasks/earnWorkflowTaskState';
+import type {
+  IEarnTransactionStepAction,
+  IEarnTransactionStepStatus,
+} from '../../Earn/tasks/transactionStep';
 
 export type IDepositTaskIdentity = Readonly<{
   accountId: string;
@@ -64,35 +78,18 @@ export type IDepositTaskStepKind =
   | 'deposit';
 
 export type IDepositTaskStepStatus =
-  | { type: 'waiting' }
-  | { type: 'ready' }
-  | { type: 'preparing' }
-  | { type: 'awaitingUser' }
-  | { type: 'sending' }
-  | { type: 'confirming'; txid: string }
-  | { type: 'verifying'; txid: string }
-  | { type: 'succeeded'; txid: string }
-  | { type: 'handedOff'; txid: string }
-  | { type: 'skipped' }
-  | { type: 'cancelled' }
-  | { type: 'failed'; stage: 'beforeSend'; preparationFailed?: true }
-  | { type: 'failed'; stage: 'onChain'; txid: string }
-  | {
-      type: 'unknown';
-      txid?: string;
-      chainConfirmed: boolean;
-      txidConflict?: readonly string[];
-    };
+  | Exclude<IEarnTransactionStepStatus, { type: 'failed'; stage: 'beforeSend' }>
+  | { type: 'failed'; stage: 'beforeSend'; preparationFailed?: true };
 
-export type IDepositTaskStep = {
-  id: string;
-  kind: IDepositTaskStepKind;
-  attemptId?: string;
+export type IDepositTaskStep = IEarnTaskStep<
+  IDepositTaskStepKind,
+  IDepositTaskStepStatus
+> & {
   preparationOnly?: true;
   resetRequired?: true;
   resetSendStarted?: true;
   resetPriorAttempt?: true;
-  status: IDepositTaskStepStatus;
+  resetPreparationFailed?: true;
 };
 
 export type IDepositRecordingStatus =
@@ -110,11 +107,7 @@ export function isRetryableDepositRecordingStatus(
   return status === 'failed' || status === 'localUnavailable';
 }
 
-export type IDepositTask = {
-  taskId: string;
-  identity: IDepositTaskIdentity;
-  steps: IDepositTaskStep[];
-  currentStepIndex: number;
+export type IDepositTask = IEarnTask<IDepositTaskIdentity, IDepositTaskStep> & {
   recording?: {
     txid: string;
     status: IDepositRecordingStatus;
@@ -127,48 +120,15 @@ export type IDepositTaskRecordingBinding = {
   attemptId: string;
 };
 
-export function isDepositRecordingBound(
-  task: IDepositTask,
-  binding: IDepositTaskRecordingBinding,
-  txid: string,
-) {
-  const deposit = task.steps.at(-1);
-  return Boolean(
-    binding.taskId === task.taskId &&
-    deposit?.id === binding.stepId &&
-    deposit.kind === 'deposit' &&
-    deposit.attemptId === binding.attemptId &&
-    (deposit.status.type === 'handedOff' ||
-      (deposit.status.type === 'unknown' && !deposit.status.txidConflict)) &&
-    deposit.status.txid === txid,
-  );
-}
-
 export type IDepositTaskAction =
-  | { type: 'start' }
-  | { type: 'retry' }
-  | { type: 'confirmationOpened' }
-  | { type: 'sendStarted' }
-  | { type: 'sendBlocked' }
-  | { type: 'submitted'; txid: string }
-  | { type: 'lateBroadcastAccepted'; txid: string }
-  | { type: 'txidConflict'; txid: string }
-  | { type: 'confirmed' }
-  | { type: 'handoff' }
-  | { type: 'verified' }
-  | { type: 'chainFailed' }
-  | { type: 'fail' }
+  | IEarnTransactionStepAction
   | { type: 'preparationFailed' }
   | { type: 'resetRequired' }
-  | { type: 'cancel' }
-  | { type: 'retryStatus' }
-  | { type: 'skip' }
-  | { type: 'insertReset'; resetStepId: string; preparationOnly?: true }
+  | { type: 'insertReset'; resetStepId: string }
   | {
       type: 'insertApproval';
       approvalStepId: string;
       resetStepId?: string;
-      preparationOnly?: true;
     };
 
 export type IDepositTaskEvent = IDepositTaskAction & {
@@ -186,10 +146,11 @@ export function createDepositTask({
   identity: IDepositTaskIdentity;
   steps: { id: string; kind: IDepositTaskStepKind }[];
 }): IDepositTask {
-  if (!taskId || !steps.length || steps.some((step) => !step.id)) {
+  const identityError = getEarnTaskStepIdentityError(steps);
+  if (!taskId || identityError === 'empty') {
     throw new OneKeyLocalError('Invalid deposit task');
   }
-  if (new Set(steps.map((step) => step.id)).size !== steps.length) {
+  if (identityError === 'duplicate') {
     throw new OneKeyLocalError('Duplicate deposit task step');
   }
   const kinds = steps.map((step) => step.kind);
@@ -221,6 +182,20 @@ export function createDepositTask({
   };
 }
 
+function isDepositTaskStep(
+  step: IEarnWorkflowTaskStep,
+): step is IDepositTaskStep & {
+  lateSubmitted: 'unknown' | 'confirming';
+  confirmationCallback?: 'pending' | 'failed';
+} {
+  return (
+    step.kind === 'wrap' ||
+    step.kind === 'resetApproval' ||
+    step.kind === 'approve' ||
+    step.kind === 'deposit'
+  );
+}
+
 export function reduceDepositTask(
   task: IDepositTask,
   event: IDepositTaskEvent,
@@ -229,347 +204,182 @@ export function reduceDepositTask(
   if (!step || event.taskId !== task.taskId || event.stepId !== step.id) {
     return task;
   }
-  if (
-    event.type !== 'start' &&
-    event.type !== 'retry' &&
-    event.attemptId !== step.attemptId
-  ) {
-    return task;
-  }
-
-  let status: IDepositTaskStepStatus | undefined;
-  let attemptId = step.attemptId;
-  let advance = false;
-  switch (event.type) {
-    case 'start':
-      if (step.status.type !== 'ready' || !event.attemptId) return task;
-      attemptId = event.attemptId;
-      status = { type: 'preparing' };
-      break;
-    case 'retry':
-      if (
-        (step.status.type !== 'failed' && step.status.type !== 'cancelled') ||
-        !event.attemptId ||
-        event.attemptId === step.attemptId
-      )
-        return task;
-      attemptId = event.attemptId;
-      status = { type: 'preparing' };
-      break;
-    case 'confirmationOpened':
-      if (step.status.type !== 'preparing') return task;
-      status = { type: 'awaitingUser' };
-      break;
-    case 'resetRequired': {
-      if (step.kind !== 'resetApproval' || step.status.type !== 'preparing')
-        return task;
-      const steps = task.steps.slice();
-      steps[task.currentStepIndex] = { ...step, resetRequired: true };
-      return { ...task, steps };
-    }
-    case 'sendStarted':
-      if (step.status.type !== 'awaitingUser') return task;
-      status = { type: 'sending' };
-      break;
-    case 'sendBlocked':
-      if (
-        step.status.type !== 'sending' &&
-        !(
-          step.status.type === 'unknown' &&
-          !step.status.txid &&
-          !step.status.chainConfirmed &&
-          !step.status.txidConflict
-        )
-      )
-        return task;
-      status = { type: 'failed', stage: 'beforeSend' };
-      break;
-    case 'submitted':
-      if (
-        step.status.type !== 'sending' &&
-        step.status.type !== 'awaitingUser' &&
-        !(
-          step.status.type === 'unknown' &&
-          !step.status.txid &&
-          !step.status.chainConfirmed &&
-          !step.status.txidConflict
-        )
-      )
-        return task;
-      if (!event.txid.trim()) {
-        status = { type: 'unknown', chainConfirmed: false };
-      } else if (step.status.type === 'unknown' && step.kind !== 'deposit') {
-        status = {
-          type: 'unknown',
-          txid: event.txid.trim(),
-          chainConfirmed: false,
-        };
-      } else {
-        status = { type: 'confirming', txid: event.txid.trim() };
-      }
-      break;
-    case 'lateBroadcastAccepted':
-      if (
-        !event.txid.trim() ||
-        !(
-          step.status.type === 'awaitingUser' ||
-          step.status.type === 'sending' ||
-          step.status.type === 'cancelled' ||
-          (step.status.type === 'failed' &&
-            step.status.stage === 'beforeSend') ||
-          (step.status.type === 'unknown' &&
-            !step.status.txid &&
-            !step.status.chainConfirmed &&
-            !step.status.txidConflict)
-        )
-      )
-        return task;
-      status = {
-        type: 'unknown',
-        txid: event.txid.trim(),
-        chainConfirmed: false,
-      };
-      break;
-    case 'txidConflict': {
-      const first =
-        step.status.type === 'confirming' ||
-        step.status.type === 'verifying' ||
-        step.status.type === 'unknown'
-          ? step.status.txid
-          : undefined;
-      if (!first || !event.txid || first === event.txid) return task;
-      status = {
-        type: 'unknown',
-        chainConfirmed: false,
-        txidConflict: [first, event.txid],
-      };
-      break;
-    }
-    case 'confirmed':
-      if (step.status.type !== 'confirming') return task;
-      status = { type: 'verifying', txid: step.status.txid };
-      break;
-    case 'handoff':
-      if (step.kind !== 'deposit' || step.status.type !== 'confirming')
-        return task;
-      status = { type: 'handedOff', txid: step.status.txid };
-      advance = true;
-      break;
-    case 'verified':
-      if (step.status.type !== 'verifying') return task;
-      status = { type: 'succeeded', txid: step.status.txid };
-      advance = true;
-      break;
-    case 'chainFailed':
-      if (step.status.type !== 'confirming') return task;
-      status = { type: 'failed', stage: 'onChain', txid: step.status.txid };
-      break;
-    case 'preparationFailed':
-      if (step.status.type !== 'preparing') return task;
-      status = { type: 'failed', stage: 'beforeSend', preparationFailed: true };
-      break;
-    case 'fail':
-    case 'cancel':
-      switch (step.status.type) {
-        case 'preparing':
-        case 'awaitingUser':
-          status =
-            event.type === 'cancel'
-              ? { type: 'cancelled' }
-              : { type: 'failed', stage: 'beforeSend' };
-          break;
-        case 'sending':
-          status = { type: 'unknown', chainConfirmed: false };
-          break;
-        case 'confirming':
-        case 'verifying':
-          status = {
-            type: 'unknown',
-            txid: step.status.txid,
-            chainConfirmed: step.status.type === 'verifying',
-          };
-          break;
-        default:
-          return task;
-      }
-      break;
-    case 'retryStatus':
-      if (step.status.type !== 'unknown' || !step.status.txid) return task;
-      status = {
-        type: step.status.chainConfirmed ? 'verifying' : 'confirming',
-        txid: step.status.txid,
-      };
-      break;
-    case 'insertReset': {
-      if (
-        step.kind !== 'approve' ||
-        step.status.type !== 'preparing' ||
-        !event.resetStepId ||
-        task.steps.some((item) => item.id === event.resetStepId) ||
-        !task.steps
-          .slice(0, task.currentStepIndex)
-          .some((item) => item.kind === 'resetApproval')
-      ) {
-        return task;
-      }
-      const steps = task.steps.slice();
-      steps[task.currentStepIndex] = {
-        ...step,
-        ...(event.preparationOnly ? { preparationOnly: true } : {}),
-        status: { type: 'waiting' },
-      };
-      steps.splice(task.currentStepIndex, 0, {
-        id: event.resetStepId,
-        kind: 'resetApproval',
-        status: { type: 'ready' },
-      });
-      return { ...task, steps };
-    }
-    case 'insertApproval': {
-      const { approvalStepId, resetStepId } = event;
-      if (
-        step.kind !== 'deposit' ||
-        step.status.type !== 'preparing' ||
-        !approvalStepId ||
-        (resetStepId !== undefined && !resetStepId) ||
-        approvalStepId === resetStepId ||
-        task.steps.some(
-          (item) => item.id === approvalStepId || item.id === resetStepId,
-        ) ||
-        !task.steps
-          .slice(0, task.currentStepIndex)
-          .some((item) => item.kind === 'approve')
-      ) {
-        return task;
-      }
-      const steps = task.steps.slice();
-      steps[task.currentStepIndex] = {
-        ...step,
-        ...(event.preparationOnly ? { preparationOnly: true } : {}),
-        status: { type: 'waiting' },
-      };
-      const approval: IDepositTaskStep = {
-        id: approvalStepId,
-        kind: 'approve',
-        status: { type: resetStepId ? 'waiting' : 'ready' },
-      };
-      const inserted: IDepositTaskStep[] = resetStepId
-        ? [
-            {
-              id: resetStepId,
-              kind: 'resetApproval',
-              status: { type: 'ready' },
-            },
-            approval,
-          ]
-        : [approval];
-      steps.splice(task.currentStepIndex, 0, ...inserted);
-      return { ...task, steps };
-    }
-    case 'skip':
-      if (
-        step.status.type !== 'preparing' ||
-        (step.kind !== 'approve' && step.kind !== 'resetApproval')
-      )
-        return task;
-      status = { type: 'skipped' };
-      advance = true;
-      break;
-    default:
+  if (event.type === 'resetRequired') {
+    if (
+      step.kind !== 'resetApproval' ||
+      step.status.type !== 'preparing' ||
+      step.attemptId !== event.attemptId
+    )
       return task;
+    const steps = task.steps.slice();
+    steps[task.currentStepIndex] = { ...step, resetRequired: true };
+    return { ...task, steps };
   }
-  if (!status) return task;
-  const nextIndex = advance ? task.currentStepIndex + 1 : task.currentStepIndex;
-  const steps = task.steps.map((item, index) => {
-    if (index === task.currentStepIndex) {
-      if (event.type === 'retry' && item.kind === 'resetApproval') {
-        const { resetRequired: _resetRequired, ...rest } = item;
+  if (event.type === 'handoff' && step.kind !== 'deposit') return task;
+  if (
+    event.type === 'skip' &&
+    step.kind !== 'approve' &&
+    step.kind !== 'resetApproval'
+  )
+    return task;
+
+  let payload: IEarnWorkflowTaskEvent['payload'];
+  if (event.type === 'insertReset') {
+    payload = {
+      kind: 'planChange',
+      change: { type: 'insertReset', resetStepId: event.resetStepId },
+    };
+  } else if (event.type === 'insertApproval') {
+    payload = {
+      kind: 'planChange',
+      change: {
+        type: 'insertApproval',
+        approvalStepId: event.approvalStepId,
+        ...(event.resetStepId !== undefined
+          ? { resetStepId: event.resetStepId }
+          : {}),
+      },
+    };
+  } else if (event.type === 'preparationFailed') {
+    payload = { kind: 'transaction', action: { type: 'fail' } };
+  } else {
+    payload = { kind: 'transaction', action: event };
+  }
+  const workflowTask: IEarnWorkflowTask<IDepositTaskIdentity> = {
+    ...task,
+    steps: task.steps.map((item) => ({
+      ...item,
+      lateSubmitted: item.kind === 'deposit' ? 'confirming' : 'unknown',
+    })),
+  };
+  const next = reduceEarnWorkflowTask(workflowTask, {
+    taskId: event.taskId,
+    stepId: event.stepId,
+    attemptId: event.attemptId,
+    payload,
+  });
+  if (next === workflowTask) return task;
+  if (!next.steps.every(isDepositTaskStep)) {
+    throw new OneKeyLocalError('Invalid deposit task step');
+  }
+  const previous = new Map(task.steps.map((item) => [item.id, item]));
+  const steps = next.steps.map((item) => {
+    const original = previous.get(item.id);
+    if (
+      original &&
+      original.kind === item.kind &&
+      original.attemptId === item.attemptId &&
+      original.status === item.status
+    ) {
+      return original;
+    }
+    const {
+      lateSubmitted: _lateSubmitted,
+      confirmationCallback: _callback,
+      ...value
+    } = item;
+    if (item.id === step.id) {
+      if (event.type === 'start' || event.type === 'retry') {
+        const preparationOnly =
+          !step.attemptId ||
+          step.preparationOnly === true ||
+          (step.status.type === 'failed' &&
+            step.status.stage === 'beforeSend' &&
+            step.status.preparationFailed === true);
+        if (preparationOnly) value.preparationOnly = true;
+        else delete value.preparationOnly;
+      } else if (event.type === 'confirmationOpened') {
+        delete value.preparationOnly;
+      } else if (event.type === 'fail') {
+        delete value.preparationOnly;
+      } else if (
+        event.type === 'preparationFailed' &&
+        step.preparationOnly &&
+        value.status.type === 'failed' &&
+        value.status.stage === 'beforeSend'
+      ) {
+        value.status = { ...value.status, preparationFailed: true };
+      }
+    }
+    if (item.id === step.id && step.kind === 'resetApproval') {
+      if (event.type === 'retry') {
+        const {
+          resetRequired: _resetRequired,
+          resetPreparationFailed: _failed,
+          ...rest
+        } = value;
         const retainPriorAttempt =
-          !item.resetRequired &&
-          !item.resetSendStarted &&
-          (item.status.type === 'cancelled' ||
-            (item.status.type === 'failed' &&
-              (item.status.stage === 'onChain' ||
-                !item.status.preparationFailed)));
+          !step.resetRequired &&
+          !step.resetSendStarted &&
+          (step.status.type === 'cancelled' ||
+            (step.status.type === 'failed' && !step.resetPreparationFailed));
         return {
           ...rest,
           ...(retainPriorAttempt ? { resetPriorAttempt: true as const } : {}),
-          attemptId,
-          status,
         };
       }
-      if (event.type === 'sendStarted' && item.kind === 'resetApproval') {
-        return { ...item, resetSendStarted: true as const, attemptId, status };
+      if (event.type === 'sendStarted') {
+        return { ...value, resetSendStarted: true as const };
       }
-      if (event.type === 'confirmationOpened' && item.preparationOnly) {
-        const { preparationOnly: _preparationOnly, ...rest } = item;
-        return { ...rest, attemptId, status };
+      if (
+        (event.type === 'fail' || event.type === 'preparationFailed') &&
+        step.status.type === 'preparing'
+      ) {
+        return { ...value, resetPreparationFailed: true as const };
       }
-      return { ...item, attemptId, status };
     }
-    if (advance && index === nextIndex)
-      return { ...item, status: { type: 'ready' as const } };
-    return item;
+    return value;
   });
-  return { ...task, currentStepIndex: nextIndex, steps };
+  return { ...task, steps, currentStepIndex: next.currentStepIndex };
 }
 
 export function createDepositTaskState(initialTask: IDepositTask) {
-  let task = initialTask;
-  let executionOwner: symbol | undefined;
+  const store = createEarnTaskStore<IDepositTask, IDepositTaskEvent>({
+    initialState: initialTask,
+    reduce: reduceDepositTask,
+  });
   let recordingOwner: symbol | undefined;
-  const listeners = new Set<() => void>();
-  const notify = () => listeners.forEach((listener) => listener());
-  const dispatchBatch = (events: IDepositTaskEvent[]) => {
-    if (!events.length) return false;
-    let next = task;
-    for (const event of events) {
-      const updated = reduceDepositTask(next, event);
-      if (updated === next) return false;
-      next = updated;
-    }
-    task = next;
-    notify();
-    return true;
-  };
   return {
-    getTask: () => task,
-    dispatch: (event: IDepositTaskEvent) => dispatchBatch([event]),
-    dispatchBatch,
+    getTask: store.getState,
+    dispatch: store.dispatch,
+    dispatchBatch: store.dispatchBatch,
     setRecording: (
       owner: symbol,
       binding: IDepositTaskRecordingBinding,
       recording: NonNullable<IDepositTask['recording']>,
     ) => {
-      if (
-        !isDepositRecordingBound(task, binding, recording.txid) ||
-        (recordingOwner !== undefined && recordingOwner !== owner) ||
-        (recordingOwner === undefined && task.recording !== undefined)
-      )
-        return false;
-      recordingOwner = owner;
-      if (
-        task.recording?.txid === recording.txid &&
-        task.recording.status === recording.status
-      )
-        return true;
-      task = { ...task, recording: { ...recording } };
-      notify();
-      return true;
+      return store.update((task) => {
+        const deposit = task.steps.at(-1);
+        if (
+          binding.taskId !== task.taskId ||
+          deposit?.id !== binding.stepId ||
+          deposit.kind !== 'deposit' ||
+          deposit.attemptId !== binding.attemptId ||
+          (deposit.status.type !== 'handedOff' &&
+            !(
+              deposit.status.type === 'unknown' && !deposit.status.txidConflict
+            )) ||
+          deposit.status.txid !== recording.txid ||
+          (recordingOwner !== undefined && recordingOwner !== owner) ||
+          (recordingOwner === undefined && task.recording !== undefined)
+        )
+          return { state: task, result: false };
+        recordingOwner = owner;
+        if (
+          task.recording?.txid === recording.txid &&
+          task.recording.status === recording.status
+        )
+          return { state: task, result: true };
+        return {
+          state: { ...task, recording: { ...recording } },
+          result: true,
+        };
+      });
     },
-    subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    acquire: (owner: symbol) => {
-      if (executionOwner && executionOwner !== owner) return false;
-      executionOwner = owner;
-      return true;
-    },
-    owns: (owner: symbol) => executionOwner === owner,
-    release: (owner: symbol) => {
-      if (executionOwner === owner) executionOwner = undefined;
-    },
+    subscribe: store.subscribe,
+    acquire: store.acquire,
+    owns: store.owns,
+    release: store.release,
   };
 }
 

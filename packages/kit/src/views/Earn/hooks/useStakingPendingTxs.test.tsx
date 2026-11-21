@@ -27,6 +27,11 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
 });
 
 const mockRouteFocus = { current: true };
+const mockActiveAccount = {
+  account: { id: 'active-account', address: 'address-a' },
+  indexedAccount: { id: 'hd-1--0' },
+  network: { id: 'evm--1' },
+};
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocus.current,
   useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
@@ -57,13 +62,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => {
-  const activeAccount = {
-    account: { id: 'active-account' },
-    indexedAccount: { id: 'hd-1--0' },
-    network: { id: 'evm--1' },
-  };
   return {
-    useActiveAccount: () => ({ activeAccount }),
+    useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
   };
 });
 
@@ -74,9 +74,15 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/views/Staking/utils/utils', () => ({
-  buildLocalTxStatusSyncId: jest.fn(),
-}));
+jest.mock('@onekeyhq/kit/src/views/Staking/utils/utils', () => {
+  const actual = jest.requireActual<typeof import('../../Staking/utils/utils')>(
+    '@onekeyhq/kit/src/views/Staking/utils/utils',
+  );
+  return {
+    buildLocalTxStatusSyncId: jest.fn(),
+    createEarnActionScopeGuard: actual.createEarnActionScopeGuard,
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const backgroundMock = {
@@ -166,6 +172,10 @@ function createPendingTx(
 describe('useStakingPendingTxsByInfo history verification', () => {
   beforeEach(() => {
     mockRouteFocus.current = true;
+    mockActiveAccount.account.id = 'active-account';
+    mockActiveAccount.account.address = 'address-a';
+    mockActiveAccount.indexedAccount.id = 'hd-1--0';
+    mockActiveAccount.network.id = 'evm--1';
     timerMock.durationMs = 0;
     backgroundMock.fetchAccountHistory.mockReset();
     backgroundMock.fetchAccountHistory.mockResolvedValue(undefined);
@@ -600,6 +610,99 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     unmount();
   });
 
+  it('does not reuse the previous wallet shared network map while the new wallet resolves', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockImplementation(
+      ({ indexedAccountId }: { indexedAccountId: string }) =>
+        indexedAccountId === 'hd-1--0'
+          ? Promise.resolve([
+              {
+                network: { id: 'evm--2' },
+                account: { id: 'wallet-a-chain-2' },
+              },
+            ])
+          : new Promise(() => {}),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    const networkIds = ['evm--1', 'evm--2'];
+    const view = renderHook(() => {
+      const precomputed = useEarnPendingTxsSharedMeta({
+        extraNetworkIds: networkIds,
+      });
+      return useStakingPendingTxsByInfo({
+        networkIds,
+        tagMatcher: pendingTagMatcher,
+        precomputed,
+      });
+    });
+    await waitFor(() =>
+      expect(view.result.current.isPendingHistoryVerified).toBe(true),
+    );
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--2',
+        accountAddress: 'wallet-a-chain-2-evm--2',
+      }),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockClear();
+    mockActiveAccount.account.id = 'account-b';
+    mockActiveAccount.indexedAccount.id = 'hd-2--0';
+    view.rerender(undefined);
+    await waitFor(() =>
+      expect(
+        backgroundMock.getNetworkAccountsInSameIndexedAccountId,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ indexedAccountId: 'hd-2--0' }),
+      ),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalledWith(
+      expect.objectContaining({ accountAddress: 'wallet-a-chain-2-evm--2' }),
+    );
+    view.unmount();
+  });
+
+  it('does not retain a previous address pending state when an external account keeps its ID', async () => {
+    backgroundMock.getAccountMetaForNetworksBatch.mockImplementation(
+      async () => ({
+        'evm--1': { accountAddress: mockActiveAccount.account.address },
+      }),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockImplementation(
+      async ({ accountAddress }: { accountAddress: string }) =>
+        accountAddress === 'address-a' ? [createPendingTx('pending-a')] : [],
+    );
+    const networkIds = ['evm--1'];
+    const view = renderHook(() => {
+      const precomputed = useEarnPendingTxsSharedMeta({
+        extraNetworkIds: networkIds,
+      });
+      return useStakingPendingTxsByInfo({
+        networkIds,
+        tagMatcher: pendingTagMatcher,
+        precomputed,
+      });
+    });
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    mockActiveAccount.account.address = 'address-b';
+    view.rerender(undefined);
+    expect(view.result.current.pendingCount).toBe(0);
+    expect(view.result.current.isPendingHistoryVerified).toBe(false);
+    await act(async () => {
+      emitAccountUpdate();
+    });
+    await waitFor(() => {
+      expect(view.result.current.pendingCount).toBe(0);
+      expect(view.result.current.isPendingHistoryVerified).toBe(true);
+    });
+    view.unmount();
+  });
+
   it('parks history lookups and the retry poll while the host surface is hidden', async () => {
     timerMock.durationMs = 5;
     backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
@@ -689,6 +792,63 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     });
   });
 
+  it('does not replace the last verified pending data with an older late response', async () => {
+    const original = createPendingTx('original');
+    const latest = createPendingTx('latest');
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      original,
+    ]);
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1'],
+        accountId: 'route-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+      expect(result.current.filteredTxs).toEqual([original]);
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let resolveOld: (value: IStakePendingTx[]) => void = () => undefined;
+    const oldResponse = new Promise<IStakePendingTx[]>((resolve) => {
+      resolveOld = resolve;
+    });
+    backgroundMock.getAccountLocalHistoryPendingTxs
+      .mockImplementationOnce(() => oldResponse)
+      .mockResolvedValueOnce([latest]);
+    const callsBefore =
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.length;
+    let oldRefresh: Promise<void> | undefined;
+    act(() => {
+      oldRefresh = result.current.refreshPending();
+    });
+    await waitFor(() =>
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs,
+      ).toHaveBeenCalledTimes(callsBefore + 1),
+    );
+    await act(async () => {
+      await result.current.refreshPending();
+    });
+    await waitFor(() => expect(result.current.filteredTxs).toEqual([latest]));
+    await act(async () => {
+      resolveOld([]);
+      await oldRefresh;
+    });
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockRejectedValue(
+      new OneKeyLocalError('history unavailable'),
+    );
+    await act(async () => {
+      await result.current.refreshPending();
+    });
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(false);
+      expect(result.current.filteredTxs).toEqual([latest]);
+    });
+  });
+
   it('keeps the failed network last verified tx on partial success', async () => {
     const firstNetworkTx = createPendingTx('network-1');
     const secondNetworkTx = createPendingTx('network-2');
@@ -725,11 +885,13 @@ describe('useStakingPendingTxsByInfo history verification', () => {
         },
       },
     };
+    const onRefresh = jest.fn();
     const { result } = renderHook(() =>
       useStakingPendingTxsByInfo({
         networkIds,
         tagMatcher: pendingTagMatcher,
         precomputed,
+        onRefresh,
       }),
     );
 
@@ -750,5 +912,269 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     });
     expect(result.current.filteredTxs).toEqual([secondNetworkTx]);
     expect(result.current.pendingCount).toBe(1);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    await act(async () => {
+      await result.current.refreshPending();
+    });
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+      expect(result.current.pendingCount).toBe(0);
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('refreshes when a pending tx observed during partial failure is later verified empty', async () => {
+    let failSecondNetwork = true;
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockImplementation(
+      async ({ networkId }: { networkId: string }) => {
+        if (failSecondNetwork && networkId === 'evm--2') {
+          throw new OneKeyLocalError('history unavailable');
+        }
+        return failSecondNetwork ? [createPendingTx('observed')] : [];
+      },
+    );
+    const networkIds = ['evm--1', 'evm--2'];
+    const precomputed = {
+      networkAccountMap: { 'evm--1': 'active-account', 'evm--2': 'account-2' },
+      pollingIntervalsByNetwork: { 'evm--1': 0, 'evm--2': 0 },
+      accountMetaByNetwork: {
+        'evm--1': { accountId: 'active-account', accountAddress: '0x1' },
+        'evm--2': { accountId: 'account-2', accountAddress: '0x2' },
+      },
+    };
+    const onRefresh = jest.fn();
+    const view = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds,
+        tagMatcher: pendingTagMatcher,
+        precomputed,
+        onRefresh,
+      }),
+    );
+    await waitFor(() => {
+      expect(view.result.current.pendingCount).toBe(1);
+      expect(view.result.current.isPendingHistoryVerified).toBe(false);
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
+    failSecondNetwork = false;
+    await act(async () => {
+      await view.result.current.refreshPending();
+    });
+    await waitFor(() => {
+      expect(view.result.current.isPendingHistoryVerified).toBe(true);
+      expect(view.result.current.pendingCount).toBe(0);
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('keeps a scheduled completion across an equivalent network array and callback update', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      createPendingTx('pending'),
+    ]);
+    const oldCallback = jest.fn();
+    const nextCallback = jest.fn();
+    const view = renderHook(
+      ({
+        networkIds,
+        onRefresh,
+      }: {
+        networkIds: string[];
+        onRefresh: () => void;
+      }) =>
+        useStakingPendingTxsByInfo({
+          accountId: 'a',
+          networkIds,
+          tagMatcher: pendingTagMatcher,
+          onRefresh,
+          onRefreshDelayMs: 3000,
+        }),
+      { initialProps: { networkIds: ['evm--1'], onRefresh: oldCallback } },
+    );
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    jest.useFakeTimers();
+    try {
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      expect(view.result.current.pendingCount).toBe(0);
+      view.rerender({ networkIds: ['evm--1'], onRefresh: nextCallback });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(oldCallback).not.toHaveBeenCalled();
+      expect(nextCallback).toHaveBeenCalledTimes(1);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('preserves an already scheduled completion when the surface is hidden', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      createPendingTx('pending'),
+    ]);
+    const networkIds = ['evm--1'];
+    const onRefresh = jest.fn();
+    const view = renderHook(
+      ({ isActive }: { isActive: boolean }) =>
+        useStakingPendingTxsByInfo({
+          accountId: 'a',
+          networkIds,
+          tagMatcher: pendingTagMatcher,
+          onRefresh,
+          onRefreshDelayMs: 3000,
+          isActive,
+        }),
+      { initialProps: { isActive: true } },
+    );
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    jest.useFakeTimers();
+    try {
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      view.rerender({ isActive: false });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not send an earlier account completion to the new account callback', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      createPendingTx('pending-a'),
+    ]);
+    const networkIds = ['evm--1'];
+    const onRefreshA = jest.fn();
+    const onRefreshB = jest.fn();
+    const view = renderHook(
+      ({
+        accountId,
+        onRefresh,
+      }: {
+        accountId: string;
+        onRefresh: () => void;
+      }) =>
+        useStakingPendingTxsByInfo({
+          accountId,
+          networkIds,
+          tagMatcher: pendingTagMatcher,
+          onRefresh,
+          onRefreshDelayMs: 3000,
+        }),
+      { initialProps: { accountId: 'a', onRefresh: onRefreshA } },
+    );
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    jest.useFakeTimers();
+    try {
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      expect(view.result.current.pendingCount).toBe(0);
+      view.rerender({ accountId: 'b', onRefresh: onRefreshB });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(onRefreshA).not.toHaveBeenCalled();
+      expect(onRefreshB).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not treat stale pending data as a completion for a new account', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      createPendingTx('pending-a'),
+    ]);
+    const networkIds = ['evm--1'];
+    const onRefresh = jest.fn();
+    const view = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useStakingPendingTxsByInfo({
+          accountId,
+          networkIds,
+          tagMatcher: pendingTagMatcher,
+          onRefresh,
+        }),
+      { initialProps: { accountId: 'a' } },
+    );
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    view.rerender({ accountId: 'b' });
+    await waitFor(() => {
+      expect(view.result.current.isPendingHistoryVerified).toBe(true);
+      expect(view.result.current.pendingCount).toBe(0);
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('cancels a prior filter completion and still refreshes after the new filter completes', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      createPendingTx('pending-a'),
+    ]);
+    const networkIds = ['evm--1'];
+    const filterA = (tx: IStakePendingTx) => tx.id === 'pending-a';
+    const filterB = (tx: IStakePendingTx) => tx.id === 'pending-b';
+    const onRefresh = jest.fn();
+    const view = renderHook(
+      ({ filter }: { filter: (tx: IStakePendingTx) => boolean }) =>
+        useStakingPendingTxsByInfo({
+          accountId: 'a',
+          networkIds,
+          tagMatcher: pendingTagMatcher,
+          filter,
+          onRefresh,
+          onRefreshDelayMs: 3000,
+        }),
+      { initialProps: { filter: filterA } },
+    );
+    await waitFor(() => expect(view.result.current.pendingCount).toBe(1));
+    jest.useFakeTimers();
+    try {
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      view.rerender({ filter: filterB });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(onRefresh).not.toHaveBeenCalled();
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+        createPendingTx('pending-b'),
+      ]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      expect(view.result.current.pendingCount).toBe(1);
+      backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+      await act(async () => {
+        await view.result.current.refreshPending();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
   });
 });

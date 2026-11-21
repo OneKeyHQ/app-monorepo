@@ -4,6 +4,12 @@ import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 
 const stopDefaultBackHandler = () => true;
 
+let escapePressClaimed = false;
+
+export const claimEscapePress = () => {
+  escapePressClaimed = true;
+};
+
 export const useBackHandler = (
   callback: () => boolean = stopDefaultBackHandler,
   enable: boolean | undefined = true,
@@ -21,6 +27,7 @@ export const useBackHandler = (
     };
     const observeKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      escapePressClaimed = false;
       // Observe before the SDK's document listener dismisses or blocks the entry.
       skipEscapeKeyUp =
         skipEscapeKeyUp ||
@@ -32,7 +39,13 @@ export const useBackHandler = (
       if (event.key !== 'Escape') return;
       const skip = !isKeyDown && skipEscapeKeyUp;
       resetEscapePair();
-      if (event.isComposing || event.keyCode === 229 || skip) return;
+      if (
+        event.isComposing ||
+        event.keyCode === 229 ||
+        skip ||
+        (!isKeyDown && escapePressClaimed)
+      )
+        return;
       if (!isKeyDown && overlayStore.resolveBack().kind !== 'pass') return;
       callbackRef.current?.();
     };

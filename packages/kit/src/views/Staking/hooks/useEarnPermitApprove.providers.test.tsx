@@ -17,6 +17,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { useEarnPermitApprove } from './useEarnPermitApprove';
 
 const mockGetAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
+const mockGetAccountAddress = jest.fn<Promise<string>, [unknown]>();
 const mockBuildSignData = jest.fn<
   Promise<IEarnPermit2ApproveSignData>,
   [unknown]
@@ -29,6 +30,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceAccount: {
       getAccount: (input: unknown) => mockGetAccount(input),
+      getAccountAddressForApi: (input: unknown) => mockGetAccountAddress(input),
     },
     serviceStaking: {
       buildPermit2ApproveSignData: (input: unknown) => mockBuildSignData(input),
@@ -108,6 +110,7 @@ describe('useEarnPermitApprove trusted spender', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetAccount.mockResolvedValue({ address: accountAddress });
+    mockGetAccountAddress.mockResolvedValue(accountAddress);
     mockMessageConfirm.mockResolvedValue('0xsignature');
   });
 
@@ -151,7 +154,7 @@ describe('useEarnPermitApprove trusted spender', () => {
       const { result } = renderHook(() => useEarnPermitApprove());
 
       await expect(result.current.getPermitSignature(params)).rejects.toThrow(
-        'Invalid Earn permit authorization',
+        'Invalid EtherFi permit data',
       );
       expect(mockMessageConfirm).not.toHaveBeenCalled();
     },

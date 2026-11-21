@@ -27,14 +27,12 @@ export function RetainedTaskFallback({
   assetsLoading,
   onRetryAssets,
   onFinished,
-  recoveryOnly = false,
 }: {
   ownerKey: string;
   retainedTask: IRetainedDepositTask;
   assetsLoading: boolean;
   onRetryAssets: () => void;
-  onFinished?: () => void;
-  recoveryOnly?: boolean;
+  onFinished?: (reason?: 'remoteUnknown') => void;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -48,17 +46,14 @@ export function RetainedTaskFallback({
     retainedTask,
   );
   const step = retainedTask.task.steps[retainedTask.task.currentStepIndex];
-  const depositStep = retainedTask.task.steps.at(-1);
   const recording = retainedTask.task.recording;
   const canFinish = Boolean(
-    depositStep?.status.type === 'handedOff' &&
     recording &&
     ['succeeded', 'superseded', 'notTracked', 'remoteUnknown'].includes(
       recording.status,
     ),
   );
   const canRetryRecording = Boolean(
-    depositStep?.status.type === 'handedOff' &&
     isRetryableDepositRecordingStatus(recording?.status) &&
     getRecordingHandle(),
   );
@@ -96,7 +91,10 @@ export function RetainedTaskFallback({
           stillRetained,
           recording.status === 'remoteUnknown',
         );
-        if (finished && isCurrent()) onFinished?.();
+        if (finished && isCurrent())
+          onFinished?.(
+            recording.status === 'remoteUnknown' ? 'remoteUnknown' : undefined,
+          );
         else if (!finished && stillRetained()) {
           Toast.message({
             title: intl.formatMessage({
@@ -144,14 +142,11 @@ export function RetainedTaskFallback({
     scope,
   ]);
 
-  let actionLabel = ETranslations.global_retry;
-  if (canFinish) actionLabel = ETranslations.global_done;
-  if (recoveryOnly) actionLabel = ETranslations.global_refresh;
-
   return (
     <YStack gap="$3" px="$5" py="$3">
-      {!recoveryOnly && assetsLoading ? <Spinner /> : null}
-      {!recoveryOnly && !assetsLoading ? (
+      {assetsLoading ? (
+        <Spinner />
+      ) : (
         <Alert
           type="critical"
           title={intl.formatMessage({
@@ -162,18 +157,14 @@ export function RetainedTaskFallback({
             onPrimaryPress: onRetryAssets,
           }}
         />
-      ) : null}
+      )}
       <SizableText>
         {intl.formatMessage({ id: ETranslations.global_pending })}
       </SizableText>
-      {recording?.status === 'remoteUnknown' || recoveryOnly ? (
+      {recording?.status === 'remoteUnknown' ? (
         <SizableText>
-          {recording?.status === 'remoteUnknown' ? (
-            <>
-              {intl.formatMessage({ id: ETranslations.global_sync_error })}
-              {' · '}
-            </>
-          ) : null}
+          {intl.formatMessage({ id: ETranslations.global_sync_error })}
+          {' · '}
           {intl.formatMessage({
             id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
           })}
@@ -186,7 +177,11 @@ export function RetainedTaskFallback({
           disabled={busy}
           onPress={() => void onAction()}
         >
-          {intl.formatMessage({ id: actionLabel })}
+          {intl.formatMessage({
+            id: canFinish
+              ? ETranslations.global_done
+              : ETranslations.global_retry,
+          })}
         </Button>
       ) : null}
     </YStack>

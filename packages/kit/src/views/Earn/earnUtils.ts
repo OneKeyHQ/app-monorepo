@@ -10,13 +10,18 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
+  EModalStakingRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
+  type IEarnWindowScope,
+  type IModalStakingParamList,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IEarnAssetClass } from '@onekeyhq/shared/types/earn/earnAssetSelect';
 import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
 
 import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
@@ -144,7 +149,8 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
-    route === ETabEarnRoutes.EarnProtocolDetailsShare;
+    route === ETabEarnRoutes.EarnProtocolDetailsShare ||
+    route === ETabEarnRoutes.EarnLendingDetails;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -322,8 +328,34 @@ export async function safePushToEarnRoute(
 }
 
 export const EarnNavigation = {
-  pushToEarnPositions(navigation: IAppNavigation) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPositions);
+  pushToEarnPositions(
+    navigation: IAppNavigation,
+    params?: {
+      // The protocols whose cards the page scrolls to
+      focusProtocols?: string[];
+      // The tab it opens on
+      focusTab?: 'rewards';
+      // The lending market whose card the page scrolls to
+      focusMarket?: string;
+      returnScope?: IEarnWindowScope;
+    },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnPositions,
+      params?.focusProtocols?.length ||
+        params?.focusTab ||
+        params?.focusMarket ||
+        params?.returnScope
+        ? {
+            focusProtocols: params.focusProtocols,
+            focusTab: params.focusTab,
+            focusMarket: params.focusMarket,
+            returnScope: params.returnScope,
+            focusAt: Date.now(),
+          }
+        : undefined,
+    );
   },
 
   // navigate from deep link (compatible with old format)
@@ -431,12 +463,17 @@ export const EarnNavigation = {
     params?: {
       tab?: IEarnHomeTab;
       mode?: 'earn' | 'borrow';
+      // The token whose row opens on the desktop home
+      openSymbol?: string;
     },
   ) {
     const targetEarnTab = params?.tab ?? DEFAULT_EARN_HOME_TAB;
     const earnHomeParams = {
       mode: params?.mode ?? ('earn' as const),
       tab: targetEarnTab,
+      ...(params?.openSymbol
+        ? { openSymbol: params.openSymbol, openAt: Date.now() }
+        : null),
     };
 
     if (platformEnv.isNative) {
@@ -499,6 +536,51 @@ export const EarnNavigation = {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
   },
 
+  // The deposit modal for a token on one network, choosing among its offers
+  // there (desktop demo, 10-22), or on every network (a home holding, by
+  // token since 11-05)
+  pushToEarnOffersDeposit(
+    navigation: IAppNavigation,
+    params: {
+      symbol: string;
+      // The network it opens on: with allNetworks, the starting offer's
+      networkId: string;
+      logoURI?: string;
+      // The offer to start on; the best rate otherwise
+      offerKey?: string;
+      // An amount of the token to start on (what a withdrawal took out)
+      amount?: string;
+      // That offer alone, with none to switch to
+      offerOnly?: boolean;
+      // More than one offer: the modal opens wide, the offers beside the form
+      wide?: boolean;
+      // Every token of the kind on the network, the symbol's among them
+      assetClass?: IEarnAssetClass;
+      // The token's offers on every network, not the one network's alone
+      allNetworks?: boolean;
+    },
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ManagePosition,
+      params: {
+        networkId: params.networkId,
+        symbol: params.symbol,
+        // Each offer names its own
+        provider: '',
+        tab: 'deposit',
+        tokenImageUri: params.logoURI,
+        earnOffers: {
+          offerKey: params.offerKey,
+          amount: params.amount,
+          offerOnly: params.offerOnly,
+          wide: params.wide,
+          assetClass: params.assetClass,
+          allNetworks: params.allNetworks,
+        },
+      },
+    });
+  },
+
   // Tokens home (OK-58505/OK-58562/OK-58508)
   pushToEarnTokens(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnTokens);
@@ -512,6 +594,15 @@ export const EarnNavigation = {
   // Protocols home (OK-58505/OK-58562)
   pushToEarnAllProtocols(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnAllProtocols);
+  },
+
+  // The phone home's full lists: Earns on your holding, and the Loans pairs
+  pushToEarnHoldings(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHoldings);
+  },
+
+  pushToEarnLoans(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnLoans);
   },
 
   // Tokens list of a single protocol (OK-58505)
@@ -535,6 +626,9 @@ export const EarnNavigation = {
       vault?: string;
       logoURI?: string;
       scrollToPortfolio?: boolean;
+      // From the Earn window's Details: its amount and Pay with token
+      amount?: string;
+      payKey?: string;
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
@@ -544,6 +638,32 @@ export const EarnNavigation = {
       vault: params.vault,
       logoURI: params.logoURI,
       ...(params.scrollToPortfolio ? { scrollToPortfolio: true } : {}),
+      ...(params.amount ? { amount: params.amount } : {}),
+      ...(params.payKey ? { payKey: params.payKey } : {}),
+    });
+  },
+
+  // A lending market's supply side as an Earn details page (demo 10-27)
+  pushToEarnLendingDetails(
+    navigation: IAppNavigation,
+    params: ITabEarnParamList[ETabEarnRoutes.EarnLendingDetails],
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnLendingDetails,
+      params,
+    );
+  },
+
+  // A collateral and a loan, and every market that takes them, in a modal
+  // as the deposit's (demo 10-27)
+  pushToEarnLoanRouter(
+    navigation: IAppNavigation,
+    params: IModalStakingParamList[EModalStakingRoutes.EarnLoanRouter],
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnLoanRouter,
+      params,
     });
   },
 

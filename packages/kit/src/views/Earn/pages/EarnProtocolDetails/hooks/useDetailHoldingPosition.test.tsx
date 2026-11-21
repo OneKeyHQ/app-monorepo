@@ -1,135 +1,201 @@
 /* eslint-disable import/first */
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
+let mockSelectedAddress = 0;
+let mockCache: Record<string, unknown> = {};
+let mockPublishedCache: Record<string, unknown> = {};
+const mockReads: Array<(response: unknown) => void> = [];
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: () => '' }),
+}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceStaking: { getPortfolioPositions: jest.fn() } },
+  default: {
+    serviceStaking: {
+      getPortfolioPositions: () =>
+        new Promise((resolve) => mockReads.push(resolve)),
+    },
+  },
 }));
-
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({
+    activeAccount: {
+      account: {
+        id: 'external-account',
+        connectedAddresses: { evm: '0xaaa,0xbbb' },
+        selectedAddress: { evm: mockSelectedAddress },
+      },
+    },
+  }),
+}));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useEarnPortfolioPositionsAtom: () => {
+      const value = React.useState(mockCache);
+      mockPublishedCache = value[0];
+      return value;
+    },
+  };
+});
 jest.mock('../../../hooks/useEarnAccountKey', () => ({
-  useEarnAccountKey: () => 'wallet',
+  useEarnAccountKey: () => 'wallet-key',
+}));
+jest.mock('../../EarnPositions/mobile/earnPositionModel', () => ({
+  buildHoldingView: ({ sources }: { sources: unknown[] }) => sources[0],
 }));
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
-import { EDBAccountType } from '@onekeyhq/kit-bg/src/dbs/local/consts';
-import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import type { IProtocolInfo } from '@onekeyhq/shared/types/staking';
-
-import { positionsScopeKey } from '../../EarnPositions/mobile/earnPortfolioPositions.utils';
-import {
-  position,
-  token,
-} from '../../EarnPositions/mobile/earnPositionModel.fixtures';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useDetailHoldingPosition } from './useDetailHoldingPosition';
 
-const identity = { networkId: 'evm--1', provider: 'etherfi', symbol: 'ETH' };
-
-const response = (name: string): IEarnPortfolioPositionsResponse => ({
+const identity = { networkId: 'evm--1', provider: 'morpho', symbol: 'USDC' };
+const response = (id: string) => ({
   positions: {
-    'evm--1': [
-      position({
-        networkId: 'evm--1',
-        chain: 'evm',
-        protocol: 'etherfi',
-        protocolName: 'EtherFi',
-        category: 'staked',
-        groupId: name,
-        name,
-        assets: [token({ symbol: 'ETH', amount: '1', price: 1 })],
-      }),
-    ],
+    'evm--1': [{ id, earn: { manage: identity } }],
   },
   protocolSummaries: [],
   errors: [],
 });
-
-const scope = (accountAddress: string) =>
-  positionsScopeKey({ ...identity, accountAddress });
-
-const mockCache = {
-  wallet: {
-    [scope('0xa')]: response('account A'),
-    [scope('0xb')]: response('account B'),
-  },
-};
-
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => {
-  const { useState } = jest.requireActual<typeof import('react')>('react');
-  return {
-    useEarnPortfolioPositionsAtom: () => useState(mockCache),
-  };
+const account = (accountAddress: string) => ({
+  accountId: 'external-account',
+  networkId: 'evm--1',
+  accountAddress,
+  account: { pub: '' } as INetworkAccount,
 });
 
-function account(
-  address: string,
-  networkId = 'evm--1',
-): IProtocolInfo['earnAccount'] {
-  return {
-    accountId: address,
-    accountAddress: address,
-    networkId,
-    account: {
-      id: address,
-      name: address,
-      address,
-      pub: '',
-      type: EDBAccountType.SIMPLE,
-      path: '',
-      coinType: '60',
-      impl: 'evm',
-      addressDetail: {
-        isValid: true,
-        networkId,
-        address,
-        baseAddress: address,
-        normalizedAddress: address,
-        displayAddress: address,
-        allowEmptyAddress: false,
-      },
-    },
-  };
-}
-
 describe('useDetailHoldingPosition account scope', () => {
-  it('keeps a cached placeholder non-actionable until the current account resolves', () => {
-    const { result, rerender } = renderHook(
-      ({ earnAccount }: { earnAccount: IProtocolInfo['earnAccount'] }) =>
-        useDetailHoldingPosition({ identity, earnAccount, enabled: true }),
-      { initialProps: { earnAccount: undefined } },
-    );
-
-    expect(result.current.holding).toBeDefined();
-    expect(result.current.actionableHolding).toBeUndefined();
-
-    rerender({ earnAccount: account('0xa') });
-    expect(result.current.actionableHolding?.source.name).toBe('account A');
-
-    rerender({ earnAccount: undefined });
-    expect(result.current.holding).toBeDefined();
-    expect(result.current.actionableHolding).toBeUndefined();
-
-    rerender({ earnAccount: account('0xb') });
-    expect(result.current.actionableHolding?.source.name).toBe('account B');
-
-    rerender({ earnAccount: account('0xc') });
-    expect(result.current.holding).toBeUndefined();
-    expect(result.current.actionableHolding).toBeUndefined();
+  beforeEach(() => {
+    mockSelectedAddress = 0;
+    mockCache = {};
+    mockPublishedCache = {};
+    mockReads.length = 0;
   });
 
-  it('does not make another network’s cached holding actionable', () => {
+  it('drops an old address response and keeps only one address bucket', async () => {
+    const { result, rerender } = renderHook(
+      ({ earnAccount }: { earnAccount: ReturnType<typeof account> }) =>
+        useDetailHoldingPosition({ identity, earnAccount, enabled: true }),
+      { initialProps: { earnAccount: account('0xaaa') } },
+    );
+    let oldRequest: Promise<void> | undefined;
+    act(() => {
+      oldRequest = result.current.refresh();
+    });
+    mockSelectedAddress = 1;
+    rerender({ earnAccount: account('0xbbb') });
+    let newRequest: Promise<void> | undefined;
+    act(() => {
+      newRequest = result.current.refresh();
+    });
+    await act(async () => {
+      mockReads[1](response('address-b'));
+      await newRequest;
+    });
+    await act(async () => {
+      mockReads[0](response('address-a-late'));
+      await oldRequest;
+    });
+    expect(result.current.holding).toEqual(
+      expect.objectContaining({ id: 'address-b' }),
+    );
+    expect(JSON.stringify(mockPublishedCache)).not.toContain('address-a-late');
+    expect(JSON.stringify(mockPublishedCache)).toContain('address-b');
+
+    mockSelectedAddress = 0;
+    rerender({ earnAccount: account('0xaaa') });
+    expect(result.current.holding).toBeUndefined();
+  });
+
+  it('treats a legacy cache bucket as a miss', () => {
+    mockCache = { 'wallet-key': { legacy: response('legacy') } };
     const { result } = renderHook(() =>
       useDetailHoldingPosition({
         identity,
-        earnAccount: account('0xa', 'evm--8453'),
+        earnAccount: undefined,
         enabled: true,
       }),
     );
-    expect(result.current.holding).toBeDefined();
+    expect(result.current.holding).toBeUndefined();
+  });
+
+  it('does not accept an old response after switching away and back to the same address', async () => {
+    const { result, rerender } = renderHook(
+      ({ earnAccount }: { earnAccount: ReturnType<typeof account> }) =>
+        useDetailHoldingPosition({ identity, earnAccount, enabled: true }),
+      { initialProps: { earnAccount: account('0xaaa') } },
+    );
+    let oldRequest: Promise<void> | undefined;
+    act(() => {
+      oldRequest = result.current.refresh();
+    });
+    mockSelectedAddress = 1;
+    rerender({ earnAccount: account('0xbbb') });
+    mockSelectedAddress = 0;
+    rerender({ earnAccount: account('0xaaa') });
+    await act(async () => {
+      mockReads[0](response('old-a'));
+      await oldRequest;
+    });
+    expect(result.current.holding).toBeUndefined();
+    expect(JSON.stringify(mockPublishedCache)).not.toContain('old-a');
+  });
+
+  it('reads a same-address bucket written by the positions page', () => {
+    mockCache = {
+      'wallet-key': {
+        accountScope: JSON.stringify([
+          'external-account',
+          '',
+          '',
+          '',
+          [{ evm: '0xaaa,0xbbb' }, { evm: 0 }],
+        ]),
+        scopes: { 'evm--1_morpho_0xaaa_': response('from-list') },
+      },
+    };
+    const { result } = renderHook(() =>
+      useDetailHoldingPosition({
+        identity,
+        earnAccount: account('0xaaa'),
+        enabled: true,
+      }),
+    );
+    expect(result.current.holding).toEqual(
+      expect.objectContaining({ id: 'from-list' }),
+    );
+    expect(result.current.actionableHolding).toEqual(
+      expect.objectContaining({ id: 'from-list' }),
+    );
+  });
+
+  it('does not make cached holdings actionable while the account network is unresolved', async () => {
+    mockCache = {
+      'wallet-key': {
+        accountScope: JSON.stringify([
+          'external-account',
+          '',
+          '',
+          '',
+          [{ evm: '0xaaa,0xbbb' }, { evm: 0 }],
+        ]),
+        scopes: { 'evm--1_morpho_0xaaa_': response('placeholder') },
+      },
+    };
+    const { result } = renderHook(() =>
+      useDetailHoldingPosition({
+        identity,
+        earnAccount: { ...account('0xaaa'), networkId: 'evm--2' },
+        enabled: true,
+      }),
+    );
+    expect(result.current.holding).toEqual(
+      expect.objectContaining({ id: 'placeholder' }),
+    );
     expect(result.current.actionableHolding).toBeUndefined();
+    await act(async () => result.current.refresh());
+    expect(mockReads).toHaveLength(0);
   });
 });

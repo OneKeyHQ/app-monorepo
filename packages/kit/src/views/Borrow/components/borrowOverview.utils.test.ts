@@ -1,4 +1,7 @@
-import { withNetApySignColor } from './borrowOverview.utils';
+import {
+  withNetApyLossColor,
+  withNetApySignColor,
+} from './borrowOverview.utils';
 
 describe('withNetApySignColor', () => {
   it.each([
@@ -20,5 +23,19 @@ describe('withNetApySignColor', () => {
 
   it('passes through when there is no net APY at all', () => {
     expect(withNetApySignColor(undefined)).toBeUndefined();
+  });
+});
+
+describe('withNetApyLossColor', () => {
+  it('colors a loss only', () => {
+    expect(withNetApyLossColor({ text: '-1.75%' })?.color).toBe(
+      '$textCritical',
+    );
+    expect(withNetApyLossColor({ text: '3.03%' })).toEqual({ text: '3.03%' });
+    expect(withNetApyLossColor({ text: '0.00%' })).toEqual({ text: '0.00%' });
+  });
+
+  it('keeps a missing value missing', () => {
+    expect(withNetApyLossColor(undefined)).toBeUndefined();
   });
 });

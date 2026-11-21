@@ -133,6 +133,23 @@ describe('swapHistoryStatusUtils', () => {
     ).toBe(false);
   });
 
+  it('does not emit a stale provider success after the source transaction failed', () => {
+    const previous = createHistory({ status: ESwapTxHistoryStatus.PENDING });
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        previousSwapTxHistory: previous,
+        swapTxHistory: {
+          ...previous,
+          status: ESwapTxHistoryStatus.FAILED,
+          sourceTxFailed: true,
+        },
+        txStatusRes: createStatusResponse({
+          state: ESwapTxHistoryStatus.SUCCESS,
+        }),
+      }),
+    ).toBe(false);
+  });
+
   it('does not show a status toast when only hashes change', () => {
     const previousSwapTxHistory = createHistory({
       status: ESwapTxHistoryStatus.CANCELING,

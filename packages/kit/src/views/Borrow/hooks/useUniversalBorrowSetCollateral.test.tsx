@@ -42,12 +42,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     borrowBuildSetCollateralTransaction: jest.fn(),
     getBorrowTransactionConfirmation: jest.fn(),
   };
+  const serviceAccount = { getAccountAddressForApi: jest.fn() };
   (globalThis as Record<string, unknown>).__setCollateralBackgroundMock = {
     serviceStaking,
+    serviceAccount,
   };
   return {
     __esModule: true,
-    default: { serviceStaking },
+    default: { serviceStaking, serviceAccount },
   };
 });
 
@@ -59,7 +61,7 @@ jest.mock(
   }),
 );
 
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -79,6 +81,7 @@ const backgroundMock = (globalThis as Record<string, unknown>)
     borrowBuildSetCollateralTransaction: jest.Mock;
     getBorrowTransactionConfirmation: jest.Mock;
   };
+  serviceAccount: { getAccountAddressForApi: jest.Mock };
 };
 
 const stakingInfo: IStakingInfo = {
@@ -116,6 +119,10 @@ describe('useUniversalBorrowSetCollateral', () => {
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction.mockReset();
     backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockReset();
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockReset();
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOwner',
+    );
 
     signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
     backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue(undefined);
@@ -141,6 +148,55 @@ describe('useUniversalBorrowSetCollateral', () => {
       }),
     );
 
+  it('does not check or build if the account changes while resolving the missing owner address', async () => {
+    const pending = createDeferred<string>();
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockReturnValueOnce(
+      pending.promise,
+    );
+    const view = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useUniversalBorrowSetCollateral({ networkId: 'evm--1', accountId }),
+      { initialProps: { accountId: 'account-a' } },
+    );
+    const request = view.result.current({
+      ...baseParams,
+      useAsCollateral: false,
+    });
+    await waitFor(() =>
+      expect(
+        backgroundMock.serviceAccount.getAccountAddressForApi,
+      ).toHaveBeenCalledTimes(1),
+    );
+    view.rerender({ accountId: 'account-b' });
+    await act(async () => {
+      pending.resolve('0xOwner');
+      await request;
+    });
+    await expect(request).resolves.toBe(false);
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not check or build if the missing owner address cannot be resolved', async () => {
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValueOnce(
+      '',
+    );
+    const { result } = renderSetCollateral();
+    await expect(
+      result.current({ ...baseParams, useAsCollateral: false }),
+    ).rejects.toThrow('Missing task account address');
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
   it('preserves eModeId zero in the enable-collateral build payload', async () => {
     const onFail = jest.fn();
     const onCancel = jest.fn();
@@ -163,6 +219,7 @@ describe('useUniversalBorrowSetCollateral', () => {
     ).toStrictEqual({
       networkId: 'evm--1',
       accountId: 'account-1',
+      expectedAccountAddress: '0xOwner',
       ...baseParams,
       action: 'setCollateral',
       amount: '0',
@@ -175,6 +232,7 @@ describe('useUniversalBorrowSetCollateral', () => {
     ).toStrictEqual({
       networkId: 'evm--1',
       accountId: 'account-1',
+      expectedAccountAddress: '0xOwner',
       ...baseParams,
       useAsCollateral: true,
       eModeId: 0,
@@ -186,10 +244,48 @@ describe('useUniversalBorrowSetCollateral', () => {
           ...stakingInfo,
           orderId: 'set-collateral-order-id',
         },
-        onFail,
-        onCancel,
+        onFail: expect.any(Function),
+        onCancel: expect.any(Function),
       }),
     );
+    const error = new Error('confirmation failed');
+    const confirmation = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as { onFail: (error: Error) => void };
+    confirmation.onFail(error);
+    expect(onFail).toHaveBeenCalledWith(error);
+  });
+
+  it('calls onCancel when the risk disclaimer is declined without starting a preflight', async () => {
+    mockEnsureRiskAccepted.mockResolvedValueOnce(false);
+    const onCancel = jest.fn();
+    const { result } = renderSetCollateral();
+    await expect(
+      result.current({ ...baseParams, useAsCollateral: true, onCancel }),
+    ).resolves.toBe(false);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('forwards confirmation cancellation while preserving the handoff return', async () => {
+    signatureConfirmMock.navigationToTxConfirm.mockImplementationOnce(
+      async ({ onCancel }: { onCancel: () => void }) => onCancel(),
+    );
+    const onCancel = jest.fn();
+    const onSuccess = jest.fn();
+    const { result } = renderSetCollateral();
+    await expect(
+      result.current({
+        ...baseParams,
+        useAsCollateral: true,
+        onCancel,
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(backgroundMock.serviceStaking.addEarnOrder).not.toHaveBeenCalled();
   });
 
   it('omits eModeId from the disable-collateral build payload', async () => {
@@ -214,6 +310,7 @@ describe('useUniversalBorrowSetCollateral', () => {
     expect(buildParams).toStrictEqual({
       networkId: 'evm--1',
       accountId: 'account-1',
+      expectedAccountAddress: '0xOwner',
       ...baseParams,
       useAsCollateral: false,
     });
@@ -240,6 +337,65 @@ describe('useUniversalBorrowSetCollateral', () => {
     );
   });
 
+  it.each([
+    [
+      'account',
+      { accountId: 'account-b', networkId: 'evm--1', ownerScope: 'reserve-a' },
+    ],
+    [
+      'network',
+      {
+        accountId: 'account-a',
+        networkId: 'evm--137',
+        ownerScope: 'reserve-a',
+      },
+    ],
+    [
+      'reserve',
+      { accountId: 'account-a', networkId: 'evm--1', ownerScope: 'reserve-b' },
+    ],
+  ])(
+    'does not build after the %s changes during final confirmation',
+    async (_changed, nextScope) => {
+      const pending = createDeferred<{
+        canBeCollateral: boolean;
+        liquidationRisk: boolean;
+      }>();
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockReturnValueOnce(
+        pending.promise,
+      );
+      const { result, rerender } = renderHook(
+        (scope: { accountId: string; networkId: string; ownerScope: string }) =>
+          useUniversalBorrowSetCollateral(scope),
+        {
+          initialProps: {
+            accountId: 'account-a',
+            networkId: 'evm--1',
+            ownerScope: 'reserve-a',
+          },
+        },
+      );
+      let operation!: Promise<boolean>;
+      act(() => {
+        operation = result.current({ ...baseParams, useAsCollateral: true });
+      });
+      await waitFor(() =>
+        expect(
+          backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+        ).toHaveBeenCalledTimes(1),
+      );
+      rerender(nextScope);
+      await act(async () => {
+        pending.resolve({ canBeCollateral: true, liquidationRisk: false });
+        await operation;
+      });
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+      ).not.toHaveBeenCalled();
+      expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    },
+  );
+
   it('fails closed when the authoritative confirmation is unavailable', async () => {
     backgroundMock.serviceStaking.getBorrowTransactionConfirmation.mockRejectedValue(
       new Error('confirmation unavailable'),
@@ -256,6 +412,29 @@ describe('useUniversalBorrowSetCollateral', () => {
       ).rejects.toThrow('confirmation unavailable');
     });
 
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
+    ).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the backend address before building even when the account id is unchanged', async () => {
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xnew',
+    );
+    const { result } = renderHook(() =>
+      useUniversalBorrowSetCollateral({
+        networkId: 'evm--1',
+        accountId: 'account-a',
+        accountAddress: '0xold',
+      }),
+    );
+    await expect(
+      result.current({ ...baseParams, useAsCollateral: true }),
+    ).rejects.toThrow('Borrow transaction confirmation expired');
+    expect(
+      backgroundMock.serviceAccount.getAccountAddressForApi,
+    ).toHaveBeenCalledWith({ accountId: 'account-a', networkId: 'evm--1' });
     expect(
       backgroundMock.serviceStaking.borrowBuildSetCollateralTransaction,
     ).not.toHaveBeenCalled();

@@ -1,12 +1,20 @@
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import {
+  isTaskAccountAddress,
+  isTaskAccountCurrent,
+  isTaskEncodedTxOwner,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
+import type {
+  IApproveInfo,
+  IWrappedInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -16,20 +24,11 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { prepareEarnWrap } from '../../Earn/earnSwap';
+
 import { createLateDepositOrderRecorder } from './lateDepositOrder';
 import { createDepositRecording, runDepositTask } from './runDepositTask';
-import {
-  createDepositTask,
-  createDepositTaskState,
-  isDepositRecordingBound,
-  isSameDepositTaskIdentity,
-} from './state';
-import {
-  isTaskAccountAddress,
-  isTaskAccountCurrent,
-  isTaskEncodedTxOwner,
-} from './taskAccount';
-import { normalizeTaskAccountAddress } from './taskAddress';
+import { createDepositTask, isSameDepositTaskIdentity } from './state';
 import { buildEarnStakeConfirmation } from './transactionBuilder';
 import { waitForDepositTaskTxStatus } from './waitForDepositTaskTxStatus';
 
@@ -48,12 +47,14 @@ type IPrepared =
       kind: 'stake';
       payload: Awaited<ReturnType<typeof buildEarnStakeConfirmation>>;
     }
-  | { kind: 'approval'; approvesInfo: IApproveInfo[] };
+  | { kind: 'approval'; approvesInfo: IApproveInfo[] }
+  | { kind: 'wrap'; wrappedInfo: IWrappedInfo };
 
 export async function runWrappedStakeTask({
   request,
   accountAddress,
   stakingInfo,
+  inputToken,
   wrappedToken,
   spenderAddress,
   signal,
@@ -66,6 +67,7 @@ export async function runWrappedStakeTask({
   onTaskReady,
   onTaskChange,
   onTaskSettled,
+  onDepositSubmitted,
   resumeTaskState,
   onDepositSuccess,
   onFail,
@@ -74,6 +76,7 @@ export async function runWrappedStakeTask({
   request: IStakeBaseParams;
   accountAddress: string;
   stakingInfo?: IStakingInfo;
+  inputToken: IToken;
   wrappedToken: IToken;
   spenderAddress: string;
   signal: AbortSignal;
@@ -92,6 +95,7 @@ export async function runWrappedStakeTask({
   onTaskReady?: (handle: IDepositTaskHandle) => boolean | void;
   onTaskChange?: (task: IDepositTask) => void;
   onTaskSettled?: (taskId: string, txid: string) => void | Promise<void>;
+  onDepositSubmitted?: (txid: string) => void;
   resumeTaskState?: IDepositTaskState;
   onDepositSuccess: (
     data: ISendTxOnSuccessData[],
@@ -105,6 +109,10 @@ export async function runWrappedStakeTask({
   formatMessage: (id: ETranslations) => string;
 }): Promise<boolean> {
   const { accountId, networkId, provider, amount } = request;
+  const retryPolicy = getEarnProtocol(provider).getConfirmationRetryPolicy({
+    task: 'wrapped',
+    networkId,
+  });
   const amountBN = new BigNumber(amount);
   const identity = {
     accountId,
@@ -143,7 +151,6 @@ export async function runWrappedStakeTask({
         { id: 'deposit', kind: 'deposit' },
       ],
     });
-  const taskState = resumeTaskState ?? createDepositTaskState(task);
   const isTaskCurrent = () => !signal.aborted && isCurrent();
   const recordLateOrder = createLateDepositOrderRecorder();
   const recording = createDepositRecording({
@@ -203,10 +210,15 @@ export async function runWrappedStakeTask({
         return {
           type: 'confirm',
           prepared: {
-            kind: 'stake',
-            payload: await buildEarnStakeConfirmation({
-              request: { ...request, stakeType: 'wrap' },
-              stakingInfo: null,
+            kind: 'wrap',
+            wrappedInfo: await prepareEarnWrap({
+              accountId,
+              networkId,
+              accountAddress: task.identity.accountAddress,
+              inputToken,
+              wrappedToken,
+              amount,
+              signal: taskSignal,
             }),
           },
         };
@@ -284,6 +296,7 @@ export async function runWrappedStakeTask({
             payload: await buildEarnStakeConfirmation({
               request: {
                 ...request,
+                expectedAccountAddress: identity.accountAddress,
                 stakeType: 'normal',
                 inputTokenAddress: wrappedToken.address,
                 effectiveApy: preparation?.effectiveApy ?? request.effectiveApy,
@@ -323,14 +336,15 @@ export async function runWrappedStakeTask({
       let recordPromise: Promise<void> | undefined;
       const result = await confirm({
         encodedTx: payload?.encodedTx,
+        wrappedInfo:
+          prepared.kind === 'wrap' ? prepared.wrappedInfo : undefined,
         stakingInfo: payload?.stakeInfoWithOrderId,
         useFeeInTx: payload?.useFeeInTx,
         feeInfoEditable: payload?.feeInfoEditable,
         approvesInfo:
           prepared.kind === 'approval' ? prepared.approvesInfo : undefined,
-        allowDeviceRejectionRetry:
-          networkId === getNetworkIdsMap().eth &&
-          earnUtils.isEtherFiProvider({ providerName: provider }),
+        allowDeviceRejectionRetry: retryPolicy.allowDeviceRejectionRetry,
+        allowManualResubmission: retryPolicy.allowManualResubmission,
         isNavigationCurrent: isCurrent,
         signal: taskSignal,
         beforeSendGuard: async () => {
@@ -390,21 +404,16 @@ export async function runWrappedStakeTask({
             return;
           if (step.kind === 'deposit' && !depositReported) {
             depositReported = true;
+            onDepositSubmitted?.(fact.txid);
             recordPromise = recording.start(
               fact.txid,
               () =>
-                isDepositRecordingBound(
-                  taskState.getTask(),
-                  { taskId, stepId: step.id, attemptId },
-                  fact.txid,
-                )
-                  ? recordLateOrder({
-                      fact,
-                      accountId,
-                      networkId,
-                      stakeInfo: payload?.stakeInfoWithOrderId,
-                    })
-                  : Promise.resolve('remoteUnknown' as const),
+                recordLateOrder({
+                  fact,
+                  accountId: task.identity.accountId,
+                  networkId: task.identity.networkId,
+                  stakeInfo: payload?.stakeInfoWithOrderId,
+                }),
               () => undefined,
               { taskId, stepId: step.id, attemptId },
             );
@@ -419,21 +428,14 @@ export async function runWrappedStakeTask({
           const accepted = onSubmitted(txid);
           if (step.kind === 'deposit' && txid && accepted && !depositReported) {
             depositReported = true;
+            onDepositSubmitted?.(txid);
             recordPromise = recording.start(
               txid,
               () =>
-                isDepositRecordingBound(
-                  taskState.getTask(),
-                  { taskId, stepId: step.id, attemptId },
-                  txid,
-                )
-                  ? onDepositSuccess(data, payload?.stakeInfoWithOrderId, {
-                      lateAfterSettlement: Boolean(
-                        options?.lateAfterSettlement || !isTaskCurrent(),
-                      ),
-                      isRecordingCurrent: recording.isActive,
-                    })
-                  : Promise.resolve('remoteUnknown' as const),
+                onDepositSuccess(data, payload?.stakeInfoWithOrderId, {
+                  lateAfterSettlement: Boolean(options?.lateAfterSettlement),
+                  isRecordingCurrent: recording.isActive,
+                }),
               () => onTaskSettled?.(task.taskId, txid),
               { taskId, stepId: step.id, attemptId },
             );
@@ -483,7 +485,7 @@ export async function runWrappedStakeTask({
   };
   return runDepositTask({
     task,
-    taskState,
+    taskState: resumeTaskState,
     resume: Boolean(resumeTaskState),
     adapter,
     signal,

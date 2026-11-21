@@ -17,7 +17,10 @@ import {
 } from '@testing-library/react';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  IWrappedInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EtherFiLiquidReferContract,
   EthereumWETH,
@@ -32,31 +35,48 @@ import {
   type IStakeTxResponse,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchTokenDetailItem,
   IToken,
 } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxStatus,
+  type IBroadcastAcceptedFact,
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
+import { createPermitStakeWorkflow } from '../earnDepositTask/permitStakeWorkflow';
+import { depositTaskRegistry } from '../earnDepositTask/registry';
+import { getDepositTaskOwnerKey } from '../earnDepositTask/useRetainedDepositTask';
+
 import { useUniversalStake } from './useUniversalHooks';
 
+import type { IStakeFundingGuard } from '../earnDepositTask/fundedStakeConfirmation';
 import type { IDepositTaskHandle } from '../earnDepositTask/types';
 
 type IConfirmParams = {
   encodedTx?: IEncodedTx;
+  wrappedInfo?: IWrappedInfo;
   stakingInfo?: IStakingInfo;
   approvesInfo?: IApproveInfo[];
   onSuccess?: (data: ISendTxOnSuccessData[]) => void | Promise<void>;
   onFail?: (error: Error) => void;
+  onConfirmationFail?: (error: Error) => void;
+  onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    unsignedTxs?: readonly import('@onekeyhq/core/src/types').IUnsignedTxPro[];
+  }) => void | Promise<void>;
+  preserveBatchTxIds?: boolean;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   isNavigationCurrent?: () => boolean;
 };
 type IAllowance = { allowance: string; allowanceParsed: string };
 
+const mockPrepareWrap = jest.fn<Promise<IWrappedInfo>, [unknown]>();
 const mockNavigate = jest.fn<Promise<void>, [IConfirmParams]>();
 const mockBuildStake = jest.fn<
   Promise<IStakeTxResponse>,
@@ -64,6 +84,7 @@ const mockBuildStake = jest.fn<
 >();
 const mockBuildInternal = jest.fn<Promise<IEncodedTx>, [unknown]>();
 const mockAllowance = jest.fn<Promise<IAllowance>, [unknown]>();
+const mockAssertApproval = jest.fn<Promise<void>, [unknown]>();
 const mockWrappedBalance = jest.fn<
   Promise<IFetchTokenDetailItem[]>,
   [unknown]
@@ -91,14 +112,14 @@ const mockWaitForFinal = jest.fn<
 const mockRiskAccepted = jest.fn<Promise<boolean>, [unknown]>();
 const mockToastError = jest.fn<void, [unknown]>();
 const mockToastMessage = jest.fn<void, [unknown]>();
+const mockTrackOrderOptions = jest.fn<void, [unknown]>();
 
-jest.mock('../components/ServerExecutedOrderDialog', () => ({
-  showServerExecutedOrderDialog: () => {
-    throw new OneKeyLocalError('Unexpected server-executed order');
-  },
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
+}));
+
+jest.mock('../../Earn/earnSwap', () => ({
+  prepareEarnWrap: (input: unknown) => mockPrepareWrap(input),
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -108,12 +129,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchTokensDetails: (input: unknown) => mockWrappedBalance(input),
     },
     serviceStaking: {
-      assertEarnApproval: jest.fn().mockResolvedValue(undefined),
+      assertEarnApproval: (input: unknown) => mockAssertApproval(input),
       buildStakeTransaction: (input: { stakeType?: IEarnStakeType }) =>
         mockBuildStake(input),
       buildInternalDappTx: (input: unknown) => mockBuildInternal(input),
       fetchTokenAllowance: (input: unknown) => mockAllowance(input),
-      addEarnOrder: (input: unknown) => mockTrackOrder(input),
+      addEarnOrder: (input: unknown, options: unknown) => {
+        mockTrackOrderOptions(options);
+        return mockTrackOrder(input);
+      },
     },
     serviceAccount: {
       getAccount: (input: unknown) => mockGetAccount(input),
@@ -189,6 +213,7 @@ const params: Parameters<ReturnType<typeof useUniversalStake>>[0] = {
   protocolVault: vault,
   inputTokenAddress: '',
   stakeType: 'wrap',
+  inputToken: eth,
   taskAccountAddress: owner,
   postWrapStakeToken: weth,
   postWrapApproveSpenderAddress: EtherFiLiquidReferContract,
@@ -245,24 +270,51 @@ function confirmationTxid(
   approvesInfo: IApproveInfo[] | undefined,
 ) {
   if (approvesInfo) return 'approve-tx';
-  return encodedTx === wrapTx ? 'wrap-tx' : 'deposit-tx';
+  return encodedTx ? 'deposit-tx' : 'wrap-tx';
 }
 
 function allowance(amount: string): IAllowance {
   return { allowance: amount, allowanceParsed: amount };
 }
 
-describe('useUniversalStake EtherFi ETH wrapping', () => {
+function createFundingGuard() {
+  return {
+    beforeSend: jest.fn(async () => undefined),
+    onAccepted: jest.fn(async (_txid: string) => undefined),
+    onSafeCancel: jest.fn(async () => undefined),
+    onNotStarted: jest.fn(async () => undefined),
+    onUncertain: jest.fn(async () => undefined),
+  } satisfies IStakeFundingGuard;
+}
+
+describe('useUniversalStake deposits and wrapping', () => {
+  afterEach(() => {
+    for (const provider of ['etherfi', 'native']) {
+      const ownerKey = getDepositTaskOwnerKey({
+        ...account,
+        accountAddress: owner,
+        provider,
+        vault,
+      });
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
+  });
   beforeEach(() => {
     jest.resetAllMocks();
     mockRiskAccepted.mockResolvedValue(true);
+    mockAssertApproval.mockResolvedValue(undefined);
     mockBuildStake.mockImplementation(async ({ stakeType }) => ({
       tx: stakeType === 'wrap' ? wrapTx : depositTx,
       orderId: stakeType === 'wrap' ? undefined : 'deposit-order',
     }));
-    mockBuildInternal
-      .mockResolvedValueOnce(wrapTx)
-      .mockResolvedValue(depositTx);
+    mockBuildInternal.mockResolvedValue(depositTx);
+    mockPrepareWrap.mockResolvedValue({
+      from: owner,
+      contract: EthereumWETH,
+      amount: '1',
+      type: EWrappedType.DEPOSIT,
+    });
     mockAllowance.mockResolvedValue(allowance('1'));
     mockWrappedBalance.mockResolvedValue([
       {
@@ -280,11 +332,747 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       localStatus: 'saved',
       remoteStatus: 'synced',
     });
-    mockNavigate.mockImplementation(async ({ encodedTx, onSuccess }) => {
-      await onSuccess?.(
-        successData(encodedTx === wrapTx ? 'wrap-tx' : 'deposit-tx'),
-      );
+    mockNavigate.mockImplementation(async ({ wrappedInfo, onSuccess }) => {
+      await onSuccess?.(successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'));
     });
+  });
+
+  it.each([
+    ['onSafePreSendFail', 'failed'],
+    ['onConfirmationFail', 'unknown'],
+  ] as const)(
+    'classifies a permit deposit %s without weakening unknown broadcasts',
+    async (failureCallback, expectedStatus) => {
+      const spender = EtherFiLiquidReferContract;
+      const { result } = renderHook(() => useUniversalStake(account));
+      mockNavigate.mockImplementationOnce(async (confirmation) => {
+        await confirmation.onBeforeSend?.();
+        confirmation[failureCallback]?.(new Error('confirmation failed'));
+        if (failureCallback === 'onConfirmationFail') {
+          confirmation.onSafePreSendFail?.(new Error('late safe failure'));
+        }
+        await expect(confirmation.onBeforeSend?.()).rejects.toThrow();
+      });
+      const workflow = createPermitStakeWorkflow({
+        taskId: `permit-${failureCallback}`,
+        identity: {
+          ...account,
+          accountAddress: owner,
+          provider: 'etherfi',
+          action: 'stake',
+          intent: {
+            amount: '1',
+            symbol: 'ETH',
+            inputTokenAddress: '',
+            protocolVault: vault,
+            spenderAddress: spender,
+          },
+        },
+        sign: async () => 'permit',
+        submit: async (signed, workflowHandoff) => {
+          await result.current({
+            ...params,
+            stakeType: undefined,
+            workflowHandoff,
+            workflowSpenderAddress: spender,
+            permitSignature: signed,
+          });
+        },
+        isCurrent: () => true,
+        isResultCurrent: () => true,
+        onSubmitted: jest.fn(),
+        onAsyncError: jest.fn(),
+      });
+      await workflow.run();
+      await waitFor(() =>
+        expect(workflow.getTask().steps.at(-1)?.status.type).toBe(
+          expectedStatus,
+        ),
+      );
+      expect(mockTrackOrder).not.toHaveBeenCalled();
+    },
+  );
+
+  it('runs Stakefish validator signing and deposit in the same task after the fee gate', async () => {
+    const steps: string[] = [];
+    const snapshots: string[] = [];
+    const { result } = renderHook(() => useUniversalStake(account));
+    const sign = jest.fn(async () => {
+      steps.push('sign');
+      return { signature: 'private-signature', message: 'provider-message' };
+    });
+    const beforeDeposit = jest.fn(async () => {
+      steps.push('fee');
+      return true;
+    });
+    mockBuildStake.mockImplementationOnce(async () => {
+      steps.push('build');
+      return { tx: depositTx, orderId: 'deposit-order' };
+    });
+    await expect(
+      result.current({
+        ...params,
+        provider: 'stakefish',
+        stakeType: 'normal',
+        stakefishSignTask: {
+          sign,
+          beforeDeposit,
+          onTaskChange: (task) => snapshots.push(JSON.stringify(task)),
+        },
+      }),
+    ).resolves.toBe(true);
+    expect(steps).toEqual(['sign', 'fee', 'build']);
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'stakefish',
+        permitSignature: 'private-signature',
+        message: 'provider-message',
+      }),
+    );
+    expect(
+      snapshots.some(
+        (snapshot) =>
+          snapshot.includes('validatorSign') && snapshot.includes('deposit'),
+      ),
+    ).toBe(true);
+    expect(snapshots.join()).not.toContain('private-signature');
+    expect(snapshots.join()).not.toContain('provider-message');
+  });
+
+  it('keeps the ordinary Stake result pending until the accepted deposit is recorded', async () => {
+    const guard = createFundingGuard();
+    const saved = deferred<undefined>();
+    guard.onAccepted.mockReturnValueOnce(saved.promise);
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({
+        ...params,
+        stakeType: 'normal',
+        fundingGuard: guard,
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[0][0];
+    expect(guard.beforeSend).not.toHaveBeenCalled();
+
+    const context = { unsignedTxs: [{ uuid: 'stake-uuid', encodedTx: '0x' }] };
+    await confirmation.onBeforeSend?.(context);
+    expect(guard.beforeSend).toHaveBeenCalledWith(context);
+    expect(confirmation.preserveBatchTxIds).toBe(true);
+    const completed = confirmation.onSuccess?.(successData('stake-tx'));
+    await waitFor(() =>
+      expect(guard.onAccepted).toHaveBeenCalledWith('stake-tx'),
+    );
+    expect(onSuccess).not.toHaveBeenCalled();
+    saved.resolve(undefined);
+    await completed;
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps funding reserved when a second Stake send is rejected after an unknown first send', async () => {
+    const guard = createFundingGuard();
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: guard,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    const context = { unsignedTxs: [{ uuid: 'stake-uuid', encodedTx: '0x' }] };
+    await confirmation.onBeforeSend?.(context);
+    confirmation.onConfirmationFail?.(new Error('unknown broadcast'));
+    await expect(confirmation.onBeforeSend?.(context)).rejects.toThrow(
+      'Stake confirmation closed',
+    );
+    confirmation.onSafePreSendFail?.(new Error('retry blocked'));
+    await Promise.resolve();
+    expect(guard.onSafeCancel).not.toHaveBeenCalled();
+    expect(guard.onUncertain).toHaveBeenCalled();
+  });
+
+  it('records only the matching late Stake broadcast after the form closes', async () => {
+    const guard = createFundingGuard();
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: guard,
+      onSuccess,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await confirmation.onBeforeSend?.();
+    confirmation.onCancel?.();
+    unmount();
+    const fact = { ...account, uuid: 'stake-uuid', txid: 'stake-tx' };
+    await confirmation.onLateBroadcastAccepted?.({
+      ...fact,
+      accountId: 'another-account',
+    });
+    expect(guard.onAccepted).not.toHaveBeenCalled();
+    await confirmation.onLateBroadcastAccepted?.(fact);
+    expect(guard.onAccepted).toHaveBeenCalledWith(fact.txid);
+    expect(guard.onSafeCancel).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('releases a cancelled unsent deposit and retains an ambiguous confirmation failure', async () => {
+    const { result } = renderHook(() => useUniversalStake(account));
+    mockNavigate.mockResolvedValue(undefined);
+    const cancelled = createFundingGuard();
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: cancelled,
+    });
+    const cancelledConfirmation = mockNavigate.mock.calls[0][0];
+    cancelledConfirmation.onCancel?.();
+    await waitFor(() =>
+      expect(cancelled.onSafeCancel).toHaveBeenCalledTimes(1),
+    );
+    await expect(cancelledConfirmation.onBeforeSend?.()).rejects.toThrow(
+      'Stake confirmation closed',
+    );
+
+    const uncertain = createFundingGuard();
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: uncertain,
+    });
+    const uncertainConfirmation = mockNavigate.mock.calls[1][0];
+    uncertainConfirmation.onConfirmationFail?.(new Error('provider failed'));
+    uncertainConfirmation.onCancel?.();
+    await waitFor(() => expect(uncertain.onUncertain).toHaveBeenCalledTimes(1));
+    expect(uncertain.onSafeCancel).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'records the original Stakefish order and only notifies while the actual address remains current: %s',
+    async (addressRemainsCurrent) => {
+      const pending = deferred<{
+        localStatus: 'saved';
+        remoteStatus: 'synced';
+      }>();
+      mockTrackOrder.mockReturnValueOnce(pending.promise);
+      mockNavigate.mockResolvedValueOnce(undefined);
+      const onSuccess = jest.fn();
+      const resultCurrent = jest.fn(() => true);
+      const { result } = renderHook(() => useUniversalStake(account));
+      await expect(
+        result.current({
+          ...params,
+          provider: 'stakefish',
+          stakeType: 'normal',
+          stakefishSignTask: {
+            sign: async () => ({ signature: 'sig', message: 'message' }),
+            beforeDeposit: async () => true,
+            isResultCurrent: resultCurrent,
+          },
+          onSuccess,
+        }),
+      ).resolves.toBe(true);
+      const callback = mockNavigate.mock.calls[0][0].onSuccess;
+      expect(callback).toBeDefined();
+      const completion = callback?.(successData('stakefish-tx'));
+      await waitFor(() => expect(mockTrackOrder).toHaveBeenCalledTimes(1));
+      if (!addressRemainsCurrent)
+        mockGetAccountAddress.mockResolvedValue(
+          '0x2222222222222222222222222222222222222222',
+        );
+      pending.resolve({ localStatus: 'saved', remoteStatus: 'synced' });
+      await completion;
+      expect(mockTrackOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'deposit-order',
+          networkId: account.networkId,
+          txId: 'stakefish-tx',
+        }),
+      );
+      expect(onSuccess).toHaveBeenCalledTimes(addressRemainsCurrent ? 1 : 0);
+    },
+  );
+
+  it('suppresses the Stakefish success callback if the owner changes during its address check', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    let isCurrent = true;
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'stakefish',
+        stakeType: 'normal',
+        stakefishSignTask: {
+          sign: async () => ({ signature: 'sig', message: 'message' }),
+          beforeDeposit: async () => true,
+          isResultCurrent: () => isCurrent,
+        },
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    const pendingAddress = deferred<string>();
+    mockGetAccountAddress.mockReturnValueOnce(pendingAddress.promise);
+    const previousChecks = mockGetAccountAddress.mock.calls.length;
+    const completion = mockNavigate.mock.calls[0][0].onSuccess?.(
+      successData('stakefish-tx'),
+    );
+    await waitFor(() =>
+      expect(mockGetAccountAddress).toHaveBeenCalledTimes(previousChecks + 1),
+    );
+    isCurrent = false;
+    pendingAddress.resolve(owner);
+    await completion;
+    expect(mockTrackOrder).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('preserves a Stakefish order recording failure without notifying success', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const error = new OneKeyLocalError('order recording failed');
+    mockTrackOrder.mockRejectedValueOnce(error);
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'stakefish',
+        stakeType: 'normal',
+        stakefishSignTask: {
+          sign: async () => ({ signature: 'sig', message: 'message' }),
+          beforeDeposit: async () => true,
+        },
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      mockNavigate.mock.calls[0][0].onSuccess?.(successData('stakefish-tx')),
+    ).rejects.toBe(error);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('does not build a Stakefish transaction when its post-sign fee prompt is cancelled', async () => {
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'stakefish',
+        stakeType: 'normal',
+        stakefishSignTask: {
+          sign: async () => ({ signature: 'sig', message: 'message' }),
+          beforeDeposit: async () => false,
+        },
+      }),
+    ).resolves.toBe(false);
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('releases a pending Stakefish signature on owner unmount and ignores its late result', async () => {
+    const signature = deferred<{ signature: string; message: string }>();
+    const sign = jest.fn(() => signature.promise);
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    const operation = result.current({
+      ...params,
+      provider: 'stakefish',
+      stakeType: 'normal',
+      stakefishSignTask: { sign, beforeDeposit: async () => true },
+    });
+    await waitFor(() => expect(sign).toHaveBeenCalledTimes(1));
+    unmount();
+    await expect(operation).resolves.toBe(false);
+    signature.resolve({ signature: 'late', message: 'late' });
+    await Promise.resolve();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('builds a Pendle native-asset buy directly with the original quote inputs', async () => {
+    const pendleVault = '0x2222222222222222222222222222222222222222';
+    const ptAddress = '0x3333333333333333333333333333333333333333';
+    const buyInfo: IStakingInfo = {
+      protocol: 'Pendle',
+      label: EEarnLabels.Buy,
+      tags: [EEarnLabels.Buy],
+      send: { amount: '0.5', token: eth },
+    };
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({
+        amount: '0.5',
+        symbol: 'PT-sKAITO',
+        provider: 'pendle',
+        protocolVault: pendleVault,
+        inputTokenAddress: '',
+        outputTokenAddress: ptAddress,
+        slippage: 0.5,
+        effectiveApy: '0.04',
+        stakingInfo: buyInfo,
+      }),
+    ).resolves.toBe(true);
+
+    expect(mockPrepareWrap).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockWaitForFinal).not.toHaveBeenCalled();
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...account,
+        amount: '0.5',
+        symbol: 'PT-sKAITO',
+        provider: 'pendle',
+        protocolVault: pendleVault,
+        inputTokenAddress: '',
+        outputTokenAddress: ptAddress,
+        slippage: 0.5,
+        effectiveApy: '0.04',
+        stakeType: undefined,
+      }),
+    );
+    expect(mockBuildInternal).toHaveBeenCalledTimes(1);
+    expect(mockBuildInternal).toHaveBeenCalledWith(
+      expect.objectContaining({ ...account, tx: depositTx }),
+    );
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encodedTx: depositTx,
+        stakingInfo: expect.objectContaining(buyInfo),
+      }),
+    );
+  });
+
+  it('records a Pendle order when confirmation succeeds after navigation returns', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const buyInfo: IStakingInfo = {
+      protocol: 'Pendle',
+      label: EEarnLabels.Buy,
+      tags: [EEarnLabels.Buy],
+      send: { amount: '0.5', token: eth },
+    };
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        amount: '0.5',
+        symbol: 'PT-sKAITO',
+        provider: 'pendle',
+        protocolVault: vault,
+        inputTokenAddress: '',
+        outputTokenAddress: 'pt-token',
+        slippage: 0.5,
+        stakingInfo: buyInfo,
+        onSuccess,
+      }),
+    ).resolves.toBe(true);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockTrackOrder).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    const confirmation = mockNavigate.mock.calls[0][0];
+    expect(confirmation.isNavigationCurrent?.()).toBe(true);
+    const data = successData('pendle-tx');
+    await confirmation.onSuccess?.(data);
+    expect(mockTrackOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'deposit-order',
+        networkId: account.networkId,
+        txId: 'pendle-tx',
+        status: EDecodedTxStatus.Pending,
+        stakingLabel: EEarnLabels.Buy,
+        stakingProtocol: 'Pendle',
+        stakingTags: [EEarnLabels.Buy],
+      }),
+    );
+    expect(onSuccess).toHaveBeenCalledWith(data);
+    expect(mockTrackOrder.mock.invocationCallOrder[0]).toBeLessThan(
+      onSuccess.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('preserves the submitted stake fact after its owner unmounts', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSubmitted = jest.fn();
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, stakeType: 'normal', onSubmitted }),
+    ).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[0][0];
+    unmount();
+    await confirmation.onSuccess?.(successData('late-stake-tx'));
+    await waitFor(() =>
+      expect(onSubmitted).toHaveBeenCalledWith('late-stake-tx'),
+    );
+    expect(onSubmitted).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a submitted stake without notifying the old account after its address changes', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const onSubmitted = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      onSuccess,
+      onSubmitted,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    mockGetAccountAddress.mockResolvedValue(
+      '0x2222222222222222222222222222222222222222',
+    );
+    await confirmation.onSuccess?.(successData('late-stake-tx'));
+    await waitFor(() =>
+      expect(onSubmitted).toHaveBeenCalledWith('late-stake-tx'),
+    );
+    expect(mockTrackOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ txId: 'late-stake-tx' }),
+    );
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it.each(['cancel', 'fail'] as const)(
+    'records a stake after %s without notifying the old confirmation',
+    async (outcome) => {
+      mockNavigate.mockResolvedValueOnce(undefined);
+      const onSubmitted = jest.fn();
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useUniversalStake(account));
+      await result.current({
+        ...params,
+        stakeType: 'normal',
+        onSubmitted,
+        onSuccess,
+      });
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await confirmation.onBeforeSend?.();
+      if (outcome === 'cancel') confirmation.onCancel?.();
+      else confirmation.onConfirmationFail?.(new Error('uncertain'));
+      await confirmation.onSuccess?.(successData('late-stake-tx'));
+      await waitFor(() =>
+        expect(onSubmitted).toHaveBeenCalledWith('late-stake-tx'),
+      );
+      expect(mockTrackOrderOptions).toHaveBeenCalledWith({
+        remoteSync: 'once',
+        preserveExistingTx: true,
+      });
+      expect(onSuccess).not.toHaveBeenCalled();
+    },
+  );
+
+  it('blocks an expired stake owner even when the displayed address was unavailable', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    let ownerCurrent = true;
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      taskAccountAddress: undefined,
+      isSendCurrent: () => ownerCurrent,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    ownerCurrent = false;
+    await expect(
+      Promise.resolve().then(() => confirmation.onBeforeSend?.()),
+    ).rejects.toThrow();
+  });
+
+  it('records the submitted stake before a delayed account recheck resolves', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const address = deferred<string>();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({ ...params, stakeType: 'normal', onSuccess });
+    mockGetAccountAddress.mockReturnValueOnce(address.promise);
+    const pending = mockNavigate.mock.calls[0][0].onSuccess?.(
+      successData('stake-tx'),
+    );
+    await waitFor(() => expect(mockTrackOrder).toHaveBeenCalledTimes(1));
+    expect(onSuccess).not.toHaveBeenCalled();
+    address.resolve(owner);
+    await pending;
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('notifies a current stake without waiting for slow tracking', async () => {
+    const tracking = deferred<void>();
+    const onSuccess = jest.fn();
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      onSuccess,
+      onSubmitted: () => tracking.promise,
+    });
+    await mockNavigate.mock.calls[0][0].onSuccess?.(successData('stake-tx'));
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    tracking.resolve();
+  });
+
+  it('does not notify an earlier stake after a newer stake starts', async () => {
+    const recording = deferred<void>();
+    const onSuccess = jest.fn();
+    mockNavigate.mockResolvedValue(undefined);
+    mockTrackOrder.mockReturnValueOnce(recording.promise);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({ ...params, stakeType: 'normal', onSuccess });
+    const pending = mockNavigate.mock.calls[0][0].onSuccess?.(
+      successData('stake-tx'),
+    );
+    await waitFor(() => expect(mockTrackOrder).toHaveBeenCalledTimes(1));
+    await result.current({ ...params, amount: '2', stakeType: 'normal' });
+    recording.resolve();
+    await pending;
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('reports an accepted late stake fact once even if success arrives afterwards', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSubmitted = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({ ...params, stakeType: 'normal', onSubmitted });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await confirmation.onBeforeSend?.();
+    confirmation.onCancel?.();
+    await confirmation.onLateBroadcastAccepted?.({
+      uuid: 'request',
+      ...account,
+      txid: 'late-stake-tx',
+    });
+    await confirmation.onSuccess?.(successData('late-stake-tx'));
+    await waitFor(() =>
+      expect(onSubmitted).toHaveBeenCalledWith('late-stake-tx'),
+    );
+    expect(onSubmitted).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a synchronous confirmation failure while navigation still resolves', async () => {
+    const failure = new Error('confirmation preparation failed');
+    const onFail = jest.fn();
+    mockNavigate.mockImplementationOnce(async ({ onFail: fail }) => {
+      fail?.(failure);
+    });
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    const outcome = await result.current({
+      amount: '0.5',
+      symbol: 'PT-sKAITO',
+      provider: 'pendle',
+      protocolVault: vault,
+      inputTokenAddress: '',
+      outputTokenAddress: 'pt-token',
+      slippage: 0.5,
+      onFail,
+    });
+
+    expect(outcome).toBe(true);
+    expect(onFail).toHaveBeenCalledWith(failure);
+    expect(mockTrackOrder).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'observes confirmation failures with the original onFail contract (onFail present=%s)',
+    async (hasOnFail) => {
+      mockNavigate.mockResolvedValueOnce(undefined);
+      const onFail = jest.fn();
+      const error = new Error('confirmation failed');
+      const { result } = renderHook(() => useUniversalStake(account));
+      await expect(
+        result.current({
+          amount: '0.5',
+          symbol: 'PT-sKAITO',
+          provider: 'pendle',
+          onFail: hasOnFail ? onFail : undefined,
+        }),
+      ).resolves.toBe(true);
+      const confirmation = mockNavigate.mock.calls[0][0];
+      expect(Boolean(confirmation.onFail)).toBe(hasOnFail);
+      expect(confirmation.onConfirmationFail).toEqual(expect.any(Function));
+      await confirmation.onBeforeSend?.();
+      confirmation.onConfirmationFail?.(error);
+      if (hasOnFail) expect(onFail).toHaveBeenCalledWith(error);
+      else expect(onFail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not navigate when the Pendle scope changes while transaction encoding is pending', async () => {
+    const pendingEncoding = deferred<IEncodedTx>();
+    mockBuildInternal.mockReturnValueOnce(pendingEncoding.promise);
+    const { result, rerender } = renderHook(
+      ({ scopeKey }: { scopeKey: string }) =>
+        useUniversalStake({ ...account, scopeKey }),
+      { initialProps: { scopeKey: 'first' } },
+    );
+    const operation = result.current({
+      amount: '0.5',
+      symbol: 'PT-sKAITO',
+      provider: 'pendle',
+      protocolVault: vault,
+      inputTokenAddress: '',
+      outputTokenAddress: 'pt-token',
+      slippage: 0.5,
+    });
+    await waitFor(() => expect(mockBuildInternal).toHaveBeenCalledTimes(1));
+    rerender({ scopeKey: 'second' });
+    pendingEncoding.resolve(depositTx);
+    await expect(operation).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockTrackOrder).not.toHaveBeenCalled();
+  });
+
+  it('builds an ordinary ERC20 deposit directly without a wrap or extra confirmation', async () => {
+    const depositInfo: IStakingInfo = {
+      protocol: 'Morpho',
+      label: EEarnLabels.Stake,
+      tags: [EEarnLabels.Stake],
+      send: { amount: '2', token: weth },
+    };
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({
+        amount: '2',
+        symbol: 'WETH',
+        provider: 'morpho',
+        protocolVault: vault,
+        inputTokenAddress: weth.address,
+        stakingInfo: depositInfo,
+      }),
+    ).resolves.toBe(true);
+
+    expect(mockPrepareWrap).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockWaitForFinal).not.toHaveBeenCalled();
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...account,
+        amount: '2',
+        symbol: 'WETH',
+        provider: 'morpho',
+        protocolVault: vault,
+        inputTokenAddress: weth.address,
+        stakeType: undefined,
+      }),
+    );
+    expect(mockBuildInternal).toHaveBeenCalledTimes(1);
+    expect(mockBuildInternal).toHaveBeenCalledWith(
+      expect.objectContaining({ ...account, tx: depositTx }),
+    );
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encodedTx: depositTx,
+        stakingInfo: expect.objectContaining(depositInfo),
+      }),
+    );
   });
 
   it.each(['wrap', 'direct'] as const)(
@@ -354,7 +1142,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it.each(['wrap', 'direct'] as const)(
+  it.each(['direct'] as const)(
     'does not open %s confirmation when the built transaction belongs to another address',
     async (mode) => {
       mockBuildInternal.mockReset().mockResolvedValue({
@@ -418,12 +1206,12 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
   it.each([false, true])(
     'continues a pending A task according to whether B commits: %s',
     async (commitSecondScope) => {
-      const pendingBuild = deferred<IStakeTxResponse>();
+      const pendingBuild = deferred<IWrappedInfo>();
       const onTaskReady = jest.fn<void, [IDepositTaskHandle]>();
       const renderSecondScope = jest.fn();
       const suspended = new Promise<void>(() => undefined);
       let running: Promise<boolean> | undefined;
-      mockBuildStake.mockReturnValueOnce(pendingBuild.promise);
+      mockPrepareWrap.mockReturnValueOnce(pendingBuild.promise);
       mockNavigate.mockImplementation(
         async ({ encodedTx, approvesInfo, onBeforeSend, onSuccess }) => {
           await onBeforeSend?.();
@@ -480,7 +1268,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
 
       const screen = render(<Harness />);
       fireEvent.click(screen.getByText('Start task'));
-      await waitFor(() => expect(mockBuildStake).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(mockPrepareWrap).toHaveBeenCalledTimes(1));
       expect(onTaskReady).toHaveBeenCalledTimes(1);
       fireEvent.click(screen.getByText('Switch scope'));
       await waitFor(() => expect(renderSecondScope).toHaveBeenCalled());
@@ -495,7 +1283,12 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       }
 
       await act(async () => {
-        pendingBuild.resolve({ tx: wrapTx });
+        pendingBuild.resolve({
+          from: owner,
+          contract: EthereumWETH,
+          amount: '1',
+          type: EWrappedType.DEPOSIT,
+        });
         await expect(running).resolves.toBe(!commitSecondScope);
       });
       if (commitSecondScope) {
@@ -509,12 +1302,12 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
   );
 
   it('does not abort a new scope task when the old scope effect cleans up', async () => {
-    const pendingBuild = deferred<IStakeTxResponse>();
+    const pendingBuild = deferred<IWrappedInfo>();
     const onTaskReady = jest.fn<void, [IDepositTaskHandle]>();
     let currentStake: ReturnType<typeof useUniversalStake> | undefined;
     let changeScope: (scope: string) => void = () => undefined;
     let running: Promise<boolean> | undefined;
-    mockBuildStake.mockReturnValueOnce(pendingBuild.promise);
+    mockPrepareWrap.mockReturnValueOnce(pendingBuild.promise);
     mockNavigate.mockImplementation(
       async ({ encodedTx, approvesInfo, onBeforeSend, onSuccess }) => {
         await onBeforeSend?.();
@@ -568,7 +1361,12 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       expect(onTaskReady.mock.calls[0][0].getTask().steps[0].status.type).toBe(
         'preparing',
       );
-      pendingBuild.resolve({ tx: wrapTx });
+      pendingBuild.resolve({
+        from: owner,
+        contract: EthereumWETH,
+        amount: '1',
+        type: EWrappedType.DEPOSIT,
+      });
       await expect(running).resolves.toBe(true);
       expect(mockNavigate).toHaveBeenCalledTimes(2);
     } finally {
@@ -613,12 +1411,23 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       }),
     ).resolves.toBe(true);
     expect(mockNavigate).toHaveBeenCalledTimes(3);
+    expect(mockNavigate.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        encodedTx: undefined,
+        wrappedInfo: {
+          from: owner,
+          amount: '1',
+          contract: EthereumWETH,
+          type: EWrappedType.DEPOSIT,
+        },
+      }),
+    );
     expect(mockWaitForFinal.mock.calls.map(([input]) => input)).toEqual([
       expect.objectContaining({ txid: 'wrap-tx' }),
       expect.objectContaining({ txid: 'approve-tx' }),
     ]);
     expect(mockBuildStake.mock.calls.map(([input]) => input.stakeType)).toEqual(
-      ['wrap', 'normal'],
+      ['normal'],
     );
     expect(
       onDepositTaskReady.mock.calls[0][0]
@@ -636,6 +1445,45 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       ['deposit'],
     ]);
     expect(onStepChange).not.toHaveBeenCalled();
+  });
+
+  it('reserves cross-chain funding for the EtherFi deposit after wrap and approval', async () => {
+    const guard = createFundingGuard();
+    mockAllowance
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValue(allowance('1'));
+    mockNavigate.mockImplementation(
+      async ({ encodedTx, approvesInfo, onBeforeSend, onSuccess }) => {
+        const txid = confirmationTxid(encodedTx, approvesInfo);
+        expect(guard.beforeSend).not.toHaveBeenCalled();
+        expect(guard.onAccepted).not.toHaveBeenCalled();
+        await onBeforeSend?.();
+        expect(guard.beforeSend).toHaveBeenCalledTimes(
+          txid === 'deposit-tx' ? 1 : 0,
+        );
+        await onSuccess?.(successData(txid));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, taskMode: 'deposit', fundingGuard: guard }),
+    ).resolves.toBe(true);
+    expect(mockNavigate).toHaveBeenCalledTimes(3);
+    expect(guard.onAccepted).toHaveBeenCalledTimes(1);
+    expect(guard.onAccepted).toHaveBeenCalledWith('deposit-tx');
+  });
+
+  it('does not wrap or approve when the account changes during authorization validation', async () => {
+    const validation = deferred<void>();
+    mockAssertApproval.mockReturnValueOnce(validation.promise);
+    const { result } = renderHook(() => useUniversalStake(account));
+    const operation = result.current(params);
+    await waitFor(() => expect(mockAssertApproval).toHaveBeenCalledTimes(1));
+    mockGetAccountAddress.mockResolvedValue('0xother');
+    validation.resolve();
+    await expect(operation).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
   });
 
   it('does not request approval or deposit when the wrapped balance is insufficient', async () => {
@@ -661,7 +1509,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ).resolves.toBe(false);
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockBuildStake.mock.calls.map(([input]) => input.stakeType)).toEqual(
-      ['wrap'],
+      [],
     );
     expect(onFail).toHaveBeenCalled();
     expect(
@@ -690,7 +1538,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ]);
     await onDepositTaskReady.mock.calls[0][0].retry();
     expect(mockBuildStake.mock.calls.map(([input]) => input.stakeType)).toEqual(
-      ['wrap', 'normal'],
+      ['normal'],
     );
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
@@ -747,7 +1595,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ).toEqual(['wrap-tx', 'approve-tx', 'approve-tx', 'deposit-tx']);
     expect(
       mockBuildStake.mock.calls.map(([request]) => request.stakeType),
-    ).toEqual(['wrap', 'normal', 'normal']);
+    ).toEqual(['normal', 'normal']);
     expect(prepareWrappedDeposit).toHaveBeenCalledTimes(2);
     expect(onFail).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledTimes(1);
@@ -814,7 +1662,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ]);
     expect(
       mockBuildStake.mock.calls.map(([request]) => request.stakeType),
-    ).toEqual(['wrap', 'normal', 'normal']);
+    ).toEqual(['normal', 'normal']);
     expect(prepareWrappedDeposit).toHaveBeenCalledTimes(2);
     expect(onFail).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledTimes(1);
@@ -892,13 +1740,13 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       expect(mockNavigate).toHaveBeenCalledTimes(2);
       expect(
         mockBuildStake.mock.calls.map(([input]) => input.stakeType),
-      ).toEqual(['wrap']);
+      ).toEqual([]);
       expect(onFail).toHaveBeenCalledTimes(firstResult === 'failed' ? 1 : 0);
 
       await onDepositTaskReady.mock.calls[0][0].retry();
       expect(prepareWrappedDeposit).toHaveBeenCalledTimes(2);
       expect(mockNavigate).toHaveBeenCalledTimes(3);
-      expect(mockBuildStake.mock.calls[1][0]).toEqual(
+      expect(mockBuildStake.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           ...account,
           amount: '1',
@@ -1086,6 +1934,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
           provider: 'etherfi',
           protocolVault: vault,
           inputTokenAddress: usdc.address,
+          expectedAccountAddress: owner,
           stakeType: 'normal',
           effectiveApy: '1.23',
         }),
@@ -1096,6 +1945,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
           provider: 'etherfi',
           protocolVault: vault,
           inputTokenAddress: usdc.address,
+          expectedAccountAddress: owner,
           stakeType: 'normal',
           effectiveApy: '4.56',
         }),
@@ -1132,11 +1982,9 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     const onStepChange = jest.fn();
     const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
     mockNavigate.mockImplementation(
-      async ({ encodedTx, onBeforeSend, onSuccess }) => {
+      async ({ wrappedInfo, onBeforeSend, onSuccess }) => {
         await onBeforeSend?.();
-        void onSuccess?.(
-          successData(encodedTx === wrapTx ? 'wrap-tx' : 'deposit-tx'),
-        );
+        void onSuccess?.(successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'));
       },
     );
     const { result } = renderHook(() => useUniversalStake(account));
@@ -1190,8 +2038,8 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
   it('does not deposit if the task approval is cancelled', async () => {
     mockAllowance.mockResolvedValueOnce(allowance('0'));
     mockNavigate.mockImplementation(
-      async ({ encodedTx, onBeforeSend, onSuccess, onCancel }) => {
-        if (encodedTx === wrapTx) {
+      async ({ wrappedInfo, onBeforeSend, onSuccess, onCancel }) => {
+        if (wrappedInfo) {
           await onBeforeSend?.();
           void onSuccess?.(successData('wrap-tx'));
         } else onCancel?.();
@@ -1203,25 +2051,19 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       result.current({ ...params, taskMode: 'deposit', onSuccess }),
     ).resolves.toBe(false);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it.each(['wrap', 'approve', 'deposit'] as const)(
     'allows the %s step to be retried after an explicit device rejection',
     async (rejectedStep) => {
-      if (rejectedStep === 'wrap') {
-        mockBuildInternal
-          .mockReset()
-          .mockResolvedValueOnce(wrapTx)
-          .mockResolvedValueOnce(wrapTx)
-          .mockResolvedValue(depositTx);
-      }
       let rejected = false;
       let currentAllowance = '0';
       mockAllowance.mockImplementation(async () => allowance(currentAllowance));
       mockNavigate.mockImplementation(
         async ({
+          wrappedInfo,
           encodedTx,
           approvesInfo,
           onBeforeSend,
@@ -1231,7 +2073,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
           await onBeforeSend?.();
           let step: 'approve' | 'wrap' | 'deposit' = 'deposit';
           if (approvesInfo) step = 'approve';
-          else if (encodedTx === wrapTx) step = 'wrap';
+          else if (wrappedInfo) step = 'wrap';
           if (step === rejectedStep && !rejected) {
             rejected = true;
             onFail?.(new UserCancel());
@@ -1260,7 +2102,60 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       await handle.retry();
       expect(handle.getTask().steps.at(-1)?.status.type).toBe('handedOff');
       expect(
-        mockNavigate.mock.calls.filter(([input]) => input.encodedTx === wrapTx),
+        mockNavigate.mock.calls.filter(([input]) => input.wrappedInfo),
+      ).toHaveLength(rejectedStep === 'wrap' ? 2 : 1);
+    },
+  );
+
+  it.each(['wrap', 'approve', 'deposit'] as const)(
+    'retries the Native %s step after a proven pre-broadcast cancellation',
+    async (rejectedStep) => {
+      let rejected = false;
+      let currentAllowance = '0';
+      mockAllowance.mockImplementation(async () => allowance(currentAllowance));
+      mockNavigate.mockImplementation(
+        async ({
+          wrappedInfo,
+          encodedTx,
+          approvesInfo,
+          onBeforeSend,
+          onSuccess,
+          onSafePreSendFail,
+        }) => {
+          await onBeforeSend?.();
+          let step: 'approve' | 'wrap' | 'deposit' = 'deposit';
+          if (approvesInfo) step = 'approve';
+          else if (wrappedInfo) step = 'wrap';
+          if (step === rejectedStep && !rejected) {
+            rejected = true;
+            onSafePreSendFail?.(new UserCancel());
+            return;
+          }
+          if (step === 'approve') currentAllowance = '1';
+          await onSuccess?.(
+            successData(confirmationTxid(encodedTx, approvesInfo)),
+          );
+        },
+      );
+      const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+      const { result } = renderHook(() => useUniversalStake(account));
+      await expect(
+        result.current({
+          ...params,
+          provider: 'native',
+          taskMode: 'deposit',
+          onDepositTaskReady,
+          onFail: jest.fn(),
+        }),
+      ).resolves.toBe(false);
+      const handle = onDepositTaskReady.mock.calls[0][0];
+      const step = handle.getTask().steps[handle.getTask().currentStepIndex];
+      expect(step.kind).toBe(rejectedStep);
+      expect(step.status).toEqual({ type: 'failed', stage: 'beforeSend' });
+      await handle.retry();
+      expect(handle.getTask().steps.at(-1)?.status.type).toBe('handedOff');
+      expect(
+        mockNavigate.mock.calls.filter(([input]) => input.wrappedInfo),
       ).toHaveLength(rejectedStep === 'wrap' ? 2 : 1);
     },
   );
@@ -1304,7 +2199,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       result.current({ ...params, taskMode: 'deposit' }),
     ).resolves.toBe(false);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
   });
 
   it('does not publish approval progress after the task scope becomes stale during an allowance read', async () => {
@@ -1335,10 +2230,15 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     let current = true;
     const onSuccess = jest.fn();
     mockNavigate.mockImplementation(
-      async ({ encodedTx, onBeforeSend, onSuccess: confirmSuccess }) => {
+      async ({
+        wrappedInfo,
+        encodedTx,
+        onBeforeSend,
+        onSuccess: confirmSuccess,
+      }) => {
         await onBeforeSend?.();
         void confirmSuccess?.(
-          successData(encodedTx === wrapTx ? 'wrap-tx' : 'deposit-tx'),
+          successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'),
         );
         if (encodedTx === depositTx) current = false;
       },
@@ -1356,10 +2256,10 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
 
   it('records a wrapped deposit using its decoded transaction id when the signed id is empty', async () => {
     mockNavigate.mockImplementation(
-      async ({ encodedTx, onBeforeSend, onSuccess }) => {
+      async ({ wrappedInfo, onBeforeSend, onSuccess }) => {
         await onBeforeSend?.();
         void onSuccess?.(
-          encodedTx === wrapTx
+          wrappedInfo
             ? successData('wrap-tx')
             : decodedOnlySuccessData('decoded-deposit-tx'),
         );
@@ -1377,6 +2277,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       }),
     );
     expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(mockTrackOrderOptions).toHaveBeenCalledWith({ remoteSync: 'once' });
   });
 
   it('records a late direct deposit by decoded transaction id after unmount without navigating', async () => {
@@ -1415,17 +2316,19 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         txId: 'late-decoded-deposit-tx',
       }),
     );
+    expect(mockTrackOrderOptions).toHaveBeenCalledWith({
+      remoteSync: 'once',
+      preserveExistingTx: true,
+    });
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it('does not record or navigate when both deposit transaction ids are empty', async () => {
     mockNavigate.mockImplementation(
-      async ({ encodedTx, onBeforeSend, onSuccess }) => {
+      async ({ wrappedInfo, onBeforeSend, onSuccess }) => {
         await onBeforeSend?.();
         void onSuccess?.(
-          encodedTx === wrapTx
-            ? successData('wrap-tx')
-            : decodedOnlySuccessData(''),
+          wrappedInfo ? successData('wrap-tx') : decodedOnlySuccessData(''),
         );
       },
     );
@@ -1443,7 +2346,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     const onSuccess = jest.fn();
     mockNavigate.mockImplementation(async (confirmation) => {
       await confirmation.onBeforeSend?.();
-      if (confirmation.encodedTx === wrapTx)
+      if (confirmation.wrappedInfo)
         void confirmation.onSuccess?.(successData('wrap-tx'));
       else depositConfirmation = confirmation;
     });
@@ -1461,8 +2364,108 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     expect(mockTrackOrder.mock.calls[0][0]).toEqual(
       expect.objectContaining({ orderId: 'deposit-order', txId: 'deposit-tx' }),
     );
+    expect(mockTrackOrderOptions).toHaveBeenCalledWith({
+      remoteSync: 'once',
+      preserveExistingTx: true,
+    });
     expect(onSuccess).not.toHaveBeenCalled();
   });
+
+  it.each(['direct', 'wrapped'] as const)(
+    'records a verified late %s deposit after cancellation without notifying the old page',
+    async (mode) => {
+      let depositConfirmation: IConfirmParams | undefined;
+      mockNavigate.mockImplementation(async (confirmation) => {
+        await confirmation.onBeforeSend?.();
+        if (confirmation.wrappedInfo) {
+          await confirmation.onSuccess?.(successData('wrap-tx'));
+        } else {
+          depositConfirmation = confirmation;
+        }
+      });
+      const onSuccess = jest.fn();
+      const onSubmitted = jest.fn();
+      const { result } = renderHook(() => useUniversalStake(account));
+      const running = result.current({
+        ...params,
+        taskMode: 'deposit',
+        ...(mode === 'direct'
+          ? {
+              stakeType: 'normal' as const,
+              inputTokenAddress: weth.address,
+              directDepositTask: {
+                token: weth,
+                spenderAddress: EtherFiLiquidReferContract,
+                requiresAllowanceReset: false,
+                confirmReset: async () => true,
+                prepareDeposit: async () => ({ type: 'confirm' as const }),
+              },
+            }
+          : undefined),
+        onSuccess,
+        onSubmitted,
+      });
+      await waitFor(() => expect(depositConfirmation).toBeDefined());
+      expect(depositConfirmation?.onLateBroadcastAccepted).toBeDefined();
+      depositConfirmation?.onCancel?.();
+      await expect(running).resolves.toBe(false);
+      const fact = {
+        uuid: 'deposit-uuid',
+        ...account,
+        txid: 'late-deposit-tx',
+      };
+      await depositConfirmation?.onLateBroadcastAccepted?.(fact);
+      await depositConfirmation?.onLateBroadcastAccepted?.(fact);
+      await waitFor(() => expect(mockTrackOrder).toHaveBeenCalledTimes(1));
+      expect(mockTrackOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'deposit-order',
+          txId: 'late-deposit-tx',
+          status: EDecodedTxStatus.Pending,
+        }),
+      );
+      expect(mockTrackOrderOptions).toHaveBeenCalledWith({
+        remoteSync: 'once',
+        preserveExistingTx: true,
+      });
+      expect(onSuccess).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(onSubmitted).toHaveBeenCalledWith('late-deposit-tx'),
+      );
+      expect(onSubmitted).toHaveBeenCalledTimes(1);
+      expect(mockNavigate).toHaveBeenCalledTimes(mode === 'direct' ? 1 : 2);
+    },
+  );
+
+  it.each(['wrap', 'approval'] as const)(
+    'does not record a deposit order for a verified late %s transaction',
+    async (stage) => {
+      let target: IConfirmParams | undefined;
+      mockAllowance.mockResolvedValue(allowance('0'));
+      mockNavigate.mockImplementation(async (confirmation) => {
+        await confirmation.onBeforeSend?.();
+        if (confirmation.wrappedInfo && stage === 'approval') {
+          await confirmation.onSuccess?.(successData('wrap-tx'));
+        } else {
+          target = confirmation;
+        }
+      });
+      const { result } = renderHook(() => useUniversalStake(account));
+      const running = result.current({ ...params, taskMode: 'deposit' });
+      await waitFor(() => expect(target).toBeDefined());
+      expect(target?.onLateBroadcastAccepted).toBeDefined();
+      target?.onCancel?.();
+      await expect(running).resolves.toBe(false);
+      await target?.onLateBroadcastAccepted?.({
+        uuid: `${stage}-uuid`,
+        ...account,
+        txid: `${stage}-tx`,
+      });
+      expect(mockTrackOrder).not.toHaveBeenCalled();
+      expect(mockBuildStake).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledTimes(stage === 'wrap' ? 1 : 2);
+    },
+  );
 
   it.each(['direct', 'wrap'] as const)(
     'does not show a stale %s order recording error after unmount',
@@ -1533,10 +2536,15 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
       const onDepositTaskSettled = jest.fn();
       mockNavigate.mockImplementation(
-        async ({ encodedTx, onBeforeSend, onSuccess: confirmSuccess }) => {
+        async ({
+          wrappedInfo,
+          encodedTx,
+          onBeforeSend,
+          onSuccess: confirmSuccess,
+        }) => {
           await onBeforeSend?.();
           void confirmSuccess?.(
-            successData(encodedTx === wrapTx ? 'wrap-tx' : 'deposit-tx'),
+            successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'),
           );
           if (encodedTx === depositTx)
             void confirmSuccess?.(successData('deposit-tx'));
@@ -1957,22 +2965,22 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         stakingInfo: { ...stakingInfo, protocol: 'Native' },
       }),
     ).resolves.toBe(true);
-    expect(mockBuildStake.mock.calls[0][0]).toEqual(
+    expect(mockPrepareWrap).toHaveBeenCalledWith(
       expect.objectContaining({
-        provider: 'native',
-        symbol: 'WETH',
-        protocolVault: nativeVault,
-        stakeType: 'wrap',
-        inputTokenAddress: '',
+        inputToken: eth,
+        wrappedToken: weth,
+        accountAddress: owner,
+        amount: '1',
       }),
     );
-    expect(mockBuildStake.mock.calls[1][0]).toEqual(
+    expect(mockBuildStake.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         provider: 'native',
         symbol: 'WETH',
         protocolVault: nativeVault,
         stakeType: 'normal',
         inputTokenAddress: EthereumWETH,
+        expectedAccountAddress: owner,
       }),
     );
     expect(mockAllowance).toHaveBeenCalledWith(
@@ -1982,6 +2990,446 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       }),
     );
     expect(mockNavigate).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs Native wrap and deposit through a visible task with the original vault and spender', async () => {
+    const nativeVault = '0x2222222222222222222222222222222222222222';
+    const nativeSpender = '0x3333333333333333333333333333333333333333';
+    mockAllowance
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValue(allowance('1'));
+    mockNavigate.mockImplementation(
+      async ({ encodedTx, approvesInfo, onBeforeSend, onSuccess }) => {
+        await onBeforeSend?.();
+        await onSuccess?.(
+          successData(confirmationTxid(encodedTx, approvesInfo)),
+        );
+      },
+    );
+    const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+    const onDepositTaskChange = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'native',
+        symbol: 'WETH',
+        protocolVault: nativeVault,
+        postWrapApproveSpenderAddress: nativeSpender,
+        stakingInfo: { ...stakingInfo, protocol: 'Native' },
+        onDepositTaskReady,
+        onDepositTaskChange,
+      }),
+    ).resolves.toBe(true);
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+    expect(mockWrappedBalance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: account.accountId,
+        networkId: account.networkId,
+        expectedAccountAddress: owner,
+        contractList: [EthereumWETH],
+      }),
+    );
+    expect(mockAllowance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spenderAddress: nativeSpender,
+        tokenAddress: EthereumWETH,
+      }),
+    );
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'native',
+        protocolVault: nativeVault,
+        inputTokenAddress: EthereumWETH,
+        stakeType: 'normal',
+      }),
+    );
+    expect(onDepositTaskReady).toHaveBeenCalledTimes(1);
+    expect(onDepositTaskChange).toHaveBeenCalled();
+    expect(
+      onDepositTaskReady.mock.calls[0][0]
+        .getTask()
+        .steps.map((step) => step.status.type),
+    ).toEqual(['succeeded', 'succeeded', 'handedOff']);
+  });
+
+  it('does not approve or deposit Native WETH that has not arrived after wrapping', async () => {
+    mockWrappedBalance.mockResolvedValueOnce([
+      {
+        info: weth,
+        balance: '0',
+        balanceParsed: '0',
+        fiatValue: '0',
+        price: 0,
+      },
+    ]);
+    mockNavigate.mockImplementation(
+      async ({ wrappedInfo, onBeforeSend, onSuccess }) => {
+        await onBeforeSend?.();
+        await onSuccess?.(successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'native',
+        symbol: 'WETH',
+        onDepositTaskReady: jest.fn(),
+      }),
+    ).rejects.toThrow('Insufficient wrapped token balance');
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
+  });
+
+  it('resumes an EtherFi approval after a completed wrap without wrapping again', async () => {
+    mockAllowance
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValue(allowance('1'));
+    let approvals = 0;
+    mockNavigate.mockImplementation(
+      async ({
+        encodedTx,
+        approvesInfo,
+        onBeforeSend,
+        onSuccess,
+        onCancel,
+      }) => {
+        if (approvesInfo) {
+          approvals += 1;
+          if (approvals === 1) return onCancel?.();
+        }
+        await onBeforeSend?.();
+        await onSuccess?.(
+          successData(confirmationTxid(encodedTx, approvesInfo)),
+        );
+      },
+    );
+    const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, onDepositTaskReady }),
+    ).resolves.toBe(false);
+    expect(onDepositTaskReady).toHaveBeenCalledTimes(1);
+    const handle = onDepositTaskReady.mock.calls[0][0];
+    expect(handle.getTask().steps[0].status.type).toBe('succeeded');
+    expect(handle.getTask().steps[1].status.type).toBe('cancelled');
+    await handle.retry();
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+    expect(handle.getTask().steps.at(-1)?.status.type).toBe('handedOff');
+  });
+
+  it('does not repeat an EtherFi wrap after a later approval is cancelled without a handle', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'etherfi',
+      vault,
+    });
+    mockAllowance.mockResolvedValue(allowance('0'));
+    mockNavigate.mockImplementation(
+      async ({ wrappedInfo, onBeforeSend, onSuccess, onCancel }) => {
+        if (!wrappedInfo) return onCancel?.();
+        await onBeforeSend?.();
+        await onSuccess?.(successData('wrap-tx'));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    try {
+      await expect(result.current(params)).resolves.toBe(false);
+      expect(
+        depositTaskRegistry.find(ownerKey)?.state.getTask().steps[1].status
+          .type,
+      ).toBe('cancelled');
+      await expect(result.current(params)).resolves.toBe(false);
+      expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
+  });
+
+  it('keeps an EtherFi wrap with unknown broadcast outcome from being resent without a handle', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'etherfi',
+      vault,
+    });
+    mockNavigate.mockImplementation(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalStake(account));
+    try {
+      await expect(result.current(params)).resolves.toBe(false);
+      expect(
+        depositTaskRegistry.find(ownerKey)?.state.getTask().steps[0].status
+          .type,
+      ).toBe('unknown');
+      expect(mockToastMessage).toHaveBeenCalledWith({
+        title: 'wallet_transaction_maybe_already_submitted_check_activity__msg',
+      });
+      await expect(result.current(params)).resolves.toBe(false);
+      expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+      expect(mockToastMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          message:
+            'wallet_transaction_maybe_already_submitted_check_activity__msg',
+        }),
+      );
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
+  });
+
+  it('releases a never-sent EtherFi wrap without a handle', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'etherfi',
+      vault,
+    });
+    mockNavigate.mockImplementation(async ({ onCancel }) => onCancel?.());
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(result.current(params)).resolves.toBe(false);
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+    await expect(result.current(params)).resolves.toBe(false);
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not rewrap an unknown Native attempt when the caller did not retain a handle', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'native',
+      vault,
+    });
+    mockNavigate.mockImplementation(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalStake(account));
+    try {
+      await expect(
+        result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+      ).resolves.toBe(false);
+      expect(
+        depositTaskRegistry.find(ownerKey)?.state.getTask().steps[0].status
+          .type,
+      ).toBe('unknown');
+      await expect(
+        result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+      ).resolves.toBe(false);
+      expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+      expect(mockToastMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'wallet_transaction_maybe_already_submitted_check_activity__msg',
+        }),
+      );
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
+  });
+
+  it('resumes a Native approval cancelled before sending without wrapping again', async () => {
+    mockAllowance
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValueOnce(allowance('0'))
+      .mockResolvedValue(allowance('1'));
+    let approvals = 0;
+    mockNavigate.mockImplementation(
+      async ({
+        encodedTx,
+        approvesInfo,
+        onBeforeSend,
+        onSuccess,
+        onCancel,
+      }) => {
+        if (approvesInfo && approvals === 0) {
+          approvals += 1;
+          onCancel?.();
+          return;
+        }
+        if (approvesInfo) approvals += 1;
+        await onBeforeSend?.();
+        await onSuccess?.(
+          successData(confirmationTxid(encodedTx, approvesInfo)),
+        );
+      },
+    );
+    const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'native',
+        symbol: 'WETH',
+        onDepositTaskReady,
+      }),
+    ).resolves.toBe(false);
+    const handle = onDepositTaskReady.mock.calls[0][0];
+    expect(handle.getTask().steps[1].status.type).toBe('cancelled');
+    await handle.retry();
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+    expect(approvals).toBe(2);
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(handle.getTask().steps.at(-1)?.status.type).toBe('handedOff');
+  });
+
+  it('releases a Native fallback reservation when wrap is cancelled before sending', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'native',
+      vault,
+    });
+    mockNavigate.mockImplementation(async ({ onCancel }) => onCancel?.());
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+    ).resolves.toBe(false);
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+    await expect(
+      result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+    ).resolves.toBe(false);
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a Native fallback after approval is cancelled and reports the wrapped balance', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'native',
+      vault,
+    });
+    mockAllowance.mockResolvedValue(allowance('0'));
+    mockNavigate.mockImplementation(
+      async ({ wrappedInfo, onBeforeSend, onSuccess, onCancel }) => {
+        if (!wrappedInfo) return onCancel?.();
+        await onBeforeSend?.();
+        await onSuccess?.(successData('wrap-tx'));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    try {
+      await expect(
+        result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+      ).resolves.toBe(false);
+      expect(
+        depositTaskRegistry.find(ownerKey)?.state.getTask().steps[1].status
+          .type,
+      ).toBe('cancelled');
+      expect(mockToastMessage).toHaveBeenCalledWith({
+        title: 'feedback.transaction_submitted',
+        message: 'global.wallet_balance: WETH',
+      });
+      await expect(
+        result.current({ ...params, provider: 'native', symbol: 'WETH' }),
+      ).resolves.toBe(false);
+      expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+      expect(mockToastMessage).toHaveBeenLastCalledWith({
+        title: 'feedback.transaction_submitted',
+        message: 'global.wallet_balance: WETH',
+      });
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
+  });
+
+  it('does not bind a Native task to an address resolved after its account scope expires', async () => {
+    const address = deferred<string>();
+    mockGetAccountAddress.mockReturnValueOnce(address.promise);
+    let current = true;
+    const { result } = renderHook(() => useUniversalStake(account));
+    const operation = result.current({
+      ...params,
+      provider: 'native',
+      symbol: 'WETH',
+      taskAccountAddress: undefined,
+      isActionCurrent: () => current,
+    });
+    await waitFor(() => expect(mockGetAccountAddress).toHaveBeenCalledTimes(1));
+    current = false;
+    address.resolve(owner);
+    await expect(operation).resolves.toBe(false);
+    expect(mockPrepareWrap).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('binds the current Native account when no address or external task handle was supplied', async () => {
+    mockNavigate.mockImplementation(
+      async ({ wrappedInfo, onBeforeSend, onSuccess }) => {
+        await onBeforeSend?.();
+        await onSuccess?.(successData(wrappedInfo ? 'wrap-tx' : 'deposit-tx'));
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        provider: 'native',
+        symbol: 'WETH',
+        taskAccountAddress: undefined,
+      }),
+    ).resolves.toBe(true);
+    expect(mockPrepareWrap).toHaveBeenCalledWith(
+      expect.objectContaining({ accountAddress: owner }),
+    );
+    expect(mockTrackOrder).toHaveBeenCalledTimes(1);
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'native',
+      vault,
+    });
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+  });
+
+  it('records a late Native deposit after unmount without notifying its old page', async () => {
+    const ownerKey = getDepositTaskOwnerKey({
+      ...account,
+      accountAddress: owner,
+      provider: 'native',
+      vault,
+    });
+    let depositConfirmation: IConfirmParams | undefined;
+    const onSuccess = jest.fn();
+    mockNavigate.mockImplementation(async (confirmation) => {
+      await confirmation.onBeforeSend?.();
+      if (confirmation.wrappedInfo)
+        void confirmation.onSuccess?.(successData('wrap-tx'));
+      else depositConfirmation = confirmation;
+    });
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    try {
+      const running = result.current({
+        ...params,
+        provider: 'native',
+        symbol: 'WETH',
+        onSuccess,
+      });
+      await waitFor(() => expect(depositConfirmation).toBeDefined());
+      unmount();
+      await running;
+      void depositConfirmation?.onSuccess?.(successData('deposit-tx'));
+      await waitFor(() => expect(mockTrackOrder).toHaveBeenCalledTimes(1));
+      expect(mockTrackOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'deposit-order',
+          txId: 'deposit-tx',
+        }),
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
   });
 
   it('uses the Native spender and waits for approval before depositing WETH', async () => {
@@ -2011,11 +3459,11 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         amount: '1',
       }),
     ]);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     approvalFinality.resolve(EOnChainHistoryTxStatus.Success);
     await expect(submit).resolves.toBe(true);
-    expect(mockBuildStake).toHaveBeenCalledTimes(2);
-    expect(mockBuildStake.mock.calls[1][0]).toEqual(
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         provider: 'native',
         symbol: 'WETH',
@@ -2056,13 +3504,14 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       ),
     );
     expect(mockAllowance).not.toHaveBeenCalled();
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
 
     wrapFinality.resolve(EOnChainHistoryTxStatus.Success);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
     expect(mockAllowance).toHaveBeenCalledWith({
       ...account,
+      expectedAccountAddress: owner,
       tokenAddress: EthereumWETH,
       spenderAddress: EtherFiLiquidReferContract,
     });
@@ -2074,16 +3523,16 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         tokenInfo: weth,
       },
     ]);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
 
     await mockNavigate.mock.calls[1][0].onSuccess?.(successData('approve-tx'));
     await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(2));
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     approvedAllowance.resolve(allowance('1'));
-    await expect(submit).resolves.toBe(true);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
 
     expect(mockBuildStake).toHaveBeenNthCalledWith(
-      2,
+      1,
       expect.objectContaining({
         ...account,
         provider: 'etherfi',
@@ -2092,6 +3541,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         protocolVault: vault,
         stakeType: 'normal',
         inputTokenAddress: EthereumWETH,
+        expectedAccountAddress: owner,
       }),
     );
     expect(mockNavigate.mock.calls[2][0].stakingInfo).toEqual({
@@ -2105,6 +3555,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ]);
     expect(mockTrackOrder).not.toHaveBeenCalled();
     await mockNavigate.mock.calls[2][0].onSuccess?.(successData('deposit-tx'));
+    await expect(submit).resolves.toBe(true);
     expect(mockTrackOrder).toHaveBeenCalledTimes(1);
     expect(mockTrackOrder).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2194,6 +3645,160 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
+  it('binds an ordinary stake build to the address displayed by the task', async () => {
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({ ...params, stakeType: 'normal' }),
+    ).resolves.toBe(true);
+
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: owner }),
+    );
+  });
+
+  it('does not open an ordinary stake confirmation for a different encoded owner', async () => {
+    mockBuildInternal.mockResolvedValueOnce({
+      ...depositTx,
+      from: '0x2222222222222222222222222222222222222222',
+    });
+    const { result } = renderHook(() => useUniversalStake(account));
+
+    await expect(
+      result.current({ ...params, stakeType: 'normal' }),
+    ).rejects.toThrow('Task account changed before stake');
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps the ordinary stake flow for protocol transactions without a from field', async () => {
+    // VaultBase forwards the Lido server shape, whose from field is optional.
+    mockBuildInternal.mockResolvedValueOnce({
+      to: depositTx.to,
+      value: depositTx.value,
+      data: depositTx.data,
+    } as IEncodedTx);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({ ...params, stakeType: 'normal' }),
+    ).resolves.toBe(true);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a handed-off stake to send after only the form amount is reset', async () => {
+    let formCurrent = true;
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        stakeType: 'normal',
+        isActionCurrent: () => formCurrent,
+      }),
+    ).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[0][0];
+    formCurrent = false;
+    await expect(
+      Promise.resolve().then(() => confirmation.onBeforeSend?.()),
+    ).resolves.toBeUndefined();
+  });
+
+  it('blocks a handed-off stake when its owner scope expires', async () => {
+    let ownerCurrent = true;
+    const { result } = renderHook(() => useUniversalStake(account));
+    await expect(
+      result.current({
+        ...params,
+        stakeType: 'normal',
+        isSendCurrent: () => ownerCurrent,
+      }),
+    ).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[0][0];
+    ownerCurrent = false;
+    await expect(
+      Promise.resolve().then(() => confirmation.onBeforeSend?.()),
+    ).rejects.toThrow('Task account changed before stake');
+  });
+
+  it('allows a stake confirmation retry after a transient pre-send account error', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSuccess = jest.fn();
+    const onSubmitted = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      onSuccess,
+      onSubmitted,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    const error = new Error('account temporarily unavailable');
+    mockGetAccountAddress.mockRejectedValueOnce(error);
+    await expect(confirmation.onBeforeSend?.()).rejects.toBe(error);
+    confirmation.onSafePreSendFail?.(error);
+    await expect(confirmation.onBeforeSend?.()).resolves.toBeUndefined();
+    await confirmation.onSuccess?.(successData('retry-stake-tx'));
+    await waitFor(() =>
+      expect(onSubmitted).toHaveBeenCalledWith('retry-stake-tx'),
+    );
+    expect(mockTrackOrder).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows stake retry after the confirmation precheck fails before any send', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const onSubmitted = jest.fn();
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      onSubmitted,
+      onSuccess,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    confirmation.onSafePreSendFail?.(new Error('precheck unavailable'));
+    await confirmation.onBeforeSend?.();
+    await confirmation.onSuccess?.(successData('stake-tx'));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith('stake-tx'));
+    expect(mockTrackOrder).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('freezes the backend stake account when no displayed address is supplied', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      taskAccountAddress: undefined,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    mockGetAccountAddress.mockResolvedValueOnce(
+      '0x2222222222222222222222222222222222222222',
+    );
+    await expect(confirmation.onBeforeSend?.()).rejects.toThrow(
+      'Task account changed before stake',
+    );
+  });
+
+  it('blocks an ordinary stake send when the same account ID resolves to another address', async () => {
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUniversalStake(account));
+    const submit = result.current({ ...params, stakeType: 'normal' });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    const confirmation = mockNavigate.mock.calls[0][0];
+    mockGetAccountAddress.mockResolvedValueOnce(
+      '0x2222222222222222222222222222222222222222',
+    );
+    try {
+      await expect(
+        Promise.resolve().then(() => confirmation.onBeforeSend?.()),
+      ).rejects.toThrow('Task account changed before stake');
+    } finally {
+      confirmation.onCancel?.();
+      await submit;
+    }
+  });
+
   it('allows a current action after StrictMode replays effect setup', async () => {
     const { result } = renderHook(() => useUniversalStake(account), {
       wrapper: StrictMode,
@@ -2259,7 +3864,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       expect(onStepChange).toHaveBeenCalledWith(2, {
         shouldShowPostWrapApproveStep: false,
       });
-      expect(mockBuildStake.mock.calls[1][0]).toMatchObject({
+      expect(mockBuildStake.mock.calls[0][0]).toMatchObject({
         stakeType: 'normal',
         inputTokenAddress: EthereumWETH,
         protocolVault: vault,
@@ -2290,7 +3895,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
         result.current({ ...params, onWrapStateChange }),
       ).resolves.toBe(false);
 
-      expect(mockBuildStake).toHaveBeenCalledTimes(1);
+      expect(mockBuildStake).not.toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledTimes(step === 'wrap' ? 1 : 2);
       expect(mockAllowance).toHaveBeenCalledTimes(step === 'wrap' ? 0 : 1);
       expect(mockTrackOrder).not.toHaveBeenCalled();
@@ -2376,7 +3981,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     approval.onFail?.(new Error('approval failed'));
     await expect(submit).resolves.toBe(false);
     expect(() => approval.onBeforeSend?.()).toThrow();
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
   });
 
   it.each(['wrap', 'approve'] as const)(
@@ -2404,7 +4009,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       ).resolves.toBe(false);
 
       expect(onFail).toHaveBeenCalledWith(error);
-      expect(mockBuildStake).toHaveBeenCalledTimes(1);
+      expect(mockBuildStake).not.toHaveBeenCalled();
       expect(mockTrackOrder).not.toHaveBeenCalled();
       expect(onWrapStateChange.mock.calls).toEqual(
         step === 'wrap' ? [['unknown']] : [['unknown'], ['submitted']],
@@ -2429,7 +4034,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       );
 
       expect(mockAllowance).not.toHaveBeenCalled();
-      expect(mockBuildStake).toHaveBeenCalledTimes(1);
+      expect(mockBuildStake).not.toHaveBeenCalled();
       expect(
         status === EOnChainHistoryTxStatus.Failed
           ? mockToastError
@@ -2445,7 +4050,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     await expect(result.current(params)).resolves.toBe(false);
 
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockToastMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -2460,7 +4065,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
       );
 
       expect(mockNavigate).toHaveBeenCalledTimes(1);
-      expect(mockBuildStake).toHaveBeenCalledTimes(1);
+      expect(mockBuildStake).not.toHaveBeenCalled();
       expect(mockTrackOrder).not.toHaveBeenCalled();
     },
   );
@@ -2473,7 +4078,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     await expect(result.current(params)).rejects.toBe(error);
 
     expect(mockNavigate).toHaveBeenCalledTimes(1);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockTrackOrder).not.toHaveBeenCalled();
   });
 

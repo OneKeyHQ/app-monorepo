@@ -97,7 +97,7 @@ export type IModalSendParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;

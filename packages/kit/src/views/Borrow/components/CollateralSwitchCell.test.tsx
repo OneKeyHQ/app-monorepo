@@ -44,12 +44,15 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const getBorrowTransactionConfirmation = jest.fn();
+  const getAccountAddressForApi = jest.fn();
   (globalThis as Record<string, unknown>).__collateralCellServiceMock = {
     getBorrowTransactionConfirmation,
+    getAccountAddressForApi,
   };
   return {
     __esModule: true,
     default: {
+      serviceAccount: { getAccountAddressForApi },
       serviceStaking: {
         getBorrowTransactionConfirmation,
       },
@@ -161,6 +164,7 @@ const contextMock = (globalThis as Record<string, unknown>)
 const serviceMock = (globalThis as Record<string, unknown>)
   .__collateralCellServiceMock as {
   getBorrowTransactionConfirmation: jest.Mock;
+  getAccountAddressForApi: jest.Mock;
 };
 const setCollateralMocks = (globalThis as Record<string, unknown>)
   .__collateralCellSetCollateralMock as {
@@ -245,7 +249,12 @@ describe('CollateralSwitchCell settlement guard', () => {
       logoURI: string;
     };
     earnAccount: {
-      data: { accountId?: string; account: { id: string } };
+      data: {
+        accountId?: string;
+        networkId?: string;
+        accountAddress?: string;
+        account: { id: string };
+      };
     };
     pendingTxs: Array<{ stakingInfo: { tags: string[] } }>;
     refreshAllBorrowData: jest.Mock;
@@ -261,6 +270,8 @@ describe('CollateralSwitchCell settlement guard', () => {
     waitStatusMock.mockResolvedValue(undefined);
     contextMock.mockReset();
     serviceMock.getBorrowTransactionConfirmation.mockReset();
+    serviceMock.getAccountAddressForApi.mockReset();
+    serviceMock.getAccountAddressForApi.mockResolvedValue('0xResolvedOwner');
     serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
       canBeCollateral: true,
     });
@@ -459,10 +470,12 @@ describe('CollateralSwitchCell settlement guard', () => {
 
     expect(
       setCollateralMocks.useUniversalBorrowSetCollateral,
-    ).toHaveBeenLastCalledWith({
-      networkId: 'evm--1',
-      accountId: 'top-level-account',
-    });
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        accountId: 'top-level-account',
+      }),
+    );
     expect(setCollateralMocks.setCollateral).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: 'aave',
@@ -479,6 +492,27 @@ describe('CollateralSwitchCell settlement guard', () => {
       }),
     );
   });
+
+  it.each([
+    ['evm--1', '0xowner'],
+    ['evm--137', undefined],
+  ])(
+    'only forwards an address resolved for the current network %s',
+    (networkId, expectedAddress) => {
+      borrowContext.earnAccount.data.networkId = networkId;
+      borrowContext.earnAccount.data.accountAddress = '0xowner';
+      render(<CollateralSwitchCell item={createSuppliedAsset(false)} />);
+      expect(
+        setCollateralMocks.useUniversalBorrowSetCollateral,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          accountAddress: expectedAddress,
+        }),
+      );
+    },
+  );
 
   it('ignores collateral eligibility and omits eModeId when disabling', async () => {
     serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
@@ -880,6 +914,23 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(getSwitch(view).props.disabled).toBe(false);
   });
 
+  it('does not open the old settlement dialog after an account switch', async () => {
+    const item = createSuppliedAsset(false);
+    const view = render(<CollateralSwitchCell item={item} eModeId={1} />);
+    await submitToggle(view);
+    const callbacks = getSetCollateralCallbacks();
+    borrowContext.earnAccount = { data: { account: { id: 'account-2' } } };
+    view.rerender(<CollateralSwitchCell item={item} eModeId={1} />);
+    await act(async () => {
+      callbacks.onSuccess(successData);
+      await flushMicrotasks();
+    });
+    expect(
+      finalStatusMocks.showDeFiActionTxConfirmDialog,
+    ).not.toHaveBeenCalled();
+    expect(waitStatusMock).not.toHaveBeenCalled();
+  });
+
   it('settles a failed dialog close and allows the switch to retry', async () => {
     componentsMock.dialogShow.mockImplementation(
       (options: ITestDialogOptions) => {
@@ -933,6 +984,7 @@ describe('CollateralSwitchCell settlement guard', () => {
       {
         accountId: 'account-1',
         networkId: 'evm--1',
+        expectedAccountAddress: '0xResolvedOwner',
         data: successData,
       },
     );
@@ -993,6 +1045,8 @@ describe('CollateralSwitchCell settlement guard', () => {
 
   it('rechecks an unknown dialog result by txid, then releases local polling', async () => {
     finalStatusMocks.showDeFiActionTxConfirmDialog.mockResolvedValue(undefined);
+    borrowContext.earnAccount.data.networkId = 'evm--1';
+    borrowContext.earnAccount.data.accountAddress = '0xOwner';
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={1} />,
     );
@@ -1004,11 +1058,15 @@ describe('CollateralSwitchCell settlement guard', () => {
     });
 
     expect(componentsMock.toastWarning).toHaveBeenCalledTimes(1);
+    expect(finalStatusMocks.showDeFiActionTxConfirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xOwner' }),
+    );
     expect(waitStatusMock).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: 'account-1',
         networkId: 'evm--1',
         txid: '0xset-collateral',
+        expectedAccountAddress: '0xOwner',
         signal: expect.any(AbortSignal),
       }),
     );

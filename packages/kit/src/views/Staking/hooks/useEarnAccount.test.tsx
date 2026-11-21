@@ -418,6 +418,39 @@ describe('useEarnAccount cache identity', () => {
     expect(result.current.earnAccount?.accountAddress).toBe('new-address');
   });
 
+  it('invalidates an external wallet account after AccountUpdate and rejects a late old resolution', async () => {
+    selectedAccountMock.current.indexedAccountId = '';
+    selectedAccountMock.current.othersWalletAccountId =
+      'external--wc--session--0';
+    let resolveOld: (value: { accountAddress: string }) => void = () => {};
+    earnAccountServiceMock
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({ accountAddress: 'new-address' });
+    const { result, rerender } = renderHook(() =>
+      useEarnAccount({ networkId: 'evm--1' }),
+    );
+    const oldRead = promiseResultMock.accountMethod?.();
+    const originalKey = promiseResultMock.accountOptions?.swrKey;
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    });
+    expect(result.current.earnAccount).toBeUndefined();
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(originalKey);
+    const newRead = await promiseResultMock.accountMethod?.();
+    promiseResultMock.accountResult = newRead;
+    rerender(undefined);
+    expect(result.current.earnAccount?.accountAddress).toBe('new-address');
+    resolveOld({ accountAddress: 'old-address' });
+    const oldResult = await oldRead;
+    promiseResultMock.accountResult = oldResult;
+    rerender(undefined);
+    expect(result.current.earnAccount).toBeUndefined();
+  });
+
   it('exposes a failed network derive request and retries that stage', async () => {
     networkDeriveTypeServiceMock.mockRejectedValueOnce(new Error('offline'));
     const { result, rerender } = renderHook(() =>

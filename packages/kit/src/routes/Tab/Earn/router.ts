@@ -28,6 +28,14 @@ const EarnAllProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnAllProtocols'),
 );
 
+const EarnHoldings = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnHoldings'),
+);
+
+const EarnLoans = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnLoans'),
+);
+
 const EarnProtocolTokens = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolTokens'),
 );
@@ -36,15 +44,47 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
 
+const EarnLendingDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnLendingDetails'),
+);
+
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
+
+// The phone app's Borrow page. On web it is retired (demo 11-10): the
+// route stays so its address lands on the DeFi home's Loans tab
+const BorrowHome = LazyLoadRootTabPage(() =>
+  platformEnv.isNative
+    ? import('../../../views/Borrow/pages/BorrowHomePage')
+    : import('../../../views/Borrow/pages/BorrowHomeRetired'),
+);
+
+const EarnPositions = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnPositions'),
+);
+
+// Loaded while the desktop Earn home points at what opens them, so a first
+// open renders at once instead of showing the route's loading screen
+export const preloadEarnPositions = () => EarnPositions.preload();
+export const preloadEarnProtocolDetails = () => EarnProtocolDetails.preload();
+export const preloadEarnLendingDetails = () => EarnLendingDetails.preload();
 
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
     name: ETabEarnRoutes.EarnHome,
     component: EarnHome,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowHome,
+    component: BorrowHome,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPositions,
+    component: EarnPositions,
     headerShown: !platformEnv.isNative,
   },
   {
@@ -68,6 +108,16 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
+    name: ETabEarnRoutes.EarnHoldings,
+    component: EarnHoldings,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnLoans,
+    component: EarnLoans,
+    headerShown: !platformEnv.isNative,
+  },
+  {
     name: ETabEarnRoutes.EarnProtocolTokens,
     component: EarnProtocolTokens,
     headerShown: !platformEnv.isNative,
@@ -82,6 +132,11 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     exact: true,
     rewrite: '/earn/:network/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnLendingDetails,
+    component: EarnLendingDetails,
     headerShown: !platformEnv.isNative,
   },
   {

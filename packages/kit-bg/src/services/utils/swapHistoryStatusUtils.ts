@@ -168,6 +168,7 @@ export function shouldEmitSwapHistoryBalanceUpdate({
   previousSwapTxHistory: ISwapTxHistory;
   txStatusRes: IFetchSwapTxHistoryStatusResponse;
 }) {
+  if (swapTxHistory.sourceTxFailed) return false;
   const reachedBalanceChangingTerminalState =
     previousSwapTxHistory.status !== swapTxHistory.status &&
     (txStatusRes.state === ESwapTxHistoryStatus.SUCCESS ||

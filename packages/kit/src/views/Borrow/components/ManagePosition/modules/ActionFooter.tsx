@@ -1,15 +1,31 @@
-import { useCallback, useMemo } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useEarnDesktopHomeCopy } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
+import { EarnFormFooter } from '@onekeyhq/kit/src/views/Staking/components/EarnFormFooter';
 import {
   EStakeProgressStep,
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import {
+  EarnFormCompactContext,
+  EarnFormSwitchingContext,
+} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,8 +46,12 @@ export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
   isAmountFocused,
+  autoSubmitKey,
+  onAutoSubmit,
 }: IActionFooterProps) {
+  const earnCopy = useEarnDesktopHomeCopy();
   const intl = useIntl();
+  const isCompact = useContext(EarnFormCompactContext);
   const { state, actions, actionResult, approval } = useManagePositionContext();
   const {
     action,
@@ -42,6 +62,7 @@ export function ActionFooter({
     isInsufficientBalance,
     isAmountInvalid,
     isInModalContext: isInModalContextState,
+    isEarnForm,
   } = state;
 
   const {
@@ -49,10 +70,12 @@ export function ActionFooter({
     isCheckAmountMessageError,
     checkAmountResult,
     riskOfLiquidationAlert,
+    transactionConfirmationLoading,
   } = actionResult;
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
   const {
+    approving,
     isFormInteractionLocked,
     approvalProgressStarted,
     loadingAllowance,
@@ -62,6 +85,43 @@ export function ActionFooter({
   } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
+  // In the Earn forms the button keeps its look while the amount is checked
+  // (no spinner, no grey that comes and goes with each keystroke), as the
+  // staking forms' does; a press in that moment goes once the check is in
+  const keepsLookWhileChecking = Boolean(isEarnForm);
+  const checkIntent = useMemo(
+    () => ({
+      accountId: state.accountId,
+      networkId: state.networkId,
+      providerName: state.providerName,
+      marketAddress: state.borrowMarketAddress,
+      reserveAddress: state.borrowReserveAddress,
+      action,
+      amountValue,
+      isWithdrawAll: state.isWithdrawAll,
+      isRepayAll: state.isRepayAll,
+    }),
+    [
+      state.accountId,
+      state.networkId,
+      state.providerName,
+      state.borrowMarketAddress,
+      state.borrowReserveAddress,
+      action,
+      amountValue,
+      state.isWithdrawAll,
+      state.isRepayAll,
+    ],
+  );
+  const [waitingCheckIntent, setWaitingCheckIntent] = useState<object>();
+  const isPressWaitingCheck = waitingCheckIntent === checkIntent;
+  useEffect(() => {
+    const invalidate = () => setWaitingCheckIntent(undefined);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, invalidate);
+    };
+  }, []);
 
   const businessActionLabel = useMemo(
     () =>
@@ -69,12 +129,11 @@ export function ActionFooter({
     [actionLabelProp, action, intl],
   );
 
-  const actionLabel = useMemo(() => {
-    if (shouldApprove) {
-      return intl.formatMessage({ id: ETranslations.global_approve });
-    }
-    return businessActionLabel;
-  }, [businessActionLabel, intl, shouldApprove]);
+  // In the Earn forms it stays off while this amount's figures are on their
+  // way, and turns on as they land; an answer that fails lets it go, as the
+  // rows go to dashes
+  const isFiguresComing =
+    keepsLookWhileChecking && transactionConfirmationLoading;
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -85,7 +144,8 @@ export function ActionFooter({
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
       checkAmountResult === false ||
-      checkAmountLoading;
+      (checkAmountLoading && !keepsLookWhileChecking) ||
+      isFiguresComing;
 
     // Borrow doesn't need to check wallet balance
     if (action === 'borrow') {
@@ -102,6 +162,8 @@ export function ActionFooter({
     isCheckAmountMessageError,
     checkAmountResult,
     checkAmountLoading,
+    keepsLookWhileChecking,
+    isFiguresComing,
   ]);
 
   const confirmBorrowLiquidationRisk = useCallback(async () => {
@@ -138,7 +200,16 @@ export function ActionFooter({
     setSubmitting,
   ]);
 
+  const isSwitchingOffer = useContext(EarnFormSwitchingContext);
   const handleConfirm = useCallback(async () => {
+    // Picked another protocol a moment ago: this form is the one being left
+    if (isSwitchingOffer) {
+      return;
+    }
+    if (keepsLookWhileChecking && checkAmountLoading) {
+      setWaitingCheckIntent(checkIntent);
+      return;
+    }
     if (shouldApprove) {
       Keyboard.dismiss();
       const confirmed = await confirmBorrowLiquidationRisk();
@@ -149,41 +220,85 @@ export function ActionFooter({
       return;
     }
     await handleSubmit();
-  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
+  }, [
+    checkAmountLoading,
+    checkIntent,
+    confirmBorrowLiquidationRisk,
+    handleSubmit,
+    isSwitchingOffer,
+    keepsLookWhileChecking,
+    onApprove,
+    shouldApprove,
+  ]);
 
-  const confirmText = useMemo(() => {
-    if (shouldApprove) {
-      return intl.formatMessage(
-        { id: ETranslations.global_approve },
-        { amount: amountValue, symbol: state.tokenSymbol ?? '' },
-      );
+  const isBusy = submitting || loadingAllowance || isFormInteractionLocked;
+  const isConfirmLoading =
+    isBusy ||
+    (keepsLookWhileChecking ? isPressWaitingCheck : checkAmountLoading);
+  useEffect(() => {
+    if (!waitingCheckIntent) {
+      return;
     }
-    return actionLabel;
-  }, [actionLabel, amountValue, intl, shouldApprove, state.tokenSymbol]);
+    if (!isPressWaitingCheck) {
+      setWaitingCheckIntent(undefined);
+      return;
+    }
+    if (checkAmountLoading) {
+      return;
+    }
+    setWaitingCheckIntent(undefined);
+    if (checkAmountResult === true && !isButtonDisabled && !isBusy) {
+      void handleConfirm();
+    }
+  }, [
+    checkAmountLoading,
+    checkAmountResult,
+    handleConfirm,
+    isBusy,
+    isButtonDisabled,
+    isPressWaitingCheck,
+    waitingCheckIntent,
+  ]);
+  const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      autoSubmitKey === undefined ||
+      autoSubmittedKeyRef.current === autoSubmitKey ||
+      checkAmountResult === undefined ||
+      isButtonDisabled ||
+      isConfirmLoading
+    ) {
+      return;
+    }
+    autoSubmittedKeyRef.current = autoSubmitKey;
+    onAutoSubmit?.();
+    void handleConfirm();
+  }, [
+    autoSubmitKey,
+    checkAmountResult,
+    handleConfirm,
+    isButtonDisabled,
+    isConfirmLoading,
+    onAutoSubmit,
+  ]);
 
-  const footerContent = (
-    <Page.FooterActions
-      $gtMd={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-      }}
-      onConfirmText={confirmText}
-      confirmButtonProps={{
-        testID: BorrowTestIDs.actionConfirmBtn,
-        onPress: handleConfirm,
-        loading:
-          submitting ||
-          checkAmountLoading ||
-          loadingAllowance ||
-          isFormInteractionLocked,
-        disabled: isButtonDisabled,
-      }}
-    />
-  );
+  // The press approves, then carries on with the action by itself
+  const confirmText = shouldApprove
+    ? earnCopy.approveAnd(businessActionLabel)
+    : businessActionLabel;
 
+  // The steps show as soon as the button names them ("Approve and
+  // Supply"), before the press as well as while it runs. A window that
+  // keeps its form short leaves them to the button until the press
+  const hasStartedSteps =
+    approving ||
+    submitting ||
+    isFormInteractionLocked ||
+    approvalProgressStarted;
   const isShowStakeProgress =
-    !!amountValue && (shouldApprove || approvalProgressStarted);
+    !!amountValue &&
+    (shouldApprove || approvalProgressStarted) &&
+    (!isCompact || hasStartedSteps);
 
   const progressContent = isShowStakeProgress ? (
     <StakeProgress
@@ -192,31 +307,29 @@ export function ActionFooter({
       }
       step1LabelId={ETranslations.global_approve}
       step2Label={businessActionLabel}
+      isRunning={
+        isEarnForm && (approving || submitting || isFormInteractionLocked)
+      }
     />
   ) : null;
 
   return (
     <>
       {beforeFooter ?? state.beforeFooter}
-      {isInModalContext ? (
-        <Page.Footer>
-          <Stack
-            bg="$bgApp"
-            flexDirection="column"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              jc: 'space-between',
-            }}
-          >
-            {progressContent ? (
-              <Stack pl="$5" $md={{ pt: '$5' }}>
-                {progressContent}
-              </Stack>
-            ) : null}
-            {footerContent}
-          </Stack>
-          {platformEnv.isNativeIOSPhone ? null : (
+      {/* As every Earn form's: one button the form's full width, in the
+          modal's footer or under the form, the steps above it */}
+      <EarnFormFooter
+        isInModalContext={Boolean(isInModalContext)}
+        progress={progressContent}
+        confirmText={confirmText}
+        confirmButtonProps={{
+          testID: BorrowTestIDs.actionConfirmBtn,
+          onPress: handleConfirm,
+          loading: isConfirmLoading,
+          disabled: isButtonDisabled,
+        }}
+        keyboardStage={
+          platformEnv.isNativeIOSPhone ? null : (
             <PercentageStageOnKeyboard
               isAmountFocused={
                 Boolean(isAmountFocused) &&
@@ -227,14 +340,9 @@ export function ActionFooter({
                 isFormInteractionLocked ? undefined : onSelectPercentageStage
               }
             />
-          )}
-        </Page.Footer>
-      ) : (
-        <YStack bg="$bgApp" gap="$5">
-          {progressContent}
-          {footerContent}
-        </YStack>
-      )}
+          )
+        }
+      />
     </>
   );
 }

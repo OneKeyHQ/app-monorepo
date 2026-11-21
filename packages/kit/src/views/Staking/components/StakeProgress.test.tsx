@@ -17,8 +17,17 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: ({ children }: { children?: ReactNode }) => <svg>{children}</svg>,
+  Line: () => <line />,
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Spinner: () => <span aria-label="Running" />,
+  useTheme: () => ({ borderStrong: { val: '#000' } }),
   SizableText: ({
     children,
     color,
@@ -31,7 +40,7 @@ jest.mock('@onekeyhq/components', () => ({
     </span>
   ),
   Icon: ({ name }: { name: string }) =>
-    name === 'CheckRadioOutline' ? <span aria-label="Completed" /> : null,
+    name === 'CheckRadioSolid' ? <span aria-label="Completed" /> : null,
 }));
 
 function stepContainer(text: string) {
@@ -55,18 +64,18 @@ describe('StakeTaskProgress', () => {
     ];
     render(<StakeTaskProgress steps={steps} />);
 
-    expect(labels()).toEqual(['1. Wrap', '2. Approve', '3. Deposit']);
+    expect(labels()).toEqual(['Wrap', 'Approve', 'Deposit']);
     expect(
-      within(stepContainer('1. Wrap')).getByLabelText('Completed'),
+      within(stepContainer('Wrap')).getByLabelText('Completed'),
     ).toBeTruthy();
     expect(
-      within(stepContainer('2. Approve')).queryByLabelText('Completed'),
+      within(stepContainer('Approve')).queryByLabelText('Completed'),
     ).toBeNull();
     expect(
-      within(stepContainer('3. Deposit')).queryByLabelText('Completed'),
+      within(stepContainer('Deposit')).queryByLabelText('Completed'),
     ).toBeNull();
-    expect(screen.getByText('3. Deposit').getAttribute('data-color')).toBe(
-      '$textDisabled',
+    expect(screen.getByText('Deposit').getAttribute('data-color')).toBe(
+      '$textSubdued',
     );
   });
 
@@ -78,14 +87,10 @@ describe('StakeTaskProgress', () => {
     ];
     render(<StakeTaskProgress steps={steps} />);
 
-    expect(labels()).toEqual([
-      '1. Wrap',
-      '2. Approve',
-      '3. Deposit (Submitted)',
-    ]);
+    expect(labels()).toEqual(['Wrap', 'Approve', 'Deposit (Submitted)']);
     expect(screen.getAllByLabelText('Completed')).toHaveLength(2);
     expect(
-      within(stepContainer('3. Deposit (Submitted)')).queryByLabelText(
+      within(stepContainer('Deposit (Submitted)')).queryByLabelText(
         'Completed',
       ),
     ).toBeNull();
@@ -97,7 +102,7 @@ describe('StakeTaskProgress', () => {
       { id: 'deposit', label: 'Deposit', status: 'waiting' },
     ];
     const { rerender } = render(<StakeTaskProgress steps={withoutReset} />);
-    expect(labels()).toEqual(['1. Approve', '2. Deposit']);
+    expect(labels()).toEqual(['Approve', 'Deposit']);
 
     rerender(
       <StakeTaskProgress
@@ -109,7 +114,29 @@ describe('StakeTaskProgress', () => {
       />,
     );
 
-    expect(labels()).toEqual(['1. Reset approval', '2. Approve', '3. Deposit']);
+    expect(labels()).toEqual(['Reset approval', 'Approve', 'Deposit']);
     expect(screen.queryByLabelText('Completed')).toBeNull();
+  });
+
+  it('shows a spinner only while the current task is running', () => {
+    const { rerender } = render(
+      <StakeTaskProgress
+        steps={[
+          {
+            id: 'approve',
+            label: 'Approve',
+            status: 'current',
+            isRunning: true,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByLabelText('Running')).toBeTruthy();
+    rerender(
+      <StakeTaskProgress
+        steps={[{ id: 'approve', label: 'Approve', status: 'current' }]}
+      />,
+    );
+    expect(screen.queryByLabelText('Running')).toBeNull();
   });
 });

@@ -35,6 +35,7 @@ const approval = {
   action: 'stake' as const,
   tokenAddress: token,
   spenderAddress: vault,
+  expectedAccountAddress: account,
 };
 
 function harness(provider = 'Unitas', target = vault) {
@@ -389,6 +390,57 @@ describe('Earn approval boundary', () => {
         tokenAddress: EthereumWETH,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('validates an alternate EtherFi input against the selected vault catalog', async () => {
+    const { service, getProtocolList } = harness(
+      'EtherFi',
+      EtherFiLiquidReferContract,
+    );
+    const networkId = 'evm--1';
+    getProtocolList.mockResolvedValue([
+      {
+        network: { networkId },
+        provider: {
+          name: 'EtherFi',
+          vault,
+          group: EStakeProtocolGroupEnum.Available,
+        },
+      } as IStakeProtocolListItem,
+    ]);
+    const assets = jest.spyOn(service, 'getEarnAssetsList').mockResolvedValue({
+      assets: [{ info: { address: receipt } }],
+    } as Awaited<ReturnType<ServiceStaking['getEarnAssetsList']>>);
+    const request = {
+      ...approval,
+      networkId,
+      provider: 'EtherFi',
+      symbol: 'USDC',
+      tokenAddress: receipt,
+      spenderAddress: EtherFiLiquidReferContract,
+    };
+    await expect(service.assertEarnApproval(request)).resolves.toBeUndefined();
+    expect(assets).toHaveBeenCalledWith(
+      expect.objectContaining({ vault, action: 'stake', forceRefresh: true }),
+    );
+    await expect(
+      service.assertEarnApproval({ ...request, tokenAddress: attacker }),
+    ).rejects.toThrow();
+    await expect(
+      service.assertEarnApproval({ ...request, vault: attacker }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects approval when the resolved account changes during validation', async () => {
+    const { service } = harness();
+    const accountService = service.backgroundApi.serviceAccount;
+    jest
+      .spyOn(accountService, 'getAccountAddressForApi')
+      .mockResolvedValueOnce(account)
+      .mockResolvedValueOnce(attacker);
+    await expect(service.assertEarnApproval(approval)).rejects.toThrow(
+      'Earn approval account changed',
+    );
   });
 
   it('checks the registered EtherFi receipt when withdrawal approval comes from details', async () => {

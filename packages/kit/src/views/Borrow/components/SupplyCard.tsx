@@ -266,7 +266,8 @@ export const SupplyCard = () => {
   const labels = useMemo(
     () => ({
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
-      balance: intl.formatMessage({ id: ETranslations.global_balance }),
+      // What the wallet holds; a holding's own is its amount (demo 10-29)
+      balance: intl.formatMessage({ id: ETranslations.global_wallet_balance }),
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
       assetCanBeCollateral: intl.formatMessage({
         id: ETranslations.global_asset,

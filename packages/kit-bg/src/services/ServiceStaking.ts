@@ -1,3 +1,5 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
@@ -22,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -42,6 +45,7 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IEarnFundingChange } from '@onekeyhq/shared/types/earn/funding';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -92,6 +96,7 @@ import type {
   IEarnSummary,
   IEarnSummaryV2,
   IEarnUnbondingDelegationList,
+  IEarnVerifyRegisterSignMessageResponse,
   IEarnWithdrawType,
   IGetPortfolioParams,
   IRecommendAsset,
@@ -118,6 +123,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import { createLazyServiceProxy } from '../apis/lazyServiceProxy';
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -187,6 +193,40 @@ const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private readonly earnOrderRecordAttempts = new Map<
+    string,
+    {
+      identity: string;
+      state: 'pending' | 'retryable' | 'sent' | 'synced';
+      guardHistory: boolean;
+      order?: IAddEarnOrderParams;
+    }
+  >();
+
+  private readonly earnFunding = createLazyServiceProxy({
+    serviceName: 'simpleDb@earnFunding',
+    loader: () =>
+      import('../dbs/simple/entity/SimpleDbEntityEarnFunding').then(
+        ({ SimpleDbEntityEarnFunding }) => new SimpleDbEntityEarnFunding(),
+      ),
+  });
+
+  private notifyEarnFundingChanged(scope: string) {
+    appEventBus.emit(EAppEventBusNames.EarnFundingChanged, { scope });
+    if (
+      platformEnv.isWeb &&
+      typeof globalThis.BroadcastChannel === 'function'
+    ) {
+      try {
+        const channel = new BroadcastChannel('onekey-earn-funding-changed');
+        channel.postMessage('changed');
+        channel.close();
+      } catch {
+        // A later focus refresh can still read the persisted state.
+      }
+    }
+  }
+
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};
 
@@ -236,6 +276,142 @@ class ServiceStaking extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async getEarnFunding(scope: string) {
+    return this.earnFunding.getFunding(scope);
+  }
+
+  async getExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+  }) {
+    return this.earnFunding.getExternalSwapAcceptance(params);
+  }
+
+  async recordExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    senderAddress: string;
+    txid: string;
+  }) {
+    const result = await this.earnFunding.recordExternalSwapAcceptance(params);
+    if (result.changedScope) this.notifyEarnFundingChanged(result.changedScope);
+    return result.recorded;
+  }
+
+  @backgroundMethod()
+  async recoverEarnSwapFunding(scope: string) {
+    const funding = await this.earnFunding.getFunding(scope);
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) return funding;
+    if (
+      (funding?.status !== 'unknown' && funding?.status !== 'submitted') ||
+      (funding.status === 'unknown' && funding.txIdConflict) ||
+      (funding.status === 'submitted' && funding.sourceTxFailed) ||
+      !funding.swapTxUuid ||
+      !funding.swapRecovery
+    )
+      return funding;
+    const { sender } = funding.swapRecovery;
+    const matchesSender = async () => {
+      const current =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+        });
+      if (!current) return false;
+      return networkUtils.isEvmNetwork({ networkId: sender.networkId })
+        ? current.toLowerCase() === sender.address.toLowerCase()
+        : current === sender.address;
+    };
+    if (!(await matchesSender())) return funding;
+    const fact =
+      await this.backgroundApi.serviceSend.resolveBroadcastAcceptanceFactByUuid(
+        {
+          uuid: funding.swapTxUuid,
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+          expectedAccountAddress: sender.address,
+        },
+      );
+    if (fact.status !== 'accepted' || !(await matchesSender())) return funding;
+    const result = await this.earnFunding.recoverSwapFunding(
+      scope,
+      funding.swapTxUuid,
+      fact.txid,
+      fact.sourceTxFailed,
+    );
+    if (result.applied) {
+      this.notifyEarnFundingChanged(scope);
+    }
+    return result.funding;
+  }
+
+  @backgroundMethod()
+  async recoverEarnFundingDestination(scope: string) {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks)
+      return this.earnFunding.getFunding(scope);
+    const candidate =
+      await this.earnFunding.getDestinationRecoveryCandidate(scope);
+    if (!candidate) return this.earnFunding.getFunding(scope);
+    const { recovery } = candidate;
+    if (accountUtils.isExternalAccount({ accountId: recovery.accountId }))
+      return this.earnFunding.getFunding(scope);
+    const matchesAccount = async () => {
+      const current =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: recovery.accountId,
+          networkId: recovery.networkId,
+        });
+      return Boolean(
+        current &&
+        (networkUtils.isEvmNetwork({ networkId: recovery.networkId })
+          ? current.toLowerCase() === recovery.accountAddress.toLowerCase()
+          : current === recovery.accountAddress),
+      );
+    };
+    if (!(await matchesAccount())) return this.earnFunding.getFunding(scope);
+    const fact =
+      await this.backgroundApi.serviceSend.resolveBroadcastAcceptanceFactByUuid(
+        {
+          uuid: recovery.uuid,
+          accountId: recovery.accountId,
+          networkId: recovery.networkId,
+          expectedAccountAddress: recovery.accountAddress,
+        },
+      );
+    if (
+      fact.status !== 'accepted' ||
+      fact.uuid !== recovery.uuid ||
+      fact.accountId !== recovery.accountId ||
+      fact.networkId !== recovery.networkId ||
+      !fact.txid?.trim() ||
+      !(await matchesAccount())
+    )
+      return this.earnFunding.getFunding(scope);
+    const result = await this.earnFunding.recoverDestinationFunding(
+      scope,
+      candidate,
+      fact.txid,
+    );
+    if (result.applied) this.notifyEarnFundingChanged(scope);
+    return result.funding;
+  }
+
+  @backgroundMethod()
+  async changeEarnFunding(scope: string, change: IEarnFundingChange) {
+    const result = await this.earnFunding.changeFunding(scope, change);
+    if (result.applied) {
+      this.notifyEarnFundingChanged(scope);
+      if (result.consumedScope) {
+        this.notifyEarnFundingChanged(result.consumedScope);
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -331,6 +507,56 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     stakeTag: IStakeTag;
   }) {
+    const result = await this.fetchLocalStakingHistoryInternal({
+      accountId,
+      networkId,
+      stakeTag,
+    });
+    return result.txs;
+  }
+
+  @backgroundMethod()
+  public async fetchLocalStakingHistoryWithAccount({
+    accountId,
+    networkId,
+    stakeTag,
+  }: {
+    accountId: string;
+    networkId: string;
+    stakeTag: IStakeTag;
+  }) {
+    const { accountAddress, xpub, txs } =
+      await this.fetchLocalStakingHistoryInternal({
+        accountId,
+        networkId,
+        stakeTag,
+      });
+    const accountIdentity =
+      accountAddress || xpub
+        ? bytesToHex(
+            sha256(
+              stringUtils.stableStringify({
+                domain: 'earn-pending-history-account-v1',
+                accountId,
+                networkId,
+                accountAddress,
+                xpub: xpub ?? '',
+              }),
+            ),
+          )
+        : undefined;
+    return { accountIdentity, txs };
+  }
+
+  private async fetchLocalStakingHistoryInternal({
+    accountId,
+    networkId,
+    stakeTag,
+  }: {
+    accountId: string;
+    networkId: string;
+    stakeTag: IStakeTag;
+  }) {
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
@@ -358,7 +584,7 @@ class ServiceStaking extends ServiceBase {
         Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
 
-    return stakingTxs;
+    return { accountAddress, xpub, txs: stakingTxs };
   }
 
   @backgroundMethod()
@@ -366,10 +592,12 @@ class ServiceStaking extends ServiceBase {
     amount,
     accountId,
     networkId,
+    expectedAccountAddress,
   }: {
     amount: string;
     accountId: string;
     networkId: string;
+    expectedAccountAddress?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
@@ -377,6 +605,13 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account address changed');
+    }
     const resp = await client.post<{
       data: { message: string; deadline: number };
     }>(`/earn/v1/lido-eth/tx/permit_message`, {
@@ -408,7 +643,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildStakeTransaction(
-    params: IStakeBaseParams,
+    params: IStakeBaseParams & { expectedAccountAddress?: string },
   ): Promise<IStakeTxResponse> {
     const {
       networkId,
@@ -423,11 +658,19 @@ class ServiceStaking extends ServiceBase {
       message,
       effectiveApy,
       validatorPublicKey,
+      expectedAccountAddress,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? account.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : account.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account changed before stake');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol,
@@ -440,13 +683,7 @@ class ServiceStaking extends ServiceBase {
       providerName: provider,
     });
     const registeredProtocol = await this._getValidatedEarnProtocol(
-      {
-        networkId,
-        accountId,
-        provider,
-        symbol,
-        vault: protocolVault,
-      },
+      { networkId, accountId, provider, symbol, vault: protocolVault },
       'deposit',
     );
 
@@ -555,11 +792,18 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async unstakePush(params: IUnstakePushParams) {
-    const { networkId, accountId, ...rest } = params;
+  async unstakePush(
+    params: IUnstakePushParams & { expectedAccountAddress?: string },
+  ) {
+    const { networkId, accountId, expectedAccountAddress, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress || acc.address !== expectedAccountAddress)
+    )
+      throw new OneKeyLocalError('Task account address changed');
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v1/unstake/push`, {
@@ -571,16 +815,42 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async babylonClaimRecord(params: IClaimRecordParams) {
-    const { networkId, accountId, ...rest } = params;
+  async babylonClaimRecord(
+    params: IClaimRecordParams & {
+      expectedAccountAddress?: string;
+      expectedAccountPublicKey?: string;
+    },
+  ) {
+    const {
+      networkId,
+      accountId,
+      expectedAccountAddress,
+      expectedAccountPublicKey,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    if (expectedAccountPublicKey !== undefined) {
+      if (
+        !expectedAccountAddress ||
+        !expectedAccountPublicKey ||
+        acc.pub !== expectedAccountPublicKey
+      )
+        throw new OneKeyLocalError('Claim account changed');
+    } else if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress || acc.address !== expectedAccountAddress)
+    ) {
+      throw new OneKeyLocalError('Claim account changed');
+    }
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v1/claim/record`, {
-      accountAddress: acc.address,
-      publicKey: acc.pub,
+      accountAddress: expectedAccountPublicKey
+        ? expectedAccountAddress
+        : acc.address,
+      publicKey: expectedAccountPublicKey ?? acc.pub,
       networkId,
       ...rest,
     });
@@ -588,10 +858,13 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildClaimTransaction(params: IStakeClaimBaseParams) {
+  async buildClaimTransaction(
+    params: IStakeClaimBaseParams & { expectedAccountAddress?: string },
+  ) {
     const {
       networkId,
       accountId,
+      expectedAccountAddress,
       claimTokenAddress: rewardTokenAddress,
       vault: vaultAddress,
       ...rest
@@ -599,6 +872,13 @@ class ServiceStaking extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? account.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : account.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Claim account changed');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol: params.symbol,
@@ -632,7 +912,12 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v2/claim`, sendParams);
-    return resp.data.data;
+    return {
+      ...resp.data.data,
+      ...(earnUtils.isBabylonProvider({ providerName: params.provider })
+        ? { claimOwnerPublicKey: account.pub }
+        : undefined),
+    };
   }
 
   @backgroundMethod()
@@ -696,7 +981,7 @@ class ServiceStaking extends ServiceBase {
       ]) as IVerifyRegisterSignMessageParams;
     }
     const resp = await client.post<{
-      data: IEarnRegisterSignMessageResponse;
+      data: IEarnVerifyRegisterSignMessageResponse;
     }>(`/earn/v1/verify-sig`, verifyParams);
     return resp.data.data;
   }
@@ -811,6 +1096,7 @@ class ServiceStaking extends ServiceBase {
     action: 'stake' | 'unstake' | 'claim';
     tokenAddress: string;
     spenderAddress: string;
+    expectedAccountAddress: string;
   }) {
     const protocol = await this._getValidatedEarnProtocol(
       params,
@@ -835,6 +1121,14 @@ class ServiceStaking extends ServiceBase {
           networkId: params.networkId,
           address: b,
         });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId: params.accountId,
+        networkId: params.networkId,
+      });
+    if (!sameAddress(accountAddress, params.expectedAccountAddress)) {
+      throw new OneKeyLocalError('Earn approval account changed');
+    }
     let target: string | undefined;
     let tokenAddress: string | undefined;
     if (params.action === 'claim') {
@@ -842,11 +1136,6 @@ class ServiceStaking extends ServiceBase {
       target = claimable.claimApprove?.approveTarget;
       tokenAddress = claimable.claimApprove?.tokenAddress;
     } else {
-      const accountAddress =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId: params.accountId,
-          networkId: params.networkId,
-        });
       const data = await this.getManagePage({ ...query, accountAddress });
       if (params.action === 'unstake') {
         target = data.withdrawApprove?.approveTarget;
@@ -905,11 +1194,13 @@ class ServiceStaking extends ServiceBase {
         if (
           !sameAddress(tokenAddress, params.tokenAddress) &&
           (earnUtils.isPendleProvider({ providerName: params.provider }) ||
-            earnUtils.isNativeProvider({ providerName: params.provider }))
+            earnUtils.isNativeProvider({ providerName: params.provider }) ||
+            isEtherFi)
         ) {
           const assets = await this.getEarnAssetsList({
             ...query,
             action: 'stake',
+            forceRefresh: true,
           });
           tokenAddress = assets.assets?.find((item) =>
             sameAddress(item.info.address, params.tokenAddress),
@@ -924,6 +1215,14 @@ class ServiceStaking extends ServiceBase {
       throw new OneKeyLocalError(
         'Earn approval does not match the selected protocol',
       );
+    }
+    const currentAccountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId: params.accountId,
+        networkId: params.networkId,
+      });
+    if (!sameAddress(currentAccountAddress, params.expectedAccountAddress)) {
+      throw new OneKeyLocalError('Earn approval account changed');
     }
   }
 
@@ -1111,14 +1410,21 @@ class ServiceStaking extends ServiceBase {
   );
 
   @backgroundMethod()
-  async getEarnAssetsList(params: {
+  async getEarnAssetsList({
+    forceRefresh,
+    ...params
+  }: {
     networkId: string;
     provider: string;
     symbol: string;
     vault?: string;
     accountId: string;
     action: 'stake' | 'unstake';
+    forceRefresh?: boolean;
   }) {
+    if (forceRefresh) {
+      void this._getEarnAssetsList.delete(params);
+    }
     return this._getEarnAssetsList(params);
   }
 
@@ -2408,14 +2714,24 @@ class ServiceStaking extends ServiceBase {
     networkId,
     accountId,
     orderId,
+    expectedAccountAddress,
   }: {
     networkId: string;
     accountId: string;
     orderId: string;
+    expectedAccountAddress?: string;
   }): Promise<IEarnServerOrderDetail> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress) {
+      const normalize = (address: string) =>
+        networkUtils.isEvmNetwork({ networkId })
+          ? address.toLowerCase()
+          : address;
+      if (normalize(account.address) !== normalize(expectedAccountAddress))
+        throw new OneKeyLocalError('Earn order account changed');
+    }
     const resp = await client.get<{ data: IEarnServerOrderDetail }>(
       '/earn/v1/orders/detail',
       {
@@ -2653,8 +2969,46 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async addEarnOrder(
     order: IAddEarnOrderParams,
-    options?: { remoteSync: 'once'; preserveExistingTx?: true },
+    options?: {
+      remoteSync: 'once';
+      preserveExistingTx?: true;
+      recordAttemptId?: string;
+      retryLocalFailure?: true;
+      guardHistory?: 'ethena-unstake';
+    },
   ) {
+    const attemptId = options?.recordAttemptId;
+    const guardHistory = options?.guardHistory === 'ethena-unstake';
+    const recoveryOrder = guardHistory ? { ...order } : undefined;
+    if (guardHistory && !attemptId)
+      throw new OneKeyLocalError('Invalid Earn order history guard');
+    const identity = JSON.stringify([
+      order.networkId,
+      order.orderId,
+      order.txId,
+    ]);
+    if (attemptId) {
+      if (!options?.preserveExistingTx)
+        throw new OneKeyLocalError('Invalid Earn order recording attempt');
+      const previous = this.earnOrderRecordAttempts.get(attemptId);
+      if (
+        (options.retryLocalFailure &&
+          (!previous ||
+            previous.identity !== identity ||
+            previous.guardHistory !== guardHistory ||
+            previous.state !== 'retryable')) ||
+        (!options.retryLocalFailure && previous)
+      )
+        return { localStatus: 'existing', remoteStatus: 'skipped' } as const;
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        guardHistory,
+        order: recoveryOrder,
+        state: 'pending',
+      });
+    } else if (options?.retryLocalFailure) {
+      throw new OneKeyLocalError('Invalid Earn order recording attempt');
+    }
     defaultLogger.staking.order.addOrder({
       status: order.status,
       stakingLabel: order.stakingLabel,
@@ -2666,37 +3020,83 @@ class ServiceStaking extends ServiceBase {
       isCurrent = options?.preserveExistingTx
         ? await simpleDb.earnOrders.addOrder(order, {
             preserveExistingTx: true,
+            ...(attemptId ? { recordAttemptId: attemptId } : undefined),
+            ...(options.retryLocalFailure
+              ? { retryLocalFailure: true }
+              : undefined),
           })
         : await simpleDb.earnOrders.addOrder(order);
     } catch (error) {
       if (options?.remoteSync === 'once') {
+        if (attemptId)
+          this.earnOrderRecordAttempts.set(attemptId, {
+            identity,
+            guardHistory,
+            order: recoveryOrder,
+            state: 'retryable',
+          });
         return { localStatus: 'failed', remoteStatus: 'notAttempted' } as const;
       }
       throw error;
     }
     if (isCurrent === undefined && options?.remoteSync === 'once') {
+      if (attemptId)
+        this.earnOrderRecordAttempts.set(attemptId, {
+          identity,
+          guardHistory,
+          order: recoveryOrder,
+          state: 'retryable',
+        });
       return {
         localStatus: 'unavailable',
         remoteStatus: 'notAttempted',
       } as const;
     }
     if (isCurrent === false) {
+      if (attemptId)
+        this.earnOrderRecordAttempts.set(attemptId, {
+          identity,
+          guardHistory,
+          order: recoveryOrder,
+          state: 'sent',
+        });
       return {
         localStatus: options?.preserveExistingTx ? 'existing' : 'superseded',
         remoteStatus: 'skipped',
       } as const;
     }
-    let remoteStatus: 'synced' | 'failed' = 'synced';
+    let remoteStatus: 'synced' | 'failed' | 'pending' = 'synced';
+    if (attemptId)
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        guardHistory,
+        order: recoveryOrder,
+        state: 'sent',
+      });
     try {
-      await this.updateEarnOrderStatusToServer({
+      const result = await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
         ...(options?.remoteSync === 'once' ? { maxAttempts: 1 as const } : {}),
       });
+      if (result?.retryable) remoteStatus = 'pending';
     } catch (_e) {
       // ignore error, continue
       remoteStatus = 'failed';
       defaultLogger.staking.order.updateOrderStatusError({
         status: order.status,
+      });
+    }
+    if (
+      attemptId &&
+      guardHistory &&
+      remoteStatus === 'synced' &&
+      order.status === EDecodedTxStatus.Pending
+    ) {
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        guardHistory,
+        order: recoveryOrder,
+        state: 'synced',
       });
     }
     return {
@@ -2712,6 +3112,153 @@ class ServiceStaking extends ServiceBase {
     });
   }
 
+  private async recoverGuardedEthenaOrder({
+    order,
+    tx,
+    attempt,
+  }: {
+    order: IEarnOrderItem;
+    tx: IChangedPendingTxInfo;
+    attempt: {
+      identity: string;
+      state: 'pending' | 'retryable' | 'sent' | 'synced';
+    };
+  }) {
+    if (
+      tx.networkId !== order.networkId ||
+      (tx.status !== EDecodedTxStatus.Confirmed &&
+        tx.status !== EDecodedTxStatus.Failed) ||
+      !order.recordAttemptId
+    )
+      return false;
+    if (attempt.state === 'retryable') {
+      await this.addEarnOrder(
+        {
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+          status: tx.status,
+          stakingLabel: order.stakingLabel,
+          stakingProtocol: order.stakingProtocol,
+          stakingTags: order.stakingTags,
+        },
+        {
+          remoteSync: 'once',
+          preserveExistingTx: true,
+          recordAttemptId: order.recordAttemptId,
+          retryLocalFailure: true,
+          guardHistory: 'ethena-unstake',
+        },
+      );
+    }
+    const current = this.earnOrderRecordAttempts.get(order.recordAttemptId);
+    if (current?.identity !== attempt.identity || current.state !== 'sent')
+      return false;
+    const detail = await this.getEarnOrderDetail({
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+      orderId: order.orderId,
+    });
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId: tx.networkId })
+        ? value.toLowerCase()
+        : value;
+    if (
+      detail.orderId !== order.orderId ||
+      detail.networkId !== order.networkId ||
+      !detail.txId ||
+      normalize(detail.txId) !== normalize(order.txId) ||
+      (detail.status !== 'pending' &&
+        detail.status !==
+          (tx.status === EDecodedTxStatus.Confirmed ? 'success' : 'failed'))
+    )
+      return false;
+    return this.updateOrderStatusByTxId({
+      currentTxId: order.txId,
+      expectedOrderId: order.orderId,
+      expectedNetworkId: order.networkId,
+      expectedRecordAttemptId: order.recordAttemptId,
+      status: tx.status,
+    });
+  }
+
+  private async recoverMissingEthenaOrder(tx: IChangedPendingTxInfo) {
+    if (
+      tx.status !== EDecodedTxStatus.Confirmed &&
+      tx.status !== EDecodedTxStatus.Failed
+    )
+      return undefined;
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId: tx.networkId })
+        ? value.toLowerCase()
+        : value;
+    const matches = [...this.earnOrderRecordAttempts.entries()].filter(
+      ([, attempt]) =>
+        attempt.guardHistory &&
+        attempt.state === 'retryable' &&
+        attempt.order?.networkId === tx.networkId &&
+        normalize(attempt.order.txId) === normalize(tx.txId),
+    );
+    if (matches.length !== 1) return undefined;
+    const [attemptId, attempt] = matches[0];
+    const original = attempt.order;
+    if (!original) return undefined;
+    const detail = await this.getEarnOrderDetail({
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+      orderId: original.orderId,
+    });
+    if (
+      detail.orderId !== original.orderId ||
+      detail.networkId !== original.networkId ||
+      detail.action !== 'unstake' ||
+      (detail.txId && normalize(detail.txId) !== normalize(original.txId)) ||
+      (detail.status !== 'pending' &&
+        !(detail.status === 'created' && !detail.txId) &&
+        detail.status !==
+          (tx.status === EDecodedTxStatus.Confirmed ? 'success' : 'failed')) ||
+      this.earnOrderRecordAttempts.get(attemptId) !== attempt
+    )
+      return undefined;
+    if (detail.txId) {
+      this.earnOrderRecordAttempts.set(attemptId, {
+        ...attempt,
+        state: 'pending',
+      });
+      try {
+        const saved = await simpleDb.earnOrders.addOrder(original, {
+          preserveExistingTx: true,
+          recordAttemptId: attemptId,
+        });
+        this.earnOrderRecordAttempts.set(attemptId, {
+          ...attempt,
+          state: 'sent',
+        });
+        if (!saved) return undefined;
+      } catch (error) {
+        this.earnOrderRecordAttempts.set(attemptId, {
+          ...attempt,
+          state: 'sent',
+        });
+        throw error;
+      }
+    } else {
+      if (detail.status !== 'pending' && detail.status !== 'created')
+        return undefined;
+      await this.addEarnOrder(
+        { ...original, status: tx.status },
+        {
+          remoteSync: 'once',
+          preserveExistingTx: true,
+          recordAttemptId: attemptId,
+          retryLocalFailure: true,
+          guardHistory: 'ethena-unstake',
+        },
+      );
+    }
+    return this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+  }
+
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
     const updatedOrders: {
@@ -2721,32 +3268,44 @@ class ServiceStaking extends ServiceBase {
 
     for (const tx of txs) {
       try {
-        const order =
-          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
-        const shouldUpdate =
-          Boolean(order) &&
-          tx.status !== EDecodedTxStatus.Pending &&
-          order?.status !== tx.status;
-        if (order && shouldUpdate) {
-          const updatedOrder = {
-            ...order,
-            status: tx.status,
-          };
-          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
-          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
-            currentTxId: tx.txId,
-            status: tx.status,
-          });
-          defaultLogger.staking.order.updateOrderStatus({
-            status: tx.status,
-            stakingLabel: updatedOrder.stakingLabel,
-            stakingProtocol: updatedOrder.stakingProtocol,
-            stakingTags: updatedOrder.stakingTags,
-          });
-          updatedOrders.push({
-            tx,
-            order: updatedOrder,
-          });
+        let order = await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(
+          tx.txId,
+        );
+        if (!order) order = await this.recoverMissingEthenaOrder(tx);
+        const attempt = order?.recordAttemptId
+          ? this.earnOrderRecordAttempts.get(order.recordAttemptId)
+          : undefined;
+        if (order && attempt?.guardHistory && attempt.state !== 'synced') {
+          if (await this.recoverGuardedEthenaOrder({ order, tx, attempt }))
+            updatedOrders.push({ tx, order: { ...order, status: tx.status } });
+        } else {
+          const shouldUpdate =
+            Boolean(order) &&
+            tx.status !== EDecodedTxStatus.Pending &&
+            order?.status !== tx.status;
+          if (order && shouldUpdate) {
+            const updatedOrder = {
+              ...order,
+              status: tx.status,
+            };
+            await this.updateEarnOrderStatusToServer({ order: updatedOrder });
+            await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+              {
+                currentTxId: tx.txId,
+                status: tx.status,
+              },
+            );
+            defaultLogger.staking.order.updateOrderStatus({
+              status: tx.status,
+              stakingLabel: updatedOrder.stakingLabel,
+              stakingProtocol: updatedOrder.stakingProtocol,
+              stakingTags: updatedOrder.stakingTags,
+            });
+            updatedOrders.push({
+              tx,
+              order: updatedOrder,
+            });
+          }
         }
       } catch (_e) {
         // ignore error, continue loop
@@ -2776,11 +3335,15 @@ class ServiceStaking extends ServiceBase {
     for (let i = 0; i < maxRetries; i += 1) {
       try {
         const client = await this.getClient(EServiceEndpointEnum.Earn);
-        await client.post('/earn/v1/orders', {
+        const response = await client.post<{
+          data?: { retryable?: boolean };
+        }>('/earn/v1/orders', {
           orderId: order.orderId,
           networkId: order.networkId,
           txId: order.txId,
         });
+        if (maxAttempts === 1 && response?.data?.data?.retryable === true)
+          return { retryable: true };
         return; // Return early on success
       } catch (error) {
         lastError = error;
@@ -2797,13 +3360,35 @@ class ServiceStaking extends ServiceBase {
     currentTxId: string;
     newTxId?: string;
     status: EDecodedTxStatus;
+    expectedOrderId?: string;
+    expectedNetworkId?: string;
+    expectedRecordAttemptId?: string;
   }) {
     const result =
       await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
         params,
       );
     if (!result.success || !result.order) {
-      return;
+      return false;
+    }
+    if (params.expectedRecordAttemptId) {
+      const attempt = this.earnOrderRecordAttempts.get(
+        params.expectedRecordAttemptId,
+      );
+      const identity = JSON.stringify([
+        result.order.networkId,
+        result.order.orderId,
+        result.order.txId,
+      ]);
+      if (
+        attempt?.guardHistory &&
+        attempt.identity === identity &&
+        attempt.state === 'sent'
+      )
+        this.earnOrderRecordAttempts.set(params.expectedRecordAttemptId, {
+          ...attempt,
+          state: 'synced',
+        });
     }
     defaultLogger.staking.order.updateOrderStatusByTxId({
       status: params.status,
@@ -2811,6 +3396,7 @@ class ServiceStaking extends ServiceBase {
       stakingProtocol: result.order.stakingProtocol,
       stakingTags: result.order.stakingTags,
     });
+    return true;
   }
 
   @backgroundMethod()
@@ -3054,8 +3640,10 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBorrowReserves(params: IBorrowReserveRequestParams) {
-    const { accountId, ...rest } =
+  async getBorrowReserves(
+    params: IBorrowReserveRequestParams & { expectedAccountAddress?: string },
+  ) {
+    const { accountId, expectedAccountAddress, ...rest } =
       earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
@@ -3064,6 +3652,14 @@ class ServiceStaking extends ServiceBase {
           accountId,
         })
       : undefined;
+
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId: params.networkId })
+        ? accountAddress?.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Borrow account changed');
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
@@ -3141,6 +3737,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId?: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowReserveDetails(this, params),
@@ -3154,6 +3751,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     action:
       | 'supply'
       | 'withdraw'
@@ -3181,6 +3779,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     amount: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
@@ -3195,6 +3794,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     amount: string;
     withdrawAll?: boolean;
     unwrap?: boolean;
@@ -3211,6 +3811,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     amount: string;
     unwrap?: boolean;
   }) {
@@ -3226,6 +3827,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.borrowBuildApproveDelegationTransaction(this, params),
@@ -3239,6 +3841,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     amount: string;
     repayAll?: boolean;
   }) {
@@ -3258,6 +3861,7 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     repayAll?: boolean;
     slippageBps?: number;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowRepayWithCollateralQuote(this, params),
@@ -3276,6 +3880,7 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     slippageBps?: number;
     routeKey?: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.borrowBuildRepayWithCollateralTransaction(this, params),
@@ -3290,6 +3895,7 @@ class ServiceStaking extends ServiceBase {
     reserveAddress: string;
     collateralReserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.borrowBuildSetupLutTransaction(this, params),
@@ -3302,14 +3908,22 @@ class ServiceStaking extends ServiceBase {
     txId: string;
     maxAttempts?: number;
     intervalMs?: number;
+    requireFinalizedFailure?: boolean;
   }): Promise<'finalized' | 'failed' | 'timeout'> {
-    const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
+    const {
+      networkId,
+      txId,
+      maxAttempts = 40,
+      intervalMs = 3000,
+      requireFinalizedFailure,
+    } = params;
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
 
     return pollSolTxFinalization({
       txId,
       maxAttempts,
       intervalMs,
+      requireFinalizedFailure,
       getSignatureStatuses: async (signatures) => {
         const statuses = await vault.getSignatureStatuses(signatures);
         return statuses?.map((status) =>
@@ -3364,6 +3978,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
       utils.getBorrowHealthFactor(this, params),
@@ -3388,6 +4003,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     targetEModeId: number;
     autoHandleError?: boolean;
   }) {
@@ -3402,6 +4018,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     eModeId: number;
   }) {
     return loadBorrowActionServiceUtils().then((utils) =>
@@ -3415,6 +4032,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     reserveAddress: string;
     useAsCollateral: boolean;
     eModeId?: number;
@@ -3431,6 +4049,7 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     reserveAddress: string;
     accountId: string;
+    expectedAccountAddress?: string;
     action: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'repayWithCollateral';
     amount: string;
     repayAll?: boolean;

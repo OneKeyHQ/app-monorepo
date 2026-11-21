@@ -227,6 +227,7 @@ it.each([
 
 it.each([
   [{ localStatus: 'saved', remoteStatus: 'failed' }, 'remoteUnknown'],
+  [{ localStatus: 'saved', remoteStatus: 'pending' }, 'remoteUnknown'],
   [{ localStatus: 'superseded', remoteStatus: 'skipped' }, 'superseded'],
 ] as const)(
   'retains the outcome %s without another remote request',

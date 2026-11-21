@@ -2132,6 +2132,7 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
+  portfolioAccountScope?: string;
   hasClaimableAssets?: boolean;
   totalFiatValue?: string;
   earnings24h?: string;
@@ -2187,6 +2188,7 @@ export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
   recommendedTokens?: IRecommendAsset[];
+  recommendedTokensScope?: string;
   refreshTrigger?: number;
 }
 
@@ -2378,7 +2380,8 @@ export interface IEarnAirdropInvestmentItemV2 {
         logoURI: string;
       };
     };
-    airdropAssets: {
+    // The airdrop detail classifies its rows the same way (kind, amount, fiatValue)
+    airdropAssets: ({
       title: IEarnText;
       tooltip: IEarnTooltip;
       button: IEarnClaimActionIcon | IEarnListaCheckActionIcon;
@@ -2387,7 +2390,7 @@ export interface IEarnAirdropInvestmentItemV2 {
       swapButton?: IEarnManagePageSwapActions;
       badge?: IEarnBadge;
       key?: string;
-    }[];
+    } & IEarnInvestmentRowFacts)[];
   }[];
   network: {
     networkId: string;
@@ -2581,6 +2584,11 @@ export interface IBuildRegisterSignMessageParams {
 export interface IEarnRegisterSignMessageResponse {
   expiredAt: string;
   message: string;
+  toast?: IEarnToast;
+}
+
+export interface IEarnVerifyRegisterSignMessageResponse {
+  result: boolean;
   toast?: IEarnToast;
 }
 
@@ -2905,6 +2913,8 @@ export interface IBorrowReserveItem {
       walletBalance: IBorrowBalance;
       canBeCollateral: boolean;
       liquidationLtv?: string;
+      /** display text such as "$5.27B"; the server sends no number */
+      reserveSize?: IEarnText;
       supplyButton: IEarnSupplyActionData;
       platformBonusApy?: {
         title: IEarnText;
@@ -2921,6 +2931,9 @@ export interface IBorrowReserveItem {
       categories: string[];
       canBeBorrowed?: boolean;
       available: IBorrowBalance;
+      /** display text such as "$4.18B"; the server sends no number */
+      totalBorrowed?: IEarnText;
+      disabledReason?: IEarnText;
       borrowButton: IEarnBorrowActionData;
       borrowFactor?: string;
       platformBonusApy?: {

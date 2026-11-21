@@ -1,9 +1,12 @@
 import { useCallback, useRef } from 'react';
 
+import { isEqual } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnPermitCache,
@@ -62,6 +65,12 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       availableAssets: IAvailableAsset[],
     ) => {
       const earnData = get(earnAtom());
+      // A refetch usually answers with the list already stored. Writing it
+      // again would hand every reader of the atom a new object and re-render
+      // the Earn pages, and save the same data
+      if (isEqual(earnData.availableAssetsByType?.[type], availableAssets)) {
+        return;
+      }
       this.syncToDb.call(set, {
         availableAssetsByType: {
           ...earnData.availableAssetsByType,
@@ -142,9 +151,32 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   });
 
   removePermitCache = contextAtomMethod(
-    (_, set, keyPayload: IEarnPermitCacheKey) => {
+    (
+      _,
+      set,
+      keyPayload: IEarnPermitCacheKey & {
+        expectedSignature?: string;
+        expectedAccountAddress?: string;
+      },
+    ) => {
       const key = earnUtils.getEarnPermitCacheKey(keyPayload);
       set(earnPermitCacheAtom(), (prev: Record<string, IEarnPermitCache>) => {
+        const current = prev[key];
+        if (
+          keyPayload.expectedSignature !== undefined &&
+          current?.signature !== keyPayload.expectedSignature
+        )
+          return prev;
+        if (keyPayload.expectedAccountAddress !== undefined) {
+          if (!current?.accountAddress) return prev;
+          const same = networkUtils.isEvmNetwork({
+            networkId: keyPayload.networkId,
+          })
+            ? current.accountAddress.toLowerCase() ===
+              keyPayload.expectedAccountAddress.toLowerCase()
+            : current.accountAddress === keyPayload.expectedAccountAddress;
+          if (!same) return prev;
+        }
         const newCache = { ...prev };
         delete newCache[key];
         return newCache;
@@ -192,9 +224,10 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   });
 
   updateRecommendedTokens = contextAtomMethod(
-    (get, set, tokens: IRecommendAsset[]) => {
+    (get, set, tokens: IRecommendAsset[], scope: string) => {
       this.syncToDb.call(set, {
         recommendedTokens: tokens,
+        recommendedTokensScope: scope,
       });
     },
   );

@@ -9,9 +9,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IStepItemProps } from '@onekeyhq/components';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { useEarnEventActive } from '../../hooks/useEarnEventActive';
@@ -95,7 +95,10 @@ export function PeriodSection({
   );
   const isPreStakedUser = details?.preStaked;
 
-  if (!earnUtils.isFalconProvider({ providerName: provider?.name ?? '' })) {
+  if (
+    getEarnProtocol(provider?.name ?? '').getDetailsPeriodSection() !==
+    'falcon-campaign'
+  ) {
     return null;
   }
 

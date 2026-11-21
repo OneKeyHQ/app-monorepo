@@ -121,7 +121,9 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      unsignedTxs?: readonly IUnsignedTxPro[];
     }) => void | Promise<void>;
+    preserveBatchTxIds?: boolean;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
@@ -183,7 +185,9 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      unsignedTxs?: readonly IUnsignedTxPro[];
     }) => void | Promise<void>;
+    preserveBatchTxIds?: boolean;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;

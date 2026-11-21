@@ -3,9 +3,9 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Alert } from '@onekeyhq/components';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { useEtherFiLegacyActionGuard } from '../../hooks/useEtherFiLegacyActionGuard';
 import { UniversalWithdraw } from '../UniversalWithdraw';
@@ -110,7 +110,10 @@ export function EarnWithdrawForm({
   isLegacyApprovalBlocked,
   ...props
 }: IWithdrawProps) {
-  if (earnUtils.isEtherFiProvider({ providerName: props.providerName ?? '' })) {
+  if (
+    getEarnProtocol(props.providerName ?? '').getLegacyApprovalGuardPolicy() ===
+    'etherfi'
+  ) {
     return (
       <EtherFiWithdrawForm
         {...props}

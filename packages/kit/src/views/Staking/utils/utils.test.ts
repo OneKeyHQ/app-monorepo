@@ -5,6 +5,7 @@ import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
   createEarnActionScopeGuard,
+  getTypedAmountValue,
   normalizeEarnActionAmountScope,
   parseBorrowTag,
   resolveEarnStakeRequestSymbol,
@@ -14,6 +15,23 @@ import {
   resolveWrappedStakeAsset,
   validateWrapStake,
 } from './utils';
+
+describe('getTypedAmountValue', () => {
+  it.each([
+    ['1.', '1'],
+    ['1.0', '1'],
+    ['1.50', '1.5'],
+    ['100.00', '100'],
+    ['0.0003', '0.0003'],
+    ['123456789.123456789123', '123456789.123456789123'],
+    ['0.', '0'],
+    ['0.000', '0'],
+    ['', ''],
+    ['.', ''],
+  ])('normalizes %s to %s without changing precision', (input, expected) => {
+    expect(getTypedAmountValue(input)).toBe(expected);
+  });
+});
 
 describe('wrap stake validation', () => {
   it('accepts only a successful current validation', async () => {
@@ -96,7 +114,7 @@ describe('stake submission confirmation', () => {
       resolveStakeSubmissionConfirmation({
         deferredSetupQuote: true,
         isWrapStake: true,
-        isPendleProvider: false,
+        requiresCurrentQuote: false,
         shouldApprove: false,
         confirmation: cached,
         isCurrentConfirmation: false,
@@ -113,7 +131,7 @@ describe('stake submission confirmation', () => {
       resolveStakeSubmissionConfirmation({
         deferredSetupQuote: true,
         isWrapStake: false,
-        isPendleProvider: false,
+        requiresCurrentQuote: false,
         shouldApprove: true,
         confirmation: cached,
         isCurrentConfirmation: true,
@@ -137,13 +155,13 @@ describe('stake submission confirmation', () => {
     await expect(
       resolveStakeSubmissionConfirmation({
         ...options,
-        isPendleProvider: true,
+        requiresCurrentQuote: true,
       }),
     ).resolves.toBe(fresh);
     await expect(
       resolveStakeSubmissionConfirmation({
         ...options,
-        isPendleProvider: false,
+        requiresCurrentQuote: false,
       }),
     ).resolves.toBe(cached);
     expect(fetchConfirmation).toHaveBeenCalledTimes(1);

@@ -24,6 +24,8 @@ import {
   getEtherFiManagedRedeem,
   hasPositionDetailPage,
   holdingRowActionOf,
+  isLoanPositionCard,
+  isPositiveAmountText,
   mergeRewardGroups,
   positionMatured,
   positionPendingTag,
@@ -93,6 +95,24 @@ describe('sumRewardsHeaderFiat', () => {
         positionRewardsValue: 0,
       }),
     ).toBe('0');
+  });
+});
+
+describe('isPositiveAmountText', () => {
+  it('reads a server amount above zero as a gain', () => {
+    expect(isPositiveAmountText('+0.216 USDT')).toBe(true);
+    expect(isPositiveAmountText('1,204.5 USDC')).toBe(true);
+    expect(isPositiveAmountText('< 0.0001 U')).toBe(true);
+    expect(isPositiveAmountText('+< 0.0001 U')).toBe(true);
+  });
+
+  it('reads a loss, a zero or no amount as no gain', () => {
+    expect(isPositiveAmountText('-0.5 USDT')).toBe(false);
+    expect(isPositiveAmountText('< -0.0001 U')).toBe(false);
+    expect(isPositiveAmountText('0 LISTA')).toBe(false);
+    expect(isPositiveAmountText('+0.00 USDT')).toBe(false);
+    expect(isPositiveAmountText('USDT')).toBe(false);
+    expect(isPositiveAmountText('')).toBe(false);
   });
 });
 
@@ -447,6 +467,29 @@ describe('toLedgerClaimAsset', () => {
     });
   });
 
+  it("claims the product's token where the product list names one", () => {
+    const asset = toLedgerClaimAsset({
+      group,
+      item,
+      networkName: 'Ethereum',
+      networkLogoURI: 'e.png',
+      claimSymbol: 'USDT',
+    });
+    expect(asset?.metadata.protocol).toMatchObject({
+      vault: '0xvault',
+      claimSymbol: 'USDT',
+      claimSymbolStatus: 'matched',
+    });
+    const plain = toLedgerClaimAsset({
+      group,
+      item,
+      networkName: 'Ethereum',
+      networkLogoURI: 'e.png',
+    });
+    expect(plain?.metadata.protocol.claimSymbol).toBeUndefined();
+    expect(plain?.metadata.protocol.claimSymbolStatus).toBeUndefined();
+  });
+
   it('yields nothing for a row without a button', () => {
     expect(
       toLedgerClaimAsset({
@@ -687,5 +730,32 @@ describe('canRedeemFromCard', () => {
       }),
     ).toBe(true);
     expect(positionMatured(byId('lido:evm--1:steth'))).toBeUndefined();
+  });
+});
+
+describe('isLoanPositionCard', () => {
+  const translate = (id: ETranslations) => id as string;
+  const { protocols } = buildEarnPortfolioView({
+    response: EARN_PORTFOLIO_POSITIONS_FIXTURE,
+    translate,
+  });
+  const cardOf = (groupId: string) => {
+    const card = protocols
+      .flatMap((protocol) => protocol.positions)
+      .find((position) => position.key === groupId);
+    if (!card) {
+      throw new OneKeyLocalError(`fixture changed: ${groupId} missing`);
+    }
+    return card;
+  };
+
+  it('tells a card that holds a loan', () => {
+    expect(isLoanPositionCard(cardOf('morpho:evm--1:market:weth-usdc'))).toBe(
+      true,
+    );
+  });
+
+  it('leaves a holding without a loan its detail page', () => {
+    expect(isLoanPositionCard(cardOf('everstake:evm--1:eth'))).toBe(false);
   });
 });

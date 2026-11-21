@@ -7,6 +7,7 @@ import type {
   IEarnPortfolioInvestment,
 } from '@onekeyhq/shared/types/staking';
 
+import { applyEarnPortfolioFetchResult } from './earnPortfolioInvestmentMerge';
 import { useEarnPortfolio } from './useEarnPortfolio';
 
 const mockStaking = {
@@ -16,7 +17,10 @@ const mockStaking = {
   fetchInvestmentDetailV2: jest.fn(),
   fetchAirdropInvestmentDetail: jest.fn(),
 };
-const mockCache: Record<string, IEarnPortfolioInvestment[]> = {};
+const mockCache: Record<
+  string,
+  { accountScope: string; investments: IEarnPortfolioInvestment[] }
+> = {};
 const mockSetCache = jest.fn();
 const mockActions = {
   current: { getEarnAccount: jest.fn(), updateEarnAccounts: jest.fn() },
@@ -92,6 +96,48 @@ const assets = ['market-a', 'market-b'].map((vault) => ({
   vault,
   enableBatch: true,
 }));
+
+describe('portfolio normal and airdrop source merging', () => {
+  it.each(['normal-first', 'airdrop-first'] as const)(
+    'preserves the airdrop value when both sources arrive %s',
+    (order) => {
+      const normal: IEarnPortfolioInvestment = {
+        ...investment('vault', '10'),
+        assets: [],
+        airdropAssets: [],
+      };
+      const airdrop: IEarnPortfolioInvestment = {
+        ...normal,
+        totalFiatValue: '0',
+        airdropFiatValue: '5',
+      };
+      const requestMap = new Map<string, IEarnPortfolioInvestment>();
+      const normalKeysUpdatedInSession = new Set<string>();
+      const airdropKeysUpdatedInSession = new Set<string>();
+      const sources =
+        order === 'normal-first'
+          ? [
+              { source: 'normal' as const, investment: normal },
+              { source: 'airdrop' as const, investment: airdrop },
+            ]
+          : [
+              { source: 'airdrop' as const, investment: airdrop },
+              { source: 'normal' as const, investment: normal },
+            ];
+      sources.forEach((result) =>
+        applyEarnPortfolioFetchResult({
+          requestMap,
+          result: { key: 'position', ...result },
+          normalKeysUpdatedInSession,
+          airdropKeysUpdatedInSession,
+          preserveExistingAirdropOnNormalUpdate: true,
+          preserveAirdropOnNormalRemove: true,
+        }),
+      );
+      expect(requestMap.get('position')?.airdropFiatValue).toBe('5');
+    },
+  );
+});
 
 describe('useEarnPortfolio batch refresh', () => {
   beforeEach(() => {
@@ -229,6 +275,41 @@ describe('useEarnPortfolio batch refresh', () => {
     expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
   });
 
+  it('retains a syncing EtherFi vault while updating another vault in the same batch', async () => {
+    const vaults = [
+      '0xAbCd000000000000000000000000000000000001',
+      '0xAbCd000000000000000000000000000000000002',
+    ];
+    mockStaking.getAvailableAssetsV2.mockResolvedValue(
+      vaults.map((vault, index) => ({
+        ...assets[index],
+        provider: 'etherfi',
+        symbol: index ? 'WETH' : 'USDC',
+        vault,
+      })),
+    );
+    const makeItem = (index: number, value: string) => {
+      const item = investment(vaults[index], value);
+      item.protocol.symbol = index ? 'WETH' : 'USDC';
+      item.protocol.providerDetail.code = 'etherfi';
+      return item;
+    };
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [makeItem(0, '10'), makeItem(1, '20')],
+      errors: [],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('30');
+
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [makeItem(0, '0'), makeItem(1, '25')],
+      errors: [],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('35');
+  });
+
   it('clears only the missing EtherFi vault when another vault has an error', async () => {
     const vaults = [
       '0xAbCd000000000000000000000000000000000001',
@@ -345,16 +426,22 @@ describe('useEarnPortfolio batch refresh', () => {
   it('hydrates mixed-case EVM cached vaults and replaces them after a failed refresh', async () => {
     const vault = '0xAbCd000000000000000000000000000000000001';
     const cached = investment(vault, '10');
-    mockCache.account = [
-      {
-        ...cached,
-        airdropAssets: [],
-        assets: cached.assets.map((asset) => ({
-          ...asset,
-          metadata: { protocol: cached.protocol, network: cached.network },
-        })),
-      },
-    ];
+    mockCache.account = {
+      accountScope: JSON.stringify([
+        'account',
+        JSON.stringify(['account', '', '', '', null]),
+      ]),
+      investments: [
+        {
+          ...cached,
+          airdropAssets: [],
+          assets: cached.assets.map((asset) => ({
+            ...asset,
+            metadata: { protocol: cached.protocol, network: cached.network },
+          })),
+        },
+      ],
+    };
     mockStaking.getAvailableAssetsV2.mockResolvedValue([
       { ...assets[0], vault: vault.toLowerCase() },
     ]);

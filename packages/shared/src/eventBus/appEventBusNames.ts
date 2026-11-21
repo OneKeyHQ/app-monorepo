@@ -224,6 +224,7 @@ export enum EAppEventBusNames {
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   EarnServerOrderSettled = 'EarnServerOrderSettled',
+  EarnFundingChanged = 'EarnFundingChanged',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',

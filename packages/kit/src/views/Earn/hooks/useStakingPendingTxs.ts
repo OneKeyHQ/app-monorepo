@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EAppEventBusNames,
@@ -19,7 +18,10 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
+import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
+import { useCommittedEarnScopeGuard } from '../../Staking/hooks/useCommittedEarnScopeGuard';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+import { earnPortfolioAccountScope } from '../utils/portfolioAccountScope';
 
 import { resolveStakingPendingTxAccountOwnership } from './stakingPendingTxAccountOwnership';
 
@@ -45,6 +47,7 @@ const EMPTY_NETWORK_ACCOUNT_RESOLUTION: INetworkAccountResolution = {
   map: {},
   isComplete: false,
 };
+const EMPTY_ACCOUNT_META: Record<string, INetworkAccountMeta> = {};
 
 const ACCOUNTS_ADDED_REFRESH_DELAY_MS = 300;
 
@@ -163,6 +166,25 @@ export const useStakingPendingTxs = ({
   stakeTag?: IStakeTag;
   onRefresh?: () => void;
 }) => {
+  const [accountRevision, setAccountRevision] = useState(0);
+  const revisionRef = useRef(0);
+  const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const onAccountUpdate = (payload: unknown) => {
+      if (shouldInvalidateAccountScopedData(payload)) {
+        revisionRef.current += 1;
+        if (completionTimerRef.current) {
+          clearTimeout(completionTimerRef.current);
+          completionTimerRef.current = null;
+        }
+        setAccountRevision((revision) => revision + 1);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+    };
+  }, []);
   // Stabilize onRefresh callback reference
   const onRefreshRef = useRef(onRefresh);
   useEffect(() => {
@@ -182,27 +204,60 @@ export const useStakingPendingTxs = ({
     { initResult: timerUtils.getTimeDurationMs({ seconds: 30 }) },
   );
 
-  // Fetch pending transactions from local database
-  const { result: txs, run: refreshPendingTxs } = usePromiseResult(
+  const ownerScope = JSON.stringify([accountId, networkId, stakeTag]);
+  const ownerScopeRef = useRef(ownerScope);
+  ownerScopeRef.current = ownerScope;
+  const pendingScope = JSON.stringify([ownerScope, accountRevision]);
+
+  // Keep a pending result bound to the account and network that produced it.
+  const { result: pendingResult, run: refreshPendingTxs } = usePromiseResult<{
+    scope: string;
+    txs: IStakePendingTx[];
+    identity?: string;
+  }>(
     async () => {
       if (!accountId || !stakeTag) {
-        return [];
+        return { scope: pendingScope, txs: [] };
       }
-      return backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
-        accountId,
-        networkId,
-        stakeTag,
-      });
+      const result =
+        await backgroundApiProxy.serviceStaking.fetchLocalStakingHistoryWithAccount(
+          {
+            accountId,
+            networkId,
+            stakeTag,
+          },
+        );
+      return {
+        scope: pendingScope,
+        txs: result.txs,
+        identity: result.accountIdentity,
+      };
     },
-    [accountId, networkId, stakeTag],
+    [accountId, networkId, stakeTag, pendingScope],
     {
-      initResult: [],
+      initResult: { scope: '', txs: [] },
       revalidateOnFocus: true,
     },
   );
 
+  const txs = pendingResult?.scope === pendingScope ? pendingResult.txs : [];
   const isPending = txs.length > 0;
-  const prevIsPending = usePrevious(isPending);
+  const previousPendingRef = useRef<
+    | {
+        ownerScope: string;
+        identity: string;
+        isPending: boolean;
+      }
+    | undefined
+  >(undefined);
+  const completionRef = useRef<
+    | {
+        ownerScope: string;
+        identity: string;
+        deadline: number;
+      }
+    | undefined
+  >(undefined);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
@@ -230,12 +285,60 @@ export const useStakingPendingTxs = ({
 
   // Trigger onRefresh callback when all pending transactions complete
   useEffect(() => {
-    if (!isPending && prevIsPending) {
-      setTimeout(() => {
-        onRefreshRef.current?.();
-      }, STAKING_TX_SETTLE_DELAY_MS);
+    if (completionTimerRef.current) {
+      clearTimeout(completionTimerRef.current);
+      completionTimerRef.current = null;
     }
-  }, [isPending, prevIsPending]);
+    if (completionRef.current?.ownerScope !== ownerScope) {
+      completionRef.current = undefined;
+    }
+    if (previousPendingRef.current?.ownerScope !== ownerScope) {
+      previousPendingRef.current = undefined;
+    }
+    if (pendingResult?.scope !== pendingScope || !pendingResult.identity) {
+      return;
+    }
+    const identity = pendingResult.identity;
+    const previous = previousPendingRef.current;
+    if (completionRef.current?.identity !== identity || isPending) {
+      completionRef.current = undefined;
+    }
+    if (previous?.identity === identity && previous.isPending && !isPending) {
+      completionRef.current = {
+        ownerScope,
+        identity,
+        deadline: Date.now() + STAKING_TX_SETTLE_DELAY_MS,
+      };
+    }
+    previousPendingRef.current = { ownerScope, identity, isPending };
+    const completion = completionRef.current;
+    if (completion) {
+      const revision = revisionRef.current;
+      completionTimerRef.current = setTimeout(
+        () => {
+          completionTimerRef.current = null;
+          if (
+            revisionRef.current === revision &&
+            ownerScopeRef.current === completion.ownerScope &&
+            completionRef.current === completion
+          ) {
+            completionRef.current = undefined;
+            onRefreshRef.current?.();
+          }
+        },
+        Math.max(0, completion.deadline - Date.now()),
+      );
+    }
+  }, [isPending, ownerScope, pendingResult, pendingScope]);
+
+  useEffect(
+    () => () => {
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
+      }
+    },
+    [],
+  );
 
   return {
     pendingCount: txs.length,
@@ -280,8 +383,9 @@ export const useStakingPendingTxsByInfo = ({
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const shouldUseEarnAssets = !tagMatcher;
   const lastVerifiedPendingTxsByTargetRef = useRef<
-    Map<string, IAccountHistoryTx[]>
+    Map<string, { requestId: number; pendingTxs: IAccountHistoryTx[] }>
   >(new Map());
+  const pendingHistoryRequestIdRef = useRef(0);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const [isCompletionRevalidating, setIsCompletionRevalidating] =
@@ -417,10 +521,26 @@ export const useStakingPendingTxsByInfo = ({
     networkIds: effectiveNetworkIds,
   });
 
+  const ownerScope = JSON.stringify([
+    accountId,
+    indexedAccountId,
+    currentNetworkId,
+    [...effectiveNetworkIds].toSorted(),
+    !hasExplicitOwnership || accountId === activeAccountId
+      ? earnPortfolioAccountScope({
+          account,
+          indexedAccountId: activeIndexedAccountId,
+        })
+      : undefined,
+  ]);
+
   // Resolve network-specific accountIds for the selected account owner.
   // Short-circuit to the parent-precomputed union map when present —
   // EarnHome's earn + borrow hook instances share one resolution this way.
-  const networkAccountResult = usePromiseResult<INetworkAccountResolution>(
+  const networkAccountResult = usePromiseResult<{
+    scope: string;
+    resolution: INetworkAccountResolution;
+  }>(
     async () => {
       const sharedMap = hasExplicitOwnership
         ? undefined
@@ -469,7 +589,10 @@ export const useStakingPendingTxsByInfo = ({
           ) {
             subset[currentNetworkId] = accountId;
           }
-          return { map: subset, isComplete: true };
+          return {
+            scope: ownerScope,
+            resolution: { map: subset, isComplete: true },
+          };
         }
       }
 
@@ -486,7 +609,7 @@ export const useStakingPendingTxsByInfo = ({
       if (!indexedAccountId || effectiveNetworkIds.length === 0) {
         // An owner without an indexed account can only ever hold the current
         // network's account, so the map is as complete as it can get.
-        return { map, isComplete: true };
+        return { scope: ownerScope, resolution: { map, isComplete: true } };
       }
 
       let isComplete = true;
@@ -532,10 +655,11 @@ export const useStakingPendingTxsByInfo = ({
         }),
       );
 
-      return { map, isComplete };
+      return { scope: ownerScope, resolution: { map, isComplete } };
     },
     [
       accountId,
+      ownerScope,
       currentNetworkId,
       indexedAccountId,
       effectiveNetworkIds,
@@ -544,15 +668,26 @@ export const useStakingPendingTxsByInfo = ({
       precomputed?.requestedNetworkIds,
       precomputed?.isNetworkAccountMapComplete,
     ],
-    { initResult: EMPTY_NETWORK_ACCOUNT_RESOLUTION, watchLoading: true },
+    {
+      initResult: { scope: '', resolution: EMPTY_NETWORK_ACCOUNT_RESOLUTION },
+      watchLoading: true,
+    },
   );
   const {
-    result: networkAccountResolution,
+    result: scopedNetworkAccountResolution,
     isLoading: networkAccountMapLoading,
     run: refreshNetworkAccountMap,
   } = networkAccountResult;
+  const networkAccountResolution =
+    scopedNetworkAccountResolution.scope === ownerScope
+      ? scopedNetworkAccountResolution.resolution
+      : EMPTY_NETWORK_ACCOUNT_RESOLUTION;
   const networkAccountMap = networkAccountResolution.map;
   const isNetworkAccountMapComplete = networkAccountResolution.isComplete;
+  const accountMetaScope = JSON.stringify([
+    ownerScope,
+    Object.entries(networkAccountMap).toSorted(),
+  ]);
 
   // This is what the retry of an unverified result used to provide by running
   // every few seconds. With `precomputed` the parent listens instead: its new
@@ -600,13 +735,14 @@ export const useStakingPendingTxsByInfo = ({
   // One batched bridge call replaces the prior 2N per-pair fan-out
   // (getAccountXpub + getAccountAddressForApi) — see ServiceAccount
   // .getAccountMetaForNetworksBatch for the contract.
-  const accountMetaResult = usePromiseResult<
-    Record<string, INetworkAccountMeta>
-  >(
+  const accountMetaResult = usePromiseResult<{
+    scope: string;
+    meta: Record<string, INetworkAccountMeta>;
+  }>(
     async () => {
       const entries = Object.entries(networkAccountMap);
       if (entries.length === 0) {
-        return {} as Record<string, INetworkAccountMeta>;
+        return { scope: accountMetaScope, meta: EMPTY_ACCOUNT_META };
       }
 
       // Reuse precomputed parent meta where available so two co-located
@@ -652,24 +788,38 @@ export const useStakingPendingTxsByInfo = ({
         }
       }
 
-      return meta;
+      return { scope: accountMetaScope, meta };
     },
     [
       networkAccountMap,
+      accountMetaScope,
       hasExplicitOwnership,
       precomputed?.accountMetaByNetwork,
     ],
     {
-      initResult: {} as Record<string, INetworkAccountMeta>,
+      initResult: { scope: '', meta: EMPTY_ACCOUNT_META },
       watchLoading: true,
     },
   );
-  const { result: accountMetaByNetwork, isLoading: accountMetaLoading } =
+  const { result: scopedAccountMeta, isLoading: accountMetaLoading } =
     accountMetaResult;
+  const accountMetaByNetwork =
+    scopedAccountMeta.scope === accountMetaScope
+      ? scopedAccountMeta.meta
+      : EMPTY_ACCOUNT_META;
+  const pendingCacheScope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountMetaScope,
+      Object.entries(accountMetaByNetwork).toSorted(),
+    ]),
+  );
 
   // Fetch pending transactions based on stake tags or tag matcher
   const fetchFilteredPendingTxs =
     useCallback(async (): Promise<IFilteredPendingTxsResult> => {
+      pendingHistoryRequestIdRef.current += 1;
+      const requestId = pendingHistoryRequestIdRef.current;
+      const isCacheScopeCurrent = pendingCacheScope.capture();
       if (effectiveNetworkIds.length === 0) {
         return VERIFIED_EMPTY_PENDING_TXS_RESULT;
       }
@@ -759,13 +909,20 @@ export const useStakingPendingTxsByInfo = ({
       const allTxs = txsForTargets.flatMap((result) => {
         const pendingTxs = result.ok
           ? result.pendingTxs
-          : (lastVerifiedPendingTxsByTargetRef.current.get(result.targetKey) ??
-            []);
-        if (result.ok) {
-          lastVerifiedPendingTxsByTargetRef.current.set(
-            result.targetKey,
-            result.pendingTxs,
-          );
+          : (lastVerifiedPendingTxsByTargetRef.current.get(result.targetKey)
+              ?.pendingTxs ?? []);
+        const cached = lastVerifiedPendingTxsByTargetRef.current.get(
+          result.targetKey,
+        );
+        if (
+          result.ok &&
+          isCacheScopeCurrent() &&
+          (!cached || requestId >= cached.requestId)
+        ) {
+          lastVerifiedPendingTxsByTargetRef.current.set(result.targetKey, {
+            requestId,
+            pendingTxs: result.pendingTxs,
+          });
         }
 
         return pendingTxs.filter((tx): tx is IStakePendingTx => {
@@ -797,6 +954,7 @@ export const useStakingPendingTxsByInfo = ({
       hasExplicitOwnership,
       isNetworkAccountMapComplete,
       networkAccountMap,
+      pendingCacheScope,
       stakeTagsByNetwork,
       tagMatcher,
     ]);
@@ -807,16 +965,38 @@ export const useStakingPendingTxsByInfo = ({
     (isFocused: boolean) => isFocused && isActive,
     [isActive],
   );
+  const pendingScopeKey = JSON.stringify([
+    accountMetaScope,
+    Object.entries(accountMetaByNetwork).toSorted(),
+  ]);
+  const pendingScope = useMemo(
+    () => ({ key: pendingScopeKey, filter, tagMatcher }),
+    [pendingScopeKey, filter, tagMatcher],
+  );
   const {
-    result: pendingTxsResult,
+    result: scopedPendingTxsResult,
     run: refreshPendingTxs,
     isLoading: filteredTxsLoading,
-  } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
-    initResult: UNVERIFIED_PENDING_TXS_RESULT,
-    revalidateOnFocus,
-    overrideIsFocused,
-    watchLoading: true,
-  });
+  } = usePromiseResult<{
+    scope: typeof pendingScope | undefined;
+    result: IFilteredPendingTxsResult;
+  }>(
+    async () => ({
+      scope: pendingScope,
+      result: await fetchFilteredPendingTxs(),
+    }),
+    [fetchFilteredPendingTxs, pendingScope],
+    {
+      initResult: { scope: undefined, result: UNVERIFIED_PENDING_TXS_RESULT },
+      revalidateOnFocus,
+      overrideIsFocused,
+      watchLoading: true,
+    },
+  );
+  const pendingTxsResult =
+    scopedPendingTxsResult.scope === pendingScope
+      ? scopedPendingTxsResult.result
+      : UNVERIFIED_PENDING_TXS_RESULT;
   const {
     filteredTxs,
     isPendingHistoryVerified,
@@ -829,7 +1009,7 @@ export const useStakingPendingTxsByInfo = ({
   networkAccountMapRef.current = networkAccountMap;
 
   const isPending = filteredTxs.length > 0;
-  const prevIsPending = usePrevious(isPending);
+  const previousPendingRef = useRef({ scope: pendingScope, isPending: false });
   const prevPendingCountRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -840,18 +1020,26 @@ export const useStakingPendingTxsByInfo = ({
   }, [filteredTxs.length]);
 
   useEffect(() => {
-    if (!isPending) {
+    const previous = previousPendingRef.current;
+    const scopeChanged = previous.scope !== pendingScope;
+    if (scopeChanged || isPending) {
+      completionRefreshGenerationRef.current += 1;
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      setIsCompletionRevalidating(false);
+    }
+    if (scopeChanged) {
+      previousPendingRef.current = { scope: pendingScope, isPending: false };
+    }
+    if (isPending) {
+      previousPendingRef.current = { scope: pendingScope, isPending: true };
       return;
     }
-    completionRefreshGenerationRef.current += 1;
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-      refreshTimeoutRef.current = null;
-    }
-  }, [isPending]);
-
-  useEffect(() => {
-    if (!isPending && prevIsPending) {
+    if (!isPendingHistoryVerified) return;
+    previousPendingRef.current = { scope: pendingScope, isPending };
+    if (!scopeChanged && !isPending && previous.isPending) {
       completionRefreshGenerationRef.current += 1;
       const attempt = completionRefreshGenerationRef.current;
       let ownedTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -882,7 +1070,7 @@ export const useStakingPendingTxsByInfo = ({
         void refreshAfterPending();
       }
     }
-  }, [isPending, prevIsPending, onRefreshDelayMs]);
+  }, [isPending, isPendingHistoryVerified, onRefreshDelayMs, pendingScope]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -962,7 +1150,10 @@ export const useStakingPendingTxsByInfo = ({
       networkAccountMapLoading !== false ||
       accountMetaLoading !== false ||
       filteredTxsLoading !== false ||
-      (!isPending && !!prevIsPending) ||
+      (previousPendingRef.current.scope === pendingScope &&
+        previousPendingRef.current.isPending &&
+        !isPending &&
+        isPendingHistoryVerified) ||
       isCompletionRevalidating,
     refreshPending: refreshPendingWithHistory,
   };
@@ -1027,75 +1218,100 @@ export const useEarnPendingTxsSharedMeta = ({
     const cleanedExtras = stableExtraKey ? stableExtraKey.split('|') : [];
     return [...new Set([...derivedNetworkIds, ...cleanedExtras])];
   }, [derivedNetworkIds, stableExtraKey]);
+  const ownerScope = JSON.stringify([
+    accountId,
+    indexedAccount?.id,
+    currentNetworkId,
+    [...unionNetworkIds].toSorted(),
+    earnPortfolioAccountScope({
+      account,
+      indexedAccountId: indexedAccount?.id,
+    }),
+  ]);
 
   // Resolve account-per-network for the union. Mirrors the in-hook
   // resolver — kept aligned so subset short-circuits in
   // useStakingPendingTxsByInfo are byte-identical to a per-instance run.
-  const networkAccountResolutionRequest =
-    usePromiseResult<INetworkAccountResolution>(
-      async () => {
-        const map: Record<string, string> = {};
+  const networkAccountResolutionRequest = usePromiseResult<{
+    scope: string;
+    resolution: INetworkAccountResolution;
+  }>(
+    async () => {
+      const map: Record<string, string> = {};
 
-        if (
-          accountId &&
-          currentNetworkId &&
-          unionNetworkIds.includes(currentNetworkId)
-        ) {
-          map[currentNetworkId] = accountId;
-        }
+      if (
+        accountId &&
+        currentNetworkId &&
+        unionNetworkIds.includes(currentNetworkId)
+      ) {
+        map[currentNetworkId] = accountId;
+      }
 
-        if (!indexedAccount?.id || unionNetworkIds.length === 0) {
-          return { map, isComplete: true };
-        }
+      if (!indexedAccount?.id || unionNetworkIds.length === 0) {
+        return { scope: ownerScope, resolution: { map, isComplete: true } };
+      }
 
-        let isComplete = true;
-        try {
-          const accounts =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-              {
-                indexedAccountId: indexedAccount.id,
-                networkIds: unionNetworkIds,
-              },
-            );
-          accounts.forEach(({ network, account: networkAccount }) => {
-            if (network?.id && networkAccount?.id) {
-              map[network.id] = networkAccount.id;
-            }
-          });
-        } catch {
-          // Best-effort; the completeness flag makes instances fall back to
-          // their own resolution instead of reading absence as "no account".
-          isComplete = false;
-        }
+      let isComplete = true;
+      try {
+        const accounts =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+            {
+              indexedAccountId: indexedAccount.id,
+              networkIds: unionNetworkIds,
+            },
+          );
+        accounts.forEach(({ network, account: networkAccount }) => {
+          if (network?.id && networkAccount?.id) {
+            map[network.id] = networkAccount.id;
+          }
+        });
+      } catch {
+        // Best-effort; the completeness flag makes instances fall back to
+        // their own resolution instead of reading absence as "no account".
+        isComplete = false;
+      }
 
-        await Promise.all(
-          Object.keys(map).map(async (netId) => {
-            if (networkUtils.isBTCNetwork(netId)) {
-              try {
-                const earnAccount =
-                  await backgroundApiProxy.serviceStaking.getEarnAccount({
-                    accountId: map[netId],
-                    networkId: netId,
-                    indexedAccountId: indexedAccount.id,
-                    btcOnlyTaproot: true,
-                  });
-                if (earnAccount?.accountId) {
-                  map[netId] = earnAccount.accountId;
-                }
-              } catch {
-                // Keep existing account if taproot resolution fails
+      await Promise.all(
+        Object.keys(map).map(async (netId) => {
+          if (networkUtils.isBTCNetwork(netId)) {
+            try {
+              const earnAccount =
+                await backgroundApiProxy.serviceStaking.getEarnAccount({
+                  accountId: map[netId],
+                  networkId: netId,
+                  indexedAccountId: indexedAccount.id,
+                  btcOnlyTaproot: true,
+                });
+              if (earnAccount?.accountId) {
+                map[netId] = earnAccount.accountId;
               }
+            } catch {
+              // Keep existing account if taproot resolution fails
             }
-          }),
-        );
+          }
+        }),
+      );
 
-        return { map, isComplete };
-      },
-      [accountId, currentNetworkId, indexedAccount?.id, unionNetworkIds],
-      { initResult: EMPTY_NETWORK_ACCOUNT_RESOLUTION },
-    );
-  const networkAccountResolution = networkAccountResolutionRequest.result;
+      return { scope: ownerScope, resolution: { map, isComplete } };
+    },
+    [
+      accountId,
+      currentNetworkId,
+      indexedAccount?.id,
+      unionNetworkIds,
+      ownerScope,
+    ],
+    { initResult: { scope: '', resolution: EMPTY_NETWORK_ACCOUNT_RESOLUTION } },
+  );
+  const networkAccountResolution =
+    networkAccountResolutionRequest.result.scope === ownerScope
+      ? networkAccountResolutionRequest.result.resolution
+      : EMPTY_NETWORK_ACCOUNT_RESOLUTION;
   const networkAccountMap = networkAccountResolution.map;
+  const accountMetaScope = JSON.stringify([
+    ownerScope,
+    Object.entries(networkAccountMap).toSorted(),
+  ]);
 
   // Instances short-circuit to this map, so their own refresh cannot notice a
   // new account: this is the resolution that has to run again.
@@ -1105,13 +1321,14 @@ export const useEarnPendingTxsSharedMeta = ({
     indexedAccountId: indexedAccount?.id,
   });
 
-  const { result: accountMetaByNetwork } = usePromiseResult<
-    Record<string, INetworkAccountMeta>
-  >(
+  const { result: scopedAccountMeta } = usePromiseResult<{
+    scope: string;
+    meta: Record<string, INetworkAccountMeta>;
+  }>(
     async () => {
       const entries = Object.entries(networkAccountMap);
       if (entries.length === 0) {
-        return {} as Record<string, INetworkAccountMeta>;
+        return { scope: accountMetaScope, meta: EMPTY_ACCOUNT_META };
       }
       const pairs = entries.map(([networkId, accountForNetwork]) => ({
         accountId: accountForNetwork,
@@ -1132,11 +1349,15 @@ export const useEarnPendingTxsSharedMeta = ({
           };
         }
       }
-      return meta;
+      return { scope: accountMetaScope, meta };
     },
-    [networkAccountMap],
-    { initResult: {} as Record<string, INetworkAccountMeta> },
+    [networkAccountMap, accountMetaScope],
+    { initResult: { scope: '', meta: EMPTY_ACCOUNT_META } },
   );
+  const accountMetaByNetwork =
+    scopedAccountMeta.scope === accountMetaScope
+      ? scopedAccountMeta.meta
+      : EMPTY_ACCOUNT_META;
 
   const { result: pollingIntervalsByNetwork } = usePromiseResult<
     Record<string, number>

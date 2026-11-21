@@ -186,6 +186,7 @@ export function AdaManageContent({
         provider,
         amount: '0',
         protocolVault: vault,
+        taskAccountAddress: earnAccount?.accountAddress || undefined,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
@@ -254,6 +255,7 @@ export function AdaManageContent({
         provider,
         amount: holdingsAmount || '0',
         protocolVault: vault,
+        taskAccountAddress: earnAccount?.accountAddress || undefined,
         withdrawAll: false,
         stakingInfo: {
           label: EEarnLabels.Withdraw,

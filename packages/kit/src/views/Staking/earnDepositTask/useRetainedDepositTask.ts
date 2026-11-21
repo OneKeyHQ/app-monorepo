@@ -1,48 +1,26 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { isTaskAccountCurrent } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { useCommittedEarnScopeGuard } from '../hooks/useCommittedEarnScopeGuard';
 
 import {
   canDiscardDetachedSetup,
   discardDetachedSetup,
-  finishRetainedRecording,
-  hasRecording,
 } from './finishRetainedRecording';
 import { depositTaskRegistry } from './registry';
-import { isTaskAccountCurrent } from './taskAccount';
-import { normalizeTaskAccountAddress } from './taskAddress';
 
 import type { IDepositTask, IDepositTaskState } from './state';
+
+export { getDepositTaskOwnerKey } from './registry';
 
 export type IRetainedDepositTask = {
   task: IDepositTask;
   state: IDepositTaskState;
   token: symbol;
 };
-
-export function getDepositTaskOwnerKey({
-  accountId,
-  accountAddress,
-  networkId,
-  provider,
-  vault,
-}: {
-  accountId: string;
-  accountAddress?: string;
-  networkId: string;
-  provider?: string;
-  vault?: string;
-}) {
-  return JSON.stringify([
-    accountId,
-    normalizeTaskAccountAddress(networkId, accountAddress),
-    networkId,
-    provider?.toLowerCase(),
-    normalizeTaskAccountAddress(networkId, vault),
-  ]);
-}
 
 export function useRetainedDepositTask(
   ownerKey: string,
@@ -72,88 +50,85 @@ export function useRetainedDepositTask(
     let active = true;
     let validated = false;
     let finishing: IDepositTask | undefined;
-    const isCurrentOwner = ownerGuard.capture();
+    const isOwnerCurrent = ownerGuard.capture();
     const publish = () => {
-      if (!active) return;
+      if (!active || !isOwnerCurrent()) return;
       if (depositTaskRegistry.find(seed.ownerKey) !== entry) {
-        finishing = undefined;
         setResult({ seed, status: 'none' });
       } else if (validated) {
         const task = entry.state.getTask();
         const deposit = task.steps.at(-1);
-        const recording = task.recording;
-        if (entry.detached && canDiscardDetachedSetup(task)) {
+        if (
+          entry.detached &&
+          earnUtils.isEtherFiProvider({
+            providerName: task.identity.provider,
+          }) &&
+          canDiscardDetachedSetup(task)
+        ) {
           if (finishing === task) return;
           finishing = task;
           setResult({ seed, status: 'checking' });
           void discardDetachedSetup({
             ownerKey: seed.ownerKey,
             task,
-            canDiscard: () =>
-              active &&
-              isCurrentOwner() &&
-              validated &&
-              finishing === task &&
-              entry.state.getTask() === task,
-          })
-            .catch(() => false)
-            .then((discarded) => {
-              if (!active || finishing !== task) return;
-              finishing = undefined;
-              if (
-                !discarded &&
-                depositTaskRegistry.find(seed.ownerKey) === entry
-              ) {
-                setResult({
-                  seed,
-                  status: 'ready',
-                  value: {
-                    state: entry.state,
-                    task: entry.state.getTask(),
-                    token: entry.token,
-                  },
-                });
+            canDiscard: () => active && isOwnerCurrent() && finishing === task,
+          }).then((discarded) => {
+            if (!active || !isOwnerCurrent() || finishing !== task) return;
+            finishing = undefined;
+            if (discarded) {
+              try {
+                onFinishedRef.current?.();
+              } catch (error) {
+                errorToastUtils.showToastOfError(error);
               }
-            });
+            } else if (depositTaskRegistry.find(seed.ownerKey) === entry) {
+              setResult({
+                seed,
+                status: 'ready',
+                value: {
+                  state: entry.state,
+                  task: entry.state.getTask(),
+                  token: entry.token,
+                },
+              });
+            }
+          });
           return;
         }
-        // A recorded deposit no longer needs to occupy the recovery form, even
-        // while the transaction is still pending on chain.
         if (
-          hasRecording(task) &&
-          deposit?.attemptId &&
-          recording?.txid &&
-          recording.status === 'succeeded'
+          entry.detached &&
+          earnUtils.isEtherFiProvider({
+            providerName: task.identity.provider,
+          }) &&
+          deposit?.kind === 'deposit' &&
+          (deposit.status.type === 'handedOff' ||
+            (deposit.status.type === 'unknown' &&
+              !deposit.status.txidConflict)) &&
+          deposit.attemptId &&
+          task.recording?.status === 'succeeded' &&
+          task.recording.txid === deposit.status.txid
         ) {
           if (finishing === task) return;
           finishing = task;
           setResult({ seed, status: 'checking' });
-          void finishRetainedRecording({
-            ownerKey: seed.ownerKey,
-            taskId: task.taskId,
-            txid: recording.txid,
-            canFinish: () =>
-              active &&
-              isCurrentOwner() &&
-              validated &&
-              finishing === task &&
-              entry.state.getTask() === task,
-          })
+          void isTaskAccountCurrent(task.identity)
             .catch(() => false)
-            .then((finished) => {
-              if (finished) {
-                if (active && isCurrentOwner()) {
-                  try {
-                    onFinishedRef.current?.();
-                  } catch (error) {
-                    errorToastUtils.showToastOfError(error);
-                  }
-                }
-                return;
-              }
-              if (!active || finishing !== task) return;
+            .then((matches) => {
+              if (!active || !isOwnerCurrent() || finishing !== task) return;
               finishing = undefined;
-              if (depositTaskRegistry.find(seed.ownerKey) === entry) {
+              if (
+                matches &&
+                depositTaskRegistry.find(seed.ownerKey) === entry &&
+                entry.detached &&
+                entry.state.getTask() === task &&
+                depositTaskRegistry.release(seed.ownerKey, entry.token)
+              ) {
+                try {
+                  onFinishedRef.current?.();
+                } catch (error) {
+                  errorToastUtils.showToastOfError(error);
+                }
+              } else if (depositTaskRegistry.find(seed.ownerKey) === entry) {
                 setResult({
                   seed,
                   status: 'ready',
@@ -183,7 +158,7 @@ export function useRetainedDepositTask(
     const unsubscribe = depositTaskRegistry.subscribe(publish);
     void isTaskAccountCurrent(entry.state.getTask().identity)
       .then((matches) => {
-        if (!active) return;
+        if (!active || !isOwnerCurrent()) return;
         if (!matches) {
           setResult({ seed, status: 'unavailable' });
           return;
@@ -192,7 +167,8 @@ export function useRetainedDepositTask(
         publish();
       })
       .catch(() => {
-        if (active) setResult({ seed, status: 'unavailable' });
+        if (active && isOwnerCurrent())
+          setResult({ seed, status: 'unavailable' });
       });
     return () => {
       active = false;

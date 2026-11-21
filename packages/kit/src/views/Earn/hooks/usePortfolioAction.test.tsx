@@ -21,18 +21,12 @@ const mockWithdrawAccount = jest.fn<void, [IAccountParams]>();
 const mockClaim = jest.fn();
 const mockSignMessage = jest.fn();
 const mockShowKyc = jest.fn<void, [unknown]>();
-const mockGetEarnAccount = jest.fn<Promise<{ accountId: string }>, [unknown]>();
-const mockEarnAccount = {
-  accountId: 'earn-account',
-  networkId: 'evm--1',
-  accountAddress: '0xowner',
-};
+const mockGetEarnAccount = jest.fn<
+  Promise<{ accountId: string } | null>,
+  [unknown]
+>();
+const mockEarnAccount = { accountId: 'earn-account' };
 const mockPushModal = jest.fn();
-
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
-jest.mock('@onekeyhq/components', () => ({ Toast: { error: jest.fn() } }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -49,11 +43,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (_method: unknown, deps: unknown[]) => ({
-    result: { scope: deps[0], account: mockEarnAccount },
-  }),
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
+
+jest.mock('@onekeyhq/components', () => {
+  const { useDeferredPromise } = jest.requireActual(
+    '../../../../../components/src/hooks/useDeferredPromise',
+  );
+  return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
+  };
+});
 
 jest.mock('../../Staking/hooks/useUniversalHooks', () => ({
   useUniversalWithdraw: (input: IAccountParams) => {
@@ -108,12 +112,19 @@ describe('usePortfolioAction cancel withdrawal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWithdraw.mockReset().mockResolvedValue(true);
+    mockGetEarnAccount.mockReset().mockResolvedValue(mockEarnAccount);
   });
 
   it('opens a cancellation request picker for an aggregated action without building a transaction', async () => {
     const onSuccess = jest.fn(async () => undefined);
     const { result } = renderHook(() =>
       usePortfolioAction({ ...params, onSuccess }),
+    );
+    await waitFor(() =>
+      expect(mockWithdrawAccount).toHaveBeenLastCalledWith({
+        accountId: 'earn-account',
+        networkId: params.networkId,
+      }),
     );
 
     await act(async () =>
@@ -139,11 +150,180 @@ describe('usePortfolioAction cancel withdrawal', () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
+  it('uses only the current account while a new account resolves', async () => {
+    const nextAccount = deferred<{ accountId: string }>();
+    mockGetEarnAccount
+      .mockResolvedValueOnce({ accountId: 'earn-account-a' })
+      .mockReturnValueOnce(nextAccount.promise);
+    const { result, rerender } = renderHook(
+      (value: typeof params) => usePortfolioAction(value),
+      { initialProps: { ...params, accountId: 'account-a' } },
+    );
+    await waitFor(() =>
+      expect(mockWithdrawAccount).toHaveBeenLastCalledWith({
+        accountId: 'earn-account-a',
+        networkId: params.networkId,
+      }),
+    );
+
+    rerender({ ...params, accountId: 'account-b' });
+    expect(result.current.loading).toBe(true);
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    await act(async () => nextAccount.resolve({ accountId: 'earn-account-b' }));
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenLastCalledWith(
+      EModalRoutes.StakingModal,
+      expect.objectContaining({
+        params: expect.objectContaining({ accountId: 'earn-account-b' }),
+      }),
+    );
+  });
+
+  it('ignores a late result from a previous account', async () => {
+    const previousAccount = deferred<{ accountId: string }>();
+    mockGetEarnAccount
+      .mockReturnValueOnce(previousAccount.promise)
+      .mockResolvedValueOnce({ accountId: 'earn-account-b' });
+    const { result, rerender } = renderHook(
+      (value: typeof params) => usePortfolioAction(value),
+      { initialProps: { ...params, accountId: 'account-a' } },
+    );
+    rerender({ ...params, accountId: 'account-b' });
+    await waitFor(() =>
+      expect(mockWithdrawAccount).toHaveBeenLastCalledWith({
+        accountId: 'earn-account-b',
+        networkId: params.networkId,
+      }),
+    );
+    await act(async () =>
+      previousAccount.resolve({ accountId: 'earn-account-a' }),
+    );
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenLastCalledWith(
+      EModalRoutes.StakingModal,
+      expect.objectContaining({
+        params: expect.objectContaining({ accountId: 'earn-account-b' }),
+      }),
+    );
+  });
+
+  it('waits for the network account when only an indexed account is present', async () => {
+    const networkAccount = deferred<{ accountId: string }>();
+    mockGetEarnAccount.mockReturnValueOnce(networkAccount.promise);
+    const { result } = renderHook(() =>
+      usePortfolioAction({
+        ...params,
+        accountId: '',
+        indexedAccountId: 'indexed-account',
+      }),
+    );
+    expect(result.current.loading).toBe(true);
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    await act(async () =>
+      networkAccount.resolve({ accountId: 'network-account' }),
+    );
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenLastCalledWith(
+      EModalRoutes.StakingModal,
+      expect.objectContaining({
+        params: expect.objectContaining({ accountId: 'network-account' }),
+      }),
+    );
+  });
+
+  it('allows retrying a missing account instead of using an unverified fallback', async () => {
+    mockGetEarnAccount.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => usePortfolioAction(params));
+    await waitFor(() =>
+      expect(result.current.accountResolutionFailed).toBe(true),
+    );
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    mockGetEarnAccount.mockResolvedValueOnce({ accountId: 'resolved-account' });
+    await act(async () => result.current.retryAccount());
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenLastCalledWith(
+      EModalRoutes.StakingModal,
+      expect.objectContaining({
+        params: expect.objectContaining({ accountId: 'resolved-account' }),
+      }),
+    );
+  });
+
+  it('reports a resolution error and lets the user retry', async () => {
+    mockGetEarnAccount.mockRejectedValueOnce(
+      new Error('account lookup failed'),
+    );
+    const { result } = renderHook(() => usePortfolioAction(params));
+    await waitFor(() =>
+      expect(result.current.accountResolutionFailed).toBe(true),
+    );
+    expect(result.current.loading).toBe(false);
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    const retry = deferred<{ accountId: string }>();
+    mockGetEarnAccount.mockReturnValueOnce(retry.promise);
+    act(() => {
+      void result.current.retryAccount();
+    });
+    expect(result.current.loading).toBe(true);
+    await act(async () => retry.resolve({ accountId: 'recovered-account' }));
+    expect(result.current.accountResolutionFailed).toBe(false);
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenLastCalledWith(
+      EModalRoutes.StakingModal,
+      expect.objectContaining({
+        params: expect.objectContaining({ accountId: 'recovered-account' }),
+      }),
+    );
+  });
+
+  it('does not start an action when indexed-only account resolution returns no account', async () => {
+    mockGetEarnAccount.mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      usePortfolioAction({
+        ...params,
+        accountId: '',
+        indexedAccountId: 'indexed-account',
+      }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
+  });
+
   it('uses the current protocol vault after switching vaults', async () => {
     const { result, rerender } = renderHook(
       (value: typeof params) => usePortfolioAction(value),
       { initialProps: params },
     );
+    await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () =>
       result.current.handleAction({ actionIcon: cancelAction() }),
     );
@@ -167,6 +347,7 @@ describe('usePortfolioAction cancel withdrawal', () => {
       const { result } = renderHook(() =>
         usePortfolioAction({ ...params, provider, symbol: 'USDT' }),
       );
+      await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
         result.current.handleAction({ actionIcon: cancelAction() });
@@ -193,6 +374,7 @@ describe('usePortfolioAction cancel withdrawal', () => {
     const { result } = renderHook(() =>
       usePortfolioAction({ ...params, provider: 'Native' }),
     );
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
       result.current.handleAction({
@@ -211,6 +393,7 @@ describe('usePortfolioAction cancel withdrawal', () => {
     const { result } = renderHook(() =>
       usePortfolioAction({ ...params, provider: 'Native', onSuccess }),
     );
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.handleAction({

@@ -6,11 +6,24 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
-import { ClaimableRewardRow } from './ClaimableRewardRow';
+import {
+  ClaimableRewardRow,
+  RewardTableHeader,
+  rewardTableColumns,
+} from './ClaimableRewardRow';
 import { GroupRow } from './GroupRow';
-import { LedgerRewardCard } from './LedgerRewardCard';
+import {
+  LedgerRewardCard,
+  LedgerRewardTableHeader,
+  ledgerRewardTableColumns,
+  ledgerTimeOf,
+} from './LedgerRewardCard';
 import { mergeRewardGroups } from './myPortfolio.utils';
-import { RewardsGroupTotal } from './RewardsClaimableList';
+import { usePortfolioTableLayout } from './portfolioTableLayout';
+import {
+  REWARD_ROWS_BOX_PROPS,
+  RewardsGroupTotal,
+} from './RewardsClaimableList';
 
 import type { IEarnPositionRewardGroup } from './earnPositionModel';
 import type { IGroupExpansion } from './GroupRow';
@@ -40,6 +53,7 @@ export function RewardsPendingList({
   emptyTitle: string;
   expansion: IGroupExpansion;
 }) {
+  const isTableLayout = usePortfolioTableLayout();
   const groups = useMemo(
     () => mergeRewardGroups({ positionGroups, ledgerGroups }),
     [positionGroups, ledgerGroups],
@@ -58,65 +72,93 @@ export function RewardsPendingList({
 
   return (
     <YStack gap="$4">
-      {groups.map((group) => (
-        <GroupRow
-          key={group.key}
-          name={group.name}
-          logoURI={group.logoURI}
-          networkId={group.networkId}
-          expanded={expansion.isExpanded(group.key)}
-          onToggle={() => expansion.toggle(group.key)}
-          total={<RewardsGroupTotal group={group} />}
-        >
-          {group.positionRows.length > 0 ? (
-            <YStack
-              px="$3"
-              py="$1"
-              borderRadius="$3"
-              borderWidth="$px"
-              borderColor="$borderSubdued"
-              bg="$bg"
-            >
-              {group.positionRows.map((row) => (
-                <ClaimableRewardRow
-                  key={row.key}
-                  networkId={row.position.source.networkId}
-                  logoURI={row.asset.meta?.logoUrl}
-                  title={
-                    <NumberSizeableTextWrapper
-                      hideValue
-                      size="$bodyMdMedium"
-                      formatter="balance"
-                      formatterOptions={{ tokenSymbol: row.asset.symbol }}
-                      numberOfLines={1}
-                    >
-                      {row.asset.amount}
-                    </NumberSizeableTextWrapper>
-                  }
-                  subtitle={row.position.name}
-                  fiatValue={
-                    isProtocolAssetValueUnavailable(row.asset)
-                      ? undefined
-                      : row.asset.value
-                  }
-                  action={
-                    row.asset.tooltip ? (
-                      <EarnTooltip tooltip={row.asset.tooltip} />
-                    ) : null
-                  }
+      {groups.map((group) => {
+        // A reward's explanation sits where a row's action goes
+        const columns = isTableLayout
+          ? rewardTableColumns(
+              group.positionRows.some((row) => Boolean(row.asset.tooltip)),
+            )
+          : undefined;
+        const ledgerColumns = isTableLayout
+          ? ledgerRewardTableColumns(group.ledgerItems.map(({ item }) => item))
+          : undefined;
+        return (
+          <GroupRow
+            key={group.key}
+            name={group.name}
+            logoURI={group.logoURI}
+            networkId={group.networkId}
+            expanded={expansion.isExpanded(group.key)}
+            onToggle={() => expansion.toggle(group.key)}
+            total={<RewardsGroupTotal group={group} />}
+          >
+            {group.positionRows.length > 0 ? (
+              <YStack {...(isTableLayout ? {} : REWARD_ROWS_BOX_PROPS)}>
+                {columns ? <RewardTableHeader columns={columns} /> : null}
+                {group.positionRows.map((row) => (
+                  <ClaimableRewardRow
+                    key={row.key}
+                    columns={columns}
+                    networkId={row.position.source.networkId}
+                    logoURI={row.asset.meta?.logoUrl}
+                    title={
+                      <NumberSizeableTextWrapper
+                        hideValue
+                        size="$bodyMdMedium"
+                        formatter="balance"
+                        formatterOptions={{ tokenSymbol: row.asset.symbol }}
+                        numberOfLines={1}
+                      >
+                        {row.asset.amount}
+                      </NumberSizeableTextWrapper>
+                    }
+                    subtitle={row.position.name}
+                    fiatValue={
+                      isProtocolAssetValueUnavailable(row.asset)
+                        ? undefined
+                        : row.asset.value
+                    }
+                    action={
+                      row.asset.tooltip ? (
+                        <EarnTooltip tooltip={row.asset.tooltip} />
+                      ) : null
+                    }
+                  />
+                ))}
+              </YStack>
+            ) : null}
+            {ledgerColumns && group.ledgerItems.length > 0 ? (
+              <YStack>
+                <LedgerRewardTableHeader
+                  stage="pending"
+                  hasTime={group.ledgerItems.some(({ item }) =>
+                    Boolean(ledgerTimeOf(item)),
+                  )}
+                  columns={ledgerColumns}
                 />
-              ))}
-            </YStack>
-          ) : null}
-          {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => (
-            <LedgerRewardCard
-              key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
-              item={item}
-              group={ledgerGroup}
-            />
-          ))}
-        </GroupRow>
-      ))}
+                {group.ledgerItems.map(
+                  ({ group: ledgerGroup, item }, index) => (
+                    <LedgerRewardCard
+                      key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
+                      item={item}
+                      group={ledgerGroup}
+                      columns={ledgerColumns}
+                    />
+                  ),
+                )}
+              </YStack>
+            ) : (
+              group.ledgerItems.map(({ group: ledgerGroup, item }, index) => (
+                <LedgerRewardCard
+                  key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
+                  item={item}
+                  group={ledgerGroup}
+                />
+              ))
+            )}
+          </GroupRow>
+        );
+      })}
     </YStack>
   );
 }

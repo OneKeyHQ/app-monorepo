@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 
-import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import {
+  isTaskAccountAddress,
+  isTaskAccountCurrent,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -15,6 +19,8 @@ export function useEarnSignMessageWithoutVerify() {
       amount,
       action,
       identity,
+      expectedAccountAddress,
+      isCurrent,
     }: {
       networkId: string;
       accountId: string;
@@ -26,11 +32,29 @@ export function useEarnSignMessageWithoutVerify() {
       amount?: string;
       // unstake: identity required
       identity?: string;
+      expectedAccountAddress?: string;
+      isCurrent?: () => boolean;
     }) => {
+      const ensureCurrent = () => {
+        if (isCurrent && !isCurrent())
+          throw new OneKeyLocalError('Task intent changed before signing');
+      };
+      ensureCurrent();
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
         networkId,
       });
+      ensureCurrent();
+      if (
+        expectedAccountAddress !== undefined &&
+        (!expectedAccountAddress ||
+          !isTaskAccountAddress(
+            { networkId, accountAddress: expectedAccountAddress },
+            account.address,
+          ))
+      ) {
+        throw new OneKeyLocalError('Task account changed before signing');
+      }
 
       const unsignedMessage =
         await backgroundApiProxy.serviceStaking.buildRegisterSignMessageData({
@@ -42,12 +66,28 @@ export function useEarnSignMessageWithoutVerify() {
           action,
           identity,
         });
+      ensureCurrent();
 
-      let message = autoFixPersonalSignMessage({
+      const { autoFixPersonalSignMessage } =
+        await import('@onekeyhq/shared/src/utils/messageUtils');
+      ensureCurrent();
+      const fixedMessage = autoFixPersonalSignMessage({
         message: unsignedMessage.message,
       });
-      message = `0x${Buffer.from(message, 'utf8').toString('hex')}`;
+      const message = `0x${Buffer.from(fixedMessage, 'utf8').toString('hex')}`;
 
+      if (
+        expectedAccountAddress !== undefined &&
+        !(await isTaskAccountCurrent({
+          accountId,
+          networkId,
+          accountAddress: expectedAccountAddress,
+        }))
+      ) {
+        throw new OneKeyLocalError('Task account changed before signing');
+      }
+
+      ensureCurrent();
       const signature =
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId,

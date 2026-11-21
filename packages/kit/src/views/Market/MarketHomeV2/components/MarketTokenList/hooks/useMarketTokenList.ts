@@ -23,6 +23,7 @@ import {
   getMarketTokenNetworkLogoUri,
   getNetworkLogoUri,
   marketTokenKey,
+  toMarketRowKey,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
@@ -243,7 +244,9 @@ function refreshMarketTokenNetworkLogos({
     changed = true;
     return {
       ...token,
-      id: `${token.address}${token.name}${nextNetworkLogoUri}${token.symbol}`,
+      id: toMarketRowKey(
+        `${token.address}${token.name}${nextNetworkLogoUri}${token.symbol}`,
+      ),
       networkLogoUri: nextNetworkLogoUri,
     };
   });

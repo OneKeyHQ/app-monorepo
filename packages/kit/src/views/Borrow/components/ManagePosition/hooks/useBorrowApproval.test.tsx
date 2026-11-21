@@ -115,13 +115,34 @@ jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
   waitForTxFinalStatus: jest.fn(),
 }));
 
+jest.mock('../../../hooks/borrowApprovalWorkflow', () => {
+  const actual = jest.requireActual<
+    typeof import('../../../hooks/borrowApprovalWorkflow')
+  >('../../../hooks/borrowApprovalWorkflow');
+  return {
+    ...actual,
+    createBorrowApprovalWorkflow: jest.fn(actual.createBorrowApprovalWorkflow),
+  };
+});
+
+jest.mock(
+  '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult',
+  () => ({
+    showDeFiActionTxConfirmDialog: jest.fn(),
+  }),
+);
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowManagePage: jest.fn(),
     borrowBuildApproveDelegationTransaction: jest.fn(),
+    borrowBuildBorrowTransaction: jest.fn(),
+    borrowBuildRepayTransaction: jest.fn(),
+    addEarnOrder: jest.fn(),
   };
   const serviceAccount = {
     getAccount: jest.fn(),
+    getAccountAddressForApi: jest.fn(),
   };
 
   (
@@ -145,15 +166,26 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   };
 });
 
+import { useCallback } from 'react';
+
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { borrowApprovalTaskRegistry } from '../../../hooks/borrowApprovalTaskRegistry';
+import * as approvalWorkflowModule from '../../../hooks/borrowApprovalWorkflow';
+import { useUniversalBorrowBorrow } from '../../../hooks/useUniversalBorrowHooks';
+import { useUniversalBorrowRepay } from '../../../hooks/useUniversalBorrowWithdrawRepayHooks';
+
 import { useBorrowApproval } from './useBorrowApproval';
+
+import type { IBorrowWorkflowHandoff } from '../../../hooks/borrowConfirmationTask';
 
 const signatureConfirmMock = (
   globalThis as unknown as {
@@ -169,9 +201,13 @@ const backgroundMock = (
       serviceStaking: {
         getBorrowManagePage: jest.Mock;
         borrowBuildApproveDelegationTransaction: jest.Mock;
+        borrowBuildBorrowTransaction: jest.Mock;
+        borrowBuildRepayTransaction: jest.Mock;
+        addEarnOrder: jest.Mock;
       };
       serviceAccount: {
         getAccount: jest.Mock;
+        getAccountAddressForApi: jest.Mock;
       };
     };
   }
@@ -211,6 +247,39 @@ const tokenApproveTarget = {
   },
 };
 
+afterEach(() => {
+  for (const scope of [
+    {
+      accountId: 'account-id',
+      networkId: 'evm--1',
+      accountAddress: '0xOwner',
+      kind: 'token' as const,
+      target: '0xMarket',
+      asset: '0xToken',
+    },
+    {
+      accountId: 'account-id',
+      networkId: 'evm--1',
+      accountAddress: '0xOwner',
+      kind: 'token' as const,
+      target: '0xMarket',
+      asset: '0xUSDT',
+    },
+    {
+      accountId: 'account-id',
+      networkId: 'evm--1',
+      accountAddress: '0xOwner',
+      kind: 'delegation' as const,
+      target: '0xMarket',
+      asset: '',
+    },
+  ]) {
+    const entry = borrowApprovalTaskRegistry.find(scope);
+    if (entry?.type === 'owned')
+      borrowApprovalTaskRegistry.release(scope, entry.token);
+  }
+});
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -238,6 +307,9 @@ describe('useBorrowApproval', () => {
     backgroundMock.serviceAccount.getAccount.mockResolvedValue({
       address: '0xOwner',
     });
+    backgroundMock.serviceAccount.getAccountAddressForApi
+      .mockReset()
+      .mockResolvedValue('0xOwner');
     (Dialog.show as jest.Mock).mockReset();
     (Toast.error as jest.Mock).mockReset();
     (Toast.success as jest.Mock).mockReset();
@@ -250,6 +322,81 @@ describe('useBorrowApproval', () => {
       allowanceParsed: '0',
     });
   });
+
+  it.each(['token', 'delegation', 'USDT reset'] as const)(
+    'allows a new %s approval after a proven pre-broadcast cancellation',
+    async (kind) => {
+      signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+      backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({
+        borrowAllowance: '0',
+      });
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: kind === 'USDT reset' ? '1' : '0',
+      });
+      const submit = jest.fn(async () => undefined);
+      const { result } = renderHook(() =>
+        useBorrowApproval({
+          action: kind === 'delegation' ? 'borrow' : 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          ...(kind === 'delegation'
+            ? { borrowDelegationApproveTarget: delegationTarget }
+            : {
+                approveTarget: {
+                  ...tokenApproveTarget,
+                  token:
+                    kind === 'USDT reset'
+                      ? {
+                          ...tokenApproveTarget.token,
+                          address: '0xUSDT',
+                          decimals: 6,
+                          symbol: 'USDT',
+                        }
+                      : tokenApproveTarget.token,
+                },
+              }),
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+        }),
+      );
+      const startApproval = async () => {
+        await act(async () => {
+          await result.current.onApprove();
+        });
+        if (kind === 'USDT reset') {
+          const calls = (Dialog.show as jest.Mock).mock.calls;
+          const dialog = calls[calls.length - 1][0] as {
+            onConfirm: () => void;
+          };
+          act(() => dialog.onConfirm());
+        }
+      };
+      await startApproval();
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(1),
+      );
+      const confirmation = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onBeforeSend: () => Promise<void>;
+        onSafePreSendFail: (error: Error) => void;
+      };
+      await act(async () => {
+        await confirmation.onBeforeSend();
+        confirmation.onSafePreSendFail(new Error('local signing cancelled'));
+      });
+      expect(result.current.approving).toBe(false);
+      await startApproval();
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(2),
+      );
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
 
   it('fresh-checks delegation allowance before direct submit', async () => {
     const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
@@ -292,6 +439,7 @@ describe('useBorrowApproval', () => {
       provider: delegationTarget.provider,
       marketAddress: delegationTarget.marketAddress,
       reserveAddress: delegationTarget.reserveAddress,
+      expectedAccountAddress: '0xOwner',
     });
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -299,6 +447,257 @@ describe('useBorrowApproval', () => {
       }),
     );
     expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('keeps delegation approval and borrow in one task', async () => {
+    const workflowSpy = jest.mocked(
+      approvalWorkflowModule.createBorrowApprovalWorkflow,
+    );
+    workflowSpy.mockClear();
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({
+      borrowAllowance: '0',
+    });
+    backgroundMock.serviceStaking.borrowBuildBorrowTransaction.mockResolvedValue(
+      { tx: '{"to":"0xPool"}', orderId: 'borrow-order' },
+    );
+    const { result } = renderHook(() => {
+      const borrow = useUniversalBorrowBorrow({
+        accountId: 'account-id',
+        networkId: 'evm--1',
+      });
+      const submit = useCallback(
+        async (
+          accountAddress?: string,
+          workflowHandoff?: IBorrowWorkflowHandoff,
+        ) => {
+          await borrow({
+            amount: '5',
+            provider: 'aave',
+            marketAddress: '0xMarket',
+            reserveAddress: '',
+            accountAddress,
+            workflowHandoff,
+          });
+        },
+        [borrow],
+      );
+      return useBorrowApproval({
+        action: 'borrow',
+        providerName: 'aave',
+        amountValue: '5',
+        borrowDelegationApproveTarget: delegationTarget,
+        onApprovedSubmit: submit,
+        onApprovedTaskSubmit: submit,
+      });
+    });
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const approval = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+    approval.onSuccess([
+      {
+        signedTx: { txid: '0xDelegation' },
+        decodedTx: { txid: '0xDelegation' },
+      },
+    ]);
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      ),
+    );
+    expect(
+      backgroundMock.serviceStaking.borrowBuildBorrowTransaction,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xOwner' }),
+    );
+    expect(workflowSpy).toHaveBeenCalledTimes(1);
+    const workflow = workflowSpy.mock.results[0].value as ReturnType<
+      typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+    >;
+    expect(workflow.getTask().steps.map((step) => step.id)).toEqual([
+      'approve',
+      'prepareBusiness',
+      'business',
+    ]);
+    expect(workflow.getTask().steps[0].status.type).toBe('succeeded');
+    expect(workflow.getTask().steps[2].status.type).toBe('awaitingUser');
+  });
+
+  it.each([
+    { status: EOnChainHistoryTxStatus.Failed, expected: 'failed' },
+    { status: undefined, expected: 'unknown' },
+  ])(
+    'does not run a business step for approval receipt $expected',
+    async ({ status, expected }) => {
+      const workflowSpy = jest.mocked(
+        approvalWorkflowModule.createBorrowApprovalWorkflow,
+      );
+      workflowSpy.mockClear();
+      signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+      waitForTxFinalStatusMock.mockResolvedValue(status);
+      const submit = jest.fn().mockResolvedValue(undefined);
+      const { result } = renderHook(() =>
+        useBorrowApproval({
+          action: 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+        }),
+      );
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const approval = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+      approval.onSuccess([
+        { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+      ]);
+      await waitFor(() => expect(result.current.approving).toBe(false));
+      expect(submit).not.toHaveBeenCalled();
+      const workflow = workflowSpy.mock.results[0].value as ReturnType<
+        typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+      >;
+      expect(workflow.getTask().steps[0].status.type).toBe(expected);
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        1,
+      );
+    },
+  );
+
+  it('records a verified approval broadcast after cancellation on the original attempt', async () => {
+    const workflowSpy = jest.mocked(
+      approvalWorkflowModule.createBorrowApprovalWorkflow,
+    );
+    workflowSpy.mockClear();
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const submit = jest.fn().mockResolvedValue(undefined);
+    const useRenderApproval = () =>
+      useBorrowApproval({
+        action: 'repay',
+        providerName: 'aave',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit: submit,
+        onApprovedTaskSubmit: submit,
+      });
+    const { result, unmount } = renderHook(useRenderApproval);
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const approval = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onBeforeSend: () => Promise<void>;
+      onCancel: () => void;
+      onLateBroadcastAccepted: (fact: {
+        uuid: string;
+        accountId: string;
+        networkId: string;
+        txid: string;
+      }) => void;
+    };
+    await act(async () => {
+      await approval.onBeforeSend();
+      approval.onCancel();
+      approval.onLateBroadcastAccepted({
+        uuid: 'request-1',
+        accountId: 'other',
+        networkId: 'evm--1',
+        txid: '0xApproval',
+      });
+    });
+    const workflow = workflowSpy.mock.results[0].value as ReturnType<
+      typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+    >;
+    expect(workflow.getTask().steps[0].status).toEqual({
+      type: 'unknown',
+      chainConfirmed: false,
+    });
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    expect(waitForTxFinalStatusMock).not.toHaveBeenCalled();
+    unmount();
+    act(() =>
+      approval.onLateBroadcastAccepted({
+        uuid: 'request-1',
+        accountId: 'account-id',
+        networkId: 'evm--1',
+        txid: '0xApproval',
+      }),
+    );
+    expect(workflow.getTask().steps[0].status).toEqual({
+      type: 'unknown',
+      chainConfirmed: false,
+      txid: '0xApproval',
+    });
+    const alias = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        providerName: 'aave',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: { ...tokenApproveTarget, accountId: 'other-account' },
+        onApprovedSubmit: submit,
+        onApprovedTaskSubmit: submit,
+      }),
+    );
+    await act(async () => {
+      await alias.result.current.onApprove();
+    });
+    await act(async () => {
+      expect(await alias.result.current.ensureReadyToSubmit()).toBe(false);
+    });
+    expect(waitForTxFinalStatusMock).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+    const remounted = renderHook(useRenderApproval);
+    const statusCheck = createDeferred<EOnChainHistoryTxStatus | undefined>();
+    let backendAddress = '0xOwner';
+    waitForTxFinalStatusMock.mockImplementationOnce(async (params) => {
+      await statusCheck.promise;
+      const matches = params.expectedAccountAddress === backendAddress;
+      backendAddress = '0xOwner';
+      return matches ? EOnChainHistoryTxStatus.Success : undefined;
+    });
+    const competing = renderHook(useRenderApproval);
+    let firstRecovery: Promise<void> | undefined;
+    act(() => {
+      firstRecovery = remounted.result.current.onApprove();
+    });
+    await waitFor(() =>
+      expect(waitForTxFinalStatusMock).toHaveBeenCalledTimes(1),
+    );
+    expect(waitForTxFinalStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xOwner' }),
+    );
+    await act(async () => {
+      await competing.result.current.onApprove();
+      backendAddress = '0xOther';
+      statusCheck.resolve(undefined);
+      await firstRecovery;
+    });
+    expect(waitForTxFinalStatusMock).toHaveBeenCalledTimes(1);
+    expect(workflow.getTask().facts).toEqual({ status: 'notChecked' });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+    await act(async () => {
+      await remounted.result.current.onApprove();
+    });
+    expect(workflow.getTask().facts).toEqual({
+      stepId: 'approve',
+      txid: '0xApproval',
+      status: 'confirmed',
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    expect(waitForTxFinalStatusMock).toHaveBeenCalledTimes(2);
+    expect(submit).not.toHaveBeenCalled();
   });
 
   it('allows submit when the fresh delegation allowance is still enough', async () => {
@@ -385,7 +784,9 @@ describe('useBorrowApproval', () => {
       duplicateApproval = result.current.onApprove();
     });
 
-    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1),
+    );
 
     await act(async () => {
       allowanceDeferred.resolve({ allowanceParsed: '0' });
@@ -511,6 +912,45 @@ describe('useBorrowApproval', () => {
 
     expect(result.current.isFormInteractionLocked).toBe(false);
     expect(onApprovedSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('derives the task UI phase from the approval step through handoff and settlement', async () => {
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const finality = createDeferred<EOnChainHistoryTxStatus | undefined>();
+    waitForTxFinalStatusMock.mockReturnValueOnce(finality.promise);
+    const submit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        providerName: 'aave',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit: submit,
+        onApprovedTaskSubmit: submit,
+      }),
+    );
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(result.current.approving).toBe(true);
+    expect(result.current.isFormInteractionLocked).toBe(false);
+    const approval = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+    act(() =>
+      approval.onSuccess([
+        { signedTx: { txid: '0xApproval' }, decodedTx: { txid: '0xApproval' } },
+      ]),
+    );
+    await waitFor(() =>
+      expect(result.current.isFormInteractionLocked).toBe(true),
+    );
+    await act(async () => {
+      finality.resolve(undefined);
+    });
+    await waitFor(() => expect(result.current.approving).toBe(false));
+    expect(result.current.isFormInteractionLocked).toBe(false);
+    expect(submit).not.toHaveBeenCalled();
   });
 
   it('resets approval progress when the request scope changes', async () => {
@@ -658,6 +1098,7 @@ describe('useBorrowApproval', () => {
       accountId: tokenApproveTarget.accountId,
       networkId: tokenApproveTarget.networkId,
       txid: '0xApprove',
+      expectedAccountAddress: '0xOwner',
       signal: expect.any(AbortSignal),
     });
     expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
@@ -1072,6 +1513,7 @@ describe('useBorrowApproval', () => {
     ]);
 
     await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+    expect(onApprovedSubmit).toHaveBeenCalledWith('0xOwner');
   });
 
   it('reports a detached business submission failure exactly once', async () => {
@@ -1172,6 +1614,10 @@ describe('useBorrowApproval', () => {
   );
 
   it('keeps an opted-in USDT reset approval alive after dialog close', async () => {
+    const workflowSpy = jest.mocked(
+      approvalWorkflowModule.createBorrowApprovalWorkflow,
+    );
+    workflowSpy.mockClear();
     allowanceMock.fetchAllowanceResponse
       .mockResolvedValueOnce({ allowanceParsed: '1' })
       .mockResolvedValueOnce({ allowanceParsed: '0' })
@@ -1180,6 +1626,9 @@ describe('useBorrowApproval', () => {
       });
     signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
     const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    backgroundMock.serviceStaking.borrowBuildRepayTransaction
+      .mockReset()
+      .mockResolvedValue({ tx: '{"to":"0xPool"}', orderId: 'repay-order' });
     let unmountApprovalOwner = () => {};
     let approvalOwnerUnmounted = false;
     const onBeforeNavigateConfirm = jest.fn(async () => {
@@ -1188,9 +1637,29 @@ describe('useBorrowApproval', () => {
         unmountApprovalOwner();
       }
     });
-    const { result, unmount } = renderHook(() =>
-      useBorrowApproval({
+    const { result, unmount } = renderHook(() => {
+      const repay = useUniversalBorrowRepay({
+        accountId: 'account-id',
+        networkId: 'evm--1',
+      });
+      const submitTask = async (
+        accountAddress: string,
+        workflowHandoff: IBorrowWorkflowHandoff,
+      ) => {
+        await onApprovedSubmit(accountAddress, workflowHandoff);
+        await repay({
+          amount: '5',
+          provider: 'aave',
+          marketAddress: '0xMarket',
+          reserveAddress: '0xToken',
+          accountAddress,
+          workflowHandoff,
+          canContinueAfterOwnerClose: () => approvalOwnerUnmounted,
+        });
+      };
+      return useBorrowApproval({
         action: 'repay',
+        providerName: 'aave',
         amountValue: '5',
         repayAll: true,
         approveType: EApproveType.Legacy,
@@ -1205,10 +1674,11 @@ describe('useBorrowApproval', () => {
           },
         },
         onApprovedSubmit,
+        onApprovedTaskSubmit: submitTask,
         onBeforeNavigateConfirm,
         allowApprovalContinuationAfterUnmount: true,
-      }),
-    );
+      });
+    });
     unmountApprovalOwner = unmount;
 
     await act(async () => {
@@ -1265,16 +1735,211 @@ describe('useBorrowApproval', () => {
     ]);
 
     await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+    expect(workflowSpy).toHaveBeenCalledTimes(1);
+    const workflow = workflowSpy.mock.results[0].value as ReturnType<
+      typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+    >;
+    expect(workflow.getTask().steps.map((step) => step.id)).toEqual([
+      'reset',
+      'approve',
+      'prepareBusiness',
+      'business',
+    ]);
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        3,
+      ),
+    );
+    expect(workflow.getTask().steps[0].status.type).toBe('succeeded');
+    expect(workflow.getTask().steps[1].status.type).toBe('succeeded');
+    expect(workflow.getTask().steps[2].status.type).toBe('completed');
+    expect(workflow.getTask().steps[3].status.type).toBe('awaitingUser');
     expect(waitForTxFinalStatusMock).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ txid: '0xReset' }),
+      expect.objectContaining({
+        txid: '0xReset',
+        expectedAccountAddress: '0xOwner',
+      }),
     );
     expect(waitForTxFinalStatusMock).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ txid: '0xMaxApprove' }),
+      expect.objectContaining({
+        txid: '0xMaxApprove',
+        expectedAccountAddress: '0xOwner',
+      }),
     );
     expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(3);
     expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('resumes the same USDT reset task only after the user acts again', async () => {
+    const workflowSpy = jest.mocked(
+      approvalWorkflowModule.createBorrowApprovalWorkflow,
+    );
+    workflowSpy.mockClear();
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValue({ allowanceParsed: '0' });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    backgroundMock.serviceStaking.borrowBuildRepayTransaction
+      .mockReset()
+      .mockResolvedValue({ tx: '{"to":"0xPool"}', orderId: 'repay-order' });
+    const { result } = renderHook(() => {
+      const repay = useUniversalBorrowRepay({
+        accountId: 'account-id',
+        networkId: 'evm--1',
+      });
+      const submit = useCallback(
+        async (
+          accountAddress?: string,
+          workflowHandoff?: IBorrowWorkflowHandoff,
+        ) => {
+          await repay({
+            amount: '5',
+            provider: 'aave',
+            marketAddress: '0xMarket',
+            reserveAddress: '0xToken',
+            accountAddress,
+            workflowHandoff,
+          });
+        },
+        [repay],
+      );
+      return useBorrowApproval({
+        action: 'repay',
+        providerName: 'aave',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: {
+          ...tokenApproveTarget,
+          token: {
+            ...tokenApproveTarget.token,
+            address: '0xUSDT',
+            decimals: 6,
+            symbol: 'USDT',
+          },
+        },
+        onApprovedSubmit: submit,
+        onApprovedTaskSubmit: submit,
+      });
+    });
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const dialog = (Dialog.show as jest.Mock).mock.calls[0][0] as {
+      onConfirm: () => void;
+    };
+    act(() => dialog.onConfirm());
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    const reset = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+    reset.onSuccess([
+      { signedTx: { txid: '0xReset' }, decodedTx: { txid: '0xReset' } },
+    ]);
+    await waitFor(() => expect(result.current.approving).toBe(false));
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      ),
+    );
+    const approval = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[1][0] as { onSuccess: (data: unknown[]) => void };
+    approval.onSuccess([
+      { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+    ]);
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        3,
+      ),
+    );
+    expect(workflowSpy).toHaveBeenCalledTimes(1);
+    const workflow = workflowSpy.mock.results[0].value as ReturnType<
+      typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+    >;
+    expect(workflow.getTask().steps.map((step) => step.id)).toEqual([
+      'reset',
+      'resumeApproval',
+      'approve',
+      'prepareBusiness',
+      'business',
+    ]);
+    expect(workflow.getTask().steps[4].status.type).toBe('awaitingUser');
+  });
+
+  it('cancels a paused USDT task when the amount changes', async () => {
+    const workflowSpy = jest.mocked(
+      approvalWorkflowModule.createBorrowApprovalWorkflow,
+    );
+    workflowSpy.mockClear();
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValue({ allowanceParsed: '0' });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const submit = jest.fn().mockResolvedValue(undefined);
+    const target = {
+      ...tokenApproveTarget,
+      token: {
+        ...tokenApproveTarget.token,
+        address: '0xUSDT',
+        decimals: 6,
+        symbol: 'USDT',
+      },
+    };
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useBorrowApproval>,
+      { amount: string }
+    >(
+      ({ amount }) =>
+        useBorrowApproval({
+          action: 'repay',
+          providerName: 'aave',
+          amountValue: amount,
+          approveType: EApproveType.Legacy,
+          approveTarget: target,
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+        }),
+      { initialProps: { amount: '5' } },
+    );
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const dialog = (Dialog.show as jest.Mock).mock.calls[0][0] as {
+      onConfirm: () => void;
+    };
+    act(() => dialog.onConfirm());
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    const reset = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+    reset.onSuccess([
+      { signedTx: { txid: '0xReset' }, decodedTx: { txid: '0xReset' } },
+    ]);
+    await waitFor(() => expect(result.current.approving).toBe(false));
+    rerender({ amount: '6' });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      ),
+    );
+    expect(workflowSpy).toHaveBeenCalledTimes(2);
+    expect(submit).not.toHaveBeenCalled();
   });
 });
 
@@ -1333,4 +1998,567 @@ describe('useBorrowApproval risk disclaimer gate (OK-59196)', () => {
       expect.objectContaining({ provider: 'kamino' }),
     );
   });
+
+  it('rejects approval signing when the same account id resolves to a different address', async () => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+      address: '0xOwner',
+    });
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOwner',
+    );
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '0',
+    });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit: jest.fn(),
+      }),
+    );
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmation = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onBeforeSend?: () => Promise<void>;
+    };
+    expect(confirmation.onBeforeSend).toBeDefined();
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOther',
+    );
+    await expect(confirmation.onBeforeSend?.()).rejects.toThrow();
+  });
+
+  it('blocks continuation when the account address changes after the dialog owner is gone', async () => {
+    (Toast.error as jest.Mock).mockReset();
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+      address: '0xOwner',
+    });
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOwner',
+    );
+    waitForTxFinalStatusMock.mockResolvedValue(EOnChainHistoryTxStatus.Success);
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '0',
+    });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    let unmountOwner = () => {};
+    const { result, unmount } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm: async () => unmountOwner(),
+        allowApprovalContinuationAfterUnmount: true,
+      }),
+    );
+    unmountOwner = unmount;
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmation = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: { signedTx: { txid: string }; decodedTx: { txid: string } }[],
+      ) => void;
+    };
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOther',
+    );
+    confirmation.onSuccess([
+      { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+    ]);
+    await waitFor(() => expect(Toast.error).toHaveBeenCalled());
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('stops approval cleanly when closing the dialog fails', async () => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+      address: '0xOwner',
+    });
+    backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      '0xOwner',
+    );
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '0',
+    });
+    (Toast.error as jest.Mock).mockReset();
+    const onApprovedSubmit = jest.fn();
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm: async () => {
+          throw new OneKeyLocalError('close failed');
+        },
+        allowApprovalContinuationAfterUnmount: true,
+      }),
+    );
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(result.current.approving).toBe(false);
+    expect(Toast.error).toHaveBeenCalledWith({ title: 'close failed' });
+  });
+
+  it.each([
+    { addressChanged: false, synchronousSuccess: false },
+    { addressChanged: true, synchronousSuccess: false },
+    { addressChanged: false, synchronousSuccess: true },
+  ])(
+    'keeps the approval owner bound through detached repay: %j',
+    async ({ addressChanged, synchronousSuccess }) => {
+      const workflowSpy = jest.mocked(
+        approvalWorkflowModule.createBorrowApprovalWorkflow,
+      );
+      workflowSpy.mockClear();
+      (Toast.error as jest.Mock).mockReset();
+      signatureConfirmMock.navigationToTxConfirm
+        .mockReset()
+        .mockResolvedValue(undefined);
+      mockEnsureRiskAccepted.mockResolvedValue(true);
+      backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+        address: '0xOwner',
+      });
+      backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        '0xOwner',
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayTransaction
+        .mockReset()
+        .mockResolvedValue({ tx: '{"to":"0xPool"}', orderId: 'order-1' });
+      backgroundMock.serviceStaking.addEarnOrder
+        .mockReset()
+        .mockResolvedValue(undefined);
+      if (synchronousSuccess) {
+        signatureConfirmMock.navigationToTxConfirm.mockImplementationOnce(
+          async () => undefined,
+        );
+        signatureConfirmMock.navigationToTxConfirm.mockImplementationOnce(
+          async ({
+            onBeforeSend,
+            onSuccess,
+          }: {
+            onBeforeSend: () => Promise<void>;
+            onSuccess: (data: unknown[]) => Promise<void> | void;
+          }) => {
+            await onBeforeSend();
+            await onSuccess([
+              {
+                signedTx: { txid: '0xRepay' },
+                decodedTx: { txid: '0xRepay', status: 'Pending' },
+              },
+            ]);
+          },
+        );
+      }
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: '0',
+      });
+      waitForTxFinalStatusMock.mockResolvedValue(
+        EOnChainHistoryTxStatus.Success,
+      );
+      let closed = false;
+      let unmountOwner = () => {};
+      const { result, unmount } = renderHook(() => {
+        const repay = useUniversalBorrowRepay({
+          accountId: 'account-id',
+          networkId: 'evm--1',
+        });
+        const onApprovedSubmit = useCallback(
+          async (
+            accountAddress?: string,
+            workflowHandoff?: IBorrowWorkflowHandoff,
+          ) => {
+            await repay({
+              amount: '5',
+              provider: 'aave',
+              marketAddress: '0xMarket',
+              reserveAddress: '0xToken',
+              accountAddress,
+              workflowHandoff,
+              canContinueAfterOwnerClose: () => closed,
+            });
+          },
+          [repay],
+        );
+        return useBorrowApproval({
+          action: 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+          onApprovedTaskSubmit: onApprovedSubmit,
+          onBeforeNavigateConfirm: async () => {
+            closed = true;
+            unmountOwner();
+          },
+          allowApprovalContinuationAfterUnmount: true,
+        });
+      });
+      unmountOwner = unmount;
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const approval = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onSuccess: (
+          data: { signedTx: { txid: string }; decodedTx: { txid: string } }[],
+        ) => void;
+      };
+      if (addressChanged)
+        backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+          '0xOther',
+        );
+      approval.onSuccess([
+        { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+      ]);
+      if (addressChanged) {
+        await waitFor(() => expect(Toast.error).toHaveBeenCalled());
+        expect(
+          backgroundMock.serviceStaking.borrowBuildRepayTransaction,
+        ).not.toHaveBeenCalled();
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(1);
+      } else {
+        await waitFor(() =>
+          expect(
+            signatureConfirmMock.navigationToTxConfirm,
+          ).toHaveBeenCalledTimes(2),
+        );
+        expect(
+          backgroundMock.serviceStaking.borrowBuildRepayTransaction,
+        ).toHaveBeenCalledTimes(1);
+        expect(workflowSpy).toHaveBeenCalledTimes(1);
+        const workflow = workflowSpy.mock.results[0].value as ReturnType<
+          typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+        >;
+        const task = workflow.getTask();
+        expect(task.steps.map((step) => step.id)).toEqual([
+          'approve',
+          'prepareBusiness',
+          'business',
+        ]);
+        if (!synchronousSuccess) {
+          expect(task.steps[2].status.type).toBe('awaitingUser');
+          const business = signatureConfirmMock.navigationToTxConfirm.mock
+            .calls[1][0] as {
+            onBeforeSend: () => Promise<void>;
+            onSuccess: (data: unknown[]) => Promise<void> | void;
+          };
+          await act(async () => {
+            await business.onBeforeSend();
+            await business.onSuccess([
+              {
+                signedTx: { txid: '0xRepay' },
+                decodedTx: { txid: '0xRepay', status: 'Pending' },
+              },
+            ]);
+          });
+        }
+        expect(workflow.getTask().steps[2].status).toEqual({
+          type: 'handedOff',
+          txid: '0xRepay',
+        });
+        expect(
+          backgroundMock.serviceStaking.addEarnOrder,
+        ).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it.each(['fact-first', 'success-first'] as const)(
+    'retains a late business broadcast for the original task after cancel and address change: %s',
+    async (order) => {
+      const workflowSpy = jest.mocked(
+        approvalWorkflowModule.createBorrowApprovalWorkflow,
+      );
+      workflowSpy.mockClear();
+      signatureConfirmMock.navigationToTxConfirm
+        .mockReset()
+        .mockResolvedValue(undefined);
+      backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+        address: '0xOwner',
+      });
+      backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        '0xOwner',
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayTransaction.mockResolvedValue(
+        { tx: '{"to":"0xPool"}', orderId: 'order-1' },
+      );
+      backgroundMock.serviceStaking.addEarnOrder
+        .mockReset()
+        .mockResolvedValue({ localStatus: 'saved', remoteStatus: 'synced' });
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: '0',
+      });
+      waitForTxFinalStatusMock.mockResolvedValue(
+        EOnChainHistoryTxStatus.Success,
+      );
+      const onSuccess = jest.fn();
+      let closed = false;
+      let unmountOwner = () => {};
+      const { result, unmount } = renderHook(() => {
+        const repay = useUniversalBorrowRepay({
+          accountId: 'account-id',
+          networkId: 'evm--1',
+        });
+        const submit = useCallback(
+          async (
+            accountAddress?: string,
+            workflowHandoff?: IBorrowWorkflowHandoff,
+          ) => {
+            await repay({
+              amount: '5',
+              provider: 'aave',
+              marketAddress: '0xMarket',
+              reserveAddress: '0xToken',
+              accountAddress,
+              workflowHandoff,
+              canContinueAfterOwnerClose: () => closed,
+              onSuccess,
+            });
+          },
+          [repay],
+        );
+        return useBorrowApproval({
+          action: 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+          onBeforeNavigateConfirm: () => {
+            closed = true;
+            unmountOwner();
+          },
+          allowApprovalContinuationAfterUnmount: true,
+        });
+      });
+      unmountOwner = unmount;
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const approval = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+      approval.onSuccess([
+        { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+      ]);
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(2),
+      );
+      const business = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[1][0] as {
+        onBeforeSend: () => Promise<void>;
+        onCancel: () => void;
+        onLateBroadcastAccepted: (fact: {
+          uuid: string;
+          accountId: string;
+          networkId: string;
+          txid: string;
+        }) => Promise<void>;
+        onSuccess: (data: unknown[]) => Promise<void> | void;
+      };
+      await act(async () => {
+        await business.onBeforeSend();
+        business.onCancel();
+        backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+          '0xOther',
+        );
+        const fact = {
+          uuid: 'request-1',
+          accountId: 'account-id',
+          networkId: 'evm--1',
+          txid: '0xRepay',
+        };
+        const data = [
+          {
+            signedTx: { txid: '0xRepay' },
+            decodedTx: { txid: '0xRepay', status: 'Pending' },
+          },
+        ];
+        if (order === 'fact-first') {
+          await business.onLateBroadcastAccepted(fact);
+          await business.onSuccess(data);
+        } else {
+          await business.onSuccess(data);
+          await business.onLateBroadcastAccepted(fact);
+        }
+      });
+      const workflow = workflowSpy.mock.results[0].value as ReturnType<
+        typeof approvalWorkflowModule.createBorrowApprovalWorkflow
+      >;
+      expect(workflow.getTask().steps[2].status).toEqual({
+        type: 'unknown',
+        txid: '0xRepay',
+        chainConfirmed: false,
+      });
+      expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ orderId: 'order-1', txId: '0xRepay' }),
+        { remoteSync: 'once', preserveExistingTx: true },
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      );
+    },
+  );
+
+  it.each(['order', 'settlement'] as const)(
+    'does not notify the old UI when the account changes during %s',
+    async (waitAt) => {
+      signatureConfirmMock.navigationToTxConfirm
+        .mockReset()
+        .mockResolvedValue(undefined);
+      backgroundMock.serviceAccount.getAccount.mockResolvedValue({
+        address: '0xOwner',
+      });
+      backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        '0xOwner',
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayTransaction.mockResolvedValue(
+        { tx: '{"to":"0xPool"}', orderId: 'order-1' },
+      );
+      const gate = createDeferred<void>();
+      backgroundMock.serviceStaking.addEarnOrder
+        .mockReset()
+        .mockImplementation(async () => {
+          if (waitAt === 'order') await gate.promise;
+        });
+      jest
+        .mocked(showDeFiActionTxConfirmDialog)
+        .mockResolvedValue(EOnChainHistoryTxStatus.Success);
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: '0',
+      });
+      waitForTxFinalStatusMock.mockResolvedValue(
+        EOnChainHistoryTxStatus.Success,
+      );
+      const onSuccess = jest.fn();
+      const onSettleResult = jest.fn(async () => {
+        if (waitAt === 'settlement') await gate.promise;
+      });
+      let closed = false;
+      let unmountOwner = () => {};
+      const { result, unmount } = renderHook(() => {
+        const repay = useUniversalBorrowRepay({
+          accountId: 'account-id',
+          networkId: 'evm--1',
+        });
+        const submit = useCallback(
+          async (
+            accountAddress?: string,
+            workflowHandoff?: IBorrowWorkflowHandoff,
+          ) => {
+            await repay({
+              amount: '5',
+              provider: 'aave',
+              marketAddress: '0xMarket',
+              reserveAddress: '0xToken',
+              accountAddress,
+              workflowHandoff,
+              canContinueAfterOwnerClose: () => closed,
+              onSuccess,
+              onSettleResult:
+                waitAt === 'settlement' ? onSettleResult : undefined,
+              stakingInfo:
+                waitAt === 'settlement'
+                  ? { protocol: 'Aave', label: EEarnLabels.Repay, tags: [] }
+                  : undefined,
+            });
+          },
+          [repay],
+        );
+        return useBorrowApproval({
+          action: 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+          onBeforeNavigateConfirm: () => {
+            closed = true;
+            unmountOwner();
+          },
+          allowApprovalContinuationAfterUnmount: true,
+        });
+      });
+      unmountOwner = unmount;
+      await act(async () => {
+        await result.current.onApprove();
+      });
+      const approval = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as { onSuccess: (data: unknown[]) => void };
+      approval.onSuccess([
+        { signedTx: { txid: '0xApprove' }, decodedTx: { txid: '0xApprove' } },
+      ]);
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(2),
+      );
+      const business = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[1][0] as {
+        onBeforeSend: () => Promise<void>;
+        onSuccess: (data: unknown[]) => Promise<void>;
+      };
+      await business.onBeforeSend();
+      let success: Promise<void> | undefined;
+      act(() => {
+        success = business.onSuccess([
+          {
+            signedTx: { txid: '0xRepay' },
+            decodedTx: { txid: '0xRepay', status: 'Pending' },
+          },
+        ]);
+      });
+      if (waitAt === 'order')
+        await waitFor(() =>
+          expect(
+            backgroundMock.serviceStaking.addEarnOrder,
+          ).toHaveBeenCalledTimes(1),
+        );
+      else await waitFor(() => expect(onSettleResult).toHaveBeenCalledTimes(1));
+      backgroundMock.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        '0xOther',
+      );
+      await act(async () => {
+        gate.resolve();
+        await success;
+      });
+      expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      );
+    },
+  );
 });

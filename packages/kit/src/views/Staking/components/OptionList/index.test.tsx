@@ -10,6 +10,11 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 const mockPop = jest.fn();
 
+jest.mock('../EarnFormFooter', () => ({
+  EARN_FULL_WIDTH_BUTTONS: {},
+  EARN_HALF_BUTTON: {},
+}));
+
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 
 jest.mock('react-intl', () => ({

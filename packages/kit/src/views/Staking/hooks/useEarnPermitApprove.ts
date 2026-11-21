@@ -3,6 +3,11 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  isTaskAccountAddress,
+  isTaskAccountCurrent,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -19,6 +24,7 @@ interface IUseEarnPermitApproveParams {
   amountValue: string;
   providerName: string;
   vaultAddress: string;
+  expectedAccountAddress?: string;
   beforeSign?: () => Promise<void>;
 }
 
@@ -41,12 +47,22 @@ export function useEarnPermitApprove() {
       amountValue,
       providerName,
       vaultAddress,
+      expectedAccountAddress,
       beforeSign,
     }: IUseEarnPermitApproveParams): Promise<IPermitSignatureResult> => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
         networkId,
       });
+      if (
+        expectedAccountAddress !== undefined &&
+        (!expectedAccountAddress ||
+          !isTaskAccountAddress(
+            { networkId, accountAddress: expectedAccountAddress },
+            account.address,
+          ))
+      )
+        throw new OneKeyLocalError('Task account changed before Permit');
 
       const permit2Data =
         await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
@@ -71,15 +87,13 @@ export function useEarnPermitApprove() {
         const error = new Error(
           `Invalid spender address. Expected: ${expectedSpender ?? 'unsupported provider/network'}, Got: ${spender}`,
         );
-        defaultLogger.staking.page.permitSignError({
-          error: error.message,
-        });
+        defaultLogger.staking.page.permitSignError({ error: error.message });
         throw error;
       }
 
       earnUtils.assertEarnPermit({
-        data: permit2Data,
         providerName,
+        data: permit2Data,
         networkId,
         accountAddress: account.address,
         token,
@@ -88,6 +102,15 @@ export function useEarnPermitApprove() {
       await beforeSign?.();
 
       const unsignedMessage = stringUtils.stableStringify(permit2Data);
+
+      if (
+        !(await isTaskAccountCurrent({
+          accountId,
+          networkId,
+          accountAddress: account.address,
+        }))
+      )
+        throw new OneKeyLocalError('Task account changed before Permit');
 
       const signHash = await navigationToMessageConfirmAsync({
         accountId,
