@@ -7,34 +7,34 @@ on:
   workflow_call:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: string
         default: 'false'
       build_number:
-        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        description: 'Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided.'
         required: false
         type: string
         default: ''
       build_bundle_version:
-        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
         type: string
         default: ''
       source_ref_name:
-        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        description: 'Original source ref name to use for build metadata when running from a temporary CI tag.'
         required: false
         type: string
         default: ''
     outputs:
       build_number:
-        description: "Build number generated during renderer build"
+        description: 'Build number generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_number }}
       build_bundle_version:
-        description: "Bundle version generated during renderer build"
+        description: 'Bundle version generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_bundle_version }}
       build_app_version:
-        description: "App version from package.json"
+        description: 'App version from package.json'
         value: ${{ jobs.build-renderer.outputs.build_app_version }}
     secrets:
       PRIVATE_FONTS_TOKEN:
@@ -102,7 +102,7 @@ jobs:
 
       # Restore the private brand font fetched by the trusted `private-fonts` job
       # (no App key here; the artifact key only decrypts fonts). fonts:sync
-# verifies the result against this checkout's brand.lock.json.
+      # verifies the result against this checkout's brand.lock.json.
       - name: Restore private fonts
         if: needs.private-fonts.outputs.artifact != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

@@ -1,15 +1,24 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
 
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import '@onekeyhq/shared/src/request/axiosInterceptor';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusResult,
+  ICloudSyncCredential,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
@@ -17,11 +26,19 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
-import { publicAccountSnapshotToAccount } from './publicAccountSnapshot';
+import keylessCloudSyncUtils from './keylessCloudSyncUtils';
+import {
+  getPublicAccountSnapshotId,
+  publicAccountSnapshotToAccount,
+} from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -37,6 +54,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
     toastIfError: passthroughDecorator,
   };
 });
+
+jest.mock('@onekeyhq/shared/src/request/Interceptor', () => ({
+  ...jest.requireActual<object>('@onekeyhq/shared/src/request/Interceptor'),
+  getRequestHeaders: async () => ({}),
+}));
 
 jest.mock('../ServiceBase', () => ({
   __esModule: true,
@@ -91,16 +113,21 @@ jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList', () => ({
   CloudSyncFlowManagerMarketWatchList: jest.fn(),
 }));
 jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerWallet', () => ({
-  CloudSyncFlowManagerWallet: jest.fn(),
+  CloudSyncFlowManagerWallet: jest.fn(() => ({
+    canUploadPendingWalletName: jest.fn(async () => true),
+  })),
 }));
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getAllSyncItems: jest.fn(),
+    getPendingCloudAccountHandoffs: jest.fn(async () => []),
+    storePendingCloudAccountHandoffs: jest.fn(async () => undefined),
     getAllAccounts: jest.fn(),
     getAllDevices: jest.fn(),
     getRecordsByIds: jest.fn(),
+    readWalletNameUploadRetrySources: jest.fn(),
     addAndUpdateSyncItems: jest.fn(),
     removeCloudSyncPoolItems: jest.fn(),
   },
@@ -131,6 +158,8 @@ jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
   default: {
     normalizeDataTime: (time: number | undefined) => time,
+    decryptSyncItem: jest.fn(),
+    canLocalItemSyncToScene: jest.fn(),
     setDefaultPropsOfServerToLocalItem: ({
       localItem,
     }: {
@@ -147,7 +176,12 @@ jest.mock('./cloudSyncItemBuilder', () => ({
 
 jest.mock('./keylessCloudSyncUtils', () => ({
   __esModule: true,
-  default: { isKeylessPwdHash: () => false },
+  default: {
+    ...jest.requireActual<typeof import('./keylessCloudSyncUtils')>(
+      './keylessCloudSyncUtils',
+    ).default,
+    isKeylessPwdHash: () => false,
+  },
 }));
 
 function deferred<T>() {
@@ -234,12 +268,18 @@ function harness(
   const runWithCloudSyncKeyLock = jest.fn((operation: () => Promise<unknown>) =>
     sourceMutex.runExclusive(operation),
   );
+  const readLocalCredential = jest.fn<
+    ReturnType<ServicePrimeCloudSync['getSyncCredentialSafe']>,
+    []
+  >(async () => undefined);
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       localDb,
       serviceApp: { isAppLocked: isLocked },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
+        getLocalMutationSyncCredential: readLocalCredential,
+        getHardwareWalletRetryOrigin: async () => endpointsMap.prod.prime,
         getCloudAccountImportGeneration: () =>
           keyGeneration + hardwareOperationGeneration,
         getKeylessWalletSelectionGeneration: () => keyGeneration,
@@ -292,13 +332,17 @@ function harness(
   const committedBatches: number[] = [];
   const writePool = jest
     .spyOn(localDb, 'addAndUpdateSyncItems')
-    .mockImplementation(async ({ items, fn }) => {
+    .mockImplementation(async ({ items, fn, preserveExisting }) => {
       const staged = new Map(
         Array.from(pool, ([key, value]) => [key, cloneDeep(value)]),
       );
       for (const row of items) {
         const previous = staged.get(row.id);
-        if (!previous || (row.dataTime ?? 0) >= (previous.dataTime ?? 0))
+        if (
+          !previous ||
+          (!preserveExisting?.(previous) &&
+            (row.dataTime ?? 0) >= (previous.dataTime ?? 0))
+        )
           staged.set(row.id, cloneDeep(row));
       }
       const gate = commitGate;
@@ -348,6 +392,7 @@ function harness(
   return {
     service,
     sourceMutex,
+    readLocalCredential,
     cancelHardwareCloudKeyOperation,
     pool,
     remote,
@@ -437,6 +482,557 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(selected).toHaveBeenCalledTimes(2);
     expect(selected).toHaveBeenLastCalledWith(expect.objectContaining(params));
   });
+
+  test.each([
+    ['software', false],
+    ['hardware', true],
+  ] as const)(
+    'manual %s reports only an attributable whole-run error',
+    async (_kind, hardware) => {
+      const h = harness();
+      jest
+        .spyOn(h.service, 'resolveInitLocalSyncItemsPassword')
+        .mockResolvedValue('fixture');
+      jest
+        .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+        .mockResolvedValue('fixture');
+      jest
+        .spyOn(h.service, 'prepareLocalSyncWallets')
+        .mockResolvedValue(undefined);
+      jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+        allWallets: [],
+        allDevices: undefined,
+        allAccounts: [],
+        allIndexedAccounts: [],
+      });
+      const invoke = () =>
+        h.service.syncNowKeylessWithResult({
+          callerName: 'Manual fixture',
+          askPasswordOnlyIfHdXfpMissing: hardware,
+          bypassRetryBackoff: true,
+        });
+      const accountIssues = (pending: number, added: number) => ({
+        needsUpdate: 0,
+        pending,
+        conflicts: 0,
+        rejected: 0,
+        added,
+        unchanged: 0,
+      });
+      h.check.mockResolvedValue(reply({ reconciliation: undefined }));
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(1, 1) });
+      });
+      await expect(invoke()).resolves.toBe('local-deferred');
+      expect(h.config().publicAccountSnapshotStatus).toMatchObject({
+        pending: 1,
+        added: 1,
+      });
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'partial',
+      });
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(1, 0) });
+      });
+      await expect(invoke()).resolves.toBe('local-deferred');
+
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(0, 0) });
+      });
+      await expect(invoke()).resolves.toBe('completed');
+
+      jest
+        .spyOn(requestHelper, 'checkIsOneKeyDomain')
+        .mockImplementation(async (url) => url === endpointsMap.prod.prime);
+      const failRequest = (path: string, status?: number) =>
+        axios
+          .create({
+            baseURL: endpointsMap.prod.prime,
+            adapter: async (config) => {
+              throw new AxiosError(
+                status === undefined ? 'Network Error' : 'Synthetic HTTP error',
+                status === undefined ? AxiosError.ERR_NETWORK : undefined,
+                config,
+                undefined,
+                status === undefined
+                  ? undefined
+                  : {
+                      status,
+                      statusText: '',
+                      headers: new AxiosHeaders(),
+                      config,
+                      data: {},
+                    },
+              );
+            },
+          })
+          .post(path);
+      for (const [status, outcome] of [
+        [403, 'sync-blocked'],
+        [502, 'server-unavailable'],
+      ] as const) {
+        // Walk the real response interceptor before the manual runner receives
+        // the failure. The custom adapter never makes a network request.
+        const failure: unknown = await failRequest(
+          '/prime/v1/sync/check',
+          status,
+        ).catch((error: unknown) => error);
+        expect(failure).toMatchObject({ httpStatusCode: status });
+        expect(failure).not.toHaveProperty('response');
+        h.check.mockRejectedValue(failure);
+        const failed = invoke();
+        await Promise.all([
+          expect(failed).resolves.toBe(outcome),
+          jest.advanceTimersByTimeAsync(3000),
+        ]);
+      }
+
+      h.check.mockResolvedValue(
+        reply({
+          obsoleted: ['synthetic-pending-upload'],
+          reconciliation: undefined,
+        }),
+      );
+      const uploadError: unknown = await failRequest(
+        '/prime/v1/sync/upload',
+      ).catch((error: unknown) => error);
+      expect(uploadError).toMatchObject({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+      });
+      expect(uploadError).not.toHaveProperty('code', 'ERR_NETWORK');
+      jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockRejectedValue(uploadError);
+      await expect(invoke()).resolves.toBe('network-unavailable');
+
+      const auth = Object.assign(
+        new OneKeyLocalError('Synthetic auth rejection'),
+        {
+          response: { status: 401 },
+        },
+      );
+      h.check.mockRejectedValue(auth);
+      await Promise.all([
+        expect(invoke()).resolves.toBe('session-unavailable'),
+        jest.advanceTimersByTimeAsync(3000),
+      ]);
+
+      h.check.mockImplementationOnce(async () => {
+        h.changeSource();
+        return reply({ reconciliation: undefined });
+      });
+      await expect(invoke()).resolves.toBe('cancelled');
+      const prepare = jest.spyOn(h.service, 'prepareLocalSyncWallets');
+      const checks = h.check.mock.calls.length;
+      prepare.mockImplementationOnce(async () => {
+        h.changeSource();
+      });
+      await expect(invoke()).resolves.toBe('cancelled');
+      expect(h.check.mock.calls).toHaveLength(checks);
+
+      h.patchConfig({
+        currentCloudSyncKeylessWalletId: 'selected-software-wallet',
+      });
+      const readKey = jest.spyOn(h.service, 'getSyncCredentialSafe');
+      readKey.mockResolvedValueOnce(undefined);
+      await expect(invoke()).resolves.toBe('software-key-unavailable');
+      h.patchConfig({ isCloudSyncEnabledKeyless: false });
+      await expect(invoke()).resolves.toBe('incomplete');
+    },
+  );
+
+  test.each([true, false])(
+    'withholds divergent unsent Wallet rows on a legacy full check while preserving siblings (%s)',
+    async (includeSibling) => {
+      const scope = 'hw-dek-verified-fixture';
+      const old: IDBCloudSyncItem = {
+        id: 'old-name',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'old-validated-wallet',
+        dataTime: 100,
+        rawKey: 'old-synthetic',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: false,
+        isDeleted: false,
+      };
+      const sibling: IDBCloudSyncItem = {
+        ...old,
+        id: 'new-name',
+        data: 'new-explicit-wallet',
+      };
+      const initialPool = new Map([[old.id, old]]);
+      if (includeSibling) initialPool.set(sibling.id, sibling);
+      const h = harness(0, { initialPool });
+      const selected = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+      };
+      jest
+        .spyOn(h.service, 'getSyncCredentialSafe')
+        .mockResolvedValue(selected);
+      h.readLocalCredential.mockResolvedValue(selected);
+      jest
+        .spyOn(h.service.syncManagers.wallet, 'canUploadPendingWalletName')
+        .mockImplementation(async ({ item }) => item.id !== old.id);
+      h.check.mockResolvedValue(
+        reply({
+          reconciliation: undefined,
+          pwdHash: scope,
+          obsoleted: [...initialPool.keys()],
+        }),
+      );
+      const upload = jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockResolvedValue({
+          nonce: 0,
+          created: 1,
+          updated: 0,
+        });
+      await expect(h.run()).resolves.toBe(true);
+      expect(h.check).toHaveBeenCalledTimes(1);
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({ localItems: [sibling] }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+        nextRetryAt: undefined,
+        uploaded: includeSibling ? 1 : 0,
+      });
+
+      upload.mockClear();
+      await h.service.startServerSyncFlowForItems({
+        localItems: [...initialPool.values()],
+        noDebounceUpload: true,
+      });
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localItems: [sibling],
+            skipLastSyncTime: true,
+          }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+
+      upload.mockClear();
+      h.service.uploadItemsToMerge = [...initialPool.values()];
+      await h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localItems: [sibling],
+            skipLastSyncTime: true,
+          }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+    },
+  );
+
+  test.each(['credential', 'wallet'] as const)(
+    'direct Wallet verification has one deadline and sends healthy sibling despite stalled %s',
+    async (stalled) => {
+      const h = harness();
+      const scope = 'hw-dek-timeout-fixture';
+      const selected = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+      };
+      const resolveCredential = deferred<typeof selected>();
+      const resolveWallet = deferred<boolean>();
+      const read = h.readLocalCredential;
+      if (stalled === 'credential')
+        read.mockImplementationOnce(async () => resolveCredential.promise);
+      else read.mockResolvedValue(selected);
+      const verify = jest.spyOn(
+        h.service.syncManagers.wallet,
+        'canUploadPendingWalletName',
+      );
+      if (stalled === 'wallet')
+        verify.mockImplementation(async ({ item }) =>
+          item.id === 'timely-wallet' ? true : resolveWallet.promise,
+        );
+      jest.spyOn(h.service, 'getCloudSyncDataTime').mockResolvedValue(200);
+      const network = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
+      const healthy: IDBCloudSyncItem = {
+        id: 'healthy-account',
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: 'healthy-fixture-box',
+        dataTime: 100,
+        rawKey: 'healthy-fixture-key',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: false,
+        isDeleted: false,
+      };
+      const walletRows: IDBCloudSyncItem[] = Array.from(
+        { length: 12 },
+        (_, index) => ({
+          ...healthy,
+          id: `held-wallet-${index}`,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+        }),
+      );
+      const goodWallet: IDBCloudSyncItem = {
+        ...healthy,
+        id: 'timely-wallet',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+      };
+      for (const row of [goodWallet, ...walletRows, healthy])
+        h.pool.set(row.id, row);
+      h.service.uploadItemsToMerge = [goodWallet, ...walletRows, healthy];
+      const work = h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      await jest.advanceTimersByTimeAsync(1499);
+      expect(network).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await work;
+      expect(network).toHaveBeenCalledTimes(1);
+      expect(network).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postData: expect.objectContaining({
+            localData: [
+              ...(stalled === 'wallet'
+                ? [expect.objectContaining({ key: goodWallet.id })]
+                : []),
+              expect.objectContaining({ key: healthy.id }),
+            ],
+          }),
+        }),
+      );
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.pool.get(walletRows[0].id)).toEqual(walletRows[0]);
+      resolveCredential.resolve(selected);
+      resolveWallet.resolve(true);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(verify).toHaveBeenCalledTimes(stalled === 'wallet' ? 9 : 0);
+      expect(network).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each([
+    'available',
+    'conflict',
+    'missing-credential',
+    'renewed-session',
+    'changed-origin',
+    'canonical-changed',
+    'same-name-new-avatar',
+    'same-device-new-model',
+    'same-device-new-vendor',
+    'switched',
+    'disabled',
+    'already-sent',
+    'newer-during-read',
+    'second-timeout',
+  ])(
+    'one-shot Wallet timeout retry respects current authority: %s',
+    async (scenario) => {
+      const scope = 'hw-dek-wallet-retry-fixture';
+      const wallet: IDBCloudSyncItem = {
+        id: 'pending-wallet',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'pending-wallet-box',
+        dataTime: 100,
+        rawKey: '',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: true,
+        isDeleted: false,
+      };
+      const h = harness(0, { initialPool: new Map([[wallet.id, wallet]]) });
+      const selected: ICloudSyncCredential = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+        keylessCredential: {
+          keylessWalletId: 'hardware-source',
+          pwdHash: scope,
+          encryptionKey: 'public-fixture-credential',
+          signingPublicKey: '',
+          signingPrivateKey: '',
+          source: {
+            type: 'hardware',
+            credentialId: 'hardware-source',
+            derivationVersion: 1,
+            deviceName: 'Test device',
+            deviceType: EDeviceType.Pro,
+          },
+          hardwareSession: {
+            deviceKeyJwk: { kty: 'EC', crv: 'P-256', x: '', y: '', d: '' },
+            sessionId: 'synthetic-session',
+            accessToken: 'synthetic-access',
+            accessTokenExpiresAt: 0,
+            refreshToken: 'synthetic-refresh',
+            dekId: 'current-fixture-dek',
+          },
+        },
+      };
+      const changedDevice =
+        scenario === 'same-device-new-model' ||
+        scenario === 'same-device-new-vendor';
+      const physical: IDBDevice | undefined = changedDevice
+        ? {
+            id: 'verified-device',
+            name: 'Test device',
+            features: '{}',
+            connectId: 'public-fixture-connect',
+            uuid: 'public-fixture-uuid',
+            deviceId: 'public-fixture-device',
+            deviceType: EDeviceType.Pro,
+            settingsRaw: '{}',
+            createdAt: 1,
+            updatedAt: 1,
+          }
+        : undefined;
+      const canonical: IDBWallet = {
+        id: physical ? 'hw-1' : 'hd-1',
+        type: physical ? 'hw' : 'hd',
+        associatedDevice: physical?.id,
+        name: 'Saved local name',
+        hash: 'public-wallet-hash',
+        nextIds: {},
+        accounts: [],
+        backuped: true,
+        walletNo: 1,
+      };
+      const firstRead = deferred<boolean>();
+      const retryRead = deferred<boolean>();
+      h.readLocalCredential.mockResolvedValue(selected);
+      const verify = jest.spyOn(
+        h.service.syncManagers.wallet,
+        'canUploadPendingWalletName',
+      );
+      verify.mockImplementation(async ({ onVerifiedWallet }) => {
+        const verified =
+          scenario === 'newer-during-read' || scenario === 'second-timeout'
+            ? await retryRead.promise
+            : true;
+        if (verified) onVerifiedWallet?.(canonical, physical);
+        return verified;
+      });
+      jest
+        .spyOn(localDb, 'readWalletNameUploadRetrySources')
+        .mockImplementation(async ({ itemIds }) => {
+          let canonicalAtDispatch = canonical;
+          if (scenario === 'canonical-changed')
+            canonicalAtDispatch = {
+              ...canonical,
+              name: 'Newer unbound local name',
+            };
+          if (scenario === 'same-name-new-avatar')
+            canonicalAtDispatch = { ...canonical, avatar: '{"img":"bear"}' };
+          let deviceAtDispatch = physical;
+          if (physical && scenario === 'same-device-new-model')
+            deviceAtDispatch = { ...physical, deviceType: EDeviceType.Classic };
+          if (physical && scenario === 'same-device-new-vendor')
+            deviceAtDispatch = {
+              ...physical,
+              settingsRaw: '{"vendor":"trezor"}',
+            };
+          return {
+            items: itemIds.map((id) => h.pool.get(id)),
+            wallets: [canonicalAtDispatch],
+            devices: deviceAtDispatch ? [deviceAtDispatch] : [],
+          };
+        });
+      if (scenario === 'missing-credential')
+        h.readLocalCredential.mockResolvedValueOnce(undefined);
+      else if (scenario === 'conflict') verify.mockResolvedValueOnce(false);
+      else verify.mockReturnValueOnce(firstRead.promise);
+      const wire = jest.fn();
+      const api = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockImplementation(async ({ postData, prepareWalletRetry }) => {
+          const actual = selected.keylessCredential;
+          if (!actual?.hardwareSession)
+            throw new OneKeyLocalError('Missing test session');
+          const send = await prepareWalletRetry?.(
+            scenario === 'renewed-session'
+              ? {
+                  ...actual,
+                  hardwareSession: {
+                    ...actual.hardwareSession,
+                    sessionId: 'replacement-session',
+                  },
+                }
+              : actual,
+            scenario === 'changed-origin'
+              ? endpointsMap.test.prime
+              : endpointsMap.prod.prime,
+          );
+          if (prepareWalletRetry && !send)
+            throw new OneKeyLocalError({
+              message: 'Declined retry fixture',
+              autoToast: false,
+            });
+          wire(send ? send() : postData);
+          return { nonce: 1, created: 1, updated: 0 };
+        });
+      h.service.uploadItemsToMerge = [wallet];
+      const direct = h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      await jest.advanceTimersByTimeAsync(1500);
+      await direct;
+      firstRead.resolve(true);
+      expect(wire).not.toHaveBeenCalled();
+      if (scenario === 'switched') h.changeSource();
+      if (scenario === 'disabled')
+        jest
+          .spyOn(h.service, 'getActiveSyncMode')
+          .mockResolvedValue(ECloudSyncMode.None);
+      if (scenario === 'already-sent')
+        h.pool.set(wallet.id, { ...wallet, serverUploaded: true });
+
+      await jest.advanceTimersByTimeAsync(1000);
+      const newer = { ...wallet, data: 'new-avatar-box', dataTime: 101 };
+      if (scenario === 'newer-during-read') {
+        expect(verify).toHaveBeenCalledTimes(2);
+        h.pool.set(wallet.id, newer);
+        h.service.uploadItemsToMerge = [newer];
+        retryRead.resolve(true);
+      }
+      await jest.advanceTimersByTimeAsync(1500);
+      retryRead.resolve(true);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(api).toHaveBeenCalledTimes(
+        ['conflict', 'missing-credential', 'switched', 'disabled'].includes(
+          scenario,
+        )
+          ? 0
+          : 1,
+      );
+      if (scenario === 'available')
+        expect(wire).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localData: [
+              expect.objectContaining({
+                key: wallet.id,
+                data: wallet.data,
+                dataTimestamp: wallet.dataTime,
+              }),
+            ],
+          }),
+        );
+      else expect(wire).not.toHaveBeenCalled();
+      expect(h.service.uploadItemsToMerge).toEqual(
+        scenario === 'newer-during-read' ? [newer] : [],
+      );
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.check).not.toHaveBeenCalled();
+    },
+  );
 
   test('manual sync uploads missing hardware snapshots without adding a selector scan', async () => {
     const h = harness();
@@ -994,6 +1590,155 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     await jest.advanceTimersByTimeAsync(120_000);
     expect(h.check).toHaveBeenCalledTimes(1);
+  });
+
+  test('a legacy full check preserves a same-ID foreign Account and applies its independent sibling', async () => {
+    const builder = jest.requireActual<typeof import('./cloudSyncItemBuilder')>(
+      './cloudSyncItemBuilder',
+    ).default;
+    const keyless = jest.requireActual<
+      typeof import('./keylessCloudSyncUtils')
+    >('./keylessCloudSyncUtils').default;
+    jest
+      .spyOn(keylessCloudSyncUtils, 'isKeylessPwdHash')
+      .mockImplementation((pwdHash) => keyless.isKeylessPwdHash(pwdHash));
+
+    function credential(
+      generation: string,
+      keyByte: string,
+    ): ICloudSyncCredential {
+      const pwdHash = `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${generation}`;
+      return {
+        masterPasswordUUID: pwdHash,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+        keylessCredential: {
+          keylessWalletId: '-synthetic-hardware-only',
+          signingPrivateKey: '',
+          signingPublicKey: '',
+          pwdHash,
+          encryptionKey: keyByte.repeat(32),
+        },
+      };
+    }
+
+    const active = credential('active', '12');
+    const foreign = credential('retained', '34');
+    async function buildAccount(
+      index: number,
+      syncCredential: ICloudSyncCredential,
+      dataTime: number,
+    ) {
+      const snapshot = publicAccountTestSnapshot(index);
+      const accountId = getPublicAccountSnapshotId(snapshot);
+      const rawKey = `Account >> ${accountId}`;
+      const row = await builder.buildSyncItemFromRawDataJson({
+        key: sha512ProSync({ data: rawKey }),
+        rawDataJson: {
+          dataType: EPrimeCloudSyncDataType.Account,
+          rawKey,
+          payload: {
+            accountId,
+            name: snapshot.account.name,
+            publicAccountSnapshot: snapshot,
+          },
+        },
+        syncCredential,
+        dataTime,
+      });
+      const { rawDataJson } = await builder.decryptSyncItem({
+        item: { ...row, rawData: '' },
+        syncCredential,
+      });
+      expect(rawDataJson).toMatchObject({ rawKey });
+      if (!row.data)
+        throw new OneKeyLocalError('Expected encrypted Account fixture');
+      return { ...row, data: row.data };
+    }
+
+    const old = await buildAccount(0, foreign, Date.now() - 20);
+    const collided = await buildAccount(0, active, Date.now() - 10);
+    const sibling = await buildAccount(1, active, Date.now() - 5);
+    expect(collided.id).toBe(old.id);
+    expect(collided.data).not.toBe(old.data);
+    expect(sibling.id).not.toBe(old.id);
+    const preserved = {
+      ...old,
+      rawData: '',
+      serverUploaded: true,
+      localSceneUpdated: true,
+    };
+    const h = harness(0, { initialPool: new Map([[old.id, preserved]]) });
+    jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue(active);
+    h.readLocalCredential.mockResolvedValue(active);
+    const remote = [collided, sibling].map(
+      (row): ICloudSyncServerItem => ({
+        key: row.id,
+        data: row.data,
+        dataTimestamp: row.dataTime,
+        dataType: EPrimeCloudSyncDataType.Account,
+        isDeleted: false,
+        pwdHash: row.pwdHash,
+      }),
+    );
+    // The deployed response has no reconciliation envelope. The simulated
+    // server returns only the records absent from the client's exact summary.
+    h.check.mockImplementation(async ({ localItems = [] }) =>
+      reply({
+        reconciliation: undefined,
+        pwdHash: active.masterPasswordUUID,
+        diff: remote.filter(
+          (row) =>
+            !localItems.some(
+              (local) =>
+                local.id === row.key && local.dataTime === row.dataTimestamp,
+            ),
+        ),
+      }),
+    );
+    const upload = jest
+      .spyOn(h.service, '_callApiUploadItems')
+      .mockRejectedValue(
+        new OneKeyLocalError('Unexpected upload in download fixture'),
+      );
+
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.check.mock.calls[0][0].localItems).toEqual([]);
+    expect(h.pool.get(old.id)).toEqual(preserved);
+    expect(h.pool.get(sibling.id)).toMatchObject({
+      data: sibling.data,
+      pwdHash: sibling.pwdHash,
+    });
+    expect(
+      h.scene.mock.calls.flatMap(([params]) =>
+        params.items.map(({ id }) => id),
+      ),
+    ).toEqual([sibling.id]);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      requests: 1,
+      applied: 1,
+      uploaded: 0,
+    });
+
+    h.scene.mockClear();
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.check.mock.calls[1][0].localItems?.map(({ id }) => id)).toEqual([
+      sibling.id,
+    ]);
+    expect(h.pool.get(old.id)).toEqual(preserved);
+    expect(h.scene.mock.calls.flatMap(([params]) => params.items)).toEqual([]);
+    expect(upload).not.toHaveBeenCalled();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      requests: 1,
+      applied: 0,
+      uploaded: 0,
+    });
   });
 
   test('downloads the payload again when a local account item only has matching metadata', async () => {

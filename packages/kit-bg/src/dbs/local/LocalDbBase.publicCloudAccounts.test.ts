@@ -1863,6 +1863,126 @@ describe('cloud tombstone cleanup source guard', () => {
   });
 });
 
+describe('wrong-key cloud pool pruning', () => {
+  const oldCopy: IDBCloudSyncItem = {
+    id: 'synthetic-old-bookmark',
+    dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+    dataTime: 100,
+    data: 'synthetic-old-ciphertext',
+    rawData: undefined,
+    rawKey: '',
+    pwdHash: 'synthetic-previous-key',
+    isDeleted: false,
+    localSceneUpdated: false,
+    serverUploaded: true,
+  };
+
+  it.each([false, true])(
+    'prunes an unchanged old copy, deleted=%s',
+    async (isDeleted) => {
+      const db = new PublicAccountTestDb();
+      const copy = { ...oldCopy, isDeleted };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { data: 'synthetic-replacement' },
+    { dataTime: 101 },
+    { pwdHash: 'synthetic-active-key' },
+    { rawKey: 'changed-raw-key' },
+    { rawData: 'scene-cache' },
+    { pendingPublicAccountDeletionAt: 101 },
+    { isDeleted: false },
+    { localSceneUpdated: true },
+    { serverUploaded: false },
+  ])('preserves a concurrent change: %j', async (change) => {
+    const db = new PublicAccountTestDb();
+    const source = { ...oldCopy, isDeleted: true };
+    const current = { ...source, ...change };
+    db.put(ELocalDBStoreNames.CloudSyncItem, source);
+    db.beforeTransaction = () =>
+      db.put(ELocalDBStoreNames.CloudSyncItem, current);
+
+    await db.pruneWrongKeyCloudSyncPoolItems({
+      expectedItems: [source],
+      activePwdHash: 'synthetic-active-key',
+      isCurrent: () => true,
+    });
+
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+    ).toEqual(current);
+  });
+
+  it.each([EPrimeCloudSyncDataType.Wallet, EPrimeCloudSyncDataType.Account])(
+    'preserves an inactive hardware %s even if proposed for pruning',
+    async (dataType) => {
+      const db = new PublicAccountTestDb();
+      const copy = { ...oldCopy, dataType };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'hw-dek-active',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toEqual(copy);
+    },
+  );
+
+  it('rolls back a prune if the key generation changes during the write', async () => {
+    const db = new PublicAccountTestDb();
+    db.put(ELocalDBStoreNames.CloudSyncItem, oldCopy);
+    let isCurrent = true;
+    db.afterWrite = () => {
+      isCurrent = false;
+    };
+
+    await expect(
+      db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [oldCopy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => isCurrent,
+      }),
+    ).rejects.toThrow('Cloud sync cleanup was cancelled');
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toEqual(oldCopy);
+  });
+
+  it('does not accept a live record in strict server tombstone cleanup', async () => {
+    const db = new PublicAccountTestDb();
+    db.put(ELocalDBStoreNames.CloudSyncItem, oldCopy);
+
+    await db.removeCloudSyncPoolItems({
+      keys: [oldCopy.id],
+      expectedItems: [oldCopy],
+    });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toEqual(oldCopy);
+
+    await db.removeCloudSyncPoolItems({ keys: [oldCopy.id] });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(oldCopy.id),
+    ).toBeUndefined();
+  });
+});
+
 describe('legacy metadata cancellation transaction guard', () => {
   it.each(['entry', 'source-read', 'write'])(
     'rolls back the name and leaves its ACK pending when cancelled at %s',

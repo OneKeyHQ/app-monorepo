@@ -1,5 +1,7 @@
-import { isNil, isNumber } from 'lodash';
+import { isEqual, isNil, isNumber } from 'lodash';
 
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   LocalDBRecordNotFoundError,
   OneKeyLocalError,
@@ -16,10 +18,17 @@ import type {
   IndexedDBTransactionPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import { generateUUID, noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
-import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
+import {
+  consumeRemoteHardwareTombstonePromotion,
+  isProvenSettledRemoteHardwareAccountTombstone,
+} from '../../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
+  ALL_LOCAL_DB_STORE_NAMES,
+  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+} from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { EIndexedDBBucketNames } from '../types';
@@ -29,6 +38,7 @@ import indexedUtils from './indexedDBUtils';
 import type {
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
+  IIndexedDBStoreName,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -60,7 +70,164 @@ import type {
   ILocalDBTxUpdateRecordsParams,
   ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
+  IPendingCloudAccountHandoff,
 } from '../types';
+
+const LEGACY_CLOUD_ACCOUNT_ARCHIVE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isLegacyCloudAccountArchive(value: unknown): boolean {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    'kind' in value ||
+    Object.keys(value).length !== 2 ||
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !LEGACY_CLOUD_ACCOUNT_ARCHIVE_ID.test(value.id) ||
+    !('record' in value)
+  ) {
+    return false;
+  }
+  const { record } = value;
+  return (
+    !!record &&
+    typeof record === 'object' &&
+    'id' in record &&
+    typeof record.id === 'string' &&
+    !!record.id &&
+    'dataType' in record &&
+    record.dataType === EPrimeCloudSyncDataType.Account &&
+    'data' in record &&
+    typeof record.data === 'string' &&
+    record.data.length >= 32 &&
+    record.data.length % 2 === 0 &&
+    /^[0-9a-f]+$/i.test(record.data) &&
+    'pwdHash' in record &&
+    typeof record.pwdHash === 'string' &&
+    !!record.pwdHash &&
+    'serverUploaded' in record &&
+    record.serverUploaded === true &&
+    'localSceneUpdated' in record &&
+    record.localSceneUpdated === true &&
+    'isDeleted' in record &&
+    (record.isDeleted === false ||
+      isProvenSettledRemoteHardwareAccountTombstone(record))
+  );
+}
+
+function isValidPendingCloudAccountArchive(
+  value: unknown,
+): value is IPendingCloudAccountHandoff {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('kind' in value) ||
+    value.kind !== 'pending-account-handoff' ||
+    Object.keys(value).length !== 4 ||
+    !('id' in value) ||
+    !('candidate' in value) ||
+    !('expectedForeign' in value)
+  )
+    return false;
+
+  const validCiphertext = (data: unknown) =>
+    typeof data === 'string' &&
+    data.length >= 32 &&
+    data.length % 2 === 0 &&
+    /^[0-9a-f]+$/i.test(data);
+  const sterileWireFields = (record: object) =>
+    Object.keys(record).every((key) =>
+      [
+        'id',
+        'data',
+        'dataTime',
+        'dataType',
+        'pwdHash',
+        'isDeleted',
+        'localSceneUpdated',
+        'serverUploaded',
+        'rawData',
+        'rawKey',
+      ].includes(key),
+    );
+  const { candidate, expectedForeign } = value;
+  if (
+    !candidate ||
+    typeof candidate !== 'object' ||
+    !('id' in candidate) ||
+    typeof candidate.id !== 'string' ||
+    !candidate.id ||
+    !('pwdHash' in candidate) ||
+    typeof candidate.pwdHash !== 'string' ||
+    !candidate.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) ||
+    !('dataType' in candidate) ||
+    candidate.dataType !== EPrimeCloudSyncDataType.Account ||
+    !('data' in candidate) ||
+    typeof candidate.data !== 'string' ||
+    candidate.data.length > 64 * 1024 ||
+    !validCiphertext(candidate.data) ||
+    !('rawData' in candidate) ||
+    candidate.rawData !== '' ||
+    !('rawKey' in candidate) ||
+    candidate.rawKey !== '' ||
+    !sterileWireFields(candidate) ||
+    !('dataTime' in candidate) ||
+    typeof candidate.dataTime !== 'number' ||
+    !Number.isSafeInteger(candidate.dataTime) ||
+    candidate.dataTime <= 0 ||
+    !('serverUploaded' in candidate) ||
+    candidate.serverUploaded !== true ||
+    !('localSceneUpdated' in candidate) ||
+    candidate.localSceneUpdated !== false ||
+    !('isDeleted' in candidate) ||
+    typeof candidate.isDeleted !== 'boolean' ||
+    !expectedForeign ||
+    typeof expectedForeign !== 'object' ||
+    !('id' in expectedForeign) ||
+    expectedForeign.id !== candidate.id ||
+    !('pwdHash' in expectedForeign) ||
+    typeof expectedForeign.pwdHash !== 'string' ||
+    !expectedForeign.pwdHash ||
+    expectedForeign.pwdHash === candidate.pwdHash ||
+    !('dataType' in expectedForeign) ||
+    expectedForeign.dataType !== EPrimeCloudSyncDataType.Account ||
+    !('data' in expectedForeign) ||
+    !validCiphertext(expectedForeign.data) ||
+    !('rawData' in expectedForeign) ||
+    expectedForeign.rawData !== '' ||
+    !('rawKey' in expectedForeign) ||
+    expectedForeign.rawKey !== '' ||
+    !sterileWireFields(expectedForeign) ||
+    ('dataTime' in expectedForeign &&
+      expectedForeign.dataTime !== undefined &&
+      (typeof expectedForeign.dataTime !== 'number' ||
+        !Number.isSafeInteger(expectedForeign.dataTime))) ||
+    !('serverUploaded' in expectedForeign) ||
+    expectedForeign.serverUploaded !== true ||
+    !('localSceneUpdated' in expectedForeign) ||
+    expectedForeign.localSceneUpdated !== true ||
+    !('isDeleted' in expectedForeign) ||
+    typeof expectedForeign.isDeleted !== 'boolean' ||
+    (expectedForeign.isDeleted &&
+      (!expectedForeign.pwdHash.startsWith(
+        HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+      ) ||
+        !('dataTime' in expectedForeign) ||
+        typeof expectedForeign.dataTime !== 'number' ||
+        !Number.isSafeInteger(expectedForeign.dataTime) ||
+        expectedForeign.dataTime <= 0))
+  )
+    return false;
+  try {
+    return (
+      value.id ===
+      `pending-account-handoff:${encodeURIComponent(candidate.pwdHash)}:${encodeURIComponent(candidate.id)}`
+    );
+  } catch {
+    return false;
+  }
+}
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(buckets: IIndexedBucketsMap) {
@@ -101,7 +268,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | {
         dbTx: IndexedDBTransactionPromised<
           IIndexedDBSchemaMap,
-          ELocalDBStoreNames[],
+          IIndexedDBStoreName[],
           'readwrite'
         >;
         tx: ILocalDBTransaction;
@@ -109,20 +276,38 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | undefined;
 
   _getObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      IIndexedDBStoreName[],
+      'readwrite'
+    >,
     storeName: T,
     _: IDBTransactionMode,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    IIndexedDBStoreName[],
+    T,
+    'readwrite'
+  > {
     const store = tx.objectStore(storeName);
     return store;
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      IIndexedDBStoreName[],
+      'readwrite'
+    >,
     storeName: T,
     mode: IDBTransactionMode,
     indexed: IndexedDBPromised<IIndexedDBSchemaMap>,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    IIndexedDBStoreName[],
+    T,
+    'readwrite'
+  > {
     try {
       const store = this._getObjectStore(tx, storeName, mode);
       // const dd = await store.get('');
@@ -156,11 +341,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const allStoreNames = ALL_LOCAL_DB_STORE_NAMES;
 
-      // const dbTx = indexed.transaction( // not working for bucket
+      const storeNames: IIndexedDBStoreName[] =
+        indexedUtils.getStoreNamesByBucketName(bucketName);
+      const hasCloudAccountArchive =
+        bucketName === EIndexedDBBucketNames.account &&
+        (await indexed.open()).objectStoreNames.contains(
+          INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+        );
+      const transactionStores: IIndexedDBStoreName[] = hasCloudAccountArchive
+        ? [...storeNames, INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE]
+        : storeNames;
       const dbTx = await indexed.createBucketTransaction(
-        // allStoreNames,
-        indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
-        // 'readwrite',
+        transactionStores,
         mode,
         { allowWhenStorageFull },
       );
@@ -302,6 +494,103 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
       const tx: ILocalDBTransaction = {
         bucketName,
+        ...(hasCloudAccountArchive
+          ? {
+              desktopWalletLocalMetadata: {
+                read: async (id) => {
+                  const value = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .get(id);
+                  return value &&
+                    'kind' in value &&
+                    value.kind === 'wallet-local-metadata' &&
+                    value.id === id
+                    ? value
+                    : undefined;
+                },
+                write: async (record) => {
+                  await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .put(record);
+                },
+                remove: async (id) => {
+                  await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .delete(id);
+                },
+              },
+            }
+          : {}),
+        ...(hasCloudAccountArchive
+          ? {
+              pendingCloudAccountHandoffs: {
+                read: async (id) => {
+                  const value = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .get(id);
+                  return isValidPendingCloudAccountArchive(value)
+                    ? value
+                    : undefined;
+                },
+                list: async (prefix) => {
+                  const values = await dbTx
+                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
+                    .getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+                  return values.filter(isValidPendingCloudAccountArchive);
+                },
+                write: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  const previous = await archive.get(record.id);
+                  if (
+                    isValidPendingCloudAccountArchive(record) &&
+                    (!previous || isValidPendingCloudAccountArchive(previous))
+                  )
+                    await archive.put(record);
+                },
+                remove: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  const current = await archive.get(record.id);
+                  if (
+                    isValidPendingCloudAccountArchive(current) &&
+                    isEqual(current, record)
+                  )
+                    await archive.delete(record.id);
+                },
+              },
+            }
+          : {}),
+        ...(hasCloudAccountArchive && !readOnly
+          ? {
+              cloudAccountArchive: {
+                retain: async (record) => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  await archive.add({ id: generateUUID(), record });
+                },
+                clearArchivedRows: async () => {
+                  const archive = dbTx.objectStore(
+                    INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
+                  );
+                  let cursor = await archive.openCursor();
+                  while (cursor) {
+                    // The archive also houses local-only and future tagged rows.
+                    if (
+                      isLegacyCloudAccountArchive(cursor.value) ||
+                      isValidPendingCloudAccountArchive(cursor.value)
+                    ) {
+                      await cursor.delete();
+                    }
+                    cursor = await cursor.continue();
+                  }
+                },
+              },
+            }
+          : {}),
         stores: {
           [ELocalDBStoreNames.Context]: contextStore,
           [ELocalDBStoreNames.Wallet]: walletStore,
@@ -357,7 +646,30 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }) {
     if (oldRecord) {
       const store = this._getObjectStoreFromTx(tx, name);
+      const priorCloudProof =
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in oldRecord &&
+        isProvenSettledRemoteHardwareAccountTombstone(oldRecord)
+          ? oldRecord.remoteHardwareAccountTombstoneProof
+          : undefined;
       const newRecord = await updater(oldRecord);
+      if (
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in newRecord
+      ) {
+        const minted = consumeRemoteHardwareTombstonePromotion(newRecord);
+        // Ordinary updates may merge old optional fields. Only the authenticated
+        // handoff can mint a proof; invalidated proof cannot be reintroduced.
+        if (
+          !isProvenSettledRemoteHardwareAccountTombstone(newRecord) ||
+          (!minted &&
+            newRecord.remoteHardwareAccountTombstoneProof !== priorCloudProof)
+        )
+          Reflect.deleteProperty(
+            newRecord,
+            'remoteHardwareAccountTombstoneProof',
+          );
+      }
       await store.put(newRecord as any);
     }
   }
@@ -407,6 +719,16 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
             errorUtils.logCurrentCallStack('localDB.withTransaction Failed');
           }
         }
+      }
+      if (options?.confirmRollbackOnError) {
+        try {
+          await dbTx.done;
+        } catch {
+          throw error;
+        }
+        throw new OneKeyLocalError(
+          'Local wallet transaction rollback could not be confirmed',
+        );
       }
       throw error;
     }
@@ -675,7 +997,20 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        await store.add(record as any);
+        if (
+          name === ELocalDBStoreNames.CloudSyncItem &&
+          'remoteHardwareAccountTombstoneProof' in record
+        ) {
+          // Only the exact remote handoff replacement of an existing row may mint proof.
+          const {
+            remoteHardwareAccountTombstoneProof: discardedProof,
+            ...withoutProof
+          } = record;
+          noopObject(discardedProof);
+          await store.add(withoutProof as any);
+        } else {
+          await store.add(record as any);
+        }
         result.added += 1;
         result.addedIds.push(record.id);
       } else {

@@ -105,10 +105,16 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
       </Dialog.ScrollView>
       <Dialog.Footer
         onConfirm={async () => {
-          if (!wallet?.id || !selectedAvatar) {
+          if (
+            !wallet?.id ||
+            !selectedAvatar ||
+            (wallet.hasDesktopLocalMetadata &&
+              wallet.avatarInfo?.img === selectedAvatar)
+          ) {
             return;
           }
           await serviceAccount.setWalletNameAndAvatar({
+            allowDesktopLocalMetadata: true,
             walletId: wallet?.id,
             avatar: {
               img: selectedAvatar,

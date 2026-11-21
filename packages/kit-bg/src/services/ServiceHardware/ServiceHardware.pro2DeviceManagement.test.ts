@@ -86,6 +86,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     isDesktop: true,
     isDev: true,
+    isMas: undefined,
     isJest: true,
     isNative: false,
     isSupportDesktopBle: false,
@@ -2485,9 +2486,12 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     [EDeviceType.Pro2, ''],
     [EDeviceType.Neo, undefined],
   ] as const)(
-    'writes the %s label back when Success.message is %j',
+    'writes the %s label back when Success.message is %j without waiting for Cloud metadata',
     async (deviceType, message) => {
       const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+      const syncHardwareCloudSyncDeviceLabel = jest.fn(
+        async () => new Promise<void>(() => {}),
+      );
       const currentState = {
         protocol: 'V2',
         revision: 4,
@@ -2515,9 +2519,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       const service = new ServiceHardware({
         backgroundApi: {
           serviceKeylessCloudSync: {
-            syncHardwareCloudSyncDeviceLabel: jest
-              .fn()
-              .mockResolvedValue(undefined),
+            syncHardwareCloudSyncDeviceLabel,
           },
           serviceAccount: {
             getWalletSafe: jest.fn().mockResolvedValue({
@@ -2568,9 +2570,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       );
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+        allowDesktopLocalMetadata: true,
         walletId: 'hw-wallet-1',
         name: 'Hardware Label',
         shouldCheckDuplicate: false,
+      });
+      expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
+        walletId: 'hw-wallet-1',
+        label: 'Hardware Label',
       });
       expect(appEventBus.emit).not.toHaveBeenCalledWith(
         EAppEventBusNames.SyncDeviceLabelToWalletName,
@@ -2578,6 +2585,42 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       );
     },
   );
+});
+
+describe('device-derived wallet presentation', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps the regular device label and avatar path on shared schema v21', async () => {
+    const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+    const syncHardwareCloudSyncDeviceLabel = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const getWalletSafe = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: { getWalletSafe, setWalletNameAndAvatar },
+        serviceKeylessCloudSync: { syncHardwareCloudSyncDeviceLabel },
+      } as unknown as IBackgroundApi,
+    });
+    const walletId = 'hw-passive-1';
+    const dbDeviceId = 'device-passive-1';
+    await service.handleHardwareLabelChanged({
+      walletId,
+      dbDeviceId,
+      label: 'An older emitted label',
+      walletName: undefined,
+    });
+    await service.handleHardwareAvatarChanged({
+      walletId,
+      dbDeviceId,
+      avatarInfo: { img: 'bear' },
+    });
+    expect(setWalletNameAndAvatar).toHaveBeenCalledTimes(2);
+    expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
+      walletId,
+      label: 'An older emitted label',
+    });
+  });
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {

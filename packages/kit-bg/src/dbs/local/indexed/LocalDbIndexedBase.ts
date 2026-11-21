@@ -42,6 +42,7 @@ import type {
   IDBWalletIdSingleton,
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
+  IIndexedDBStoreName,
   ILocalDBAgent,
 } from '../types';
 
@@ -80,7 +81,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     newVersion: number | null;
     transaction: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
   }): null {
@@ -332,7 +333,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     nativeDB: IDBDatabase;
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
     storeName: T;
@@ -344,7 +345,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   private _getObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >,
     storeName: T,
@@ -366,7 +367,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     nativeDB: IDBDatabase;
     tx: IndexedDBTransactionPromised<
       IIndexedDBSchemaMap,
-      ArrayLike<ELocalDBStoreNames>,
+      ArrayLike<IIndexedDBStoreName>,
       'versionchange'
     >;
     storeName: T;

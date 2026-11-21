@@ -15,6 +15,7 @@ import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelecto
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { useWalletMetadataPresentation } from '@onekeyhq/kit/src/hooks/useWalletMetadataPresentation';
 import {
   useAccountSelectorContextDataAtom,
   useSelectedAccount,
@@ -53,6 +54,7 @@ export function WalletDetailsHeader({
   const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
   const actions = useAccountSelectorActions();
   const intl = useIntl();
+  const displayWallet = useWalletMetadataPresentation(wallet?.id, wallet);
 
   const _showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -90,7 +92,9 @@ export function WalletDetailsHeader({
             {...(isAvatarEditable && {
               role: 'button',
               onPress: () =>
-                wallet ? showWalletAvatarEditDialog({ wallet }) : null,
+                displayWallet
+                  ? showWalletAvatarEditDialog({ wallet: displayWallet })
+                  : null,
               hoverStyle: {
                 bg: '$bgHover',
               },
@@ -109,7 +113,7 @@ export function WalletDetailsHeader({
             <Stack>
               <WalletAvatar
                 size="$8"
-                wallet={wallet}
+                wallet={displayWallet}
                 firmwareTypeBadge={firmwareType}
               />
               {isAvatarEditable ? (
@@ -127,8 +131,12 @@ export function WalletDetailsHeader({
               })}
             </SizableText>
           ) : null}
-          {!platformEnv.isWebDappMode && wallet ? (
-            <WalletRenameButton wallet={wallet} editable={editable} mr="$1.5" />
+          {!platformEnv.isWebDappMode && displayWallet ? (
+            <WalletRenameButton
+              wallet={displayWallet}
+              editable={editable}
+              mr="$1.5"
+            />
           ) : null}
         </XStack>
 

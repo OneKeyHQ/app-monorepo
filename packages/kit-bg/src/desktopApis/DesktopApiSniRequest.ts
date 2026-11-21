@@ -1235,6 +1235,11 @@ class DesktopApiSniRequest {
             const statusCode = response.statusCode || 0;
             settleResolve({
               statusCode,
+              // This is the raw response to the single TLS-verified request.
+              verifiedFinalUrl:
+                statusCode >= 200 && statusCode < 300
+                  ? `https://${normalizedConfig.hostname}${normalizedConfig.path}`
+                  : undefined,
               status: statusCode,
               statusText: response.statusMessage || '',
               headers: headerMaps.headers,

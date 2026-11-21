@@ -17,7 +17,7 @@ import {
   useDeviceMetaStaticAtom,
   useDeviceTypeAtom,
   useRefreshSettledAtom,
-  useWalletWithDeviceAtom,
+  useWalletWithDeviceForHeader as useWalletWithDeviceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

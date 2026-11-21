@@ -12,6 +12,7 @@ import {
   cloneDeep,
   debounce,
   isEmpty,
+  isEqual,
   isNil,
   isPlainObject,
   isString,
@@ -44,6 +45,7 @@ import {
   sha256Sync,
   shouldUpgradeSecretEncryptPayload,
 } from '@onekeyhq/core/src/secret';
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import type {
   ICoreHyperLiquidAgentCredential,
   ICoreImportedCredential,
@@ -133,7 +135,9 @@ import {
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import systemTimeUtils, {
+  ELocalSystemTimeStatus,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -150,10 +154,11 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
-  ICloudSyncKeyInfoWallet,
+  ICloudSyncCredential,
   ICloudSyncTargetIndexedAccount,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -161,12 +166,28 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import {
+  buildRemoteHardwareAccountTombstoneProof,
+  canArchiveForeignAccountCopy,
+  canArchiveSettledForeignAccountHandoff,
+  isInactiveHardwareWalletAccount,
+  isSupportedCloudSyncDataType,
+  rememberRemoteHardwareTombstonePromotion,
+} from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
+import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
+  buildPublicAccountSnapshot,
+  getPublicAccountSnapshotId,
+  getPublicAccountSnapshotIdentityHash,
+  normalizePublicAccountSnapshotRecord,
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
+  publicAccountSnapshotToAccount,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
+  getForeignAccountDeletion,
+  getOfflinePublicAccountSnapshotFill,
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
   isUnsyncedPublicAccountSnapshotRemoval,
@@ -176,7 +197,7 @@ import {
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
-import { EDBAccountType } from './consts';
+import { EDBAccountType, supportsIndexedCloudAccountArchive } from './consts';
 import {
   decryptHyperLiquidAgentCredentialWithSessionKey,
   deriveHyperLiquidAgentSecretKey,
@@ -245,10 +266,12 @@ import type {
   IDBWalletNextIdKeys,
   IDBWalletNextIds,
   IDBWalletType,
+  IDesktopWalletLocalMetadata,
   IKeylessWalletDetailsInfo,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
+  IPendingCloudAccountHandoff,
   ITrezorThpCredential,
 } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
@@ -427,6 +450,13 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  onBeforeWalletServerMerge?: (
+    previous: IDBCloudSyncItem,
+    incoming: IDBCloudSyncItem,
+  ) => void;
+  preserveExisting?: (
+    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+  ) => boolean;
   fn?: () => Promise<void>;
 };
 
@@ -437,6 +467,13 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  onBeforeWalletServerMerge?: (
+    previous: IDBCloudSyncItem,
+    incoming: IDBCloudSyncItem,
+  ) => void;
+  preserveExisting?: (
+    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
+  ) => boolean;
 };
 
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
@@ -453,6 +490,7 @@ type IPublicCloudAccountApplyParams = {
   expectedCredential?: string;
   accounts: IDBAccount[];
   sourceItemsByAccountId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   indexedNames?: ReadonlyMap<string, IPublicAccountIndexedName>;
   isCurrent: () => boolean;
 };
@@ -1002,6 +1040,20 @@ type IResolveExistingDeviceParams = {
   // identity matching misses. OneKey never reaches it.
   vendor?: EHardwareVendor;
 };
+
+const WALLET_METADATA_CLOUD_WRITE_DECLINED = new Error(
+  'Wallet metadata Cloud write declined',
+);
+
+const CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS = 1000;
+
+// Distinguish a declined optional Cloud write from a real local DB failure.
+const OFFLINE_ACCOUNT_CANCELLATION_DECLINED = new Error(
+  'Optional offline Account cancellation declined',
+);
+const CLOUD_ACCOUNT_DELETE_WRITE_DECLINED = new Error(
+  'Cloud account deletion write declined',
+);
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   // Local optimization only: reset on restart so legacy avatars get a bounded
@@ -5462,16 +5514,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async clearAllSyncItems() {
-    const { syncItems } = await this.getAllSyncItems();
-    // EIndexedDBBucketNames.cloudSync
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        const { records } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.CloudSyncItem,
-          ids: syncItems.map((item) => item.id),
+          ids: records
+            .filter((item) => item.dataType !== EPrimeCloudSyncDataType.Lock)
+            .map((item) => item.id),
         });
+        await tx.cloudAccountArchive?.clearArchivedRows();
       },
     );
   }
@@ -5489,6 +5546,43 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           Boolean(item) && item.dataType !== EPrimeCloudSyncDataType.Lock,
       ),
     };
+  }
+
+  async readWalletNameUploadRetrySources({
+    walletIds,
+    itemIds,
+    deviceIds,
+  }: {
+    walletIds: string[];
+    itemIds: string[];
+    deviceIds: string[];
+  }) {
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const { records: wallets } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: walletIds,
+        });
+        const { records: items } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: itemIds,
+        });
+        const devices = deviceIds.length
+          ? (
+              await this.txGetRecordsByIds({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: deviceIds,
+              })
+            ).records
+          : [];
+        return { wallets, items, devices };
+      },
+      { readOnly: true, skipCloudCredentialWarmup: true },
+    );
   }
 
   async getSyncItem({ id }: { id: string }): Promise<IDBCloudSyncItem> {
@@ -5549,6 +5643,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUpdate,
     skipUploadToServer,
     fn,
+    preserveExisting,
+    onBeforeWalletServerMerge,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
@@ -5559,6 +5655,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           items,
           skipUpdate,
           skipUploadToServer,
+          preserveExisting,
+          onBeforeWalletServerMerge,
         });
 
         await fn?.();
@@ -5582,11 +5680,117 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  private getPublicAccountSnapshotAccountProjections(
+    snapshot: ICloudPublicAccountSnapshot,
+    wallets: IDBWallet[],
+  ) {
+    const hardware = snapshot.wallet.kind === 'hardware';
+    const candidates = wallets.filter((wallet) => {
+      if (wallet.isMocked || wallet.isTemp) return false;
+      if (
+        hardware
+          ? !accountUtils.isHwWallet({ walletId: wallet.id })
+          : !accountUtils.isHdWallet({ walletId: wallet.id }) ||
+            accountUtils.isBotWallet({ walletId: wallet.id })
+      )
+        return false;
+      if (Boolean(wallet.passphraseState) !== snapshot.wallet.hidden)
+        return false;
+      try {
+        return (
+          normalizePublicAccountWalletXfp(wallet.xfp || '') ===
+          snapshot.wallet.xfp
+        );
+      } catch {
+        return false;
+      }
+    });
+    return new Map(
+      candidates.map((wallet) => {
+        const expected = publicAccountSnapshotToAccount(snapshot, wallet.id);
+        return [expected.id, { wallet, expected }] as const;
+      }),
+    );
+  }
+
+  private async txCheckOfflinePublicAccountSnapshotFill({
+    tx,
+    item,
+    current,
+    wallets,
+  }: {
+    tx: ILocalDBTransaction;
+    item: IDBCloudSyncItem;
+    current: IDBCloudSyncItem | undefined;
+    wallets: IDBWallet[];
+  }) {
+    const fill = getOfflinePublicAccountSnapshotFill(item);
+    if (!fill) return;
+    if (!isEqual(current, fill.previous)) {
+      rejectPublicAccountSnapshotWrite(item);
+      return;
+    }
+    const { snapshot } = fill;
+    const projections = this.getPublicAccountSnapshotAccountProjections(
+      snapshot,
+      wallets,
+    );
+    if (!projections.size) {
+      rejectPublicAccountSnapshotWrite(item);
+      return;
+    }
+    const { records } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Account,
+      ids: [...projections.keys()],
+    });
+    const matching = records.some((account) => {
+      if (!account) return false;
+      const match = projections.get(account.id);
+      if (!match) return false;
+      // Realm returns null for an absent optional string, but the snapshot
+      // schema accepts only omission or a concrete creation network.
+      const liveAccount = {
+        ...account,
+        createAtNetwork: account.createAtNetwork ?? undefined,
+        relPath: account.relPath ?? undefined,
+      };
+      if (!publicAccountIdentityEqual(liveAccount, match.expected))
+        return false;
+      try {
+        const liveSnapshot = buildPublicAccountSnapshot({
+          wallet: match.wallet,
+          account: liveAccount,
+        });
+        return (
+          !!liveSnapshot &&
+          getPublicAccountSnapshotId(liveSnapshot) ===
+            getPublicAccountSnapshotId(snapshot)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (matching) return;
+    rejectPublicAccountSnapshotWrite(item);
+    // A matching live wallet remains but its local account has gone. A
+    // conflicting account is not evidence of deletion, so retain that row.
+    if (!records.some(Boolean)) {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+      });
+    }
+  }
+
   async txAddAndUpdateSyncItems({
     tx,
     items,
     skipUpdate,
     skipUploadToServer,
+    preserveExisting,
+    onBeforeWalletServerMerge,
   }: ITxAddAndUpdateSyncItemsParams) {
     const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
     if (guardedItems.length) {
@@ -5600,11 +5804,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           .filter((record): record is IDBCloudSyncItem => Boolean(record))
           .map((record) => [record.id, record]),
       );
+      let fillWallets: IDBWallet[] | undefined;
       for (const item of guardedItems) {
-        if (
-          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id))
-        ) {
+        const current = currentById.get(item.id);
+        if (!matchesPublicAccountSnapshotWrite(item, current)) {
           rejectPublicAccountSnapshotWrite(item);
+        } else if (getOfflinePublicAccountSnapshotFill(item)) {
+          if (!fillWallets) {
+            const { records: wallets } = await this.txGetAllRecords({
+              tx,
+              name: ELocalDBStoreNames.Wallet,
+            });
+            fillWallets = wallets.filter(
+              (wallet): wallet is IDBWallet => !!wallet,
+            );
+          }
+          await this.txCheckOfflinePublicAccountSnapshotFill({
+            tx,
+            item,
+            current,
+            wallets: fillWallets,
+          });
         }
       }
     }
@@ -5631,7 +5851,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const recordToUpdate = writableItems.find(
             (item) => item.id === record.id,
           );
-          if (recordToUpdate) {
+          if (recordToUpdate && !preserveExisting?.(record)) {
+            if (
+              onBeforeWalletServerMerge &&
+              recordToUpdate.dataType === EPrimeCloudSyncDataType.Wallet &&
+              recordToUpdate.serverUploaded &&
+              record.dataType === EPrimeCloudSyncDataType.Wallet &&
+              record.serverUploaded &&
+              record.localSceneUpdated &&
+              !record.isDeleted &&
+              !!record.data
+            ) {
+              // Snapshot ciphertext and replay metadata, not a live Realm proxy.
+              onBeforeWalletServerMerge(
+                {
+                  id: record.id,
+                  dataType: record.dataType,
+                  data: record.data,
+                  dataTime: record.dataTime,
+                  pwdHash: record.pwdHash,
+                  isDeleted: false,
+                  serverUploaded: true,
+                  localSceneUpdated: true,
+                  rawKey: record.rawKey,
+                  rawData: undefined,
+                },
+                recordToUpdate,
+              );
+            }
             this._updateCloudSyncPoolItemFn({
               item: record,
               updateItem: recordToUpdate,
@@ -5688,6 +5935,80 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       EIndexedDBBucketNames.account,
       async (tx) => {
         await this.txRemoveCloudSyncPoolItems({ tx, keys, expectedItems });
+      },
+    );
+  }
+
+  async pruneWrongKeyCloudSyncPoolItems({
+    expectedItems,
+    activePwdHash,
+    isCurrent,
+  }: {
+    expectedItems: IDBCloudSyncItem[];
+    activePwdHash: string;
+    isCurrent: () => boolean;
+  }) {
+    if (!activePwdHash || !expectedItems.length) return;
+
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        if (!isCurrent()) return;
+        const expectedById = new Map(
+          expectedItems.map((item) => [item.id, item]),
+        );
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [...expectedById.keys()],
+        });
+        if (!isCurrent()) return;
+
+        const ids = records.flatMap((current) => {
+          if (
+            !current ||
+            !current.pwdHash ||
+            current.pwdHash === activePwdHash ||
+            current.rawData ||
+            current.pendingPublicAccountDeletionAt ||
+            !isSupportedCloudSyncDataType(current.dataType) ||
+            isInactiveHardwareWalletAccount(current, activePwdHash)
+          )
+            return [];
+          const expected = expectedById.get(current.id);
+          if (
+            !expected ||
+            current.pwdHash !== expected.pwdHash ||
+            current.dataType !== expected.dataType ||
+            current.data !== expected.data ||
+            current.dataTime !== expected.dataTime ||
+            current.rawKey !== expected.rawKey ||
+            current.rawData !== expected.rawData ||
+            current.isDeleted !== expected.isDeleted ||
+            current.localSceneUpdated !== expected.localSceneUpdated ||
+            current.serverUploaded !== expected.serverUploaded ||
+            current.pendingPublicAccountDeletionAt !==
+              expected.pendingPublicAccountDeletionAt ||
+            current.pendingPublicAccountDeletionHash !==
+              expected.pendingPublicAccountDeletionHash
+          )
+            return [];
+          return [current.id];
+        });
+        if (!ids.length) return;
+
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ignoreNotFound: true,
+          ids,
+        });
+        if (!isCurrent()) {
+          throw new OneKeyLocalError({
+            message: 'Cloud sync cleanup was cancelled',
+            autoToast: false,
+          });
+        }
       },
     );
   }
@@ -7965,33 +8286,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountUtils.isHwWallet({
             walletId,
           }) || accountUtils.isQrWallet({ walletId });
-        const isKeyless = wallet.isKeyless;
         const isHdWallet = accountUtils.isHdWallet({ walletId });
 
         const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
           associatedDevice: wallet.associatedDevice,
         });
-        const syncManagers =
-          this.backgroundApi.servicePrimeCloudSync.syncManagers;
-
-        const target = await syncManagers.wallet.buildSyncTargetByDBQuery({
-          dbRecord: wallet,
-        });
-        // TODO buildSyncKeyAndPayloadSafe
-        let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
-        if (!isKeyless) {
-          syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
-            target,
-          });
-        }
-
         return {
           walletId,
           wallet,
           isHardware,
           isHdWallet,
           walletsInSameDevice,
-          syncKeyInfo,
+          // This optional read is independent of the business transaction.
+          cleanupDevice:
+            !wallet.isKeyless && wallet.associatedDevice
+              ? this.getDeviceSafe(wallet.associatedDevice).catch(
+                  () => undefined,
+                )
+              : undefined,
         };
       }),
     );
@@ -8045,6 +8357,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 )
                 ?.filter(Boolean);
               if (matchedHiddenWallets?.length) {
+                if (tx.desktopWalletLocalMetadata) {
+                  for (const [hiddenWallet] of matchedHiddenWallets) {
+                    if (hiddenWallet) {
+                      await tx.desktopWalletLocalMetadata.remove(
+                        this.getDesktopLocalWalletMetadataId(hiddenWallet.id),
+                      );
+                    }
+                  }
+                }
                 await this.txRemoveRecords({
                   name: ELocalDBStoreNames.Wallet,
                   tx,
@@ -8081,6 +8402,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
 
+          await tx.desktopWalletLocalMetadata?.remove(
+            this.getDesktopLocalWalletMetadataId(walletId),
+          );
+
           if (accountUtils.isHdWallet({ walletId }) || isHardware) {
             const { recordPairs } = await this.txGetAllRecords({
               tx,
@@ -8100,19 +8425,154 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         }
       },
+      { skipCloudCredentialWarmup: true },
     );
 
-    for (const { walletId, syncKeyInfo } of removals) {
-      if (syncKeyInfo) {
-        await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
-      }
-
+    for (const { walletId, wallet, cleanupDevice } of removals) {
       delete this.tempWallets[walletId];
+      appEventBus.emit(EAppEventBusNames.WalletRemove, { walletId });
+      if (!wallet.isKeyless) {
+        void (async () => {
+          const manager =
+            this.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
+          const dbDevice = await cleanupDevice;
+          if (wallet.associatedDevice && !dbDevice) return;
+          const target = await manager.buildSyncTargetByDBQuery({
+            dbRecord: wallet,
+            allDevices: dbDevice ? [dbDevice] : [],
+          });
+          const info = await manager.buildSyncKeyInfo({ target });
+          const prefix = `${EPrimeCloudSyncDataType.Wallet} >> `;
+          if (!info?.key || !info.rawKey.startsWith(prefix)) return;
+          const keySuffix = info.rawKey.slice(prefix.length);
+          if (!keySuffix.trim()) return;
+          const existing = await this.getSyncItemSafe({ id: info.key });
+          if (
+            existing?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+            existing.rawKey !== info.rawKey ||
+            existing.isDeleted
+          )
+            return;
 
-      appEventBus.emit(EAppEventBusNames.WalletRemove, {
-        walletId,
-      });
+          const cleanup = () =>
+            this.withSpaceFreeingTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                const {
+                  records: [remaining],
+                } = await this.txGetRecordsByIds({
+                  tx,
+                  name: ELocalDBStoreNames.Wallet,
+                  ids: [walletId],
+                });
+                if (remaining && (!isRemoveToMocked || !remaining.isMocked))
+                  return;
+                if (
+                  await this.txHasAnotherWalletUsingCloudCache({
+                    tx,
+                    wallet,
+                    rawKey: keySuffix,
+                  })
+                )
+                  return;
+                const {
+                  records: [current],
+                } = await this.txGetRecordsByIds({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [info.key],
+                });
+                if (
+                  !current ||
+                  current.isDeleted ||
+                  current.rawKey !== info.rawKey ||
+                  !isEqual(current, existing)
+                )
+                  return;
+                await this.txRemoveRecords({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [info.key],
+                });
+              },
+            );
+
+          if (!existing.data && !existing.pwdHash) {
+            await cleanup();
+          } else if (
+            supportsIndexedCloudAccountArchive() &&
+            existing.serverUploaded &&
+            existing.data &&
+            existing.pwdHash
+          ) {
+            // Web has no durable cross-tab authority fence. Keep its encrypted
+            // copies rather than turning local unbinding into cross-space prune.
+            await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+              async () => {
+                const scope = cloudSyncItemBuilder.getPwdHash(
+                  await this.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential(),
+                );
+                if (scope && existing.pwdHash === scope) await cleanup();
+              },
+            );
+          }
+        })().catch(() => undefined);
+      }
     }
+  }
+
+  private async txHasAnotherWalletUsingCloudCache({
+    tx,
+    wallet,
+    rawKey,
+  }: {
+    tx: ILocalDBTransaction;
+    wallet: IDBWallet;
+    rawKey: string;
+  }) {
+    const { records } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const peers = records.filter(
+      (other) =>
+        other.id !== wallet.id &&
+        !other.isMocked &&
+        other.type === wallet.type &&
+        (other.passphraseState ?? '') === (wallet.passphraseState ?? ''),
+    );
+    if (!peers.length) return false;
+    if (accountUtils.isHdWallet({ walletId: wallet.id })) {
+      return peers.some((other) => !wallet.hash || other.hash === wallet.hash);
+    }
+    const ids = new Set(
+      peers.flatMap((other) =>
+        other.associatedDevice ? [other.associatedDevice] : [],
+      ),
+    );
+    const { records: devices } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Device,
+      ids: [...ids],
+    });
+    return peers.some((other) => {
+      const dbDevice = devices.find(
+        (device) => device?.id === other.associatedDevice,
+      );
+      if (!dbDevice) return true;
+      try {
+        return (
+          cloudSyncItemBuilder.buildWalletSyncKey({
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            wallet: { ...other, avatarInfo: other.avatarInfo },
+            dbDevice,
+            accountIndex: undefined,
+          })?.rawKey === rawKey
+        );
+      } catch (_error) {
+        return true;
+      }
+    });
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
@@ -8178,13 +8638,401 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  private getDesktopLocalWalletMetadataId(
+    walletId: string,
+  ): IDesktopWalletLocalMetadata['id'] {
+    // Account archives use UUIDs. This prefix cannot collide with them and
+    // doesn't require an object-store upgrade.
+    return `wallet-local-metadata:${walletId}`;
+  }
+
+  private async txGetDesktopLocalWalletMetadata(
+    tx: ILocalDBTransaction,
+    wallet: IDBWallet,
+  ) {
+    const override = await tx.desktopWalletLocalMetadata?.read(
+      this.getDesktopLocalWalletMetadataId(wallet.id),
+    );
+    return override &&
+      override.walletNo === wallet.walletNo &&
+      override.walletType === wallet.type &&
+      override.associatedDevice === wallet.associatedDevice &&
+      override.passphraseState === wallet.passphraseState
+      ? override
+      : undefined;
+  }
+
+  private projectDesktopLocalWalletMetadata(
+    wallet: IDBWallet,
+    override: IDesktopWalletLocalMetadata | undefined,
+  ): IDBWallet {
+    if (!override) return wallet;
+    return {
+      ...wallet,
+      name: override.name ?? wallet.name,
+      avatar: override.avatar ? JSON.stringify(override.avatar) : wallet.avatar,
+      avatarInfo: override.avatar ?? wallet.avatarInfo,
+      hasDesktopLocalMetadata: true,
+    };
+  }
+
+  async getWalletsForMetadataPresentation(wallets: IDBWallet[]) {
+    if (!supportsIndexedCloudAccountArchive() || !wallets.length)
+      return wallets;
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const project = async (wallet: IDBWallet): Promise<IDBWallet> => {
+          const result = this.projectDesktopLocalWalletMetadata(
+            wallet,
+            await this.txGetDesktopLocalWalletMetadata(tx, wallet),
+          );
+          if (wallet.hiddenWallets?.length) {
+            return {
+              ...result,
+              hiddenWallets: await Promise.all(
+                wallet.hiddenWallets.map(project),
+              ),
+            };
+          }
+          return result;
+        };
+        return Promise.all(wallets.map(project));
+      },
+      { readOnly: true, skipCloudCredentialWarmup: true },
+    );
+  }
+
+  private async txAssertUniqueDesktopWalletName(
+    tx: ILocalDBTransaction,
+    wallet: IDBWallet,
+    name: string,
+  ) {
+    const { records } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const isHidden = accountUtils.isHwHiddenWallet({ wallet });
+    const candidates = records.filter(
+      (candidate) =>
+        candidate &&
+        candidate.id !== wallet.id &&
+        !candidate.isTemp &&
+        !accountUtils.isOthersWallet({ walletId: candidate.id }) &&
+        (!isHidden ||
+          (candidate.associatedDevice === wallet.associatedDevice &&
+            candidate.type === wallet.type)),
+    );
+    const duplicates = await Promise.all(
+      candidates.map(async (candidate) => {
+        if (candidate.name === name) return true;
+        const override = await this.txGetDesktopLocalWalletMetadata(
+          tx,
+          candidate,
+        );
+        return override?.name === name;
+      }),
+    );
+    if (duplicates.some(Boolean)) throw new RenameDuplicateNameError();
+  }
+
+  private async setDesktopLocalWalletMetadata(
+    params: IDBSetWalletNameAndAvatarParams,
+  ) {
+    const { walletId, name, avatar, shouldCheckDuplicate } = params;
+    const wallet = await this.getWallet({ walletId });
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const [current] = await this.txGetWallet({ tx, walletId });
+        const metadata = tx.desktopWalletLocalMetadata;
+        if (
+          !metadata ||
+          !current ||
+          current.walletNo !== wallet.walletNo ||
+          current.type !== wallet.type ||
+          current.associatedDevice !== wallet.associatedDevice ||
+          current.passphraseState !== wallet.passphraseState ||
+          current.xfp !== wallet.xfp ||
+          current.hash !== wallet.hash
+        ) {
+          const key = ETranslations.global_unknown_error_retry_message;
+          throw new OneKeyLocalError({
+            key,
+            message: appLocale.intl.formatMessage({
+              id: key,
+              defaultMessage: 'Wallet changed. Try again.',
+            }),
+          });
+        }
+        if (shouldCheckDuplicate && name)
+          await this.txAssertUniqueDesktopWalletName(tx, current, name);
+        const previous = await this.txGetDesktopLocalWalletMetadata(
+          tx,
+          current,
+        );
+        const override: IDesktopWalletLocalMetadata = {
+          id: this.getDesktopLocalWalletMetadataId(walletId),
+          kind: 'wallet-local-metadata',
+          walletNo: current.walletNo,
+          walletType: current.type,
+          associatedDevice: current.associatedDevice,
+          passphraseState: current.passphraseState,
+          modifiedAt: Math.max(Date.now(), (previous?.modifiedAt ?? 0) + 1),
+          name: name || previous?.name,
+          avatar: avatar && isPlainObject(avatar) ? avatar : previous?.avatar,
+        };
+        await metadata.write(override);
+        // The ordinary Wallet and CloudSyncItem rows stay canonical. No
+        // enrollment, upload, migration or server reconciliation consumes this.
+        return this.projectDesktopLocalWalletMetadata(wallet, override);
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+  }
+
+  private readCanonicalWalletAvatar(
+    wallet: IDBWallet,
+  ): IAvatarInfo | undefined {
+    try {
+      const avatar = JSON.parse(wallet.avatar || '{}') as IAvatarInfo;
+      return isPlainObject(avatar) && Object.keys(avatar).length
+        ? avatar
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private verifyPassiveDeviceWalletFields(
+    wallet: IDBWallet,
+    device: IDBDevice,
+    params: IDBSetWalletNameAndAvatarParams,
+  ) {
+    if (
+      wallet.associatedDevice !== device.id ||
+      wallet.isTemp ||
+      wallet.isMocked ||
+      accountUtils.isHwHiddenWallet({ wallet })
+    )
+      return false;
+
+    const info = this.refillDeviceInfo({ device: { ...device } });
+    const profile = getVendorProfile(info.vendor ?? EHardwareVendor.onekey);
+    if (params.name) {
+      if (
+        !accountUtils.isHwWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id }) ||
+        (profile.isThirdParty && profile.presentation.label.mode !== 'device')
+      )
+        return false;
+      const label =
+        !profile.isThirdParty && info.deviceStateInfo
+          ? info.deviceStateInfo.identity.label
+          : info.featuresInfo?.label;
+      return !!label && params.name === label;
+    }
+    const deviceType = info.deviceType;
+    const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+      info.featuresInfo,
+    );
+    return (
+      !profile.isThirdParty &&
+      !!params.avatar &&
+      !!serialNo &&
+      !!deviceType &&
+      (deviceType === EDeviceType.Pro ||
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure ||
+        isProtocolV2ProductType(deviceType)) &&
+      params.avatar.img === getDeviceAvatarImage(deviceType, serialNo)
+    );
+  }
+
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
+    {
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+    }: {
+      isCurrent?: () => boolean;
+      expectedCloudSyncWalletAvatar?: string;
+    } = {},
   ): Promise<IDBWallet> {
+    const passive = params.passiveDeviceMetadata;
+    if (passive) {
+      const canonical = await this.getWallet({
+        walletId: params.walletId,
+        withoutRefill: true,
+      });
+      const readCanonical = async () => {
+        const {
+          records: [current],
+        } = await this.getRecordsByIds({
+          name: ELocalDBStoreNames.Wallet,
+          ids: [params.walletId],
+        });
+        return current ?? canonical;
+      };
+      if (
+        !supportsIndexedCloudAccountArchive() ||
+        !accountUtils.isHwOrQrWallet({ walletId: params.walletId }) ||
+        params.cloudSyncSource ||
+        params.firstEvmAddress ||
+        params.applyRestoreSyncPolicy ||
+        !!params.name === !!params.avatar
+      )
+        return canonical;
+      const {
+        records: [device],
+      } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.Device,
+        ids: [passive.dbDeviceId],
+      });
+      if (
+        !device ||
+        !this.verifyPassiveDeviceWalletFields(canonical, device, params)
+      )
+        return canonical;
+      const vendor = this.refillDeviceInfo({ device: { ...device } }).vendor;
+      if (vendor && !getVendorProfile(vendor).supportsCloudSync) {
+        try {
+          return await this.setWalletNameAndAvatarInternal(
+            { ...params, skipSaveLocalSyncItem: true },
+            { skipCloudCredentialWarmup: true, passiveLocalVendor: true },
+          );
+        } catch (error) {
+          if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED) throw error;
+          return readCanonical();
+        }
+      }
+      return this.backgroundApi.serviceKeylessCloudSync.runWithDesktopWalletMetadataKey(
+        async (verifiedCredential, claimWrite) => {
+          try {
+            return await this.setWalletNameAndAvatarInternal(
+              { ...params, skipSaveLocalSyncItem: !verifiedCredential },
+              { verifiedCredential, claimWrite },
+            );
+          } catch (error) {
+            if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED || !claimWrite())
+              throw error;
+            // An unverified passive event can never create a local shadow.
+            return readCanonical();
+          }
+        },
+        readCanonical,
+      );
+    }
+    // Replay and restore policy never create a new sync item. They must
+    // not reacquire this lock from within a Cloud sync operation.
+    if (params.skipSaveLocalSyncItem || params.applyRestoreSyncPolicy) {
+      return isCurrent && params.cloudSyncSource
+        ? this.setWalletNameAndAvatarInternal(params, {
+            isCurrent,
+            expectedCloudSyncWalletAvatar,
+          })
+        : this.setWalletNameAndAvatarInternal(params);
+    }
     const { walletId } = params;
-    let wallet = await this.getWallet({ walletId });
+    const saveLocalOnly = () =>
+      this.setWalletNameAndAvatarInternal(
+        { ...params, skipSaveLocalSyncItem: true },
+        { skipCloudCredentialWarmup: true },
+      );
+    const isDeviceWallet = accountUtils.isHwOrQrWallet({ walletId });
+    // The wallet metadata sync manager does not handle these local records.
+    // Bot wallets use a separate, scope-specific sync item.
+    if (
+      (!isDeviceWallet && !accountUtils.isHdWallet({ walletId })) ||
+      accountUtils.isBotWallet({ walletId })
+    ) {
+      return saveLocalOnly();
+    }
+    if (
+      params.allowDesktopLocalMetadata &&
+      !params.cloudSyncSource &&
+      !params.firstEvmAddress &&
+      (params.name || params.avatar) &&
+      (await this.backgroundApi.serviceKeylessCloudSync.isExplicitWalletMetadataSyncOff())
+    ) {
+      return this.setWalletNameAndAvatarInternal(
+        { ...params, skipSaveLocalSyncItem: true },
+        { skipCloudCredentialWarmup: true, explicitSyncOffEdit: true },
+      );
+    }
+    if (isDeviceWallet) {
+      const device = await this.getWalletDeviceSafe({ walletId });
+      if (
+        device?.vendor &&
+        !getVendorProfile(device.vendor).supportsCloudSync
+      ) {
+        return saveLocalOnly();
+      }
+    }
+    // Keep credential selection, encryption and the wallet write together.
+    // This lock coordinates writers in this runtime, not other Web tabs.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.setWalletNameAndAvatarInternal(params),
+    );
+  }
 
-    if (params.shouldCheckDuplicate && params.name) {
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+    {
+      verifiedCredential,
+      claimWrite,
+      skipCloudCredentialWarmup,
+      passiveLocalVendor,
+      explicitSyncOffEdit,
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+    }: {
+      verifiedCredential?: ICloudSyncCredential;
+      claimWrite?: () => boolean;
+      skipCloudCredentialWarmup?: boolean;
+      passiveLocalVendor?: boolean;
+      explicitSyncOffEdit?: boolean;
+      isCurrent?: () => boolean;
+      expectedCloudSyncWalletAvatar?: string;
+    } = {},
+  ): Promise<IDBWallet> {
+    const assertCurrent = () => {
+      if (params.cloudSyncSource && isCurrent && !isCurrent())
+        throw new OneKeyLocalError({
+          message: 'Cloud sync metadata replay cancelled',
+          autoToast: false,
+        });
+    };
+    assertCurrent();
+    const skipCloudWarmup = !!claimWrite;
+    const { walletId } = params;
+    const passive = params.passiveDeviceMetadata;
+    const withoutRefill = !!passive || !!explicitSyncOffEdit;
+    let wallet = await this.getWallet({ walletId, withoutRefill });
+    const passiveDevice = passive
+      ? await this.getRecordById({
+          name: ELocalDBStoreNames.Device,
+          id: passive.dbDeviceId,
+        })
+      : undefined;
+    if (
+      passive &&
+      (!passiveDevice ||
+        !this.verifyPassiveDeviceWalletFields(wallet, passiveDevice, params) ||
+        (passiveLocalVendor &&
+          getVendorProfile(
+            this.refillDeviceInfo({ device: { ...passiveDevice } }).vendor ??
+              EHardwareVendor.onekey,
+          ).supportsCloudSync))
+    )
+      return wallet;
+
+    if (
+      !explicitSyncOffEdit &&
+      !skipCloudWarmup &&
+      params.shouldCheckDuplicate &&
+      params.name
+    ) {
       const { wallets } = await this.getAllWallets();
       const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
       const duplicateWallets = wallets.filter((item) => {
@@ -8209,17 +9057,33 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     let walletName = params.name || wallet.name;
-    let avatarInfo = wallet.avatarInfo;
+    let avatarInfo = passive
+      ? this.readCanonicalWalletAvatar(wallet)
+      : wallet.avatarInfo;
     if (
       params.avatar &&
       isPlainObject(params.avatar) &&
       !isString(params.avatar)
     ) {
-      avatarInfo = params.avatar;
+      avatarInfo = passive
+        ? { ...avatarInfo, img: params.avatar.img }
+        : params.avatar;
     }
 
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItem: IDBCloudSyncItem | undefined;
+    let acceptedUploadItem: IDBCloudSyncItem | undefined;
+    const matchesUploadCandidate = (
+      accepted: IDBCloudSyncItem,
+      candidate: IDBCloudSyncItem,
+    ) =>
+      accepted.data === candidate.data &&
+      accepted.dataTime ===
+        cloudSyncItemBuilder.normalizeDataTime(candidate.dataTime) &&
+      accepted.pwdHash === candidate.pwdHash &&
+      accepted.dataType === candidate.dataType &&
+      accepted.isDeleted === candidate.isDeleted &&
+      !accepted.pendingPublicAccountDeletionAt;
     let shouldSkipWalletUpdate = false;
     if (!params.skipSaveLocalSyncItem) {
       if (params.applyRestoreSyncPolicy) {
@@ -8258,36 +9122,237 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         syncItem = undefined;
         shouldSkipWalletUpdate = !shouldUseSyncPayload;
       } else {
-        syncItem = await syncManagers.wallet.buildSyncItemByDBQuery({
-          dbRecord: {
-            ...wallet,
-            name: walletName,
-            avatarInfo,
-            avatar: JSON.stringify(avatarInfo),
-          },
-          // allDevices,
-          syncCredential: await syncManagers.wallet.getSyncCredential(),
-          isDeleted: false,
-          dataTime: undefined,
-        });
+        try {
+          syncItem = await syncManagers.wallet.buildSyncItemByDBQuery({
+            dbRecord: {
+              ...wallet,
+              name: walletName,
+              avatarInfo,
+              avatar: JSON.stringify(avatarInfo),
+            },
+            allDevices: passiveDevice
+              ? [this.refillDeviceInfo({ device: { ...passiveDevice } })]
+              : undefined,
+            syncCredential:
+              verifiedCredential ??
+              (await syncManagers.wallet.getSyncCredential()),
+            isDeleted: false,
+            dataTime: undefined,
+          });
+        } catch (error) {
+          if (!verifiedCredential) throw error;
+          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+        }
       }
     }
 
+    if (claimWrite && !claimWrite()) throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
     if (shouldSkipWalletUpdate) {
       return wallet;
     }
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+    const writeWalletMetadata = async (tx: ILocalDBTransaction) => {
+      assertCurrent();
+      if (passive && passiveDevice) {
+        const {
+          records: [currentWallet],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+        });
+        const {
+          records: [currentDevice],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [passive.dbDeviceId],
+        });
+        if (
+          !currentWallet ||
+          currentWallet.name !== wallet.name ||
+          currentWallet.avatar !== wallet.avatar ||
+          currentWallet.walletNo !== wallet.walletNo ||
+          currentWallet.type !== wallet.type ||
+          currentWallet.passphraseState !== wallet.passphraseState ||
+          currentWallet.hash !== wallet.hash ||
+          currentWallet.xfp !== wallet.xfp ||
+          currentWallet.firstEvmAddress !== wallet.firstEvmAddress ||
+          !currentDevice ||
+          !isEqual(currentDevice, passiveDevice) ||
+          !this.verifyPassiveDeviceWalletFields(
+            currentWallet,
+            currentDevice,
+            params,
+          )
+        )
+          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+        const shadow = await this.txGetDesktopLocalWalletMetadata(
+          tx,
+          currentWallet,
+        );
+        // Confirmed DeviceState can echo a deliberate local-only edit written
+        // to firmware in a previous scope. It is not new publication authority.
+        if (
+          (params.name && shadow?.name !== undefined) ||
+          (params.avatar && shadow?.avatar !== undefined)
+        )
+          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+      }
       await this.txAssertCloudSyncMetadataSource({
         tx,
         source: params.cloudSyncSource,
       });
-      // add or update sync item
-      if (syncItem) {
-        await this.txAddAndUpdateFreshSyncItems({
+      assertCurrent();
+      if (
+        params.deferCloudSyncWalletName &&
+        params.cloudSyncSource?.serverUploaded &&
+        params.cloudSyncSource.localSceneUpdated
+      ) {
+        await this.txUpdateRecords({
           tx,
-          items: [syncItem],
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [params.cloudSyncSource.id],
+          updater: (current) => {
+            if (current.serverUploaded && current.localSceneUpdated)
+              current.localSceneUpdated = false;
+            return current;
+          },
         });
+      }
+      // Do not promote an unbound display edit merely because a formerly
+      // selected scope was switched off. Another local edit supersedes it.
+      if (
+        !passive &&
+        skipCloudWarmup &&
+        !verifiedCredential &&
+        (await this.txGetDesktopLocalWalletMetadata(tx, wallet))
+      )
+        throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+      if (explicitSyncOffEdit) {
+        const {
+          records: [current],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+        });
+        if (
+          !current ||
+          current.walletNo !== wallet.walletNo ||
+          current.type !== wallet.type ||
+          current.associatedDevice !== wallet.associatedDevice ||
+          current.passphraseState !== wallet.passphraseState ||
+          current.firstEvmAddress !== wallet.firstEvmAddress ||
+          current.hash !== wallet.hash ||
+          current.xfp !== wallet.xfp
+        ) {
+          const key = ETranslations.global_unknown_error_retry_message;
+          throw new OneKeyLocalError({
+            key,
+            message: appLocale.intl.formatMessage({ id: key }),
+          });
+        }
+      }
+      if (
+        (explicitSyncOffEdit || skipCloudWarmup) &&
+        params.shouldCheckDuplicate &&
+        params.name
+      )
+        await this.txAssertUniqueDesktopWalletName(tx, wallet, params.name);
+      // Only this optional pool phase is allowed to decline the Cloud
+      // write. Business-store errors below must still fail the edit.
+      try {
+        if (verifiedCredential) {
+          const activeHash =
+            cloudSyncItemBuilder.getPwdHash(verifiedCredential);
+          if (!syncItem?.data || !activeHash || syncItem.pwdHash !== activeHash)
+            throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+          const {
+            records: [current],
+          } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [syncItem.id],
+          });
+          if (
+            current &&
+            ((current.pwdHash && current.pwdHash !== activeHash) ||
+              (!current.pwdHash &&
+                (current.data || current.rawData || current.serverUploaded)) ||
+              current.dataType !== EPrimeCloudSyncDataType.Wallet ||
+              (passive && current.localSceneUpdated !== true) ||
+              current.isDeleted ||
+              current.pendingPublicAccountDeletionAt)
+          )
+            throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+        }
+        if (syncItem && !verifiedCredential) {
+          const {
+            records: [current],
+          } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [syncItem.id],
+          });
+          if (
+            current?.dataType === EPrimeCloudSyncDataType.Wallet &&
+            current.data &&
+            current.pwdHash &&
+            (!syncItem.data || current.pwdHash !== syncItem.pwdHash)
+          ) {
+            // An ordinary local edit cannot displace a bound encrypted copy.
+            // Keep the bytes unchanged and do not send the rejected candidate.
+            syncItem = undefined;
+          }
+        }
+        if (syncItem) {
+          await this.txAddAndUpdateFreshSyncItems({
+            tx,
+            items: [syncItem],
+            skipUploadToServer: true,
+          });
+          if (verifiedCredential) {
+            const [accepted] = await this.txGetRecordById({
+              tx,
+              name: ELocalDBStoreNames.CloudSyncItem,
+              id: syncItem.id,
+            });
+            if (!accepted || !matchesUploadCandidate(accepted, syncItem)) {
+              throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+            }
+            acceptedUploadItem = accepted;
+          }
+        }
+      } catch (error) {
+        if (!verifiedCredential) throw error;
+        throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+      }
+
+      let displayOverride: IDesktopWalletLocalMetadata | undefined;
+      // Do not remove a local-only value until a separately intentional edit
+      // for that field is actually accepted into the current encrypted pool.
+      if (
+        !passive &&
+        params.allowDesktopLocalMetadata &&
+        tx.desktopWalletLocalMetadata &&
+        syncItem?.data &&
+        syncItem.pwdHash
+      ) {
+        const current = await this.txGetDesktopLocalWalletMetadata(tx, wallet);
+        if (current && verifiedCredential) {
+          const remaining = {
+            ...current,
+            name: params.name ? undefined : current.name,
+            avatar: params.avatar ? undefined : current.avatar,
+          };
+          if (remaining.name || remaining.avatar) {
+            await tx.desktopWalletLocalMetadata.write(remaining);
+            displayOverride = remaining;
+          } else {
+            await tx.desktopWalletLocalMetadata.remove(current.id);
+          }
+        }
       }
 
       // Older payloads cannot clear an established avatar seed. A different
@@ -8305,14 +9370,36 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         walletId,
         updater: (w) => {
+          assertCurrent();
+          if (
+            params.cloudSyncSource &&
+            params.expectedCloudSyncWalletName !== undefined &&
+            w.name !== params.expectedCloudSyncWalletName
+          )
+            throw new OneKeyLocalError({
+              message: 'Wallet name changed before the Cloud scene update',
+              autoToast: false,
+            });
           if (firstEvmAddress && !w.firstEvmAddress) {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
           }
-          if (walletName) {
+          // Source payloads may change only explicitly provided fields.
+          const useExplicitFields =
+            explicitSyncOffEdit || !!params.cloudSyncSource;
+          if (walletName && (!useExplicitFields || params.name)) {
             w.name = walletName;
           }
-          if (avatarInfo) {
+          if (
+            avatarInfo &&
+            (!useExplicitFields || params.avatar) &&
+            // A partial scene can fill a missing value or replace exactly the
+            // authenticated predecessor. Preserve other local avatars.
+            (!params.deferCloudSyncWalletName ||
+              !w.avatar ||
+              (expectedCloudSyncWalletAvatar !== undefined &&
+                w.avatar === expectedCloudSyncWalletAvatar))
+          ) {
             w.avatar = JSON.stringify(avatarInfo);
           }
           return w;
@@ -8359,10 +9446,33 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       //     },
       //   });
       // }
-    });
+      assertCurrent();
+      return displayOverride;
+    };
+    const displayOverride = await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      writeWalletMetadata,
+      {
+        skipCloudCredentialWarmup: skipCloudWarmup || skipCloudCredentialWarmup,
+        confirmRollbackOnError: !!claimWrite,
+      },
+    );
 
-    wallet = await this.getWallet({ walletId });
-    return wallet;
+    if (syncItem?.data && syncItem.pwdHash) {
+      const candidate = syncItem;
+      void (async () => {
+        // A normal upsert may preserve a newer pool row. This optional
+        // read must not abort or delay an already-committed Wallet write.
+        const accepted =
+          acceptedUploadItem ?? (await this.getSyncItem({ id: candidate.id }));
+        if (!matchesUploadCandidate(accepted, candidate)) return;
+        await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+          localItems: [accepted],
+        });
+      })().catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    }
+    wallet = await this.getWallet({ walletId, withoutRefill });
+    return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);
   }
 
   isSingletonWallet({ walletId }: { walletId: string }) {
@@ -8747,6 +9857,187 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return val ?? defaultValue;
   }
 
+  private getPendingCloudAccountHandoffPrefix(pwdHash: string): string {
+    return `pending-account-handoff:${encodeURIComponent(pwdHash)}:`;
+  }
+
+  private getPendingCloudAccountHandoffKey(
+    candidate: IDBCloudSyncItem,
+  ): string {
+    return (
+      this.getPendingCloudAccountHandoffPrefix(candidate.pwdHash) +
+      encodeURIComponent(candidate.id)
+    );
+  }
+
+  private cloudAccountHandoffWireVersion(
+    item: IDBCloudSyncItem,
+  ): IDBCloudSyncItem {
+    return {
+      id: item.id,
+      pwdHash: item.pwdHash,
+      data: item.data,
+      dataTime: item.dataTime,
+      dataType: item.dataType,
+      isDeleted: item.isDeleted,
+      localSceneUpdated: item.localSceneUpdated,
+      serverUploaded: item.serverUploaded,
+      rawKey: '',
+      rawData: '',
+    };
+  }
+
+  private matchesStagedCloudAccountHandoff(
+    staged: IPendingCloudAccountHandoff,
+    candidate: IDBCloudSyncItem,
+    foreign: IDBCloudSyncItem,
+  ) {
+    return (
+      isEqual(
+        staged.candidate,
+        this.cloudAccountHandoffWireVersion(candidate),
+      ) &&
+      isEqual(
+        staged.expectedForeign,
+        this.cloudAccountHandoffWireVersion(foreign),
+      )
+    );
+  }
+
+  async getPendingCloudAccountHandoffs(pwdHash: string) {
+    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return [];
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const entries =
+          (await tx.pendingCloudAccountHandoffs?.list(
+            this.getPendingCloudAccountHandoffPrefix(pwdHash),
+          )) ?? [];
+        const records = entries.filter(
+          ({ candidate }) => candidate.pwdHash === pwdHash,
+        );
+        if (!records.length) return [];
+        const foreground = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: records.map(({ candidate }) => candidate.id),
+        });
+        return records.flatMap((entry, index) => {
+          const exactForeign = foreground.records[index];
+          return exactForeign &&
+            canArchiveSettledForeignAccountHandoff(exactForeign, pwdHash) &&
+            isEqual(
+              entry.expectedForeign,
+              this.cloudAccountHandoffWireVersion(exactForeign),
+            )
+            ? [{ ...entry, expectedForeign: exactForeign }]
+            : [];
+        });
+      },
+      { readOnly: true, skipCloudCredentialWarmup: true },
+    );
+  }
+
+  async storePendingCloudAccountHandoffs({
+    candidates,
+    expectedForeignById,
+    pwdHash,
+    isCurrent,
+  }: {
+    candidates: IDBCloudSyncItem[];
+    expectedForeignById: ReadonlyMap<string, IDBCloudSyncItem>;
+    pwdHash: string;
+    isCurrent: () => boolean;
+  }) {
+    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return;
+    for (
+      let offset = 0;
+      offset < candidates.length && isCurrent();
+      offset += 50
+    ) {
+      await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          const pending = tx.pendingCloudAccountHandoffs;
+          if (!pending || !isCurrent()) return;
+          const batch = candidates.slice(offset, offset + 50);
+          const { records } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: batch.map(({ id }) => id),
+          });
+          const currentById = new Map(
+            records.filter(Boolean).map((record) => [record?.id, record]),
+          );
+          const retain = async (candidate: IDBCloudSyncItem) => {
+            if (!isCurrent()) return;
+            const expected = expectedForeignById.get(candidate.id);
+            const current = currentById.get(candidate.id);
+            if (
+              !expected ||
+              !current ||
+              !isEqual(expected, current) ||
+              !canArchiveSettledForeignAccountHandoff(current, pwdHash) ||
+              candidate.dataType !== EPrimeCloudSyncDataType.Account ||
+              candidate.pwdHash !== pwdHash ||
+              !candidate.serverUploaded ||
+              candidate.localSceneUpdated ||
+              candidate.pendingPublicAccountDeletionAt ||
+              !candidate.data ||
+              candidate.data.length > 64 * 1024 ||
+              !Number.isSafeInteger(candidate.dataTime) ||
+              (candidate.dataTime ?? 0) <= 0
+            )
+              return;
+            const id = this.getPendingCloudAccountHandoffKey(candidate);
+            const prior = await pending.read(id);
+            if (!isCurrent()) return;
+            const wire = this.cloudAccountHandoffWireVersion(candidate);
+            const expectedForeign =
+              this.cloudAccountHandoffWireVersion(expected);
+            if (prior && (prior.candidate.dataTime ?? 0) > (wire.dataTime ?? 0))
+              return;
+            const equalTime = prior?.candidate.dataTime === wire.dataTime;
+            let entry: IPendingCloudAccountHandoff;
+            if (
+              prior &&
+              equalTime &&
+              (!wire.isDeleted || prior.candidate.isDeleted)
+            ) {
+              // A fresh authenticated download may repair the foreign proof
+              // for the exact same live wire version, never replay or alter it.
+              if (
+                wire.isDeleted ||
+                prior.candidate.isDeleted ||
+                !isEqual(prior.candidate, wire) ||
+                isEqual(prior.expectedForeign, expectedForeign)
+              )
+                return;
+              entry = { ...prior, expectedForeign };
+            } else {
+              // The foreign plaintext cache remains solely in its original
+              // row until archival. Preserve only the exact wire versions here.
+              entry = {
+                id,
+                kind: 'pending-account-handoff',
+                candidate: wire,
+                expectedForeign,
+              };
+            }
+            await pending.write(entry);
+            if (!isCurrent())
+              throw new OneKeyLocalError({
+                message: 'Cloud account import cancelled',
+                autoToast: false,
+              });
+          };
+          for (const candidate of batch) await retain(candidate);
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+    }
+  }
+
   async importPublicCloudAccounts(params: IPublicCloudAccountApplyParams) {
     return this.applyPublicCloudAccounts({ ...params, action: 'copy' });
   }
@@ -8765,6 +10056,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     expectedCredential,
     accounts,
     sourceItemsByAccountId,
+    foreignAccountsByWireId,
     indexedNames,
     isCurrent,
     action,
@@ -8924,6 +10216,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const source = expectedSources.get(account.id);
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
+              const foreign = source && foreignAccountsByWireId?.get(source.id);
+              const staged =
+                foreign &&
+                source &&
+                (await tx.pendingCloudAccountHandoffs?.read(
+                  this.getPendingCloudAccountHandoffKey(source),
+                ));
+              const sourceStillMatches = foreign
+                ? (staged
+                    ? this.matchesStagedCloudAccountHandoff(
+                        staged,
+                        source,
+                        foreign,
+                      )
+                    : action === 'copy' && !foreign.isDeleted) &&
+                  !!tx.cloudAccountArchive &&
+                  !!currentSource &&
+                  isEqual(currentSource, foreign) &&
+                  canArchiveSettledForeignAccountHandoff(
+                    foreign,
+                    source.pwdHash,
+                  ) &&
+                  source.serverUploaded &&
+                  !!source.data
+                : !!source &&
+                  matchesPublicAccountSnapshotWrite(
+                    source,
+                    currentSource ?? undefined,
+                  );
               if (
                 !source ||
                 source.dataType !== EPrimeCloudSyncDataType.Account ||
@@ -8932,10 +10253,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 !Number.isFinite(source.dataTime) ||
                 source.dataTime <= 0 ||
                 source.isDeleted !== (action === 'delete') ||
-                !matchesPublicAccountSnapshotWrite(
-                  source,
-                  currentSource ?? undefined,
-                )
+                !sourceStillMatches
               ) {
                 result.pending += 1;
                 result.issueByAccountId[account.id] = 'pending';
@@ -9234,6 +10552,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 });
                 result.indexedAccountsChanged = true;
               }
+              checkCurrent();
+            }
+          }
+          // Summary may advertise the new version only after the business
+          // account, the old ciphertext archive and the active row commit.
+          if (foreignAccountsByWireId?.size && tx.cloudAccountArchive) {
+            const promoted = new Set<string>();
+            for (const id of new Set(result.appliedAccountIds)) {
+              const incoming = expectedSources?.get(id);
+              const foreign =
+                incoming && foreignAccountsByWireId.get(incoming.id);
+              // eslint-disable-next-line no-continue
+              if (!incoming || !foreign || promoted.has(incoming.id)) continue;
+              await tx.cloudAccountArchive.retain(foreign);
+              await this.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.CloudSyncItem,
+                ids: [incoming.id],
+                updater: (record) => {
+                  const promotedRow = Object.assign(record, {
+                    ...incoming,
+                    rawData: '',
+                    rawDataJson: undefined,
+                    localSceneUpdated: true,
+                    remoteHardwareAccountTombstoneProof: incoming.isDeleted
+                      ? buildRemoteHardwareAccountTombstoneProof(incoming)
+                      : undefined,
+                  });
+                  return incoming.isDeleted
+                    ? rememberRemoteHardwareTombstonePromotion(promotedRow)
+                    : promotedRow;
+                },
+              });
+              const staged = await tx.pendingCloudAccountHandoffs?.read(
+                this.getPendingCloudAccountHandoffKey(incoming),
+              );
+              if (
+                staged &&
+                this.matchesStagedCloudAccountHandoff(staged, incoming, foreign)
+              )
+                await tx.pendingCloudAccountHandoffs?.remove(staged);
+              promoted.add(incoming.id);
               checkCurrent();
             }
           }
@@ -10396,15 +11756,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   private async getPublicAccountDeletionCandidates({
+    prepareCloud,
     accountIds,
     walletIds,
     indexedAccountIds,
   }: {
+    prepareCloud: boolean;
     accountIds?: string[];
     walletIds?: ReadonlySet<string>;
     indexedAccountIds?: ReadonlySet<string>;
   }): Promise<IDBAccount[]> {
     if (
+      !prepareCloud ||
       accountIds?.length === 0 ||
       walletIds?.size === 0 ||
       indexedAccountIds?.size === 0
@@ -10440,13 +11803,90 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           );
         });
       },
-      { readOnly: true },
+      { readOnly: true, skipCloudCredentialWarmup: true },
     );
+  }
+
+  private async runLocalAccountRemoval(
+    operation: (prepareCloud: boolean) => Promise<void>,
+  ): Promise<void> {
+    let allowCloud = true;
+    let started = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const preflightTimeout = new Promise<false>((resolve) => {
+      timeout = setTimeout(() => {
+        allowCloud = false;
+        resolve(false);
+      }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
+    });
+    const lockedRemoval = async () => {
+      try {
+        await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+          () => {
+            if (!allowCloud) return Promise.resolve();
+            clearTimeout(timeout);
+            started = true;
+            return operation(true);
+          },
+        );
+        return started;
+      } catch (error) {
+        // Never retry a business transaction that actually failed.
+        if (started) throw error;
+        return false;
+      }
+    };
+    try {
+      const committed = await Promise.race([preflightTimeout, lockedRemoval()]);
+      if (!committed) {
+        // A slow or failed Cloud preflight cannot invoke local work later.
+        allowCloud = false;
+        await operation(false);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async buildPublicAccountDeletionSyncItems(
     accounts: IDBAccount[],
+    prepareCloud: boolean,
+    requestedAt?: number,
+    resolveHistoricalDataTime?: () => number,
   ): Promise<IDBCloudSyncItem[]> {
+    if (!prepareCloud) return [];
+    let isCurrent = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const elapsed = new Promise<IDBCloudSyncItem[]>((resolve) => {
+      timeout = setTimeout(() => {
+        isCurrent = false;
+        resolve([]);
+      }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
+    });
+    try {
+      // The losing work only prepares data; it has no callback that can
+      // start or repeat the local deletion transaction.
+      return await Promise.race([
+        elapsed,
+        this.collectPublicAccountDeletionSyncItems(
+          accounts,
+          () => isCurrent,
+          requestedAt,
+          resolveHistoricalDataTime,
+        ),
+      ]);
+    } finally {
+      isCurrent = false;
+      clearTimeout(timeout);
+    }
+  }
+
+  private async collectPublicAccountDeletionSyncItems(
+    accounts: IDBAccount[],
+    isCurrent: () => boolean,
+    requestedAt: number | undefined,
+    resolveHistoricalDataTime: (() => number) | undefined,
+  ) {
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
@@ -10459,10 +11899,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (!supportedAccounts.length) return [];
     const syncService = this.backgroundApi.servicePrimeCloudSync;
-    const syncCredential = await syncService.getSyncCredentialSafe();
+    const syncCredential = await this.backgroundApi.serviceKeylessCloudSync
+      .getLocalMutationSyncCredential()
+      .catch(() => undefined);
+    if (!isCurrent()) return [];
     const items: IDBCloudSyncItem[] = [];
     const indexedNames = new Map<string, string | undefined>();
     for (const account of supportedAccounts) {
+      if (!isCurrent()) return [];
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
@@ -10482,14 +11926,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (account.indexedAccountId &&
             indexedNames.get(account.indexedAccountId)) ||
           account.name;
-        const item =
-          await syncService.syncManagers.account.buildSyncItemByDBQuery({
-            dbRecord: { ...account, name },
-            isDeleted: true,
-            dataTime: undefined,
-            syncCredential,
-          });
-        if (item) items.push(item);
+        if (!isCurrent()) return [];
+        try {
+          const item =
+            await syncService.syncManagers.account.buildSyncItemByDBQuery({
+              dbRecord: { ...account, name },
+              isDeleted: true,
+              dataTime: requestedAt,
+              ...(syncCredential && resolveHistoricalDataTime
+                ? { resolveHistoricalDataTime }
+                : {}),
+              syncCredential,
+            });
+          if (item) items.push(item);
+        } catch (_error) {
+          // Cloud preparation is best-effort; local reads/writes still fail
+          // normally if the business database itself is unusable.
+        }
       }
     }
     return uniqBy(items, (item) => item.id);
@@ -10508,21 +11961,394 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     { leading: false, trailing: true, maxWait: 5000 },
   );
 
+  private getOfflineAccountRemovalTime() {
+    if (
+      !systemTimeUtils.hasFreshServerTimeInCurrentProcess() &&
+      systemTimeUtils.systemTimeStatus !== ELocalSystemTimeStatus.INVALID
+    )
+      return Date.now();
+    return systemTimeUtils.getCorrectedCloudSyncNow().time;
+  }
+
+  private async txCancelUnboundPublicAccounts({
+    tx,
+    ids,
+    requestedAt,
+  }: {
+    tx: ILocalDBTransaction;
+    ids: string[];
+    requestedAt: number;
+  }) {
+    const { records: accounts } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Account,
+      ids,
+    });
+    const walletIds = [
+      ...new Set(
+        accounts.flatMap((account) =>
+          account
+            ? [accountUtils.getWalletIdFromAccountId({ accountId: account.id })]
+            : [],
+        ),
+      ),
+    ];
+    if (!walletIds.length) return;
+    const { records: wallets } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+      ids: walletIds,
+    });
+    const byWalletId = new Map(
+      wallets.filter(Boolean).map((wallet) => [wallet.id, wallet]),
+    );
+    const plans = new Map<
+      string,
+      {
+        rawKey: string;
+        snapshot: ICloudPublicAccountSnapshot;
+      }
+    >();
+    for (const account of accounts) {
+      // eslint-disable-next-line no-continue
+      if (!account) continue;
+      const wallet = byWalletId.get(
+        accountUtils.getWalletIdFromAccountId({ accountId: account.id }),
+      );
+      if (
+        !wallet ||
+        wallet.isMocked ||
+        wallet.isTemp ||
+        accountUtils.isBotWallet({ walletId: wallet.id })
+      )
+        // eslint-disable-next-line no-continue
+        continue;
+      if (accountUtils.isHwWallet({ walletId: wallet.id })) {
+        // eslint-disable-next-line no-continue
+        if (!wallet.associatedDevice) continue;
+        const {
+          records: [device],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [wallet.associatedDevice],
+        });
+        if (
+          !device ||
+          (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
+            EHardwareVendor.onekey) !== EHardwareVendor.onekey
+        )
+          // eslint-disable-next-line no-continue
+          continue;
+      }
+      try {
+        const snapshot = buildPublicAccountSnapshot({
+          wallet,
+          account: {
+            ...account,
+            createAtNetwork: account.createAtNetwork ?? undefined,
+            relPath: account.relPath ?? undefined,
+          },
+        });
+        // eslint-disable-next-line no-continue
+        if (!snapshot) continue;
+        const rawKey = `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(snapshot)}`;
+        plans.set(sha512ProSync({ data: rawKey }), { snapshot, rawKey });
+      } catch {
+        // Unsupported or ambiguous local Account identities remain untouched.
+      }
+    }
+    if (!plans.size) return;
+    const { records: pool } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: [...plans.keys()],
+    });
+    const exactRows = pool.filter((row): row is IDBCloudSyncItem => {
+      if (
+        !row ||
+        row.dataType !== EPrimeCloudSyncDataType.Account ||
+        row.pwdHash !== '' ||
+        (row.data !== undefined && row.data !== '') ||
+        !row.rawData ||
+        row.serverUploaded !== false ||
+        row.localSceneUpdated !== true ||
+        row.isDeleted !== false ||
+        row.pendingPublicAccountDeletionAt !== undefined ||
+        row.pendingPublicAccountDeletionHash !== undefined ||
+        row.remoteHardwareAccountTombstoneProof !== undefined ||
+        row.dataTime === undefined ||
+        !Number.isSafeInteger(row.dataTime) ||
+        row.dataTime <= 0 ||
+        row.dataTime > requestedAt
+      )
+        return false;
+      const plan = plans.get(row.id);
+      if (!plan || row.rawKey !== plan.rawKey) return false;
+      try {
+        const existing = normalizePublicAccountSnapshotRecord(
+          JSON.parse(row.rawData),
+        );
+        return (
+          existing.rawKey === plan.rawKey &&
+          getPublicAccountSnapshotIdentityHash(existing.snapshot) ===
+            getPublicAccountSnapshotIdentityHash(plan.snapshot)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (!exactRows.length) return;
+    const { records: allWallets } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const localWallets = allWallets.filter(Boolean);
+    const removing = new Set(ids);
+    const cancellations: string[] = [];
+    for (const row of exactRows) {
+      const plan = plans.get(row.id);
+      // eslint-disable-next-line no-continue
+      if (!plan) continue;
+      const peers = [
+        ...this.getPublicAccountSnapshotAccountProjections(
+          plan.snapshot,
+          localWallets,
+        ).keys(),
+      ].filter((id) => !removing.has(id));
+      if (peers.length) {
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: peers,
+        });
+        // Even a conflicting peer is not evidence the shared row is obsolete.
+        // eslint-disable-next-line no-continue
+        if (records.some(Boolean)) continue;
+      }
+      cancellations.push(row.id);
+    }
+    if (cancellations.length)
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: cancellations,
+      });
+  }
+
+  private async withPublicAccountDeletionTransaction(
+    items: IDBCloudSyncItem[],
+    task: (tx: ILocalDBTransaction) => Promise<void>,
+    offlineCancellation?: { ids: string[]; requestedAt: number },
+  ): Promise<boolean> {
+    const declined = new Set<string>();
+    const runTransaction = (
+      candidates: IDBCloudSyncItem[],
+      cancelOffline: boolean,
+    ) =>
+      this.withSpaceFreeingTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await this.txWritePublicAccountDeletionSyncItems({
+            tx,
+            items: candidates,
+            declined,
+          });
+          if (cancelOffline && offlineCancellation) {
+            try {
+              await this.txCancelUnboundPublicAccounts({
+                tx,
+                ...offlineCancellation,
+              });
+            } catch {
+              throw OFFLINE_ACCOUNT_CANCELLATION_DECLINED;
+            }
+          }
+          await task(tx);
+        },
+        {
+          skipCloudCredentialWarmup: true,
+          confirmRollbackOnError: cancelOffline,
+        },
+      );
+    const run = async (candidates: IDBCloudSyncItem[]) => {
+      try {
+        await runTransaction(
+          candidates,
+          candidates.length === 0 && !!offlineCancellation?.ids.length,
+        );
+      } catch (error) {
+        if (error !== OFFLINE_ACCOUNT_CANCELLATION_DECLINED) throw error;
+        // The adapter confirmed rollback; the local mutation has not run.
+        await runTransaction([], false);
+      }
+    };
+    const attempt = async (candidates: IDBCloudSyncItem[]) => {
+      const foreign = candidates.flatMap((item) => {
+        const intent = getForeignAccountDeletion(item);
+        return intent ? [intent] : [];
+      });
+      const first = foreign[0];
+      if (
+        first &&
+        foreign.some((intent) => intent.credential !== first.credential)
+      )
+        return false;
+      let started = false;
+      let allowCloud = true;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const transaction = async () => {
+        if (!allowCloud) return false;
+        clearTimeout(timeout);
+        started = true;
+        await run(candidates);
+        return true;
+      };
+      const keyless = this.backgroundApi.serviceKeylessCloudSync;
+      try {
+        if (!first) return await transaction();
+        const elapsed = new Promise<false>((resolve) => {
+          timeout = setTimeout(() => {
+            allowCloud = false;
+            resolve(false);
+          }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
+        });
+        // Observe key → import → repair. Only an admitted callback may
+        // enter the business transaction; late authorization is a no-op.
+        const guarded = keyless.runWithCloudAccountImportLock(() =>
+          allowCloud
+            ? keyless.runWithVerifiedHardwareAccountArchiveSession(
+                first.credential,
+                transaction,
+              )
+            : Promise.resolve(false),
+        );
+        return (await Promise.race([elapsed, guarded])) ?? false;
+      } catch (error) {
+        if (started && error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED)
+          throw error;
+        return false;
+      } finally {
+        allowCloud = false;
+        clearTimeout(timeout);
+      }
+    };
+    if (items.length && (await attempt(items))) return true;
+    if (declined.size) {
+      // The declined transaction is rolled back. Retry unaffected versions
+      // once with their already-issued times; do not rebase a stale delete.
+      const remaining = items.filter((item) => !declined.has(item.id));
+      if (remaining.length && (await attempt(remaining))) return true;
+    }
+    await run([]);
+    return false;
+  }
+
   private async txWritePublicAccountDeletionSyncItems({
     tx,
     items,
+    declined,
   }: {
     tx: ILocalDBTransaction;
     items: IDBCloudSyncItem[];
+    declined: Set<string>;
   }) {
     if (!items.length) return;
     const removals = items.filter(isUnsyncedPublicAccountSnapshotRemoval);
     const writes = items.filter(
       (item) => !isUnsyncedPublicAccountSnapshotRemoval(item),
     );
+    for (const item of writes) {
+      const intent = getForeignAccountDeletion(item);
+      // eslint-disable-next-line no-continue
+      if (!intent) continue;
+      const {
+        records: [current],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+      });
+      const {
+        records: [account],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [intent.accountId],
+      });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: intent.accountId,
+      });
+      const {
+        records: [wallet],
+      } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: [walletId],
+      });
+
+      if (
+        !tx.cloudAccountArchive ||
+        !current ||
+        !isEqual(current, intent.previous) ||
+        !canArchiveForeignAccountCopy(current, item.pwdHash) ||
+        item.pwdHash !== intent.credential.pwdHash ||
+        !item.data ||
+        !Number.isSafeInteger(item.dataTime) ||
+        (item.dataTime ?? 0) <= 0 ||
+        !item.isDeleted ||
+        item.serverUploaded ||
+        !account ||
+        !wallet ||
+        wallet.isMocked ||
+        wallet.isTemp
+      ) {
+        declined.add(item.id);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (accountUtils.isHwWallet({ walletId })) {
+        const {
+          records: [device],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: wallet.associatedDevice ? [wallet.associatedDevice] : [],
+        });
+        if (
+          !device ||
+          (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
+            EHardwareVendor.onekey) !== EHardwareVendor.onekey
+        ) {
+          declined.add(item.id);
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+      }
+      const snapshot = buildPublicAccountSnapshot({ wallet, account });
+      if (
+        !snapshot ||
+        item.rawKey !==
+          `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(
+            snapshot,
+          )}` ||
+        getPublicAccountSnapshotIdentityHash(snapshot) !== intent.identityHash
+      ) {
+        declined.add(item.id);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      await tx.cloudAccountArchive.retain(current);
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+        updater: (record) => Object.assign(record, item),
+      });
+    }
     await this.txAddAndUpdateSyncItems({
       tx,
-      items: writes,
+      items: writes.filter((item) => !getForeignAccountDeletion(item)),
       skipUploadToServer: true,
     });
     const { records } = await this.txGetRecordsByIds({
@@ -10534,24 +12360,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     for (const record of records) {
       if (record) currentById.set(record.id, record);
     }
-    if (
-      removals.some(
-        (item) =>
-          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id)),
-      ) ||
-      writes.some(
-        (item) =>
-          isRejectedPublicAccountSnapshotWrite(item) ||
-          !matchesPublicAccountSnapshotWrite(
-            rememberPublicAccountSnapshotWrite({ ...item }, item),
-            currentById.get(item.id),
-          ),
-      )
-    ) {
-      throw new OneKeyLocalError(
-        'Synced account data changed before deletion. Try removing the account again.',
-      );
+    for (const item of removals) {
+      if (!matchesPublicAccountSnapshotWrite(item, currentById.get(item.id)))
+        declined.add(item.id);
     }
+    for (const item of writes) {
+      if (
+        isRejectedPublicAccountSnapshotWrite(item) ||
+        !matchesPublicAccountSnapshotWrite(
+          rememberPublicAccountSnapshotWrite({ ...item }, item),
+          currentById.get(item.id),
+        )
+      )
+        declined.add(item.id);
+    }
+    if (items.some((item) => declined.has(item.id)))
+      throw CLOUD_ACCOUNT_DELETE_WRITE_DECLINED;
     if (removals.length)
       await this.txRemoveRecords({
         tx,
@@ -10563,30 +12387,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeIndexedAccounts(
     params: Parameters<LocalDbBase['removeIndexedAccountsWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeIndexedAccountsWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeIndexedAccountsWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeIndexedAccountsWithCloudKeyLock({
-    indexedAccounts,
-  }: {
-    indexedAccounts: IDBIndexedAccount[];
-  }) {
+  private async removeIndexedAccountsWithCloudKeyLock(
+    {
+      indexedAccounts,
+    }: {
+      indexedAccounts: IDBIndexedAccount[];
+    },
+    prepareCloud: boolean,
+  ) {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           indexedAccountIds: new Set(indexedAccounts.map((item) => item.id)),
         }),
+        prepareCloud,
       );
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
@@ -10594,7 +12418,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -10603,19 +12427,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeIndexedAccount(
     params: Parameters<LocalDbBase['removeIndexedAccountWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeIndexedAccountWithCloudKeyLock(params),
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeIndexedAccountWithCloudKeyLock(params, prepareCloud),
     );
   }
 
-  private async removeIndexedAccountWithCloudKeyLock({
-    indexedAccountId,
-    walletId,
-  }: {
-    indexedAccountId: string;
-    walletId: string;
-  }) {
+  private async removeIndexedAccountWithCloudKeyLock(
+    {
+      indexedAccountId,
+      walletId,
+    }: {
+      indexedAccountId: string;
+      walletId: string;
+    },
+    prepareCloud: boolean,
+  ) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const indexedAccount = await this.getIndexedAccountSafe({
       id: indexedAccountId,
@@ -10641,18 +12467,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           walletIds: new Set([walletId]),
           indexedAccountIds: new Set([indexedAccountId]),
         }),
+        prepareCloud,
       );
 
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
@@ -10668,7 +12492,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         // }
       },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -10676,17 +12500,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccountsByIds(
     params: Parameters<LocalDbBase['removeAccountsByIdsWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeAccountsByIdsWithCloudKeyLock(params),
+    const requestedAt = this.getOfflineAccountRemovalTime();
+    const resolveHistoricalDataTime =
+      systemTimeUtils.captureColdCloudActionTime(requestedAt);
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeAccountsByIdsWithCloudKeyLock(
+        params,
+        prepareCloud,
+        requestedAt,
+        resolveHistoricalDataTime,
+      ),
     );
   }
 
-  private async removeAccountsByIdsWithCloudKeyLock({
-    ids,
-  }: {
-    ids: string[];
-  }) {
+  private async removeAccountsByIdsWithCloudKeyLock(
+    {
+      ids,
+    }: {
+      ids: string[];
+    },
+    prepareCloud: boolean,
+    requestedAt: number,
+    resolveHistoricalDataTime: (() => number) | undefined,
+  ) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
       const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
@@ -10702,8 +12538,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
+          prepareCloud,
           accountIds: accountIdsToRemove,
         }),
+        prepareCloud,
+        requestedAt,
+        resolveHistoricalDataTime,
       );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
@@ -10711,13 +12551,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // disk-full guard was raised, leaving wallets pointing at accounts that
     // no longer exist; and even unguarded, a failure between them left the
     // same inconsistency. `removeAccount` already has this shape.
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -10742,8 +12578,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       },
+      { ids: accountIdsToRemove, requestedAt },
     );
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
   }
@@ -10757,23 +12594,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccount(
     params: Parameters<LocalDbBase['removeAccountWithCloudKeyLock']>[0],
   ) {
-    // Serialize credential preparation and the final DB write with key rotation.
-    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.removeAccountWithCloudKeyLock(params),
+    const requestedAt = this.getOfflineAccountRemovalTime();
+    const resolveHistoricalDataTime =
+      systemTimeUtils.captureColdCloudActionTime(requestedAt);
+    return this.runLocalAccountRemoval((prepareCloud) =>
+      this.removeAccountWithCloudKeyLock(
+        params,
+        prepareCloud,
+        requestedAt,
+        resolveHistoricalDataTime,
+      ),
     );
   }
 
-  private async removeAccountWithCloudKeyLock({
-    accountId,
-    walletId,
-  }: {
-    accountId: string;
-    walletId: string;
-  }): Promise<void> {
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const account = await this.getAccountSafe({
+  private async removeAccountWithCloudKeyLock(
+    {
       accountId,
-    });
+      walletId,
+    }: {
+      accountId: string;
+      walletId: string;
+    },
+    prepareCloud: boolean,
+    requestedAt: number,
+    resolveHistoricalDataTime: (() => number) | undefined,
+  ): Promise<void> {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const account = prepareCloud
+      ? await this.getAccountSafe({ accountId })
+      : undefined;
     let syncItemKey: string | undefined;
     const isPublicAccountWallet =
       (accountUtils.isHdWallet({ walletId }) ||
@@ -10782,24 +12631,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         account && isPublicAccountWallet ? [account] : [],
+        prepareCloud,
+        requestedAt,
+        resolveHistoricalDataTime,
       );
-    if (account && !isPublicAccountWallet) {
-      const target = await syncManagers.account.buildSyncTargetByDBQuery({
-        dbRecord: account,
-      });
-      const keyInfo = await syncManagers.account.buildSyncKeyAndPayload({
-        target,
-      });
-      syncItemKey = keyInfo.key;
+    if (prepareCloud && account && !isPublicAccountWallet) {
+      try {
+        const target = await syncManagers.account.buildSyncTargetByDBQuery({
+          dbRecord: account,
+        });
+        const keyInfo = await syncManagers.account.buildSyncKeyAndPayload({
+          target,
+        });
+        syncItemKey = keyInfo.key;
+      } catch (_error) {
+        // Legacy Cloud cleanup never decides whether local removal can run.
+      }
     }
 
-    await this.withSpaceFreeingTransaction(
-      EIndexedDBBucketNames.account,
+    const wroteCloud = await this.withPublicAccountDeletionTransaction(
+      publicAccountDeletionItems,
       async (tx) => {
-        await this.txWritePublicAccountDeletionSyncItems({
-          tx,
-          items: publicAccountDeletionItems,
-        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -10827,14 +12679,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       },
+      isPublicAccountWallet ? { ids: [accountId], requestedAt } : undefined,
     );
 
-    if (publicAccountDeletionItems.length) {
+    if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
     }
 
     if (syncItemKey) {
-      await this.removeCloudSyncPoolItems({ keys: [syncItemKey] });
+      await this.removeCloudSyncPoolItems({ keys: [syncItemKey] }).catch(
+        () => undefined,
+      );
     }
   }
 

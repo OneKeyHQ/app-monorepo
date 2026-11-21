@@ -172,6 +172,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   associatedDeviceInfo?: IDBDevice; // readonly field
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
+  hasDesktopLocalMetadata?: boolean; // presentation only
   hiddenWallets?: IDBWallet[]; // readonly field
   dbAccounts?: IDBAccount[]; // readonly field
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
@@ -243,8 +244,25 @@ export type IDBCreateQRWalletParams = {
   existingDeviceId?: string;
   firmwareTypeAtCreated?: EFirmwareType;
 };
+export type IDesktopWalletLocalMetadata = {
+  id: `wallet-local-metadata:${string}`;
+  kind: 'wallet-local-metadata';
+  modifiedAt: number;
+  walletNo: number;
+  walletType: IDBWalletType;
+  associatedDevice?: string;
+  passphraseState?: string;
+  name?: string;
+  avatar?: IAvatarInfo;
+};
+
 export type IDBSetWalletNameAndAvatarParams = {
+  allowDesktopLocalMetadata?: boolean;
+  passiveDeviceMetadata?: { dbDeviceId: string };
   cloudSyncSource?: IDBCloudSyncItem;
+  // The canonical name retained in manual rename history before scene replay.
+  expectedCloudSyncWalletName?: string;
+  deferCloudSyncWalletName?: boolean;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
@@ -521,8 +539,18 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   pendingPublicAccountDeletionAt?: number;
   pendingPublicAccountDeletionHash?: string;
 
+  // IndexedDB-only proof of an exact, atomically applied remote hardware tombstone.
+  remoteHardwareAccountTombstoneProof?: string;
+
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;
+};
+
+export type IPendingCloudAccountHandoff = {
+  id: string;
+  kind: 'pending-account-handoff';
+  candidate: IDBCloudSyncItem;
+  expectedForeign: IDBCloudSyncItem;
 };
 
 // DB SCHEMA map ----------------------------------------------
@@ -578,7 +606,18 @@ export enum EIndexedDBBucketNames {
   // misc = 'misc', // misc
 }
 
+export type IIndexedDBStoreName =
+  | ELocalDBStoreNames
+  | 'CloudSyncAccountArchive';
+
 export interface IIndexedDBSchemaMap extends DBSchema {
+  CloudSyncAccountArchive: {
+    key: string;
+    value:
+      | { id: string; record: IDBCloudSyncItem }
+      | IDesktopWalletLocalMetadata
+      | IPendingCloudAccountHandoff;
+  };
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
     value: IDBAccountDerivation;
@@ -719,6 +758,23 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  desktopWalletLocalMetadata?: {
+    read(
+      id: IDesktopWalletLocalMetadata['id'],
+    ): Promise<IDesktopWalletLocalMetadata | undefined>;
+    write(record: IDesktopWalletLocalMetadata): Promise<void>;
+    remove(id: IDesktopWalletLocalMetadata['id']): Promise<void>;
+  };
+  pendingCloudAccountHandoffs?: {
+    read(id: string): Promise<IPendingCloudAccountHandoff | undefined>;
+    list(sourcePrefix: string): Promise<IPendingCloudAccountHandoff[]>;
+    write(record: IPendingCloudAccountHandoff): Promise<void>;
+    remove(record: IPendingCloudAccountHandoff): Promise<void>;
+  };
+  cloudAccountArchive?: {
+    retain(record: IDBCloudSyncItem): Promise<void>;
+    clearArchivedRows(): Promise<void>;
+  };
   bucketName: EIndexedDBBucketNames;
 }
 
@@ -861,6 +917,10 @@ export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
+  skipCloudCredentialWarmup?: boolean;
+  // IndexedDB only. Required before retrying another business transaction
+  // after a deliberately declined optional pool write.
+  confirmRollbackOnError?: boolean;
   readOnly?: boolean;
   /**
    * Let the transaction run while the disk-full guard is raised. Set it for

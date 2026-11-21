@@ -182,6 +182,8 @@ async function requestRaw<T>({
   urlPath,
   data,
   requestOptions,
+  prepareUpload,
+  prepareWalletRetry,
   jwk,
   accessToken,
 }: {
@@ -190,6 +192,10 @@ async function requestRaw<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  prepareUpload?: (baseURL: string | undefined) => unknown;
+  prepareWalletRetry?: (
+    baseURL: string | undefined,
+  ) => Promise<(() => unknown) | undefined>;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
@@ -217,23 +223,54 @@ async function requestRaw<T>({
     'request_verify',
   ];
   const send = (clockOffsetMs: number) => {
-    const headers: Record<string, string> = {
-      DPoP: buildPossessionProof({
-        jwk,
-        htm: method,
-        htu: getHtu(client, urlPath),
-        accessToken,
-        now: Date.now() + clockOffsetMs,
-      }),
+    const baseURL = client.defaults.baseURL;
+    const dispatch = (retryBody?: () => unknown) => {
+      if (
+        prepareWalletRetry &&
+        (!retryBody ||
+          !baseURL ||
+          client.defaults.baseURL !== baseURL ||
+          requestOptions?.signal?.aborted ||
+          method !== 'POST' ||
+          urlPath !== '/prime/v1/sync/upload')
+      ) {
+        throw new OneKeyLocalError({
+          message: 'Hardware Cloud Wallet upload retry cancelled',
+          autoToast: false,
+        });
+      }
+      const headers: Record<string, string> = {
+        DPoP: buildPossessionProof({
+          jwk,
+          htm: method,
+          htu: getHtu(client, urlPath),
+          accessToken,
+          now: Date.now() + clockOffsetMs,
+        }),
+      };
+      if (accessToken) headers.Authorization = `DPoP ${accessToken}`;
+      let outboundData = data;
+      if (retryBody) outboundData = retryBody();
+      else if (prepareUpload) outboundData = prepareUpload(baseURL);
+      const config: AxiosRequestConfig = {
+        ...requestOptions,
+        headers,
+        ...(prepareWalletRetry ? { baseURL } : {}),
+      };
+      return method === 'GET'
+        ? client.get<IApiClientResponse<T>>(urlPath, config)
+        : client.post<IApiClientResponse<T>>(urlPath, outboundData, config);
     };
-    if (accessToken) {
-      headers.Authorization = `DPoP ${accessToken}`;
-    }
-    const config: AxiosRequestConfig = { ...requestOptions, headers };
-    return method === 'GET'
-      ? client.get<IApiClientResponse<T>>(urlPath, config)
-      : client.post<IApiClientResponse<T>>(urlPath, data, config);
+    return prepareWalletRetry
+      ? prepareWalletRetry(baseURL).then(dispatch)
+      : dispatch();
   };
+  if (prepareWalletRetry && requestOptions?.signal?.aborted) {
+    throw new OneKeyLocalError({
+      message: 'Hardware Cloud Wallet upload retry cancelled',
+      autoToast: false,
+    });
+  }
   const clockOffsetMs = await measureServerClockOffsetMs();
   try {
     return await send(clockOffsetMs);
@@ -247,7 +284,8 @@ async function requestRaw<T>({
       ...getHardwareCloudSyncErrorDiagnostics(error),
       unauthorized: isHardwareCloudSyncUnauthorizedError(error),
     });
-    if (!isHardwareCloudSyncUnauthorizedError(error)) throw error;
+    if (prepareWalletRetry || !isHardwareCloudSyncUnauthorizedError(error))
+      throw error;
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
       diagnostic('request_clock_retry_skipped', { clockRetry: false });
@@ -465,6 +503,8 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   urlPath,
   data,
   requestOptions,
+  prepareUpload,
+  prepareWalletRetry,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
@@ -472,6 +512,10 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  prepareUpload?: (baseURL: string | undefined) => unknown;
+  prepareWalletRetry?: (
+    baseURL: string | undefined,
+  ) => Promise<(() => unknown) | undefined>;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
   return requestRaw<T>({
     client,
@@ -479,6 +523,8 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     urlPath,
     data,
     requestOptions,
+    prepareUpload,
+    prepareWalletRetry,
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });

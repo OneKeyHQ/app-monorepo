@@ -98,6 +98,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { supportsIndexedCloudAccountArchive } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
@@ -845,13 +846,28 @@ class ServiceHardware extends ServiceBase {
   handleHardwareLabelChanged = cacheUtils.memoizee(
     async ({
       walletId,
+      dbDeviceId,
       label,
       walletName,
-    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      allowDesktopLocalMetadata,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName] & {
+      allowDesktopLocalMetadata?: boolean;
+    }) => {
       const isHw =
         accountUtils.isHwWallet({ walletId }) &&
         !accountUtils.isQrWallet({ walletId });
       if (!isHw) {
+        return;
+      }
+      if (!allowDesktopLocalMetadata && supportsIndexedCloudAccountArchive()) {
+        await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+          walletId,
+          name: label,
+          passiveDeviceMetadata: { dbDeviceId },
+        });
+        void this.backgroundApi.serviceKeylessCloudSync
+          .syncHardwareCloudSyncDeviceLabel({ walletId, dbDeviceId })
+          .catch((error) => errorUtils.autoPrintErrorIgnore(error));
         return;
       }
       console.log('handleHardwareLabelChanged');
@@ -880,16 +896,13 @@ class ServiceHardware extends ServiceBase {
       }
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
+        allowDesktopLocalMetadata,
         name: label,
         shouldCheckDuplicate: false,
       });
-      try {
-        await this.backgroundApi.serviceKeylessCloudSync.syncHardwareCloudSyncDeviceLabel(
-          { walletId, label },
-        );
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-      }
+      void this.backgroundApi.serviceKeylessCloudSync
+        .syncHardwareCloudSyncDeviceLabel({ walletId, label })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     },
     {
       maxAge: 600,
@@ -949,6 +962,7 @@ class ServiceHardware extends ServiceBase {
   handleHardwareAvatarChanged = cacheUtils.memoizee(
     async ({
       walletId,
+      dbDeviceId,
       avatarInfo,
     }: IAppEventBusPayload[EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]) => {
       const isHw =
@@ -961,7 +975,9 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
         avatar: avatarInfo,
-        shouldCheckDuplicate: false,
+        ...(supportsIndexedCloudAccountArchive()
+          ? { passiveDeviceMetadata: { dbDeviceId } }
+          : { shouldCheckDuplicate: false }),
       });
     },
     {
@@ -3845,6 +3861,7 @@ class ServiceHardware extends ServiceBase {
         label: result.label,
       });
       await this.handleHardwareLabelChanged({
+        allowDesktopLocalMetadata: true,
         walletId: p.walletId,
         dbDeviceId,
         label: result.label,

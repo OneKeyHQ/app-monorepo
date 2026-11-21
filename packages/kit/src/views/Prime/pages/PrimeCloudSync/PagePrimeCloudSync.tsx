@@ -15,7 +15,6 @@ import {
   ESwitchSize,
   Icon,
   Page,
-  ScrollView,
   SizableText,
   Stack,
   Switch,
@@ -30,12 +29,8 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAv
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
-import {
-  useDevSettingsPersistAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -54,19 +49,13 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
-import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 
 import {
   chooseCloudSyncKey,
+  getManualCloudSyncFeedback,
   useHardwareCloudSyncKey,
 } from './HardwareCloudSyncKeySection';
-
-function isAutoLockValueNotAllowed(value: number) {
-  return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
-}
 
 function formatSyncLastUpdateTime(syncTime?: number): string {
   if (syncTime) {
@@ -120,55 +109,6 @@ function useIsLocalSystemTimeInvalid() {
   );
 
   return isLocalSystemTimeInvalid;
-}
-
-function AutoLockUpdateDialogContent({
-  onContinue,
-  onError,
-}: {
-  onContinue: () => void;
-  onError: (error: Error) => void;
-}) {
-  const intl = useIntl();
-  const [selectedValue, setSelectedValue] = useState<string>('');
-  return (
-    <Stack>
-      <ScrollView h={250} nestedScrollEnabled>
-        <SizableText px="$5">
-          {intl.formatMessage({
-            id: ETranslations.prime_auto_lock_description,
-          })}
-        </SizableText>
-        <AppAutoLockSettingsView
-          disableCloudSyncDisallowedOptions
-          useLocalState
-          onValueChange={(v) => {
-            setSelectedValue(v);
-          }}
-        />
-      </ScrollView>
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: isAutoLockValueNotAllowed(Number(selectedValue)),
-        }}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        onConfirm={async () => {
-          try {
-            await backgroundApiProxy.servicePassword.setAppLockDuration(
-              Number(selectedValue),
-            );
-            onContinue();
-          } catch (error) {
-            onError(error as Error);
-            throw error;
-          }
-        }}
-      />
-    </Stack>
-  );
 }
 
 function CloudSyncIllustration() {
@@ -345,10 +285,11 @@ function AppDataSection({
       config.currentCloudSyncKeylessWalletId,
     ]);
 
-  const kwExists = keylessWalletResult?.exists ?? false;
+  const kwExists = isKeylessWalletEnabled && !!keylessWalletResult?.exists;
   const keylessWallet = keylessWalletResult?.wallet;
   const hardwareKey = useHardwareCloudSyncKey();
   const hardwareSource = hardwareKey.source;
+  const canEnableSync = isKeylessWalletEnabled || hardwareKey.supported;
   // A selected hardware key stands in for the Keyless wallet.
   const hasSyncKey = kwExists || !!hardwareSource;
 
@@ -370,9 +311,8 @@ function AppDataSection({
     !!config.hasEverEnabledOneKeyIdSync ||
     !!config.lastSyncTimeOneKeyId ||
     (!!config.lastSyncTime && !config.lastSyncTimeKeyless);
-  // Scenario 7: Former ID-only user (sync off). Applies regardless of KW
-  // existence — if the last sync mode was OneKey ID, keep showing the ID
-  // switch until the user explicitly migrates to Keyless.
+  // Keep migration guidance for former ID users, but the retired mode
+  // cannot be re-enabled.
   const isFormerIdUser =
     !kwLoading &&
     !isActiveIdUser &&
@@ -383,15 +323,15 @@ function AppDataSection({
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    // With hardware keys the switch's key chooser also creates a Keyless
-    // wallet, so first-time users get the switch instead of Scenario 1.
-    (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)) &&
-    !isFormerIdUser; // Scenario 2
+    canEnableSync &&
+    // A supported hardware key can enable sync without an existing wallet.
+    (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)); // Scenario 2
   const isFormerKwUserNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
     !hasSyncKey &&
+    canEnableSync &&
     hasUsedKeylessSyncBefore; // Scenario 6
   const isSyncOffNoKw =
     !kwLoading &&
@@ -400,6 +340,7 @@ function AppDataSection({
     !hasSyncKey &&
     !hasUsedKeylessSyncBefore &&
     !hasUsedOneKeyIdSyncBefore &&
+    isKeylessWalletEnabled &&
     !hardwareKey.supported; // Scenario 1
 
   // Last update times
@@ -427,14 +368,6 @@ function AppDataSection({
     config.lastSyncTimeKeyless,
     shouldUseLegacyLastSyncTime,
   ]);
-
-  const [passwordSettings] = usePasswordPersistAtom();
-  const shouldChangePasswordAutoLock = useMemo(
-    () =>
-      passwordSettings.isPasswordSet &&
-      isAutoLockValueNotAllowed(passwordSettings.appLockDuration),
-    [passwordSettings.appLockDuration, passwordSettings.isPasswordSet],
-  );
 
   const reloadServerUserInfo = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
@@ -487,6 +420,7 @@ function AppDataSection({
 
   // Navigate to KW creation flow (Scenario 1)
   const handleCreateKeylessWallet = useCallback(() => {
+    if (!isKeylessWalletEnabled) return;
     const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
@@ -510,11 +444,11 @@ function AppDataSection({
     }
 
     navigation.navigate(ERootRoutes.Onboarding, onboardingParams);
-  }, [navigation]);
+  }, [isKeylessWalletEnabled, navigation]);
 
   // Migrate ID → Keyless (Scenario 4 "Switch Now")
   const handleMigrateToKeyless = useCallback(async () => {
-    if (isSubmittingRef.current) return;
+    if (!isKeylessWalletEnabled || isSubmittingRef.current) return;
     if (!kwExists) {
       Dialog.show({
         icon: 'CloudOutline',
@@ -554,53 +488,23 @@ function AppDataSection({
     } finally {
       isSubmittingRef.current = false;
     }
-  }, [kwExists, intl, handleCreateKeylessWallet]);
+  }, [kwExists, intl, handleCreateKeylessWallet, isKeylessWalletEnabled]);
 
-  // Toggle ID sync (Scenario 4)
-  const handleToggleIdSync = useCallback(
-    async (value: boolean) => {
-      if (isSubmittingRef.current) return;
-      try {
-        isSubmittingRef.current = true;
-        if (value) {
-          const isAllowed = await ensureOneKeyIdSyncActionAllowed();
-          if (!isAllowed) {
-            return;
-          }
-        }
-        if (value && shouldChangePasswordAutoLock) {
-          await new Promise<void>((resolve, reject) => {
-            Dialog.show({
-              isAsync: true,
-              disableDrag: true,
-              dismissOnOverlayPress: true,
-              title: intl.formatMessage({
-                id: ETranslations.settings_auto_lock,
-              }),
-              contentContainerProps: { px: 0 },
-              onClose: () => reject(new Error('User cancelled')),
-              onCancel: () => reject(new Error('User cancelled')),
-              renderContent: (
-                <AutoLockUpdateDialogContent
-                  onContinue={() => resolve()}
-                  onError={(error) => reject(error)}
-                />
-              ),
-            });
-          });
-        }
+  const handleDisableIdSync = useCallback(async (value: boolean) => {
+    if (value || isSubmittingRef.current) return;
+    try {
+      isSubmittingRef.current = true;
+      const disabled =
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-          enabled: value,
+          enabled: false,
         });
-        defaultLogger.prime.usage.onekeyCloudToggle({
-          status: value ? 'on' : 'off',
-        });
-      } finally {
-        isSubmittingRef.current = false;
+      if (disabled === true) {
+        defaultLogger.prime.usage.onekeyCloudToggle({ status: 'off' });
       }
-    },
-    [ensureOneKeyIdSyncActionAllowed, intl, shouldChangePasswordAutoLock],
-  );
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  }, []);
 
   // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
   const handleToggleKeylessSync = useCallback(async (value: boolean) => {
@@ -615,16 +519,18 @@ function AppDataSection({
     }
   }, []);
 
-  // Turning sync on asks which key to use where hardware keys are supported.
   const handleEnableSync = useCallback(async () => {
-    const choice = hardwareKey.supported
-      ? await chooseCloudSyncKey(intl)
-      : 'keyless';
-    if (choice === 'hardware') {
-      await hardwareKey.openPicker();
-      return;
+    if (hardwareKey.supported) {
+      const choice = isKeylessWalletEnabled
+        ? await chooseCloudSyncKey(intl)
+        : 'hardware';
+      if (choice === 'hardware') {
+        await hardwareKey.openPicker();
+        return;
+      }
+      if (choice !== 'keyless') return;
     }
-    if (choice !== 'keyless') return;
+    if (!isKeylessWalletEnabled) return;
     if (!kwExists) {
       await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
         true,
@@ -641,6 +547,7 @@ function AppDataSection({
     handleToggleKeylessSync,
     hardwareKey,
     intl,
+    isKeylessWalletEnabled,
     hardwareSource,
     kwExists,
   ]);
@@ -731,35 +638,32 @@ function AppDataSection({
           id: ETranslations.global_syncing,
         }),
       });
-      let syncSuccess = false;
+      let result: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult
+        >
+      >;
       try {
-        syncSuccess =
-          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
-            callerName: 'Manual Cloud Sync Keyless',
-            noDebounceUpload: true,
-            forceSync: true,
-            bypassRetryBackoff: true,
-            password,
-          });
+        result =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult(
+            {
+              callerName: 'Manual Cloud Sync Keyless',
+              noDebounceUpload: true,
+              forceSync: true,
+              bypassRetryBackoff: true,
+              password,
+            },
+          );
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      if (!syncSuccess) {
+      const feedback = getManualCloudSyncFeedback(result);
+      if (feedback)
         void backgroundApiProxy.serviceApp.showToast({
-          method: 'warning',
-          title: intl.formatMessage({
-            id: ETranslations.global_pending,
-          }),
+          method: feedback.method,
+          title: intl.formatMessage({ id: feedback.title }),
         });
-        return;
-      }
-      void backgroundApiProxy.serviceApp.showToast({
-        method: 'success',
-        title: intl.formatMessage({
-          id: ETranslations.global_sync_successfully,
-        }),
-      });
     } catch (error) {
       if (errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error)) {
         return;
@@ -789,12 +693,14 @@ function AppDataSection({
       description: intl.formatMessage({
         id: ETranslations.keyless_wallet_removed__desc,
       }),
-      action: {
-        primary: intl.formatMessage({
-          id: ETranslations.restore_keyless_wallet__action,
-        }),
-        onPrimaryPress: handleCreateKeylessWallet,
-      },
+      action: isKeylessWalletEnabled
+        ? {
+            primary: intl.formatMessage({
+              id: ETranslations.restore_keyless_wallet__action,
+            }),
+            onPrimaryPress: handleCreateKeylessWallet,
+          }
+        : undefined,
     };
   } else if (isActiveKwUser && hardwareSource && hardwareKey.keyMissing) {
     syncAlert = {
@@ -824,7 +730,7 @@ function AppDataSection({
     syncAlert = {
       title: intl.formatMessage({ id: ETranslations.global_sync_error }),
     };
-  } else if (isActiveIdUser || isFormerIdUser) {
+  } else if (isKeylessWalletEnabled && (isActiveIdUser || isFormerIdUser)) {
     syncAlert = {
       title: intl.formatMessage({
         id: ETranslations.switch_to_keyless_wallet_sync__title,
@@ -872,26 +778,6 @@ function AppDataSection({
             size={ESwitchSize.small}
             onChange={handleKeylessSwitchChange}
             value={false}
-          />
-        </ListItem>
-      ) : null}
-
-      {/* Scenario 7: Former ID-only sync user, sync off (KW may or may not exist) */}
-      {isFormerIdUser ? (
-        <ListItem
-          title={intl.formatMessage({
-            id: ETranslations.global_onekey_cloud,
-          })}
-          icon="CloudOutline"
-          subtitle={`${intl.formatMessage({
-            id: ETranslations.prime_last_update,
-          })} : ${oneKeyIdLastUpdateTime}`}
-        >
-          <Switch
-            testID={PrimeTestIDs.cloudSyncIdSyncSwitch}
-            size={ESwitchSize.small}
-            onChange={handleToggleIdSync}
-            value={config.isCloudSyncEnabled}
           />
         </ListItem>
       ) : null}
@@ -1082,7 +968,7 @@ function AppDataSection({
             <Switch
               testID="prime-switch"
               size={ESwitchSize.small}
-              onChange={handleToggleIdSync}
+              onChange={handleDisableIdSync}
               value={config.isCloudSyncEnabled}
             />
           </ListItem>

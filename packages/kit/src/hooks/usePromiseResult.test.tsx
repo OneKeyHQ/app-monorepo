@@ -108,14 +108,26 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('../background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: { serviceAccount: { getWalletSafe: jest.fn() } },
+}));
+
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 // eslint-disable-next-line import/no-relative-packages
 import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
+import { useWalletMetadataPresentation } from './useWalletMetadataPresentation';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const focusControl = require('@onekeyhq/kit/src/hooks/useRouteIsFocused') as {
@@ -2051,5 +2063,79 @@ describe('usePromiseResult', () => {
         jest.useRealTimers();
       }
     });
+  });
+});
+
+describe('wallet metadata presentation', () => {
+  it('shows an avatar saved for the same wallet while its route was blurred', async () => {
+    focusControl.__resetFocus();
+    const wallet: IDBWallet = {
+      id: 'hd-1',
+      name: 'Wallet 1',
+      type: 'hd',
+      walletNo: 1,
+      accounts: [],
+      backuped: true,
+      nextIds: {},
+      avatar: 'before-edit',
+    };
+    const readWallet = jest.spyOn(
+      backgroundApiProxy.serviceAccount,
+      'getWalletSafe',
+    );
+    readWallet.mockResolvedValue(wallet);
+    const { result, unmount } = renderHook(() =>
+      useWalletMetadataPresentation(wallet.id),
+    );
+    try {
+      await waitFor(() => expect(result.current?.avatar).toBe('before-edit'));
+      expect(readWallet).toHaveBeenCalledWith({
+        walletId: wallet.id,
+        metadataForDisplay: true,
+      });
+
+      act(() => focusControl.__setFocus(false));
+      readWallet.mockResolvedValue({ ...wallet, avatar: 'after-edit' });
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      });
+      expect(readWallet).toHaveBeenCalledTimes(1);
+
+      act(() => focusControl.__setFocus(true));
+      await waitFor(() => expect(result.current?.avatar).toBe('after-edit'));
+      expect(result.current?.id).toBe(wallet.id);
+      expect(readWallet).toHaveBeenCalledTimes(2);
+    } finally {
+      unmount();
+      readWallet.mockReset();
+      focusControl.__resetFocus();
+    }
+  });
+
+  it('uses refreshed canonical QR metadata without a separate lookup', () => {
+    const wallet: IDBWallet = {
+      id: 'qr-v21',
+      name: 'Before edit',
+      type: 'qr',
+      walletNo: 1,
+      accounts: [],
+      backuped: true,
+      nextIds: {},
+    };
+    const readWallet = jest.spyOn(
+      backgroundApiProxy.serviceAccount,
+      'getWalletSafe',
+    );
+    readWallet.mockClear();
+    const { result, rerender } = renderHook(
+      (canonical: IDBWallet) =>
+        useWalletMetadataPresentation(canonical.id, canonical),
+      { initialProps: wallet },
+    );
+    expect(result.current).toBe(wallet);
+    const edited = { ...wallet, name: 'Confirmed edit' };
+    rerender(edited);
+    expect(result.current).toBe(edited);
+    expect(readWallet).not.toHaveBeenCalled();
   });
 });

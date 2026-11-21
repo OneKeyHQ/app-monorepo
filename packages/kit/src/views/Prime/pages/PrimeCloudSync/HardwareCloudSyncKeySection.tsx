@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { yieldDeviceStageToDialog } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit';
+import type { IManualCloudSyncResult } from '@onekeyhq/kit-bg/src/services/ServicePrimeCloudSync/ServicePrimeCloudSync';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -34,6 +35,54 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 import { HardwareCloudSyncDevicePicker } from './HardwareCloudSyncDevicePicker';
 
 import type { IntlShape } from 'react-intl';
+
+export function getManualCloudSyncFeedback(result: IManualCloudSyncResult) {
+  switch (result) {
+    case 'completed':
+      return {
+        method: 'success',
+        title: ETranslations.global_sync_successfully,
+      } as const;
+    case 'network-unavailable':
+      return {
+        method: 'error',
+        title: ETranslations.global_network_error,
+      } as const;
+    case 'server-unavailable':
+      return {
+        method: 'error',
+        title: ETranslations.global_server_error,
+      } as const;
+    case 'session-unavailable':
+      return {
+        method: 'error',
+        title: ETranslations.syncing_paused__title,
+      } as const;
+    case 'hardware-key-unavailable':
+      return {
+        method: 'error',
+        title: ETranslations.cloud_sync_hardware_key_missing__desc,
+      } as const;
+    case 'software-key-unavailable':
+      return {
+        method: 'error',
+        title: ETranslations.cloud_sync_data_unreadable__msg,
+      } as const;
+    case 'sync-blocked':
+      return {
+        method: 'error',
+        title: ETranslations.global_sync_error,
+      } as const;
+    case 'cancelled':
+    case 'local-deferred':
+    case 'incomplete':
+      return undefined;
+    default: {
+      const exhaustive: never = result;
+      return exhaustive;
+    }
+  }
+}
 
 export type ICloudSyncKeyChoice = 'keyless' | 'hardware';
 
@@ -585,17 +634,22 @@ export function useHardwareCloudSyncKey() {
       title: intl.formatMessage({ id: ETranslations.global_syncing }),
     });
     try {
-      let success = false;
+      let result: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult
+        >
+      >;
       try {
-        success = await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless(
-          {
-            callerName: 'Manual hardware Cloud sync',
-            noDebounceUpload: true,
-            forceSync: true,
-            bypassRetryBackoff: true,
-            askPasswordOnlyIfHdXfpMissing: true,
-          },
-        );
+        result =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult(
+            {
+              callerName: 'Manual hardware Cloud sync',
+              noDebounceUpload: true,
+              forceSync: true,
+              bypassRetryBackoff: true,
+              askPasswordOnlyIfHdXfpMissing: true,
+            },
+          );
       } catch (error) {
         deferCloudSyncFailureToPage(error);
         throw error;
@@ -603,14 +657,12 @@ export function useHardwareCloudSyncKey() {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      void backgroundApiProxy.serviceApp.showToast({
-        method: success ? 'success' : 'warning',
-        title: intl.formatMessage({
-          id: success
-            ? ETranslations.global_sync_successfully
-            : ETranslations.global_pending,
-        }),
-      });
+      const feedback = getManualCloudSyncFeedback(result);
+      if (feedback)
+        void backgroundApiProxy.serviceApp.showToast({
+          method: feedback.method,
+          title: intl.formatMessage({ id: feedback.title }),
+        });
     } catch (error) {
       await showCloudSyncFailure(intl, error);
     }

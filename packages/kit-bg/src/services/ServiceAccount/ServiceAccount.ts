@@ -138,7 +138,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -638,15 +640,19 @@ class ServiceAccount extends ServiceBase {
   async getWalletSafe({
     walletId,
     withoutRefill,
+    metadataForDisplay,
   }: {
     walletId: string;
     withoutRefill?: boolean;
+    metadataForDisplay?: boolean;
   }): Promise<IDBWallet | undefined> {
     const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
     if (!wallet) {
       return undefined;
     }
-    return wallet;
+    if (!metadataForDisplay) return wallet;
+    const [display] = await localDb.getWalletsForMetadataPresentation([wallet]);
+    return display ?? wallet;
   }
 
   // TODO move to serviceHardware
@@ -755,7 +761,9 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets(options?: IDBGetWalletsParams): Promise<{
+  async getWallets(
+    options?: IDBGetWalletsParams & { metadataForDisplay?: boolean },
+  ): Promise<{
     wallets: IDBWallet[];
   }> {
     const r = await localDb.getWallets(options);
@@ -769,7 +777,9 @@ class ServiceAccount extends ServiceBase {
 
     return {
       ...r,
-      wallets,
+      wallets: options?.metadataForDisplay
+        ? await localDb.getWalletsForMetadataPresentation(wallets)
+        : wallets,
     };
   }
 
@@ -831,6 +841,7 @@ class ServiceAccount extends ServiceBase {
   async getAllHwQrWalletWithDevice(params?: {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
+    metadataForDisplay?: boolean;
     skipDuplicateDevice?: boolean;
     skipDuplicateDeviceSameType?: boolean;
   }) {
@@ -927,6 +938,17 @@ class ServiceAccount extends ServiceBase {
 
       const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
       result[wallet.id] = { wallet, device };
+    }
+
+    if (params?.metadataForDisplay) {
+      // Keep device selection canonical; only project the rows this view renders.
+      const walletsForDisplay = await localDb.getWalletsForMetadataPresentation(
+        Object.values(result).map(({ wallet }) => wallet),
+      );
+      for (const wallet of walletsForDisplay) {
+        const entry = result[wallet.id];
+        if (entry) entry.wallet = wallet;
+      }
     }
 
     return result;
@@ -5580,12 +5602,42 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    return this.setWalletNameAndAvatarInternal(params);
+  }
+
+  // Background-only replay guard; callbacks do not cross the UI bridge.
+  async setWalletNameAndAvatarFromCloud(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+  ): Promise<IDBWallet> {
+    return this.setWalletNameAndAvatarInternal(
+      params,
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+    );
+  }
+
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent?: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+  ): Promise<IDBWallet> {
+    // A projection-driven write is not an explicit rename or a new UI event.
+    if (params.passiveDeviceMetadata)
+      return localDb.setWalletNameAndAvatar(params);
     const { walletId, name } = params;
 
-    let oldName = '';
+    const retainedSceneName = params.cloudSyncSource
+      ? params.expectedCloudSyncWalletName
+      : undefined;
+    let oldName = retainedSceneName ?? '';
     let oldAvatar = '';
-    // Get the old name before updating
-    if (name || params.applyRestoreSyncPolicy) {
+    // The Cloud scene already retained its exact canonical predecessor.
+    if (
+      retainedSceneName === undefined &&
+      (name || params.applyRestoreSyncPolicy)
+    ) {
       const wallet = await this.getWalletSafe({
         walletId,
         withoutRefill: true,
@@ -5594,7 +5646,14 @@ class ServiceAccount extends ServiceBase {
       oldAvatar = wallet?.avatar || '';
     }
 
-    const result = await localDb.setWalletNameAndAvatar(params);
+    const result = isCurrent
+      ? await localDb.setWalletNameAndAvatar(params, {
+          isCurrent,
+          ...(expectedCloudSyncWalletAvatar === undefined
+            ? {}
+            : { expectedCloudSyncWalletAvatar }),
+        })
+      : await localDb.setWalletNameAndAvatar(params);
     const isWalletMetadataChanged =
       oldName !== result.name || oldAvatar !== (result.avatar || '');
 
@@ -5608,19 +5667,31 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    if (name && oldName && oldName !== result.name) {
-      // Record the name change history
-      await simpleDb.changeHistory.addChangeHistory({
-        items: [
-          {
-            entityType: EChangeHistoryEntityType.Wallet,
-            entityId: walletId,
-            contentType: EChangeHistoryContentType.Name,
-            oldValue: oldName,
-            value: result.name,
-          },
-        ],
-      });
+    const savedName =
+      name && result.hasDesktopLocalMetadata
+        ? (await localDb.getWallet({ walletId })).name
+        : result.name;
+    if (
+      name &&
+      oldName &&
+      oldName !== savedName &&
+      retainedSceneName === undefined
+    ) {
+      // History is auxiliary to the already-committed manual rename.
+      await resolveBeforeTimeout(
+        simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: walletId,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: oldName,
+              value: savedName,
+            },
+          ],
+        }),
+        1500,
+      ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
 
     return result;

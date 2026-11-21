@@ -43,7 +43,9 @@ const mockDialogShow = jest.fn((_params: IDialogParams) => ({
 const mockClearForceTransport = jest.fn(async () => undefined);
 const mockOpenExpandTab = jest.fn(async (_params: unknown) => undefined);
 const mockCancel = jest.fn(async () => true);
-const mockSyncNow = jest.fn(async (_params: unknown) => true);
+const mockSyncNow = jest.fn(
+  async (_params: unknown): Promise<string> => 'completed',
+);
 const mockHideLoading = jest.fn<Promise<void>, []>(async () => undefined);
 const mockToast = jest.fn((_params: unknown) => undefined);
 const mockAutoToast = jest.fn<void, unknown[]>();
@@ -149,7 +151,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       cancelHardwareCloudKeyOperation: () => mockCancel(),
     },
     servicePrimeCloudSync: {
-      syncNowKeyless: (params: unknown) => mockSyncNow(params),
+      syncNowKeylessWithResult: (params: unknown) => mockSyncNow(params),
     },
   },
 }));
@@ -560,19 +562,34 @@ test('Sync now uses the hardware key and asks for a password only when needed', 
   );
 });
 
-test('unfinished hardware sync reports pending instead of a sync error', async () => {
+test.each(['local-deferred', 'cancelled', 'incomplete'])(
+  'hardware sync does not toast for %s',
+  async (outcome) => {
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockSyncNow.mockResolvedValueOnce(outcome);
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+
+    await act(() => result.current.syncNow());
+
+    expect(mockHideLoading).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  },
+);
+
+test.each([
+  ['network-unavailable', 'global.network_error'],
+  ['server-unavailable', 'global.server_error'],
+  ['sync-blocked', 'global.sync_error'],
+  ['hardware-key-unavailable', 'cloud_sync_hardware_key_missing__desc'],
+])('hardware sync surfaces attributable %s', async (outcome, title) => {
   mockConfig.isCloudSyncEnabledKeyless = true;
-  mockSyncNow.mockResolvedValueOnce(false);
+  mockSyncNow.mockResolvedValueOnce(outcome);
   const { result } = renderHook(() => useHardwareCloudSyncKey());
 
   await act(() => result.current.syncNow());
 
-  expect(mockHideLoading).toHaveBeenCalledTimes(1);
-  expect(mockToast).toHaveBeenCalledWith({
-    method: 'warning',
-    title: 'global.pending',
-  });
-  expect(mockDialogShow).not.toHaveBeenCalled();
+  expect(mockToast).toHaveBeenCalledWith({ method: 'error', title });
 });
 
 test('leaving the page cancels a pending device request', () => {

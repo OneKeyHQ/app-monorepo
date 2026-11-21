@@ -1,7 +1,6 @@
 import type { SizeTokens } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useWalletMetadataPresentation } from '../../hooks/useWalletMetadataPresentation';
 
 import { WalletAvatar } from './WalletAvatar';
 
@@ -12,14 +11,7 @@ function WalletAvatarById({
   walletId: string;
   size?: SizeTokens;
 }) {
-  const { result: wallet } = usePromiseResult(
-    async () => {
-      if (!walletId) return undefined;
-      return backgroundApiProxy.serviceAccount.getWallet({ walletId });
-    },
-    [walletId],
-    { initResult: undefined },
-  );
+  const wallet = useWalletMetadataPresentation(walletId);
 
   if (!wallet) return null;
 

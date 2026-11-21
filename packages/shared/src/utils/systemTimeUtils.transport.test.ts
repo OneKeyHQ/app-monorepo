@@ -13,6 +13,7 @@ const mockSniRequest = jest.fn<
     statusCode: number;
     headers: Record<string, string>;
     body: string;
+    verifiedFinalUrl?: string;
   } | null>,
   unknown[]
 >();
@@ -85,6 +86,7 @@ describe('hardware time through the configured Axios and IP-table transports', (
   let responseQueryError: 'missing' | 'changed' | undefined;
   let responseAge: string | undefined;
   let responseDate: string | undefined;
+  let performanceNow: jest.SpyInstance<number, []>;
   const previousProxy = process.env.ONEKEY_PROXY;
   const previousLocation = Object.getOwnPropertyDescriptor(
     globalThis,
@@ -120,7 +122,7 @@ describe('hardware time through the configured Axios and IP-table transports', (
       },
     });
     jest.spyOn(Date, 'now').mockReturnValue(SERVER_TIME);
-    jest.spyOn(performance, 'now').mockReturnValue(1000);
+    performanceNow = jest.spyOn(performance, 'now').mockReturnValue(1000);
     sentRequests = [];
     responseUrl = undefined;
     responseQueryError = undefined;
@@ -176,6 +178,43 @@ describe('hardware time through the configured Axios and IP-table transports', (
     expect(parsed.searchParams.get('nonce')).toMatch(/^[0-9A-Za-z]{12}$/);
     return parsed.searchParams.get('nonce');
   }
+
+  it.each(['reported', 'missing', 'foreign'] as const)(
+    'uses the real selected-IP adapter result for a cold action (%s)',
+    async (reportedUrl) => {
+      const wallTime = SERVER_TIME + 600;
+      jest.mocked(Date.now).mockReturnValue(wallTime);
+      mockSniSupported.mockReturnValue(true);
+      mockSniRequest.mockImplementation(async (...args: unknown[]) => {
+        const request = args[0] as { hostname: string; path: string };
+        performanceNow.mockReturnValue(1250.25);
+        jest.mocked(Date.now).mockReturnValue(wallTime + 250);
+        const origin =
+          reportedUrl === 'foreign'
+            ? 'https://wallet.onekeytest.com'
+            : `https://${request.hostname}`;
+        return {
+          statusCode: 200,
+          headers: { date: new Date(SERVER_TIME).toUTCString() },
+          body: '{}',
+          verifiedFinalUrl:
+            reportedUrl === 'missing' ? undefined : origin + request.path,
+        };
+      });
+      await loadClient();
+      const resolveTime = systemTimeUtils.captureColdCloudActionTime(wallTime);
+      expect(await systemTimeUtils.refreshServerTime()).toBe(true);
+      expect(mockSniRequest).toHaveBeenCalledTimes(1);
+      expect(sentRequests).toHaveLength(0);
+      expect(mockSniRequest.mock.calls[0][0]).toMatchObject({
+        hostname: 'wallet.onekeycn.com',
+        path: expect.stringContaining('system_time_utils'),
+      });
+      expect(resolveTime?.()).toBe(
+        reportedUrl === 'reported' ? SERVER_TIME - 251 : wallTime,
+      );
+    },
+  );
 
   it('sends a fresh nonce through the normal domain transport on every attempt', async () => {
     await loadClient();
