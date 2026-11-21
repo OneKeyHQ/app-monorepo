@@ -83,17 +83,6 @@ import {
   summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
 import {
-  commitHardwareCloudSyncMigration,
-  migrateHardwareCloudSyncRecords,
-  prepareHardwareCloudSyncMigrationSource,
-  recoverHardwareCloudSyncMigration,
-} from './hardwareCloudSyncMigration';
-import {
-  commitHardwareCloudSyncLocalRecovery,
-  hasPendingDeletionFromPreviousHardwareKey,
-  prepareHardwareCloudSyncLocalRecovery,
-} from './hardwareCloudSyncRecovery';
-import {
   assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
   createHardwareCloudSyncDeviceKey,
@@ -346,6 +335,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!this.hardwareCloudMigrationRecovered) {
         this.hardwareCloudMigrationRecovering = true;
         try {
+          const { recoverHardwareCloudSyncMigration } =
+            await import('./hardwareCloudSyncMigration');
           await this.repairCredentialMutex.runExclusive(() =>
             recoverHardwareCloudSyncMigration(this.backgroundApi),
           );
@@ -817,6 +808,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     assertCurrent();
     const { source, credential } = derived;
     const dataKey = { previousPwdHashes };
+    const {
+      commitHardwareCloudSyncLocalRecovery,
+      hasPendingDeletionFromPreviousHardwareKey,
+      prepareHardwareCloudSyncLocalRecovery,
+    } = await import('./hardwareCloudSyncRecovery');
+    assertCurrent();
 
     await this.backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets({
       password,
@@ -2232,6 +2229,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
           targetCredentialId === device.credentialId &&
           device.source?.credentialId === device.credentialId
         ) {
+          const {
+            prepareHardwareCloudSyncMigrationSource,
+            migrateHardwareCloudSyncRecords,
+          } = await import('./hardwareCloudSyncMigration');
+          if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
           const migrationItems = await prepareHardwareCloudSyncMigrationSource({
             backgroundApi: this.backgroundApi,
             sourcePwdHash: credential.pwdHash,
@@ -2346,6 +2348,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
         unlock,
       });
       if (replacement) {
+        const { commitHardwareCloudSyncMigration } =
+          await import('./hardwareCloudSyncMigration');
         const target = { ...replacement, source: derived.source };
         await this.runWithCloudSyncSourceLock(() =>
           this.repairCredentialMutex.runExclusive(async () => {
