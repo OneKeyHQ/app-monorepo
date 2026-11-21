@@ -1072,9 +1072,12 @@ function EarnLoanRouterPage() {
     networkAccountId: selectedFacts?.networkAccountId,
     onDone: handleDone,
   });
-  useEffect(() => {
-    if (run.fundedSupplyAmount && run.phase === 'idle') setCollateralAmount('');
-  }, [run.fundedSupplyAmount, run.phase]);
+  const isBorrowOnlyContinuation =
+    Boolean(run.fundedSupplyAmount) &&
+    (run.phase === 'idle' || run.phase === 'borrowReady');
+  if (isBorrowOnlyContinuation && collateralAmount !== '') {
+    setCollateralAmount('');
+  }
   // Nothing changes while a press runs: the swap, then the steps after it
   const isLocked = run.isRunning || payWith.isSwapRunning;
 
@@ -1169,24 +1172,28 @@ function EarnLoanRouterPage() {
 
   // ---------- The two boxes ----------
 
-  const handleCollateralChange = useCallback((value: string) => {
-    setSuppliedNote(undefined);
-    setCollateralAmount(value);
-  }, []);
+  const handleCollateralChange = useCallback(
+    (value: string) => {
+      if (isBorrowOnlyContinuation) return;
+      setSuppliedNote(undefined);
+      setCollateralAmount(value);
+    },
+    [isBorrowOnlyContinuation],
+  );
   const handleCollateralStage = useCallback(
     (percent: number) => {
-      if (!boxBalance) {
+      if (!boxBalance || isBorrowOnlyContinuation) {
         return;
       }
       setSuppliedNote(undefined);
       setCollateralAmount(shareOf(boxBalance, percent, boxDecimals));
     },
-    [boxBalance, boxDecimals],
+    [boxBalance, boxDecimals, isBorrowOnlyContinuation],
   );
   // Paid with the network's coin, Max keeps the fees of the swap and of the
   // steps after it
   const handleCollateralMax = useCallback(() => {
-    if (!boxBalance) {
+    if (!boxBalance || isBorrowOnlyContinuation) {
       return;
     }
     setSuppliedNote(undefined);
@@ -1195,7 +1202,13 @@ function EarnLoanRouterPage() {
         ? payWith.payMax
         : shareOf(boxBalance, 100, boxDecimals),
     );
-  }, [boxBalance, boxDecimals, isSwapping, payWith.payMax]);
+  }, [
+    boxBalance,
+    boxDecimals,
+    isSwapping,
+    isBorrowOnlyContinuation,
+    payWith.payMax,
+  ]);
   // A token changed starts the loan over: none
   const resetLoan = useCallback(() => {
     setTypedBorrow(undefined);
@@ -1406,6 +1419,7 @@ function EarnLoanRouterPage() {
   // Pay with's own picker: Swap's, opening on the market's network with the
   // others beside it
   const handleOpenPayWith = useCallback(() => {
+    if (isBorrowOnlyContinuation) return;
     payWith.openPicker((isNewToken) => {
       if (isNewToken) {
         setCollateralAmount('');
@@ -1413,7 +1427,7 @@ function EarnLoanRouterPage() {
         resetLoan();
       }
     });
-  }, [payWith, resetLoan]);
+  }, [isBorrowOnlyContinuation, payWith, resetLoan]);
 
   const isInsufficient =
     hasCollateral &&
@@ -1489,43 +1503,57 @@ function EarnLoanRouterPage() {
         // picks' and the steps' word; paid with another token it is what
         // leaves the wallet
         title={
-          isSwapping
+          isSwapping && !isBorrowOnlyContinuation
             ? earnCopy.payWith
             : intl.formatMessage({ id: ETranslations.defi_supply })
         }
-        disabled={isLocked}
-        hasError={isInsufficient}
-        value={collateralAmount}
+        disabled={isLocked || isBorrowOnlyContinuation}
+        hasError={!isBorrowOnlyContinuation && isInsufficient}
+        value={isBorrowOnlyContinuation ? '' : collateralAmount}
         onChange={handleCollateralChange}
         onSelectPercentageStage={handleCollateralStage}
         tokenSelectorTriggerProps={{
-          selectedTokenImageUri: isSwapping
-            ? payToken?.token.logoURI
-            : collateralLogo,
+          selectedTokenImageUri:
+            isSwapping && !isBorrowOnlyContinuation
+              ? payToken?.token.logoURI
+              : collateralLogo,
           selectedTokenImageLoading: !collateralLogo && !isMarketsLoaded,
-          selectedNetworkImageUri: boxNetworkLogoURI,
-          selectedTokenSymbol: isSwapping
-            ? payToken?.token.symbol
-            : (collateralToken?.symbol ?? pickLabel(collateralPick)),
-          disabled: isLocked,
-          onPress: payRoute ? handleOpenPayWith : undefined,
+          selectedNetworkImageUri: isBorrowOnlyContinuation
+            ? networkLogoURI
+            : boxNetworkLogoURI,
+          selectedTokenSymbol:
+            isSwapping && !isBorrowOnlyContinuation
+              ? payToken?.token.symbol
+              : (collateralToken?.symbol ?? pickLabel(collateralPick)),
+          disabled: isLocked || isBorrowOnlyContinuation,
+          onPress:
+            payRoute && !isBorrowOnlyContinuation
+              ? handleOpenPayWith
+              : undefined,
           ...buildKeyboardPressProps(
-            isLocked || !payRoute ? undefined : handleOpenPayWith,
+            isLocked || isBorrowOnlyContinuation || !payRoute
+              ? undefined
+              : handleOpenPayWith,
           ),
           testID: 'earn-loan-pay-with-trigger',
         }}
         valueProps={{
-          value: collateralValue?.toFixed(),
+          value: isBorrowOnlyContinuation
+            ? undefined
+            : collateralValue?.toFixed(),
           currency,
         }}
         balanceProps={{
-          value: boxBalance,
+          value: isBorrowOnlyContinuation ? undefined : boxBalance,
           loading: isSwapping
             ? !payWith.isLoaded
             : Boolean(selectedRoute) && !selectedFacts,
-          onPress: isLocked ? undefined : handleCollateralMax,
+          onPress:
+            isLocked || isBorrowOnlyContinuation
+              ? undefined
+              : handleCollateralMax,
         }}
-        enableMaxAmount
+        enableMaxAmount={!isBorrowOnlyContinuation}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{ testID: 'earn-loan-collateral-input', placeholder: '0' }}
       />
@@ -1536,9 +1564,14 @@ function EarnLoanRouterPage() {
           they weigh */}
       <HeightTransition
         duration={SUPPLY_LINE_MS}
-        hide={!isSwapping || !hasCollateral}
+        hide={isBorrowOnlyContinuation || !isSwapping || !hasCollateral}
       >
-        <YStack pt="$2" aria-hidden={!isSwapping || !hasCollateral}>
+        <YStack
+          pt="$2"
+          aria-hidden={
+            isBorrowOnlyContinuation || !isSwapping || !hasCollateral
+          }
+        >
           <StakingAmountResultLine
             testID="earn-loan-swap-supply-amount"
             label={earnCopy.youSupply}
@@ -2295,6 +2328,8 @@ function EarnLoanRouterPage() {
   const canStart =
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
     (hasLoan || hasCollateral) &&
+    (!isBorrowOnlyContinuation ||
+      (hasLoan && collateralAmount.trim() === '')) &&
     !blockText &&
     (!isInsufficient ||
       payWith.hasFundedSwap ||
@@ -2362,7 +2397,8 @@ function EarnLoanRouterPage() {
     // the steps run or after them
     setPickedKey(selectedRoute.key);
     if (run.fundedSupplyAmount) {
-      startPlan(run.fundedSupplyAmount);
+      if (collateralAmount.trim() !== '' || !hasLoan) return;
+      startPlan('0');
       return;
     }
     if (isSwapping && hasCollateral) {
@@ -2372,6 +2408,8 @@ function EarnLoanRouterPage() {
     startPlan(hasCollateral ? supplyAmountOf(selectedRoute) : '0');
   }, [
     hasCollateral,
+    hasLoan,
+    collateralAmount,
     isSwapping,
     run.fundedSupplyAmount,
     selectedFacts?.networkAccountId,
@@ -2390,7 +2428,11 @@ function EarnLoanRouterPage() {
       return;
     }
     setHandoff((prev) => (prev ? { ...prev, autoStart: false } : prev));
-    if (canStart && selectedRoute?.key === handoffStartKey) {
+    if (
+      canStart &&
+      !isBorrowOnlyContinuation &&
+      selectedRoute?.key === handoffStartKey
+    ) {
       startPlan(collateralAmount);
     }
     // Once per hand-off
@@ -2423,15 +2465,31 @@ function EarnLoanRouterPage() {
         </Button>
       ) : null,
       run.fundedSupplyAmount && selectedRoute ? (
-        <SizableText key="recovered-supply" size="$bodyMd" color="$textSubdued">
-          {earnCopy.loanSupplied(
-            formatDoneAmount(
-              run.fundedSupplyAmount,
-              selectedRoute.collateral.symbol,
-            ),
-            selectedRoute.marketLabel,
-          )}
-        </SizableText>
+        <XStack key="recovered-supply" ai="center" gap="$2">
+          <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+            {earnCopy.loanSupplied(
+              formatDoneAmount(
+                run.fundedSupplyAmount,
+                selectedRoute.collateral.symbol,
+              ),
+              selectedRoute.marketLabel,
+            )}
+          </SizableText>
+          <Button
+            testID="loan-acknowledge-supply"
+            size="small"
+            variant="secondary"
+            disabled={run.isRunning || !run.canAcknowledgeSupply}
+            loading={run.isClosingSupply}
+            onPress={() =>
+              void run.acknowledgeFundedSupply().then((closed) => {
+                if (closed) void refresh();
+              })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_done })}
+          </Button>
+        </XStack>
       ) : null,
       run.isRunning &&
       !run.canReconcile &&

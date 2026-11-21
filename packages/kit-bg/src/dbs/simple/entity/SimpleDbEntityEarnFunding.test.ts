@@ -515,6 +515,16 @@ it('consumes a bridge receipt once the supply settles and keeps the evidence nee
   expect((await entity.changeFunding('borrow', claimBorrow)).applied).toBe(
     true,
   );
+  expect(
+    (
+      await entity.changeFunding('supply', {
+        type: 'clear',
+        status: 'funded',
+        txId: 'supply-tx',
+      })
+    ).applied,
+  ).toBe(false);
+  expect((await entity.getFunding('supply'))?.status).toBe('funded');
   await entity.changeFunding('borrow', {
     type: 'submitted',
     attemptId: 'borrow-window',

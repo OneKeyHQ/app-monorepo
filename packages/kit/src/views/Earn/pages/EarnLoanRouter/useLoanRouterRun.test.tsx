@@ -195,14 +195,21 @@ beforeEach(() => {
         source: store.get(key)?.source,
       });
     });
-  jest.mocked(completeEarnFunding).mockImplementation(async (key, txId) => {
-    const record = store.get(key);
-    if (record?.status !== 'funded' || record.txId !== txId || !record.source)
-      return false;
-    store.delete(record.source.scope);
-    store.delete(key);
-    return true;
-  });
+  jest
+    .mocked(completeEarnFunding)
+    .mockImplementation(async (key, txId, options) => {
+      const record = store.get(key);
+      if (record?.status !== 'funded' || record.txId !== txId || !record.source)
+        return false;
+      const source = store.get(record.source.scope);
+      if (source?.status !== 'funded' || source.txId !== record.source.txId)
+        return false;
+      store.delete(record.source.scope);
+      if (options?.keepDestination)
+        store.set(key, { ...record, source: undefined });
+      else store.delete(key);
+      return true;
+    });
   jest
     .mocked(reserveEarnFunding)
     .mockImplementation((key, { amount } = {}) => ({
@@ -492,3 +499,298 @@ it.each(['Unknown', 'Kamino'])(
     expect(confirm).not.toHaveBeenCalled();
   },
 );
+
+it('requires a borrow-only plan when the same route already has retained supply', async () => {
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+  });
+  const borrow = jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildBorrowTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'borrow-order' });
+  const supply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  confirm.mockImplementation(async ({ onCancel }) => onCancel?.());
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      collateralAmount: '10',
+      borrowAmount: '4',
+    }),
+  );
+  expect(borrow).not.toHaveBeenCalled();
+  expect(supply).not.toHaveBeenCalled();
+  expect(confirm).not.toHaveBeenCalled();
+  await act(async () =>
+    result.current.start({ ...plan, collateralAmount: '0', borrowAmount: '4' }),
+  );
+  expect(borrow).toHaveBeenCalledWith(
+    expect.objectContaining({ amount: '4', networkId }),
+  );
+  expect(supply).not.toHaveBeenCalled();
+  expect(confirm).toHaveBeenCalledTimes(1);
+});
+
+it.each([2, 3])(
+  'does not reuse collateral that becomes funded on supply read %i',
+  async (fundedAt) => {
+    let supplyReads = 0;
+    const funded = {
+      status: 'funded' as const,
+      txId: 'supply-tx',
+      receivedAmount: '10',
+    };
+    jest.mocked(refreshEarnFunding).mockImplementation(async (key) => {
+      if (key === supplyKey) {
+        supplyReads += 1;
+        return supplyReads >= fundedAt ? funded : undefined;
+      }
+      return store.get(key);
+    });
+    jest
+      .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+      .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+    const borrow = jest.spyOn(
+      backgroundApiProxy.serviceStaking,
+      'borrowBuildBorrowTransaction',
+    );
+    const supply = jest.spyOn(
+      backgroundApiProxy.serviceStaking,
+      'borrowBuildSupplyTransaction',
+    );
+    const { result } = renderHook(() =>
+      useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+    );
+    await act(async () =>
+      result.current.start({
+        ...plan,
+        collateralAmount: '10',
+        borrowAmount: '4',
+      }),
+    );
+    expect(supplyReads).toBeGreaterThanOrEqual(fundedAt);
+    expect(borrow).not.toHaveBeenCalled();
+    expect(supply).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(completeEarnFunding).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the original funded supply as the borrow source without repeating supply', async () => {
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+  });
+  const borrow = jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildBorrowTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'borrow-order' });
+  const supply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  confirm.mockImplementation(async ({ onCancel }) => onCancel?.());
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({ ...plan, collateralAmount: '0', borrowAmount: '4' }),
+  );
+  expect(completeEarnFunding).toHaveBeenCalledTimes(1);
+  expect(completeEarnFunding).toHaveBeenCalledWith(supplyKey, 'supply-tx', {
+    keepDestination: true,
+  });
+  expect(reserveEarnFunding).toHaveBeenCalledWith(
+    borrowKey,
+    expect.objectContaining({
+      source: { scope: supplyKey, txId: 'supply-tx' },
+    }),
+  );
+  expect(borrow).toHaveBeenCalledTimes(1);
+  expect(supply).not.toHaveBeenCalled();
+});
+
+it('acknowledges a retained supply by consuming its source before clearing it', async () => {
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+  });
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () => {
+    expect(await result.current.acknowledgeFundedSupply()).toBe(true);
+  });
+  expect(completeEarnFunding).toHaveBeenCalledWith(supplyKey, 'supply-tx', {
+    keepDestination: true,
+  });
+  expect(releaseEarnFunding).toHaveBeenCalledWith(
+    supplyKey,
+    'supply-tx',
+    'funded',
+  );
+  expect(
+    jest.mocked(completeEarnFunding).mock.invocationCallOrder[0],
+  ).toBeLessThan(jest.mocked(releaseEarnFunding).mock.invocationCallOrder[0]);
+  expect(store.has('swap-source')).toBe(false);
+  expect(store.has(supplyKey)).toBe(false);
+});
+
+it('keeps a retained supply locked when its source or downstream claim conflicts', async () => {
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+  });
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () => {
+    expect(await result.current.acknowledgeFundedSupply()).toBe(false);
+  });
+  expect(releaseEarnFunding).not.toHaveBeenCalled();
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({
+      source: { scope: 'swap-source', txId: 'swap-tx' },
+    }),
+  );
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+  });
+  jest.mocked(releaseEarnFunding).mockResolvedValue(undefined);
+  await act(async () => {
+    expect(await result.current.acknowledgeFundedSupply()).toBe(false);
+  });
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({ txId: 'supply-tx' }),
+  );
+});
+
+it('deduplicates simultaneous attempts to acknowledge retained supply', async () => {
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+  });
+  let finish: (() => void) | undefined;
+  jest.mocked(releaseEarnFunding).mockImplementation(async () => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    store.delete(supplyKey);
+  });
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  let first: Promise<boolean> | undefined;
+  await act(async () => {
+    first = result.current.acknowledgeFundedSupply();
+    await waitFor(() => expect(finish).toBeDefined());
+    expect(await result.current.acknowledgeFundedSupply()).toBe(false);
+    finish?.();
+    expect(await first).toBe(true);
+  });
+  expect(releaseEarnFunding).toHaveBeenCalledTimes(1);
+});
+
+it('does not clear retained supply after switching accounts during the read', async () => {
+  const funded = {
+    status: 'funded' as const,
+    txId: 'supply-tx',
+    receivedAmount: '10',
+  };
+  store.set(supplyKey, funded);
+  let finish: ((value: typeof funded) => void) | undefined;
+  jest.mocked(refreshEarnFunding).mockImplementation(async (key) => {
+    if (key === supplyKey)
+      return new Promise<typeof funded>((resolve) => {
+        finish = resolve;
+      });
+    return store.get(key);
+  });
+  const { result, rerender } = renderHook(
+    ({ accountId }: { accountId: string }) =>
+      useLoanRouterRun({
+        ...plan,
+        networkAccountId: accountId,
+        onDone: jest.fn(),
+      }),
+    { initialProps: { accountId: 'account' } },
+  );
+  let pending: Promise<boolean> | undefined;
+  await act(async () => {
+    pending = result.current.acknowledgeFundedSupply();
+    await waitFor(() => expect(finish).toBeDefined());
+  });
+  rerender({ accountId: 'another-account' });
+  await act(async () => {
+    finish?.(funded);
+    expect(await pending).toBe(false);
+  });
+  expect(releaseEarnFunding).not.toHaveBeenCalled();
+  expect(store.get(supplyKey)).toEqual(funded);
+});
+
+it('does not apply a retained supply from a different market to a new supply', async () => {
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-tx',
+    receivedAmount: '10',
+  });
+  const otherRoute = {
+    ...route,
+    key: 'other-market',
+    market: { ...route.market, marketAddress: '0xother' },
+  };
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+  const supply = jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'other-order' });
+  confirm.mockImplementation(async ({ onCancel }) => onCancel?.());
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, route: otherRoute, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      route: otherRoute,
+      collateralAmount: '5',
+      borrowAmount: '0',
+    }),
+  );
+  expect(supply).toHaveBeenCalledWith(
+    expect.objectContaining({ marketAddress: '0xother', amount: '5' }),
+  );
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({ txId: 'supply-tx' }),
+  );
+});

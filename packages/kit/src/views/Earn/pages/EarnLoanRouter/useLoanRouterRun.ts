@@ -211,6 +211,7 @@ export function useLoanRouterRun({
     (IEarnFundingReceipt & { hasSource?: true }) | undefined
   >(undefined);
   const startingRef = useRef(false);
+  const closingSupplyRef = useRef<symbol | undefined>(undefined);
   const abortRef = useRef<AbortController | undefined>(undefined);
   useEffect(() => () => abortRef.current?.abort(), []);
   const onDoneRef = useRef(onDone);
@@ -269,12 +270,15 @@ export function useLoanRouterRun({
   const delegationFunding = useEarnFunding(delegationKey);
   const borrowFunding = useEarnFunding(borrowKey);
   const [isRechecking, setIsRechecking] = useState(false);
+  const [isClosingSupply, setIsClosingSupply] = useState(false);
   useEffect(() => {
     abortRef.current?.abort();
+    closingSupplyRef.current = undefined;
     pendingPlanRef.current = undefined;
     setHasApprovalStep(false);
     setPhase('idle');
     setIsRechecking(false);
+    setIsClosingSupply(false);
   }, [
     networkAccountId,
     networkId,
@@ -666,16 +670,9 @@ export function useLoanRouterRun({
         loanOperationKey(plan, 'supply'),
       );
       if (existing?.status === 'funded') {
-        if (!new BigNumber(existing.receivedAmount).eq(plan.collateralAmount)) {
-          throw LOAN_UNKNOWN;
-        }
-        pendingPlanRef.current = plan;
-        await completeEarnFunding(
-          loanOperationKey(plan, 'supply'),
-          existing.txId,
-          { keepDestination: true },
+        throw new OneKeyLocalError(
+          'Retained supply requires a borrow-only plan',
         );
-        return 'landed';
       }
       if (existing) return 'pending';
       const before = await readLoanRoutePosition({
@@ -939,7 +936,7 @@ export function useLoanRouterRun({
 
   const start = useCallback(
     async (plan: ILoanRunPlan) => {
-      if (phase !== 'idle' || startingRef.current) {
+      if (phase !== 'idle' || startingRef.current || closingSupplyRef.current) {
         return;
       }
       startingRef.current = true;
@@ -991,6 +988,11 @@ export function useLoanRouterRun({
           startingRef.current = false;
           return;
         }
+        if (hasCollateral && states[1]?.status === 'funded') {
+          throw new OneKeyLocalError(
+            'Retained supply requires a borrow-only plan',
+          );
+        }
         if (states.some((state) => state && state.status !== 'funded')) {
           pendingPlanRef.current = securedPlan;
           setPhase('landing');
@@ -1040,6 +1042,11 @@ export function useLoanRouterRun({
         );
         if (existingSupply && existingSupply.status !== 'funded') {
           throw LOAN_UNKNOWN;
+        }
+        if (existingSupply?.status === 'funded') {
+          throw new OneKeyLocalError(
+            'Retained supply requires a borrow-only plan',
+          );
         }
         if (
           !existingSupply &&
@@ -1191,6 +1198,65 @@ export function useLoanRouterRun({
     await borrowAlone(plan, true);
   }, [borrowAlone, phase]);
 
+  const acknowledgeFundedSupply = useCallback(async () => {
+    if (
+      !ownerPlan ||
+      phase !== 'idle' ||
+      startingRef.current ||
+      closingSupplyRef.current ||
+      approvalFunding ||
+      delegationFunding ||
+      borrowFunding
+    )
+      return false;
+    const token = Symbol('close-funded-supply');
+    closingSupplyRef.current = token;
+    setIsClosingSupply(true);
+    const isCurrent = scope.capture();
+    const plan = { ...ownerPlan, isCurrent };
+    const key = loanOperationKey(plan, 'supply');
+    try {
+      await assertLoanAccount(plan);
+      let current = await refreshEarnFunding(key);
+      await assertLoanAccount(plan);
+      if (current?.status !== 'funded') throw LOAN_UNKNOWN;
+      const txId = current.txId;
+      if (current.source) {
+        await completeEarnFunding(key, txId, { keepDestination: true });
+        await assertLoanAccount(plan);
+        current = await refreshEarnFunding(key);
+        await assertLoanAccount(plan);
+        if (
+          current?.status !== 'funded' ||
+          current.txId !== txId ||
+          current.source
+        )
+          throw LOAN_UNKNOWN;
+      }
+      await releaseEarnFunding(key, txId, 'funded');
+      await assertLoanAccount(plan);
+      if (await refreshEarnFunding(key)) throw LOAN_UNKNOWN;
+      await assertLoanAccount(plan);
+      return true;
+    } catch (error) {
+      if (isCurrent()) showError(error);
+      return false;
+    } finally {
+      if (closingSupplyRef.current === token) {
+        closingSupplyRef.current = undefined;
+        if (isCurrent()) setIsClosingSupply(false);
+      }
+    }
+  }, [
+    approvalFunding,
+    borrowFunding,
+    delegationFunding,
+    ownerPlan,
+    phase,
+    scope,
+    showError,
+  ]);
+
   const reset = useCallback(() => {
     abortRef.current?.abort();
     pendingPlanRef.current = undefined;
@@ -1211,10 +1277,21 @@ export function useLoanRouterRun({
         (item) => item?.status === 'submitted',
       ),
     isRechecking,
+    isClosingSupply,
+    canAcknowledgeSupply: Boolean(
+      ownerPlan &&
+      phase === 'idle' &&
+      supplyFunding?.status === 'funded' &&
+      !approvalFunding &&
+      !delegationFunding &&
+      !borrowFunding,
+    ),
+    acknowledgeFundedSupply,
     acknowledgeDone,
     reconcile,
     pendingPlan: phase === 'borrowReady' ? pendingPlanRef.current : undefined,
     isRunning:
+      isClosingSupply ||
       phase === 'preparing' ||
       phase === 'approving' ||
       phase === 'supplying' ||
