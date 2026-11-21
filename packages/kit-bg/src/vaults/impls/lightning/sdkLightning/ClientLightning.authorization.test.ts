@@ -396,6 +396,51 @@ describe('Lightning read authorization without wallet interaction', () => {
     }
   });
 
+  test.each([60_000, 120_000])(
+    'coalesces one invoice probe after a %sms delay with an unavailable server clock',
+    async (delay) => {
+      const { client, get } = harness();
+      const serverTime = 1_900_000_000_000;
+      const failure = Object.assign(
+        new OneKeyServerApiError({ httpStatusCode: 503 }),
+        { retryAfter: new Date(serverTime + delay).toUTCString() },
+      );
+      get.mockRejectedValueOnce(failure);
+      jest.useFakeTimers({ now: serverTime });
+      const clock = jest
+        .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+        .mockReturnValue(undefined);
+      const refresh = jest
+        .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
+        .mockResolvedValue(undefined);
+      try {
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        jest.advanceTimersByTime(delay - 1);
+        jest.setSystemTime(serverTime + 3_600_000);
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        expect(get).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalledTimes(1);
+        jest.advanceTimersByTime(1);
+        clock.mockReturnValue(serverTime + delay - 1);
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        expect(get).toHaveBeenCalledTimes(1);
+        clock.mockReturnValue(undefined);
+        await expect(
+          Promise.all([
+            client.decodedInvoice('lnbc123'),
+            client.decodedInvoice('LIGHTNING:LNBC123'),
+          ]),
+        ).resolves.toEqual([true, true]);
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(refresh).toHaveBeenCalledTimes(1);
+      } finally {
+        refresh.mockRestore();
+        clock.mockRestore();
+        jest.useRealTimers();
+      }
+    },
+  );
+
   test.each([
     ['transport failure', new OneKeyLocalError('Synthetic decode timeout')],
     ['HTTP 408', new OneKeyServerApiError({ httpStatusCode: 408 })],

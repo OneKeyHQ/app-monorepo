@@ -111,6 +111,7 @@ describe('LightningVault.validateAddress', () => {
     'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
     '(lnurlp://merchant.example/checkout?order=12\n)34)',
     'Pay lnu\nrlp://merchant.example/pay',
+    'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
     `Pay ${LNURL}; or <${LNURL_URI}>.`,
   ])(
     'rejects an ambiguous LNURL without sending it to the invoice decoder',

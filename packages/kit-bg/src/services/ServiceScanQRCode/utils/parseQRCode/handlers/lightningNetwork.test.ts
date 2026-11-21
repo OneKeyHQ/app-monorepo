@@ -545,6 +545,44 @@ it('lets a recipient scan retry after trusted time confirms that sleep covered t
   }
 });
 
+it('coalesces one recipient scan probe when the clock stays unavailable through the cooldown', async () => {
+  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
+  const address = 'satoshi@example.com';
+  const time = 1_900_000_000_000;
+  const failure = Object.assign(
+    new OneKeyServerApiError({ httpStatusCode: 503 }),
+    { retryAfter: new Date(time + 60_000).toUTCString() },
+  );
+  serverValidateAddress.mockRejectedValueOnce(failure);
+  jest.useFakeTimers({ now: time });
+  const clock = jest
+    .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+    .mockReturnValue(undefined);
+  const refresh = jest
+    .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
+    .mockResolvedValue(undefined);
+  try {
+    const scan = (prefix = 'lightning:') =>
+      parseQRCode(prefix + address, parseOptions);
+    await expect(scan()).rejects.toBeInstanceOf(RetryableLightningScanError);
+    jest.advanceTimersByTime(59_999);
+    await expect(scan()).rejects.toBeInstanceOf(RetryableLightningScanError);
+    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(1);
+    const results = await Promise.all([scan(), scan('LIGHTNING:')]);
+    expect(results).toMatchObject([
+      { type: EQRCodeHandlerType.LIGHTNING_NETWORK },
+      { type: EQRCodeHandlerType.LIGHTNING_NETWORK },
+    ]);
+    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    refresh.mockRestore();
+    clock.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 it('shares an in-flight recipient lookup between normalized scans without mixing networks', async () => {
   const { serviceLightning, serverValidateAddress } =
     setupRecipientValidation();

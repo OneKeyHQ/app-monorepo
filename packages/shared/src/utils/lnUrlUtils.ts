@@ -123,18 +123,11 @@ type IClosingParenthesis = {
   count: number;
 };
 
-function indexClosingParentheses(text: string) {
+function indexClosingParentheses(text: string, ignoredClosers?: Set<number>) {
   const closers: IClosingParenthesis[] = [];
   const matching = new Map<number, IClosingParenthesis>();
-  // A numbered list marker cannot close a parenthetical on an earlier line.
-  const listClosers = new Set(
-    Array.from(
-      text.matchAll(LNURL_NUMBERED_LIST_MARKER),
-      ({ index, 0: marker }) => index + marker.length - 1,
-    ),
-  );
   for (let index = text.length - 1; index >= 0; index -= 1) {
-    if (text[index] === ')' && !listClosers.has(index)) {
+    if (text[index] === ')' && !ignoredClosers?.has(index)) {
       const outer = closers.at(-1);
       closers.push({ index, outer, count: (outer?.count ?? 0) + 1 });
     } else if (text[index] === '(') {
@@ -143,6 +136,12 @@ function indexClosingParentheses(text: string) {
     }
   }
   return matching;
+}
+
+function endsWithInlineClosers(input: string, count: number) {
+  let end = input.length;
+  while (end > 0 && /[.,!?，。！？]/u.test(input[end - 1])) end -= 1;
+  return end >= count && input.endsWith(')'.repeat(count), end);
 }
 
 function readParenthesizedLnurl({
@@ -224,6 +223,7 @@ function readReusableLightningRecipient(
   let prefixCursor = 0;
   let enclosingDepth = 0;
   let closingParentheses: Map<number, IClosingParenthesis> | undefined;
+  let closingWithoutListMarkers: Map<number, IClosingParenthesis> | undefined;
   let recipient: string | undefined;
   let recipientKey: string | undefined;
   for (const match of candidates) {
@@ -261,15 +261,43 @@ function readReusableLightningRecipient(
         noSameLineSuffix &&
         address[firstAfter] === ')' &&
         LNURL_CLOSER_END.test(address);
-      const uri = readParenthesizedLnurl({
+      const wrapper = {
         address,
         tokenStart,
         tokenEnd,
         directEnd: closesOnNextLine ? firstAfter + 1 : lineEnd,
         enclosingDepth,
-        firstCloser: closingParentheses.get(match.index),
         hasQueryContinuation,
+      };
+      let uri = readParenthesizedLnurl({
+        ...wrapper,
+        firstCloser: closingParentheses.get(match.index),
       });
+      if (
+        !uri &&
+        lineBreak &&
+        noSameLineSuffix &&
+        enclosingDepth > 0 &&
+        endsWithInlineClosers(input, enclosingDepth + 1)
+      ) {
+        // A terminal run of closers can delimit the whole inline parenthetical
+        // before a numbered list. Otherwise the later line can close the prose.
+        if (!closingWithoutListMarkers) {
+          const listClosers = new Set(
+            Array.from(
+              address.matchAll(LNURL_NUMBERED_LIST_MARKER),
+              ({ index, 0: marker }) => index + marker.length - 1,
+            ),
+          );
+          closingWithoutListMarkers = listClosers.size
+            ? indexClosingParentheses(address, listClosers)
+            : closingParentheses;
+        }
+        uri = readParenthesizedLnurl({
+          ...wrapper,
+          firstCloser: closingWithoutListMarkers.get(match.index),
+        });
+      }
       if (!uri) return { kind: 'ambiguous' };
       const normalized = normalizeLightningInput(uri);
       if (!findLnurl(normalized)) return { kind: 'ambiguous' };

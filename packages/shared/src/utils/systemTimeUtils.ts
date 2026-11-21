@@ -9,7 +9,10 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
-import { getRetryAfterOnError } from '../request/retryAfterUtils';
+import {
+  getRetryAfterOnError,
+  getUnanchoredRetryDelayMs,
+} from '../request/retryAfterUtils';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
@@ -658,8 +661,11 @@ class SystemTimeUtils {
         retryAfter.responseTime === undefined &&
         estimated === undefined
       ) {
-        // An unresolved HTTP-date cannot set this clock's own retry deadline.
-        delayMs = healthRetryWithoutTimeMs;
+        delayMs = getUnanchoredRetryDelayMs({
+          absoluteAt: retryAfter.absoluteAt,
+          minimumDelayMs: healthRetryWithoutTimeMs,
+          maximumDelayMs: intervalTimeout,
+        });
       }
     }
     const monotonicAt = (getMonotonicTimeNow() ?? Date.now()) + delayMs;

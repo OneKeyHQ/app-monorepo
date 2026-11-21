@@ -210,6 +210,8 @@ it.each([
   'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\nby Friday).',
   'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\n\nby Friday).',
   'Please pay (use (lnurlp://merchant.example/checkout)?order=12)\nby Friday).',
+  'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
+  'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n  123) before Friday.',
 ])('rejects a wrapper with two plausible closing parentheses', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(parseReusableLightningRecipient(text)).toEqual({ kind: 'ambiguous' });

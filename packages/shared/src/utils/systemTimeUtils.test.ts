@@ -223,39 +223,48 @@ describe('system time error notifications', () => {
     }
   });
 
-  it('backs off health retries for an absolute header without a trusted clock', async () => {
-    const initial = BASE_TIME + SLEEP_TIME;
-    jest.setSystemTime(initial + MINUTE);
-    mockGet.mockRejectedValueOnce(
-      Object.assign(new Error('Synthetic 503'), {
-        isAxiosError: true,
-        response: {
-          status: 503,
-          headers: { 'retry-after': new Date(initial + 300_000).toUTCString() },
-        },
-      }),
-    );
-    const read = () => systemTimeUtils.getFreshEstimatedServerTime();
-    await expect(read()).resolves.toBeUndefined();
-    monotonicTime += 29_999;
-    jest.setSystemTime(initial + SLEEP_TIME);
-    await expect(Promise.all([read(), read()])).resolves.toEqual([
-      undefined,
-      undefined,
-    ]);
-    expect(mockGet).toHaveBeenCalledTimes(1);
+  it.each([
+    ['accurate', 0, 300_000],
+    ['one hour fast', 3_600_000, 30_000],
+    ['one hour slow', -3_600_000, 300_000],
+  ])(
+    'bounds a health retry with an absolute header and a local clock that is %s',
+    async (_label, offset, delay) => {
+      const initial = BASE_TIME + SLEEP_TIME;
+      jest.setSystemTime(initial + offset);
+      mockGet.mockRejectedValueOnce(
+        Object.assign(new Error('Synthetic 503'), {
+          isAxiosError: true,
+          response: {
+            status: 503,
+            headers: {
+              'retry-after': new Date(initial + 300_000).toUTCString(),
+            },
+          },
+        }),
+      );
+      const read = () => systemTimeUtils.getFreshEstimatedServerTime();
+      await expect(read()).resolves.toBeUndefined();
+      monotonicTime += delay - 1;
+      jest.setSystemTime(initial + SLEEP_TIME);
+      await expect(Promise.all([read(), read()])).resolves.toEqual([
+        undefined,
+        undefined,
+      ]);
+      expect(mockGet).toHaveBeenCalledTimes(1);
 
-    monotonicTime += 1;
-    const sample = initial + 300_000;
-    mockGet.mockResolvedValue({
-      headers: { date: new Date(sample).toUTCString() },
-    });
-    await expect(Promise.all([read(), read()])).resolves.toEqual([
-      sample,
-      sample,
-    ]);
-    expect(mockGet).toHaveBeenCalledTimes(2);
-  });
+      monotonicTime += 1;
+      const sample = initial + 300_000;
+      mockGet.mockResolvedValue({
+        headers: { date: new Date(sample).toUTCString() },
+      });
+      await expect(Promise.all([read(), read()])).resolves.toEqual([
+        sample,
+        sample,
+      ]);
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
