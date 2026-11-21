@@ -86,3 +86,21 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
   if (!input) return false;
   return isLightningAddress(input) || !!findLnurl(input);
 };
+
+export const resolveReusableLightningRecipient = (address: string) => {
+  if (isReusableLightningRecipient(address)) {
+    return address;
+  }
+  // Payment text can contain an LNURL as a separate token. Keep QR detection
+  // strict so a scan cannot interpret arbitrary text as a payment.
+  const candidates = address.matchAll(
+    /(?:^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?])/gi,
+  );
+  for (const [, input] of candidates) {
+    const candidate = normalizeLightningInput(input);
+    if (findLnurl(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};

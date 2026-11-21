@@ -54,6 +54,7 @@ export default function useScanQrCode() {
                 value,
                 popNavigation,
                 canApplyScanResult,
+                isScanOpen,
               }) => {
                 if (value?.length > 0) {
                   let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
@@ -72,6 +73,7 @@ export default function useScanQrCode() {
                     );
                   } catch (error) {
                     if (error instanceof OneKeyErrorScanQrCodeCancel) {
+                      if (isScanOpen?.()) return { retry: true };
                       reject(error);
                       return {};
                     }

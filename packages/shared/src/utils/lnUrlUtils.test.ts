@@ -4,6 +4,7 @@ import {
   findLnurl,
   isReusableLightningRecipient,
   normalizeLightningInput,
+  resolveReusableLightningRecipient,
 } from './lnUrlUtils';
 
 // The first BOLT 11 example invoice and the LUD-01 example LNURL.
@@ -61,4 +62,13 @@ it('does not extract the username from a Lightning Address', () => {
 it('requires the exact LNURL prefix and a nonempty payload', () => {
   expect(findLnurl(bech32.encode('lnurl1other', [1]))).toBeNull();
   expect(findLnurl(bech32.encode('lnurl', []))).toBeNull();
+});
+
+it('extracts a complete LNURL from pasted text while keeping QR recognition strict', () => {
+  const paymentText = `Pay here: (${LNURL.toUpperCase()}).`;
+  expect(resolveReusableLightningRecipient(paymentText)).toBe(LNURL);
+  expect(isReusableLightningRecipient(paymentText)).toBe(false);
+  expect(
+    resolveReusableLightningRecipient(`Email: ${LNURL}@example.com`),
+  ).toBeNull();
 });

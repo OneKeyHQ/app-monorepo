@@ -11,7 +11,7 @@ const INVOICE =
 
 function vaultDecodingWith(decode: jest.Mock) {
   return Object.assign(Object.create(LightningVault.prototype), {
-    _decodedInvoiceCache: decode,
+    decodedInvoice: decode,
   }) as LightningVault;
 }
 
@@ -54,5 +54,31 @@ describe('LightningVault.validateAddress', () => {
       vaultDecodingWith(decode).validateAddress('lightning:hello'),
     ).rejects.toBeInstanceOf(InvalidLightningPaymentRequest);
     expect(decode).toHaveBeenCalledWith('hello');
+  });
+
+  it('preserves the LNURL URI for the second recipient validation', async () => {
+    const decode = jest.fn(async () => ({}));
+    const vault = vaultDecodingWith(decode);
+    const address = 'lnurlp://example.com/pay';
+    const first = await vault.validateAddress(`lightning:${address}`);
+    expect(first.displayAddress).toBe(address);
+    await expect(vault.validateAddress(first.displayAddress)).resolves.toEqual(
+      first,
+    );
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('extracts a valid LNURL from pasted payment text before validation', async () => {
+    const decode = jest.fn(async () => ({}));
+    const vault = vaultDecodingWith(decode);
+    const address = 'lnurlp://example.com/pay';
+    await expect(
+      vault.validateAddress(`Pay here: ${address}`),
+    ).resolves.toEqual({
+      isValid: true,
+      normalizedAddress: address,
+      displayAddress: address,
+    });
+    expect(decode).not.toHaveBeenCalled();
   });
 });

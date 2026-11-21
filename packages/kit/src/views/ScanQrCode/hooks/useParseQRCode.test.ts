@@ -13,6 +13,7 @@ import { parseQRCodeWithDeps } from './useParseQRCode';
 import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
@@ -32,6 +33,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceScanQRCode: {
       parse: (...args: unknown[]) => mockParse(...args),
+    },
+    serviceNetwork: {
+      getVaultSettings: async () => ({ isSingleToken: true }),
+    },
+    serviceToken: {
+      getNativeToken: (...args: unknown[]) => mockGetNativeToken(...args),
     },
   },
 }));
@@ -152,4 +159,53 @@ it('discards a payment code that finishes parsing after its scanner closes', asy
   await expect(parsing).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
   expect(resetAboveMainRoute).not.toHaveBeenCalled();
   expect(Dialog.confirm).not.toHaveBeenCalled();
+});
+
+it('does not reset navigation when a payment lookup finishes after closing the scanner', async () => {
+  const pushModal = jest.fn();
+  const controller = new AbortController();
+  let finishLookup: (token: unknown) => void = () => {};
+  let lookupStarted: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    lookupStarted = resolve;
+  });
+  mockGetNativeToken.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishLookup = resolve;
+        lookupStarted();
+      }),
+  );
+  mockParse.mockResolvedValueOnce({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: {
+      address: 'invoice',
+      network: { id: 'lightning--0', impl: 'lightning' },
+    },
+    raw: 'invoice',
+  });
+  const parsing = parseQRCodeWithDeps(
+    'invoice',
+    {
+      popNavigation: true,
+      autoExecuteParsedAction: true,
+      account: {
+        id: 'test-account',
+        impl: 'lightning',
+      } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+    },
+    {
+      ...deps,
+      navigation: { ...deps.navigation, pushModal },
+      canApplyScanResult: () => !controller.signal.aborted,
+    },
+  );
+
+  await started;
+  controller.abort();
+  finishLookup({ networkId: 'lightning--0' });
+
+  await expect(parsing).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  expect(resetAboveMainRoute).not.toHaveBeenCalled();
+  expect(pushModal).not.toHaveBeenCalled();
 });

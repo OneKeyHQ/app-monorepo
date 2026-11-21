@@ -61,6 +61,7 @@ export default function useScanQrCodeLazy() {
                 value,
                 popNavigation,
                 canApplyScanResult,
+                isScanOpen,
               }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
@@ -87,6 +88,7 @@ export default function useScanQrCodeLazy() {
                     );
                   } catch (error) {
                     if (error instanceof OneKeyErrorScanQrCodeCancel) {
+                      if (isScanOpen?.()) return { retry: true };
                       reject(error);
                       return {};
                     }

@@ -75,6 +75,44 @@ function harness(accountId = 'hw-restored') {
 }
 
 describe('Lightning read authorization without wallet interaction', () => {
+  test('the scanner and the vault reuse one decode per network and normalized invoice', async () => {
+    const { get } = harness();
+    const backgroundApi = {
+      serviceLightning: undefined as ServiceLightning | undefined,
+    };
+    const service = new ServiceLightning({ backgroundApi });
+    backgroundApi.serviceLightning = service;
+    jest
+      .spyOn(service, 'getClient')
+      .mockResolvedValue({ get } as unknown as AxiosInstance);
+    const vault = Object.assign(Object.create(LightningVault.prototype), {
+      backgroundApi,
+      getNetwork: async () => ({ isTestnet: false }),
+    }) as LightningVault;
+    const scannerClient = await service.getLnClient(false);
+
+    await Promise.all([
+      scannerClient.decodedInvoice('LIGHTNING:LNBC123'),
+      vault.decodedInvoice('lnbc123'),
+    ]);
+    await vault.decodedInvoice('lnbc123');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith('/lightning/v1/invoices/decode/lnbc123');
+
+    const testnetClient = await service.getLnClient(true);
+    await testnetClient.decodedInvoice('lnbc123');
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  test('the shared invoice decoder allows retry after rejection', async () => {
+    const { client, get } = harness();
+    const failure = new OneKeyLocalError('Synthetic decode response failure');
+    get.mockRejectedValueOnce(failure);
+    await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+    await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
   test.each(['hw-restored', 'hd-restored'])(
     'a restored %s reads no token without starting an authorization flow',
     async (accountId) => {

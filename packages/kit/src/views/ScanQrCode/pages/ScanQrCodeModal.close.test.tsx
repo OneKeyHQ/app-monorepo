@@ -8,9 +8,13 @@ import ScanQrCodeModal from './ScanQrCodeModal';
 
 const mockCloseOrder: string[] = [];
 const mockRouteCallback = jest.fn(
-  async (_params: { canApplyScanResult: () => boolean }) => ({}),
+  async (_params: {
+    canApplyScanResult: () => boolean;
+    isScanOpen: () => boolean;
+  }) => ({}),
 );
 let mockCurrentRouteKey = 'scan-route';
+let mockScanRouteInStack = true;
 
 jest.mock('@react-navigation/core', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -63,7 +67,21 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Box,
     Toast: { error: jest.fn() },
     rootNavigationRef: {
-      current: { getCurrentRoute: () => ({ key: mockCurrentRouteKey }) },
+      current: {
+        getCurrentRoute: () => ({ key: mockCurrentRouteKey }),
+        getRootState: () => ({
+          routes: [
+            { key: 'home' },
+            {
+              key: 'overlay',
+              state: {
+                routes: mockScanRouteInStack ? [{ key: 'scan-route' }] : [],
+              },
+            },
+            { key: 'other-route' },
+          ],
+        }),
+      },
     },
     useMedia: () => ({ md: false }),
     useSafeAreaInsets: () => ({ bottom: 0 }),
@@ -142,6 +160,7 @@ beforeEach(() => {
   mockCloseOrder.length = 0;
   mockRouteCallback.mockClear();
   mockCurrentRouteKey = 'scan-route';
+  mockScanRouteInStack = true;
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -161,13 +180,16 @@ test('a parsed frame stops belonging to the scanner when another route opens or 
   render(<ScanQrCodeModal />);
   fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
   await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  const [{ canApplyScanResult }] = mockRouteCallback.mock.calls[0];
+  const [{ canApplyScanResult, isScanOpen }] = mockRouteCallback.mock.calls[0];
   expect(canApplyScanResult()).toBe(true);
 
   mockCurrentRouteKey = 'other-route';
   expect(canApplyScanResult()).toBe(false);
+  expect(isScanOpen()).toBe(true);
 
   mockCurrentRouteKey = 'scan-route';
   fireEvent.click(screen.getByTestId('header-close'));
   expect(canApplyScanResult()).toBe(false);
+  mockScanRouteInStack = false;
+  expect(isScanOpen()).toBe(false);
 });

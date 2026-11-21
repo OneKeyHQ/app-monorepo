@@ -6,9 +6,11 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 export const getAccountIdOnNetwork = async ({
   account,
   network,
+  beforeCreateAccount,
 }: {
   account?: INetworkAccount;
   network: IChainValue['network'];
+  beforeCreateAccount?: () => void;
 }) => {
   if (account?.indexedAccountId) {
     const { accounts } =
@@ -23,6 +25,7 @@ export const getAccountIdOnNetwork = async ({
     }
     // need create account on network
     if (account?.id) {
+      beforeCreateAccount?.();
       const newAccount =
         await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
           {

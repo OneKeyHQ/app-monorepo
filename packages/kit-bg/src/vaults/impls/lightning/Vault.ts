@@ -35,9 +35,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  findLnurl,
-  isLightningAddress,
   normalizeLightningInput,
+  resolveReusableLightningRecipient,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -160,7 +159,7 @@ export default class Vault extends VaultBase {
       );
     }
     const client = await this.getClient();
-    const invoice = await this._decodedInvoiceCache(transferInfo.to);
+    const invoice = await this.decodedInvoice(transferInfo.to);
     const lnConfig = await client.getConfig();
 
     const paymentHash = invoice.tags.find(
@@ -418,9 +417,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    const reusableRecipient = isLightningAddress(address)
-      ? address
-      : findLnurl(address);
+    const reusableRecipient = resolveReusableLightningRecipient(address);
     if (reusableRecipient) {
       return {
         isValid: true,
@@ -430,7 +427,7 @@ export default class Vault extends VaultBase {
     }
 
     try {
-      await this._decodedInvoiceCache(address);
+      await this.decodedInvoice(address);
       return {
         isValid: true,
         normalizedAddress: address,
@@ -476,7 +473,7 @@ export default class Vault extends VaultBase {
       return { isValid: false };
     }
     try {
-      const invoice = await this._decodedInvoiceCache(toAddress);
+      const invoice = await this.decodedInvoice(toAddress);
       const isZeroAmountInvoice = this._isZeroAmountInvoice(invoice);
       return {
         isValid: isZeroAmountInvoice,
@@ -620,7 +617,7 @@ export default class Vault extends VaultBase {
   }): Promise<boolean> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightning;
     const { invoice: paymentRequest, amount } = encodedTx;
-    const invoice = await this._decodedInvoiceCache(paymentRequest);
+    const invoice = await this.decodedInvoice(paymentRequest);
     const finalAmount = amount;
     if (this._isZeroAmountInvoice(invoice)) {
       if (new BigNumber(amount).isLessThan(1)) {
@@ -706,15 +703,12 @@ export default class Vault extends VaultBase {
     });
   }
 
-  _decodedInvoiceCache = memoizee(
-    async (invoice: string) => {
-      const client = await this.getClient();
-      return client.decodedInvoice(invoice);
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
-  );
+  async decodedInvoice(invoice: string) {
+    const { isTestnet } = await this.getNetwork();
+    const client =
+      await this.backgroundApi.serviceLightning.getLnClient(isTestnet);
+    return client.decodedInvoice(invoice);
+  }
 
   _isZeroAmountInvoice(invoice: IInvoiceDecodedResponse) {
     return (

@@ -5,7 +5,8 @@ import type {
   OneKeyError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeLightningInput } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAuthResponse,
@@ -297,14 +298,33 @@ class ClientLightning {
     });
   }
 
-  async decodedInvoice(invoice: string) {
-    type IInvoiceDecodedApiResponse =
-      IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>;
-    return this.request
-      .get<IInvoiceDecodedApiResponse>(
+  private readonly decodedInvoiceCache = new LRUCache<
+    string,
+    Promise<IInvoiceDecodedResponse>
+  >({
+    ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    max: 100,
+  });
+
+  async decodedInvoice(input: string) {
+    const invoice = normalizeLightningInput(input);
+    const cached = this.decodedInvoiceCache.get(invoice);
+    if (cached) {
+      return cached;
+    }
+    const pending = this.request
+      .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
         `${this.prefix}/invoices/decode/${invoice}`,
       )
-      .then((i) => i.data.data);
+      .then(({ data }) => data.data)
+      .catch((error: unknown) => {
+        if (this.decodedInvoiceCache.get(invoice) === pending) {
+          this.decodedInvoiceCache.delete(invoice);
+        }
+        throw error;
+      });
+    this.decodedInvoiceCache.set(invoice, pending);
+    return pending;
   }
 
   specialInvoice = memoizee(

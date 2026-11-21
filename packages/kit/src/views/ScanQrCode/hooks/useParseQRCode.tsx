@@ -108,7 +108,14 @@ export async function parseQRCodeWithDeps(
   }
   const { defaultHandler, popNavigation, ...options } = params;
 
+  const ensureScanIsActive = () => {
+    if (canApplyScanResult?.() === false) {
+      throw new OneKeyErrorScanQrCodeCancel();
+    }
+  };
+
   const closeScanPage = async () => {
+    ensureScanIsActive();
     if (popNavigation) {
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
@@ -134,11 +141,6 @@ export async function parseQRCodeWithDeps(
     }
   };
 
-  const ensureScanIsActive = () => {
-    if (canApplyScanResult?.() === false) {
-      throw new OneKeyErrorScanQrCodeCancel();
-    }
-  };
   ensureScanIsActive();
   let result: Awaited<
     ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
@@ -288,6 +290,7 @@ export async function parseQRCodeWithDeps(
           const newAccountId = await getAccountIdOnNetwork({
             account,
             network,
+            beforeCreateAccount: ensureScanIsActive,
           });
           if (newAccountId) {
             accountId = newAccountId;
@@ -309,6 +312,7 @@ export async function parseQRCodeWithDeps(
               accountId,
             });
 
+          const amount = await parseOnChainAmount(result, nativeToken);
           await closeScanPage();
           const newNetworkId =
             nativeToken?.networkId || network.id || params.network?.id || '';
@@ -322,7 +326,7 @@ export async function parseQRCodeWithDeps(
               isNFT: false,
               token: nativeToken,
               address: chainValue.address,
-              amount: await parseOnChainAmount(result, nativeToken),
+              amount,
             },
           });
           break;
@@ -344,6 +348,7 @@ export async function parseQRCodeWithDeps(
           });
         }
 
+        const amount = await parseOnChainAmount(result, selectedToken);
         await closeScanPage();
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -355,7 +360,7 @@ export async function parseQRCodeWithDeps(
             isNFT: false,
             token: selectedToken,
             address: chainValue.address,
-            amount: await parseOnChainAmount(result, selectedToken),
+            amount,
           },
         });
       }

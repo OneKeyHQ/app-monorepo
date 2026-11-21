@@ -49,6 +49,21 @@ appGlobals.$$scanNavigation = undefined;
 // Width kept for the hints beside the camera in the landscape layout.
 const LANDSCAPE_HINTS_MIN_WIDTH = 260;
 
+type IScanNavigationState = {
+  routes: readonly { key?: string; state?: IScanNavigationState }[];
+};
+
+function hasRouteKey(
+  state: IScanNavigationState | undefined,
+  key: string,
+): boolean {
+  return (
+    state?.routes.some(
+      (route) => route.key === key || hasRouteKey(route.state, key),
+    ) ?? false
+  );
+}
+
 function DebugInput({
   onText,
   onClose,
@@ -266,6 +281,8 @@ export default function ScanQrCodeModal() {
         value,
         popNavigation: true,
         canApplyScanResult,
+        isScanOpen: () =>
+          hasRouteKey(rootNavigationRef.current?.getRootState(), route.key),
       });
     },
     [route.key, routeCallback],

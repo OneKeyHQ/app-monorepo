@@ -49,6 +49,7 @@ class ServiceLightning extends ServiceBase {
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
     },
   );
 
@@ -181,7 +182,7 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     })) as LightningVault;
-    return vault._decodedInvoiceCache(paymentRequest);
+    return vault.decodedInvoice(paymentRequest);
   }
 
   @backgroundMethod()

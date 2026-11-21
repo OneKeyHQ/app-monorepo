@@ -82,10 +82,7 @@ import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import {
-  isReusableLightningRecipient,
-  normalizeLightningInput,
-} from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IZcashMemoEncoding } from '@onekeyhq/shared/src/utils/zcashMemo';
@@ -743,12 +740,11 @@ function SendDataInputContainer() {
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
-      const rawInput = normalizeLightningInput(toVal?.raw ?? '');
-      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
+      if (isLightning && account && isReusableLightningRecipient(toResolved)) {
         const transfersInfo: ITransferInfo[] = [
           {
             from: account.address,
-            to: rawInput,
+            to: toResolved,
             amount: '0',
             tokenInfo: tokenInfo ?? undefined,
           },
@@ -763,7 +759,7 @@ function SendDataInputContainer() {
             amountToSend: '0',
             isMaxSend: false,
             isNFT: false,
-            originalRecipient: rawInput,
+            originalRecipient: toResolved,
             isToContract: false,
           },
           isInternalTransfer: true,
