@@ -210,17 +210,23 @@ keep the single chart.
   never flashes the loading mask and its quote stays. That metadata is for
   display only: the order menu and the cancel and drag of order lines wait
   until the panel's switch has landed and the trade instrument has its own
-  precision. A perp switch the background fails puts the page back, unless a
-  newer switch owns it by then, including one made while the page goes back:
-  to the spot token of the last switch that landed (kept per context store,
-  across switches that overlap), or else to the perp asset the background
-  rolled back to. The subscriptions follow the background's mode and assets,
-  so those go back with the page, also a spot asset that a switch cut short
-  had moved on. A token the background could not load, e.g. one no longer
-  listed, is shown without its metadata, but its switch reports that it is
-  not done, and a failed switch never goes back to it. The perp switch's
-  same-coin shortcut needs the asset's metadata, so a coin whose loading a
-  superseded switch cut short is loaded again.
+  precision. A perp switch the background fails, or one that ends on a token
+  without trading metadata (e.g. one no longer listed), puts the page back
+  and reports that it is not done, unless a newer switch owns the page by
+  then, including one made while the page goes back: to the spot token of
+  the last switch that landed (kept per context store, across switches that
+  overlap), or else to the perp asset the background holds once it is back
+  on the last one it loaded, also from a coin a superseded switch named
+  without its metadata. That asset comes from the background itself
+  (`restoreLoadedActiveAsset`), not from the UI's copy of the atom, which
+  follows a broadcast that can still be on its way. The subscriptions follow
+  the background's mode and assets, so those go back with the page, also a
+  spot asset that a switch cut short had moved on. The order begun for the
+  failed token is reset along with the page, and its market data is cleared
+  only while no newer switch has started. A spot token the loaded spot
+  markets do not list is no switch at all: the page stays where it is. The
+  perp switch's same-coin shortcut needs the asset's metadata, so a coin
+  whose loading a superseded switch cut short is loaded again.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

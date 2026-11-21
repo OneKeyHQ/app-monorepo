@@ -250,6 +250,17 @@ type IChangeActiveAssetResult = {
   margin: IMarginTable | undefined;
 };
 
+// An asset with its trading metadata, as opposed to a coin named ahead of it.
+function isLoadedActiveAsset(
+  activeAsset: IChangeActiveAssetResult | undefined,
+): activeAsset is IChangeActiveAssetResult {
+  return Boolean(
+    activeAsset?.coin &&
+    activeAsset.assetId !== undefined &&
+    activeAsset.universe,
+  );
+}
+
 type ITradingUniverseSnapshot = {
   universesByDex: IPerpsUniverse[][];
   marginTablesMapByDex: Array<IMarginTableMap | undefined>;
@@ -398,13 +409,26 @@ export default class ServiceHyperliquid extends ServiceBase {
   private rememberCommittedActiveAsset(
     activeAsset: IChangeActiveAssetResult | undefined,
   ): void {
-    if (
-      activeAsset?.coin &&
-      activeAsset.assetId !== undefined &&
-      activeAsset.universe
-    ) {
+    if (isLoadedActiveAsset(activeAsset)) {
       this.lastCommittedActiveAsset = activeAsset;
     }
+  }
+
+  // After a switch that failed or could not load its token: an active asset
+  // without trading metadata, e.g. a coin named for a switch that never
+  // landed, goes back to the last one loaded. Returned as held here, since
+  // the UI's copy of the atom follows a broadcast that can still be on its way.
+  @backgroundMethod()
+  async restoreLoadedActiveAsset(): Promise<
+    IChangeActiveAssetResult | undefined
+  > {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    const loaded = this.lastCommittedActiveAsset;
+    if (isLoadedActiveAsset(activeAsset) || !loaded) {
+      return activeAsset;
+    }
+    await perpsActiveAssetAtom.set(loaded);
+    return loaded;
   }
 
   private beginActivePerpsAccountChange(): number {
@@ -3113,6 +3137,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
     const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    // A failure goes back to the last loaded asset, also from a coin a
+    // superseded switch named without its metadata, e.g. when that coin is
+    // asked for again.
+    const shouldRollBackOnError =
+      shouldSeedSubscriptionTarget || !isLoadedActiveAsset(oldActiveAsset);
 
     try {
       if (shouldSeedSubscriptionTarget) {
@@ -3256,7 +3285,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return nextActiveAsset;
     } catch (error) {
       if (
-        shouldSeedSubscriptionTarget &&
+        shouldRollBackOnError &&
         requestId === this.activeAssetChangeRequestId
       ) {
         await perpsActiveAssetAtom.set(rollbackActiveAsset);
