@@ -18,6 +18,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const ONEKEY_ID_USAGE_TRACK_ID = 'onekey-id-usage';
 
+// The panel opens 8px below the link and animates in, so leaving the link gets
+// more time than the default before the panel closes.
+const HOVER_PANEL = { delay: { close: 300 } };
+
 function OneKeyIdUsageItem({
   icon,
   title,
@@ -90,7 +94,7 @@ export function OneKeyIdUsagePopover({
       onOpenChange={onOpenChange}
       renderTrigger={null}
       webAnchorElement={webAnchorElement}
-      hoverable={hoverable}
+      hoverable={hoverable ? HOVER_PANEL : false}
       nativePresentation="sheet"
       placement="bottom-start"
       trackID={ONEKEY_ID_USAGE_TRACK_ID}
