@@ -102,7 +102,10 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
-  const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
+  const [usagePopover, setUsagePopover] = useState({
+    open: false,
+    openedByHover: false,
+  });
   // Web: the subtitle link span, which the wide-window panel anchors to and
   // opens on hover from.
   const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
@@ -612,8 +615,22 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
+  // A press or key opens the panel as a regular popover (outside press and
+  // Escape close it); only a hover open closes when the pointer leaves. The
+  // mode is set together with `open`, never while the panel is shown.
   const handleShowUsage = useCallback(() => {
-    setIsUsagePopoverOpen(true);
+    setUsagePopover((prev) =>
+      prev.open ? prev : { open: true, openedByHover: false },
+    );
+  }, []);
+  // The popover reports hover opens and every close.
+  const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
+    setUsagePopover((prev) => {
+      if (!open) {
+        return { open: false, openedByHover: false };
+      }
+      return prev.open ? prev : { open: true, openedByHover: true };
+    });
   }, []);
   const handleUsageLinkRef = useCallback((node: unknown) => {
     setUsageLinkElement(node instanceof HTMLElement ? node : undefined);
@@ -875,8 +892,9 @@ function PrimeLoginOAuthDialog(props: {
       {/* Kept outside Dialog.Header, which hands its children to the dialog
           frame through context. */}
       <OneKeyIdUsagePopover
-        open={isUsagePopoverOpen}
-        onOpenChange={setIsUsagePopoverOpen}
+        open={usagePopover.open}
+        onOpenChange={handleUsagePopoverOpenChange}
+        hoverable={!usagePopover.open || usagePopover.openedByHover}
         webAnchorElement={usageLinkElement}
       />
     </Stack>

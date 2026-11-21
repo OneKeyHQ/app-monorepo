@@ -410,7 +410,37 @@ describe('PrimeLoginOAuthDialog', () => {
   const lastUsagePopoverProps = () =>
     mockUsagePopoverProps.mock.calls[
       mockUsagePopoverProps.mock.calls.length - 1
-    ]?.[0] as { open: boolean; webAnchorElement?: HTMLElement } | undefined;
+    ]?.[0] as
+      | {
+          open: boolean;
+          hoverable: boolean;
+          onOpenChange: (open: boolean) => void;
+          webAnchorElement?: HTMLElement;
+        }
+      | undefined;
+
+  test('keeps a pressed usage panel closable by outside press and Escape', () => {
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    // Closed: hovering the link may open it.
+    expect(lastUsagePopoverProps()?.hoverable).toBe(true);
+
+    // A press (or Enter/Space) opens it as a regular popover.
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(lastUsagePopoverProps()).toEqual(
+      expect.objectContaining({ open: true, hoverable: false }),
+    );
+    act(() => lastUsagePopoverProps()?.onOpenChange(false));
+    expect(lastUsagePopoverProps()).toEqual(
+      expect.objectContaining({ open: false, hoverable: true }),
+    );
+
+    // A hover open stays a hover panel, also after a press on the link.
+    act(() => lastUsagePopoverProps()?.onOpenChange(true));
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(lastUsagePopoverProps()).toEqual(
+      expect.objectContaining({ open: true, hoverable: true }),
+    );
+  });
 
   test('opens the usage explainer anchored to the subtitle link on web', () => {
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);

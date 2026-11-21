@@ -208,7 +208,11 @@ function Host() {
       <button type="button" onClick={() => setOpen(true)}>
         What is OneKey ID?
       </button>
-      <OneKeyIdUsagePopover open={open} onOpenChange={setOpen} />
+      <OneKeyIdUsagePopover
+        open={open}
+        onOpenChange={setOpen}
+        hoverable={false}
+      />
     </>
   );
 }
