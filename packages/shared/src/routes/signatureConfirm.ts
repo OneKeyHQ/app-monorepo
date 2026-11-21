@@ -16,6 +16,7 @@ import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
 } from './assetSelector';
+import type { ISendInputOptions } from './send';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IGasAccountScenario } from '../../types/fee';
@@ -65,6 +66,7 @@ export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
+    sendOptions?: ISendInputOptions;
     networkId: string;
     accountId: string;
     activeAccountId?: string;
@@ -83,6 +85,7 @@ export type IModalSignatureConfirmParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
+    sendOptions?: ISendInputOptions;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -131,6 +134,7 @@ export type IModalSignatureConfirmParamList = {
     wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    transactionStep?: { step: number; total: number };
     // Review-only page: no confirm action is rendered, the footer offers
     // only the (Back-labeled) cancel. Used by the batch psbt drill-down for
     // already-signed items.

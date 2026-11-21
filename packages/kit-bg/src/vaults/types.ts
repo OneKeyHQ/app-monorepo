@@ -1,5 +1,10 @@
 /* cspell:ignore Infini */
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
+import type { IStrk20ViewingKeyResult } from '@onekeyhq/core/src/chains/starknet/sdkStarknet/viewingKey';
+import type {
+  IStarknetSignature,
+  IStrk20ProofInvocationPayload,
+} from '@onekeyhq/core/src/chains/starknet/types';
 import type { IXrpMemoField } from '@onekeyhq/core/src/chains/xrp/types';
 import type {
   EAddressEncodings,
@@ -75,6 +80,10 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type {
+  IAccountDeriveInfoMapStarknet,
+  IAccountDeriveTypesStarknet,
+} from './impls/starknet/settings';
 import type {
   IAccountDeriveInfoMapXmr,
   IAccountDeriveTypesXmr,
@@ -178,13 +187,15 @@ export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapBtc
   | IAccountDeriveInfoMapCosmos
   | IAccountDeriveInfoMapKaspa
-  | IAccountDeriveInfoMapXmr;
+  | IAccountDeriveInfoMapXmr
+  | IAccountDeriveInfoMapStarknet;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
   | IAccountDeriveTypesBtc
   | IAccountDeriveTypesKaspa
-  | IAccountDeriveTypesXmr;
+  | IAccountDeriveTypesXmr
+  | IAccountDeriveTypesStarknet;
 
 export type INetworkDeriveInfo = {
   deriveType: IAccountDeriveTypes;
@@ -198,6 +209,19 @@ export type IVaultSettingsNetworkInfo = {
   nativeTokenAddress?: string;
   genesisHash?: string;
 };
+
+export type IVaultSettingsPrivacyPool = {
+  /** Only 'account-opt-in' exists today: consent, then an on-chain register tx. */
+  activation: 'account-opt-in';
+  /** 'pooled' = one shielded amount per token, not per address or per note. */
+  balanceShape: 'pooled';
+  /** Pools split by token, so there is nothing for the user to pick. */
+  poolsPerToken: true;
+  requiresRegistration: true;
+  /** Blocks a private tx must wait behind any tx its proof will read. */
+  sequencingCooldownBlocks: number;
+};
+
 export type IVaultSettings = {
   impl: string;
   coinTypeDefault: string;
@@ -254,6 +278,8 @@ export type IVaultSettings = {
   utxoDustAmount?: string;
 
   accountType: EDBAccountType;
+  /** Account options select a wallet contract and may share a derivation path. */
+  accountDeriveMode?: 'walletContract';
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {
     default: IVaultSettingsNetworkInfo;
@@ -318,6 +344,13 @@ export type IVaultSettings = {
     // Address-scoped backend endpoints never receive this chain's addresses.
     withholdAddressFromBackend?: boolean;
   };
+  // backend has no indexer for this chain; on-chain list stays empty, local pending txs still show
+  serverHistoryUnsupported?: boolean;
+  /**
+   * Descriptor for a shielded-pool feature. UI reads these fields and never
+   * branches on a chain name. Absent means the chain has no privacy pool.
+   */
+  privacyPool?: IVaultSettingsPrivacyPool;
   saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
@@ -398,7 +431,8 @@ export type IVaultSettings = {
 
   fixConfirmedTxEnabled?: boolean;
 
-  supportBatchEstimateFee?: Record<string, boolean>;
+  // true uses the server batch endpoint; 'local' uses the chain vault's estimator.
+  supportBatchEstimateFee?: Record<string, boolean | 'local'>;
 
   afterSendTxActionEnabled?: boolean;
 
@@ -443,8 +477,65 @@ export type IGetDefaultPrivateKeyResult = {
 export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
+  // chains whose derive types share a template resolve the key per encoding
+  addressEncoding?: EAddressEncodings;
 };
 export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
+
+export type IDeriveStrk20ViewingKeyParams = {
+  password: string;
+  deviceParams?: IDeviceSharedCallParams;
+  chainId: string;
+  accountAddress: string;
+  poolAddress: string;
+  keyIndex?: number;
+};
+export type IDeriveStrk20ViewingKeyResult = Pick<
+  IStrk20ViewingKeyResult,
+  'viewingKey' | 'publicKeyX'
+> & { counter?: number };
+
+/**
+ * Structural view of the one Starknet-only core method. A keyring's `coreApi` is
+ * declared `CoreChainApiBase`, which carries no chain-specific methods, so the
+ * Starknet keyrings narrow to this rather than widening the shared base.
+ */
+export type ISignStrk20ProofInvocationParams = {
+  password: string;
+  deviceParams?: IDeviceSharedCallParams;
+  invocation: IStrk20ProofInvocationPayload;
+};
+
+export type IKeyringStrk20ProofInvocationSigner = {
+  signStrk20ProofInvocation: (
+    params: ISignStrk20ProofInvocationParams,
+  ) => Promise<IStarknetSignature>;
+};
+
+export type ICoreApiStrk20ProofInvocationSigner = {
+  signStrk20ProofInvocation: (
+    payload: ICoreApiSignBasePayload & {
+      invocation: IStrk20ProofInvocationPayload;
+    },
+  ) => Promise<IStarknetSignature>;
+};
+
+export type IKeyringStrk20ViewingKeyDeriver = {
+  deriveStrk20ViewingKey: (
+    params: IDeriveStrk20ViewingKeyParams,
+  ) => Promise<IDeriveStrk20ViewingKeyResult>;
+};
+
+export type ICoreApiStrk20ViewingKeyDeriver = {
+  deriveStrk20ViewingKey: (
+    payload: ICoreApiSignBasePayload & {
+      chainId: string;
+      accountAddress: string;
+      poolAddress: string;
+      keyIndex?: number;
+    },
+  ) => Promise<IStrk20ViewingKeyResult>;
+};
 export type IPrepareExternalAccountsParams = {
   name: string;
   networks?: string[];
@@ -812,6 +903,15 @@ export interface IBuildDecodedTxParams {
   isToContract?: boolean;
   sourceInfo?: IDappSourceInfo;
 }
+export type ISendConfirmationPreparation = {
+  unsignedTxs: IUnsignedTxPro[];
+  prerequisite?: {
+    transfersInfo: ITransferInfo[];
+    unsignedTx?: IUnsignedTxPro;
+    pendingTxid?: string;
+  };
+};
+
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;

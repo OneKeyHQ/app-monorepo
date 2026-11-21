@@ -1638,6 +1638,9 @@ class ServiceHistory extends ServiceBase {
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
             totalFeeInNative: confirmedFeeInNative,
+            protocolFeeInNative:
+              confirmedTx.data.protocolFeeInNative ??
+              pendingTxInDetailCurrency.decodedTx.protocolFeeInNative,
             // A row that cannot take the detail fiat fee prices the fee
             // actually paid from its own snapshot. The pending fiat value was
             // priced with the estimated fee, so it is scaled to the paid one
@@ -2793,11 +2796,16 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const isCustomNetwork =
-      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+    const [isCustomNetwork, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
-      });
-    if (isCustomNetwork) {
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+    ]);
+    // serverHistoryUnsupported: the backend has no indexer for this chain, so
+    // there is nothing to ask it for. Locally-built pending txs are merged in
+    // by the caller and still show.
+    if (isCustomNetwork || vaultSettings.serverHistoryUnsupported) {
       return {
         txs: [],
         addressMap: {},

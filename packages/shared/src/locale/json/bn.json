@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "শিল্ড করুন",
   "privacy_balance_small_change__msg": "এর মধ্যে {amount} খুচরা রয়েছে, যা আলাদাভাবে পাঠানোর জন্য খুবই কম।",
   "privacy_balance_unavailable__msg": "ব্যালান্স পাওয়া যাচ্ছে না",
+  "privacy_balance_unshield__action": "প্রকাশ্য ব্যালেন্সে সরান",
   "privacy_balance_verification__desc": "{amount} খরচ করা যাবে কি না যাচাই করুন।",
   "privacy_balance_verification__title": "ব্যালেন্স যাচাই করুন",
   "privacy_balance_verification_pending__msg": "ব্যালেন্স আপডেট করতে যাচাই করুন",

@@ -1,0 +1,403 @@
+import { memo, useCallback, useEffect, useRef } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import { Button, SizableText, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  ActionItem,
+  RawActions,
+} from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import {
+  isStrk20Mismatch,
+  isStrk20RegisterPending,
+  isStrk20Registered,
+  isStrk20SequencingWaiting,
+  useStarknetPrivacyAccountState,
+  useStarknetPrivacyAvailability,
+  useStarknetPrivacySequencing,
+  useStarknetPrivateBalances,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacy';
+import { useStarknetPrivacyOptIn } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacyOptIn';
+import { createStarknetPrivacySendOptions } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/createStarknetPrivacySendOptions';
+import {
+  formatMockMessage,
+  formatStrk20Countdown,
+  getStarknetPrivacyBalanceDisplay,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EStrk20ErrorCode,
+  EStrk20ErrorRetry,
+  EStrk20OptInStatus,
+  EStrk20SequencingStatus,
+} from '@onekeyhq/shared/types/starknetPrivacy';
+import type { IStrk20TransferKind } from '@onekeyhq/shared/types/starknetPrivacy';
+import type { IToken } from '@onekeyhq/shared/types/token';
+
+import TokenDetailsBalanceHero from '../TokenDetailsBalanceHero';
+import { TokenPrivacyPanel } from '../TokenPrivacyPanel';
+
+type IProps = {
+  networkId: string;
+  accountId: string;
+  token: IToken;
+  publicBalanceParsed?: string;
+  price?: number;
+  currency?: string;
+  accountAddress: string;
+  onReceive: () => void | Promise<void>;
+  receiveDisabled?: boolean;
+  allowReceiveWhenDisabled?: boolean;
+};
+
+function StarknetPrivacyBlock({
+  networkId,
+  accountId,
+  token,
+  publicBalanceParsed,
+  price,
+  currency,
+  accountAddress,
+  onReceive,
+  receiveDisabled,
+  allowReceiveWhenDisabled,
+}: IProps) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const {
+    isAvailable,
+    config,
+    errorKey: availabilityErrorKey,
+    isLoading: availabilityLoading,
+  } = useStarknetPrivacyAvailability({ networkId, accountId });
+  const {
+    state,
+    reload,
+    errorKey: stateErrorKey,
+    isLoading: stateLoading,
+  } = useStarknetPrivacyAccountState({
+    networkId,
+    accountId,
+    enabled: isAvailable,
+  });
+  const registered = isStrk20Registered(state);
+  const pending = isStrk20RegisterPending(state);
+  const mismatch = isStrk20Mismatch(state);
+  const isResuming = Boolean(state?.registeredPublicKey);
+  const {
+    balances,
+    errorKey: balanceErrorKey,
+    errorCode: balanceErrorCode,
+    isLoading: balanceLoading,
+    isRefreshing: balanceRefreshing,
+    reload: reloadBalances,
+    refreshSilently,
+    lastSyncedAt,
+  } = useStarknetPrivateBalances({
+    networkId,
+    accountId,
+    tokenAddress: token.address,
+    enabled: isAvailable && registered,
+  });
+  const { sequencing, errorKey: sequencingErrorKey } =
+    useStarknetPrivacySequencing({
+      networkId,
+      accountId,
+      enabled:
+        isAvailable &&
+        (registered || state?.optInStatus === EStrk20OptInStatus.Consented),
+    });
+  const { optIn, isOptingIn, optInErrorKey, optInRetryable } =
+    useStarknetPrivacyOptIn({
+      networkId,
+      accountId,
+      config,
+      isResuming,
+      hasConsent: Boolean(state?.consentAcceptedAt),
+      onRegisterSubmitted: reload,
+    });
+  const optInBlocked =
+    Boolean(optInErrorKey) && optInRetryable === EStrk20ErrorRetry.No;
+  const { privateBalanceParsed } = getStarknetPrivacyBalanceDisplay({
+    balances,
+    tokenAddress: token.address,
+    decimals: token.decimals,
+    publicBalanceParsed,
+  });
+  const openTransfer = useCallback(
+    (kind: IStrk20TransferKind) => {
+      const params = {
+        networkId,
+        accountId,
+        token,
+        isNFT: false,
+        sendOptions: createStarknetPrivacySendOptions({
+          intl,
+          kind,
+          accountId,
+          networkId,
+          token,
+        }),
+      };
+      if (kind === 'transfer') {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxDataInput,
+          params,
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxAmountInput,
+          params: {
+            ...params,
+            recipientAddress: accountAddress,
+          },
+        });
+      }
+    },
+    [accountAddress, accountId, intl, navigation, networkId, token],
+  );
+  const lastTransfer = state?.lastTransfer;
+  const previousTransfer = useRef(lastTransfer);
+  useEffect(() => {
+    const previous = previousTransfer.current;
+    previousTransfer.current = lastTransfer;
+    if (
+      previous?.status === 'pending' &&
+      lastTransfer?.status === 'confirmed' &&
+      previous.txid === lastTransfer.txid
+    ) {
+      refreshSilently();
+    }
+  }, [lastTransfer, refreshSilently]);
+  if (
+    (availabilityLoading && !registered) ||
+    (isAvailable && stateLoading && !registered && !pending)
+  ) {
+    return (
+      <TokenPrivacyPanel
+        state="preparing"
+        title={formatMockMessage(
+          intl,
+          ETranslationsMock.starknet_privacy_activation_checking,
+        )}
+      />
+    );
+  }
+  if (!isAvailable) {
+    return (
+      <TokenPrivacyPanel
+        state={availabilityErrorKey ? 'error' : 'disabled'}
+        title={
+          availabilityErrorKey
+            ? intl.formatMessage({ id: ETranslations.global_an_error_occurred })
+            : undefined
+        }
+        enableUnavailable
+        description={
+          availabilityErrorKey
+            ? formatMockMessage(intl, availabilityErrorKey)
+            : intl.formatMessage({
+                id: ETranslations.global_not_available,
+              })
+        }
+      />
+    );
+  }
+  if (stateErrorKey || mismatch) {
+    return (
+      <TokenPrivacyPanel
+        state="error"
+        title={intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        })}
+        detail={formatMockMessage(
+          intl,
+          stateErrorKey ??
+            ETranslationsMock.starknet_privacy_error_key_mismatch,
+        )}
+        onSync={mismatch ? undefined : reload}
+      />
+    );
+  }
+  if (!registered) {
+    if (pending) {
+      return (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          testID="starknet-privacy-registration-pending"
+        >
+          {intl.formatMessage({ id: ETranslations.global_confirming })}
+        </SizableText>
+      );
+    }
+
+    const hasConsent = state?.optInStatus === EStrk20OptInStatus.Consented;
+    const waiting =
+      hasConsent && sequencing?.status === EStrk20SequencingStatus.Waiting;
+    let titleKey = ETranslationsMock.starknet_privacy_activation_title;
+    let descriptionKey: ETranslationsMock | undefined;
+    let actionLabel: ETranslations | undefined;
+    if (isResuming) {
+      titleKey = ETranslationsMock.starknet_privacy_resume_sync;
+      actionLabel = ETranslations.global_resume;
+    } else if (waiting) {
+      descriptionKey = ETranslationsMock.starknet_privacy_error_waiting;
+      actionLabel = ETranslations.global_continue;
+    } else if (state?.registerTxFailed) {
+      descriptionKey =
+        ETranslationsMock.starknet_privacy_activation_failed_title;
+      actionLabel = ETranslations.global_retry;
+    } else if (hasConsent) {
+      actionLabel = ETranslations.global_continue;
+      if (sequencing?.status === EStrk20SequencingStatus.ActivationRequired) {
+        titleKey = ETranslationsMock.starknet_account_deploy_wallet;
+      }
+    }
+
+    return (
+      <TokenPrivacyPanel
+        state="disabled"
+        title={formatMockMessage(intl, titleKey)}
+        description={
+          descriptionKey ? formatMockMessage(intl, descriptionKey) : ''
+        }
+        detail={
+          optInErrorKey ? formatMockMessage(intl, optInErrorKey) : undefined
+        }
+        onEnable={() => void optIn()}
+        enableUnavailable={(waiting && !isOptingIn) || optInBlocked}
+        busy={isOptingIn}
+        actionLabel={
+          actionLabel ? intl.formatMessage({ id: actionLabel }) : undefined
+        }
+      />
+    );
+  }
+
+  const isReady =
+    sequencing?.status === EStrk20SequencingStatus.Ready &&
+    lastTransfer?.status !== 'pending';
+  const canSpendPrivate =
+    isReady &&
+    !balanceErrorKey &&
+    new BigNumber(privateBalanceParsed ?? 0).isGreaterThan(0);
+  const fiatValue =
+    privateBalanceParsed !== undefined &&
+    new BigNumber(price ?? NaN).isGreaterThan(0)
+      ? new BigNumber(privateBalanceParsed).times(price ?? 0).toFixed()
+      : undefined;
+
+  const isLocked = balanceErrorCode === EStrk20ErrorCode.Locked;
+
+  return (
+    <YStack testID="starknet-privacy-private" gap="$4">
+      <TokenDetailsBalanceHero
+        isLoading={!!balanceLoading && !balances}
+        currency={currency}
+        fiatValue={fiatValue}
+        balanceParsed={privateBalanceParsed}
+        sync={
+          isLocked
+            ? undefined
+            : {
+                isRefreshing: balanceRefreshing,
+                onRefresh: reloadBalances,
+                lastSyncedAt,
+              }
+        }
+      />
+      {isLocked ? (
+        <Button
+          testID="starknet-privacy-unlock"
+          alignSelf="flex-start"
+          size="small"
+          variant="secondary"
+          loading={balanceRefreshing}
+          disabled={balanceRefreshing}
+          onPress={reloadBalances}
+        >
+          {intl.formatMessage({ id: ETranslations.global_unlock })}
+        </Button>
+      ) : null}
+      <RawActions flexWrap="wrap">
+        <RawActions.Send
+          testID="starknet-privacy-send"
+          label={intl.formatMessage({ id: ETranslations.global_send })}
+          disabled={!canSpendPrivate}
+          onPress={() => openTransfer('transfer')}
+        />
+        <RawActions.Receive
+          testID="starknet-privacy-receive"
+          disabled={receiveDisabled}
+          allowPressWhenDisabled={allowReceiveWhenDisabled}
+          onPress={onReceive}
+          trackID="wallet-token-details-receive"
+        />
+        <ActionItem
+          testID="starknet-privacy-deposit"
+          icon="ShieldOutline"
+          label={intl.formatMessage({
+            id: ETranslations.privacy_balance_shield__action,
+          })}
+          disabled={!isReady || publicBalanceParsed === undefined}
+          onPress={() => openTransfer('deposit')}
+        />
+        <ActionItem
+          testID="starknet-privacy-withdraw"
+          icon="ArrowTopOutline"
+          label={intl.formatMessage({
+            id: ETranslations.privacy_balance_unshield__action,
+          })}
+          disabled={!canSpendPrivate}
+          onPress={() => openTransfer('withdraw')}
+        />
+      </RawActions>
+      {balanceErrorKey && !isLocked ? (
+        <TokenPrivacyPanel
+          state="error"
+          title={intl.formatMessage({
+            id: balances
+              ? ETranslations.global_sync_error
+              : ETranslations.privacy_balance_unavailable__msg,
+          })}
+          detail={
+            balanceErrorCode === EStrk20ErrorCode.Unknown
+              ? undefined
+              : formatMockMessage(intl, balanceErrorKey)
+          }
+          onSync={reloadBalances}
+          busy={balanceRefreshing}
+        />
+      ) : null}
+      {sequencingErrorKey ? (
+        <SizableText size="$bodySm" color="$textCritical">
+          {formatMockMessage(intl, sequencingErrorKey)}
+        </SizableText>
+      ) : null}
+      {isStrk20SequencingWaiting(sequencing) &&
+      lastTransfer?.status !== 'pending' ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {formatMockMessage(
+            intl,
+            ETranslationsMock.starknet_privacy_wait_countdown,
+            {
+              blocks: sequencing?.blocksRemaining ?? 0,
+              duration: formatStrk20Countdown(
+                sequencing?.estimatedSecondsRemaining ?? 0,
+              ),
+            },
+          )}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}
+
+export default memo(StarknetPrivacyBlock);

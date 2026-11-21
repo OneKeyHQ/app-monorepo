@@ -16,6 +16,8 @@ import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Bro
 import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeHistoryListView/NativeHistoryList';
 import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
+import { StarknetPrivateHistory } from '@onekeyhq/kit/src/views/StarknetPrivacy/components/StarknetPrivateHistory';
+import { isStarknetPrivacyHistoryVisible } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
   useCurrencyPersistAtom,
@@ -70,6 +72,7 @@ function TokenDetailsHistoryContent({
     isTabView,
     inTabList,
     privacyHistoryPoolId,
+    starknetPrivacyMode,
   } = props;
 
   const isRouteFocused = useRouteIsFocused();
@@ -87,6 +90,7 @@ function TokenDetailsHistoryContent({
         settings.isFilterScamHistoryEnabled ? '1' : '0',
         settings.isFilterLowValueHistoryEnabled ? '1' : '0',
         settings.currencyInfo.id,
+        starknetPrivacyMode ?? '',
       ].join('_'),
     [
       accountId,
@@ -95,6 +99,7 @@ function TokenDetailsHistoryContent({
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
+      starknetPrivacyMode,
     ],
   );
   const cachedHistory = useMemo(
@@ -219,6 +224,14 @@ function TokenDetailsHistoryContent({
     const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
+    if (starknetPrivacyMode) {
+      return mergedHistory.filter((tx) =>
+        isStarknetPrivacyHistoryVisible({
+          extraInfo: tx.decodedTx.extraInfo,
+          mode: starknetPrivacyMode,
+        }),
+      );
+    }
     if (privacyHistoryPoolId === undefined) {
       return mergedHistory;
     }
@@ -236,7 +249,13 @@ function TokenDetailsHistoryContent({
           selectedPoolId: privacyHistoryPoolId,
         }),
       );
-  }, [tokenHistory, cachedHistory, appendedTxs, privacyHistoryPoolId]);
+  }, [
+    tokenHistory,
+    cachedHistory,
+    appendedTxs,
+    privacyHistoryPoolId,
+    starknetPrivacyMode,
+  ]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
@@ -408,6 +427,8 @@ function TokenDetailsHistoryWithTabFocus(props: IProps) {
 }
 
 function TokenDetailsHistory(props: IProps) {
+  if (props.starknetPrivacyMode === 'private')
+    return <StarknetPrivateHistory {...props} />;
   if (props.isTabView) {
     return <TokenDetailsHistoryWithTabFocus {...props} />;
   }

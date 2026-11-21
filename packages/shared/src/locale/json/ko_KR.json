@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "실드",
   "privacy_balance_small_change__msg": "단독으로 전송하기에는 너무 적은 잔액 {amount}이(가) 포함되어 있습니다.",
   "privacy_balance_unavailable__msg": "잔액을 불러올 수 없음",
+  "privacy_balance_unshield__action": "공개 잔액으로 이동",
   "privacy_balance_verification__desc": "{amount} 사용 가능 여부를 확인하세요.",
   "privacy_balance_verification__title": "잔액 확인",
   "privacy_balance_verification_pending__msg": "잔액을 업데이트하려면 확인하세요",

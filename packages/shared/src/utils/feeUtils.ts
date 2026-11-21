@@ -7,6 +7,7 @@ import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
+  IFeeStarknet,
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
@@ -18,6 +19,8 @@ const PRESET_FEE_LABEL = [
   ETranslations.content__normal,
   ETranslations.content__fast,
 ];
+const STARKNET_GAS_RESOURCES = ['l1Gas', 'l2Gas', 'l1DataGas'] as const;
+const STARKNET_GAS_PRICE_MAX = (2n ** 128n - 1n).toString();
 
 function nilError(message: string): number {
   throw new OneKeyLocalError(message);
@@ -107,6 +110,113 @@ export function calculateNeoN3TotalFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
     .plus(priorityFee)
     .plus(systemFee)
     .shiftedBy(-feeDecimals);
+}
+
+// Sum of maxAmount * maxPricePerUnit over the three resource bounds, in FRI,
+// not yet shifted by feeDecimals. Shared by the max (worst-case) and min
+// (overallFee-backed) Starknet fee calculations below.
+function sumStarknetResourceBoundsFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  return STARKNET_GAS_RESOURCES.reduce((total, name) => {
+    const resource = feeInfo.feeStarknet?.[name];
+    return resource
+      ? total.plus(
+          new BigNumber(resource.maxAmount).times(resource.maxPricePerUnit),
+        )
+      : total;
+  }, new BigNumber(0));
+}
+
+// All amounts are decimal strings in FRI (STRK base unit).
+// Worst-case bound: sum of the three resource bounds plus deployAccountFee.
+export function calculateStarknetTotalFee({
+  feeInfo,
+}: {
+  feeInfo: IFeeInfoUnit;
+}) {
+  const { feeDecimals } = feeInfo.common;
+  const { deployAccountFee } = feeInfo.feeStarknet ?? {};
+  return sumStarknetResourceBoundsFee({ feeInfo })
+    .plus(deployAccountFee ?? 0)
+    .shiftedBy(-feeDecimals);
+}
+
+// Display minimum: the node's overall_fee estimates for both legs, each
+// falling back to its resource-bounds sum (same as the max) when absent.
+export function calculateStarknetMinFee({
+  feeInfo,
+}: {
+  feeInfo: IFeeInfoUnit;
+}) {
+  const { feeDecimals } = feeInfo.common;
+  const { overallFee, deployAccountFee, deployAccountOverallFee } =
+    feeInfo.feeStarknet ?? {};
+  const baseFee = overallFee
+    ? new BigNumber(overallFee)
+    : sumStarknetResourceBoundsFee({ feeInfo });
+  return baseFee
+    .plus(deployAccountOverallFee ?? deployAccountFee ?? 0)
+    .shiftedBy(-feeDecimals);
+}
+
+export function getStarknetFeeForBudget({
+  feeInfo,
+  maxFee,
+}: {
+  feeInfo: IFeeInfoUnit;
+  maxFee: string;
+}): IFeeStarknet | undefined {
+  const {
+    feeStarknet,
+    common: { feeDecimals },
+  } = feeInfo;
+  if (!feeStarknet || !/^\d+(?:\.\d*)?$/.test(maxFee)) return undefined;
+
+  const budget = new BigNumber(maxFee);
+  const available = budget
+    .shiftedBy(feeDecimals)
+    .minus(feeStarknet.deployAccountFee ?? 0);
+  if (!available.isInteger() || budget.lt(calculateStarknetMinFee({ feeInfo })))
+    return undefined;
+
+  const recommended = sumStarknetResourceBoundsFee({ feeInfo });
+  const minimum = BigNumber.sum(
+    ...STARKNET_GAS_RESOURCES.map((name) => {
+      const { maxAmount, maxPricePerUnit, estimatedPricePerUnit } =
+        feeStarknet[name];
+      return new BigNumber(maxAmount).times(
+        estimatedPricePerUnit ?? maxPricePerUnit,
+      );
+    }),
+  );
+  if (available.lt(minimum)) return undefined;
+
+  const reducing = available.lt(recommended);
+  const headroom = available.minus(reducing ? minimum : recommended);
+  const weight = reducing ? recommended.minus(minimum) : recommended;
+  if (weight.isZero() || (headroom.isZero() && !reducing)) return feeStarknet;
+
+  const result = { ...feeStarknet };
+  const usedResources = STARKNET_GAS_RESOURCES.filter(
+    (name) => feeStarknet[name].maxAmount !== '0',
+  );
+  for (const name of usedResources) {
+    const bound = feeStarknet[name];
+    const paddedPrice = new BigNumber(bound.maxPricePerUnit);
+    const basePrice = new BigNumber(
+      reducing
+        ? (bound.estimatedPricePerUnit ?? bound.maxPricePerUnit)
+        : bound.maxPricePerUnit,
+    );
+    // Round the price down in FRI so the signed bounds fit the entered budget.
+    const price = basePrice.plus(
+      (reducing ? paddedPrice.minus(basePrice) : paddedPrice)
+        .times(headroom)
+        .dividedToIntegerBy(weight),
+    );
+    if (price.gt(STARKNET_GAS_PRICE_MAX)) return undefined;
+    result[name] = { ...bound, maxPricePerUnit: price.toFixed() };
+  }
+  return result;
 }
 
 export function calculateTotalFeeRange({
@@ -291,6 +401,17 @@ export function calculateTotalFeeRange({
       min: nanToZeroString(max),
       max: nanToZeroString(max),
       minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
+    };
+  }
+
+  if (feeInfo.feeStarknet) {
+    const max = calculateStarknetTotalFee({ feeInfo });
+    const min = calculateStarknetMinFee({ feeInfo });
+    return {
+      min: nanToZeroString(min),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(min),
       maxForDisplay: nanToZeroString(max),
     };
   }

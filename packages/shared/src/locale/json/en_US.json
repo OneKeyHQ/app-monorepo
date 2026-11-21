@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "Shield",
   "privacy_balance_small_change__msg": "Includes {amount} of small change that’s too small to send on its own.",
   "privacy_balance_unavailable__msg": "Balance unavailable",
+  "privacy_balance_unshield__action": "Move to public",
   "privacy_balance_verification__desc": "Check whether {amount} is available to spend.",
   "privacy_balance_verification__title": "Verify balance",
   "privacy_balance_verification_pending__msg": "Verify to update your balance",

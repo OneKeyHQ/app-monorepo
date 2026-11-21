@@ -220,6 +220,7 @@ function SendDataInputContainer() {
     onCancel,
     isAllNetworks,
     localWalletSourcePool,
+    sendOptions,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -467,6 +468,8 @@ function SendDataInputContainer() {
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
   const toResolved = toValue?.resolved;
+  const recipientAccountRef = useRef(currentAccount);
+  recipientAccountRef.current = currentAccount;
   const toAddressRaw = toValue?.raw;
   const zcashMemoSupported = toResolved?.startsWith('u1');
   useEffect(() => {
@@ -707,6 +710,25 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      if (sendOptions?.validateRecipient) {
+        if (
+          currentAccount.accountId !== accountId ||
+          currentAccount.networkId !== networkId
+        )
+          return;
+        const message = await sendOptions.validateRecipient(toResolved);
+        if (
+          isUnmountedRef.current ||
+          form.getValues('to')?.resolved !== toResolved ||
+          recipientAccountRef.current.accountId !== currentAccount.accountId ||
+          recipientAccountRef.current.networkId !== currentAccount.networkId
+        )
+          return;
+        if (message) {
+          form.setError('to', { type: 'validate', message });
+          return;
+        }
+      }
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -875,6 +897,7 @@ function SendDataInputContainer() {
       }
 
       pushAmountInput({
+        sendOptions,
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
         isNFT,
@@ -911,6 +934,7 @@ function SendDataInputContainer() {
     toResolved,
     form,
     pushAmountInput,
+    sendOptions,
     signatureConfirm,
     scannedAmount,
     sendAmount,

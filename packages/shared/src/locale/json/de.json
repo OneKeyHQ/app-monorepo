@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "Abschirmen",
   "privacy_balance_small_change__msg": "Enthält {amount} Restbetrag, der zu klein ist, um einzeln gesendet zu werden.",
   "privacy_balance_unavailable__msg": "Guthaben nicht verfügbar",
+  "privacy_balance_unshield__action": "In öffentliches Guthaben verschieben",
   "privacy_balance_verification__desc": "Prüfe, ob du {amount} ausgeben kannst.",
   "privacy_balance_verification__title": "Guthaben verifizieren",
   "privacy_balance_verification_pending__msg": "Verifiziere, um dein Guthaben zu aktualisieren",

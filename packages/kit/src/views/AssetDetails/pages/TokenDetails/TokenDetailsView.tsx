@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Empty, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
@@ -17,6 +18,7 @@ import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/netwo
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import TokenDetailsHeader from './TokenDetailsHeader';
 import TokenDetailsHistory from './TokenDetailsHistory';
+import { TokenDetailsPager } from './TokenDetailsPager';
 
 import type { IProps } from '.';
 
@@ -154,4 +156,34 @@ function TokenDetailsViews(props: IProps) {
   );
 }
 
-export default memo(TokenDetailsViews);
+function TokenDetailsViewsWithPrivacy(props: IProps) {
+  const intl = useIntl();
+  const { vaultSettings } = useAccountData({ networkId: props.networkId });
+  if (!vaultSettings?.privacyPool) {
+    return <TokenDetailsViews {...props} />;
+  }
+  return (
+    <TokenDetailsPager
+      key={`${props.accountId}_${props.networkId}_${props.tokenInfo.address}`}
+      pages={(['public', 'private'] as const).map((mode) => ({
+        key: mode,
+        name: intl.formatMessage({
+          id:
+            mode === 'public'
+              ? ETranslations.privacy_balance_public__title
+              : ETranslations.private_send_private_option,
+        }),
+        children: (
+          <TokenDetailsViews
+            {...props}
+            inTabList
+            isTabView
+            starknetPrivacyMode={mode}
+          />
+        ),
+      }))}
+    />
+  );
+}
+
+export default memo(TokenDetailsViewsWithPrivacy);

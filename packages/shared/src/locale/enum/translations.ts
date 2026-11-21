@@ -4783,6 +4783,7 @@ export enum ETranslations {
   privacy_balance_shield__action = 'privacy_balance_shield__action',
   privacy_balance_small_change__msg = 'privacy_balance_small_change__msg',
   privacy_balance_unavailable__msg = 'privacy_balance_unavailable__msg',
+  privacy_balance_unshield__action = 'privacy_balance_unshield__action',
   privacy_balance_verification__desc = 'privacy_balance_verification__desc',
   privacy_balance_verification__title = 'privacy_balance_verification__title',
   privacy_balance_verification_pending__msg = 'privacy_balance_verification_pending__msg',

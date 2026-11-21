@@ -3265,6 +3265,31 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSendPrerequisiteProgress({
+    accountId,
+    networkId,
+    txid,
+  }: ISendTxBaseParams & { txid: string }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.getSendPrerequisiteProgress(txid);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareSendConfirmation({
+    accountId,
+    networkId,
+    unsignedTxs,
+    confirmPrerequisites = false,
+  }: ISendTxBaseParams & {
+    unsignedTxs: IUnsignedTxPro[];
+    confirmPrerequisites?: boolean;
+  }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.prepareSendConfirmation(unsignedTxs, confirmPrerequisites);
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams &

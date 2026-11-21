@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "轉為隱私",
   "privacy_balance_small_change__msg": "包含 {amount} 零錢，金額過小，無法單獨傳送",
   "privacy_balance_unavailable__msg": "餘額暫不可用",
+  "privacy_balance_unshield__action": "轉為公開",
   "privacy_balance_verification__desc": "確認 {amount} 是否可用",
   "privacy_balance_verification__title": "驗證餘額",
   "privacy_balance_verification_pending__msg": "驗證後更新餘額",

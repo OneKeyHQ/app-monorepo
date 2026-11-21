@@ -553,8 +553,12 @@ export function NativeHistoryList(
         items: filtered,
         formatDate: (date) =>
           formatDate(new Date(date), { hideTimeForever: true }),
+        formatBlock: props.groupByBlockWhenDateMissing
+          ? (block) =>
+              `${intl.formatMessage({ id: ETranslations.global_block_height })} ${block}`
+          : undefined,
       }),
-    [filtered],
+    [filtered, intl, props.groupByBlockWhenDateMissing],
   );
   const rows = useMemo<RowModel[]>(
     () =>
@@ -937,6 +941,7 @@ export function NativeHistoryList(
     [filtered, onPressHistory, models, addressesInfo],
   );
   const empty = useMemo(() => {
+    if (props.ListEmptyComponent !== undefined) return props.ListEmptyComponent;
     if (!initialized)
       return (
         <Stack mx={-getHistoryListContentInset()}>
@@ -946,7 +951,7 @@ export function NativeHistoryList(
     if (searchKey && data.length) return <EmptySearch />;
     return (
       <EmptyHistory
-        showViewInExplorer
+        showViewInExplorer={props.showViewInExplorer ?? true}
         walletId={props.walletId}
         accountId={props.accountId}
         networkId={props.networkId}
@@ -966,6 +971,8 @@ export function NativeHistoryList(
     props.indexedAccountId,
     props.isSingleAccount,
     props.tokenMap,
+    props.showViewInExplorer,
+    props.ListEmptyComponent,
   ]);
   return (
     <View
@@ -1018,17 +1025,21 @@ export function NativeHistoryList(
         }
         listEmpty={empty}
         listFooter={
-          <ListFooterComponent
-            showFooter={props.showFooter}
-            hasItems={filtered.length > 0}
-            accountId={props.accountId}
-            networkId={props.networkId}
-            walletId={props.walletId}
-            indexedAccountId={props.indexedAccountId}
-            isSingleAccount={props.isSingleAccount}
-            isLoadingMore={isLoadingMore}
-            hasMore={hasMore}
-          />
+          props.ListFooterComponent !== undefined ? (
+            props.ListFooterComponent
+          ) : (
+            <ListFooterComponent
+              showFooter={props.showFooter}
+              hasItems={filtered.length > 0}
+              accountId={props.accountId}
+              networkId={props.networkId}
+              walletId={props.walletId}
+              indexedAccountId={props.indexedAccountId}
+              isSingleAccount={props.isSingleAccount}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+            />
+          )
         }
         onRefresh={refreshEnabled ? onRefresh : undefined}
         onEndReached={webScrollHost === undefined ? onEndReached : undefined}

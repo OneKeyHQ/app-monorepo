@@ -4778,6 +4778,7 @@
   "privacy_balance_shield__action": "Екранувати",
   "privacy_balance_small_change__msg": "Містить залишок {amount}, надто малий для окремого надсилання.",
   "privacy_balance_unavailable__msg": "Баланс недоступний",
+  "privacy_balance_unshield__action": "Перевести на публічний баланс",
   "privacy_balance_verification__desc": "Перевірте, чи можна витратити {amount}.",
   "privacy_balance_verification__title": "Перевірити баланс",
   "privacy_balance_verification_pending__msg": "Перевірте баланс, щоб оновити його",

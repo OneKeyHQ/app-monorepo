@@ -1,0 +1,376 @@
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  EStrk20ErrorCode,
+  EStrk20ErrorRetry,
+} from '@onekeyhq/shared/types/starknetPrivacy';
+
+import { EStrk20ProvingErrorCode, mapStrk20Error } from './strk20ErrorUtils';
+
+/*
+yarn jest packages/kit-bg/src/services/ServiceStarknetPrivacy/strk20Errors.test.ts
+
+Errors are built by shape, not by importing the SDK's classes, which is exactly
+the contract mapStrk20Error relies on: the `name` and `code` fields.
+*/
+
+function provingError(code: number, message = 'prover said no', data?: string) {
+  const error = new Error(data ? `${message}: ${data}` : message);
+  Object.defineProperties(error, {
+    name: { value: 'ProvingServiceError' },
+    code: { value: code },
+    data: { value: data },
+  });
+  return error;
+}
+
+function namedError(name: string, message = 'boom') {
+  const error = new Error(message);
+  Object.defineProperty(error, 'name', { value: name });
+  return error;
+}
+
+function starkscanError(code: string) {
+  const error = new Error('starkscan said no');
+  Object.defineProperties(error, {
+    name: { value: 'StarkscanProverError' },
+    code: { value: code },
+  });
+  return error;
+}
+
+function httpError(status: number) {
+  const error = new Error(`HTTP ${status}`);
+  Object.defineProperties(error, {
+    name: { value: 'ProvingServiceHttpError' },
+    status: { value: status },
+  });
+  return error;
+}
+
+describe('mapStrk20Error starkscan and http', () => {
+  it.each(['invalid_idempotency_key', 'idempotency_key_required'])(
+    'classifies %s as an app request error without retrying a new job',
+    (code) => {
+      expect(mapStrk20Error(starkscanError(code))).toEqual({
+        code: EStrk20ErrorCode.Internal,
+        translationKey: ETranslationsMock.starknet_privacy_error_internal,
+        retryable: EStrk20ErrorRetry.No,
+      });
+    },
+  );
+  const overloaded = {
+    code: EStrk20ErrorCode.ServiceOverloaded,
+    translationKey: ETranslationsMock.starknet_privacy_error_service_overloaded,
+    retryable: EStrk20ErrorRetry.Yes,
+  };
+  const unauthorized = {
+    code: EStrk20ErrorCode.ProvingUnauthorized,
+    translationKey:
+      ETranslationsMock.starknet_privacy_error_proving_unauthorized,
+    retryable: EStrk20ErrorRetry.No,
+  };
+
+  it.each([
+    'prover_queue_full',
+    'prover_unavailable',
+    'prover_key_concurrency',
+    'http_503',
+  ])('treats %s as overloaded and retryable', (code) => {
+    expect(mapStrk20Error(starkscanError(code))).toEqual(overloaded);
+  });
+
+  it.each(['unauthorized', 'forbidden', 'http_401', 'http_403'])(
+    'treats %s as unauthorized',
+    (code) => {
+      expect(mapStrk20Error(starkscanError(code))).toEqual(unauthorized);
+    },
+  );
+
+  it('maps quota, delivery unknown and timeout', () => {
+    expect(
+      mapStrk20Error(starkscanError('prover_daily_budget_exhausted')),
+    ).toEqual({
+      code: EStrk20ErrorCode.ProvingQuota,
+      translationKey: ETranslationsMock.starknet_privacy_error_proving_quota,
+      retryable: EStrk20ErrorRetry.No,
+    });
+    expect(mapStrk20Error(starkscanError('prover_delivery_unknown'))).toEqual({
+      code: EStrk20ErrorCode.ProvingDeliveryUnknown,
+      translationKey:
+        ETranslationsMock.starknet_privacy_error_proving_delivery_unknown,
+      retryable: EStrk20ErrorRetry.No,
+    });
+    expect(mapStrk20Error(starkscanError('poll_timeout'))).toEqual({
+      code: EStrk20ErrorCode.ProvingTimeout,
+      translationKey: ETranslationsMock.starknet_privacy_error_proving_timeout,
+      retryable: EStrk20ErrorRetry.No,
+    });
+  });
+
+  it('maps an unknown starkscan code to unknown, not retryable', () => {
+    expect(mapStrk20Error(starkscanError('something_else'))).toEqual({
+      code: EStrk20ErrorCode.Unknown,
+      translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+      retryable: EStrk20ErrorRetry.No,
+    });
+  });
+
+  it.each([429, 503])('treats JSON-RPC HTTP %s as overloaded', (status) => {
+    expect(mapStrk20Error(httpError(status))).toEqual(overloaded);
+  });
+
+  it('treats other JSON-RPC HTTP statuses as unknown', () => {
+    expect(mapStrk20Error(httpError(500))).toEqual({
+      code: EStrk20ErrorCode.Unknown,
+      translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+      retryable: EStrk20ErrorRetry.No,
+    });
+  });
+});
+
+describe('mapStrk20Error', () => {
+  it.each([
+    [
+      EStrk20ErrorCode.Unavailable,
+      ETranslationsMock.starknet_privacy_error_unavailable,
+      EStrk20ErrorRetry.No,
+    ],
+    [
+      EStrk20ErrorCode.Locked,
+      ETranslations.privacy_balance_verification_pending__msg,
+      EStrk20ErrorRetry.Yes,
+    ],
+    [
+      EStrk20ErrorCode.KeyMismatch,
+      ETranslationsMock.starknet_privacy_error_key_mismatch,
+      EStrk20ErrorRetry.No,
+    ],
+    [
+      EStrk20ErrorCode.PoolPaused,
+      ETranslationsMock.starknet_privacy_error_pool_paused,
+      EStrk20ErrorRetry.No,
+    ],
+  ] as const)(
+    'preserves the safe local error %s across the background bridge',
+    (code, key, retryable) => {
+      expect(
+        mapStrk20Error({
+          name: 'OneKeyLocalError',
+          data: { starknetPrivacyErrorCode: code },
+          message: 'translated copy changes independently',
+        }),
+      ).toEqual({ code, translationKey: key, retryable });
+    },
+  );
+  it.each([
+    [
+      EStrk20ProvingErrorCode.BlockNotFound,
+      EStrk20ErrorCode.ProvingBehind,
+      ETranslationsMock.starknet_privacy_error_proving_behind,
+      EStrk20ErrorRetry.Yes,
+    ],
+    [
+      EStrk20ProvingErrorCode.AccountValidationFailed,
+      EStrk20ErrorCode.ProvingValidation,
+      ETranslationsMock.starknet_privacy_error_proving_validation,
+      EStrk20ErrorRetry.Once,
+    ],
+    [
+      EStrk20ProvingErrorCode.UnsupportedVersion,
+      EStrk20ErrorCode.VersionMismatch,
+      ETranslationsMock.starknet_privacy_error_version_mismatch,
+      EStrk20ErrorRetry.No,
+    ],
+    [
+      EStrk20ProvingErrorCode.InvalidInput,
+      EStrk20ErrorCode.Internal,
+      ETranslationsMock.starknet_privacy_error_internal,
+      EStrk20ErrorRetry.No,
+    ],
+    [
+      EStrk20ProvingErrorCode.Busy,
+      EStrk20ErrorCode.ServiceBusy,
+      ETranslationsMock.starknet_privacy_error_service_busy,
+      EStrk20ErrorRetry.Yes,
+    ],
+    [
+      EStrk20ProvingErrorCode.Rejected,
+      EStrk20ErrorCode.RequestRejected,
+      ETranslationsMock.starknet_privacy_error_request_rejected,
+      EStrk20ErrorRetry.No,
+    ],
+  ])('maps proving code %s', (code, errorCode, translationKey, retryable) => {
+    expect(mapStrk20Error(provingError(code))).toEqual({
+      code: errorCode,
+      translationKey,
+      retryable,
+    });
+  });
+
+  it('never renders a bare code 10000 as a sanctions verdict', () => {
+    const mapped = mapStrk20Error(
+      provingError(
+        EStrk20ProvingErrorCode.Rejected,
+        'Transaction rejected',
+        'undeposited_open_notes',
+      ),
+    );
+    expect(mapped.translationKey).toBe(
+      ETranslationsMock.starknet_privacy_error_request_rejected,
+    );
+    expect(mapped.translationKey).not.toBe(
+      ETranslationsMock.starknet_privacy_error_screening_rejected,
+    );
+  });
+
+  it('reads a screening verdict off a bare code 10000 by its exact reason', () => {
+    expect(
+      mapStrk20Error(
+        provingError(
+          EStrk20ProvingErrorCode.Rejected,
+          'Transaction rejected',
+          'address_blocked',
+        ),
+      ),
+    ).toEqual({
+      code: EStrk20ErrorCode.ScreeningRejected,
+      translationKey:
+        ETranslationsMock.starknet_privacy_error_screening_rejected,
+      retryable: EStrk20ErrorRetry.No,
+    });
+    for (const reason of [
+      'screening_unavailable',
+      'screening_policy_unavailable',
+    ]) {
+      expect(
+        mapStrk20Error(
+          provingError(
+            EStrk20ProvingErrorCode.Rejected,
+            'Transaction rejected',
+            reason,
+          ),
+        ),
+      ).toEqual({
+        code: EStrk20ErrorCode.ScreeningUnavailable,
+        translationKey:
+          ETranslationsMock.starknet_privacy_error_screening_unavailable,
+        retryable: EStrk20ErrorRetry.Yes,
+      });
+    }
+  });
+
+  it('does not take a screening reason from the message text alone', () => {
+    const error = provingError(EStrk20ProvingErrorCode.Rejected);
+    error.message = 'Transaction rejected: address_blocked';
+    expect(mapStrk20Error(error).translationKey).toBe(
+      ETranslationsMock.starknet_privacy_error_request_rejected,
+    );
+  });
+
+  it('maps the typed screening errors by name too', () => {
+    expect(mapStrk20Error(namedError('ScreeningRejected'))).toEqual({
+      code: EStrk20ErrorCode.ScreeningRejected,
+      translationKey:
+        ETranslationsMock.starknet_privacy_error_screening_rejected,
+      retryable: EStrk20ErrorRetry.No,
+    });
+    expect(mapStrk20Error(namedError('ScreeningUnavailable'))).toEqual({
+      code: EStrk20ErrorCode.ScreeningUnavailable,
+      translationKey:
+        ETranslationsMock.starknet_privacy_error_screening_unavailable,
+      retryable: EStrk20ErrorRetry.Yes,
+    });
+    expect(mapStrk20Error(namedError('ReorgError'))).toEqual({
+      code: EStrk20ErrorCode.Reorg,
+      translationKey: ETranslationsMock.starknet_privacy_error_reorg,
+      retryable: EStrk20ErrorRetry.Once,
+    });
+  });
+
+  it.each(['PROOF_EXPIRED', 'INVALID_BASE_BLOCK_NUMBER'])(
+    'treats the on-chain revert %s as rebuild-then-retry',
+    (revert) => {
+      expect(
+        mapStrk20Error(new Error(`Transaction reverted: ${revert}`)),
+      ).toEqual({
+        code: EStrk20ErrorCode.ProofExpired,
+        translationKey: ETranslationsMock.starknet_privacy_error_proof_expired,
+        retryable: EStrk20ErrorRetry.AfterRebuild,
+      });
+    },
+  );
+
+  it('separates the screening window from a screening verdict', () => {
+    expect(
+      mapStrk20Error(new Error('execution reverted: SCREENING_REQUIRED')),
+    ).toEqual({
+      code: EStrk20ErrorCode.ScreeningWindowExpired,
+      translationKey:
+        ETranslationsMock.starknet_privacy_error_screening_window_expired,
+      retryable: EStrk20ErrorRetry.AfterRebuild,
+    });
+  });
+
+  it('maps a paused pool and falls back on anything else', () => {
+    expect(mapStrk20Error(new Error('reverted: PAUSED')).translationKey).toBe(
+      ETranslationsMock.starknet_privacy_error_pool_paused,
+    );
+    expect(mapStrk20Error(new Error('socket hang up'))).toEqual({
+      code: EStrk20ErrorCode.Unknown,
+      translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+      retryable: EStrk20ErrorRetry.No,
+    });
+    expect(mapStrk20Error(undefined).translationKey).toBe(
+      ETranslationsMock.starknet_privacy_error_unknown,
+    );
+  });
+
+  it.each([429, 503])(
+    'uses Discovery HTTP %s independently of message text',
+    (status) => {
+      expect(
+        mapStrk20Error({
+          name: 'ServiceHttpError',
+          status,
+          message: 'translated transport failure',
+        }),
+      ).toEqual({
+        code: EStrk20ErrorCode.ServiceOverloaded,
+        translationKey:
+          ETranslationsMock.starknet_privacy_error_service_overloaded,
+        retryable: EStrk20ErrorRetry.Yes,
+      });
+    },
+  );
+
+  it.each([
+    'UNPAUSED',
+    'notPAUSEDlower',
+    'NOT_PAUSED',
+    'PROOF_EXPIRED_LATER',
+    'failed (429)',
+  ])(
+    'does not classify a partial token or infer HTTP status from %s',
+    (message) => {
+      expect(mapStrk20Error(new Error(message)).code).toBe(
+        EStrk20ErrorCode.Unknown,
+      );
+    },
+  );
+
+  it('does not guess a mapping from an unrecognised proving code', () => {
+    expect(mapStrk20Error(provingError(42)).translationKey).toBe(
+      ETranslationsMock.starknet_privacy_error_unknown,
+    );
+  });
+});
+
+it.each(['constructor', 'toString', '__proto__'])(
+  'does not accept inherited mapping properties: %s',
+  (name) => {
+    expect(mapStrk20Error({ name }).code).toBe(EStrk20ErrorCode.Unknown);
+    expect(
+      mapStrk20Error({ name: 'StarkscanProverError', code: name }).code,
+    ).toBe(EStrk20ErrorCode.Unknown);
+  },
+);
