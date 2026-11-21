@@ -29,6 +29,7 @@ import {
   EFullScreenPushRoutes,
   EModalRoutes,
   ERootRoutes,
+  getScanModalRequestId,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -419,24 +420,7 @@ export function resetScanModalRoute(options?: { scanRequestId: string }) {
       route.name === ERootRoutes.Modal &&
       screen === EModalRoutes.ScanQrCodeModal
     ) {
-      if (!options) return true;
-      const params = route.params as
-        | { params?: { params?: { scanRequestId?: string } } }
-        | undefined;
-      const modalRoute = route.state?.routes?.[route.state.index ?? 0];
-      const scanRoute =
-        modalRoute?.state?.routes?.[modalRoute.state.index ?? 0];
-      const scanParams = scanRoute?.params as
-        | { scanRequestId?: string }
-        | undefined;
-      const modalParams = modalRoute?.params as
-        | { params?: { scanRequestId?: string } }
-        | undefined;
-      return (
-        (scanParams?.scanRequestId ??
-          modalParams?.params?.scanRequestId ??
-          params?.params?.params?.scanRequestId) === options.scanRequestId
-      );
+      return !options || getScanModalRequestId(route) === options.scanRequestId;
     }
     if (
       !options &&
