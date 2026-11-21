@@ -1,16 +1,28 @@
 import { Children, cloneElement, isValidElement, useMemo } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import {
-  Divider,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { PixelRatio } from 'react-native';
 
-import { TabSettingsSection } from '../../Setting/pages/Tab/ListItem';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  ListItem,
+  ListItemDrillInPropsContext,
+} from '@onekeyhq/kit/src/components/ListItem';
+import {
+  CARD_ROW_CHEVRON_PROPS,
+  CARD_SURFACE_BG,
+  CARD_SURFACE_RADIUS,
+  useCardEdgeProps,
+} from '@onekeyhq/kit/src/hooks/useCardSurface';
+
+import {
+  LIST_ITEM_GROUP_INSET,
+  LIST_ITEM_GROUP_ITEM_PROPS,
+  LIST_ITEM_GROUP_TITLE_SIZE,
+} from './listItemGroupLayout';
+
+// One device pixel between rows: crisp on high-density screens.
+const HAIRLINE = 1 / PixelRatio.get();
 
 type IListItemGroupProps = {
   title?: string;
@@ -27,9 +39,7 @@ function ListItemGroupBase({
   withSeparator = false,
   groupProps,
 }: IListItemGroupProps) {
-  const { gtMd } = useMedia();
-  const py = gtMd ? undefined : '$3';
-
+  const cardEdgeProps = useCardEdgeProps();
   const normalizedChildren = useMemo(() => {
     const arr = Children.toArray(children);
     const res: ReactNode[] = [];
@@ -42,10 +52,7 @@ function ListItemGroupBase({
       }
 
       const mergedProps = {
-        mx: '$0',
-        px: '$5',
-        py,
-        borderRadius: '$0',
+        ...LIST_ITEM_GROUP_ITEM_PROPS,
         ...itemProps,
         ...(child.props as object),
       } as ComponentProps<typeof ListItem>;
@@ -54,41 +61,51 @@ function ListItemGroupBase({
       const isLast = idx === arr.length - 1;
       if (!isLast && withSeparator) {
         res.push(
-          <XStack key={`sep-${idx}`} mx="$5">
-            <Divider borderColor="$neutral4" />
+          <XStack key={`sep-${idx}`} mx={LIST_ITEM_GROUP_INSET}>
+            <Divider
+              borderColor="$neutral4"
+              borderBottomWidth={HAIRLINE}
+              maxHeight={HAIRLINE}
+            />
           </XStack>,
         );
       }
     });
 
     return res;
-  }, [children, itemProps, withSeparator, py]);
+  }, [children, itemProps, withSeparator]);
 
   return (
-    <YStack>
+    <YStack gap="$2.5" {...groupProps}>
       {title ? (
-        <XStack ai="center" h="$10" px="$5">
-          <SizableText size="$headingSm" color="$textSubdued">
-            {title}
-          </SizableText>
-        </XStack>
+        <SizableText
+          size={LIST_ITEM_GROUP_TITLE_SIZE}
+          role="heading"
+          aria-level={2}
+        >
+          {title}
+        </SizableText>
       ) : null}
-
-      <TabSettingsSection
-        borderRadius="$4"
-        bg="$bgApp"
-        borderWidth={1}
-        borderColor="$neutral4"
-        {...groupProps}
-      >
-        {normalizedChildren}
-      </TabSettingsSection>
+      {/* The shadow sits on an outer layer: clipping on the same view would
+          cut it off on iOS. The inner layer clips row hover fills to the
+          rounded corners. */}
+      <YStack borderRadius={CARD_SURFACE_RADIUS} {...cardEdgeProps}>
+        <YStack
+          bg={CARD_SURFACE_BG}
+          borderRadius={CARD_SURFACE_RADIUS}
+          overflow="hidden"
+        >
+          <ListItemDrillInPropsContext.Provider value={CARD_ROW_CHEVRON_PROPS}>
+            {normalizedChildren}
+          </ListItemDrillInPropsContext.Provider>
+        </YStack>
+      </YStack>
     </YStack>
   );
 }
 
 function ListItemGroupItem(props: ComponentProps<typeof ListItem>) {
-  return <ListItem mx="$0" px="$5" borderRadius="$0" {...props} />;
+  return <ListItem {...LIST_ITEM_GROUP_ITEM_PROPS} {...props} />;
 }
 
 export const ListItemGroup = Object.assign(ListItemGroupBase, {

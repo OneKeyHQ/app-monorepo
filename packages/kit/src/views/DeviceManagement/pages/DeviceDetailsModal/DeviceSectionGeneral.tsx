@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Select, Switch, XStack } from '@onekeyhq/components';
+import { Select, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -35,8 +35,14 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import {
+  LIST_ITEM_GROUP_ITEM_PROPS,
+  LIST_ITEM_TITLE_SIZE,
+  LIST_ITEM_VALUE_SIZE,
+} from '../listItemGroupLayout';
 
 import { DeviceBrightnessSlider } from './DeviceBrightnessSlider';
+import { RowSwitch } from './RowSwitch';
 import { TREZOR_AUTO_LOCK_OPTIONS } from './utils';
 
 const LOCKED_VALUE = 0;
@@ -61,19 +67,19 @@ function getDurationLabel({
 }) {
   if ('minute' in option) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_minutes },
-      { number: option.minute },
+      { id: ETranslations.device_details_duration_minutes__title },
+      { count: option.minute },
     );
   }
   if ('hour' in option) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_hours },
-      { number: option.hour },
+      { id: ETranslations.device_details_duration_hours__title },
+      { count: option.hour },
     );
   }
   return intl.formatMessage(
-    { id: ETranslations.earn_number_days },
-    { number: option.day },
+    { id: ETranslations.device_details_duration_days__title },
+    { count: option.day },
   );
 }
 
@@ -91,13 +97,13 @@ function getDeviceDurationLabel({
   }
   if (valueMs < 60_000) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_seconds },
-      { number: valueMs / 1000 },
+      { id: ETranslations.device_details_duration_seconds__title },
+      { count: valueMs / 1000 },
     );
   }
   return intl.formatMessage(
-    { id: ETranslations.earn_number_minutes },
-    { number: valueMs / 60_000 },
+    { id: ETranslations.device_details_duration_minutes__title },
+    { count: valueMs / 60_000 },
   );
 }
 
@@ -156,15 +162,11 @@ export function LanguageListItem({
       sheetProps={{ disableDrag: true }}
       renderTrigger={() => (
         <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
+          {...LIST_ITEM_GROUP_ITEM_PROPS}
           title={intl.formatMessage({
             id: ETranslations.global_language,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           disabled={disabled || stateful.loading}
         >
           <XStack alignItems="center">
@@ -172,11 +174,12 @@ export function LanguageListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: LIST_ITEM_VALUE_SIZE,
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         </ListItem>
       )}
@@ -236,15 +239,11 @@ export function AutoLockListItem({
   return (
     <ListItem
       testID={DeviceManagementTestIDs.autoLockSelect}
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_auto_lock,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       disabled={isDisabled}
       onPress={handleOpen}
     >
@@ -267,11 +266,12 @@ export function AutoLockListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: LIST_ITEM_VALUE_SIZE,
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         )}
       />
@@ -333,15 +333,11 @@ export function AutoShutDownListItem({
   return (
     <ListItem
       testID={DeviceManagementTestIDs.autoShutDownSelect}
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_auto_shutdown,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       disabled={isDisabled}
       onPress={handleOpen}
     >
@@ -364,11 +360,12 @@ export function AutoShutDownListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: LIST_ITEM_VALUE_SIZE,
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         )}
       />
@@ -389,19 +386,16 @@ export function HapticFeedbackListItem() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      borderRadius="$0"
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_vibration_haptic,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       value={hapticFeedback ?? false}
       onAction={onUpdateHapticFeedback}
     >
       {({ value, disabled, onChange }) => (
-        <Switch
-          size="small"
+        <RowSwitch
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -424,12 +418,36 @@ function Pro2BrightnessListItem() {
   );
 }
 
-function DeviceSectionGeneral() {
-  const intl = useIntl();
-  const actions = useDeviceDetailsActions();
-  const navigation = useAppNavigation();
+type IDeviceDelaySelectOption = {
+  isNever?: boolean;
+  label: string;
+  value: number;
+};
 
-  const [deviceMeta] = useDeviceMetaStaticAtom();
+type IDeviceGeneralOptions = {
+  // The device the lists were built for; see useDeviceGeneralOptions.
+  builtFor: string;
+  languageOptions: Array<{ label: string; value: string }>;
+  autoLockOptions: IDeviceDelaySelectOption[];
+  autoShutDownOptions: IDeviceDelaySelectOption[];
+};
+
+// A list that fails to load hides its row instead of holding the page.
+async function settleList<T>(load: () => Promise<T[]>): Promise<T[]> {
+  try {
+    return await load();
+  } catch {
+    return [];
+  }
+}
+
+// The option lists behind the Language, Auto lock and Auto shutdown rows
+// come from the hardware SDK, which loads asynchronously. They resolve
+// together and carry the device they were built for, so the page can hold
+// its sections until the rows are known: General arrives complete instead
+// of growing under the reader a frame later.
+export function useDeviceGeneralOptions() {
+  const intl = useIntl();
   const [deviceType] = useDeviceTypeAtom();
   const [device] = useDeviceAtom();
   const isTrezor = device?.vendor === EHardwareVendor.trezor;
@@ -444,84 +462,82 @@ function DeviceSectionGeneral() {
     }
     return undefined;
   }, [device?.connectProtocol, device?.deviceStateInfo?.protocol]);
+  const builtFor = `${deviceType ?? ''}|${settingsProtocol ?? ''}|${
+    isTrezor ? 'trezor' : ''
+  }`;
+
+  const { result: options } =
+    usePromiseResult<IDeviceGeneralOptions>(async () => {
+      const toDelaySelectOption = (
+        option: IDeviceDelayOption,
+      ): IDeviceDelaySelectOption => ({
+        isNever: option.isNever,
+        label: getDeviceDurationLabel({
+          intl,
+          isNever: option.isNever,
+          valueMs: option.valueMs,
+        }),
+        value: option.valueMs,
+      });
+      const [languageOptions, autoLockOptions, autoShutDownOptions] =
+        await Promise.all([
+          settleList(async () => {
+            if (isTrezor || !deviceType) return [];
+            const list = (await deviceUtils.getLanguageConfig({
+              deviceType,
+            })) as IDeviceLanguageOption[];
+            return list.map((option) => ({
+              label: option.label,
+              value: option.code,
+            }));
+          }),
+          settleList(async () => {
+            if (isTrezor) {
+              return TREZOR_AUTO_LOCK_OPTIONS.map((option) => ({
+                label: getDurationLabel({ intl, option }),
+                value: timerUtils.getTimeDurationMs(option),
+              }));
+            }
+            if (!deviceType || !settingsProtocol) return [];
+            const list = (await deviceUtils.getAutoLockOptions({
+              deviceType,
+              protocol: settingsProtocol,
+            })) as IDeviceDelayOption[];
+            return list.map(toDelaySelectOption);
+          }),
+          settleList(async () => {
+            if (isTrezor || !deviceType || !settingsProtocol) return [];
+            const list = (await deviceUtils.getAutoShutDownOptions({
+              deviceType,
+              protocol: settingsProtocol,
+            })) as IDeviceDelayOption[];
+            return list.map(toDelaySelectOption);
+          }),
+        ]);
+      return {
+        builtFor,
+        languageOptions,
+        autoLockOptions,
+        autoShutDownOptions,
+      };
+    }, [builtFor, deviceType, intl, isTrezor, settingsProtocol]);
+  return { options, isCurrent: options?.builtFor === builtFor };
+}
+
+function DeviceSectionGeneral({ options }: { options: IDeviceGeneralOptions }) {
+  const intl = useIntl();
+  const actions = useDeviceDetailsActions();
+  const navigation = useAppNavigation();
+
+  const [deviceMeta] = useDeviceMetaStaticAtom();
+  const [deviceType] = useDeviceTypeAtom();
+  const [device] = useDeviceAtom();
+  const isTrezor = device?.vendor === EHardwareVendor.trezor;
   const trezorFeatures = useMemo(
     () => (device?.featuresInfo ?? {}) as Record<string, unknown>,
     [device?.featuresInfo],
   );
-
-  // Load and format language options
-  const { result: languageOptions } = usePromiseResult(
-    async () => {
-      if (isTrezor) return [];
-      if (!deviceType) return [];
-      const options = (await deviceUtils.getLanguageConfig({
-        deviceType,
-      })) as IDeviceLanguageOption[];
-      return options.map((option) => ({
-        label: option.label,
-        value: option.code,
-      }));
-    },
-    [deviceType, isTrezor],
-    {
-      initResult: [],
-    },
-  );
-
-  // Load and format auto lock options
-  const { result: autoLockOptions } = usePromiseResult(
-    async () => {
-      if (isTrezor) {
-        return TREZOR_AUTO_LOCK_OPTIONS.map((option) => ({
-          label: getDurationLabel({ intl, option }),
-          value: timerUtils.getTimeDurationMs(option),
-        }));
-      }
-      if (!deviceType || !settingsProtocol) return [];
-      const options = (await deviceUtils.getAutoLockOptions({
-        deviceType,
-        protocol: settingsProtocol,
-      })) as IDeviceDelayOption[];
-      return options.map((option) => ({
-        isNever: option.isNever,
-        label: getDeviceDurationLabel({
-          intl,
-          isNever: option.isNever,
-          valueMs: option.valueMs,
-        }),
-        value: option.valueMs,
-      }));
-    },
-    [deviceType, intl, isTrezor, settingsProtocol],
-    {
-      initResult: [],
-    },
-  );
-
-  // Load and format auto shutdown options
-  const { result: autoShutDownOptions } = usePromiseResult(
-    async () => {
-      if (isTrezor) return [];
-      if (!deviceType || !settingsProtocol) return [];
-      const options = (await deviceUtils.getAutoShutDownOptions({
-        deviceType,
-        protocol: settingsProtocol,
-      })) as IDeviceDelayOption[];
-      return options.map((option) => ({
-        isNever: option.isNever,
-        label: getDeviceDurationLabel({
-          intl,
-          isNever: option.isNever,
-          valueMs: option.valueMs,
-        }),
-        value: option.valueMs,
-      }));
-    },
-    [deviceType, intl, isTrezor, settingsProtocol],
-    {
-      initResult: [],
-    },
-  );
+  const { languageOptions, autoLockOptions, autoShutDownOptions } = options;
 
   const {
     showLanguage,
@@ -642,7 +658,7 @@ function DeviceSectionGeneral() {
       title={intl.formatMessage({
         id: ETranslations.global_brightness,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       drillIn
       onPress={onPressBrightness}
       testID={DeviceManagementTestIDs.brightnessItem}
@@ -652,7 +668,6 @@ function DeviceSectionGeneral() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_general,
       })}
@@ -666,7 +681,7 @@ function DeviceSectionGeneral() {
           title={intl.formatMessage({
             id: deviceMeta.addWallpaperTitleId,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           drillIn
           onPress={onPressHomescreen}
           testID={DeviceManagementTestIDs.wallpaperItem}

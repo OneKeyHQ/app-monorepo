@@ -41,6 +41,8 @@ import type { IDeviceScreenAnimation } from '../deviceSceneHost';
 
 const DEVICE_W = 1044;
 const DEVICE_H = 1751;
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const TOUCH_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /** The glass face color — also the panel every scene composites over. */
 export const TOUCH_FACE = '#151515';
