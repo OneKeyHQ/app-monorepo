@@ -8778,10 +8778,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             cloudSyncItemBuilder.getPwdHash(verifiedCredential);
           if (!syncItem?.data || !activeHash || syncItem.pwdHash !== activeHash)
             throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
-          const [current] = await this.txGetRecordById({
+          const {
+            records: [current],
+          } = await this.txGetRecordsByIds({
             tx,
             name: ELocalDBStoreNames.CloudSyncItem,
-            id: syncItem.id,
+            ids: [syncItem.id],
           });
           if (
             current &&

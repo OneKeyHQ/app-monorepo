@@ -318,6 +318,46 @@ it('uses disjoint namespaces for existing archive bytes and local display change
   );
 });
 
+it('creates the missing Wallet pool row for a verified local edit', async () => {
+  const {
+    db,
+    wallet,
+    pool,
+    verifiedCredential,
+    apiUploadItems,
+    runWithDesktopWalletMetadataKey,
+  } = await setUp(11);
+  await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+    await db.txRemoveRecords({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: [pool.id],
+    });
+  });
+  runWithDesktopWalletMetadataKey.mockImplementationOnce(async (apply) =>
+    apply(verifiedCredential, () => true),
+  );
+
+  const namedWallet = await db.setWalletNameAndAvatar({
+    walletId: wallet.id,
+    allowDesktopLocalMetadata: true,
+    name: 'Renamed with no prior sync row',
+  });
+
+  expect(namedWallet.hasDesktopLocalMetadata).toBeUndefined();
+  expect(await db.getWallet({ walletId: wallet.id })).toMatchObject({
+    name: 'Renamed with no prior sync row',
+  });
+  const pending = await db.getSyncItem({ id: pool.id });
+  expect(pending).toMatchObject({
+    data: 'new-synthetic-ciphertext',
+    dataTime: 43,
+    pwdHash: verifiedCredential.masterPasswordUUID,
+    serverUploaded: false,
+  });
+  expect(apiUploadItems).toHaveBeenCalledTimes(1);
+});
+
 it('preserves a foreign row even during an intentional edit with a verified current key', async () => {
   const {
     db,
