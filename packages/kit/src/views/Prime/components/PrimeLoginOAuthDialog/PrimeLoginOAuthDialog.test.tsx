@@ -24,7 +24,7 @@ jest.mock('react-intl', () => ({
     // Rich-text messages render their tags, like react-intl does.
     formatMessage: (
       { id }: { id: string },
-      values?: { link?: (chunks: string[]) => unknown },
+      values?: { link?: (chunks: string[]) => import('react').ReactNode },
     ) => {
       if (!values?.link) return id;
       const React = jest.requireActual('react') as typeof import('react');
