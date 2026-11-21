@@ -93,6 +93,7 @@ describe('LightningVault.validateAddress', () => {
   it.each([
     'lightning:lnurlp://example.com/pay\nThanks',
     'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
+    '请支付：lnurlp://merchant.example/checkout?order=12 \r\n34',
   ])(
     'rejects an ambiguous multiline LNURL without sending it to the invoice decoder',
     async (text) => {
@@ -108,6 +109,7 @@ describe('LightningVault.validateAddress', () => {
   it.each([
     ['Pay here: (lnurlp://example.com/pay).', 'lnurlp://example.com/pay'],
     ['(lnurlp://example.com/pay)\nThanks', 'lnurlp://example.com/pay'],
+    ['lnurlp://example.com/pay\n\nThanks', 'lnurlp://example.com/pay'],
     [
       'Pay here: lnurlp://example.com/pay?note=thanks!',
       'lnurlp://example.com/pay?note=thanks!',

@@ -117,10 +117,12 @@ function readReusableLightningRecipient(
   if (isReusableLightningRecipient(address)) {
     return { kind: 'recipient', address };
   }
-  const standalone = normalizeLightningInput(address).trim();
+  const standaloneLines = normalizeLightningInput(address)
+    .trim()
+    .split(/\r\n?|\n/);
   if (
-    /[\r\n]/.test(standalone) &&
-    /^lnurl[pwc]:\S+$/i.test(standalone.replace(/[\r\n]+/g, ''))
+    standaloneLines[1]?.trim() &&
+    /^lnurl[pwc]:\S+$/i.test(standaloneLines.join(''))
   ) {
     return { kind: 'ambiguous' };
   }
@@ -139,9 +141,12 @@ function readReusableLightningRecipient(
     const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
       const suffix = address.slice(match.index + matchedText.length);
-      const nextLine = /^[\r\n]/.test(suffix) ? suffix.trimStart() : '';
+      const [sameLine, followingLine = ''] = suffix.split(/\r\n?|\n/, 2);
+      const nextLine = followingLine.trim();
+      // A blank line separates paragraphs. Trailing spaces on the URI line do not.
       if (
         LNURL_URI_SCHEME.test(candidate) &&
+        !sameLine.trim() &&
         nextLine &&
         !closedInToken &&
         !(closer && nextLine.startsWith(closer))

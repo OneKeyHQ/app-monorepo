@@ -85,6 +85,8 @@ it('excludes a surrounding wrapper and adjacent sentence punctuation', () => {
 it.each([
   'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
   'Pay here:\r\nLIGHTNING:lnurlp://merchant.example/checkout?order=12\r\n  34',
+  '请支付：lnurlp://merchant.example/checkout?order=12 \t\n34',
+  'lnurlp://merchant.example/checkout?order=12 \r\n34',
 ])(
   'rejects an open-ended LNURL that could continue on the next line',
   (text) => {
@@ -92,6 +94,16 @@ it.each([
     expect(resolveReusableLightningRecipient(text)).toBeNull();
   },
 );
+
+it.each([
+  'lnurlp://example.com/pay\n\nThanks',
+  '请支付：lnurlp://example.com/pay  \r\n\t\r\nThanks for your order.',
+])('keeps a complete LNURL before a blank line', (input) => {
+  expect(isAmbiguousMultilineLnurl(input)).toBe(false);
+  expect(resolveReusableLightningRecipient(input)).toBe(
+    'lnurlp://example.com/pay',
+  );
+});
 
 it('uses explicit wrappers and checksum validation as recipient boundaries', () => {
   const uri = 'lnurlp://merchant.example/checkout?order=12';

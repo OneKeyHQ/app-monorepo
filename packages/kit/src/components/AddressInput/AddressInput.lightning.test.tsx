@@ -86,6 +86,7 @@ it.each([
 it.each([
   'lnurlp://example.com/pay\nThanks',
   'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
+  '请支付：lnurlp://merchant.example/checkout?order=12 \t\n34',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(
@@ -122,6 +123,32 @@ it.each([
     expect(mockQuery).not.toHaveBeenCalled();
   },
 );
+
+it('preserves the paragraph break when sending an LNURL for validation', async () => {
+  mockQuery.mockClear();
+  mockQuery.mockResolvedValueOnce({ input: '' });
+  const networkId = getNetworkIdsMap().lightning;
+  const onChange = jest.fn();
+  const address = 'lnurlp://example.com/pay\n\nThanks';
+  render(
+    <AddressInput
+      name="to"
+      accountId="account-id"
+      networkId={networkId}
+      onChange={onChange}
+    />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Recipient' }), {
+    target: { value: address },
+  });
+
+  expect(onChange).toHaveBeenCalledWith({ raw: address, pending: true });
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ address, networkId }),
+    ),
+  );
+});
 
 it('joins a wrapped LNURL with a valid checksum before validating it', async () => {
   mockQuery.mockClear();
