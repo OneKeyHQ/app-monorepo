@@ -3,6 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMMKVInstance } from '@onekeyhq/shared/src/storage/instance/createMMKVSyncStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
+import {
+  PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+  perpSnapshotCache,
+} from '../../dbs/simple/base/simpleDbSnapshotCacheUtils';
+
 import { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
 import { buildJotaiStorageKey } from './jotaiStorage';
@@ -62,6 +67,16 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
   let atomCount = 0;
   Object.values(EAtomNames).forEach((name) => {
     try {
+      if (name === EAtomNames.perpsAccountDisplaySnapshotAtom) {
+        const snapshot = perpSnapshotCache.get(
+          PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+        )?.data;
+        if (snapshot !== undefined && snapshot !== null) {
+          states[name] = snapshot;
+          atomCount += 1;
+        }
+        return;
+      }
       const raw = mmkv?.getString(buildJotaiStorageKey(name));
       if (raw === undefined) {
         return;

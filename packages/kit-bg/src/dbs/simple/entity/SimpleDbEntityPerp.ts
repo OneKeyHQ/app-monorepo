@@ -1,3 +1,5 @@
+import { isFunction, omit } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
@@ -8,6 +10,7 @@ import {
   PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES,
   PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
 } from '@onekeyhq/shared/src/consts/perpCache';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
@@ -26,6 +29,16 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import {
+  PERP_JOTAI_DISPLAY_SNAPSHOT_KEY,
+  PERP_SNAPSHOT_NAMESPACE,
+  decodeSnapshotSubKey,
+  encodeSnapshotSubKey,
+  ensureSimpleDbSnapshotNamespaceReady,
+  isEntityMethodMocked,
+  isSimpleDbSnapshotPersistenceAllowed,
+  perpSnapshotCache,
+} from '../base/simpleDbSnapshotCacheUtils';
 
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp';
 
@@ -192,10 +205,176 @@ export interface ISimpleDbPerpData {
   perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
 }
 
+const PERP_UNIVERSE_CACHE_KEY = 'universe';
+const PERP_SPOT_META_CACHE_KEY = 'spot-meta';
+const PERP_ALL_DEXS_ASSET_CTXS_CACHE_KEY = 'all-dexs-asset-ctxs';
+const PERP_ACTIVE_CTX_PREFIX = 'active-ctx:';
+const PERP_L2_BOOK_PREFIX = 'l2-book:';
+const PERP_ACCOUNT_DISPLAY_PREFIX = 'acct-display:';
+const PERP_PORTFOLIO_PREFIX = 'portfolio:';
+const PERP_DEPOSIT_TOKENS_PREFIX = 'deposit-tokens:';
+
+const SPLIT_PERP_CACHE_FIELDS = [
+  'tradingUniverse',
+  'marginTablesMap',
+  'tradingUniverses',
+  'tradingUniversesUpdatedAt',
+  'marginTablesMapList',
+  'spotTokens',
+  'spotUniverses',
+  'activeAssetCtxSnapshotCache',
+  'l2BookSnapshotCache',
+  'allDexsAssetCtxsSnapshotCache',
+  'perpsAccountDisplayCacheByAddress',
+  'hyperliquidPortfolioSnapshotByAddress',
+  'perpsDepositTokenListCache',
+] as const;
+
+type IPerpsUniverseCacheRecord = {
+  universesByDex: IPerpsUniverse[][];
+  marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
+  updatedAt: number;
+};
+
+type IPerpsSpotMetaCacheRecord = {
+  tokens: ISpotToken[];
+  universes: ISpotUniverse[];
+};
+
+const DEFAULT_APP_STORAGE =
+  storageHub.$webStorageSimpleDB || storageHub.appStorage;
+
+function hasSplitPerpCacheFields(
+  data: ISimpleDbPerpData | null | undefined,
+): boolean {
+  if (!data) {
+    return false;
+  }
+  return SPLIT_PERP_CACHE_FIELDS.some((field) => data[field] !== undefined);
+}
+
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  protected override readonly enableReferenceEqualityWriteSkip = true;
+
+  private isDefaultAppStorage(): boolean {
+    return this.appStorage === DEFAULT_APP_STORAGE;
+  }
+
+  private canUseDirectShardedAccess(): boolean {
+    return (
+      this.isDefaultAppStorage() &&
+      !isEntityMethodMocked(this, 'getRawData') &&
+      !isEntityMethodMocked(this, 'setRawData') &&
+      !isEntityMethodMocked(this, 'setRawDataWithCommitGuard') &&
+      !isEntityMethodMocked(this, 'getPerpData') &&
+      !isEntityMethodMocked(this, 'setPerpData')
+    );
+  }
+
+  private _trimShardedPrefixEntries(prefix: string, maxEntries: number): void {
+    const matchingKeys = perpSnapshotCache
+      .keys()
+      .filter((key) => key.startsWith(prefix));
+    if (matchingKeys.length <= maxEntries) {
+      return;
+    }
+    const getSortTimestamp = (encodedKey: string): number => {
+      const entry = perpSnapshotCache.get(encodedKey);
+      const data = entry?.data as
+        | { fetchedAt?: number; updatedAt?: number }
+        | undefined;
+      return data?.fetchedAt ?? data?.updatedAt ?? entry?.updatedAt ?? 0;
+    };
+    matchingKeys
+      .toSorted((a, b) => getSortTimestamp(b) - getSortTimestamp(a))
+      .slice(maxEntries)
+      .forEach((keyToRemove) => {
+        perpSnapshotCache.remove(keyToRemove);
+      });
+  }
+
+  private readAllShardedPortfolioSnapshots(): Record<
+    string,
+    IHyperliquidPortfolioSnapshot
+  > {
+    const result: Record<string, IHyperliquidPortfolioSnapshot> = {};
+    perpSnapshotCache.keys().forEach((encodedKey) => {
+      const address = decodeSnapshotSubKey(PERP_PORTFOLIO_PREFIX, encodedKey);
+      if (address === undefined) {
+        return;
+      }
+      const entry = perpSnapshotCache.get(encodedKey)?.data as
+        | IHyperliquidPortfolioSnapshot
+        | undefined;
+      if (entry && this._normalizePerpsAccountKey(entry.address) === address) {
+        result[address] = entry;
+      }
+    });
+    return result;
+  }
+
+  protected override async setRawDataWithCommitGuard(
+    dataOrBuilder:
+      | ISimpleDbPerpData
+      | ((rawData: ISimpleDbPerpData | null | undefined) => ISimpleDbPerpData)
+      | ((
+          rawData: ISimpleDbPerpData | null | undefined,
+        ) => Promise<ISimpleDbPerpData>),
+    assertCanCommit?: () => void,
+    onCommitted?: (data: ISimpleDbPerpData) => void,
+  ): Promise<ISimpleDbPerpData | undefined> {
+    if (!this.canUseDirectShardedAccess()) {
+      return super.setRawDataWithCommitGuard(
+        dataOrBuilder,
+        assertCanCommit,
+        onCommitted,
+      );
+    }
+    return super.setRawDataWithCommitGuard(
+      async (rawData) => {
+        const hadSplitResidue = hasSplitPerpCacheFields(rawData);
+        const strippedRawData = rawData
+          ? (omit(rawData, SPLIT_PERP_CACHE_FIELDS) as ISimpleDbPerpData)
+          : rawData;
+        const built = isFunction(dataOrBuilder)
+          ? await dataOrBuilder(strippedRawData)
+          : dataOrBuilder;
+        if (
+          !hadSplitResidue &&
+          strippedRawData !== null &&
+          strippedRawData !== undefined &&
+          rawData !== null &&
+          rawData !== undefined &&
+          Object.is(built, strippedRawData)
+        ) {
+          return rawData;
+        }
+        return omit(built, SPLIT_PERP_CACHE_FIELDS) as ISimpleDbPerpData;
+      },
+      assertCanCommit,
+      onCommitted,
+    );
+  }
+
+  @backgroundMethod()
+  override async clearRawData(): Promise<void> {
+    if (
+      this.isDefaultAppStorage() &&
+      (await isSimpleDbSnapshotPersistenceAllowed())
+    ) {
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      perpSnapshotCache.keys().forEach((key) => {
+        if (key !== PERP_JOTAI_DISPLAY_SNAPSHOT_KEY) {
+          perpSnapshotCache.remove(key);
+        }
+      });
+    }
+    await super.clearRawData();
+  }
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
@@ -273,15 +452,30 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   @backgroundMethod()
   async getPerpData(): Promise<ISimpleDbPerpData> {
     const config = await this.getRawData();
-    const result = config || {
-      tradingUniverse: [],
-    };
-    result.agentTTL = result.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
-    result.referralCode = result.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
-    result.hyperliquidCustomSettings = result.hyperliquidCustomSettings ?? {
+    const useSharded = this.canUseDirectShardedAccess();
+    let base: ISimpleDbPerpData;
+    if (!config) {
+      base = {
+        tradingUniverse: [],
+      };
+    } else if (useSharded) {
+      base = { ...omit(config, SPLIT_PERP_CACHE_FIELDS) };
+    } else {
+      base = { ...config };
+    }
+    if (useSharded && (await isSimpleDbSnapshotPersistenceAllowed())) {
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const portfolioSnapshots = this.readAllShardedPortfolioSnapshots();
+      if (Object.keys(portfolioSnapshots).length > 0) {
+        base.hyperliquidPortfolioSnapshotByAddress = portfolioSnapshots;
+      }
+    }
+    base.agentTTL = base.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
+    base.referralCode = base.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
+    base.hyperliquidCustomSettings = base.hyperliquidCustomSettings ?? {
       skipOrderConfirm: false,
     };
-    return result;
+    return base;
   }
 
   @backgroundMethod()
@@ -299,6 +493,25 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
     updatedAt?: number;
   }> {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return {
+          universesByDex: [],
+          marginTablesMapByDex: [],
+          updatedAt: undefined,
+        };
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const cached = perpSnapshotCache.get(PERP_UNIVERSE_CACHE_KEY)?.data as
+        | IPerpsUniverseCacheRecord
+        | undefined;
+      return {
+        universesByDex: cached?.universesByDex ?? [],
+        marginTablesMapByDex: cached?.marginTablesMapByDex ?? [],
+        updatedAt: cached?.updatedAt,
+      };
+    }
+
     const config = await this.getPerpData();
     const tradingUniverses = config.tradingUniverses;
     let universesByDex: IPerpsUniverse[][] = [];
@@ -338,6 +551,20 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     universes: IPerpsUniverse[][];
     marginTablesMapList: Array<IMarginTablesMap | undefined>;
   }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const record: IPerpsUniverseCacheRecord = {
+        universesByDex: universes,
+        marginTablesMapByDex: marginTablesMapList,
+        updatedAt: Date.now(),
+      };
+      perpSnapshotCache.set(PERP_UNIVERSE_CACHE_KEY, record);
+      return;
+    }
+
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
@@ -358,6 +585,20 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     coin: string;
     maxAgeMs: number;
   }): Promise<IPerpsActiveAssetCtxSnapshotCacheEntry | undefined> {
+    if (this.canUseDirectShardedAccess()) {
+      if (!coin || !(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(
+        encodeSnapshotSubKey(PERP_ACTIVE_CTX_PREFIX, coin),
+      )?.data as IPerpsActiveAssetCtxSnapshotCacheEntry | undefined;
+      if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+        return undefined;
+      }
+      return entry;
+    }
+
     const config = await this.getPerpData();
     const entry = config.activeAssetCtxSnapshotCache?.[coin];
     if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
@@ -371,6 +612,26 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!data?.coin) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry: IPerpsActiveAssetCtxSnapshotCacheEntry = {
+        data,
+        updatedAt: Date.now(),
+      };
+      perpSnapshotCache.set(
+        encodeSnapshotSubKey(PERP_ACTIVE_CTX_PREFIX, data.coin),
+        entry,
+      );
+      this._trimShardedPrefixEntries(
+        PERP_ACTIVE_CTX_PREFIX,
+        PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+      );
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       const nextCache = {
         ...prev?.activeAssetCtxSnapshotCache,
@@ -398,12 +659,26 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     mantissa?: number | null;
     maxAgeMs: number;
   }): Promise<IPerpsL2BookSnapshotCacheEntry | undefined> {
-    const config = await this.getPerpData();
     const key = this._getL2BookSnapshotCacheKey({
       coin,
       nSigFigs,
       mantissa,
     });
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(
+        encodeSnapshotSubKey(PERP_L2_BOOK_PREFIX, key),
+      )?.data as IPerpsL2BookSnapshotCacheEntry | undefined;
+      if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+        return undefined;
+      }
+      return entry;
+    }
+
+    const config = await this.getPerpData();
     const entry = config.l2BookSnapshotCache?.[key];
     if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
       return undefined;
@@ -441,6 +716,39 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (validSnapshots.length === 0) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const updatedAt = Date.now();
+      const entries = validSnapshots.map(
+        ({ coin, nSigFigs, mantissa, data }) => {
+          const key = this._getL2BookSnapshotCacheKey({
+            coin,
+            nSigFigs,
+            mantissa,
+          });
+          const entry: IPerpsL2BookSnapshotCacheEntry = {
+            data,
+            updatedAt,
+            nSigFigs,
+            mantissa,
+          };
+          return [
+            encodeSnapshotSubKey(PERP_L2_BOOK_PREFIX, key),
+            entry,
+          ] as const;
+        },
+      );
+      perpSnapshotCache.setMany(entries);
+      this._trimShardedPrefixEntries(
+        PERP_L2_BOOK_PREFIX,
+        PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
+      );
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       const updatedAt = Date.now();
       const nextCache = { ...prev?.l2BookSnapshotCache };
@@ -470,6 +778,19 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }: {
     maxAgeMs: number;
   }): Promise<IPerpsAllDexsAssetCtxsSnapshotCacheEntry | undefined> {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(PERP_ALL_DEXS_ASSET_CTXS_CACHE_KEY)
+        ?.data as IPerpsAllDexsAssetCtxsSnapshotCacheEntry | undefined;
+      if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
+        return undefined;
+      }
+      return entry;
+    }
+
     const config = await this.getPerpData();
     const entry = config.allDexsAssetCtxsSnapshotCache;
     if (!this._isCacheEntryFresh(entry?.updatedAt, maxAgeMs)) {
@@ -485,6 +806,19 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (ctxCount <= 0) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry: IPerpsAllDexsAssetCtxsSnapshotCacheEntry = {
+        data,
+        updatedAt: Date.now(),
+      };
+      perpSnapshotCache.set(PERP_ALL_DEXS_ASSET_CTXS_CACHE_KEY, entry);
+      return;
+    }
+
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
@@ -586,8 +920,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
-        tradingUniverse: prev?.tradingUniverse,
-        marginTablesMap: prev?.marginTablesMap,
         tradingviewDisplayPriceScale: {
           ...prev?.tradingviewDisplayPriceScale,
           [symbol]: priceScale,
@@ -742,6 +1074,20 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     tokens: ISpotToken[];
     universes: ISpotUniverse[];
   }> {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return { tokens: [], universes: [] };
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const cached = perpSnapshotCache.get(PERP_SPOT_META_CACHE_KEY)?.data as
+        | IPerpsSpotMetaCacheRecord
+        | undefined;
+      return {
+        tokens: cached?.tokens ?? [],
+        universes: cached?.universes ?? [],
+      };
+    }
+
     const config = await this.getPerpData();
     return {
       tokens: config.spotTokens || [],
@@ -757,6 +1103,19 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     tokens: ISpotToken[];
     universes: ISpotUniverse[];
   }) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const record: IPerpsSpotMetaCacheRecord = {
+        tokens,
+        universes,
+      };
+      perpSnapshotCache.set(PERP_SPOT_META_CACHE_KEY, record);
+      return;
+    }
+
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
@@ -789,14 +1148,28 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return undefined;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(
+        encodeSnapshotSubKey(PERP_ACCOUNT_DISPLAY_PREFIX, key),
+      )?.data as IPerpsAccountDisplayCacheEntry | undefined;
+      if (
+        !entry ||
+        this._normalizePerpsAccountKey(entry.accountAddress) !== key
+      ) {
+        return undefined;
+      }
+      return entry;
+    }
+
     const config = await this.getPerpData();
     const entry = config.perpsAccountDisplayCacheByAddress?.[key];
     if (!entry) {
       return undefined;
     }
-    // Defensive: ignore cache entries that don't match the requested address
-    // (should be impossible since the key is the address, but guards against
-    // corrupted data).
     if (this._normalizePerpsAccountKey(entry.accountAddress) !== key) {
       return undefined;
     }
@@ -813,20 +1186,47 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      await this.mutex.runExclusive(async () => {
+        const encodedKey = encodeSnapshotSubKey(
+          PERP_ACCOUNT_DISPLAY_PREFIX,
+          key,
+        );
+        const existing = perpSnapshotCache.get(encodedKey)?.data as
+          | IPerpsAccountDisplayCacheEntry
+          | undefined;
+        const safeExisting: IPerpsAccountDisplayCacheEntry =
+          existing &&
+          this._normalizePerpsAccountKey(existing.accountAddress) === key
+            ? existing
+            : { accountAddress: key, updatedAt: 0 };
+        const next = updater(safeExisting);
+        next.accountAddress = key;
+        next.updatedAt = Date.now();
+        perpSnapshotCache.set(encodedKey, next);
+        this._trimShardedPrefixEntries(
+          PERP_ACCOUNT_DISPLAY_PREFIX,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+        );
+      });
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       const map = { ...prev?.perpsAccountDisplayCacheByAddress };
       const existing: IPerpsAccountDisplayCacheEntry = map[key] ?? {
         accountAddress: key,
         updatedAt: 0,
       };
-      // Guard against a corrupted entry whose stored address drifted away
-      // from its key; rebuild from scratch in that case.
       const safeExisting: IPerpsAccountDisplayCacheEntry =
         this._normalizePerpsAccountKey(existing.accountAddress) === key
           ? existing
           : { accountAddress: key, updatedAt: 0 };
       const next = updater(safeExisting);
-      // Force the stored address to match the key so consumers can rely on it.
       next.accountAddress = key;
       next.updatedAt = Date.now();
       map[key] = next;
@@ -852,8 +1252,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return;
     }
-    // Refuse to persist a summary whose own address disagrees with the cache
-    // key; otherwise stale WS frames could poison the wrong account.
     const summaryAddr = this._normalizePerpsAccountKey(data.accountAddress);
     if (summaryAddr && summaryAddr !== key) {
       return;
@@ -880,9 +1278,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!spotAddr || spotAddr !== key) {
       return;
     }
-    // Don't persist a half-loaded snapshot. spotTotalUsd undefined means the
-    // mids aren't ready yet and using it would re-introduce the unknown-as-
-    // empty flicker.
     if (data.spotTotalUsd === undefined) {
       return;
     }
@@ -894,6 +1289,30 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async clearPerpsAccountDisplayCache(accountAddress?: string) {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      await this.mutex.runExclusive(async () => {
+        if (!accountAddress) {
+          perpSnapshotCache.keys().forEach((encodedKey) => {
+            if (encodedKey.startsWith(PERP_ACCOUNT_DISPLAY_PREFIX)) {
+              perpSnapshotCache.remove(encodedKey);
+            }
+          });
+          return;
+        }
+        const key = this._normalizePerpsAccountKey(accountAddress);
+        if (key) {
+          perpSnapshotCache.remove(
+            encodeSnapshotSubKey(PERP_ACCOUNT_DISPLAY_PREFIX, key),
+          );
+        }
+      });
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       if (!accountAddress) {
         return {
@@ -922,6 +1341,20 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return undefined;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(
+        encodeSnapshotSubKey(PERP_PORTFOLIO_PREFIX, key),
+      )?.data as IHyperliquidPortfolioSnapshot | undefined;
+      if (!entry || this._normalizePerpsAccountKey(entry.address) !== key) {
+        return undefined;
+      }
+      return entry;
+    }
+
     const config = await this.getPerpData();
     const entry = config.hyperliquidPortfolioSnapshotByAddress?.[key];
     if (!entry || this._normalizePerpsAccountKey(entry.address) !== key) {
@@ -938,6 +1371,28 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      await this.mutex.runExclusive(async () => {
+        const encodedKey = encodeSnapshotSubKey(PERP_PORTFOLIO_PREFIX, key);
+        const existing = perpSnapshotCache.get(encodedKey)?.data as
+          | IHyperliquidPortfolioSnapshot
+          | undefined;
+        if (existing && snapshot.fetchedAt <= existing.fetchedAt) {
+          return;
+        }
+        perpSnapshotCache.set(encodedKey, { ...snapshot, address: key });
+        this._trimShardedPrefixEntries(
+          PERP_PORTFOLIO_PREFIX,
+          PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES,
+        );
+      });
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       const map = { ...prev?.hyperliquidPortfolioSnapshotByAddress };
       const existing = map[key];
@@ -959,6 +1414,30 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async clearHyperliquidPortfolioSnapshot(address?: string): Promise<void> {
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      await this.mutex.runExclusive(async () => {
+        if (!address) {
+          perpSnapshotCache.keys().forEach((encodedKey) => {
+            if (encodedKey.startsWith(PERP_PORTFOLIO_PREFIX)) {
+              perpSnapshotCache.remove(encodedKey);
+            }
+          });
+          return;
+        }
+        const key = this._normalizePerpsAccountKey(address);
+        if (key) {
+          perpSnapshotCache.remove(
+            encodeSnapshotSubKey(PERP_PORTFOLIO_PREFIX, key),
+          );
+        }
+      });
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       if (!address) {
         return {
@@ -990,6 +1469,23 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!cacheKey) {
       return undefined;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return undefined;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry = perpSnapshotCache.get(
+        encodeSnapshotSubKey(PERP_DEPOSIT_TOKENS_PREFIX, cacheKey),
+      )?.data as IPerpsDepositTokenListCacheEntry | undefined;
+      if (!entry || entry.cacheKey !== cacheKey) {
+        return undefined;
+      }
+      if (!this._isCacheEntryFresh(entry.updatedAt, maxAgeMs)) {
+        return undefined;
+      }
+      return entry;
+    }
+
     const config = await this.getPerpData();
     const entry = config.perpsDepositTokenListCache?.[cacheKey];
     if (!entry || entry.cacheKey !== cacheKey) {
@@ -1016,6 +1512,29 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!cacheKey) {
       return;
     }
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
+      const entry: IPerpsDepositTokenListCacheEntry = {
+        cacheKey,
+        ownerKey,
+        updatedAt: Date.now(),
+        tokens,
+        tokensByNetwork,
+      };
+      perpSnapshotCache.set(
+        encodeSnapshotSubKey(PERP_DEPOSIT_TOKENS_PREFIX, cacheKey),
+        entry,
+      );
+      this._trimShardedPrefixEntries(
+        PERP_DEPOSIT_TOKENS_PREFIX,
+        PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+      );
+      return;
+    }
+
     await this.setPerpData((prev): ISimpleDbPerpData => {
       const map = { ...prev?.perpsDepositTokenListCache };
       map[cacheKey] = {

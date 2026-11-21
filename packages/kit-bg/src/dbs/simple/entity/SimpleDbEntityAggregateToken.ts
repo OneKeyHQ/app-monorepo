@@ -1,4 +1,7 @@
+import { isFunction, omit } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { buildLocalAggregateTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -9,25 +12,34 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import {
+  createSimpleDbSnapshotCache,
+  decodeSnapshotSubKey,
+  encodeSnapshotSubKey,
+  ensureSimpleDbSnapshotNamespaceReady,
+  isEntityMethodMocked,
+  isSimpleDbSnapshotPersistenceAllowed,
+} from '../base/simpleDbSnapshotCacheUtils';
+
+export type IAggregateTokenAccountListEntry = Record<
+  string,
+  {
+    tokens: IAccountToken[];
+  }
+>;
+
+export type IAggregateTokenAccountFiatEntry = Record<
+  string,
+  Record<string, ITokenFiat>
+>;
 
 export interface ISimpleDBAggregateToken {
   aggregateTokenConfigMap?: Record<string, IAggregateToken>;
   aggregateTokenSymbolMap?: Record<string, boolean>;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   aggregateTokenMap?: Record<string, Record<string, ITokenFiat>>;
-  aggregateTokenMapV2?: Record<
-    string,
-    Record<string, Record<string, ITokenFiat>>
-  >;
-  aggregateTokenListMap?: Record<
-    string,
-    Record<
-      string,
-      {
-        tokens: IAccountToken[];
-      }
-    >
-  >;
+  aggregateTokenMapV2?: Record<string, IAggregateTokenAccountFiatEntry>;
+  aggregateTokenListMap?: Record<string, IAggregateTokenAccountListEntry>;
   allAggregateTokenMap?: Record<
     string,
     {
@@ -55,10 +67,120 @@ export interface ISimpleDBAggregateToken {
   >;
 }
 
+const AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE = 'sdb-aggregate-token' as const;
+const AGGREGATE_TOKEN_LIST_PREFIX = 'list:';
+const AGGREGATE_TOKEN_MAP_PREFIX = 'map:';
+const AGGREGATE_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const AGGREGATE_TOKEN_MAX_ENTRIES = 256;
+const AGGREGATE_TOKEN_MAX_RECORD_BYTES = 2 * 1024 * 1024;
+const SPLIT_AGGREGATE_CACHE_FIELDS = [
+  'aggregateTokenMap',
+  'aggregateTokenMapV2',
+  'aggregateTokenListMap',
+] as const;
+
+const DEFAULT_APP_STORAGE =
+  storageHub.$webStorageSimpleDB || storageHub.appStorage;
+
+type IAggregateTokenSnapshotValue =
+  | IAggregateTokenAccountListEntry
+  | IAggregateTokenAccountFiatEntry;
+
+const aggregateTokenSnapshotCache =
+  createSimpleDbSnapshotCache<IAggregateTokenSnapshotValue>({
+    namespace: AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+    maxAgeMs: AGGREGATE_TOKEN_MAX_AGE_MS,
+    maxEntries: AGGREGATE_TOKEN_MAX_ENTRIES,
+    maxRecordBytes: AGGREGATE_TOKEN_MAX_RECORD_BYTES,
+  });
+
 export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAggregateToken> {
   entityName = 'aggregateToken';
 
   override enableCache = false;
+
+  protected override readonly enableReferenceEqualityWriteSkip = true;
+
+  private isDefaultAppStorage(): boolean {
+    return this.appStorage === DEFAULT_APP_STORAGE;
+  }
+
+  private canUseDirectShardedAccess(): boolean {
+    return (
+      this.isDefaultAppStorage() &&
+      !isEntityMethodMocked(this, 'getRawData') &&
+      !isEntityMethodMocked(this, 'setRawData') &&
+      !isEntityMethodMocked(this, 'setRawDataWithCommitGuard')
+    );
+  }
+
+  protected override async setRawDataWithCommitGuard(
+    dataOrBuilder:
+      | ISimpleDBAggregateToken
+      | ((
+          rawData: ISimpleDBAggregateToken | null | undefined,
+        ) => ISimpleDBAggregateToken)
+      | ((
+          rawData: ISimpleDBAggregateToken | null | undefined,
+        ) => Promise<ISimpleDBAggregateToken>),
+    assertCanCommit?: () => void,
+    onCommitted?: (data: ISimpleDBAggregateToken) => void,
+  ): Promise<ISimpleDBAggregateToken | undefined> {
+    if (!this.canUseDirectShardedAccess()) {
+      return super.setRawDataWithCommitGuard(
+        dataOrBuilder,
+        assertCanCommit,
+        onCommitted,
+      );
+    }
+    return super.setRawDataWithCommitGuard(
+      async (rawData) => {
+        const hadSplitResidue = Boolean(
+          rawData &&
+          SPLIT_AGGREGATE_CACHE_FIELDS.some((field) => field in rawData),
+        );
+        const strippedRawData = rawData
+          ? (omit(
+              rawData,
+              SPLIT_AGGREGATE_CACHE_FIELDS,
+            ) as ISimpleDBAggregateToken)
+          : rawData;
+        const built = isFunction(dataOrBuilder)
+          ? await dataOrBuilder(strippedRawData)
+          : dataOrBuilder;
+        if (
+          !hadSplitResidue &&
+          strippedRawData !== null &&
+          strippedRawData !== undefined &&
+          rawData !== null &&
+          rawData !== undefined &&
+          Object.is(built, strippedRawData)
+        ) {
+          return rawData;
+        }
+        return omit(
+          built,
+          SPLIT_AGGREGATE_CACHE_FIELDS,
+        ) as ISimpleDBAggregateToken;
+      },
+      assertCanCommit,
+      onCommitted,
+    );
+  }
+
+  @backgroundMethod()
+  override async clearRawData(): Promise<void> {
+    if (
+      this.isDefaultAppStorage() &&
+      (await isSimpleDbSnapshotPersistenceAllowed())
+    ) {
+      await ensureSimpleDbSnapshotNamespaceReady(
+        AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+      );
+      aggregateTokenSnapshotCache.clear();
+    }
+    await super.clearRawData();
+  }
 
   @backgroundMethod()
   async getAggregateTokenConfigMap() {
@@ -109,6 +231,19 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       networkId,
       accountId,
     });
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return {};
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+      );
+      return (
+        (aggregateTokenSnapshotCache.get(
+          encodeSnapshotSubKey(AGGREGATE_TOKEN_MAP_PREFIX, key),
+        )?.data as IAggregateTokenAccountFiatEntry | undefined) ?? {}
+      );
+    }
     return (await this.getRawData())?.aggregateTokenMapV2?.[key] ?? {};
   }
 
@@ -126,6 +261,21 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       networkId,
       accountId,
     });
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        aggregateTokenSnapshotCache.set(
+          encodeSnapshotSubKey(AGGREGATE_TOKEN_MAP_PREFIX, key),
+          aggregateTokenMap,
+        );
+      });
+      return;
+    }
     await this.setRawData((rawData) => {
       return {
         ...rawData,
@@ -149,6 +299,19 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       networkId,
       accountId,
     });
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return {};
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+      );
+      return (
+        (aggregateTokenSnapshotCache.get(
+          encodeSnapshotSubKey(AGGREGATE_TOKEN_LIST_PREFIX, key),
+        )?.data as IAggregateTokenAccountListEntry | undefined) ?? {}
+      );
+    }
     return (await this.getRawData())?.aggregateTokenListMap?.[key] ?? {};
   }
 
@@ -171,6 +334,29 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       networkId,
       accountId,
     });
+    if (this.canUseDirectShardedAccess()) {
+      if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+        return;
+      }
+      await ensureSimpleDbSnapshotNamespaceReady(
+        AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+      );
+      await this.mutex.runExclusive(async () => {
+        const encodedKey = encodeSnapshotSubKey(
+          AGGREGATE_TOKEN_LIST_PREFIX,
+          key,
+        );
+        const existing =
+          (aggregateTokenSnapshotCache.get(encodedKey)?.data as
+            | IAggregateTokenAccountListEntry
+            | undefined) ?? {};
+        aggregateTokenSnapshotCache.set(encodedKey, {
+          ...existing,
+          ...aggregateTokenListMap,
+        });
+      });
+      return;
+    }
     await this.setRawData((rawData) => ({
       ...rawData,
       aggregateTokenListMap: {
@@ -276,10 +462,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   // untouched. Pure-cache cleanup. See ServiceAppCleanup.cleanupOrphanedAssetCaches.
   @backgroundMethod()
   async removeOrphanData({ validAccountIds }: { validAccountIds: string[] }) {
-    const existing = await this.getRawData();
-    if (!existing) {
-      return;
-    }
     const validIdSet = new Set(validAccountIds.map((o) => o.toLowerCase()));
     const filterById = <V>(
       map: Record<string, V> | undefined,
@@ -294,6 +476,57 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       }
       return result;
     };
+
+    if (this.canUseDirectShardedAccess()) {
+      if (await isSimpleDbSnapshotPersistenceAllowed()) {
+        await ensureSimpleDbSnapshotNamespaceReady(
+          AGGREGATE_TOKEN_SNAPSHOT_NAMESPACE,
+        );
+        await this.mutex.runExclusive(async () => {
+          aggregateTokenSnapshotCache.keys().forEach((encodedKey) => {
+            const rawKey =
+              decodeSnapshotSubKey(AGGREGATE_TOKEN_LIST_PREFIX, encodedKey) ??
+              decodeSnapshotSubKey(AGGREGATE_TOKEN_MAP_PREFIX, encodedKey);
+            if (
+              rawKey !== undefined &&
+              !accountUtils.isLocalAssetsKeyOwnedBy({
+                key: rawKey,
+                validOwners: validIdSet,
+              })
+            ) {
+              aggregateTokenSnapshotCache.remove(encodedKey);
+            }
+          });
+        });
+      }
+      const existing = await super.getRawData();
+      if (!existing) {
+        return;
+      }
+      await this.setRawData((rawData) => {
+        if (!rawData) {
+          return {};
+        }
+        const currentTokenDetails = rawData.tokenDetails ?? {};
+        const filteredTokenDetails = filterById(currentTokenDetails);
+        if (
+          Object.keys(currentTokenDetails).length ===
+          Object.keys(filteredTokenDetails).length
+        ) {
+          return rawData;
+        }
+        return {
+          ...rawData,
+          tokenDetails: filteredTokenDetails,
+        };
+      });
+      return;
+    }
+
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
     await this.setRawData((rawData) => {
       // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot, so
       // a concurrent clearRawData is never undone by an `existing` fallback.

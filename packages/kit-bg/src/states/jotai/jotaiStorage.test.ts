@@ -960,6 +960,78 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     });
     environmentSpy.mockRestore();
   });
+
+  it('skips MMKV write and durability sync when setItem receives an unchanged serialized value', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const leverageKey = 'g_states_v5:perpsLastUsedLeverageAtom';
+    await storage.setItem(leverageKey, { BTC: 10, ETH: 20 });
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+
+    await storage.setItem(leverageKey, { BTC: 10, ETH: 20 });
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes perpsAccountDisplaySnapshotAtom to perp-cache SnapshotCache without writing or syncing onekey-jotai-states', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { __resetWebUiSnapshotStoreForTests } =
+      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    __resetWebUiSnapshotStoreForTests();
+
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const snapshotKey = 'g_states_v5:perpsAccountDisplaySnapshotAtom';
+    const payload = {
+      entries: {
+        '0xabc': {
+          accountValue: '100',
+          updatedAt: 123,
+        },
+      },
+    };
+    await storage.setItem(snapshotKey, payload);
+
+    expect(mmkvInstance.getString(snapshotKey)).toBeUndefined();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
+    await expect(
+      storage.getItem(snapshotKey, { entries: {} }),
+    ).resolves.toEqual(payload);
+
+    await storage.clearAllForReset();
+    await expect(
+      storage.getItem(snapshotKey, { entries: {} }),
+    ).resolves.toEqual({ entries: {} });
+    __resetWebUiSnapshotStoreForTests();
+  });
+
+  it('re-runs syncNativeStorageMMKV on identical retry after a previous sync failure', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new OneKeyLocalError('disk full on sync'),
+    );
+    await expect(storage.setItem('g_states_v5:aAtom', 'value')).rejects.toThrow(
+      'disk full on sync',
+    );
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+
+    // Retrying with the same value must still call syncNativeStorageMMKV.
+    await storage.setItem('g_states_v5:aAtom', 'value');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(2);
+
+    // Once synced, another identical setItem is skipped.
+    await storage.setItem('g_states_v5:aAtom', 'value');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('mergeStoredValue', () => {
