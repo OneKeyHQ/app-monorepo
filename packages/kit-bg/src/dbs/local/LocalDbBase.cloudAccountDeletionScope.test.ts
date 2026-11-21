@@ -25,10 +25,16 @@ import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE } from './consts';
 import { IndexedDBAgent } from './indexed/IndexedDBAgent';
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import { EIndexedDBBucketNames } from './types';
 
 import type { IDBCloudSyncItem, IDBWallet } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+// Exercise Realm's record getter with synthetic native field values.
+jest.mock('./realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: jest.fn(),
+}));
 
 const currentTime = 5000;
 const hardware: IKeylessCloudSyncCredential = {
@@ -501,6 +507,47 @@ it('still completes a normal surviving offline snapshot and retains its original
   });
   expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(fill);
 });
+
+it.each([
+  { createAtNetwork: null, matches: true },
+  { createAtNetwork: 'evm--1', matches: false },
+  { createAtNetwork: '', matches: false },
+])(
+  'only treats an absent Realm creation network as matching: $createAtNetwork',
+  async ({ createAtNetwork, matches }) => {
+    const h = await fixture({ unsent: true });
+    const realmRecord = Object.assign(
+      Object.create(RealmSchemaAccount.prototype) as RealmSchemaAccount,
+      h.account,
+      { createAtNetwork },
+    ).record;
+    expect(h.snapshot.account.createAtNetwork).toBeUndefined();
+    expect(realmRecord.createAtNetwork).toBe(createAtNetwork);
+    await h.db.withTransaction(
+      EIndexedDBBucketNames.account,
+      (tx) =>
+        h.db.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: [h.account.id],
+          updater: (row) => Object.assign(row, realmRecord),
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+    const fill = await h.buildFill();
+    await h.other.addAndUpdateSyncItems({
+      items: [fill],
+      skipUploadToServer: true,
+    });
+    expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(
+      matches ? fill : h.old,
+    );
+    expect(
+      (await h.other.getAccountSafe({ accountId: h.account.id }))
+        ?.createAtNetwork,
+    ).toBe(createAtNetwork);
+  },
+);
 
 it('does not cancel newly replaced plaintext, even if the original account is gone', async () => {
   const h = await fixture({ unsent: true, rejectPreflight: true });

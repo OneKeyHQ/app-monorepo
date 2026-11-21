@@ -5682,12 +5682,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const matching = records.some((account) => {
       if (!account) return false;
       const match = projections.get(account.id);
-      if (!match || !publicAccountIdentityEqual(account, match.expected))
+      if (!match) return false;
+      // Realm returns null for an absent optional string, but the snapshot
+      // schema accepts only omission or a concrete creation network.
+      const liveAccount = {
+        ...account,
+        createAtNetwork: account.createAtNetwork ?? undefined,
+      };
+      if (!publicAccountIdentityEqual(liveAccount, match.expected))
         return false;
       try {
         const liveSnapshot = buildPublicAccountSnapshot({
           wallet: match.wallet,
-          account,
+          account: liveAccount,
         });
         return (
           !!liveSnapshot &&
