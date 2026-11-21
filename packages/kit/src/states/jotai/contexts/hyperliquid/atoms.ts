@@ -248,6 +248,14 @@ export const {
   },
 );
 
+/**
+ * The instrument the last switch that landed published, with its trade mode;
+ * null before the first switch. A switch the background fails puts it back,
+ * as switches it superseded may have changed the mode or instrument halfway.
+ */
+export const { atom: confirmedTradeInstrumentAtom } =
+  contextAtom<IActiveTradeInstrument | null>(null);
+
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
@@ -255,6 +263,8 @@ export interface ITradeRouteViewState {
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
+  /** A split-view chart that is not trading shows a spot token's quote. */
+  chartPanelsSpotActive: boolean;
 }
 
 export const {
@@ -267,6 +277,7 @@ export const {
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
+  chartPanelsSpotActive: false,
 });
 
 // Token pickers open right now. `tokenSelectorOpen` follows it, so closing one

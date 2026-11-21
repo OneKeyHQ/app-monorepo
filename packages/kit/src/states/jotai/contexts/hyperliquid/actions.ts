@@ -104,6 +104,7 @@ import {
 import {
   activeTradeInstrumentAtom,
   bboAtom,
+  confirmedTradeInstrumentAtom,
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
@@ -1353,6 +1354,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     };
   }
 
+  /**
+   * The service found the token with its trading metadata. One it could not
+   * load, e.g. no longer listed, is shown without them.
+   */
+  private static _isTradeInstrumentLoaded(
+    instrument: IActiveTradeInstrument,
+  ): boolean {
+    return Boolean(
+      instrument.coin &&
+      instrument.universe &&
+      typeof instrument.assetId === 'number' &&
+      instrument.assetId >= 0,
+    );
+  }
+
   /** Skip redundant atom writes to avoid downstream re-renders. */
   private static _isTradeInstrumentEqual(
     a: IActiveTradeInstrument,
@@ -1637,6 +1653,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       };
       const prevInstrument = get(activeTradeInstrumentAtom());
+      // Before the first switch, the instrument on screen is the confirmed one.
+      if (!get(confirmedTradeInstrumentAtom())) {
+        set(confirmedTradeInstrumentAtom(), prevInstrument);
+      }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
       if (
@@ -1653,7 +1673,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       hydrateL2BookFromSwr(coin);
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
-      if (activeAsset?.coin === coin && !force) {
+      // The service names the coin before its metadata has loaded, e.g. for
+      // a switch this one superseded; only a loaded asset is a done switch.
+      if (activeAsset?.coin === coin && activeAsset.universe && !force) {
         // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
         // mode already matches, otherwise the trading panel keeps the
         // previous mode's layout when switching back with an unchanged coin.
@@ -1668,6 +1690,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
           ) {
             set(activeTradeInstrumentAtom(), next);
+          }
+          if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
+            set(confirmedTradeInstrumentAtom(), next);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
@@ -1698,10 +1723,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      const nextActiveAsset =
-        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin,
+      let nextActiveAsset: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.changeActiveAsset
+        >
+      >;
+      try {
+        nextActiveAsset =
+          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin,
+          });
+      } catch (error) {
+        // The page never stays on a token no switch reached.
+        await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
+          requestId,
         });
+        throw error;
+      }
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -1736,6 +1774,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      // A token the service could not load is shown, but a failed switch
+      // never goes back to it, and its caller learns the switch is not done.
+      const isLoaded =
+        ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument);
+      if (isLoaded) {
+        set(confirmedTradeInstrumentAtom(), nextInstrument);
+      }
       void this.syncSubscriptionsAfterInstrumentChange({
         instrument: nextInstrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
@@ -1744,7 +1789,53 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof,
       });
       hydrateL2BookFromSwr(nextInstrument.coin);
-      return true;
+      return isLoaded;
+    },
+  );
+
+  // Puts the page back after a perp switch failed, unless a newer switch owns
+  // it by then: on the spot token of the last switch that landed, or else on
+  // the perp asset the service rolled back to. The subscriptions follow the
+  // background's mode and assets, which a switch interrupted on its way can
+  // have moved on, so they are put back with the page.
+  restoreTradeInstrumentAfterFailedSwitch = contextAtomMethod(
+    async (get, set, { requestId }: { requestId: number }) => {
+      const isLatest = () => this.isLatestActiveInstrumentChange(requestId);
+      if (!isLatest()) return;
+      const confirmed = get(confirmedTradeInstrumentAtom());
+      const confirmedSpot =
+        confirmed?.mode === 'spot' && confirmed.coin ? confirmed : undefined;
+      if (confirmedSpot) {
+        const spotAsset = await spotActiveAssetAtom.get();
+        if (!isLatest()) return;
+        if (spotAsset?.coin !== confirmedSpot.coin) {
+          await spotActiveAssetAtom.set({
+            coin: confirmedSpot.coin,
+            assetId: confirmedSpot.assetId,
+            universe: confirmedSpot.universe,
+          });
+          if (!isLatest()) return;
+        }
+      }
+      await tradingModeAtom.set(confirmedSpot ? 'spot' : 'perp');
+      if (!isLatest()) return;
+      // The service has rolled its perp asset back to the last one it loaded.
+      const restored =
+        confirmedSpot ?? (await this._buildActiveTradeInstrument('perp'));
+      if (!isLatest()) return;
+      set(activeTradeInstrumentAtom(), restored);
+      if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
+        set(confirmedTradeInstrumentAtom(), restored);
+      }
+      // Drops the market data loaded for the failed token.
+      await this.clearActiveAssetData.call(set);
+      if (!isLatest()) return;
+      void this.syncSubscriptionsAfterInstrumentChange({
+        instrument: restored,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+      });
     },
   );
 
@@ -1774,6 +1865,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         universe: spotUniverse,
       };
       const prevInstrument = get(activeTradeInstrumentAtom());
+      // Before the first switch, the instrument on screen is the confirmed one.
+      if (!get(confirmedTradeInstrumentAtom())) {
+        set(confirmedTradeInstrumentAtom(), prevInstrument);
+      }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'spot' || prevInstrument.coin !== coin;
       if (
@@ -1801,6 +1896,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
           ) {
             set(activeTradeInstrumentAtom(), next);
+          }
+          if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
+            set(confirmedTradeInstrumentAtom(), next);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
@@ -1911,6 +2009,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      if (
+        ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument)
+      ) {
+        set(confirmedTradeInstrumentAtom(), nextInstrument);
+      }
       return true;
     },
   );

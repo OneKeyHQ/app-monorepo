@@ -9,10 +9,75 @@ under separate owners:
 - `useTradingViewNativeSettings` isolates indicator/chart settings by Market,
   Perps, or Swap namespace through the existing persisted atom transport.
 - `multiChart` is the split view for several tokens (web, extension and
-  desktop). `TradingViewNativeMultiChart` only lays out a grid: the host
-  persists the layout, supplies the first panel's source and renders each panel,
-  normally as a `TradingViewNative`. The first panel is the host's own chart,
-  unchanged. Every extra panel is wrapped in
+  desktop). `TradingViewNativeMultiChart` lays out a grid and tracks the
+  selected panel: the host persists the layout, supplies the selected panel's
+  source and renders each panel, normally as a `TradingViewNative`. A primary
+  press anywhere in another panel selects it and asks the host to switch to its
+  token; every chart keeps its place, token and mount, the previously selected
+  panel goes on showing the token it showed, and a switch the host turns down
+  returns the selection. The selection shows at once, before the saved layout
+  or the host's source catch up, and is saved only once the host has followed,
+  from the host's answer, so it also lands after the grid is unmounted; the
+  host can show the token before its switch has landed. Until
+  the saved layout has it, the grid keeps the tokens of the panels selected
+  before and writes them all with every selection: a split runtime evaluates a
+  write against the snapshot bg sent last, which can miss the selection before.
+  For the same reason every write of the grid (a selection, a panel's token or
+  indicators, the preset, sync options, sizes) carries the next `revision` and
+  a `writeId` of its own, and starts from the layout the grid wrote last until
+  the saved layout is that write or has a newer revision, so it cannot undo
+  another write that has not come back yet; a newer layout another window
+  saved meanwhile also has it. Another window can save the same revision
+  without the write, e.g. when both wrote over one layout, so that one does
+  not count.
+  Grids of one `layoutKey`, e.g. one unmounted and the next mounted, share
+  those writes, their selections and the switches they asked for: a late
+  write of a grid that is gone, e.g. a selection the host answers then, builds
+  on the writes still on their way and on those of a grid mounted since, a
+  newer selection in either outdates the answer the other waits for, and a
+  selection in either of a token the other asked for waits for that switch.
+  Without a key it starts from the latest saved layout.
+  Selecting the panel of the token the host already shows asks the host for it
+  again while an earlier switch is on its way, which drops that switch. A
+  selection of the token the host is switching to, which it may show before
+  the switch lands, waits for that switch's answer instead; a switch the host
+  has left for another token is turned down, so its token is asked for anew.
+  A turned-down switch leaves the host on the source it showed before the
+  switches on their way, also one asked for while another was still on its
+  way, and the selection returns there.
+  Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
+  not select. A token picked in a panel, e.g. from the picker Perps puts in
+  each header, selects the panel with that token (`selectSource`): the host
+  is asked for it once, that answer decides the selection like a press, and
+  it drops a switch the press on the picker started.
+  Enter or Space on a panel's focused chart canvas selects it the same way;
+  on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
+  shows the host's source in its place; the source still belongs to the hidden
+  panel (`getTradingViewNativeMultiChartSourceOwnerPanelId`), so a selection
+  made then saves it there and never over the first panel's own token. A
+  selection whose panel the preset hides before the host has followed is
+  saved all the same and returns with the preset. If the host turns the switch
+  down for another token, e.g. from the host's picker while the first panel
+  stands in for a hidden one, the selected panel takes it only if it was on
+  screen when the host went there; a hidden one keeps its own token, and the
+  new one belongs to the panel it belonged to before, also for a selection
+  made before the answer comes. A host back on its own source returns the
+  selection, and the selection returned to follows the host from then on. The
+  grid shows one controls row above all
+  panels, the selected panel's, through
+  `TradingViewNativeMultiChartControlsContext`; the other charts render none,
+  and the layout picker sits in that row. The same context gives the selected
+  chart one drawing tools column at the left of the grid (`drawingTools`).
+  The chart keeps the properties of its selected drawing, its hints and its
+  object panels on itself, and the column's menus reach over the panels. The
+  grid keeps one collapse state for the column. Collapsing it widens every
+  panel by its share of the column; a chart's price scale counts that share
+  in, as a single chart counts its own tools in, so the candles it reveals
+  never rescale the plot. A chart whose tools go off screen drops its tool,
+  unfinished drawing and selected drawings, which nothing would show any more,
+  and takes no drawing shortcuts until they are back. The first panel keeps the host's own
+  interval and indicators wherever the selection is. Every extra panel is
+  wrapped in
   `TradingViewNativeMultiChartPanelContext`, so a chart mounted inside keeps its
   own token, interval, indicator settings and pane heights; chart appearance
   stays shared with the namespace and drawings stay with the token. Presets are grids of cells (`1`, `2h`, `2v`,
@@ -25,10 +90,14 @@ under separate owners:
   `TradingViewNativeMultiChartSyncContext` with what it shares; a part that is
   off is null there, and the provider stays mounted, so changing an option
   never remounts a chart.
-  - Symbol: the grid renders the first panel's source in every panel and sets
-    `isSymbolSynced` on the panels. The host then lets a pick in any panel
-    change its own source. A panel keeps its saved token for when the option
-    is turned off.
+  - Symbol: the grid renders the selected panel's source, the host's, in
+    every panel and sets `isSymbolSynced` on the panels. Only a picker, the
+    host's or one in a panel, changes that source, and selecting another
+    panel changes neither the host's source nor any saved token. A panel
+    keeps its saved token for when the option is turned off; turning the
+    option on saves the selected panel's, which it showed without storing,
+    and a selection still on its way then keeps no older token for that
+    panel to write back.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first
     panel sets it when syncing starts, a pick in any panel changes it, and
     every other chart takes it through `useMultiChartIntervalSync`; a chart
@@ -73,7 +142,9 @@ under separate owners:
   per chart. A drag ends when another chart changes a drawing it is moving, so
   its release cannot undo that change. On web a key press goes to the chart
   under the pointer, otherwise to the focused one, so one shortcut never runs
-  in two charts; a tool menu takes arrow keys only while focus is in its own
+  in two charts; a chart's tools column outside it, as in a split view,
+  counts as part of the chart, and a chart whose tools are off screen takes
+  none. A tool menu takes arrow keys only while focus is in its own
   toolbar and closes when focus moves to another toolbar.
 - `indicatorPanes` owns the order and preferred heights of the indicator panes.
   They are kept per namespace and per split-view panel, not per token, so they
@@ -115,8 +186,9 @@ and dash effects are released after each render.
 
 Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
-ownership, split-view panel state (token, interval, indicators, sizes) across
-preset changes and reloads, drawing in every split-view panel with live sync
+ownership, split-view panel state (token, interval, indicators, sizes,
+selection) across preset changes and reloads, selecting a panel without a chart
+remount, drawing in every split-view panel with live sync
 between panels showing one token, every sync option on and off across a
 reload (symbol and interval changed from the first and from another panel; the
 crosshair between panels of different tokens and intervals, with its price

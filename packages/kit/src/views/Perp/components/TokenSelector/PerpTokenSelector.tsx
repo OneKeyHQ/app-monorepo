@@ -147,7 +147,7 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
 export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
-const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
+export const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
@@ -382,17 +382,21 @@ function TokenListHeader({
 }
 
 export interface IPerpTokenSelection {
-  coin: string;
   mode: 'perp' | 'spot';
-  spotUniverse?: ISpotUniverse;
+  coin: string;
 }
 
 function BasePerpTokenSelectorContent({
+  bodyHeight = DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
   onSelectToken,
 }: {
-  // Receives the pick instead of switching the trade instrument, for pickers
-  // that choose a token for something else, such as a split-view chart.
-  onSelectToken?: (selection: IPerpTokenSelection) => void | Promise<void>;
+  /** Height of the tabs and list below the search, e.g. to fit a popover. */
+  bodyHeight?: number;
+  /**
+   * Takes the pick instead of switching the trade instrument, e.g. for a
+   * split-view chart, whose selection decides the switch.
+   */
+  onSelectToken?: (selection: IPerpTokenSelection) => void;
 }) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -610,11 +614,7 @@ function BasePerpTokenSelectorContent({
           return;
         }
         if (onSelectToken) {
-          await onSelectToken({
-            coin: symbol,
-            mode: isSpotToken ? 'spot' : 'perp',
-            spotUniverse,
-          });
+          onSelectToken({ mode: isSpotToken ? 'spot' : 'perp', coin: symbol });
         } else if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
@@ -1702,7 +1702,7 @@ function BasePerpTokenSelectorContent({
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack height={DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT} gap="$1">
+        <YStack height={bodyHeight} gap="$1">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView

@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { ReactNode } from 'react';
 
 import type { useTradingViewNativeIndicatorSettings } from '../useTradingViewNativeSettings';
 
@@ -14,3 +15,33 @@ export interface ITradingViewNativeMultiChartPanelScope {
 // interval, indicators and pane heights instead of the namespace-wide ones.
 export const TradingViewNativeMultiChartPanelContext =
   createContext<ITradingViewNativeMultiChartPanelScope | null>(null);
+
+export interface ITradingViewNativeMultiChartDrawingTools {
+  /**
+   * Where the chart's tools go: one column at the left of the grid, the
+   * selected panel's. Null for the other panels, which show none.
+   */
+  container: HTMLElement | null;
+  /** One collapse state for the column, whichever chart's tools it shows. */
+  isCollapsed: boolean;
+  onCollapsedChange: (isCollapsed: boolean) => void;
+  /**
+   * The width a chart `width` wide gains when the column collapses: its share
+   * of the column. Its price scale counts it in, as a single chart counts its
+   * own tools in, so the candles that collapsing reveals never rescale it.
+   */
+  getCollapseGain: (width: number) => number;
+}
+
+export interface ITradingViewNativeMultiChartControlsSlot {
+  /**
+   * Places the chart's controls row. The grid shows one row above all panels,
+   * the selected panel's, so the other panels leave theirs out.
+   */
+  renderControls: (controls: ReactNode) => ReactNode;
+  drawingTools: ITradingViewNativeMultiChartDrawingTools;
+}
+
+// Set around every split-view panel, the first one included.
+export const TradingViewNativeMultiChartControlsContext =
+  createContext<ITradingViewNativeMultiChartControlsSlot | null>(null);

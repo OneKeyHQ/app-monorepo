@@ -189,27 +189,99 @@ per split-view panel; they no longer change with the token.
 
 The large web, extension and desktop layouts can show up to four charts through
 `TradingViewNativeMultiChart` (`PerpNativeSplitCandles` in
-`PerpNativeCandles.tsx`). The layout picker sits at the end of the trading
-chart's controls; the layout, panel sizes and each extra panel's token and
-indicators are saved in `perpsTradingViewMultiChartPersistAtom`. Mobile layouts
-and the native apps keep the single chart.
+`PerpNativeCandles.tsx`). One controls row sits above the grid and works on the
+selected chart: interval, chart type, indicators, settings, chart mode, expand
+and, at its end, the layout picker. Likewise one drawing tools column sits at
+the left of the grid and works on the selected chart. The layout, the selected
+panel, panel sizes
+and each panel's token and indicators are saved in
+`perpsTradingViewMultiChartPersistAtom`. Mobile layouts and the native apps
+keep the single chart.
 
-- The first panel is always the active trade instrument and keeps every trading
-  integration: lines with cancel/drag, the order menu and fill marks.
-- An extra panel shows any perp or spot token picked from the regular token
-  selector. It has its own interval and indicators, shows the account's lines
-  and fill marks for its token read-only, and has no order menu.
-- Every panel has the drawing tools. Drawings are saved per token, not per
-  panel: panels showing the same token share them live, including undo, and a
-  token keeps its drawings when it moves between panels.
-- Its Trade button switches the trade instrument to its token and puts the
-  previously traded token in the panel, so nothing leaves the screen.
+- One panel is selected and outlined. It shows the active trade instrument and
+  has every trading integration: lines with cancel/drag, the order menu and
+  fill marks. The page's token picker switches the trade instrument, so it
+  changes the selected panel's token, whichever panel that is.
+- Pressing another panel selects it and switches the trade instrument to its
+  token; no chart moves, changes its token or remounts. Until the switch lands
+  the panel stays read-only, and a switch that fails returns the selection.
+  The switch publishes the trade instrument before its metadata has loaded;
+  the panel keeps its own metadata of the same token meanwhile, so its chart
+  never flashes the loading mask and its quote stays. That metadata is for
+  display only: the order menu and the cancel and drag of order lines wait
+  until the panel's switch has landed and the trade instrument has its own
+  precision. A perp switch the background fails puts the page back, unless a
+  newer switch owns it by then, including one made while the page goes back:
+  to the spot token of the last switch that landed (kept per context store,
+  across switches that overlap), or else to the perp asset the background
+  rolled back to. The subscriptions follow the background's mode and assets,
+  so those go back with the page, also a spot asset that a switch cut short
+  had moved on. A token the background could not load, e.g. one no longer
+  listed, is shown without its metadata, but its switch reports that it is
+  not done, and a failed switch never goes back to it. The perp switch's
+  same-coin shortcut needs the asset's metadata, so a coin whose loading a
+  superseded switch cut short is loaded again.
+  The selection is saved only once the switch has landed, not when the trade
+  instrument first shows the token, so a failed one leaves the layout as it
+  was, also when the chart mode changed meanwhile.
+  Selecting the traded token's panel again drops a switch still on its way.
+  Selecting a panel again after its switch was superseded asks for its token
+  anew, and a selection made while another switch is on its way returns to
+  the last saved panel if it fails.
+  Enter or Space on a panel's focused chart selects it like a press, so the
+  controls row can be moved from the keyboard; the keys of the panel's own
+  controls, e.g. a drawing tool's style list, do not select.
+- A layout with fewer charts can hide the selected panel. The first panel then
+  shows the trade instrument in its place; the token still belongs to the
+  hidden panel, so selecting another chart leaves it there and the first panel
+  returns to its own token. The same holds when the layout shrinks while the
+  switch to a selected panel's token is still on its way. If the trade
+  instrument then goes to another token, e.g. from the page's picker while
+  the first panel shows it, the hidden panel keeps its own token and does not
+  take the new one.
+- Instead of its own controls, each chart in a split has a header with its
+  token, its live price and 24h change, from the same asset contexts as the
+  favorites bar. The token is a picker (`PerpChartTokenSelector`): a press on
+  it selects the panel like any press in it, and a pick selects the panel
+  with the picked token through the grid, so one switch of the trade
+  instrument decides both; a pick before a spot panel's metadata has loaded,
+  e.g. of the token already traded, still lands in that panel.
+  Its list fits the roomier side of the header, so a panel low on the page
+  gets a shorter list instead of a cut-off one (OK-67552). Each header holds
+  one quote, subscribed to its own token
+  only. Perp quotes mark the shared asset contexts as required; a spot token
+  outside the selected panel turns on the spot asset context subscription
+  (`chartPanelsSpotActive`). Both are let go while the workspace shows another
+  view (Info, Funding, Order book) over the mounted chart, and the headers drop
+  their quotes meanwhile.
+- The other panels show any perp or spot token, with the account's lines and
+  fill marks for it read-only and no order menu. A panel keeps the token it
+  showed while selected. The first panel keeps
+  the page's interval and indicators wherever the selection is; every extra
+  panel has its own.
+- An order line that is being cancelled or moved is locked in every chart
+  showing its token (`usePerpsChartLineActions`), so moving the selection
+  between two panels of one token cannot send a second request for it.
+- The drawing tools in the column at the left are the selected chart's; the
+  properties of its selected drawing and its hints stay on that chart. A
+  chart that loses the selection drops its tool, unfinished drawing and
+  selected drawings, and takes no drawing shortcuts while it is not selected,
+  so nothing is left armed out of sight and the press that selects it again
+  never starts a drawing. The column has one collapse state, and collapsing
+  it never rescales a chart's candles. The split view passes
+  `layoutKey="perps"`, so a selection the trade instrument answers after the
+  view is gone lands on the layout changes still on their way, and a split
+  view mounted again, e.g. across the breakpoint, waits for a switch the one
+  before asked for. Drawings are saved per token, not
+  per panel: panels showing the same token share them live, including undo,
+  and a token keeps its drawings when it moves between panels.
 - A new panel starts on a liquid token that is not on screen yet and copies the
   trading chart's indicators; afterwards the two are independent.
 - The layout picker has five sync switches, saved with the layout. All are
   off by default.
-  - Symbol: every panel shows the trade instrument, and a token picked in any
-    panel switches it. Panels return to their own tokens when it is turned off.
+  - Symbol: every panel shows the trade instrument; selecting a panel then
+    only moves the controls row to it. Panels return to their own tokens when it is turned off: the ones
+    they showed when it was turned on, the selected panel's included.
   - Interval: every panel takes the trading chart's interval, and an interval
     picked in any panel applies to all.
   - Crosshair: hovering one chart shows its crosshair in the others at the
