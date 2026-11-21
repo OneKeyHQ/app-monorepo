@@ -267,6 +267,15 @@ it('dashes only the trailing link on native, also when it wraps', () => {
     expect.objectContaining({ start: 45, top: 42, width: 45 }),
   ]);
 
+  // The link itself wraps: each of its parts gets dashes.
+  layout('leading', 80);
+  layout('withSpace', 85);
+  layout('paragraph', 100, 30);
+  expect(dashes()).toEqual([
+    expect.objectContaining({ start: 85, top: 22, width: 15 }),
+    expect.objectContaining({ start: 0, top: 42, width: 30 }),
+  ]);
+
   // The link moves to a line of its own while the joiner probe wraps a word
   // earlier: the plain probe decides, and only the link is dashed.
   layout('leading', 100, 90);

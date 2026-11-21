@@ -427,8 +427,9 @@ describe('PrimeLoginOAuthDialog', () => {
     expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
 
     fireEvent.click(link);
-    fireEvent.click(link);
     expect(screen.getByText('onekey_id_usage_keyless__desc')).toBeTruthy();
+    expect(popoverOpen).toHaveBeenCalledTimes(1);
+    fireEvent.click(link);
     expect(popoverOpen).toHaveBeenCalledTimes(1);
     popoverOpen.mockRestore();
   });
@@ -436,7 +437,9 @@ describe('PrimeLoginOAuthDialog', () => {
   test('the email code step closes the usage panel', () => {
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(screen.getByText('onekey_id_usage_keyless__desc')).toBeTruthy();
     fireEvent.click(screen.getByTestId('mock-email-submit'));
+    expect(screen.queryByTestId('prime-login-title')).toBeNull();
     expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
   });
 

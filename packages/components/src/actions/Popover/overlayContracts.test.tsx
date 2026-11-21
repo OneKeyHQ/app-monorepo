@@ -260,7 +260,8 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
         data-presentation={presentation}
         data-height={sheet?.height}
       >
-        {backdrop ? (
+        {(backdrop as { dismissOnPress?: boolean } | undefined)
+          ?.dismissOnPress ? (
           <button
             type="button"
             data-testid="overlay-backdrop"
