@@ -68,14 +68,23 @@ type IConfirmArgs = {
     txid: string,
     status?: EDecodedTxStatus,
     wasSettled?: boolean,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   onLateBroadcastAccepted: (txid: string) => Promise<boolean>;
   onCancelled: () => void;
   onFailed: () => void;
   onSafePreSendFailed: () => void;
   onCompleted: () => void;
   onCallbackFailed: () => void;
+  recordRepay: (
+    txid: string,
+    record: (retry: boolean) => Promise<IRepayRecording>,
+  ) => Promise<IRepayRecording>;
 };
+type IRepayRecording =
+  | 'synced'
+  | 'notTracked'
+  | 'localFailed'
+  | 'remoteUnknown';
 export type IBorrowCollateralRepayTaskOwner<TIntent> = {
   isCurrent: () => boolean;
   verify: () => Promise<void>;
@@ -123,6 +132,49 @@ export function createBorrowCollateralRepayTask<TIntent>({
   ) => boolean = () => false;
   let readFacts: () => IFacts | undefined = () => undefined;
   let recordingFlight: Promise<void> | undefined;
+  let repayRecovery:
+    | {
+        attemptId: string;
+        txid: string;
+        record: (retry: boolean) => Promise<IRepayRecording>;
+        result?: IRepayRecording;
+        flight?: Promise<IRepayRecording>;
+      }
+    | undefined;
+  const recordRepay = (
+    attemptId: string,
+    txid: string,
+    record: (retry: boolean) => Promise<IRepayRecording>,
+  ) => {
+    if (repayRecovery) {
+      if (repayRecovery.attemptId !== attemptId || repayRecovery.txid !== txid)
+        return Promise.resolve('remoteUnknown' as const);
+      if (repayRecovery.flight) return repayRecovery.flight;
+      if (repayRecovery.result !== 'localFailed')
+        return Promise.resolve(repayRecovery.result ?? 'remoteUnknown');
+    } else {
+      repayRecovery = { attemptId, txid, record };
+    }
+    const recovery = repayRecovery;
+    const retry = recovery.result === 'localFailed';
+    const flight = recovery
+      .record(retry)
+      .catch(() => 'remoteUnknown' as const)
+      .then((result) => {
+        recovery.result = result;
+        if (result !== 'synced' && result !== 'notTracked')
+          writeFact('repay', attemptId, {
+            type: 'repayCallback',
+            value: 'failed',
+          });
+        return result;
+      })
+      .finally(() => {
+        if (recovery.flight === flight) recovery.flight = undefined;
+      });
+    recovery.flight = flight;
+    return flight;
+  };
   const recordSetup = (
     owner: IBorrowCollateralRepayTaskOwner<TIntent>,
     stepId: string,
@@ -312,6 +364,10 @@ export function createBorrowCollateralRepayTask<TIntent>({
                       value: 'failed',
                     });
                 },
+                recordRepay: (txid, record) =>
+                  step.id === 'repay'
+                    ? recordRepay(attemptId, txid, record)
+                    : Promise.resolve('remoteUnknown'),
                 onConfirmed: async (txid, status, wasSettled) => {
                   const accepted = onSubmitted(txid);
                   if (step.id === 'repay' && txid && accepted)
@@ -319,7 +375,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
                       type: 'repayCallback',
                       value: 'pending',
                     });
-                  if (step.id !== 'setup' || recorded || !txid) return;
+                  if (step.id !== 'setup' || recorded || !txid) return accepted;
                   recorded = true;
                   await recordSetup(
                     owner,
@@ -330,6 +386,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
                     prepared.orderId,
                     wasSettled,
                   );
+                  return accepted;
                 },
                 onLateBroadcastAccepted: async (txid) => {
                   const accepted = onLateBroadcastAccepted(txid);
@@ -362,11 +419,6 @@ export function createBorrowCollateralRepayTask<TIntent>({
                   });
                 throw error;
               }
-              if (step.id === 'repay' && success)
-                writeFact(step.id, attemptId, {
-                  type: 'repayCallback',
-                  value: 'completed',
-                });
               return { type: success ? 'submitted' : 'cancelled' };
             },
             waitForFinalStatus: async () => 'unknown',
@@ -516,6 +568,65 @@ export function createBorrowCollateralRepayTask<TIntent>({
     tryRun: controller.tryRun,
     tryRetryWait: controller.tryRetryWait,
     tryRetryTransaction: controller.tryRetryTransaction,
+    hasRetryableRepayRecording: () =>
+      repayRecovery?.result === 'localFailed' ||
+      ((repayRecovery?.result === 'synced' ||
+        repayRecovery?.result === 'notTracked') &&
+        controller.getTask().facts?.repayCallback !== 'completed'),
+    retryRepayRecording: async (token: symbol) => {
+      const binding = bound;
+      const recovery = repayRecovery;
+      if (
+        !binding ||
+        binding.token !== token ||
+        !binding.owner.isCurrent() ||
+        !recovery ||
+        (recovery.result !== 'localFailed' &&
+          recovery.result !== 'synced' &&
+          recovery.result !== 'notTracked')
+      )
+        return false;
+      await binding.owner.verify();
+      const snapshot = controller.getTask();
+      const step = snapshot.steps.find((item) => item.id === 'repay');
+      if (
+        bound !== binding ||
+        !binding.owner.isCurrent() ||
+        repayRecovery !== recovery ||
+        !step ||
+        step.attemptId !== recovery.attemptId ||
+        !('txid' in step.status) ||
+        step.status.txid !== recovery.txid ||
+        ('txidConflict' in step.status && step.status.txidConflict)
+      )
+        return false;
+      const result = await recordRepay(
+        recovery.attemptId,
+        recovery.txid,
+        recovery.record,
+      );
+      await binding.owner.verify();
+      const latest = controller
+        .getTask()
+        .steps.find((item) => item.id === 'repay');
+      if (
+        bound !== binding ||
+        !binding.owner.isCurrent() ||
+        repayRecovery !== recovery ||
+        !latest ||
+        latest.attemptId !== recovery.attemptId ||
+        !('txid' in latest.status) ||
+        latest.status.txid !== recovery.txid ||
+        ('txidConflict' in latest.status && latest.status.txidConflict)
+      )
+        return false;
+      if (result === 'synced' || result === 'notTracked')
+        writeFact('repay', recovery.attemptId, {
+          type: 'repayCallback',
+          value: 'completed',
+        });
+      return true;
+    },
     retryRecording: async (token: symbol) => {
       const binding = bound;
       if (!binding || binding.token !== token || !binding.owner.isCurrent())

@@ -23,7 +23,7 @@ it('runs setup, preserves pending finality, then uses a fresh quote in one task'
       onConfirmed,
     }: {
       onBeforeSend: () => Promise<void>;
-      onConfirmed: (txid: string) => Promise<void>;
+      onConfirmed: (txid: string) => Promise<boolean>;
     }) => {
       calls.push('confirm-setup');
       await onBeforeSend();
@@ -64,13 +64,16 @@ it('runs setup, preserves pending finality, then uses a fresh quote in one task'
     confirmRepay: async ({
       onBeforeSend,
       onConfirmed,
+      onCompleted,
     }: {
       onBeforeSend: () => Promise<void>;
-      onConfirmed: (txid: string) => Promise<void>;
+      onConfirmed: (txid: string) => Promise<boolean>;
+      onCompleted: () => void;
     }) => {
       calls.push('confirm-repay');
       await onBeforeSend();
       await onConfirmed('repay-tx');
+      onCompleted();
       return true;
     },
   };
@@ -162,7 +165,7 @@ it('retries only a local failure before remote submission and does not rebuild s
       onConfirmed,
     }: {
       onBeforeSend: () => Promise<void>;
-      onConfirmed: (txid: string) => Promise<void>;
+      onConfirmed: (txid: string) => Promise<boolean>;
     }) => {
       await onBeforeSend();
       await onConfirmed('setup-tx');
@@ -178,7 +181,7 @@ it('retries only a local failure before remote submission and does not rebuild s
       onConfirmed,
     }: {
       onBeforeSend: () => Promise<void>;
-      onConfirmed: (txid: string) => Promise<void>;
+      onConfirmed: (txid: string) => Promise<boolean>;
     }) => {
       await onBeforeSend();
       await onConfirmed('repay-tx');

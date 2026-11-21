@@ -6,7 +6,6 @@ import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import { createLateEarnOrderRecorder } from '@onekeyhq/kit/src/views/Earn/tasks/lateEarnOrderRecorder';
 import {
   getTaskAccountAddress,
   isTaskAccountCurrent,
@@ -17,6 +16,7 @@ import { useCommittedEarnScopeGuard } from '@onekeyhq/kit/src/views/Staking/hook
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type IBorrowEModeSwitchCheck,
@@ -856,6 +856,7 @@ export function useUniversalBorrowRepayWithCollateral({
             onSafePreSendFailed,
             onCompleted,
             onCallbackFailed,
+            recordRepay,
           }) => {
             const info = attachBorrowOrderId({
               stakingInfo: attachRepayWithCollateralAmount({
@@ -868,7 +869,39 @@ export function useUniversalBorrowRepayWithCollateral({
               await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
               await verifyAccount();
             }
-            const recordLateOrder = createLateEarnOrderRecorder();
+            const recordAttemptId = generateUUID();
+            const recordOrder = (txid: string, status: EDecodedTxStatus) =>
+              recordRepay(txid, async (retry) => {
+                if (!built.orderId) return 'notTracked';
+                const result =
+                  await backgroundApiProxy.serviceStaking.addEarnOrder(
+                    {
+                      orderId: built.orderId,
+                      networkId,
+                      txId: txid,
+                      status,
+                      ...getEarnOrderTrackingInfo(info),
+                    },
+                    {
+                      remoteSync: 'once',
+                      preserveExistingTx: true,
+                      recordAttemptId,
+                      ...(retry ? { retryLocalFailure: true as const } : {}),
+                    },
+                  );
+                if (
+                  (result.localStatus === 'failed' ||
+                    result.localStatus === 'unavailable') &&
+                  result.remoteStatus === 'notAttempted'
+                )
+                  return 'localFailed';
+                if (
+                  result.localStatus === 'saved' &&
+                  result.remoteStatus === 'synced'
+                )
+                  return 'synced';
+                return 'remoteUnknown';
+              });
             const result = await waitForTxConfirmResult({
               encodedTx: parseBorrowEncodedTx(built.tx),
               stakingInfo: info,
@@ -888,13 +921,10 @@ export function useUniversalBorrowRepayWithCollateral({
                   return false;
                 const accepted = await onLateBroadcastAccepted(fact.txid);
                 if (!accepted) return false;
-                const recording = await recordLateOrder({
-                  fact,
-                  accountId,
-                  networkId,
-                  stakeInfo: info,
-                  orderId: built.orderId,
-                });
+                const recording = await recordOrder(
+                  fact.txid,
+                  EDecodedTxStatus.Pending,
+                );
                 if (recording === 'synced' || recording === 'notTracked') {
                   onCompleted();
                 } else {
@@ -905,40 +935,35 @@ export function useUniversalBorrowRepayWithCollateral({
               },
               onConfirmed: async (data, wasSettled) => {
                 const txid = getLatestTxId(data);
-                await onConfirmed(txid ?? '');
+                const accepted = await onConfirmed(txid ?? '');
                 try {
-                  if (wasSettled) {
-                    if (built.orderId && txid) {
-                      await backgroundApiProxy.serviceStaking.addEarnOrder(
-                        {
-                          orderId: built.orderId,
-                          networkId,
-                          txId: txid,
-                          status: data[data.length - 1]?.decodedTx.status,
-                          ...getEarnOrderTrackingInfo(info),
-                        },
-                        { remoteSync: 'once', preserveExistingTx: true },
-                      );
-                    }
-                    onCompleted();
+                  if (!txid || !accepted) {
+                    onCallbackFailed();
                     return;
                   }
-                  await handleBorrowSuccess({
-                    data,
-                    orderId: built.orderId,
-                    networkId,
-                    accountId:
-                      !wasSettled && isCurrent() && isOwnerActive()
-                        ? accountId
-                        : undefined,
-                    expectedAccountAddress: frozenAddress,
-                    stakingInfo: info,
-                    onSuccess: (successData) => {
-                      if (!wasSettled && isCurrent() && isOwnerActive())
-                        onSuccess?.(successData);
-                    },
-                  });
-                  onCompleted();
+                  const recordingPromise = recordOrder(
+                    txid,
+                    data[data.length - 1]?.decodedTx.status ??
+                      EDecodedTxStatus.Pending,
+                  );
+                  if (!wasSettled) {
+                    await handleBorrowSuccess({
+                      data,
+                      networkId,
+                      accountId:
+                        isCurrent() && isOwnerActive() ? accountId : undefined,
+                      expectedAccountAddress: frozenAddress,
+                      stakingInfo: info,
+                      onSuccess: (successData) => {
+                        if (isCurrent() && isOwnerActive())
+                          onSuccess?.(successData);
+                      },
+                    });
+                  }
+                  const recording = await recordingPromise;
+                  if (recording === 'synced' || recording === 'notTracked')
+                    onCompleted();
+                  else onCallbackFailed();
                 } catch (error) {
                   onCallbackFailed();
                   throw error;
@@ -950,6 +975,36 @@ export function useUniversalBorrowRepayWithCollateral({
             return result.status === 'success';
           },
         });
+        if (task.hasRetryableRepayRecording()) {
+          const lease = { active: true };
+          let token: symbol;
+          try {
+            token = task.attachOwner(
+              makeOwner(task, false, () => lease.active),
+            );
+          } catch (error) {
+            if (
+              error instanceof OneKeyLocalError &&
+              error.message === 'Earn workflow owner unavailable'
+            )
+              return pending();
+            throw error;
+          }
+          const detach = () => {
+            lease.active = false;
+            return task.detachOwner(token);
+          };
+          activeTaskDetach.add(detach);
+          try {
+            await task.retryRepayRecording(token);
+            if (!isCurrent() || !lease.active) return false;
+            await verifyAccount();
+            if (!isCurrent() || !lease.active) return false;
+          } finally {
+            activeTaskDetach.delete(detach);
+            detach();
+          }
+        }
         if (!sameSetupRoute(task)) {
           const previous = task.getTask();
           if (previous.identity.accountId !== accountId) return pending();
@@ -1166,6 +1221,7 @@ export function useUniversalBorrowRepayWithCollateral({
         if (task.getTask().facts?.recording === 'localFailed') return pending();
         if (
           didSucceed &&
+          task.getTask().facts?.repayCallback === 'completed' &&
           !task.getTask().steps.some((step) => step.id === 'setup') &&
           task.getSetupTask() === task.getTask()
         ) {
