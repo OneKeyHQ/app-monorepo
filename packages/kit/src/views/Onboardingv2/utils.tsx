@@ -11,6 +11,7 @@ import type {
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { resolveNativeForceTransportType } from '../../hooks/useAndroidUsbOnboarding';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
@@ -34,6 +35,9 @@ export function getHardwareCommunicationTypeString(
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
     return 'WebUSB';
   }
+  if (hardwareTransportType === EHardwareTransportType.NativeUsb) {
+    return 'USB';
+  }
   if (hardwareTransportType === 'QRCode') {
     return 'QRCode';
   }
@@ -52,7 +56,9 @@ export async function getForceTransportType(
         : EHardwareTransportType.BLE;
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
-      if (platformEnv.isNative) return EHardwareTransportType.BLE;
+      if (platformEnv.isNative) {
+        return resolveNativeForceTransportType(channel);
+      }
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
         return deviceUtils.getDesktopUsbTransportType({

@@ -840,6 +840,16 @@ function isBluetoothSearchDevice(device: {
   );
 }
 
+export function isUsbHardwareTransportType(
+  transportType: EHardwareTransportType | undefined,
+): boolean {
+  return (
+    transportType === EHardwareTransportType.WEBUSB ||
+    transportType === EHardwareTransportType.Bridge ||
+    transportType === EHardwareTransportType.NativeUsb
+  );
+}
+
 /**
  * Get the appropriate connectId based on transport type
  * @param device - The device object
@@ -853,6 +863,7 @@ function getDeviceConnectId(
   switch (transportType) {
     case EHardwareTransportType.WEBUSB:
     case EHardwareTransportType.Bridge:
+    case EHardwareTransportType.NativeUsb:
       return device.usbConnectId || device.connectId;
 
     case EHardwareTransportType.BLE:
@@ -888,6 +899,11 @@ function normalizeHardwareTransportTypeForPlatform({
   transportType: EHardwareTransportType;
   connectProtocol?: HardwareConnectProtocol;
 }): EHardwareTransportType {
+  if (transportType === EHardwareTransportType.NativeUsb) {
+    return platformEnv.isNativeAndroid
+      ? EHardwareTransportType.NativeUsb
+      : getDefaultHardwareTransportType();
+  }
   if (transportType === EHardwareTransportType.Bridge) {
     return getDesktopUsbTransportType({
       usbCommunicationMode: 'bridge',
@@ -1177,6 +1193,7 @@ export default {
   shouldUseV2FirmwareUpdateFlow,
   getRawDeviceId,
   isBluetoothSearchDevice,
+  isUsbHardwareTransportType,
   getDeviceConnectId,
   getDesktopUsbTransportType,
   normalizeHardwareTransportTypeForPlatform,

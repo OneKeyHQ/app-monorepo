@@ -760,4 +760,45 @@ describe('bootloader update USB preparation', () => {
     );
     expect(mockSetForceTransportType).not.toHaveBeenCalled();
   });
+
+  it('skips the desktop USB suggestion when Android runs firmware update over NativeUsb', async () => {
+    const mutablePlatformEnv = jest.requireMock<{
+      default: { isNativeAndroid?: boolean };
+    }>('@onekeyhq/shared/src/platformEnv').default;
+    const backgroundApiProxy = jest.requireMock<{
+      default: {
+        serviceHardware: {
+          getCurrentTransportType?: () => Promise<EHardwareTransportType>;
+        };
+      };
+    }>('../../../background/instance/backgroundApiProxy').default;
+    mockIsNative = true;
+    mutablePlatformEnv.isNativeAndroid = true;
+    backgroundApiProxy.serviceHardware.getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.NativeUsb);
+    mockCheckDeviceReachable.mockResolvedValueOnce({
+      connectId: 'PRO2_USB',
+      transportType: EHardwareTransportType.NativeUsb,
+    });
+
+    try {
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+      await act(async () => {
+        await result.current.openChangeLogModal({
+          connectId: 'PRO2_USB',
+          knownUpdate: {
+            deviceType: EDeviceType.Pro2,
+            estimatedTransferBytes: 22_000_000,
+          },
+        });
+      });
+
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+    } finally {
+      mutablePlatformEnv.isNativeAndroid = false;
+      delete backgroundApiProxy.serviceHardware.getCurrentTransportType;
+    }
+  });
 });

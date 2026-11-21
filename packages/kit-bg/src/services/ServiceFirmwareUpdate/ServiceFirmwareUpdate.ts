@@ -415,11 +415,54 @@ type IFirmwareUpdateV4AppParams = IFirmwareUpdateV3VersionParams & {
   targetsToUpdate: FirmwareUpdateV4Target[];
 };
 
+type ICombinedPriorityModeCoreApi = CoreApi & {
+  // Added by hardware-js-sdk #997+ combined transport; absent on 1.2.10.
+  setPriorityMode?: (enabled: boolean) => void | Promise<void>;
+};
+
 @backgroundClass()
 class ServiceFirmwareUpdate extends ServiceBase {
   private firmwareUpdateRuntimeHost?: Promise<IFirmwareUpdateRuntimeHost>;
 
   private firmwarePrefetch?: Promise<void>;
+
+  private async setAndroidUsbPriorityMode({
+    enabled,
+    connectId,
+    hardwareTransportType,
+  }: {
+    enabled: boolean;
+    connectId?: string;
+    hardwareTransportType?: EHardwareTransportType;
+  }): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    let called = false;
+    // Disabling is retried once so a transient failure cannot leave the live
+    // SDK locked to USB after the workflow ends.
+    const attempts = enabled ? 1 : 2;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const hardwareSDK = (await this.getSDKInstance({
+          connectId,
+          hardwareTransportType,
+        })) as ICombinedPriorityModeCoreApi | undefined;
+        if (typeof hardwareSDK?.setPriorityMode !== 'function') {
+          return called;
+        }
+        called = true;
+        await hardwareSDK.setPriorityMode(enabled);
+        return called;
+      } catch (error) {
+        serviceHardwareUtils.hardwareLog(
+          `setAndroidUsbPriorityMode(${String(enabled)}) failed (attempt ${attempt})`,
+          error,
+        );
+      }
+    }
+    return called;
+  }
 
   private prefetchKnownDeviceFirmware(): void {
     if (
@@ -2582,6 +2625,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
+          let shouldClearAndroidUsbPriorityMode = false;
           try {
             appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
             // await other hardware task stop processing
@@ -2624,6 +2668,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
+            if (
+              platformEnv.isNativeAndroid &&
+              currentTransportType === EHardwareTransportType.NativeUsb
+            ) {
+              shouldClearAndroidUsbPriorityMode =
+                await this.setAndroidUsbPriorityMode({
+                  enabled: true,
+                  connectId: params.releaseResult.updatingConnectId,
+                  hardwareTransportType: currentTransportType,
+                });
+            }
             serviceHardwareUtils.hardwareLog(
               'startUpdateWorkflow: locked transport type',
               currentTransportType,
@@ -2766,6 +2821,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
               },
             );
           } finally {
+            if (shouldClearAndroidUsbPriorityMode) {
+              await this.setAndroidUsbPriorityMode({
+                enabled: false,
+                connectId: params.releaseResult.updatingConnectId,
+                hardwareTransportType: EHardwareTransportType.NativeUsb,
+              });
+            }
             // Always clear transport type lock when firmware update completes (success or failure)
             await this.backgroundApi.serviceHardware.clearForceTransportType();
             serviceHardwareUtils.hardwareLog(
@@ -2955,6 +3017,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
             async () => {
               let shouldClearForceTransportType = false;
+              let shouldClearAndroidUsbPriorityMode = false;
 
               try {
                 appEventBus.emit(
@@ -3006,6 +3069,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
                   forceTransportType: currentTransportType,
                 });
                 shouldClearForceTransportType = true;
+                if (
+                  platformEnv.isNativeAndroid &&
+                  currentTransportType === EHardwareTransportType.NativeUsb
+                ) {
+                  shouldClearAndroidUsbPriorityMode =
+                    await this.setAndroidUsbPriorityMode({
+                      enabled: true,
+                      connectId: params.releaseResult.updatingConnectId,
+                      hardwareTransportType: currentTransportType,
+                    });
+                }
                 serviceHardwareUtils.hardwareLog(
                   'startUpdateWorkflowV2: locked transport type',
                   currentTransportType,
@@ -3093,6 +3167,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
                   await this.setFirmwareArtifactDownloadState(false);
                 }
               } finally {
+                if (shouldClearAndroidUsbPriorityMode) {
+                  await this.setAndroidUsbPriorityMode({
+                    enabled: false,
+                    connectId: params.releaseResult.updatingConnectId,
+                    hardwareTransportType: EHardwareTransportType.NativeUsb,
+                  });
+                }
                 if (shouldClearForceTransportType) {
                   // Always clear transport type lock when firmware update completes
                   await this.backgroundApi.serviceHardware.clearForceTransportType();

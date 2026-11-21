@@ -12,6 +12,7 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 
 import { OnboardingTestIDs } from '../testIDs';
 
@@ -19,6 +20,7 @@ import { ConnectDeviceChannels } from './ConnectYourDevice';
 
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 let mockTransport = EHardwareTransportType.BLE;
+let mockAndroidUsbAuto = true;
 const mockPermission = jest.fn<Promise<boolean>, []>();
 const mockCheckState = jest.fn(async () => 'on');
 const mockWebAccess = jest.fn(async () => undefined);
@@ -48,7 +50,12 @@ jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({}) }));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true, isDesktop: false, isSupportDesktopBle: false },
+  default: {
+    isNative: true,
+    isNativeAndroid: false,
+    isDesktop: false,
+    isSupportDesktopBle: false,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
   checkBLEPermissions: () => mockPermission(),
@@ -68,6 +75,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardware: { setForceTransportType: jest.fn(async () => {}) },
+    serviceSetting: {
+      isAndroidUsbAutoEnabled: jest.fn(async () => mockAndroidUsbAuto),
+    },
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -92,7 +102,10 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess', () => ({
   usePromptWebDeviceAccess: () => ({ promptWebUsbDeviceAccess: mockWebAccess }),
 }));
 jest.mock('../utils', () => ({
-  getForceTransportType: async () => mockTransport,
+  getForceTransportType: async (channel?: EConnectDeviceChannel) =>
+    channel === EConnectDeviceChannel.bluetooth
+      ? EHardwareTransportType.BLE
+      : mockTransport,
   getThirdPartySearchTarget: () => undefined,
   sortDevicesData: <T,>(devices: T[]) => devices,
 }));
@@ -245,10 +258,12 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   mockPlatform.isNative = true;
+  (mockPlatform as { isNativeAndroid?: boolean }).isNativeAndroid = false;
   mockPlatform.isDesktop = false;
   mockPlatform.isSupportDesktopBle = false;
   mockPublishBluetoothStatus = undefined;
   mockTransport = EHardwareTransportType.BLE;
+  mockAndroidUsbAuto = true;
   mockPermission.mockResolvedValue(true);
 });
 afterEach(() => {
@@ -354,3 +369,54 @@ test.each(['disabledInApp', 'disabledInSystem', 'noSystemPermission'])(
     });
   },
 );
+
+test('Android auto USB defaults to USBCard, skips BLE permission checks, handles permission denial, and falls back to Bluetooth', async () => {
+  (mockPlatform as { isNativeAndroid?: boolean }).isNativeAndroid = true;
+  mockTransport = EHardwareTransportType.NativeUsb;
+  mockAndroidUsbAuto = true;
+
+  renderChannels(false);
+
+  expect(
+    await screen.findByText('onboarding.usb_prepare_to_connect'),
+  ).toBeTruthy();
+  expect(mockPermission).not.toHaveBeenCalled();
+
+  await act(async () => {
+    jest.advanceTimersByTime(150);
+  });
+  expect(mockPermission).not.toHaveBeenCalled();
+  expect(mockScanner.startDeviceScan).toHaveBeenCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    expect.objectContaining({ transportType: 'usb' }),
+  );
+
+  // USB permission denial stops scan and shows guidance + Retry without BLE dialogs.
+  const scanOptions = mockScanner.startDeviceScan.mock.calls.at(-1)?.[6] as
+    | { onError?: (err: unknown) => void }
+    | undefined;
+  act(() => {
+    scanOptions?.onError?.(new Error('USB permission denied by user'));
+  });
+  expect(mockScanner.stopScan).toHaveBeenCalled();
+  expect(screen.getByText('onboarding.usb_permission_denied')).toBeTruthy();
+  expect(
+    screen.getByTestId(OnboardingTestIDs.connectYourDeviceUSBRetryBtn),
+  ).toBeTruthy();
+
+  // Secondary action switches to the existing Bluetooth flow and checks BLE permission.
+  await act(async () => {
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.connectYourDeviceTryBluetoothBtn),
+    );
+  });
+  await act(async () => {
+    jest.advanceTimersByTime(150);
+  });
+  expect(mockPermission).toHaveBeenCalled();
+});

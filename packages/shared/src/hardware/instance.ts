@@ -78,6 +78,7 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
+  androidUsbAutoEnabled?: boolean;
   loadFirmwareConfig?: () => Promise<RemoteConfigResponse | undefined>;
 }): Promise<CoreApi> => {
   if (HardwareSDK) {
@@ -92,6 +93,16 @@ const createHardwareSDKInstance = async (params: {
     params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
   ) {
     env = 'desktop-web-ble' as const;
+  } else if (
+    platformEnv.isNativeAndroid &&
+    (params.androidUsbAutoEnabled === true ||
+      (params.androidUsbAutoEnabled === undefined &&
+        params.hardwareTransportType !== EHardwareTransportType.BLE))
+  ) {
+    // @onekeyfe/hd-core <= 1.2.10 ConnectSettings['env'] lacks 'react-native-combined',
+    // and @onekeyfe/hd-ble-sdk 1.2.10 ignores env (stays BLE) until the SDK
+    // release containing hardware-js-sdk#997 is bumped.
+    env = 'react-native-combined' as ConnectSettings['env'];
   }
 
   const isAppManagedManifest = Boolean(

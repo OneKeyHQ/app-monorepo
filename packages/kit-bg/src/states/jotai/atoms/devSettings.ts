@@ -164,6 +164,10 @@ export interface IDevSettings {
   // Optional public fixture profile, persisted so isolated E2E runs can restart
   // without sharing the default software key's old Cloud data.
   hardwareCloudSyncSoftwareKeyProfile?: string;
+  // Kill-switch on Android: when enabled alongside dev mode, disables
+  // automatic USB+BLE ('react-native-combined') in @onekeyfe/hd-ble-sdk and
+  // forces BLE-only mode.
+  disableAndroidNativeUsb?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

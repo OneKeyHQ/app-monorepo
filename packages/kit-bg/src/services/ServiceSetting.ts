@@ -29,6 +29,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isAndroidCombinedTransportSupported } from '@onekeyhq/shared/src/hardware/sdk-loader';
 import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -51,11 +52,8 @@ import {
   buildHomeDefaultTokenMapKey,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  EHardwareTransportType,
-  ICurrencyItem,
-  IServerNetwork,
-} from '@onekeyhq/shared/types';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { ICurrencyItem, IServerNetwork } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -1015,10 +1013,18 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
-    const nextHardwareTransportType =
+    let nextHardwareTransportType =
       deviceUtils.normalizeHardwareTransportTypeForPlatform({
         transportType: hardwareTransportType,
       });
+    // Never persist NativeUsb when Android auto USB is disabled (kill-switch
+    // on or non-Android), so it cannot leak into the persisted settings.
+    if (
+      nextHardwareTransportType === EHardwareTransportType.NativeUsb &&
+      !(await this.isAndroidUsbAutoEnabled())
+    ) {
+      nextHardwareTransportType = EHardwareTransportType.BLE;
+    }
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       hardwareTransportType: nextHardwareTransportType,
@@ -1027,13 +1033,56 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
+    if (platformEnv.isNativeAndroid) {
+      // Android uses dynamic USB+BLE by default with no dev-mode requirement;
+      // only the kill-switch forces BLE. Live USB vs BLE transport per device
+      // is resolved dynamically by HardwareConnectionManager / ServiceHardware.
+      return (await this.isAndroidUsbAutoEnabled())
+        ? EHardwareTransportType.NativeUsb
+        : EHardwareTransportType.BLE;
+    }
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+      const normalized = deviceUtils.normalizeHardwareTransportTypeForPlatform({
         transportType: hardwareTransportType,
       });
+      if (normalized === EHardwareTransportType.NativeUsb) {
+        return EHardwareTransportType.BLE;
+      }
+      return normalized;
     }
     return deviceUtils.getDefaultHardwareTransportType();
+  }
+
+  // Android automatic USB+BLE kill-switch: active only when dev mode is on
+  // and disableAndroidNativeUsb is enabled.
+  @backgroundMethod()
+  public async isAndroidNativeUsbTransportDisabled(): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    try {
+      const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
+      return !!(dev?.enabled && dev?.settings?.disableAndroidNativeUsb);
+    } catch {
+      // Keep automatic USB enabled if dev settings cannot be read.
+      return false;
+    }
+  }
+
+  // Automatic USB+BLE ('react-native-combined') is enabled by default on
+  // Android without requiring dev mode; only the kill-switch disables it.
+  @backgroundMethod()
+  public async isAndroidUsbAutoEnabled(): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    if (await this.isAndroidNativeUsbTransportDisabled()) {
+      return false;
+    }
+    // Stay on BLE until the app ships an SDK that supports
+    // 'react-native-combined' (hardware-js-sdk#997).
+    return isAndroidCombinedTransportSupported();
   }
 
   @backgroundMethod()

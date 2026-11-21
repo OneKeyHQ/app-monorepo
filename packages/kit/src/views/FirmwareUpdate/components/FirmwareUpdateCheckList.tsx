@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Dialog, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { isBluetoothFirmwareUpdateTransport } from '../firmwareUpdateTransportUtils';
@@ -20,9 +22,31 @@ export function FirmwareUpdateCheckList({
   const intl = useIntl();
   const { start: startWorkflow } = useStartFirmwareUpdateWorkflow();
   const isMountedRef = useRef(true);
+  const [hardwareTransportType, setHardwareTransportType] = useState<
+    EHardwareTransportType | undefined
+  >(undefined);
   const isBluetoothTransport = isBluetoothFirmwareUpdateTransport({
     isNative: platformEnv.isNative,
+    hardwareTransportType,
   });
+
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    let active = true;
+    void backgroundApiProxy?.serviceHardware
+      ?.getCurrentTransportType?.()
+      .then((transport) => {
+        if (active && isMountedRef.current) {
+          setHardwareTransportType(transport);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(
     () => () => {

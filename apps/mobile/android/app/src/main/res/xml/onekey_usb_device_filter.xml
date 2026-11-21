@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep in sync with ONEKEY_WEBUSB_FILTER in @onekeyfe/hd-shared. -->
+<resources>
+    <!--
+      Vendor 0x1209 with products 0x53c0 / 0x53c1 is shared with Trezor (Trezor One / Model T
+      use the same pid.codes IDs). Restrict by manufacturer-name so plugging in a Trezor does
+      not prompt to open OneKey: Classic / Classic 1S / Pro firmware report "OneKey", while
+      Pro bootloader and Pro 2 / Neo report "OneKey Limited".
+    -->
+    <!-- OneKey Classic / Classic 1S / Mini bootloader (vendor 0x1209, product 0x53c0) -->
+    <usb-device vendor-id="4617" product-id="21440" manufacturer-name="OneKey" />
+    <usb-device vendor-id="4617" product-id="21440" manufacturer-name="OneKey Limited" />
+    <!-- OneKey Classic / Classic 1S / Mini / Pro / Touch firmware, legacy Pro 2 (vendor 0x1209, product 0x53c1) -->
+    <usb-device vendor-id="4617" product-id="21441" manufacturer-name="OneKey" />
+    <usb-device vendor-id="4617" product-id="21441" manufacturer-name="OneKey Limited" />
+    <!-- OneKey-only IDs below; no manufacturer-name filter needed. -->
+    <!-- OneKey Pro / Touch bootloader, Pro 2 (vendor 0x1209, product 0x4f4a) -->
+    <usb-device vendor-id="4617" product-id="20298" />
+    <!-- OneKey Pro / Touch firmware, Pro 2 (vendor 0x1209, product 0x4f4b) -->
+    <usb-device vendor-id="4617" product-id="20299" />
+    <!-- OneKey Pro 2 / Neo current firmware (vendor 0x1209, product 0x4f4c) -->
+    <usb-device vendor-id="4617" product-id="20300" />
+</resources>
