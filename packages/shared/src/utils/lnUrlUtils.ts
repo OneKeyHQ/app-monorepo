@@ -57,10 +57,10 @@ export const findLnurl = memoizee(
     if (url) {
       return url;
     }
-    if (/^lnurl1/i.test(input) && bech32.decodeUnsafe(input, 2000)) {
-      return input;
-    }
-    return null;
+    const decoded = /^lnurl1/i.test(input)
+      ? bech32.decodeUnsafe(input, 2000)
+      : undefined;
+    return decoded?.prefix === 'lnurl' && decoded.words.length ? input : null;
   },
   {
     maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),

@@ -1,3 +1,5 @@
+import { bech32 } from 'bech32';
+
 import {
   findLnurl,
   isReusableLightningRecipient,
@@ -54,4 +56,9 @@ it('does not extract LNURL text from an invoice', () => {
 it('does not extract the username from a Lightning Address', () => {
   expect(findLnurl('LNURLalice@example.com')).toBeNull();
   expect(isReusableLightningRecipient('LNURLalice@example.com')).toBe(true);
+});
+
+it('requires the exact LNURL prefix and a nonempty payload', () => {
+  expect(findLnurl(bech32.encode('lnurl1other', [1]))).toBeNull();
+  expect(findLnurl(bech32.encode('lnurl', []))).toBeNull();
 });
