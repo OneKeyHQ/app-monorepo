@@ -93,7 +93,7 @@ export function OneKeyIdUsagePopover({
           <OneKeyIdUsageItem
             icon="GiftOutline"
             title={intl.formatMessage({
-              id: ETranslations.sidebar_refer_a_friend,
+              id: ETranslations.id_refer_a_friend,
             })}
             description={intl.formatMessage({
               id: ETranslations.onekey_id_usage_referral__desc,

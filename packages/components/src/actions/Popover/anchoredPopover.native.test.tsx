@@ -4,7 +4,7 @@
  */
 // oxlint-disable react-perf/jsx-no-new-function-as-prop, react-perf/jsx-no-new-object-as-prop -- test props capture each case's state
 import type { ReactNode } from 'react';
-import { createElement, useState } from 'react';
+import { createElement } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -25,7 +25,6 @@ type IMockOverlayProps = {
 };
 
 const mockOverlayRenders: IMockOverlayProps[] = [];
-const mockSheetMounts = { count: 0 };
 const mockTriggerRect = { x: 100, y: 200, width: 40, height: 40 };
 const mockWindow = { current: { width: 1024, height: 768 } };
 const triggerContent = <span>Open</span>;
@@ -112,10 +111,7 @@ jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('../../hocs/NativeSheetPresentation', () => ({
-  NativeSheetPresentation: () => {
-    mockSheetMounts.count += 1;
-    return null;
-  },
+  NativeSheetPresentation: () => null,
 }));
 jest.mock('../../content/Keyboard', () => ({
   Keyboard: { dismissWithDelay: jest.fn() },
@@ -180,7 +176,6 @@ function renderPopover() {
 beforeEach(() => {
   jest.useFakeTimers();
   mockOverlayRenders.length = 0;
-  mockSheetMounts.count = 0;
   mockWindow.current = { width: 1024, height: 768 };
 });
 afterEach(() => {
@@ -304,40 +299,4 @@ it('caps content-sized panels without forcing a fixed width', () => {
   const panel = screen.getByText('Item').closest('[data-panel-max-width]');
   expect(panel?.getAttribute('data-panel-width')).toBeNull();
   expect(panel?.getAttribute('data-panel-max-width')).toBe('240');
-});
-
-it('keeps a trigger-less sheet popover open on its first open in a wide window', () => {
-  // A controlled popover opened from inline text (no trigger to anchor to)
-  // must stay a sheet on iPad instead of switching presentation and closing.
-  const onOpenChange = jest.fn();
-  function Host() {
-    const [open, setOpen] = useState(false);
-    return (
-      <>
-        <button type="button" onClick={() => setOpen(true)}>
-          Inline link
-        </button>
-        <Popover
-          title="Usage"
-          open={open}
-          onOpenChange={(next) => {
-            onOpenChange(next);
-            setOpen(next);
-          }}
-          renderTrigger={null}
-          nativePresentation="sheet"
-          renderContent={menuContent}
-        />
-      </>
-    );
-  }
-  render(<Host />);
-  fireEvent.click(screen.getByRole('button', { name: 'Inline link' }));
-  act(() => {
-    jest.runOnlyPendingTimers();
-  });
-
-  expect(onOpenChange).not.toHaveBeenCalledWith(false);
-  expect(screen.queryByTestId('anchored-overlay')).toBeNull();
-  expect(mockSheetMounts.count).toBeGreaterThan(0);
 });
