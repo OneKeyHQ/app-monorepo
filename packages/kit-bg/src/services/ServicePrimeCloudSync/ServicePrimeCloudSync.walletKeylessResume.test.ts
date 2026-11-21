@@ -66,12 +66,28 @@ it.each([
   'history-failure',
   'history-failure-missing-avatar',
   'history-failure-flag-change',
+  'history-failure-fresh-avatar',
+  'history-failure-fresh-avatar-local-diverged',
+  'history-failure-fresh-avatar-pending',
+  'history-failure-fresh-avatar-cancelled',
+  'history-failure-fresh-avatar-stale',
+  'history-failure-fresh-avatar-foreign',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const historyFails = scenario.startsWith('history-failure');
     const noLocalAvatar = scenario === 'history-failure-missing-avatar';
     const losesServerAck = scenario === 'history-failure-flag-change';
+    const freshAvatar = scenario.startsWith('history-failure-fresh-avatar');
+    const avatarDiverged =
+      scenario === 'history-failure-fresh-avatar-local-diverged';
+    const priorPending = scenario === 'history-failure-fresh-avatar-pending';
+    const cancelFreshAvatar =
+      scenario === 'history-failure-fresh-avatar-cancelled';
+    const staleIncomingAvatar =
+      scenario === 'history-failure-fresh-avatar-stale';
+    const foreignPriorAvatar =
+      scenario === 'history-failure-fresh-avatar-foreign';
     const wallet: IDBWallet = {
       ...walletFixture,
       ...(noLocalAvatar ? { avatar: undefined } : {}),
@@ -195,7 +211,8 @@ it.each([
     const acknowledged = {
       ...(await makeItem(wallet.name, 'bear', baseTime)),
       localSceneUpdated: scenario === 'same-space' || historyFails,
-      serverUploaded: true,
+      serverUploaded: !priorPending,
+      ...(foreignPriorAvatar ? { pwdHash: 'keyless-unrelated-source' } : {}),
     };
     expect(acknowledged.data).toBeTruthy();
     await localDb.withTransaction(
@@ -244,13 +261,22 @@ it.each([
     await account.setWalletNameAndAvatar({
       walletId: wallet.id,
       name: offlineName,
-      ...(noLocalAvatar ? {} : { avatar: { img: 'cat' as const } }),
+      ...(noLocalAvatar || (freshAvatar && !avatarDiverged)
+        ? {}
+        : {
+            avatar: {
+              img: avatarDiverged ? ('dog' as const) : ('cat' as const),
+            },
+          }),
       allowDesktopLocalMetadata: true,
       skipEmitEvent: true,
     });
+    let localAvatar = noLocalAvatar ? undefined : '{"img":"cat"}';
+    if (freshAvatar)
+      localAvatar = avatarDiverged ? '{"img":"dog"}' : '{"img":"bear"}';
     expect(await readWallet()).toMatchObject({
       name: offlineName,
-      avatar: noLocalAvatar ? undefined : '{"img":"cat"}',
+      avatar: localAvatar,
     });
     expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
       data: acknowledged.data,
@@ -355,6 +381,72 @@ it.each([
           }
           return false;
         });
+      if (freshAvatar) {
+        const nextTime = baseTime + (staleIncomingAvatar ? -100 : 100);
+        const next = await makeItem(
+          'Remote name awaiting history',
+          'cat',
+          nextTime,
+        );
+        const remote = prime.convertLocalItemToServerItem({ localItem: next });
+        if (!remote)
+          throw new OneKeyLocalError('Missing remote Wallet fixture');
+        check.mockResolvedValueOnce({
+          diff: [remote],
+          updated: [],
+          deleted: [],
+          obsoleted: [],
+          pwdHash: scope,
+          serverTime: Date.now(),
+        });
+        const updateWallet = localDb.txUpdateWallet.bind(localDb);
+        const stop = cancelFreshAvatar
+          ? jest
+              .spyOn(localDb, 'txUpdateWallet')
+              .mockImplementation(async (options) => {
+                await updateWallet(options);
+                await keyless.toggleCloudSyncKeyless({
+                  enabled: false,
+                  silentEnable: true,
+                });
+              })
+          : undefined;
+        try {
+          await keyless
+            .toggleCloudSyncKeyless({ enabled: true, silentEnable: true })
+            .catch((error) => {
+              if (!cancelFreshAvatar) throw error;
+            });
+        } finally {
+          stop?.mockRestore();
+        }
+        expect(await readWallet()).toMatchObject({
+          name: offlineName,
+          avatar:
+            avatarDiverged ||
+            priorPending ||
+            cancelFreshAvatar ||
+            staleIncomingAvatar ||
+            foreignPriorAvatar
+              ? localAvatar
+              : '{"img":"cat"}',
+        });
+        if (!cancelFreshAvatar)
+          expect((await readWallet()).firstEvmAddress).toBe(
+            remoteAddress.toLowerCase(),
+          );
+        const current = await localDb.getSyncItem({ id: key.key });
+        expect(current).toMatchObject({
+          data: staleIncomingAvatar ? acknowledged.data : next.data,
+          dataTime: staleIncomingAvatar ? baseTime : nextTime,
+          localSceneUpdated: false,
+        });
+        expect(check).toHaveBeenCalledTimes(1);
+        expect(upload).not.toHaveBeenCalled();
+        if (cancelFreshAvatar)
+          expect(config.isCloudSyncEnabledKeyless).toBe(false);
+        return;
+      }
       await keyless.toggleCloudSyncKeyless({
         enabled: true,
         silentEnable: true,

@@ -181,6 +181,10 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   override async syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: () => void;
+    previousAppliedWalletSource?: {
+      item: IDBCloudSyncItem;
+      credential: ICloudSyncCredential;
+    };
     item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
@@ -248,6 +252,39 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     )
       return false;
 
+    let expectedAvatar: string | undefined;
+    const previous = params.previousAppliedWalletSource;
+    if (
+      deferCloudSyncWalletName &&
+      payload.avatar &&
+      previous &&
+      item?.serverUploaded &&
+      previous.item.id === item.id &&
+      previous.item.pwdHash === item.pwdHash &&
+      (previous.item.dataTime ?? 0) < (item.dataTime ?? 0) &&
+      isCurrent
+    ) {
+      try {
+        const decrypted = await resolveBeforeTimeout(
+          cloudSyncItemBuilder.decryptSyncItem({
+            item: { ...previous.item },
+            syncCredential: previous.credential,
+          }),
+          1500,
+        );
+        const rawDataJson = decrypted?.rawDataJson;
+        if (
+          rawDataJson?.dataType === EPrimeCloudSyncDataType.Wallet &&
+          rawDataJson.payload.avatar &&
+          this.rawKeyToHashKey(rawDataJson.rawKey) === item.id
+        )
+          expectedAvatar = JSON.stringify(rawDataJson.payload.avatar);
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+      if (!isCurrent()) return false;
+    }
+
     const update: IDBSetWalletNameAndAvatarParams = {
       walletId,
       cloudSyncSource: item,
@@ -264,7 +301,14 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     };
     const { serviceAccount } = this.backgroundApi;
     if (isCurrent && item) {
-      await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
+      if (expectedAvatar === undefined)
+        await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
+      else
+        await serviceAccount.setWalletNameAndAvatarFromCloud(
+          update,
+          isCurrent,
+          expectedAvatar,
+        );
     } else {
       await serviceAccount.setWalletNameAndAvatar(update);
     }

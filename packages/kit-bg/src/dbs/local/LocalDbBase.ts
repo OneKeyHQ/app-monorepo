@@ -450,6 +450,10 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  onBeforeWalletServerMerge?: (
+    previous: IDBCloudSyncItem,
+    incoming: IDBCloudSyncItem,
+  ) => void;
   preserveExisting?: (
     item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
   ) => boolean;
@@ -463,6 +467,10 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
+  onBeforeWalletServerMerge?: (
+    previous: IDBCloudSyncItem,
+    incoming: IDBCloudSyncItem,
+  ) => void;
   preserveExisting?: (
     item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
   ) => boolean;
@@ -5599,6 +5607,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     fn,
     preserveExisting,
+    onBeforeWalletServerMerge,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
@@ -5610,6 +5619,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           skipUpdate,
           skipUploadToServer,
           preserveExisting,
+          onBeforeWalletServerMerge,
         });
 
         await fn?.();
@@ -5743,6 +5753,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUpdate,
     skipUploadToServer,
     preserveExisting,
+    onBeforeWalletServerMerge,
   }: ITxAddAndUpdateSyncItemsParams) {
     const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
     if (guardedItems.length) {
@@ -5804,6 +5815,33 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             (item) => item.id === record.id,
           );
           if (recordToUpdate && !preserveExisting?.(record)) {
+            if (
+              onBeforeWalletServerMerge &&
+              recordToUpdate.dataType === EPrimeCloudSyncDataType.Wallet &&
+              recordToUpdate.serverUploaded &&
+              record.dataType === EPrimeCloudSyncDataType.Wallet &&
+              record.serverUploaded &&
+              record.localSceneUpdated &&
+              !record.isDeleted &&
+              !!record.data
+            ) {
+              // Snapshot ciphertext and replay metadata, not a live Realm proxy.
+              onBeforeWalletServerMerge(
+                {
+                  id: record.id,
+                  dataType: record.dataType,
+                  data: record.data,
+                  dataTime: record.dataTime,
+                  pwdHash: record.pwdHash,
+                  isDeleted: false,
+                  serverUploaded: true,
+                  localSceneUpdated: true,
+                  rawKey: record.rawKey,
+                  rawData: undefined,
+                },
+                recordToUpdate,
+              );
+            }
             this._updateCloudSyncPoolItemFn({
               item: record,
               updateItem: recordToUpdate,
@@ -8776,7 +8814,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
-    { isCurrent }: { isCurrent?: () => boolean } = {},
+    {
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+    }: {
+      isCurrent?: () => boolean;
+      expectedCloudSyncWalletAvatar?: string;
+    } = {},
   ): Promise<IDBWallet> {
     const passive = params.passiveDeviceMetadata;
     if (passive) {
@@ -8846,7 +8890,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // not reacquire this lock from within a Cloud sync operation.
     if (params.skipSaveLocalSyncItem || params.applyRestoreSyncPolicy) {
       return isCurrent && params.cloudSyncSource
-        ? this.setWalletNameAndAvatarInternal(params, { isCurrent })
+        ? this.setWalletNameAndAvatarInternal(params, {
+            isCurrent,
+            expectedCloudSyncWalletAvatar,
+          })
         : this.setWalletNameAndAvatarInternal(params);
     }
     const { walletId } = params;
@@ -8901,6 +8948,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor,
       explicitSyncOffEdit,
       isCurrent,
+      expectedCloudSyncWalletAvatar,
     }: {
       verifiedCredential?: ICloudSyncCredential;
       claimWrite?: () => boolean;
@@ -8908,6 +8956,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor?: boolean;
       explicitSyncOffEdit?: boolean;
       isCurrent?: () => boolean;
+      expectedCloudSyncWalletAvatar?: string;
     } = {},
   ): Promise<IDBWallet> {
     const assertCurrent = () => {
@@ -9307,9 +9356,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (
             avatarInfo &&
             (!useExplicitFields || params.avatar) &&
-            // A partial scene cannot prove that a nonempty local avatar was
-            // not edited after this snapshot. Only fill a missing value.
-            (!params.deferCloudSyncWalletName || !w.avatar)
+            // A partial scene can fill a missing value or replace exactly the
+            // authenticated predecessor. Preserve other local avatars.
+            (!params.deferCloudSyncWalletName ||
+              !w.avatar ||
+              (expectedCloudSyncWalletAvatar !== undefined &&
+                w.avatar === expectedCloudSyncWalletAvatar))
           ) {
             w.avatar = JSON.stringify(avatarInfo);
           }

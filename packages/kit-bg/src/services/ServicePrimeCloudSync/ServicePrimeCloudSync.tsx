@@ -1981,9 +1981,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     foreignAccountsByWireId,
     localOnly = false,
     onWalletHistoryReplayResult,
+    walletAvatarPredecessors,
   }: {
     localOnly?: boolean;
     onWalletHistoryReplayResult?: (deferred: boolean) => void;
+    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
     forceSync?: boolean;
@@ -2004,6 +2006,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       foreignAccountsByWireId,
       localOnly,
       onWalletHistoryReplayResult,
+      walletAvatarPredecessors,
     });
   }
 
@@ -2015,9 +2018,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     foreignAccountsByWireId,
     localOnly = false,
     onWalletHistoryReplayResult,
+    walletAvatarPredecessors,
   }: {
     localOnly?: boolean;
     onWalletHistoryReplayResult?: (deferred: boolean) => void;
+    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     forceSync?: boolean;
@@ -2101,6 +2106,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       items: walletItems,
       forceSync,
       isCurrent,
+      ...(walletAvatarPredecessors?.size ? { walletAvatarPredecessors } : {}),
       onWalletNameHistoryDeferred: () => {
         walletNameHistoryDeferred = true;
       },
@@ -2294,6 +2300,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       shouldSyncToScene,
       isCurrent,
+      captureFreshWalletAvatar: !!isCurrent && shouldSyncToScene,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2348,12 +2355,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     shouldSyncToScene,
     isCurrent,
     allowSettledAccountHandoff = false,
+    captureFreshWalletAvatar = false,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
     isCurrent?: () => boolean;
     allowSettledAccountHandoff?: boolean;
+    captureFreshWalletAvatar?: boolean;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -2365,6 +2374,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     ) => isInactiveHardwareWalletAccount(item, activePwdHash);
     const foreignAccountsByWireId = new Map<string, IDBCloudSyncItem>();
     const collisionCandidates: IDBCloudSyncItem[] = [];
+    const priorWalletVersions = new Map<
+      string,
+      {
+        prior: IDBCloudSyncItem;
+        incoming: IDBCloudSyncItem;
+      }
+    >();
     console.log('updateLocalItemsByServer', localItems.length);
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
@@ -2449,6 +2465,26 @@ class ServicePrimeCloudSync extends ServiceBase {
           ),
           // Server data does not need to be uploaded again.
           skipUploadToServer: true,
+          ...(captureFreshWalletAvatar
+            ? {
+                onBeforeWalletServerMerge: (
+                  prior: IDBCloudSyncItem,
+                  incoming: IDBCloudSyncItem,
+                ) => {
+                  if (
+                    !!activePwdHash &&
+                    prior.pwdHash === activePwdHash &&
+                    incoming.pwdHash === activePwdHash &&
+                    !!incoming.data &&
+                    !incoming.isDeleted &&
+                    Number.isSafeInteger(prior.dataTime) &&
+                    Number.isSafeInteger(incoming.dataTime) &&
+                    (prior.dataTime || 0) < (incoming.dataTime || 0)
+                  )
+                    priorWalletVersions.set(incoming.id, { prior, incoming });
+                },
+              }
+            : {}),
           ...(activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
             ? { preserveExisting }
             : {}),
@@ -2470,6 +2506,20 @@ class ServicePrimeCloudSync extends ServiceBase {
       // Keep the downloaded versions before scene replay mutates decrypt/ACK
       // fields or a concurrent local restore replaces the persisted records.
       const cleanupSources = items.filter(Boolean).map((item) => ({ ...item }));
+      const walletAvatarPredecessors = new Map<string, IDBCloudSyncItem>();
+      for (const item of items) {
+        const versions = priorWalletVersions.get(item.id);
+        if (
+          versions &&
+          item.dataType === EPrimeCloudSyncDataType.Wallet &&
+          item.serverUploaded &&
+          !item.isDeleted &&
+          item.pwdHash === activePwdHash &&
+          item.data === versions.incoming.data &&
+          item.dataTime === versions.incoming.dataTime
+        )
+          walletAvatarPredecessors.set(item.id, versions.prior);
+      }
       await this.assertSyncCredentialUnchanged(syncCredential);
       // Collisions go through the normal verification and matching scene;
       // their canonical DB rows change only in the Account apply transaction.
@@ -2478,6 +2528,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         syncCredential,
         isCurrent,
         ...(foreignAccountsByWireId.size ? { foreignAccountsByWireId } : {}),
+        ...(walletAvatarPredecessors.size ? { walletAvatarPredecessors } : {}),
       });
       const deletedItems = items.filter(Boolean).filter((item) => {
         if (item && item.isDeleted) {
@@ -2505,11 +2556,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipUploadToServer,
     skipUpdate,
     preserveExisting,
+    onBeforeWalletServerMerge,
     isCurrent,
   }: {
     items: IDBCloudSyncItem[];
     skipUploadToServer: boolean;
     skipUpdate?: boolean;
+    onBeforeWalletServerMerge?: (
+      prior: IDBCloudSyncItem,
+      incoming: IDBCloudSyncItem,
+    ) => void;
     preserveExisting?: (
       item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
     ) => boolean;
@@ -2528,6 +2584,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         skipUploadToServer,
         skipUpdate,
         ...(preserveExisting ? { preserveExisting } : {}),
+        ...(onBeforeWalletServerMerge ? { onBeforeWalletServerMerge } : {}),
         fn: async () => guard(),
       });
       if (offset + 50 < items.length) await timerUtils.wait(0);
