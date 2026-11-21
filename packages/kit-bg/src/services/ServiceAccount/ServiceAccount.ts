@@ -138,7 +138,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -199,7 +201,6 @@ import {
   type IDBWalletIdSingleton,
   type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
-import { withWalletNameHistoryDeadline } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   devSettingsPersistAtom,
@@ -5649,7 +5650,7 @@ class ServiceAccount extends ServiceBase {
       retainedSceneName === undefined
     ) {
       // History is auxiliary to the already-committed manual rename.
-      await withWalletNameHistoryDeadline(
+      await resolveBeforeTimeout(
         simpleDb.changeHistory.addChangeHistory({
           items: [
             {
@@ -5661,6 +5662,7 @@ class ServiceAccount extends ServiceBase {
             },
           ],
         }),
+        1500,
       ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
 

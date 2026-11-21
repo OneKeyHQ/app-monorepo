@@ -11,22 +11,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export async function withWalletNameHistoryDeadline<T>(
-  operation: Promise<T>,
-): Promise<T | undefined> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<undefined>((resolve) => {
-        timeout = setTimeout(() => resolve(undefined), 1500);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
 // Using IChangeHistoryItem from shared types
 
 export interface IChangeHistoryContentTypeMap {

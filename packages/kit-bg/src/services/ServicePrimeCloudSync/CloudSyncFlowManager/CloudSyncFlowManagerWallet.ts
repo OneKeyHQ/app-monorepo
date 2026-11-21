@@ -3,12 +3,12 @@ import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ICloudSyncPayloadWallet,
   ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { withWalletNameHistoryDeadline } from '../../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
@@ -124,7 +124,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     if (isLiveEncryptedSource && requiresNameCheck) {
       let cancelled = false;
       try {
-        expectedCloudSyncWalletName = await withWalletNameHistoryDeadline(
+        expectedCloudSyncWalletName = await resolveBeforeTimeout(
           (async () => {
             const canonical = await this.backgroundApi.localDb.getWallet({
               walletId,
@@ -148,6 +148,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
               return undefined;
             return canonical.name;
           })(),
+          1500,
         );
         if (expectedCloudSyncWalletName === undefined) return false;
       } catch (error) {
