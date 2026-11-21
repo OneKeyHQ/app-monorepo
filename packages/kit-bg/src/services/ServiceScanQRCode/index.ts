@@ -11,6 +11,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { parseQRCode } from './utils/parseQRCode';
+import { assertLightningInvoiceIsCurrent } from './utils/parseQRCode/handlers/lightningNetwork';
 
 import type { IQRCodeHandlerParseOptions } from './utils/parseQRCode/type';
 
@@ -27,6 +28,15 @@ class ServiceScanQRCode extends ServiceBase {
       handlers: options?.handlers ?? [],
       backgroundApi: this.backgroundApi,
     });
+  }
+
+  @backgroundMethod()
+  public async ensureLightningInvoiceIsCurrent({
+    expiresAt,
+  }: {
+    expiresAt: number;
+  }) {
+    assertLightningInvoiceIsCurrent(expiresAt);
   }
 
   @backgroundMethod()

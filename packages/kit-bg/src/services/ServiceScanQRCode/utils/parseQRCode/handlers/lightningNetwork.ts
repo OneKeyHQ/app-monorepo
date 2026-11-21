@@ -18,6 +18,13 @@ import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 3600;
 
+export function assertLightningInvoiceIsCurrent(expiresAt: number) {
+  const serverTime = systemTimeUtils.getEstimatedServerTime();
+  if (serverTime !== undefined && expiresAt <= serverTime / 1000) {
+    throw new InvoiceExpiredError({ autoToast: false });
+  }
+}
+
 const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
   value,
   options,
@@ -33,6 +40,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
   const isAddress = hasLightningUriScheme(value) && isLightningAddress(address);
   const networkIds = getNetworkIdsMap();
   let networkId = networkIds.lightning;
+  let expiresAt: number | undefined;
   if (!lnurl && !isAddress) {
     const invoiceNetwork = getLightningInvoiceNetwork(address);
     if (!invoiceNetwork) {
@@ -59,20 +67,13 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
       return null;
     }
     const { timeExpireDate, timestamp, tagsObject } = decodedInvoice;
-    const expiresAt =
+    expiresAt =
       timeExpireDate ??
       (timestamp === undefined
         ? undefined
         : timestamp +
           (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
-    const serverTime = systemTimeUtils.getEstimatedServerTime();
-    if (
-      expiresAt !== undefined &&
-      serverTime !== undefined &&
-      expiresAt <= serverTime / 1000
-    ) {
-      throw new InvoiceExpiredError({ autoToast: false });
-    }
+    if (expiresAt !== undefined) assertLightningInvoiceIsCurrent(expiresAt);
   }
 
   const network = await backgroundApi.serviceNetwork.getNetwork({ networkId });
@@ -90,6 +91,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
     data: {
       address,
       network,
+      expiresAt,
       tag: lnurlDetails?.tag,
       k1: lnurlDetails?.url,
     },

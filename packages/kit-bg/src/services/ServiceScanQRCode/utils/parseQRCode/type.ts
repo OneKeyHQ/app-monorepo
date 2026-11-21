@@ -63,6 +63,7 @@ export type ISuiValue = IChainValue;
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
   k1?: string;
+  expiresAt?: number;
 }
 export interface IWalletConnectValue extends IBaseValue {
   version: string;

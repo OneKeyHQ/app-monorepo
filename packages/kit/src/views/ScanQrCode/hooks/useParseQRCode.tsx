@@ -24,6 +24,7 @@ import type {
   IBaseValue,
   IChainValue,
   IFeaturedChangelogPreviewValue,
+  ILightningNetworkValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
@@ -158,6 +159,19 @@ export async function parseQRCodeWithDeps(
   >;
   try {
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
+    const pickerDone = waitForPhotoPicker?.();
+    if (pickerDone) {
+      await pickerDone;
+      ensureScanIsActive();
+      if (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK) {
+        const { expiresAt } = result.data as ILightningNetworkValue;
+        if (expiresAt !== undefined) {
+          await backgroundApiProxy.serviceScanQRCode.ensureLightningInvoiceIsCurrent(
+            { expiresAt },
+          );
+        }
+      }
+    }
   } catch (error) {
     const pickerDone = waitForPhotoPicker?.();
     if (pickerDone) await pickerDone;
@@ -177,8 +191,6 @@ export async function parseQRCodeWithDeps(
     throw error;
   }
 
-  const pickerDone = waitForPhotoPicker?.();
-  if (pickerDone) await pickerDone;
   ensureScanIsActive();
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {

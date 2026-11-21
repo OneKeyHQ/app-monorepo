@@ -25,6 +25,10 @@ import { parseQRCodeWithDeps } from './useParseQRCode';
 import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
+const mockEnsureLightningInvoiceIsCurrent = jest.fn<
+  Promise<void>,
+  [{ expiresAt: number }]
+>(async () => undefined);
 const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNetworkSafe = jest.fn<Promise<unknown>, unknown[]>();
 const mockCreateAddressIfNotExists = jest.fn<
@@ -58,6 +62,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceScanQRCode: {
       parse: (...args: unknown[]) => mockParse(...args),
+      ensureLightningInvoiceIsCurrent: (params: { expiresAt: number }) =>
+        mockEnsureLightningInvoiceIsCurrent(params),
     },
     serviceNetwork: {
       getVaultSettings: async () => ({ isSingleToken: true }),
@@ -260,6 +266,60 @@ it.each([
     });
   },
 );
+
+it('rechecks a deferred invoice before offering to create a missing address', async () => {
+  const expiresAt = 1_900_000_000;
+  const picker = Promise.withResolvers<void>();
+  const waiting = Promise.withResolvers<void>();
+  const controller = new AbortController();
+  mockParse.mockResolvedValueOnce({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: {
+      address: 'invoice',
+      network: { id: 'lightning--0', impl: 'lightning' },
+      expiresAt,
+    },
+  });
+  mockEnsureLightningInvoiceIsCurrent.mockRejectedValueOnce(
+    new InvoiceExpiredError({ autoToast: false }),
+  );
+  const parsing = parseQRCodeWithDeps(
+    'lightning:invoice',
+    {
+      popNavigation: true,
+      autoExecuteParsedAction: true,
+      account: {
+        id: 'hd-1--0',
+        indexedAccountId: 'hd-1--0',
+        impl: 'btc',
+      } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+    },
+    {
+      ...deps,
+      scanSignal: controller.signal,
+      canApplyScanResult: () => true,
+      waitForPhotoPicker: () => {
+        waiting.resolve();
+        return picker.promise;
+      },
+    },
+  );
+  await waiting.promise;
+  expect(mockEnsureLightningInvoiceIsCurrent).not.toHaveBeenCalled();
+  expect(mockCreateAddressIfNotExists).not.toHaveBeenCalled();
+
+  picker.resolve();
+  await expect(parsing).rejects.toBeInstanceOf(InvoiceExpiredError);
+  expect(mockEnsureLightningInvoiceIsCurrent).toHaveBeenCalledWith({
+    expiresAt,
+  });
+  expect(mockCreateAddressIfNotExists).not.toHaveBeenCalled();
+  expect(Dialog.confirm).not.toHaveBeenCalled();
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: ETranslations.send_the_invoice_has_expired,
+  });
+  expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+});
 
 it.each(['lightning--0', 'tlightning--0'])(
   'copies the invoice instead of trying to create a QR-wallet address on %s',

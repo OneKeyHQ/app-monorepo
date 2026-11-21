@@ -236,6 +236,7 @@ it.each([
     try {
       await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
         type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+        data: { expiresAt: 1_900_000_000 },
       });
       now.mockReturnValue(1_900_000_000_000);
       const expired = parseQRCode(INVOICE, parseOptions);
