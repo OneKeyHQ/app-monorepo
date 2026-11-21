@@ -217,7 +217,7 @@ export function HeaderLeft({
                   },
                 );
               } else {
-                urlAccountNavigation.returnToHomePage(navigation);
+                urlAccountNavigation.goBack(navigation);
               }
             }}
           />

@@ -199,17 +199,17 @@ export function isCurrentlyInUrlAccountPage(): boolean {
 }
 
 export const urlAccountNavigation = {
-  returnToHomePage(navigation: IAppNavigation) {
+  goBack(navigation: IAppNavigation) {
     navigation.dispatch(({ index, key, routes }) => {
-      // A deep link can add another Home above an in-progress Dust Sweep.
-      const homeIndex = findLastIndex(
+      // Skip consecutive address results while keeping the page that opened them.
+      const previousPageIndex = findLastIndex(
         routes,
-        (route) => route.name === ETabHomeRoutes.TabHome,
+        (route) => route.name !== ETabHomeRoutes.TabHomeUrlAccountPage,
         index,
       );
-      if (homeIndex >= 0) {
+      if (previousPageIndex >= 0) {
         return {
-          ...StackActions.pop(index - homeIndex),
+          ...StackActions.pop(index - previousPageIndex),
           source: routes[index]?.key,
           target: key,
         };
@@ -217,7 +217,7 @@ export const urlAccountNavigation = {
       if (routes.length === 1 && !platformEnv.isNative) {
         return StackActions.replace(ETabHomeRoutes.TabHome);
       }
-      // Address search can replace TabHome, leaving no home route to pop to.
+      // Address search can replace TabHome, leaving only URL Wallet pages.
       return CommonActions.reset({
         index: 0,
         routes: [{ name: ETabHomeRoutes.TabHome }],

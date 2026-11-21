@@ -44,7 +44,7 @@ const secondAddress = {
   key: 'second-address',
 };
 
-function returnToHome(
+function goBack(
   routes: ReturnType<typeof router.getInitialState>['routes'],
   isNative = true,
 ) {
@@ -64,7 +64,7 @@ function returnToHome(
     backAction = { source: routes[state.index]?.key, ...action };
   };
 
-  urlAccountNavigation.returnToHomePage({ dispatch } as IAppNavigation);
+  urlAccountNavigation.goBack({ dispatch } as IAppNavigation);
   if (!backAction) {
     throw new OneKeyLocalError('Expected a URL Wallet back action');
   }
@@ -80,7 +80,7 @@ function returnToHome(
 
 describe('URL Wallet back navigation', () => {
   it('returns directly to the existing Home after repeated address searches', () => {
-    const { state } = returnToHome([home, firstAddress, secondAddress]);
+    const { state } = goBack([home, firstAddress, secondAddress]);
 
     expect(state?.routes).toEqual([home]);
     expect(state?.routes[0]).toBe(home);
@@ -94,7 +94,7 @@ describe('URL Wallet back navigation', () => {
     };
     const deepLinkHome = { ...home, key: 'deep-link-home' };
 
-    const { state } = returnToHome([
+    const { state } = goBack([
       home,
       dustSweep,
       deepLinkHome,
@@ -116,7 +116,7 @@ describe('URL Wallet back navigation', () => {
       isNative: false,
     },
   ])('resets to Home with no existing Home on $description', (scenario) => {
-    const { action, state } = returnToHome(scenario.routes, scenario.isNative);
+    const { action, state } = goBack(scenario.routes, scenario.isNative);
 
     expect(action.type).toBe('RESET');
     expect(state?.routes).toEqual([{ name: ETabHomeRoutes.TabHome }]);
@@ -124,7 +124,7 @@ describe('URL Wallet back navigation', () => {
   });
 
   it('replaces a lone URL Wallet screen on non-native platforms', () => {
-    const { action, state } = returnToHome([firstAddress], false);
+    const { action, state } = goBack([firstAddress], false);
 
     expect(action.type).toBe('REPLACE');
     expect(state?.routes).toMatchObject([{ name: ETabHomeRoutes.TabHome }]);
