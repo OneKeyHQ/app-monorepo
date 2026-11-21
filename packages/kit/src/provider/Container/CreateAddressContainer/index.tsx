@@ -48,6 +48,7 @@ function CreateAddressButton(props: IButtonProps) {
 function BasicCreateAddressDialogContent({
   onCreate,
   networkId,
+  walletId,
   indexedAccountId,
   deriveType,
   autoCreateAddress,
@@ -64,6 +65,7 @@ function BasicCreateAddressDialogContent({
       | undefined,
   ) => void;
   networkId: string;
+  walletId?: string;
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
@@ -73,17 +75,18 @@ function BasicCreateAddressDialogContent({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const targetWalletId = walletId ?? wallet?.id;
 
   return (
     <LazyAccountSelectorCreateAddressButton
       num={0}
-      selectAfterCreate
+      selectAfterCreate={targetWalletId === wallet?.id}
       autoCreateAddress={autoCreateAddress}
       onCreateDone={onCreate}
       canStartAddressCreation={canStartAddressCreation}
       addressCreationRequest={addressCreationRequest}
       account={{
-        walletId: wallet?.id,
+        walletId: targetWalletId,
         networkId,
         indexedAccountId,
         deriveType,
@@ -96,6 +99,7 @@ function BasicCreateAddressDialogContent({
 function CreateAddressDialogContent({
   onCreate,
   networkId,
+  walletId,
   indexedAccountId,
   deriveType,
   autoCreateAddress,
@@ -112,6 +116,7 @@ function CreateAddressDialogContent({
       | undefined,
   ) => void;
   networkId: string;
+  walletId?: string;
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
@@ -129,6 +134,7 @@ function CreateAddressDialogContent({
       <BasicCreateAddressDialogContent
         onCreate={onCreate}
         networkId={networkId}
+        walletId={walletId}
         indexedAccountId={indexedAccountId}
         deriveType={deriveType}
         autoCreateAddress={autoCreateAddress}
@@ -184,6 +190,7 @@ function BasicCreateAddressContainer() {
   const handleCreateAddress = useCallback(
     ({
       networkId,
+      walletId,
       indexedAccountId,
       deriveType,
       promiseId,
@@ -191,6 +198,7 @@ function BasicCreateAddressContainer() {
       addressCreationRequest,
     }: {
       networkId: string;
+      walletId?: string;
       indexedAccountId: string;
       deriveType: IAccountDeriveTypes;
       promiseId: number;
@@ -270,11 +278,14 @@ function BasicCreateAddressContainer() {
               }
             }}
             networkId={networkId}
+            walletId={walletId}
             indexedAccountId={indexedAccountId}
             deriveType={deriveType}
             autoCreateAddress={autoCreateAddress}
             canStartAddressCreation={canStartAddressCreation}
-            addressCreationRequest={addressCreationRequest}
+            addressCreationRequest={
+              addressCreationRequest && { ...addressCreationRequest, promiseId }
+            }
           />
         ),
       });

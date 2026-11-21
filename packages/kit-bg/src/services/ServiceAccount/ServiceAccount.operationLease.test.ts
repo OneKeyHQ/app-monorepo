@@ -1,3 +1,4 @@
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
@@ -10,6 +11,27 @@ import { isPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicA
 import ServiceAccount from './ServiceAccount';
 
 describe('explicit account creation capability entry', () => {
+  test('does not dispatch a scan-owned creation after its dialog settles', async () => {
+    const hasCallback = jest.fn(() => false);
+    const service = Object.assign(Object.create(ServiceAccount.prototype), {
+      backgroundApi: { servicePromise: { hasCallback } },
+    }) as ServiceAccount;
+    const inner = jest
+      .spyOn(service, 'addHDOrHWAccountsFn')
+      .mockResolvedValue(undefined);
+    await expect(
+      service.addHDOrHWAccountsForUserCreation({
+        walletId: 'hd-1',
+        networkId: 'lightning--0',
+        indexedAccountId: 'hd-1--0',
+        deriveType: 'default',
+        addressCreationPromiseId: 42,
+      }),
+    ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    expect(hasCallback).toHaveBeenCalledWith(42);
+    expect(inner).not.toHaveBeenCalled();
+  });
+
   test('only the user entry mints a live background capability', async () => {
     const service = Object.create(ServiceAccount.prototype) as ServiceAccount;
     let captured: object | undefined;

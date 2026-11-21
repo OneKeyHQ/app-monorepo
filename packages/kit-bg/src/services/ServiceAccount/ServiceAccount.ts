@@ -1479,9 +1479,19 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
-    return withPublicAccountCreationContext((publicAccountCreationContext) =>
-      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+  async addHDOrHWAccountsForUserCreation({
+    addressCreationPromiseId,
+    ...params
+  }: IAddHDOrHWAccountsParams & { addressCreationPromiseId?: number }) {
+    return withPublicAccountCreationContext(
+      (publicAccountCreationContext) =>
+        this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+      addressCreationPromiseId === undefined
+        ? undefined
+        : () =>
+            this.backgroundApi.servicePromise.hasCallback(
+              addressCreationPromiseId,
+            ),
     );
   }
 
@@ -7310,6 +7320,7 @@ class ServiceAccount extends ServiceBase {
           });
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,
+            walletId,
             addressCreationRequest,
             indexedAccountId,
             deriveType,

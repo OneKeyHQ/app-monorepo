@@ -25,6 +25,10 @@ const mockCreateAddress = jest.fn<
   [unknown, { addressCreationRequest?: IAddressCreationRequest }]
 >();
 const mockResolveCallback = jest.fn<void, [unknown]>();
+const mockCreateAddressButton = jest.fn<
+  null,
+  [{ account: { walletId?: string } }]
+>(() => null);
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { show: jest.fn(), confirm: jest.fn() },
@@ -33,6 +37,23 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('../../../states/jotai/contexts/accountSelector/atoms', () => ({
+  useActiveAccount: () => ({ activeAccount: { wallet: { id: 'hd-2' } } }),
+}));
+jest.mock(
+  '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton',
+  () => ({
+    LazyAccountSelectorCreateAddressButton: (
+      props: Parameters<typeof mockCreateAddressButton>[0],
+    ) => mockCreateAddressButton(props),
+  }),
+);
+jest.mock(
+  '../../../components/AccountSelector/hooks/useAccountSelectorTrigger',
+  () => ({
+    useAccountSelectorTrigger: () => ({ showAccountSelector: jest.fn() }),
+  }),
+);
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -118,19 +139,6 @@ it('closes an open address dialog and ignores completion when its scan is aborte
   expect(mockResolveCallback).toHaveBeenCalledTimes(1);
   expect(Toast.success).not.toHaveBeenCalled();
 });
-jest.mock(
-  '../../../components/AccountSelector/hooks/useAccountSelectorTrigger',
-  () => ({
-    useAccountSelectorTrigger: () => ({ showAccountSelector: jest.fn() }),
-  }),
-);
-jest.mock(
-  '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton',
-  () => ({ LazyAccountSelectorCreateAddressButton: jest.fn() }),
-);
-jest.mock('../../../states/jotai/contexts/accountSelector/atoms', () => ({
-  useActiveAccount: jest.fn(),
-}));
 
 it('aborts the QR wallet request as soon as its dialog is dismissed', async () => {
   jest.clearAllMocks();
@@ -205,6 +213,7 @@ it.each([true, false])(
         });
         const event = {
           networkId: 'lightning--0',
+          walletId: 'hd-1',
           indexedAccountId: 'hd-1--0',
           deriveType: 'default' as const,
           promiseId: 1,
@@ -244,6 +253,20 @@ it.each([true, false])(
     await lookup;
 
     expect(Dialog.show).toHaveBeenCalledTimes(stillActive ? 1 : 0);
+    if (stillActive) {
+      const [[{ renderContent }]] = jest.mocked(Dialog.show).mock.calls;
+      render(<>{renderContent}</>);
+      expect(mockCreateAddressButton).toHaveBeenCalledWith(
+        expect.objectContaining({
+          account: expect.objectContaining({
+            walletId: 'hd-1',
+            indexedAccountId: 'hd-1--0',
+          }),
+          addressCreationRequest: expect.objectContaining({ promiseId: 1 }),
+          selectAfterCreate: false,
+        }),
+      );
+    }
     expect(mockResolveCallback).toHaveBeenCalledTimes(stillActive ? 0 : 1);
     if (!stillActive) {
       expect(mockResolveCallback).toHaveBeenCalledWith({ id: 1, data: false });

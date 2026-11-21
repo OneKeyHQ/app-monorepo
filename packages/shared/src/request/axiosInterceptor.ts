@@ -548,7 +548,13 @@ axios.interceptors.response.use(
           requestId: config.headers[HEADER_REQUEST_ID_KEY],
         });
         const retryAfter = response.headers?.['retry-after'];
-        if (typeof retryAfter === 'string') serverError.retryAfter = retryAfter;
+        if (typeof retryAfter === 'string') {
+          serverError.retryAfter = retryAfter;
+          const responseDate = response.headers?.date;
+          if (typeof responseDate === 'string') {
+            serverError.retryAfterResponseDate = responseDate;
+          }
+        }
         throw serverError;
       }
     }

@@ -150,6 +150,26 @@ describe('API availability counting in request interceptors', () => {
     ]);
   });
 
+  it('preserves the response date used by an HTTP-date Retry-After on 503', async () => {
+    const date = 'Sun, 17 Mar 2030 12:00:00 GMT';
+    const retryAfter = 'Sun, 17 Mar 2030 12:00:30 GMT';
+    stubFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 503 }), {
+        status: 503,
+        headers: {
+          'content-type': 'application/json',
+          date,
+          'retry-after': retryAfter,
+        },
+      }),
+    );
+    await expect(axios.create().get(WALLET_URL)).rejects.toMatchObject({
+      httpStatusCode: 503,
+      retryAfter,
+      retryAfterResponseDate: date,
+    });
+  });
+
   it('leaves event streams to their owner and counts HTTP errors at headers', async () => {
     await globalThis.fetch(WALLET_URL, {
       headers: { Accept: 'text/event-stream' },

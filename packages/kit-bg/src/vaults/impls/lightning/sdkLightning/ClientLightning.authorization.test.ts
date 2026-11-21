@@ -261,6 +261,49 @@ describe('Lightning read authorization without wallet interaction', () => {
   );
 
   test.each([
+    ['raw response', 429, 300_000],
+    ['converted response', 503, -300_000],
+  ])(
+    'honors HTTP-date cooldown with wall-clock skew for a %s',
+    async (_label, status, skew) => {
+      const { client, get } = harness();
+      const serverTime = 1_900_000_000_000;
+      const localTime = serverTime + skew;
+      const date = new Date(serverTime).toUTCString();
+      const retryAfter = new Date(serverTime + 30_000).toUTCString();
+      const failure =
+        status === 503
+          ? Object.assign(
+              new OneKeyServerApiError({ httpStatusCode: status }),
+              {
+                retryAfter,
+                retryAfterResponseDate: date,
+              },
+            )
+          : Object.assign(new OneKeyLocalError('Synthetic rate limit'), {
+              isAxiosError: true,
+              response: {
+                status,
+                headers: { date, 'retry-after': retryAfter },
+              },
+            });
+      get.mockRejectedValueOnce(failure);
+      const now = jest.spyOn(Date, 'now').mockReturnValue(localTime);
+      try {
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        now.mockReturnValue(localTime + 29_999);
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        expect(get).toHaveBeenCalledTimes(1);
+        now.mockReturnValue(localTime + 30_000);
+        await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+        expect(get).toHaveBeenCalledTimes(2);
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
+
+  test.each([
     ['transport failure', new OneKeyLocalError('Synthetic decode timeout')],
     ['HTTP 408', new OneKeyServerApiError({ httpStatusCode: 408 })],
     ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],

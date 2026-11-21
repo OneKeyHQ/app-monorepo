@@ -46,12 +46,17 @@ export function getLightningRequestRetryDelayMs(
   const response = isAxiosError(error) ? error.response : undefined;
   const serverError = error as OneKeyServerApiError | undefined;
   const retryAfter =
-    serverError?.retryAfter ?? response?.headers['retry-after'];
+    serverError?.retryAfter ?? response?.headers?.['retry-after'];
   if (typeof retryAfter !== 'string') return fallbackMs;
   const header = retryAfter.trim();
+  const responseDate =
+    serverError?.retryAfterResponseDate ?? response?.headers?.date;
+  const serverTime =
+    typeof responseDate === 'string' ? Date.parse(responseDate) : NaN;
   const delay = /^\d+$/.test(header)
     ? Number(header) * 1000
-    : Date.parse(header) - Date.now();
+    : Date.parse(header) -
+      (Number.isFinite(serverTime) ? serverTime : Date.now());
   return Number.isFinite(delay) ? Math.max(fallbackMs, delay) : fallbackMs;
 }
 

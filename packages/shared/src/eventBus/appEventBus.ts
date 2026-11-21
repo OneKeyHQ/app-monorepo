@@ -162,6 +162,7 @@ export type ISettingsSearchResultItem = FuseResult<unknown>;
 export type IAddressCreationRequest = {
   nodeId: string;
   id: string;
+  promiseId?: number;
 };
 
 export interface IAppEventBusPayload {
@@ -581,6 +582,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.CreateAddressByDialog]: {
     networkId: string;
+    walletId?: string;
     addressCreationRequest?: IAddressCreationRequest;
     indexedAccountId: string;
     promiseId: number;

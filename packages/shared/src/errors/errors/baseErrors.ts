@@ -179,6 +179,8 @@ export class OneKeyServerApiError extends OneKeyError<
 
   retryAfter?: string;
 
+  retryAfterResponseDate?: string;
+
   // The auth token (X-Onekey-Request-Token) of the failed request is
   // intentionally NOT a field on this error: even a $$-prefixed own
   // property is captured by `console.error(e)` and error-collection

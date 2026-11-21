@@ -188,6 +188,11 @@ describe('useAccountSelectorCreateAddress', () => {
           deriveType: 'default',
         },
         canStartAddressCreation: () => active,
+        addressCreationRequest: {
+          nodeId: 'scanner',
+          id: 'scan-1',
+          promiseId: 42,
+        },
       });
       expect(mockGetWalletDevice).toHaveBeenCalledTimes(1);
       expect(mockAddAccounts).not.toHaveBeenCalled();
@@ -198,6 +203,11 @@ describe('useAccountSelectorCreateAddress', () => {
 
       expect(mockAddAccounts).toHaveBeenCalledTimes(stillActive ? 1 : 0);
       expect(mockCloseHardwareUi).toHaveBeenCalledTimes(stillActive ? 1 : 0);
+      if (stillActive) {
+        expect(mockAddAccounts).toHaveBeenCalledWith(
+          expect.objectContaining({ addressCreationPromiseId: 42 }),
+        );
+      }
     },
   );
 

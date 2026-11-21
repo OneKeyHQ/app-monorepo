@@ -3,7 +3,10 @@ import { createHash } from 'crypto';
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorScanQrCodeCancel,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
@@ -1386,12 +1389,18 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     ).toBe(true);
   });
 
-  it.each([undefined, 'My custom index'])(
-    'keeps chain labels out of newly created indexed-account names (%s)',
-    async (explicitName) => {
+  it.each([
+    [undefined, undefined],
+    ['My custom index', undefined],
+    [undefined, 'before-write'],
+    [undefined, 'before-commit'],
+  ])(
+    'creates an indexed account with the expected name %s and cancellation %s',
+    async (explicitName, cancelAt) => {
       const db = new PublicAccountTestDb();
       const value = { ...account(2), name: 'BTC Nested SegWit #3' };
       const indexedTargets: Array<{ indexedAccount: { name: string } }> = [];
+      let current = true;
       db.setBackgroundApi({
         serviceKeylessCloudSync: {
           runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
@@ -1411,7 +1420,12 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
                 runDbTxFn,
               }: {
                 runDbTxFn: () => ReturnType<LocalDbBase['addAccountsToWallet']>;
-              }) => runDbTxFn(),
+              }) => {
+                if (cancelAt === 'before-write') current = false;
+                const result = await runDbTxFn();
+                if (cancelAt === 'before-commit') current = false;
+                return result;
+              },
             },
             indexedAccount: {
               buildExistingSyncItemsInfo: async ({
@@ -1430,7 +1444,7 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
           },
         },
       } as unknown as IBackgroundApi);
-      await withPublicAccountCreationContext(
+      const creating = withPublicAccountCreationContext(
         async (publicAccountCreationContext) => {
           await db.addAccountsToWallet({
             walletId: WALLET.id,
@@ -1442,7 +1456,21 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
             skipEventEmit: true,
           });
         },
+        () => current,
       );
+      if (cancelAt) {
+        await expect(creating).rejects.toBeInstanceOf(
+          OneKeyErrorScanQrCodeCancel,
+        );
+        expect(
+          db.stores.get(ELocalDBStoreNames.IndexedAccount)?.has('hd-1--2'),
+        ).toBeFalsy();
+        expect(
+          db.stores.get(ELocalDBStoreNames.Account)?.has(value.id),
+        ).toBeFalsy();
+        return;
+      }
+      await creating;
       expect(indexedTargets[0].indexedAccount.name).toBe(
         explicitName || 'Account #3',
       );

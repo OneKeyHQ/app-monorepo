@@ -161,7 +161,10 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
-import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
+import {
+  assertPublicAccountCreationCanContinue,
+  isPublicAccountCreationContext,
+} from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
@@ -9288,6 +9291,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     publicAccountCreationContext?: IPublicAccountCreationContext;
     publicAccountIndexedNames?: Record<number, string>;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
+    assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     if (
       publicAccountCreationContext &&
       !isPublicAccountCreationContext(publicAccountCreationContext)
@@ -9527,6 +9531,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               newSyncItems:
                 existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
               runDbTxFn: async () => {
+                assertPublicAccountCreationCanContinue(
+                  publicAccountCreationContext,
+                );
                 if (publicAccountCreationContext) {
                   if (
                     !isPublicAccountCreationContext(
@@ -9731,6 +9738,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 }
 
                 // add account record
+                assertPublicAccountCreationCanContinue(
+                  publicAccountCreationContext,
+                );
                 // eslint-disable-next-line prefer-const
                 let { added, addedIds } = await this.txAddRecords({
                   tx,
@@ -9870,6 +9880,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
               },
             });
+          assertPublicAccountCreationCanContinue(publicAccountCreationContext);
           return addResults0;
         },
       );

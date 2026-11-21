@@ -165,6 +165,7 @@ export function useAccountSelectorCreateAddress() {
               indexedAccountId: account?.indexedAccountId,
               indexes,
               customNetworks,
+              addressCreationPromiseId: addressCreationRequest?.promiseId,
               ...hwUiControlParams,
             },
           );
@@ -287,6 +288,7 @@ export function useAccountSelectorCreateAddress() {
             deriveType: account?.deriveType,
             indexes,
             createAllDeriveTypes,
+            addressCreationPromiseId: addressCreationRequest?.promiseId,
             ...hwUiControlParams,
           });
           return await handleAddAccounts(result);
