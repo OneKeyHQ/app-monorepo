@@ -3073,13 +3073,9 @@ class ServicePrimeCloudSync extends ServiceBase {
             !previous ||
             config.cloudSyncAccountApplyVersion !== 2,
           isCurrent,
-          ...(onManualResult
-            ? {
-                onWalletHistoryReplayResult: (deferred: boolean) => {
-                  deferredLocalWalletName = deferred;
-                },
-              }
-            : {}),
+          onWalletHistoryReplayResult: (deferred) => {
+            deferredLocalWalletName = deferred;
+          },
         });
         if (isCurrent())
           this.pruneReconciledIncrementalItems(checkRequestItems);
@@ -3109,7 +3105,10 @@ class ServicePrimeCloudSync extends ServiceBase {
           Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
       let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
       if (result.status === 'complete')
-        status = hasIssues || deferredLocalWalletName ? 'partial' : 'complete';
+        status =
+          hasIssues || (onManualResult && deferredLocalWalletName)
+            ? 'partial'
+            : 'complete';
       else if (result.status === 'waiting' || result.status === 'cancelled')
         status = 'waiting';
       const state: ICloudSyncReconciliationPersistState = {

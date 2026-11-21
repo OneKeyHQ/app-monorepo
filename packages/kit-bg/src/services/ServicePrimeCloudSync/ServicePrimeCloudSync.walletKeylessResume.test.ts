@@ -370,6 +370,17 @@ it.each([
         localSceneUpdated: losesServerAck,
         serverUploaded: !losesServerAck,
       });
+      // This automatic round still completed its network comparison; the
+      // known unapplied name must not publish a new successful sync time.
+      expect(config.cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+        nextRetryAt: undefined,
+      });
+      expect(config.lastSyncTimeKeyless).toBeUndefined();
+      const checks = check.mock.calls.length;
+      await prime.resumeCloudSyncReconciliation({ reason: 'timer' });
+      expect(check.mock.calls).toHaveLength(checks);
       return;
     }
     await keyless.toggleCloudSyncKeyless({ enabled: true, silentEnable: true });
@@ -380,6 +391,7 @@ it.each([
     );
     expect((await readWallet()).name).toBe(wallet.name);
     expect((await readWallet()).avatar).toBe('{"img":"bear"}');
+    expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
     const reopenedHistory = new SimpleDbEntityChangeHistory();
     const previous = await reopenedHistory.getChangeHistory(nameFilter);
     expect(previous.map(({ value }) => value)).toEqual([offlineName]);
