@@ -137,6 +137,51 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     };
   }
 
+  async findWalletSyncTargetReadOnly({
+    payload,
+    read = (lookup) => lookup(),
+    isCurrent = () => true,
+  }: {
+    payload: ICloudSyncPayloadWallet;
+    read?: <T>(lookup: () => Promise<T>) => Promise<T>;
+    isCurrent?: () => boolean;
+  }) {
+    if (!isCurrent()) return undefined;
+    const localDb = this.backgroundApi.localDb;
+    const isHardware =
+      payload.walletType === WALLET_TYPE_HW ||
+      payload.walletType === WALLET_TYPE_QR;
+    // The normal scene lookup refills presentation and may emit hardware
+    // avatar events. Optional verification must only read.
+    const { wallets } = await read(() => localDb.getAllWallets());
+    if (!isCurrent()) return undefined;
+    const device =
+      isHardware && payload.hwDeviceId
+        ? await read(() =>
+            localDb.getDeviceByQuery({
+              featuresDeviceId: payload.hwDeviceId,
+            }),
+          )
+        : undefined;
+    const matching = wallets.filter(
+      (wallet) =>
+        wallet.type === payload.walletType &&
+        (isHardware
+          ? !!device &&
+            wallet.associatedDevice === device.id &&
+            (wallet.passphraseState || '') === (payload.passphraseState || '')
+          : wallet.type === WALLET_TYPE_HD &&
+            !!payload.walletHash &&
+            wallet.hash === payload.walletHash),
+    );
+    if (matching.length !== 1 || !isCurrent()) return undefined;
+    const target = await this.buildSyncTargetByDBQuery({
+      dbRecord: matching[0],
+      allDevices: device ? [device] : undefined,
+    });
+    return { target, device };
+  }
+
   async canUploadPendingWalletName({
     item,
     syncCredential,
@@ -192,33 +237,9 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       )
         return false;
       const localDb = this.backgroundApi.localDb;
-      // The normal scene lookup refills presentation and may emit hardware
-      // avatar events. This optional upload verification must only read.
-      const { wallets } = await read(() => localDb.getAllWallets());
-      const device =
-        isHardware && payload.hwDeviceId
-          ? await read(() =>
-              localDb.getDeviceByQuery({
-                featuresDeviceId: payload.hwDeviceId,
-              }),
-            )
-          : undefined;
-      const matching = wallets.filter(
-        (wallet) =>
-          wallet.type === payload.walletType &&
-          (isHardware
-            ? !!device &&
-              wallet.associatedDevice === device.id &&
-              (wallet.passphraseState || '') === (payload.passphraseState || '')
-            : wallet.type === WALLET_TYPE_HD &&
-              !!payload.walletHash &&
-              wallet.hash === payload.walletHash),
-      );
-      if (matching.length !== 1) return false;
-      const target = await this.buildSyncTargetByDBQuery({
-        dbRecord: matching[0],
-        allDevices: device ? [device] : undefined,
-      });
+      const match = await this.findWalletSyncTargetReadOnly({ payload, read });
+      if (!match) return false;
+      const { target, device } = match;
       const key = await this.buildSyncKeyInfo({ target });
       if (key?.key !== item.id || rawDataJson.rawKey !== key.rawKey)
         return false;

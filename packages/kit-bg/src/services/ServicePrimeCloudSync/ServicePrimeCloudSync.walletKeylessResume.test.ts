@@ -86,6 +86,9 @@ it.each([
   'push-name-history-deferred',
   'push-name-history-retained',
   'push-name-history-source-changed',
+  'push-name-history-parallel-deferred',
+  'push-name-history-parallel-applied',
+  'push-name-history-parallel-unverified',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
@@ -359,6 +362,125 @@ it.each([
             throw new OneKeyLocalError('Missing synthetic push item');
           return remote;
         };
+        if (scenario.startsWith('push-name-history-parallel')) {
+          const newerApplies =
+            scenario === 'push-name-history-parallel-applied';
+          const successorUnverified =
+            scenario === 'push-name-history-parallel-unverified';
+          const presentation = jest.spyOn(
+            prime.syncManagers.wallet,
+            'buildSyncTargetByPayload',
+          );
+          const rawProof = jest.spyOn(
+            prime.syncManagers.wallet,
+            'findWalletSyncTargetReadOnly',
+          );
+          let proofReached = () => {};
+          const rawProofReached = new Promise<void>((resolve) => {
+            proofReached = resolve;
+          });
+          if (successorUnverified) {
+            rawProof.mockImplementationOnce(async () => {
+              proofReached();
+              return new Promise<undefined>(() => {});
+            });
+            jest.useFakeTimers();
+          }
+          const newerName = 'Newer pushed Wallet name';
+          const newer = await makeItem(newerName, 'cat', baseTime + 300);
+          let reachedHistory = () => {};
+          const olderHistoryReached = new Promise<void>((resolve) => {
+            reachedHistory = resolve;
+          });
+          let releaseOlder = () => {};
+          const olderHistoryRelease = new Promise<void>((resolve) => {
+            releaseOlder = resolve;
+          });
+          let atHistory = 0;
+          jest
+            .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+            .mockImplementation(async () => {
+              atHistory += 1;
+              if (atHistory === 1) {
+                reachedHistory();
+                await olderHistoryRelease;
+                return false;
+              }
+              return newerApplies;
+            });
+          const getRecordsByIds = localDb.getRecordsByIds.bind(localDb);
+          let reachedNewerScene = () => {};
+          const newerSceneReached = new Promise<void>((resolve) => {
+            reachedNewerScene = resolve;
+          });
+          let singleWalletReads = 0;
+          let newerWork: Promise<void> | undefined;
+          jest
+            .spyOn(localDb, 'getRecordsByIds')
+            .mockImplementation(async (options) => {
+              if (
+                options.name === ELocalDBStoreNames.CloudSyncItem &&
+                options.ids.length === 1 &&
+                options.ids[0] === pending.id
+              ) {
+                singleWalletReads += 1;
+                if (singleWalletReads === 1) reachedNewerScene();
+                else if (singleWalletReads === 2 && newerApplies)
+                  await newerWork;
+              }
+              return getRecordsByIds(options);
+            });
+          const push = (items: IDBCloudSyncItem[]) =>
+            prime.saveServerSyncItemsToLocal({
+              serverItems: items.map(toPush),
+              shouldSyncToScene: true,
+              syncCredential: credential,
+              serverPwdHash: scope,
+              deferPushBatchLastSyncTime: true,
+            });
+          const olderWork = push([pending, siblingPending]);
+          try {
+            await olderHistoryReached;
+            newerWork = push([newer]);
+            await newerSceneReached;
+            expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject(
+              {
+                data: newer.data,
+                serverUploaded: true,
+                localSceneUpdated: false,
+              },
+            );
+          } finally {
+            releaseOlder();
+            if (successorUnverified) {
+              await rawProofReached;
+              await jest.advanceTimersByTimeAsync(1500);
+            }
+            try {
+              await Promise.all([olderWork, newerWork]);
+            } finally {
+              if (successorUnverified) jest.useRealTimers();
+            }
+          }
+          expect(presentation).toHaveBeenCalledTimes(3);
+          expect(rawProof).toHaveBeenCalledTimes(newerApplies ? 0 : 1);
+          expect(atHistory).toBe(2);
+          expect(await readWallet()).toMatchObject({
+            name: newerApplies ? newerName : wallet.name,
+          });
+          expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+            data: newer.data,
+            serverUploaded: true,
+            localSceneUpdated: newerApplies,
+          });
+          expect(
+            await localDb.getSyncItem({ id: siblingPending.id }),
+          ).toMatchObject({ localSceneUpdated: true });
+          if (newerApplies || successorUnverified)
+            expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+          else expect(config.lastSyncTimeKeyless).toBeUndefined();
+          return;
+        }
         if (sourceChanged) {
           const getRecordsByIds = localDb.getRecordsByIds.bind(localDb);
           jest

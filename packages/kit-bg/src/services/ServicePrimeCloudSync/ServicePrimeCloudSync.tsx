@@ -3127,7 +3127,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (pushBatchIsCurrent) {
         if (
           pushBatchIsCurrent() &&
-          !(await this.hasDurableDeferredWalletName(pushDeferredWalletNames)) &&
+          !(await this.hasDurableDeferredWalletName(pushDeferredWalletNames, {
+            syncCredential,
+            isCurrent: pushBatchIsCurrent,
+          })) &&
           pushBatchIsCurrent()
         )
           await this.updateLastSyncTimeInternal({
@@ -3139,6 +3142,10 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private async hasDurableDeferredWalletName(
     deferredWalletNames: Map<string, IDBCloudSyncItem>,
+    pushScope?: {
+      syncCredential: ICloudSyncCredential;
+      isCurrent: () => boolean;
+    },
   ) {
     if (!deferredWalletNames.size) return false;
     try {
@@ -3149,7 +3156,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         }),
         1500,
       );
-      return (
+      const newerPending: IDBCloudSyncItem[] = [];
+      const stillDeferred =
         !check ||
         check.records.length !== deferredWalletNames.size ||
         check.records.some((current) => {
@@ -3168,14 +3176,79 @@ class ServicePrimeCloudSync extends ServiceBase {
           )
             return !current.serverUploaded || !current.localSceneUpdated;
           const timestamp = current.dataTime;
-          return !(
+          const isVersionNewer = !!(
             (current.data || current.isDeleted) &&
             typeof timestamp === 'number' &&
             Number.isSafeInteger(timestamp) &&
             timestamp > (observed.dataTime ?? 0)
           );
-        })
-      );
+          if (
+            isVersionNewer &&
+            pushScope &&
+            current.serverUploaded === true &&
+            current.localSceneUpdated === false &&
+            !current.isDeleted &&
+            current.data
+          )
+            newerPending.push(current);
+          return !isVersionNewer;
+        });
+      if (stillDeferred || !pushScope || !newerPending.length)
+        return stillDeferred;
+      // Server storage alone does not prove the new ciphertext is usable
+      // Wallet data for this selected source and target. Only WS proves it
+      // here; full reconciliation keeps its existing supersession rules.
+      let expired = false;
+      const isProbeCurrent = () => !expired && pushScope.isCurrent();
+      try {
+        const verified = await resolveBeforeTimeout(
+          (async () => {
+            const { wallet } = this.syncManagers;
+            for (const item of newerPending) {
+              if (!isProbeCurrent()) return false;
+              try {
+                const { rawDataJson } =
+                  await cloudSyncItemBuilder.decryptSyncItem({
+                    item: { ...item },
+                    syncCredential: pushScope.syncCredential,
+                  });
+                if (
+                  !isProbeCurrent() ||
+                  rawDataJson?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+                  typeof rawDataJson.payload?.name !== 'string' ||
+                  !rawDataJson.payload.name.trim() ||
+                  typeof rawDataJson.rawKey !== 'string' ||
+                  !rawDataJson.rawKey ||
+                  wallet.rawKeyToHashKey(rawDataJson.rawKey) !== item.id
+                )
+                  continue;
+                const match = await wallet.findWalletSyncTargetReadOnly({
+                  payload: rawDataJson.payload,
+                  isCurrent: isProbeCurrent,
+                });
+                if (!isProbeCurrent()) return false;
+                const target = match?.target;
+                if (
+                  !target?.wallet.name.trim() ||
+                  target.wallet.name === rawDataJson.payload.name
+                )
+                  continue;
+                const key = await wallet.buildSyncKeyInfo({ target });
+                if (!isProbeCurrent()) return false;
+                if (key?.key === item.id && key.rawKey === rawDataJson.rawKey)
+                  return true;
+              } catch (error) {
+                errorUtils.autoPrintErrorIgnore(error);
+              }
+            }
+            return false;
+          })(),
+          1500,
+        );
+        return verified === true;
+      } finally {
+        expired = true;
+      }
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return true;

@@ -93,6 +93,7 @@ describe('CloudSyncFlowManagerWallet', () => {
     'wire-identity-mismatch',
     'direct-caller',
     'verified',
+    'direct-hardware-verified',
   ] as const)(
     'Wallet verification defers only an actual storage read fault: %s',
     async (scenario) => {
@@ -101,7 +102,9 @@ describe('CloudSyncFlowManagerWallet', () => {
         id: 'verification-device',
         deviceId: 'public-device',
       };
+      const directHardwareVerified = scenario === 'direct-hardware-verified';
       const hardware =
+        directHardwareVerified ||
         scenario.startsWith('device-') ||
         scenario === 'malformed-local-data' ||
         scenario === 'hw-identity-missing';
@@ -209,6 +212,7 @@ describe('CloudSyncFlowManagerWallet', () => {
         candidate.rawData = '';
       }
       const onReadFailure = jest.fn();
+      const onVerifiedWallet = jest.fn();
       await expect(
         sync.canUploadPendingWalletName({
           item: candidate,
@@ -222,9 +226,14 @@ describe('CloudSyncFlowManagerWallet', () => {
                   },
                 }
               : syncCredential,
-          ...(scenario === 'direct-caller' ? {} : { onReadFailure }),
+          ...(scenario === 'direct-caller' || directHardwareVerified
+            ? {}
+            : { onReadFailure }),
+          ...(directHardwareVerified ? { onVerifiedWallet } : {}),
         }),
-      ).resolves.toBe(scenario === 'verified');
+      ).resolves.toBe(scenario === 'verified' || directHardwareVerified);
+      if (directHardwareVerified)
+        expect(onVerifiedWallet).toHaveBeenCalledWith(wallet, device);
       expect(onReadFailure).toHaveBeenCalledTimes(
         scenario.endsWith('-fault') ? 1 : 0,
       );
@@ -234,7 +243,12 @@ describe('CloudSyncFlowManagerWallet', () => {
         scenario === 'invalid-payload'
       )
         expect(getAllWallets).not.toHaveBeenCalled();
-      expect(getWallet).not.toHaveBeenCalled();
+      if (directHardwareVerified)
+        expect(getWallet).toHaveBeenCalledWith({
+          walletId: wallet.id,
+          withoutRefill: true,
+        });
+      else expect(getWallet).not.toHaveBeenCalled();
     },
   );
 
