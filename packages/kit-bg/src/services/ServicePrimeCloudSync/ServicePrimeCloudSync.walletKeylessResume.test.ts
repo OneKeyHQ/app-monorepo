@@ -8,6 +8,7 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
@@ -65,6 +66,7 @@ it.each([
   'disabled-in-transaction',
   'history-failure',
   'history-failure-missing-avatar',
+  'history-failure-restart',
   'history-failure-flag-change',
   'history-failure-fresh-avatar',
   'history-failure-fresh-avatar-local-diverged',
@@ -76,7 +78,13 @@ it.each([
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const historyFails = scenario.startsWith('history-failure');
-    const noLocalAvatar = scenario === 'history-failure-missing-avatar';
+    const restart = scenario === 'history-failure-restart';
+    if (restart)
+      jest
+        .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+        .mockResolvedValue(true);
+    const noLocalAvatar =
+      scenario === 'history-failure-missing-avatar' || restart;
     const losesServerAck = scenario === 'history-failure-flag-change';
     const freshAvatar = scenario.startsWith('history-failure-fresh-avatar');
     const avatarDiverged =
@@ -367,7 +375,7 @@ it.each([
       return;
     }
     if (historyFails) {
-      jest
+      const failedHistory = jest
         .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
         .mockImplementation(async () => {
           if (losesServerAck) {
@@ -462,10 +470,10 @@ it.each([
         localSceneUpdated: losesServerAck,
         serverUploaded: !losesServerAck,
       });
-      // This automatic round still completed its network comparison; the
-      // known unapplied name must not publish a new successful sync time.
+      // Existing completed network comparison leaves the exact Wallet scene
+      // pending separately and does not publish a new successful sync time.
       expect(config.cloudSyncReconciliation).toMatchObject({
-        status: 'complete',
+        ...(restart ? {} : { status: 'complete' }),
         unfinished: false,
         nextRetryAt: undefined,
       });
@@ -473,6 +481,89 @@ it.each([
       const checks = check.mock.calls.length;
       await prime.resumeCloudSyncReconciliation({ reason: 'timer' });
       expect(check.mock.calls).toHaveLength(checks);
+
+      if (restart) {
+        // Re-create the reconciliation service, keeping only the stored config,
+        // actual IndexedDB pool row, and selected credential.
+        failedHistory.mockRestore();
+        const restartRetain = jest.spyOn(
+          SimpleDbEntityChangeHistory.prototype,
+          'retainWalletName',
+        );
+        const nextPrime = new ServicePrimeCloudSync({ backgroundApi });
+        runningPrime = nextPrime;
+        backgroundApi.servicePrimeCloudSync = nextPrime;
+        jest
+          .spyOn(nextPrime, 'getSyncCredentialSafe')
+          .mockResolvedValue(credential);
+        jest.spyOn(nextPrime, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+        jest
+          .spyOn(nextPrime, 'ensureCloudSyncIsAvailable')
+          .mockResolvedValue(undefined);
+        const nextCheck = jest
+          .spyOn(nextPrime, 'checkServerStatusWithRequestOptions')
+          .mockResolvedValue({
+            diff: [],
+            updated: [],
+            deleted: [],
+            obsoleted: [],
+            pwdHash: scope,
+            serverTime: Date.now(),
+          });
+        const replayAfterRestart = jest.spyOn(
+          nextPrime,
+          'syncPendingItemsToScene',
+        );
+        await nextPrime.resumeCloudSyncReconciliation({ reason: 'timer' });
+        expect(nextCheck).not.toHaveBeenCalled();
+        expect(replayAfterRestart).not.toHaveBeenCalled();
+
+        await expect(
+          nextPrime.resumeCloudSyncReconciliation({
+            reason: 'startup',
+          }),
+        ).resolves.toBe(true);
+        expect(nextCheck).toHaveBeenCalledTimes(1);
+        expect(
+          nextCheck.mock.calls[0][0].localItems?.filter(
+            ({ id }) => id === key.key,
+          ),
+        ).toEqual([
+          expect.objectContaining({
+            id: key.key,
+            data: acknowledged.data,
+            localSceneUpdated: false,
+          }),
+        ]);
+        expect(replayAfterRestart).toHaveBeenCalledTimes(1);
+        expect(restartRetain).toHaveBeenCalledTimes(1);
+        expect(nextCheck.mock.invocationCallOrder[0]).toBeLessThan(
+          restartRetain.mock.invocationCallOrder[0],
+        );
+        expect(await readWallet()).toMatchObject({
+          name: wallet.name,
+          avatar: '{"img":"bear"}',
+          firstEvmAddress: remoteAddress.toLowerCase(),
+        });
+        expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+          data: acknowledged.data,
+          dataTime: baseTime,
+          localSceneUpdated: true,
+          serverUploaded: true,
+        });
+        expect(config.cloudSyncReconciliation).toMatchObject({
+          status: 'complete',
+          reason: 'finished',
+          unfinished: false,
+        });
+        expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+        const reopenedHistory = new SimpleDbEntityChangeHistory();
+        expect(
+          (await reopenedHistory.getChangeHistory(nameFilter)).map(
+            ({ value }) => value,
+          ),
+        ).toEqual([offlineName]);
+      }
       return;
     }
     await keyless.toggleCloudSyncKeyless({ enabled: true, silentEnable: true });
