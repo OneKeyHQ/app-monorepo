@@ -3,21 +3,15 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
-import type { IRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRewardCenterRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-export function WalletActionRewardCenter({
-  rewardCenterConfig,
-  onClose,
-}: {
-  rewardCenterConfig: IRewardCenterConfig;
-  onClose: () => void;
-}) {
+export function WalletActionRewardCenter({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -27,30 +21,23 @@ export function WalletActionRewardCenter({
 
   const handleRewardCenter = useCallback(() => {
     onClose();
-    if (rewardCenterConfig) {
-      navigation.pushModal(EModalRoutes.MainModal, {
-        screen: EModalRewardCenterRoutes.RewardCenter,
-        params: {
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-          walletId: wallet?.id ?? '',
-        },
-      });
-    }
-  }, [
-    rewardCenterConfig,
-    navigation,
-    account?.id,
-    network?.id,
-    wallet?.id,
-    onClose,
-  ]);
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalRewardCenterRoutes.RewardCenter,
+      params: {
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        walletId: wallet?.id ?? '',
+      },
+    });
+  }, [navigation, account?.id, network?.id, wallet?.id, onClose]);
 
   return (
     <ActionList.Item
       trackID="wallet-reward-center"
-      icon={rewardCenterConfig?.icon}
-      label={intl.formatMessage({ id: rewardCenterConfig.titleId })}
+      icon="GiftOutline"
+      label={intl.formatMessage({
+        id: ETranslations.wallet_subsidy_redeem_title,
+      })}
       onClose={() => {}}
       onPress={handleRewardCenter}
     />

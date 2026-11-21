@@ -9,6 +9,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ONEKEY_REQUEST_TOKEN_HEADER } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
@@ -38,6 +39,7 @@ import type {
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
+import type { ITronIssuanceOwner } from '@onekeyhq/shared/types/subsidy';
 import type {
   ITronAccountResources,
   ITronAccountResourcesRaw,
@@ -1015,24 +1017,71 @@ class ServiceAccountProfile extends ServiceBase {
     return data.map((item) => item.data);
   }
 
+  // The OneKey ID header of one TRON resource proxy request. TRON energy
+  // issuance is bound to the signed-in OneKey ID: the Wallet BFF resolves the
+  // member from the login token.
+  //
+  // An issuance the user starts by hand (free claim, code redemption) names
+  // the member it was started for in `issuedTo`, and is sent only with that
+  // member's session, pinned by ServicePrime. A session that is gone, belongs
+  // to another member or has a token that cannot be read fails the request
+  // before anything is sent, so an issuance is never accepted anonymously or
+  // for someone else while the UI reports it to the member who asked. The
+  // response is not checked against the session again: the server has bound
+  // the issuance to the token it was sent with, and failing a delivered claim
+  // would invite a second attempt.
+  //
+  // Every other request (inventory and activation reads, the automatic claim
+  // and the rental order before a TRON transfer) has no member to answer to.
+  // Its header is read per request, so a signed-out user sends none and stays
+  // anonymous.
+  private async getTrxResAuthHeaders(
+    issuedTo: ITronIssuanceOwner | undefined,
+  ): Promise<Record<string, string>> {
+    if (!issuedTo) {
+      return this.getOneKeyIdAuthHeaders();
+    }
+    const { requestConfig } =
+      await this.backgroundApi.servicePrime.captureOneKeyIdAuthRequestConfig({
+        expectedOneKeyUserId: issuedTo.onekeyUserId ?? '',
+        createStateChangedError: () =>
+          new OneKeyLocalError({
+            key: ETranslations.id_login_expired_description,
+          }),
+      });
+    return requestConfig.headers;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async sendProxyRequestWithTrxRes<T>({
     networkId,
     body,
     returnRawData,
+    issuedTo,
   }: {
     networkId: string;
     body: IProxyRequestParam;
     returnRawData?: boolean;
+    issuedTo?: ITronIssuanceOwner;
   }): Promise<T> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: {
       networkId: string;
     } & IProxyRequestParam = { networkId, ...body };
+    // Only this request is authenticated, never the shared client.
+    //
+    // A transport failure (a timeout, for one) rejects with an AxiosError that
+    // carries this request's config. `redact` keeps the token out of every
+    // serialized copy of that error, so a caller that logs it cannot leak the
+    // session.
     const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/trxres',
       request,
+      {
+        headers: await this.getTrxResAuthHeaders(issuedTo),
+        redact: [ONEKEY_REQUEST_TOKEN_HEADER],
+      },
     );
 
     if (returnRawData) {

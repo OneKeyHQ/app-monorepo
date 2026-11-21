@@ -63,6 +63,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
@@ -1553,6 +1554,18 @@ const MoreActionMoreGrid = () => {
     );
   }, [closePopover]);
 
+  const handleSubsidyCenter = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.MainModal, {
+          screen: EModalRewardCenterRoutes.RewardCenter,
+        });
+      },
+      { waitForAnimation: false },
+    );
+  }, [closePopover, navigation]);
+
   const handleDevMode = useCallback(() => {
     return runAfterActionListClose(
       () => closePopover?.(),
@@ -1597,6 +1610,14 @@ const MoreActionMoreGrid = () => {
             },
           ]
         : []),
+      {
+        // TODO(OK-67058): move to an i18n key once the copy is final.
+        title: '补贴中心',
+        icon: 'FlashOutline' as const,
+        testID: 'more-action-subsidy-center' as const,
+        onPress: handleSubsidyCenter,
+        trackID: 'wallet-subsidy-center',
+      },
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1618,6 +1639,7 @@ const MoreActionMoreGrid = () => {
     handleReferFriends,
     isReferralEntryPending,
     isReferralEntryLoading,
+    handleSubsidyCenter,
     handleDevMode,
     showReviewControlledFeatures,
   ]);
