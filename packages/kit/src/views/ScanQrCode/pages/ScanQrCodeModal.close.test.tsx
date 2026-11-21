@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
@@ -17,7 +19,7 @@ const mockRouteCallback = jest.fn(
     canApplyScanResult: () => boolean;
     isScanOpen: () => boolean;
     onResultWillClose?: () => void;
-  }) => ({}),
+  }): Promise<{ retry?: boolean }> => ({}),
 );
 let mockCurrentRouteKey = 'scan-route';
 let mockScanRouteInStack = true;
@@ -195,6 +197,7 @@ jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 beforeEach(() => {
   mockCloseOrder.length = 0;
   mockRouteCallback.mockClear();
+  jest.mocked(Toast.error).mockClear();
   mockCurrentRouteKey = 'scan-route';
   mockScanRouteInStack = true;
   mockBeforeRemove = undefined;
@@ -257,6 +260,7 @@ test('resumes the camera and cancels on close after a photo result is discarded'
     ),
   );
   expect(mockRouteCallback).not.toHaveBeenCalled();
+  expect(Toast.error).not.toHaveBeenCalled();
 
   mockCurrentRouteKey = 'scan-route';
   fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
@@ -319,4 +323,37 @@ test('Android Back cancels a scan after the camera delivered a frame', async () 
     'lightning:example',
     '',
   ]);
+});
+
+test('a retryable photo result can be submitted again without reopening the photo picker', async () => {
+  jest.mocked(PhotoLibrary.pickImage).mockClear();
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'test://retry-photo',
+  });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
+  mockRouteCallback.mockResolvedValueOnce({ retry: true });
+
+  render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+
+  await waitFor(() =>
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.global_server_error,
+      actions: expect.objectContaining({
+        label: ETranslations.global_try_again,
+      }),
+    }),
+  );
+  expect(mockCloseOrder).toEqual([]);
+
+  const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
+  const retry = Array.isArray(actions) ? actions[0] : actions;
+  await retry?.onPress?.();
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'invoice from photo',
+    'invoice from photo',
+  ]);
+  expect(PhotoLibrary.pickImage).toHaveBeenCalledTimes(1);
 });

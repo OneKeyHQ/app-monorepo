@@ -85,8 +85,11 @@ it('keeps the scan page open after a transient parse failure', async () => {
   expect(isRetryableQrParseFailure(transient)).toBe(true);
 });
 
-it('closes the scan page for a code that can never be accepted', async () => {
-  const invalid = { key: ETranslations.feedback_invalid_qr_code };
+it.each([
+  ETranslations.feedback_invalid_qr_code,
+  ETranslations.send_the_invoice_has_expired,
+])('closes the scan page for a terminal QR code error (%s)', async (key) => {
+  const invalid = { key };
   mockParse.mockRejectedValueOnce(invalid);
 
   await expect(parseFrame()).rejects.toBe(invalid);

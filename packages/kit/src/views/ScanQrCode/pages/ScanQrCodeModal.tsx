@@ -285,12 +285,16 @@ export default function ScanQrCodeModal() {
     };
   }, [cancelScan, isScanOpen, reactNavigation]);
 
+  const isScanActive = useCallback(
+    (signal: AbortSignal | undefined) =>
+      !exitReason.current &&
+      signal?.aborted === false &&
+      rootNavigationRef.current?.getCurrentRoute()?.key === route.key,
+    [route.key],
+  );
   const callback = useCallback(
     async (value: string, signal = scanScope.current?.signal) => {
-      const canApplyScanResult = () =>
-        !exitReason.current &&
-        signal?.aborted === false &&
-        rootNavigationRef.current?.getCurrentRoute()?.key === route.key;
+      const canApplyScanResult = () => isScanActive(signal);
       if (value && !canApplyScanResult()) {
         return { retry: true };
       }
@@ -311,7 +315,7 @@ export default function ScanQrCodeModal() {
         onResultWillClose,
       });
     },
-    [isScanOpen, onResultWillClose, route.key, routeCallback],
+    [isScanActive, isScanOpen, onResultWillClose, routeCallback],
   );
 
   const closeScanner = useCallback(() => {
@@ -322,6 +326,30 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
+  const submitPhoto = useCallback(
+    async function submitPhoto(data: string, signal: AbortSignal | undefined) {
+      const { retry } = await callback(data, signal);
+      if (!retry || !isScanActive(signal)) return;
+
+      const toast = Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_server_error }),
+        actions: {
+          label: intl.formatMessage({ id: ETranslations.global_try_again }),
+          onPress: async () => {
+            if (isPickingImage.current || !isScanActive(signal)) return;
+            isPickingImage.current = true;
+            toast?.close();
+            try {
+              await submitPhoto(data, signal);
+            } finally {
+              isPickingImage.current = false;
+            }
+          },
+        },
+      });
+    },
+    [callback, intl, isScanActive],
+  );
 
   const pickImage = useCallback(async () => {
     if (isPickingImage.current) return;
@@ -341,8 +369,8 @@ export default function ScanQrCodeModal() {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data) {
-        await callback(data, signal);
-      } else if (!signal?.aborted) {
+        await submitPhoto(data, signal);
+      } else if (isScanActive(signal)) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
@@ -352,7 +380,7 @@ export default function ScanQrCodeModal() {
     } finally {
       isPickingImage.current = false;
     }
-  }, [callback, intl]);
+  }, [intl, isScanActive, submitPhoto]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {

@@ -1,7 +1,10 @@
 import { bech32 } from 'bech32';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { RetryableLightningInvoiceDecodeError } from '@onekeyhq/shared/src/errors';
+import {
+  InvoiceExpiredError,
+  RetryableLightningInvoiceDecodeError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   findLnurl,
@@ -73,7 +76,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
         : timestamp +
           (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
     if (expiresAt !== undefined && expiresAt <= Date.now() / 1000) {
-      return null;
+      throw new InvoiceExpiredError({ autoToast: true });
     }
   }
 

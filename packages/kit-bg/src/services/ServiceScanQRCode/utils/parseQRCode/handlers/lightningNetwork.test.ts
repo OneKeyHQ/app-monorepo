@@ -2,6 +2,7 @@ import { bech32 } from 'bech32';
 
 import ClientLightning from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
 import {
   EQRCodeHandlerNames,
@@ -195,9 +196,9 @@ it.each([
         type: EQRCodeHandlerType.LIGHTNING_NETWORK,
       });
       now.mockReturnValue(1_900_000_000_000);
-      await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
-        type: EQRCodeHandlerType.UNKNOWN,
-      });
+      await expect(parseQRCode(INVOICE, parseOptions)).rejects.toBeInstanceOf(
+        InvoiceExpiredError,
+      );
       expect(request.get).toHaveBeenCalledTimes(1);
       expect(getNetwork).toHaveBeenCalledTimes(1);
     } finally {

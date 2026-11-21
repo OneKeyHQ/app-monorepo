@@ -1,6 +1,7 @@
 // The bounds module alone, so parsing does not pull the whole QR wallet SDK in.
 import { UrScanRejectedError } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
 import {
+  InvoiceExpiredError,
   OneKeyErrorAirGapInvalidQrCode,
   RetryableLightningInvoiceDecodeError,
 } from '@onekeyhq/shared/src/errors';
@@ -54,7 +55,10 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
       if (error instanceof UrScanRejectedError) {
         throw new OneKeyErrorAirGapInvalidQrCode({ autoToast: true });
       }
-      if (error instanceof RetryableLightningInvoiceDecodeError) {
+      if (
+        error instanceof InvoiceExpiredError ||
+        error instanceof RetryableLightningInvoiceDecodeError
+      ) {
         throw error;
       }
       defaultLogger.app.error.log(

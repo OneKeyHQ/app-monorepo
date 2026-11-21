@@ -540,13 +540,16 @@ axios.interceptors.response.use(
         const title = appLocale.intl.formatMessage({
           id: ETranslations.global_server_error,
         });
-        throw new OneKeyServerApiError({
+        const serverError = new OneKeyServerApiError({
           autoToast: false,
           message: title,
           code: Number(response.status),
           httpStatusCode: Number(response.status),
           requestId: config.headers[HEADER_REQUEST_ID_KEY],
         });
+        const retryAfter = response.headers?.['retry-after'];
+        if (typeof retryAfter === 'string') serverError.retryAfter = retryAfter;
+        throw serverError;
       }
     }
 

@@ -1,6 +1,9 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import ServiceLightning from '@onekeyhq/kit-bg/src/services/ServiceLightning';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 
 import { vaultFactory } from '../../../factory';
 import LightningVault from '../Vault';
@@ -111,6 +114,64 @@ describe('Lightning read authorization without wallet interaction', () => {
     await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
     await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([429, 503])(
+    'repeated scans wait through Retry-After on HTTP %s',
+    async (status) => {
+      const { client, get } = harness();
+      const time = 1_900_000_000_000;
+      const serverError = new OneKeyServerApiError({ httpStatusCode: status });
+      serverError.retryAfter = new Date(time + 5000).toUTCString();
+      const failure =
+        status === 503
+          ? serverError
+          : Object.assign(new OneKeyLocalError('Synthetic rate limit'), {
+              isAxiosError: true,
+              response: { status, headers: { 'retry-after': '5' } },
+            });
+      get.mockRejectedValueOnce(failure);
+      const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+      try {
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        now.mockReturnValue(time + 4999);
+        await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
+          failure,
+        );
+        expect(get).toHaveBeenCalledTimes(1);
+
+        now.mockReturnValue(time + 5000);
+        await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+        expect(get).toHaveBeenCalledTimes(2);
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
+
+  test('backs off repeated HTTP 503 responses that have no Retry-After', async () => {
+    const { client, get } = harness();
+    const failure = new OneKeyServerApiError({ httpStatusCode: 503 });
+    get.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    try {
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 1000);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      now.mockReturnValue(time + 2999);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(2);
+
+      now.mockReturnValue(time + 3000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(3);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   test.each(['hw-restored', 'hd-restored'])(
