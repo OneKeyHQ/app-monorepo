@@ -1,11 +1,7 @@
 import { EventEmitter } from 'events';
 import https from 'https';
 
-import electronLogger from 'electron-log/main';
-
-import type { ISniRequestConfig } from '@onekeyhq/shared/src/request/types/ipTable';
-
-import DesktopApiSniRequest, {
+import {
   SniRequestError,
   SniRequestLimiter,
   buildSniRequestOptions,
@@ -14,8 +10,14 @@ import DesktopApiSniRequest, {
   isProxyRouteActive,
   isSniFailClosedError,
   validateSniRequestConfig,
-} from './DesktopApiSniRequest';
+} from '@onekeyfe/react-native-sni-connect/node';
+import electronLogger from 'electron-log/main';
 
+import type { ISniRequestConfig } from '@onekeyhq/shared/src/request/types/ipTable';
+
+import DesktopApiSniRequest from './DesktopApiSniRequest';
+
+import type SniNodeClient from '@onekeyfe/react-native-sni-connect/node';
 import type { IncomingMessage } from 'http';
 import type { RequestOptions } from 'https';
 
@@ -80,24 +82,8 @@ function observeRejection<T>(promise: Promise<T>): Promise<T> {
   return promise;
 }
 
-function getRequestLimiter(api: DesktopApiSniRequest): SniRequestLimiter {
-  return (
-    api as unknown as {
-      requestLimiter: SniRequestLimiter;
-    }
-  ).requestLimiter;
-}
-
-function getSniAgent(
-  api: DesktopApiSniRequest,
-): https.Agent & { getName(options: RequestOptions): string } {
-  return (
-    api as unknown as {
-      agentState: {
-        agent: https.Agent & { getName(options: RequestOptions): string };
-      };
-    }
-  ).agentState.agent;
+function getClient(api: DesktopApiSniRequest): SniNodeClient {
+  return (api as unknown as { client: SniNodeClient }).client;
 }
 
 describe('DesktopApiSniRequest OSCS validation', () => {
@@ -115,16 +101,92 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     const normalized = validateSniRequestConfig({
       ...baseConfig(),
       requestId: 'req-1',
-      method: ' get ',
+      method: ' post ',
       path: 'v1?q=1',
       body: 'a'.repeat(1024 * 1024),
       timeout: 120_000,
     });
 
-    expect(normalized.method).toBe('GET');
+    expect(normalized.method).toBe('POST');
     expect(normalized.path).toBe('/v1?q=1');
     expect(normalized.body).toHaveLength(1024 * 1024);
   });
+
+  test('adapts a bodyless app POST to the SDK request format', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const clientRequest = jest
+      .spyOn(getClient(api), 'request')
+      .mockResolvedValue({
+        body: '',
+        data: '',
+        status: 204,
+        statusCode: 204,
+        statusText: '',
+        headers: {},
+      });
+    const config = { ...baseConfig(), method: 'POST' };
+
+    await expect(api.request(config)).resolves.toMatchObject({ status: 204 });
+    expect(clientRequest).toHaveBeenCalledWith({ ...config, body: '' });
+  });
+
+  test('applies the desktop IPv6 range policy before delegating to the SDK', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const client = getClient(api);
+    const unexpectedCall = new Error('Unexpected SDK call');
+    const sdkRequest = jest
+      .spyOn(client, 'request')
+      .mockRejectedValue(unexpectedCall);
+    const sdkUpload = jest
+      .spyOn(client, 'uploadFile')
+      .mockRejectedValue(unexpectedCall);
+    const sdkSnapshot = jest
+      .spyOn(client, 'getDebugSnapshot')
+      .mockRejectedValue(unexpectedCall);
+    const ip = '3fff::1';
+    const config = { ...baseConfig(), ip };
+
+    await expect(api.request(config)).rejects.toMatchObject({
+      code: 'SNI_INVALID_CONFIG',
+      failClosed: true,
+    });
+    await expect(
+      api.uploadFile({
+        ...config,
+        method: 'POST',
+        filePath: '/test/logs.zip',
+      }),
+    ).rejects.toMatchObject({ code: 'SNI_INVALID_CONFIG', failClosed: true });
+    await expect(
+      api.getDebugSnapshot({ hostname: config.hostname, ip }),
+    ).rejects.toMatchObject({ code: 'SNI_INVALID_CONFIG', failClosed: true });
+    expect(sdkRequest).not.toHaveBeenCalled();
+    expect(sdkUpload).not.toHaveBeenCalled();
+    expect(sdkSnapshot).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['Protocol upgrades are not supported', 'SNI_RESPONSE_FAILED'],
+    ['Preflight policy rejected the upload', 'SNI_SECURITY_POLICY_FAILED'],
+  ])(
+    'classifies "%s" as %s for the upload fallback decision',
+    async (message, code) => {
+      const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+      jest
+        .spyOn(getClient(api), 'uploadFile')
+        .mockRejectedValue(
+          new SniRequestError('SNI_SECURITY_POLICY_FAILED', message, true),
+        );
+
+      await expect(
+        api.uploadFile({
+          ...baseConfig(),
+          method: 'POST',
+          filePath: '/test/logs.zip',
+        }),
+      ).rejects.toMatchObject({ code, failClosed: true });
+    },
+  );
 
   test('rejects unsafe IP destinations and hostnames that are IP literals', () => {
     [
@@ -221,7 +283,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
   test('filters module-owned headers and rejects unsafe headers', () => {
     const normalized = validateSniRequestConfig({
       ...baseConfig(),
-      method: 'get',
+      method: 'post',
       headers: {
         Host: 'evil.example',
         'Content-Length': '9999',
@@ -235,7 +297,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     expect(options.port).toBe(443);
     expect(options.host).toBe('93.184.216.34');
     expect(options.servername).toBe('example.com');
-    expect(options.method).toBe('GET');
+    expect(options.method).toBe('POST');
     expect(options.headers).toMatchObject({
       Host: 'example.com',
       'Accept-Encoding': 'identity',
@@ -388,7 +450,9 @@ describe('DesktopApiSniRequest OSCS validation', () => {
 
   test('uses one HTTPS agent identity for IPv4 and mapped IPv6 forms', () => {
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-    const agent = getSniAgent(api);
+    const agent = getClient(api).getAgentState().agent as https.Agent & {
+      getName(options: RequestOptions): string;
+    };
 
     expect(
       agent.getName({
@@ -407,7 +471,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
 
   test('exposes the live 16 active plus pending limiter state in development', async () => {
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-    const limiter = getRequestLimiter(api);
+    const limiter = getClient(api).getRequestLimiter();
     const releases: Array<() => void> = [];
     for (let index = 0; index < 16; index += 1) {
       // eslint-disable-next-line no-await-in-loop
@@ -677,7 +741,9 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await flushMicrotasks();
     expect(requests).toHaveLength(16);
     expect(
-      getRequestLimiter(api).snapshot('example.com', '93.184.216.34'),
+      getClient(api)
+        .getRequestLimiter()
+        .snapshot('example.com', '93.184.216.34'),
     ).toEqual({
       activeRequests: 16,
       activeRequestsForPair: 16,
@@ -689,14 +755,14 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await expect(activePromises[0]).rejects.toThrow('slot released');
     await flushMicrotasks();
     expect(requests).toHaveLength(17);
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 16,
       pendingRequests: 0,
     });
 
     await api.cancelAllRequests();
     await Promise.allSettled([...activePromises.slice(1), queuedPromise]);
-    expect(getRequestLimiter(api).snapshot()).toEqual({
+    expect(getClient(api).getRequestLimiter().snapshot()).toEqual({
       activeRequests: 0,
       activeRequestsForPair: 0,
       pendingRequests: 0,
@@ -715,11 +781,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       return request as never;
     }) as never);
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-    (
-      api as unknown as {
-        requestLimiter: SniRequestLimiter;
-      }
-    ).requestLimiter = new SniRequestLimiter(1, 1);
+    getClient(api).setRequestLimiter(new SniRequestLimiter(1, 1));
     const activePromise = observeRejection(
       api.request({ ...baseConfig(), requestId: 'active' }),
     );
@@ -737,7 +799,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       failClosed: true,
     });
     expect(requests).toHaveLength(1);
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 1,
       pendingRequests: 0,
     });
@@ -746,7 +808,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await expect(activePromise).rejects.toMatchObject({
       code: 'SNI_CANCELLED',
     });
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 0,
       pendingRequests: 0,
     });
@@ -763,11 +825,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       return request as never;
     }) as never);
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-    (
-      api as unknown as {
-        requestLimiter: SniRequestLimiter;
-      }
-    ).requestLimiter = new SniRequestLimiter(1, 1);
+    getClient(api).setRequestLimiter(new SniRequestLimiter(1, 1));
     const activePromise = observeRejection(
       api.request({ ...baseConfig(), requestId: 'active' }),
     );
@@ -785,7 +843,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       code: 'SNI_CANCELLED',
     });
     expect(requests).toHaveLength(1);
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 0,
       pendingRequests: 0,
     });
@@ -802,11 +860,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       return request as never;
     }) as never);
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-    (
-      api as unknown as {
-        requestLimiter: SniRequestLimiter;
-      }
-    ).requestLimiter = new SniRequestLimiter(1, 1);
+    getClient(api).setRequestLimiter(new SniRequestLimiter(1, 1));
     const blocker = observeRejection(
       api.request({ ...baseConfig(), requestId: 'blocker' }),
     );
@@ -822,7 +876,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await expect(firstPending).rejects.toMatchObject({ code: 'SNI_CANCELLED' });
     await flushMicrotasks();
     expect(requests).toHaveLength(1);
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 1,
       pendingRequests: 1,
     });
@@ -833,7 +887,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     });
     await api.cancelAllRequests();
     await expect(blocker).rejects.toMatchObject({ code: 'SNI_CANCELLED' });
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 0,
       pendingRequests: 0,
     });
@@ -852,11 +906,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     }) as never);
     try {
       const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-      (
-        api as unknown as {
-          requestLimiter: SniRequestLimiter;
-        }
-      ).requestLimiter = new SniRequestLimiter(1, 1);
+      getClient(api).setRequestLimiter(new SniRequestLimiter(1, 1));
       const activePromise = observeRejection(
         api.request({ ...baseConfig(), requestId: 'active' }),
       );
@@ -875,7 +925,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
         code: 'SNI_TIMEOUT',
       });
       expect(requests).toHaveLength(1);
-      expect(getRequestLimiter(api).snapshot()).toMatchObject({
+      expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
         activeRequests: 1,
         pendingRequests: 0,
       });
@@ -884,7 +934,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       await expect(activePromise).rejects.toMatchObject({
         code: 'SNI_CANCELLED',
       });
-      expect(getRequestLimiter(api).snapshot()).toMatchObject({
+      expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
         activeRequests: 0,
         pendingRequests: 0,
       });
@@ -896,7 +946,6 @@ describe('DesktopApiSniRequest OSCS validation', () => {
 
   test('uses only the remaining timeout after queue admission', async () => {
     jest.useFakeTimers();
-    const setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout');
     const requests: FakeClientRequest[] = [];
     jest.spyOn(https, 'request').mockImplementation(((
       options: RequestOptions,
@@ -907,11 +956,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     }) as never);
     try {
       const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-      (
-        api as unknown as {
-          requestLimiter: SniRequestLimiter;
-        }
-      ).requestLimiter = new SniRequestLimiter(1, 1);
+      getClient(api).setRequestLimiter(new SniRequestLimiter(1, 1));
       const activePromise = observeRejection(
         api.request({ ...baseConfig(), requestId: 'active' }),
       );
@@ -930,13 +975,14 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       await expect(activePromise).rejects.toThrow('slot released');
       await flushMicrotasks();
       expect(requests).toHaveLength(2);
-      expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 600);
-
-      await api.cancelAllRequests();
+      jest.advanceTimersByTime(599);
+      expect(requests[1].destroy).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
       await expect(queuedPromise).rejects.toMatchObject({
-        code: 'SNI_CANCELLED',
+        code: 'SNI_TIMEOUT',
       });
-      expect(getRequestLimiter(api).snapshot()).toMatchObject({
+      expect(requests[1].destroy).toHaveBeenCalledTimes(1);
+      expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
         activeRequests: 0,
         pendingRequests: 0,
       });
@@ -976,7 +1022,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
       statusCode: 204,
       body: '',
     });
-    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+    expect(getClient(api).getRequestLimiter().snapshot()).toMatchObject({
       activeRequests: 0,
       pendingRequests: 0,
     });
@@ -995,7 +1041,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await expect(api.request(baseConfig())).rejects.toThrow(
       'synchronous transport failure',
     );
-    expect(getRequestLimiter(api).snapshot()).toEqual({
+    expect(getClient(api).getRequestLimiter().snapshot()).toEqual({
       activeRequests: 0,
       activeRequestsForPair: 0,
       pendingRequests: 0,
@@ -1026,9 +1072,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     await expect(firstRequest).rejects.toThrow(/SNI_CANCELLED/);
     await flushMicrotasks();
     expect(requests).toHaveLength(2);
-    expect(requests[0].destroy).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'SNI_CANCELLED' }),
-    );
+    expect(requests[0].destroy).toHaveBeenCalledTimes(1);
 
     await expect(api.cancelRequest('same')).resolves.toEqual({ success: true });
     await expect(secondRequest).rejects.toThrow(/SNI_CANCELLED/);
