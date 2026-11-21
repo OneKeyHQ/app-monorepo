@@ -66,7 +66,6 @@ import {
 import { OneKeyIdUsagePopover } from './OneKeyIdUsagePopover';
 
 const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
-const USAGE_LINK_TEST_ID = 'prime-login-usage-link';
 
 function PrimeLoginOAuthDialog(props: {
   onComplete: () => Promise<void>;
@@ -612,15 +611,13 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
-  const handleShowUsage = useCallback(() => {
-    // Native always shows a sheet; only the wide web panel needs an anchor.
+  // Native always shows a sheet; only the wide web panel anchors to the link,
+  // the element this press or key event came from (on web, the link span).
+  const handleShowUsage = useCallback((event?: { currentTarget?: unknown }) => {
+    const target = platformEnv.isNative ? undefined : event?.currentTarget;
     setUsagePopover({
       open: true,
-      webAnchorElement: platformEnv.isNative
-        ? undefined
-        : (document.querySelector<HTMLElement>(
-            `[data-testid="${USAGE_LINK_TEST_ID}"]`,
-          ) ?? undefined),
+      webAnchorElement: target instanceof HTMLElement ? target : undefined,
     });
   }, []);
   const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
@@ -629,12 +626,16 @@ function PrimeLoginOAuthDialog(props: {
   // The inline link is a text span on web: make it focusable and let Enter
   // and Space open it like a native link.
   const handleUsageLinkKeyDown = useCallback(
-    (event: { key: string; preventDefault: () => void }) => {
+    (event: {
+      key: string;
+      currentTarget?: unknown;
+      preventDefault: () => void;
+    }) => {
       if (event.key !== 'Enter' && event.key !== ' ') {
         return;
       }
       event.preventDefault();
-      handleShowUsage();
+      handleShowUsage(event);
     },
     [handleShowUsage],
   );
@@ -709,7 +710,7 @@ function PrimeLoginOAuthDialog(props: {
               {
                 link: (chunks: ReactNode[]) => (
                   <SizableText
-                    testID={USAGE_LINK_TEST_ID}
+                    testID="prime-login-usage-link"
                     size="$bodyLg"
                     color="$textSubdued"
                     textDecorationLine="underline"

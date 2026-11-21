@@ -21,7 +21,11 @@ let mockDevSettingsEnabled = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    // Rich-text messages render their tags, like react-intl does.
+    formatMessage: (
+      { id }: { id: string },
+      values?: { link?: (chunks: string[]) => unknown },
+    ) => (values?.link ? [id, values.link([`${id}:link`])] : id),
   }),
 }));
 
@@ -329,9 +333,14 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
   };
 });
 
-// The usage explainer is a plain read-only popover; these tests cover login.
+// The popover's own presentation is covered in the components package; here
+// only what the dialog hands to it matters.
+const mockUsagePopoverProps = jest.fn();
 jest.mock('./OneKeyIdUsagePopover', () => ({
-  OneKeyIdUsagePopover: () => null,
+  OneKeyIdUsagePopover: (props: unknown) => {
+    mockUsagePopoverProps(props);
+    return null;
+  },
 }));
 
 jest.mock('../useOneKeyIdLocalKeylessOAuth', () => {
@@ -383,6 +392,35 @@ function getBackgroundApiMocks() {
 }
 
 describe('PrimeLoginOAuthDialog', () => {
+  const lastUsagePopoverProps = () =>
+    mockUsagePopoverProps.mock.calls[
+      mockUsagePopoverProps.mock.calls.length - 1
+    ]?.[0] as { open: boolean; webAnchorElement?: HTMLElement } | undefined;
+
+  test('opens the usage explainer anchored to the subtitle link on web', () => {
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    expect(lastUsagePopoverProps()?.open).toBe(false);
+
+    const link = screen.getByTestId('prime-login-usage-link');
+    expect(link.textContent).toBe('onekey_id_purpose__desc:link');
+    fireEvent.click(link);
+
+    expect(lastUsagePopoverProps()).toEqual(
+      expect.objectContaining({ open: true, webAnchorElement: link }),
+    );
+  });
+
+  test('opens the usage explainer without an anchor on native', () => {
+    getPlatformEnvMock().isNative = true;
+    getPlatformEnvMock().isNativeIOS = true;
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+
+    expect(lastUsagePopoverProps()?.open).toBe(true);
+    expect(lastUsagePopoverProps()?.webAnchorElement).toBeUndefined();
+  });
+
   test.each(['google', 'apple'])(
     'stops a banned %s login without completing or offering account merging',
     async (provider) => {
