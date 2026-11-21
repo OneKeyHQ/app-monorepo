@@ -178,9 +178,11 @@ import {
   getPublicAccountSnapshotIdentityHash,
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
+  publicAccountSnapshotToAccount,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
   getForeignAccountDeletion,
+  getOfflinePublicAccountSnapshotFill,
   hasPublicAccountSnapshotWriteGuard,
   isRejectedPublicAccountSnapshotWrite,
   isUnsyncedPublicAccountSnapshotRemoval,
@@ -5623,6 +5625,92 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  private async txCheckOfflinePublicAccountSnapshotFill({
+    tx,
+    item,
+    current,
+    wallets,
+  }: {
+    tx: ILocalDBTransaction;
+    item: IDBCloudSyncItem;
+    current: IDBCloudSyncItem | undefined;
+    wallets: IDBWallet[];
+  }) {
+    const fill = getOfflinePublicAccountSnapshotFill(item);
+    if (!fill) return;
+    if (!isEqual(current, fill.previous)) {
+      rejectPublicAccountSnapshotWrite(item);
+      return;
+    }
+    const { snapshot } = fill;
+    const hardware = snapshot.wallet.kind === 'hardware';
+    const candidates = wallets.filter((wallet) => {
+      if (wallet.isMocked || wallet.isTemp) return false;
+      if (
+        hardware
+          ? !accountUtils.isHwWallet({ walletId: wallet.id })
+          : !accountUtils.isHdWallet({ walletId: wallet.id }) ||
+            accountUtils.isBotWallet({ walletId: wallet.id })
+      )
+        return false;
+      if (Boolean(wallet.passphraseState) !== snapshot.wallet.hidden)
+        return false;
+      try {
+        return (
+          normalizePublicAccountWalletXfp(wallet.xfp || '') ===
+          snapshot.wallet.xfp
+        );
+      } catch {
+        return false;
+      }
+    });
+    const projections = new Map(
+      candidates.map((wallet) => {
+        const expected = publicAccountSnapshotToAccount(snapshot, wallet.id);
+        return [expected.id, { wallet, expected }] as const;
+      }),
+    );
+    if (!projections.size) {
+      rejectPublicAccountSnapshotWrite(item);
+      return;
+    }
+    const { records } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Account,
+      ids: [...projections.keys()],
+    });
+    const matching = records.some((account) => {
+      if (!account) return false;
+      const match = projections.get(account.id);
+      if (!match || !publicAccountIdentityEqual(account, match.expected))
+        return false;
+      try {
+        const liveSnapshot = buildPublicAccountSnapshot({
+          wallet: match.wallet,
+          account,
+        });
+        return (
+          !!liveSnapshot &&
+          getPublicAccountSnapshotId(liveSnapshot) ===
+            getPublicAccountSnapshotId(snapshot)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (matching) return;
+    rejectPublicAccountSnapshotWrite(item);
+    // A matching live wallet remains but its local account has gone. A
+    // conflicting account is not evidence of deletion, so retain that row.
+    if (!records.some(Boolean)) {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [item.id],
+      });
+    }
+  }
+
   async txAddAndUpdateSyncItems({
     tx,
     items,
@@ -5642,11 +5730,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           .filter((record): record is IDBCloudSyncItem => Boolean(record))
           .map((record) => [record.id, record]),
       );
+      let fillWallets: IDBWallet[] | undefined;
       for (const item of guardedItems) {
-        if (
-          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id))
-        ) {
+        const current = currentById.get(item.id);
+        if (!matchesPublicAccountSnapshotWrite(item, current)) {
           rejectPublicAccountSnapshotWrite(item);
+        } else if (getOfflinePublicAccountSnapshotFill(item)) {
+          if (!fillWallets) {
+            const { records: wallets } = await this.txGetAllRecords({
+              tx,
+              name: ELocalDBStoreNames.Wallet,
+            });
+            fillWallets = wallets.filter(
+              (wallet): wallet is IDBWallet => !!wallet,
+            );
+          }
+          await this.txCheckOfflinePublicAccountSnapshotFill({
+            tx,
+            item,
+            current,
+            wallets: fillWallets,
+          });
         }
       }
     }

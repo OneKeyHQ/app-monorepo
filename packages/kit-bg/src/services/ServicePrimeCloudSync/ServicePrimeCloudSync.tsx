@@ -126,6 +126,7 @@ import {
 } from './publicAccountSnapshot';
 import {
   isRejectedPublicAccountSnapshotWrite,
+  rememberOfflinePublicAccountSnapshotFill,
   rememberPublicAccountSnapshotWrite,
 } from './publicAccountSnapshotWriteGuard';
 
@@ -4305,7 +4306,12 @@ class ServicePrimeCloudSync extends ServiceBase {
             ) {
               // Only finish a plaintext record created locally. Encrypted
               // records from another key/format are never implicitly migrated.
-              if (item.data) continue;
+              if (
+                item.data ||
+                item.dataType !== EPrimeCloudSyncDataType.Account ||
+                item.remoteHardwareAccountTombstoneProof !== undefined
+              )
+                continue;
               const {
                 snapshot,
                 payload: parsedPayload,
@@ -4339,7 +4345,15 @@ class ServicePrimeCloudSync extends ServiceBase {
               rebuilt.localSceneUpdated = item.localSceneUpdated;
               rebuilt.serverUploaded = false;
               if (rebuilt.data) rebuilt.rawData = '';
-              rememberPublicAccountSnapshotWrite(rebuilt, item);
+              if (
+                !rememberOfflinePublicAccountSnapshotFill(
+                  rebuilt,
+                  item,
+                  snapshot,
+                  currentPwdHash,
+                )
+              )
+                continue;
               itemsToUpdate.push(rebuilt);
               issueUpdates.push({ id: item.id });
               continue;

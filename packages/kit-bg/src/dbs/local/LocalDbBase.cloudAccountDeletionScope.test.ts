@@ -19,6 +19,7 @@ import {
   PUBLIC_ACCOUNT_TEST_XFP,
   publicAccountTestSnapshot,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
+import { rememberOfflinePublicAccountSnapshotFill } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
 import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE } from './consts';
 import { IndexedDBAgent } from './indexed/IndexedDBAgent';
@@ -63,6 +64,8 @@ async function fixture({
   refuseAuthority = false,
   rejectPreflight = false,
   beforeAuthority,
+  beforeKey,
+  unsent = false,
   missingCredential = false,
   beforeTime,
   foreign,
@@ -70,6 +73,8 @@ async function fixture({
   refuseAuthority?: boolean;
   rejectPreflight?: boolean;
   beforeAuthority?: () => Promise<void>;
+  beforeKey?: () => Promise<void>;
+  unsent?: boolean;
   missingCredential?: boolean;
   beforeTime?: (
     db: LocalDbIndexed,
@@ -112,15 +117,18 @@ async function fixture({
     },
   );
   const syncLater = jest.fn(async () => undefined);
+  const readCredential = jest.fn(async () =>
+    missingCredential ? undefined : syncCredential,
+  );
   const stages: string[] = [];
   const managers: { account?: CloudSyncFlowManagerAccount } = {};
   const scoped = {
     localDb: db,
     serviceKeylessCloudSync: {
-      getLocalMutationSyncCredential: async () =>
-        missingCredential ? undefined : syncCredential,
+      getLocalMutationSyncCredential: readCredential,
       runWithCloudSyncKeyLock: async <T>(fn: () => Promise<T>) => {
         stages.push('key');
+        await beforeKey?.();
         if (rejectPreflight)
           throw new OneKeyLocalError('Fixture storage unreadable');
         return fn();
@@ -162,6 +170,23 @@ async function fixture({
     localSceneUpdated: true,
     serverUploaded: true,
     isDeleted: false,
+    ...(unsent
+      ? await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: syncItemId,
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.Account,
+            rawKey,
+            payload: {
+              accountId: getPublicAccountSnapshotId(snapshot),
+              name: snapshot.account.name,
+              publicAccountSnapshot: snapshot,
+            },
+          },
+          dataTime: 9000,
+          syncCredential: undefined,
+        })
+      : {}),
+    ...(unsent ? { localSceneUpdated: true } : {}),
     ...foreign,
   };
   await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
@@ -202,6 +227,38 @@ async function fixture({
     wallet,
     account,
     old,
+    snapshot,
+    readCredential,
+    async buildFill(previous = old) {
+      const item = {
+        ...(await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: previous.id,
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.Account,
+            rawKey,
+            payload: {
+              accountId: getPublicAccountSnapshotId(snapshot),
+              name: snapshot.account.name,
+              publicAccountSnapshot: snapshot,
+            },
+          },
+          dataTime: previous.dataTime,
+          syncCredential,
+        })),
+        rawData: '',
+        localSceneUpdated: previous.localSceneUpdated,
+        isDeleted: previous.isDeleted,
+      };
+      expect(
+        rememberOfflinePublicAccountSnapshotFill(
+          item,
+          previous,
+          snapshot,
+          hardware.pwdHash,
+        ),
+      ).toBe(true);
+      return item;
+    },
     getCloudSyncDataTime,
     syncLater,
     stages,
@@ -390,4 +447,163 @@ it('does not wait for late Desktop Cloud authorization or repeat the local commi
     release.resolve();
     jest.useRealTimers();
   }
+});
+
+it.each([false, true])(
+  'normal raw fill cancels a pending snapshot after actual local deletion (batch=%s)',
+  async (batch) => {
+    const waiting = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const h = await fixture({
+      unsent: true,
+      beforeKey: () => {
+        waiting.resolve();
+        return release.promise;
+      },
+    });
+    const builtBeforeDelete = await h.buildFill();
+    jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
+    try {
+      const deleting = batch
+        ? h.db.removeAccountsByIds({ ids: [h.account.id] })
+        : h.remove();
+      await waiting.promise;
+      await jest.advanceTimersByTimeAsync(1000);
+      await deleting;
+      expect(
+        await h.other.getAccountSafe({ accountId: h.account.id }),
+      ).toBeFalsy();
+      expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+      expect(h.readCredential).not.toHaveBeenCalled();
+
+      await h.other.addAndUpdateSyncItems({
+        items: [builtBeforeDelete],
+        skipUploadToServer: true,
+      });
+      expect(await h.other.getSyncItemSafe({ id: h.old.id })).toBeFalsy();
+      release.resolve();
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(h.readCredential).not.toHaveBeenCalled();
+      expect(h.syncLater).not.toHaveBeenCalled();
+    } finally {
+      release.resolve();
+      jest.useRealTimers();
+    }
+  },
+);
+
+it('still completes a normal surviving offline snapshot and retains its original time', async () => {
+  const h = await fixture({ unsent: true });
+  const fill = await h.buildFill();
+  await h.other.addAndUpdateSyncItems({
+    items: [fill],
+    skipUploadToServer: true,
+  });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(fill);
+});
+
+it('does not cancel newly replaced plaintext, even if the original account is gone', async () => {
+  const h = await fixture({ unsent: true, rejectPreflight: true });
+  const fill = await h.buildFill();
+  await h.remove();
+  const newer = { ...h.old, dataTime: 9001 };
+  await h.other.addAndUpdateSyncItems({
+    items: [newer],
+    skipUploadToServer: true,
+  });
+  await h.other.addAndUpdateSyncItems({
+    items: [fill],
+    skipUploadToServer: true,
+  });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(newer);
+});
+
+it('preserves plaintext with no real local wallet or a conflicting local account', async () => {
+  const h = await fixture({ unsent: true, rejectPreflight: true });
+  const fill = await h.buildFill();
+  await h.db.withTransaction(
+    EIndexedDBBucketNames.account,
+    (tx) =>
+      h.db.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [h.account.id],
+        updater: (account) => {
+          account.address = '0x2222222222222222222222222222222222222222';
+          return account;
+        },
+      }),
+    { skipCloudCredentialWarmup: true },
+  );
+  await h.other.addAndUpdateSyncItems({
+    items: [fill],
+    skipUploadToServer: true,
+  });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+  await h.db.withTransaction(
+    EIndexedDBBucketNames.account,
+    (tx) =>
+      h.db.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: [h.wallet.id],
+        updater: (wallet) => {
+          wallet.isTemp = true;
+          return wallet;
+        },
+      }),
+    { skipCloudCredentialWarmup: true },
+  );
+  await h.other.addAndUpdateSyncItems({
+    items: [await h.buildFill()],
+    skipUploadToServer: true,
+  });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+});
+
+it('rolls back sync-side cancellation on a later pool transaction failure', async () => {
+  const h = await fixture({ unsent: true, rejectPreflight: true });
+  await h.remove();
+  await expect(
+    h.other.addAndUpdateSyncItems({
+      items: [await h.buildFill()],
+      skipUploadToServer: true,
+      fn: () => Promise.reject(new OneKeyLocalError('fixture abort')),
+    }),
+  ).rejects.toThrow('fixture abort');
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+  expect(await h.other.getAccountSafe({ accountId: h.account.id })).toBeFalsy();
+});
+
+it('preserves a remote tombstone proof added while an older plaintext tombstone was being sealed', async () => {
+  const h = await fixture({ unsent: true, foreign: { isDeleted: true } });
+  const fill = await h.buildFill();
+  const proof = 'new-fixture-proof';
+  const previousWithProof = {
+    ...h.old,
+    remoteHardwareAccountTombstoneProof: proof,
+  };
+  await h.db.withTransaction(
+    EIndexedDBBucketNames.account,
+    async (tx) => {
+      // A direct IndexedDB fixture represents existing persisted proof.
+      // The public adapter must not allow an ordinary write to mint it.
+      const store = tx.stores?.[ELocalDBStoreNames.CloudSyncItem];
+      if (!store)
+        throw new OneKeyLocalError('Expected IndexedDB account store');
+      await store.put(previousWithProof);
+    },
+    { skipCloudCredentialWarmup: true },
+  );
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(
+    previousWithProof,
+  );
+  await h.other.addAndUpdateSyncItems({
+    items: [fill],
+    skipUploadToServer: true,
+  });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual({
+    ...h.old,
+    remoteHardwareAccountTombstoneProof: proof,
+  });
 });

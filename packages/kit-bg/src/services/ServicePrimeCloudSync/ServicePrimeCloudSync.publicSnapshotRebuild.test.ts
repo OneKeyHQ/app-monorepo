@@ -2,6 +2,7 @@ import { cloneDeep } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   ICloudSyncCredential,
@@ -16,6 +17,7 @@ import {
   getPublicAccountSnapshotIdentityHash,
 } from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
+import { getOfflinePublicAccountSnapshotFill } from './publicAccountSnapshotWriteGuard';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -415,6 +417,66 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     expect(importAccounts).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
   });
+
+  test.each([false, true])(
+    'passes final local-row proof only for a never-uploaded live snapshot (deleted=%s)',
+    async (isDeleted) => {
+      const original = { ...rawItem(), isDeleted };
+      const { service, writePool } = harness([original]);
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: true,
+      });
+      const candidate = writePool.mock.calls[0]?.[0]?.items[0];
+      expect(candidate).toBeDefined();
+      if (!candidate) throw new OneKeyLocalError('Missing fixture raw fill');
+      if (isDeleted) {
+        expect(getOfflinePublicAccountSnapshotFill(candidate)).toBeUndefined();
+      } else {
+        expect(
+          getOfflinePublicAccountSnapshotFill(candidate)?.previous,
+        ).toEqual(original);
+      }
+    },
+  );
+
+  test.each([
+    { dataType: EPrimeCloudSyncDataType.Wallet },
+    { remoteHardwareAccountTombstoneProof: 'preserve-fixture-proof' },
+  ] satisfies Partial<IDBCloudSyncItem>[])(
+    'preserves a mismatched outer row or remote tombstone proof (%o)',
+    async (patch) => {
+      const original = { ...rawItem(), isDeleted: false, ...patch };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(encrypt).not.toHaveBeenCalled();
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
+
+  test.each([undefined, '', 'not-ciphertext', 'aa'])(
+    'does not replace or cancel the original if encryption produced no valid envelope (%s)',
+    async (encryptedData) => {
+      const original = { ...rawItem(), isDeleted: false };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem').mockResolvedValue({
+        rawData: original.rawData ?? '',
+        encryptedData,
+      });
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
 
   test.each([
     [
