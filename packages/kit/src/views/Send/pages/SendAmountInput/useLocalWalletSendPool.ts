@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletPoolDescriptor,
   ILocalWalletSendPool,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
 
-// The chain vault returns only the pools that can pay the recipient and marks
-// the recommended one; this hook only remembers the user's choice.
+// Disabled options remain visible but can never become a transaction source.
 export function getDefaultLocalWalletSendPool({
   pools,
   preferredPool,
@@ -17,10 +20,13 @@ export function getDefaultLocalWalletSendPool({
   pools: ILocalWalletSendPool[];
   preferredPool?: string;
 }): ILocalWalletSendPool | undefined {
+  const selectable = pools.filter(
+    (pool) => pool.eligible !== false && !pool.disabledReason,
+  );
   if (preferredPool !== undefined) {
-    return pools.find((pool) => pool.key === preferredPool);
+    return selectable.find((pool) => pool.key === preferredPool);
   }
-  return pools.find((pool) => pool.isDefault) ?? pools[0];
+  return selectable.find((pool) => pool.isDefault) ?? selectable[0];
 }
 
 // The page the send starts from limits the source: a public pool's page pays
@@ -73,6 +79,14 @@ export function useLocalWalletSendPool({
   initialPool?: string;
   poolDescriptors?: ILocalWalletPoolDescriptor[];
 }) {
+  const networkPausedAtom = useMemo(
+    () =>
+      selectAtom(privacyChainAtom.atom(), (value) =>
+        value.pausedNetworkIds.includes(networkId),
+      ),
+    [networkId],
+  );
+  const isNetworkPaused = useAtomValue(networkPausedAtom);
   const scope = useMemo(
     () => JSON.stringify([accountId, networkId, recipientAddress]),
     [accountId, networkId, recipientAddress],
@@ -84,17 +98,13 @@ export function useLocalWalletSendPool({
   const { result, run } = usePromiseResult(
     async () => {
       if (!enabled) return undefined;
-      const [pools, state] = await Promise.all([
-        backgroundApiProxy.servicePrivacyChain.getLocalWalletSendPools({
+      const pools =
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletSendPools({
           accountId,
           networkId,
           toAddress: recipientAddress,
-        }),
-        backgroundApiProxy.servicePrivacyChain
-          .getLocalWalletAccountState({ accountId, networkId })
-          .catch(() => undefined),
-      ]);
-      return { scope, pools, isPrivacyPaused: state?.paused === true };
+        });
+      return { scope, pools };
     },
     [enabled, accountId, networkId, recipientAddress, scope],
     {
@@ -106,29 +116,50 @@ export function useLocalWalletSendPool({
   );
   // A prior account/destination response must not supply the balance or allow submit while the new request is pending.
   const currentResult = enabled && result?.scope === scope ? result : undefined;
-  const pools = useMemo(
+  // Network pause is independent of the selected source's readiness; Public
+  // sends have no private-sync gate but must still show Private as paused.
+  const sourcePools = useMemo(
     () =>
-      currentResult?.pools
+      currentResult?.pools?.map((pool) =>
+        isNetworkPaused &&
+        poolDescriptors?.some(
+          (descriptor) =>
+            descriptor.key === pool.key && descriptor.source === 'localScan',
+        )
+          ? { ...pool, disabledReason: 'paused' as const }
+          : pool,
+      ),
+    [currentResult?.pools, isNetworkPaused, poolDescriptors],
+  );
+  const poolOptions = useMemo(
+    () =>
+      sourcePools
         ? getEntryLocalWalletSendPools({
-            pools: currentResult.pools.filter(
-              (pool) => pool.eligible !== false,
-            ),
+            pools: sourcePools.filter((pool) => pool.eligible !== false),
             entryPool: initialPool,
             descriptors: poolDescriptors ?? [],
           })
         : undefined,
-    [currentResult?.pools, initialPool, poolDescriptors],
+    [sourcePools, initialPool, poolDescriptors],
+  );
+  const pools = useMemo(
+    () => poolOptions?.filter((pool) => !pool.disabledReason),
+    [poolOptions],
   );
   let preferredPool = pools?.some((pool) => pool.key === initialPool)
     ? initialPool
     : undefined;
   if (selection?.scope === scope) preferredPool = selection.key;
-  // A private entry pool left out entirely (privacy paused) leaves the source
-  // to the user; one listed but ineligible (TEX) falls back to the default.
+  // An unavailable private entry leaves the source to the user; one listed
+  // but ineligible for the recipient (TEX) falls back to the default.
   const isEntryPoolMissing =
     !!poolDescriptors?.some((pool) => pool.key === initialPool) &&
-    !!currentResult?.pools &&
-    !currentResult.pools.some((pool) => pool.key === initialPool);
+    !!sourcePools &&
+    !sourcePools.some(
+      (pool) =>
+        pool.key === initialPool &&
+        (!pool.disabledReason || pool.eligible === false),
+    );
   const selectedPool =
     pools && (selection?.scope === scope || !isEntryPoolMissing)
       ? getDefaultLocalWalletSendPool({
@@ -153,9 +184,9 @@ export function useLocalWalletSendPool({
 
   return {
     pools,
+    poolOptions,
     selectedPool,
     selectPool,
-    isPrivacyPaused: currentResult?.isPrivacyPaused === true,
     isBalanceUnavailable:
       !!selectedPool && selectedPool.spendableParsed === undefined,
     reload: run,

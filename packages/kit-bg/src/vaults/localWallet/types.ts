@@ -101,6 +101,8 @@ export type ILocalWalletSendPool = {
   // False when this pool cannot pay the given recipient (e.g. a public-only
   // builder asked to pay a private address).
   eligible?: boolean;
+  // Display-only options explain unavailable sources without allowing selection.
+  disabledReason?: 'paused';
   // Undefined means unavailable, distinct from a known zero.
   spendable?: string;
   spendableParsed?: string;
