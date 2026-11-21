@@ -4,7 +4,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   formatHlPrice,
   formatHlSize,
+  isPerpsPositionSnapshotReady,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsPositionSnapshotScope } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IScaleOrderBuildParams,
   IScaleOrderLeg,
@@ -244,25 +246,21 @@ export function assertValidScaleOrderLegs(params: {
 export function getReduceOnlyPositionSnapshotError({
   reduceOnly,
   accountAddress,
-  positionsAccountAddress,
+  positions,
   message = 'Reduce-only position data unavailable, please try again',
 }: {
   reduceOnly?: boolean;
   accountAddress?: string | null;
-  positionsAccountAddress?: string | null;
+  positions: IPerpsPositionSnapshotScope;
   message?: string;
 }): string | undefined {
   if (!reduceOnly) {
     return undefined;
   }
 
-  const normalizedAccountAddress = accountAddress?.toLowerCase();
-  const normalizedPositionsAccountAddress =
-    positionsAccountAddress?.toLowerCase();
-
   if (
-    !normalizedAccountAddress ||
-    normalizedPositionsAccountAddress !== normalizedAccountAddress
+    !accountAddress ||
+    !isPerpsPositionSnapshotReady(accountAddress, positions)
   ) {
     return message;
   }

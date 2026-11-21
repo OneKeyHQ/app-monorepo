@@ -14,6 +14,7 @@ import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
+  isPerpsPositionSnapshotReady,
   isSpotInstrument,
   resolveTradingSizeBN,
   sanitizeManualSize,
@@ -552,6 +553,8 @@ export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
 
 export type IPerpsActivePositionAtom = {
   accountAddress: string | undefined;
+  // A switch placeholder belongs to the new account before its first snapshot arrives.
+  isPending?: boolean;
   activePositions: HL.IPerpsAssetPosition[];
 };
 export const {
@@ -777,12 +780,10 @@ export const {
     }
   }
 
-  const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-  const positionsAccountAddress =
-    activePositionsValue.accountAddress?.toLowerCase();
-  const isPositionSnapshotReady = activeAccountAddress
-    ? positionsAccountAddress === activeAccountAddress
-    : !positionsAccountAddress;
+  const isPositionSnapshotReady = isPerpsPositionSnapshotReady(
+    activeAccount?.accountAddress,
+    activePositionsValue,
+  );
   const scaleReduceOnlyPositionSize = isPositionSnapshotReady
     ? activePositionsValue.activePositions.find(
         (pos) => pos.position.coin === activeTradeInstrument.coin,

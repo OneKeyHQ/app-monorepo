@@ -3,7 +3,11 @@ import type {
   EPerpPageEnterSource,
   IPerpAccountStatusParams,
 } from '@onekeyhq/shared/src/logger/scopes/perp/type';
-import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  isPerpsPositionSnapshotReady,
+  normalizePerpsAccountAddress,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsPositionSnapshotScope } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 type IBuildPerpAccountStatusAnalyticsParams = {
@@ -17,8 +21,7 @@ type IBuildPerpAccountStatusAnalyticsParams = {
     withdrawable?: string;
     isLoading: boolean;
   };
-  positionsState: {
-    accountAddress?: string;
+  positionsState: IPerpsPositionSnapshotScope & {
     activePositions: unknown[];
   };
   abstractionMode?: {
@@ -71,9 +74,6 @@ export function buildPerpAccountStatusAnalyticsParams({
   }
 
   const isActivated = details.activatedOk === true;
-  const positionsAddress = normalizePerpsAccountAddress(
-    positionsState.accountAddress,
-  );
   const modeAddress = normalizePerpsAccountAddress(
     abstractionMode?.accountAddress,
   );
@@ -84,7 +84,7 @@ export function buildPerpAccountStatusAnalyticsParams({
   if (
     isActivated &&
     (computedAccountValue.isLoading ||
-      positionsAddress !== accountAddress ||
+      !isPerpsPositionSnapshotReady(accountAddress, positionsState) ||
       !liveAccountMode)
   ) {
     return undefined;
