@@ -12839,15 +12839,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // Scene replay already holds the key/import gates and does not write Cloud
     // ciphertext; reacquiring the non-reentrant key mutex would deadlock.
     if (params.skipSaveLocalSyncItem)
-      return this.setAccountNameWithCloudKeyLock(params, isCurrent);
+      return this.setAccountNameInternal(params, isCurrent);
+    // QR and external Account records are not Cloud Account sync targets.
+    // IndexedAccount names and explicit restore retain their existing path.
+    if (
+      params.accountId &&
+      !params.indexedAccountId &&
+      !params.cloudSyncSource &&
+      !params.applyRestoreSyncPolicy &&
+      (accountUtils.isQrAccount({ accountId: params.accountId }) ||
+        accountUtils.isExternalAccount({ accountId: params.accountId }))
+    )
+      return this.setAccountNameInternal(
+        { ...params, skipSaveLocalSyncItem: true },
+        isCurrent,
+        true,
+      );
     return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.setAccountNameWithCloudKeyLock(params, isCurrent),
+      () => this.setAccountNameInternal(params, isCurrent),
     );
   }
 
-  private async setAccountNameWithCloudKeyLock(
+  private async setAccountNameInternal(
     params: IDBSetAccountNameParams,
     isCurrent?: () => boolean,
+    skipCloudCredentialWarmup = false,
   ): Promise<void> {
     const assertCurrent = () => {
       if (isCurrent && !isCurrent())
@@ -12980,7 +12996,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+    const applyRename = async (tx: ILocalDBTransaction) => {
       assertCurrent();
       await this.txAssertCloudSyncMetadataSource({
         tx,
@@ -13022,6 +13038,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
       assertCurrent();
+    };
+    await this.withTransaction(EIndexedDBBucketNames.account, applyRename, {
+      skipCloudCredentialWarmup,
     });
 
     void this.emitRenameDBAccountsEvent(params);
