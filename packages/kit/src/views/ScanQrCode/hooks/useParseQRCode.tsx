@@ -153,28 +153,7 @@ export async function parseQRCodeWithDeps(
     }
   };
 
-  ensureScanIsActive();
-  let result: Awaited<
-    ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
-  >;
-  try {
-    result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
-    const pickerDone = waitForPhotoPicker?.();
-    if (pickerDone) {
-      await pickerDone;
-      ensureScanIsActive();
-      if (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK) {
-        const { expiresAt } = result.data as ILightningNetworkValue;
-        if (expiresAt !== undefined) {
-          await backgroundApiProxy.serviceScanQRCode.ensureLightningInvoiceIsCurrent(
-            { expiresAt },
-          );
-        }
-      }
-    }
-  } catch (error) {
-    const pickerDone = waitForPhotoPicker?.();
-    if (pickerDone) await pickerDone;
+  const handleScanError = async (error: unknown): Promise<never> => {
     ensureScanIsActive();
     if (isInvalidQrCodeError(error)) {
       if (isExpiredInvoiceScanError(error)) {
@@ -189,6 +168,40 @@ export async function parseQRCodeWithDeps(
       markRetryableQrParseFailure(error);
     }
     throw error;
+  };
+
+  const ensureInvoiceIsCurrent = async (expiresAt: number) => {
+    ensureScanIsActive();
+    try {
+      await backgroundApiProxy.serviceScanQRCode.ensureLightningInvoiceIsCurrent(
+        { expiresAt },
+      );
+    } catch (error) {
+      return handleScanError(error);
+    }
+  };
+
+  ensureScanIsActive();
+  let result: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
+  >;
+  try {
+    result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
+  } catch (error) {
+    const pickerDone = waitForPhotoPicker?.();
+    if (pickerDone) await pickerDone;
+    return handleScanError(error);
+  }
+
+  const invoiceExpiresAt =
+    result.type === EQRCodeHandlerType.LIGHTNING_NETWORK
+      ? (result.data as ILightningNetworkValue).expiresAt
+      : undefined;
+  const pickerDone = waitForPhotoPicker?.();
+  if (pickerDone) {
+    await pickerDone;
+    if (invoiceExpiresAt !== undefined)
+      await ensureInvoiceIsCurrent(invoiceExpiresAt);
   }
 
   ensureScanIsActive();
@@ -373,6 +386,8 @@ export async function parseQRCodeWithDeps(
             });
 
           const amount = await parseOnChainAmount(result, nativeToken);
+          if (invoiceExpiresAt !== undefined)
+            await ensureInvoiceIsCurrent(invoiceExpiresAt);
           await closeScanPage();
           const newNetworkId =
             nativeToken?.networkId || network.id || params.network?.id || '';
@@ -409,6 +424,8 @@ export async function parseQRCodeWithDeps(
         }
 
         const amount = await parseOnChainAmount(result, selectedToken);
+        if (invoiceExpiresAt !== undefined)
+          await ensureInvoiceIsCurrent(invoiceExpiresAt);
         await closeScanPage();
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,

@@ -189,7 +189,10 @@ function readReusableLightningRecipient(
           }
         } else {
           // A blank line can separate paragraphs outside an explicit wrapper.
-          if (!sameLine.trim() && followingLine.trim()) {
+          if (
+            !sameLine.trim() &&
+            (followingLine.trim() || /^[?&#]\S/u.test(suffix.trimStart()))
+          ) {
             return { kind: 'ambiguous' };
           }
         }

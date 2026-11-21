@@ -112,6 +112,7 @@ function parseFrame() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockEnsureLightningInvoiceIsCurrent.mockReset().mockResolvedValue(undefined);
   mockCreateAddressIfNotExists.mockReset().mockResolvedValue(undefined);
   mockGetCompatibleNetworks.mockReset().mockResolvedValue({
     networkIdsCompatible: [],
@@ -319,6 +320,58 @@ it('rechecks a deferred invoice before offering to create a missing address', as
     title: ETranslations.send_the_invoice_has_expired,
   });
   expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+});
+
+it('rechecks invoice expiry after a missing address is created and before opening Send', async () => {
+  const expiresAt = 1_900_000_000;
+  const creationStarted = Promise.withResolvers<void>();
+  const creation = Promise.withResolvers<{ id: string }>();
+  const pushModal = jest.fn();
+  mockParse.mockResolvedValueOnce({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: {
+      address: 'invoice',
+      network: { id: 'lightning--0', impl: 'lightning' },
+      expiresAt,
+    },
+  });
+  mockCreateAddressIfNotExists.mockImplementationOnce(() => {
+    creationStarted.resolve();
+    return creation.promise;
+  });
+  mockGetNativeToken.mockResolvedValueOnce({
+    networkId: 'lightning--0',
+    decimals: 8,
+  });
+  mockEnsureLightningInvoiceIsCurrent.mockRejectedValueOnce(
+    new InvoiceExpiredError({ autoToast: false }),
+  );
+  const parsing = parseQRCodeWithDeps(
+    'lightning:invoice',
+    {
+      popNavigation: true,
+      autoExecuteParsedAction: true,
+      account: {
+        id: 'hd-1--0',
+        indexedAccountId: 'hd-1--0',
+        impl: 'btc',
+      } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+    },
+    { ...deps, navigation: { ...deps.navigation, pushModal } },
+  );
+  await creationStarted.promise;
+  expect(mockEnsureLightningInvoiceIsCurrent).not.toHaveBeenCalled();
+  creation.resolve({ id: 'hd-1--lightning' });
+  await expect(parsing).rejects.toBeInstanceOf(InvoiceExpiredError);
+  expect(mockGetNativeToken).toHaveBeenCalledTimes(1);
+  expect(mockEnsureLightningInvoiceIsCurrent).toHaveBeenCalledWith({
+    expiresAt,
+  });
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: ETranslations.send_the_invoice_has_expired,
+  });
+  expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+  expect(pushModal).not.toHaveBeenCalled();
 });
 
 it.each(['lightning--0', 'tlightning--0'])(

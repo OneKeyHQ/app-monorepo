@@ -94,6 +94,8 @@ it.each([
   'Pay:\n"lnurlp://merchant.example/checkout?order=12\r\n \r\n34"',
   'Pay: (lnurlp://merchant.example/checkout?order=12\u2028\u202934)',
   '(lnurlp://merchant.example/pay(weekly)\n?order=1234)',
+  'lnurlp://merchant.example/checkout?order=12\n\n&invoice=34',
+  'Pay: lnurlp://merchant.example/checkout\r\n \r\n?invoice=34',
 ])(
   'rejects an open-ended LNURL that could continue on the next line',
   (text) => {
