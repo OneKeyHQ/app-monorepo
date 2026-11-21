@@ -37,7 +37,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -554,6 +554,7 @@ function AppDataSection({
 
   // A hardware key lost while sync stays on is signed again first.
   const handleHardwareSyncNow = useCallback(async () => {
+    if (hardwareKey.endpointMismatch) return;
     if (hardwareKey.keyMissing) {
       await hardwareKey.openPicker();
       return;
@@ -679,7 +680,15 @@ function AppDataSection({
   const isSyncActive = isActiveIdUser || isActiveKwUser;
   // Show one actionable warning at a time; reevaluate after its cause is resolved.
   let syncAlert: IAlertProps | undefined;
-  if (isLocalSystemTimeInvalid) {
+  if (isActiveKwUser && hardwareSource && hardwareKey.endpointMismatch) {
+    syncAlert = {
+      testID: 'cloud-hardware-key-endpoint-mismatch',
+      title: intl.formatMessage({ id: ETranslations.syncing_paused__title }),
+      description: intl.formatMessage({
+        id: ETranslationsMock.cloud_sync_hardware_endpoint_mismatch__desc,
+      }),
+    };
+  } else if (isLocalSystemTimeInvalid) {
     syncAlert = {
       type: 'critical',
       title: intl.formatMessage({ id: ETranslations.prime_time_error_title }),
@@ -855,7 +864,11 @@ function AppDataSection({
           </ListItem>
           {hardwareSource ? (
             <HardwareWalletKeyMenu
-              enabled={!hardwareKey.keyMissing && !hardwareKey.pending}
+              enabled={
+                !hardwareKey.keyMissing &&
+                !hardwareKey.endpointMismatch &&
+                !hardwareKey.pending
+              }
               onChangeKey={hardwareKey.resetKey}
             >
               {(onPress) => (
@@ -883,7 +896,9 @@ function AppDataSection({
                   subtitle={intl.formatMessage({
                     id: ETranslations.cloud_sync_hardware_devices_sync__desc,
                   })}
-                  drillIn={!hardwareKey.keyMissing}
+                  drillIn={
+                    !hardwareKey.keyMissing && !hardwareKey.endpointMismatch
+                  }
                   disabled={hardwareKey.pending}
                   nativePressableStyle={listItemNativePressableStyle}
                   onPress={onPress}
@@ -914,7 +929,8 @@ function AppDataSection({
             testID={PrimeTestIDs.cloudSyncNow}
             title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
-            drillIn
+            drillIn={!hardwareSource || !hardwareKey.endpointMismatch}
+            disabled={!!hardwareSource && hardwareKey.endpointMismatch}
             nativePressableStyle={listItemNativePressableStyle}
             onPress={
               hardwareSource ? handleHardwareSyncNow : handleManualSyncKeyless

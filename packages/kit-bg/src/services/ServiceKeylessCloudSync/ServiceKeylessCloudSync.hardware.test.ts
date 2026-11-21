@@ -2802,6 +2802,96 @@ describe('hardware Cloud key in production builds', () => {
     expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
   });
 
+  test('reports a selected API node mismatch without touching the hardware credential and clears it on switch back', async () => {
+    const { service, getClient } = setup();
+    const session = activeCredential.hardwareSession;
+    if (!session) throw new OneKeyLocalError('Missing fixture session');
+    const oldEndpoint = 'https://prime.onekeycn.com';
+    const old = {
+      ...activeCredential,
+      hardwareSession: {
+        ...session,
+        boundBaseURL: oldEndpoint,
+      },
+    };
+    mockStored = old;
+    const request = jest.fn();
+    getClient.mockResolvedValue({
+      defaults: { baseURL: 'https://prime.onekeytest.com' },
+      request,
+    } as unknown as AxiosInstance);
+    await expect(
+      service.getSelectedHardwareCloudKeyAvailability(),
+    ).resolves.toBe('endpoint-mismatch');
+    await expect(service.isSelectedHardwareCloudKeyMissing()).resolves.toBe(
+      false,
+    );
+    getClient.mockResolvedValue({
+      defaults: { baseURL: oldEndpoint },
+      request,
+    } as unknown as AxiosInstance);
+    await expect(
+      service.getSelectedHardwareCloudKeyAvailability(),
+    ).resolves.toBe('available');
+    expect(mockStored).toBe(old);
+    expect(request).not.toHaveBeenCalled();
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+    expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
+  });
+
+  test('a pending availability read cannot report for a superseded selection', async () => {
+    const { service, getClient } = setup();
+    const session = activeCredential.hardwareSession;
+    if (!session) throw new OneKeyLocalError('Missing fixture session');
+    mockStored = {
+      ...activeCredential,
+      hardwareSession: {
+        ...session,
+        boundBaseURL: 'https://prime.onekeycn.com',
+      },
+    };
+    getClient.mockImplementationOnce(async () => {
+      mockConfig.hardwareCloudSyncKeySource = undefined;
+      return {
+        defaults: { baseURL: 'https://prime.onekeytest.com' },
+      } as AxiosInstance;
+    });
+    await expect(
+      service.getSelectedHardwareCloudKeyAvailability(),
+    ).resolves.toBe('selection-changed');
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    undefined,
+    'invalid origin',
+    'https://u:p@prime.onekeycn.com',
+    12 as unknown as string,
+  ])(
+    'leaves old or malformed bindings in the existing recovery state (%s)',
+    async (boundBaseURL) => {
+      const { service, getClient } = setup();
+      const session = activeCredential.hardwareSession;
+      if (!session) throw new OneKeyLocalError('Missing fixture session');
+      mockStored = {
+        ...activeCredential,
+        hardwareSession: { ...session, boundBaseURL },
+      };
+      await expect(
+        service.getSelectedHardwareCloudKeyAvailability(),
+      ).resolves.toBe('available');
+      expect(getClient).not.toHaveBeenCalled();
+      mockStored = credential;
+      await expect(
+        service.getSelectedHardwareCloudKeyAvailability(),
+      ).resolves.toBe('missing');
+    },
+  );
+
   test('a legacy credential without a session offers reconnect without deleting its key', async () => {
     const { service } = setup();
     mockStored = credential;

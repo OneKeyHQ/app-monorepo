@@ -2,6 +2,7 @@
 
 import type { PropsWithChildren } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -18,6 +19,8 @@ import PagePrimeCloudSync from './PagePrimeCloudSync';
 
 let mockSettings: IPrimeCloudSyncPersistAtomData;
 let mockHardwareSupported: boolean;
+let mockHardwareEndpointMismatch: boolean;
+const mockHardwareSyncNow = jest.fn(async () => undefined);
 let mockKeylessExists: boolean;
 let mockKeylessWalletEnabled: boolean;
 const mockNavigate = jest.fn();
@@ -61,14 +64,22 @@ jest.mock('@onekeyhq/components', () => {
     ESwitchSize: { small: 'small' },
     Alert: ({
       action,
+      description,
+      testID,
     }: {
       action?: { primary?: string; onPrimaryPress?: () => Promise<void> };
-    }) =>
-      action ? (
-        <button type="button" onClick={action.onPrimaryPress}>
-          {action.primary}
-        </button>
-      ) : null,
+      description?: string;
+      testID?: string;
+    }) => (
+      <div data-testid={testID}>
+        {description}
+        {action ? (
+          <button type="button" onClick={action.onPrimaryPress}>
+            {action.primary}
+          </button>
+        ) : null}
+      </div>
+    ),
     useMedia: () => ({}),
     Switch: ({
       testID,
@@ -94,9 +105,14 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
     children,
     title,
     onPress,
-  }: PropsWithChildren<{ title?: string; onPress?: () => void }>) =>
+    disabled,
+  }: PropsWithChildren<{
+    title?: string;
+    onPress?: () => void;
+    disabled?: boolean;
+  }>) =>
     onPress ? (
-      <button type="button" onClick={onPress}>
+      <button type="button" onClick={onPress} disabled={disabled}>
         {title}
         {children}
       </button>
@@ -150,8 +166,11 @@ jest.mock('./HardwareCloudSyncKeySection', () => ({
       : undefined,
   useHardwareCloudSyncKey: () => ({
     supported: mockHardwareSupported,
+    source: mockSettings.hardwareCloudSyncKeySource,
     pending: false,
+    endpointMismatch: mockHardwareEndpointMismatch,
     openPicker: mockPickHardware,
+    syncNow: mockHardwareSyncNow,
   }),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -188,6 +207,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockHardwareSupported = false;
+  mockHardwareEndpointMismatch = false;
   mockKeylessExists = true;
   mockKeylessWalletEnabled = true;
   mockSettings = {
@@ -262,6 +282,42 @@ it('lets a former Keyless user recover through hardware without a restore-Keyles
   expect(mockPickHardware).toHaveBeenCalledTimes(1);
   expect(mockChoose).not.toHaveBeenCalled();
   expect(mockPendingKeyless).not.toHaveBeenCalled();
+});
+
+it('shows original-node guidance while leaving hardware sync Off available', async () => {
+  mockHardwareEndpointMismatch = true;
+  mockHardwareSupported = true;
+  mockKeylessWalletEnabled = false;
+  mockSettings.isCloudSyncEnabledKeyless = true;
+  mockSettings.hardwareCloudSyncKeySource = {
+    type: 'hardware',
+    credentialId: 'hardware-synthetic',
+    derivationVersion: 1,
+    deviceName: 'Synthetic device',
+    deviceType: EDeviceType.Pro,
+  };
+  const view = render(<PagePrimeCloudSync />);
+  expect(
+    screen.getByTestId('cloud-hardware-key-endpoint-mismatch').textContent,
+  ).toContain('switch back to the previous API node');
+  const sync = screen.getByRole('button', {
+    name: ETranslations.sync_now__action,
+  });
+  expect(sync.hasAttribute('disabled')).toBe(true);
+  await act(async () => fireEvent.click(sync));
+  expect(mockHardwareSyncNow).not.toHaveBeenCalled();
+  expect(mockPickHardware).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(screen.getByTestId('prime-switch')));
+  expect(mockKeylessToggle).toHaveBeenCalledWith({ enabled: false });
+
+  mockHardwareEndpointMismatch = false;
+  view.rerender(<PagePrimeCloudSync />);
+  expect(
+    screen.queryByTestId('cloud-hardware-key-endpoint-mismatch'),
+  ).toBeNull();
+  expect(sync.hasAttribute('disabled')).toBe(false);
+  await act(async () => fireEvent.click(sync));
+  expect(mockHardwareSyncNow).toHaveBeenCalledTimes(1);
 });
 
 it('keeps active Keyless sync off available without a supported Keyless recovery', async () => {

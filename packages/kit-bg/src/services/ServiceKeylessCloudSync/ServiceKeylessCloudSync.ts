@@ -1175,6 +1175,56 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSelectedHardwareCloudKeyAvailability(): Promise<
+    'available' | 'missing' | 'endpoint-mismatch' | 'selection-changed'
+  > {
+    const startGeneration = this.getCloudAccountImportGeneration();
+    const { hardwareCloudSyncKeySource: source, isCloudSyncEnabledKeyless } =
+      await primeCloudSyncPersistAtom.get();
+    if (!source || !isCloudSyncEnabledKeyless) return 'available';
+    const credential = await keylessSyncCredentialStorage.getCredential(
+      source.credentialId,
+    );
+    const session = credential?.hardwareSession;
+
+    // Only report a definite mismatch. This lookup performs no HTTP request,
+    // credential refresh, revoke or switch, and the UI never receives a URL.
+    const isApiBaseURL = (value: unknown): value is string => {
+      if (typeof value !== 'string' || !value || value !== value.trim())
+        return false;
+      try {
+        const { protocol, username, password, search, hash } = new URL(value);
+        return (
+          (protocol === 'https:' || protocol === 'http:') &&
+          !username &&
+          !password &&
+          !search &&
+          !hash
+        );
+      } catch {
+        return false;
+      }
+    };
+    const boundBaseURL = session?.boundBaseURL;
+    const baseURL = isApiBaseURL(boundBaseURL)
+      ? await this.getHardwareWalletRetryOrigin().catch(() => undefined)
+      : undefined;
+    const latest = await primeCloudSyncPersistAtom.get();
+    if (
+      startGeneration !== this.getCloudAccountImportGeneration() ||
+      !latest.isCloudSyncEnabledKeyless ||
+      latest.hardwareCloudSyncKeySource?.credentialId !== source.credentialId
+    )
+      return 'selection-changed';
+    if (!session) return 'missing';
+    const isEndpointMismatch =
+      isApiBaseURL(boundBaseURL) &&
+      isApiBaseURL(baseURL) &&
+      baseURL !== boundBaseURL;
+    return isEndpointMismatch ? 'endpoint-mismatch' : 'available';
+  }
+
+  @backgroundMethod()
   async setPendingAutoEnableCloudSyncKeyless(enabled: boolean) {
     this.pendingAutoEnableCloudSyncKeyless = enabled;
   }

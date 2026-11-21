@@ -61,6 +61,14 @@ type IMockConfig = {
 };
 let mockConfig: IMockConfig;
 let mockKeyMissing = false;
+let mockEndpointMismatch = false;
+let mockReadHardwareStatus: (() => Promise<unknown>) | undefined;
+const mockCheckHardwareSession = jest.fn(async () => undefined);
+function getMockAvailability() {
+  if (mockEndpointMismatch) return 'endpoint-mismatch';
+  return mockKeyMissing ? 'missing' : 'available';
+}
+const mockAvailability = jest.fn(async () => getMockAvailability());
 const mockIntl = {
   formatMessage: ({ id }: { id: string }) => id,
 } as unknown as Parameters<typeof chooseCloudSyncKey>[0];
@@ -145,6 +153,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       setHardwareTransportType: async () => undefined,
     },
     serviceKeylessCloudSync: {
+      getSelectedHardwareCloudKeyAvailability: () => mockAvailability(),
+      checkHardwareCloudSyncSessionThrottled: () => mockCheckHardwareSession(),
       toggleCloudSyncKeyless: (params: unknown) => mockToggle(params),
       enableHardwareCloudSync: (params: unknown) => mockEnable(params),
       resetHardwareCloudSyncKey: (params: unknown) => mockReset(params),
@@ -182,7 +192,10 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: mockKeyMissing }),
+  usePromiseResult: (readStatus: () => Promise<unknown>) => {
+    mockReadHardwareStatus = readStatus;
+    return { result: getMockAvailability(), run: async () => undefined };
+  },
 }));
 jest.mock(
   '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit',
@@ -191,6 +204,7 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useDevSettingsPersistAtom: () => [{ enabled: false }],
   useSettingsPersistAtom: () => [{ hardwareTransportType: 'WEBUSB' }],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
@@ -209,6 +223,7 @@ beforeEach(() => {
     },
   };
   mockKeyMissing = false;
+  mockEndpointMismatch = false;
   mockToggle.mockResolvedValue({ requiresHardware: false });
 });
 afterEach(() => jest.restoreAllMocks());
@@ -549,6 +564,98 @@ test('the extension popup connects in a full tab, as onboarding does', async () 
   expect(mockOpenExpandTab).toHaveBeenCalled();
   expect(mockDialogShow).not.toHaveBeenCalled();
 });
+
+test('a different selected API node does not re-sign, probe or run sync; switching back restores sync', async () => {
+  mockConfig.isCloudSyncEnabledKeyless = true;
+  mockEndpointMismatch = true;
+  const { result, rerender } = renderHook(() => useHardwareCloudSyncKey());
+  expect(result.current.endpointMismatch).toBe(true);
+  expect(result.current.keyMissing).toBe(false);
+  await expect(mockReadHardwareStatus?.()).resolves.toBe('endpoint-mismatch');
+  expect(mockCheckHardwareSession).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.openPicker();
+    await result.current.resetKey();
+    await result.current.syncNow();
+  });
+  expect(mockSyncNow).not.toHaveBeenCalled();
+  expect(mockEnable).not.toHaveBeenCalled();
+  expect(mockReset).not.toHaveBeenCalled();
+  expect(mockDialogShow).not.toHaveBeenCalled();
+  mockEndpointMismatch = false;
+  rerender();
+  await expect(mockReadHardwareStatus?.()).resolves.toBe('available');
+  expect(mockCheckHardwareSession).toHaveBeenCalledTimes(1);
+  await act(() => result.current.syncNow());
+  expect(mockSyncNow).toHaveBeenCalledTimes(1);
+});
+
+test('checks the real read-only action guard when node changes while the device picker is open', async () => {
+  mockConfig.isCloudSyncEnabledKeyless = true;
+  mockKeyMissing = true;
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  expect(result.current.keyMissing).toBe(true);
+  await act(() => result.current.openPicker());
+  const dialog = lastDialog();
+  render(<>{dialog.renderContent}</>);
+
+  // Do not re-render availability. Simulate switching the selected node
+  // while device selection remains open, then release this delayed read.
+  let releaseStatus: undefined | ((state: 'endpoint-mismatch') => void);
+  mockAvailability.mockImplementationOnce(
+    async () =>
+      new Promise<'endpoint-mismatch'>((resolve) => {
+        releaseStatus = resolve;
+      }),
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('mock-device-picker'));
+  });
+  expect(releaseStatus).toBeDefined();
+  expect(mockEnable).not.toHaveBeenCalled();
+  await act(async () => {
+    releaseStatus?.('endpoint-mismatch');
+  });
+  expect(result.current.keyMissing).toBe(true);
+  expect(mockEnable).not.toHaveBeenCalled();
+  expect(mockReset).not.toHaveBeenCalled();
+  expect(mockClearForceTransport).toHaveBeenCalled();
+});
+
+test('stale rendered availability cannot start a picker or an explicit sync against another node', async () => {
+  mockConfig.isCloudSyncEnabledKeyless = true;
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  expect(result.current.endpointMismatch).toBe(false);
+  mockEndpointMismatch = true;
+  await act(async () => {
+    await result.current.openPicker();
+    await result.current.resetKey();
+    await result.current.syncNow();
+  });
+  expect(mockDialogShow).not.toHaveBeenCalled();
+  expect(mockSyncNow).not.toHaveBeenCalled();
+});
+
+test.each([false, true])(
+  'pauses on a credential read failure without a wrong-node action (visible mismatch=%s)',
+  async (knownMismatch) => {
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockEndpointMismatch = knownMismatch;
+    mockAvailability.mockRejectedValueOnce(
+      new Error('Synthetic secure storage read error'),
+    );
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    await act(() => result.current.syncNow());
+    expect(mockSyncNow).not.toHaveBeenCalled();
+    expect(mockDialogShow).toHaveBeenCalledTimes(knownMismatch ? 0 : 1);
+    if (!knownMismatch) {
+      expect(lastDialog().description).toBe('global.unknown_error');
+      expect(lastDialog().description).not.toContain(
+        'Synthetic secure storage read error',
+      );
+    }
+  },
+);
 
 test('Sync now uses the hardware key and asks for a password only when needed', async () => {
   mockConfig.isCloudSyncEnabledKeyless = true;
