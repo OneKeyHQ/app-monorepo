@@ -12,14 +12,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { useWalletMetadataPresentation } from '@onekeyhq/kit/src/hooks/useWalletMetadataPresentation';
 import {
   getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
   useDeviceMetaStateAtom,
   useDeviceMetaStaticAtom,
   useRefreshSettledAtom,
-  useWalletWithDeviceAtom,
+  useWalletWithDeviceForHeader as useWalletWithDeviceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,11 +36,7 @@ function DeviceWalletAvatar({
   size: number;
 }) {
   const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet: canonicalWallet } = walletWithDevice ?? {};
-  const wallet = useWalletMetadataPresentation(
-    canonicalWallet?.id,
-    canonicalWallet,
-  );
+  const { wallet } = walletWithDevice ?? {};
   return (
     <WalletAvatar
       size={size}
@@ -60,11 +55,7 @@ function DeviceWalletRenameButton({
   textSize: '$headingXl' | '$heading2xl';
 }) {
   const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet: canonicalWallet } = walletWithDevice ?? {};
-  const wallet = useWalletMetadataPresentation(
-    canonicalWallet?.id,
-    canonicalWallet,
-  );
+  const { wallet } = walletWithDevice ?? {};
   if (!wallet) return null;
   return <WalletRenameButton wallet={wallet} editable textSize={textSize} />;
 }
