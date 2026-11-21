@@ -467,18 +467,23 @@ describe('PrimeLoginOAuthDialog', () => {
     );
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
     expect(popoverOpen.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
-    popoverOpen.mockRestore();
     act(() => lastUsagePopoverProps()?.onOpenChange(false));
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: false, hoverable: true }),
     );
 
-    // A hover open stays a hover panel, also after a press on the link.
+    // A hover open is a hover panel until a press or key on the link turns it
+    // into a regular one, without logging a second open.
     act(() => lastUsagePopoverProps()?.onOpenChange(true));
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: true, hoverable: true }),
     );
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(lastUsagePopoverProps()).toEqual(
+      expect.objectContaining({ open: true, hoverable: false }),
+    );
+    expect(popoverOpen).toHaveBeenCalledTimes(1);
+    popoverOpen.mockRestore();
   });
 
   test('opens the usage explainer anchored to the subtitle link on web', () => {

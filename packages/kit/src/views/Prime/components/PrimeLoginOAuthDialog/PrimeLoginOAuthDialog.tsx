@@ -621,17 +621,23 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
-  // A press or key opens the panel as a regular popover (outside press
-  // closes it); only a hover open closes when the pointer leaves. The mode is
-  // set together with `open`, never while the panel is shown.
+  // A press or key opens the panel as a regular popover: focus moves into it
+  // and an outside press closes it. A hover open closes when the pointer
+  // leaves, until a press or key on the link turns it into a regular one; the
+  // anchored form and its registration stay the same, only the hover handling,
+  // backdrop and focus scope switch.
   const handleShowUsage = useCallback(() => {
-    if (usagePopover.open) {
+    if (usagePopover.open && !usagePopover.openedByHover) {
       return;
     }
-    // Hover opens go through the popover, which logs them itself.
-    defaultLogger.ui.popover.popoverOpen({ trackId: ONEKEY_ID_USAGE_TRACK_ID });
+    if (!usagePopover.open) {
+      // Hover opens go through the popover, which logs them itself.
+      defaultLogger.ui.popover.popoverOpen({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
+    }
     setUsagePopover({ open: true, openedByHover: false });
-  }, [usagePopover.open]);
+  }, [usagePopover.open, usagePopover.openedByHover]);
   // The code step drops the header and its link: a panel left open there would
   // have nothing to anchor to or hover away from.
   useEffect(() => {
