@@ -28,6 +28,7 @@ import {
   filterThirdPartyHwCreateFailureToasts,
   isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -58,6 +59,7 @@ export function useAccountSelectorCreateAddress() {
       account,
       createAllDeriveTypes,
       customNetworks,
+      addressCreationRequest,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -72,6 +74,7 @@ export function useAccountSelectorCreateAddress() {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }[];
+      addressCreationRequest?: IAddressCreationRequest;
     }) => {
       if (
         !account ||
@@ -317,6 +320,7 @@ export function useAccountSelectorCreateAddress() {
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId,
+            addressCreationRequest,
           });
 
           try {

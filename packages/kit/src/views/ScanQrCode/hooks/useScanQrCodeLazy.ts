@@ -62,6 +62,7 @@ export default function useScanQrCodeLazy() {
                 popNavigation,
                 canApplyScanResult,
                 scanSignal,
+                holdForChildScan,
                 isScanOpen,
                 onResultWillClose,
               }) => {
@@ -87,6 +88,7 @@ export default function useScanQrCodeLazy() {
                         scanRequestId,
                         canApplyScanResult,
                         scanSignal,
+                        holdForChildScan,
                         onResultWillClose,
                       },
                     );

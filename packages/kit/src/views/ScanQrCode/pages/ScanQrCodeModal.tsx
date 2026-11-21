@@ -27,6 +27,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
@@ -239,6 +240,11 @@ export default function ScanQrCodeModal() {
   const reactNavigation = useNavigation();
   const scannerRef = useRef<IScanCameraRef>(null);
   const scanScope = useRef<AbortController | null>(null);
+  const childScanScope = useRef<{
+    controller: AbortController;
+    released: boolean;
+  } | null>(null);
+  const isFocused = useRef(false);
   const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
   const route =
     useRoute<
@@ -255,10 +261,16 @@ export default function ScanQrCodeModal() {
   const photoRetryToastId = `${route.key}:photo-retry`;
   useFocusEffect(
     useCallback(() => {
-      const controller = new AbortController();
+      const retained = childScanScope.current;
+      const controller = retained?.controller ?? new AbortController();
       scanScope.current = controller;
+      isFocused.current = true;
+      if (retained?.released) childScanScope.current = null;
       return () => {
-        controller.abort();
+        isFocused.current = false;
+        if (childScanScope.current?.controller !== controller) {
+          controller.abort();
+        }
         Toast.dismiss(photoRetryToastId);
       };
     }, [photoRetryToastId]),
@@ -275,6 +287,7 @@ export default function ScanQrCodeModal() {
     if (exitReason.current) return;
     exitReason.current = 'cancelled';
     scanScope.current?.abort();
+    childScanScope.current = null;
     Toast.dismiss(photoRetryToastId);
     void routeCallback({
       value: '',
@@ -294,6 +307,7 @@ export default function ScanQrCodeModal() {
     (signal: AbortSignal | undefined) =>
       !exitReason.current &&
       signal?.aborted === false &&
+      scanScope.current?.signal === signal &&
       rootNavigationRef.current?.getCurrentRoute()?.key === route.key,
     [route.key],
   );
@@ -317,11 +331,29 @@ export default function ScanQrCodeModal() {
         }
       }
 
+      const holdForChildScan = () => {
+        const controller = scanScope.current;
+        if (!controller || childScanScope.current || !canApplyScanResult()) {
+          throw new OneKeyErrorScanQrCodeCancel();
+        }
+        const retained = { controller, released: false };
+        childScanScope.current = retained;
+        return () => {
+          if (childScanScope.current !== retained) return;
+          if (isFocused.current) {
+            childScanScope.current = null;
+          } else {
+            // A child can finish before the navigator restores parent focus.
+            retained.released = true;
+          }
+        };
+      };
       return routeCallback({
         value,
         popNavigation: true,
         canApplyScanResult,
         scanSignal: signal,
+        holdForChildScan,
         isScanOpen,
         onResultWillClose,
       });
@@ -373,7 +405,8 @@ export default function ScanQrCodeModal() {
   );
 
   const pickImage = useCallback(async () => {
-    if (isPickingImage.current) return;
+    const signal = scanScope.current?.signal;
+    if (isPickingImage.current || !isScanActive(signal)) return;
     isPickingImage.current = true;
     cameraGeneration.current += 1;
     try {
@@ -384,7 +417,6 @@ export default function ScanQrCodeModal() {
       photoSelectionId.current = selectionId;
       Toast.dismiss(photoRetryToastId);
       const { uri } = result;
-      const signal = scanScope.current?.signal;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);

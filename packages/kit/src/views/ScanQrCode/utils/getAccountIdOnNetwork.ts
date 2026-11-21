@@ -11,7 +11,11 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 const activeAddressCreationRequests = new Map<
   string,
-  { canApplyScanResult: () => boolean; signal?: AbortSignal }
+  {
+    canApplyScanResult: () => boolean;
+    signal?: AbortSignal;
+    holdForChildScan?: () => () => void;
+  }
 >();
 
 export function getAddressCreationRequestState(
@@ -33,16 +37,28 @@ export function getAddressCreationRequestSignal(
   }
 }
 
+export function holdAddressCreationForChildScan(
+  request?: IAddressCreationRequest,
+) {
+  if (!request) return undefined;
+  if (getAddressCreationRequestState(request) !== 'active') {
+    throw new OneKeyErrorScanQrCodeCancel();
+  }
+  return activeAddressCreationRequests.get(request.id)?.holdForChildScan?.();
+}
+
 export const getAccountIdOnNetwork = async ({
   account,
   network,
   canApplyScanResult,
   scanSignal,
+  holdForChildScan,
 }: {
   account?: INetworkAccount;
   network: IChainValue['network'];
   canApplyScanResult?: () => boolean;
   scanSignal?: AbortSignal;
+  holdForChildScan?: () => () => void;
 }) => {
   if (account?.indexedAccountId) {
     const { accounts } =
@@ -67,6 +83,7 @@ export const getAccountIdOnNetwork = async ({
         activeAddressCreationRequests.set(addressCreationRequest.id, {
           canApplyScanResult,
           signal: scanSignal,
+          holdForChildScan,
         });
       }
       try {

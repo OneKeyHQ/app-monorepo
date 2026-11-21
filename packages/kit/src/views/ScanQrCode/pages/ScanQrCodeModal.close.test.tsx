@@ -19,6 +19,8 @@ const mockRouteCallback = jest.fn(
     value: string;
     canApplyScanResult: () => boolean;
     isScanOpen: () => boolean;
+    scanSignal?: AbortSignal;
+    holdForChildScan?: () => () => void;
     onResultWillClose?: () => void;
   }): Promise<{ retry?: boolean }> => ({}),
 );
@@ -26,6 +28,7 @@ let mockCurrentRouteKey = 'scan-route';
 let mockScanRouteInStack = true;
 let mockBeforeRemove: (() => void) | undefined;
 let mockBlur: (() => void) | undefined;
+let mockRefocus: (() => void) | undefined;
 const mockNavigation = {
   addListener: (_event: string, listener: () => void) => {
     mockBeforeRemove = listener;
@@ -41,10 +44,15 @@ jest.mock('@react-navigation/core', () => {
     useNavigation: () => mockNavigation,
     useFocusEffect: (effect: () => () => void) => {
       React.useEffect(() => {
-        const cleanup = effect();
+        let cleanup = effect();
         mockBlur = cleanup;
+        mockRefocus = () => {
+          cleanup = effect();
+          mockBlur = cleanup;
+        };
         return () => {
           mockBlur = undefined;
+          mockRefocus = undefined;
           cleanup();
         };
       }, [effect]);
@@ -212,6 +220,7 @@ beforeEach(() => {
   mockScanRouteInStack = true;
   mockBeforeRemove = undefined;
   mockBlur = undefined;
+  mockRefocus = undefined;
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -244,6 +253,30 @@ test('a parsed frame stops belonging to the scanner when another route opens or 
   mockScanRouteInStack = false;
   expect(isScanOpen()).toBe(false);
 });
+
+test.each([false, true])(
+  'a linked child scanner can return to the parent scan session (released before focus: %s)',
+  async (releasedBeforeFocus) => {
+    render(<ScanQrCodeModal />);
+    fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+    await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+    const [{ scanSignal, canApplyScanResult, holdForChildScan }] =
+      mockRouteCallback.mock.calls[0];
+    const release = holdForChildScan?.();
+    mockCurrentRouteKey = 'child-scan-route';
+    mockBlur?.();
+    expect(scanSignal?.aborted).toBe(false);
+    expect(canApplyScanResult()).toBe(false);
+
+    mockCurrentRouteKey = 'scan-route';
+    if (releasedBeforeFocus) release?.();
+    mockRefocus?.();
+    if (!releasedBeforeFocus) release?.();
+    expect(canApplyScanResult()).toBe(true);
+    fireEvent.click(screen.getByTestId('header-close'));
+    expect(scanSignal?.aborted).toBe(true);
+  },
+);
 
 test('resumes the camera and cancels on close after a photo result is discarded', async () => {
   let completeImageScan: (value: string) => void = () => {};
@@ -316,6 +349,34 @@ test('opening the photo picker permanently discards a camera frame already being
   expect(canApplyPhoto()).toBe(true);
   expect(cameraOwnsResultWhilePicking).toBe(false);
   expect(canApplyCameraFrame()).toBe(false);
+});
+
+test('a photo picked after focus changes does not apply to the new scanner session', async () => {
+  let finishPicking: (
+    result: Awaited<ReturnType<typeof PhotoLibrary.pickImage>>,
+  ) => void = () => {};
+  jest.mocked(PhotoLibrary.pickImage).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishPicking = resolve;
+    }),
+  );
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('a photo from old focus');
+  render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+  mockCurrentRouteKey = 'other-route';
+  mockBlur?.();
+  mockCurrentRouteKey = 'scan-route';
+  mockRefocus?.();
+  finishPicking({ canceled: false, uri: 'test://picker-before-blur' });
+
+  await waitFor(() =>
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
+      'test://picker-before-blur',
+    ),
+  );
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  expect(Toast.error).not.toHaveBeenCalled();
 });
 
 test('a broken photo shows the QR error and leaves photo and camera scanning usable', async () => {

@@ -300,6 +300,7 @@ export interface IAppEventBusPayload {
     title?: string;
     promiseId?: number;
     valueUr: IAirGapUrJson;
+    addressCreationRequest?: IAddressCreationRequest;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject

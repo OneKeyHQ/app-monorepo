@@ -71,6 +71,7 @@ export type IParseQRCodeRuntimeDeps = {
   scanRequestId?: string;
   canApplyScanResult?: () => boolean;
   scanSignal?: AbortSignal;
+  holdForChildScan?: () => () => void;
   onResultWillClose?: () => void;
 };
 
@@ -84,6 +85,7 @@ export async function parseQRCodeWithDeps(
     scanRequestId,
     canApplyScanResult,
     scanSignal,
+    holdForChildScan,
     onResultWillClose,
   }: IParseQRCodeRuntimeDeps,
 ) {
@@ -314,6 +316,7 @@ export async function parseQRCodeWithDeps(
             network,
             canApplyScanResult,
             scanSignal,
+            holdForChildScan,
           });
           if (newAccountId) {
             accountId = newAccountId;
@@ -513,7 +516,10 @@ const useParseQRCode = () => {
       params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
       lifecycle?: Pick<
         IParseQRCodeRuntimeDeps,
-        'canApplyScanResult' | 'scanSignal' | 'onResultWillClose'
+        | 'canApplyScanResult'
+        | 'scanSignal'
+        | 'holdForChildScan'
+        | 'onResultWillClose'
       >,
     ) =>
       parseQRCodeWithDeps(value, params, {

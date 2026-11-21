@@ -55,6 +55,7 @@ export default function useScanQrCode() {
                 popNavigation,
                 canApplyScanResult,
                 scanSignal,
+                holdForChildScan,
                 isScanOpen,
                 onResultWillClose,
               }) => {
@@ -71,7 +72,12 @@ export default function useScanQrCode() {
                         tokens,
                         popNavigation,
                       },
-                      { canApplyScanResult, scanSignal, onResultWillClose },
+                      {
+                        canApplyScanResult,
+                        scanSignal,
+                        holdForChildScan,
+                        onResultWillClose,
+                      },
                     );
                   } catch (error) {
                     if (error instanceof OneKeyErrorScanQrCodeCancel) {

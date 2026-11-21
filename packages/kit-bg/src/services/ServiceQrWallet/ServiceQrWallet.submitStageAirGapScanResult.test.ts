@@ -233,10 +233,12 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
       isEnabled: true,
       begin,
     });
+    const addressCreationRequest = { nodeId: 'scan-viewport', id: 'request' };
 
     await service.startTwoWayAirGapScanUr({
       requestUr: {} as never,
       allowPlainTextResponse: true,
+      addressCreationRequest,
     });
 
     expect(begin).toHaveBeenCalledTimes(1);
@@ -245,7 +247,7 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
     expect(sessions.stageAirGapSession).toBeUndefined();
     expect(appEventBus.emit).toHaveBeenCalledWith(
       'ShowAirGapQrcode',
-      expect.objectContaining({ promiseId: 42 }),
+      expect.objectContaining({ promiseId: 42, addressCreationRequest }),
     );
   });
 

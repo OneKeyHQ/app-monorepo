@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
+  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -244,6 +245,7 @@ class ServiceQrWallet extends ServiceBase {
     notice,
     owner,
     allowLegacyScan,
+    addressCreationRequest,
   }: {
     requestUr?: AirGapUR;
     appQrCodeModalTitle?: string;
@@ -254,6 +256,7 @@ class ServiceQrWallet extends ServiceBase {
     /** See cancelStageAirGapScan: lets the caller end its own stage session. */
     owner?: string;
     allowLegacyScan?: boolean;
+    addressCreationRequest?: IAddressCreationRequest;
   }): Promise<{
     raw?: string;
     responseUr?: AirGapUR;
@@ -398,6 +401,7 @@ class ServiceQrWallet extends ServiceBase {
             valueUr,
             promiseId,
             title: appQrCodeModalTitle,
+            addressCreationRequest,
           });
         } else {
           appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId });
@@ -596,12 +600,14 @@ class ServiceQrWallet extends ServiceBase {
     networkId,
     indexedAccountId,
     appQrCodeModalTitle,
+    addressCreationRequest,
   }: // deriveType,
   {
     walletId: IDBWalletId;
     networkId: string;
     indexedAccountId: string;
     appQrCodeModalTitle?: string;
+    addressCreationRequest?: IAddressCreationRequest;
     // deriveType: IAccountDeriveTypes;
   }): Promise<IAirGapUrJson> {
     const { serviceAccount } = this.backgroundApi;
@@ -680,6 +686,7 @@ class ServiceQrWallet extends ServiceBase {
     const { responseUr } = await this.startTwoWayAirGapScanUr({
       requestUr: request.toUR(),
       appQrCodeModalTitle,
+      addressCreationRequest,
     });
 
     const jsonData = airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });

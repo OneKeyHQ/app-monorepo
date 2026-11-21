@@ -50,6 +50,8 @@ function BasicCreateAddressDialogContent({
   indexedAccountId,
   deriveType,
   autoCreateAddress,
+  canStartAddressCreation,
+  addressCreationRequest,
 }: {
   onCreate: (
     params:
@@ -64,6 +66,8 @@ function BasicCreateAddressDialogContent({
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
+  canStartAddressCreation: () => boolean;
+  addressCreationRequest?: IAddressCreationRequest;
 }) {
   const {
     activeAccount: { wallet },
@@ -75,6 +79,8 @@ function BasicCreateAddressDialogContent({
       selectAfterCreate
       autoCreateAddress={autoCreateAddress}
       onCreateDone={onCreate}
+      canStartAddressCreation={canStartAddressCreation}
+      addressCreationRequest={addressCreationRequest}
       account={{
         walletId: wallet?.id,
         networkId,
@@ -92,6 +98,8 @@ function CreateAddressDialogContent({
   indexedAccountId,
   deriveType,
   autoCreateAddress,
+  canStartAddressCreation,
+  addressCreationRequest,
 }: {
   onCreate: (
     params:
@@ -106,6 +114,8 @@ function CreateAddressDialogContent({
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
+  canStartAddressCreation: () => boolean;
+  addressCreationRequest?: IAddressCreationRequest;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -121,6 +131,8 @@ function CreateAddressDialogContent({
         indexedAccountId={indexedAccountId}
         deriveType={deriveType}
         autoCreateAddress={autoCreateAddress}
+        canStartAddressCreation={canStartAddressCreation}
+        addressCreationRequest={addressCreationRequest}
       />
     </AccountSelectorProviderMirror>
   );
@@ -199,6 +211,9 @@ function BasicCreateAddressContainer() {
         addressCreationRequest,
       );
       let settled = false;
+      const canStartAddressCreation = () =>
+        !settled &&
+        getAddressCreationRequestState(addressCreationRequest) === 'active';
       let cancel = () => {};
       const settle = async (created: boolean) => {
         if (settled) return;
@@ -224,6 +239,9 @@ function BasicCreateAddressContainer() {
           },
         ),
         showFooter: false,
+        onCloseStart: () => {
+          void settle(false);
+        },
         onClose: () => {
           void settle(false);
         },
@@ -253,6 +271,8 @@ function BasicCreateAddressContainer() {
             indexedAccountId={indexedAccountId}
             deriveType={deriveType}
             autoCreateAddress={autoCreateAddress}
+            canStartAddressCreation={canStartAddressCreation}
+            addressCreationRequest={addressCreationRequest}
           />
         ),
       });

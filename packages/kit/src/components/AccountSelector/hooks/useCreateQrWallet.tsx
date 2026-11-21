@@ -17,6 +17,7 @@ import {
   OneKeyErrorAirGapWalletMismatch,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -170,10 +171,12 @@ export function useCreateQrWallet() {
       walletId,
       networkId,
       indexedAccountId,
+      addressCreationRequest,
     }: {
       walletId: string;
       networkId: string;
       indexedAccountId: string;
+      addressCreationRequest?: IAddressCreationRequest;
     }) => {
       let byDevice: IDBDevice | undefined;
       const byWallet = await backgroundApiProxy.serviceAccount.getWallet({
@@ -196,6 +199,7 @@ export function useCreateQrWallet() {
             walletId,
             networkId,
             indexedAccountId,
+            addressCreationRequest,
             // eslint-disable-next-line onekey/no-app-locale-main-thread
             appQrCodeModalTitle: appLocale.intl.formatMessage({
               // oxlint-disable-next-line @cspell/spellchecker
