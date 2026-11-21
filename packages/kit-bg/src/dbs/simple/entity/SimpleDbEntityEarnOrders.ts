@@ -136,12 +136,19 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
     status: EDecodedTxStatus;
     expectedOrderId?: string;
     expectedNetworkId?: string;
+    expectedRecordAttemptId?: string;
   }): Promise<{
     success: boolean;
     order?: IEarnOrderItem;
   }> {
-    const { currentTxId, newTxId, status, expectedOrderId, expectedNetworkId } =
-      params;
+    const {
+      currentTxId,
+      newTxId,
+      status,
+      expectedOrderId,
+      expectedNetworkId,
+      expectedRecordAttemptId,
+    } = params;
 
     let updated = false;
     const saved = await this.setRawData((rawData) => {
@@ -161,6 +168,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
         order.txId !== currentTxId ||
         (expectedOrderId && orderId !== expectedOrderId) ||
         (expectedNetworkId && order.networkId !== expectedNetworkId) ||
+        (expectedRecordAttemptId &&
+          order.recordAttemptId !== expectedRecordAttemptId) ||
         (expectedOrderId &&
           order.status !== EDecodedTxStatus.Pending &&
           order.status !== status)
@@ -216,7 +225,9 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       success:
         updatedOrder?.status === status &&
         (!expectedOrderId || updatedOrder.orderId === expectedOrderId) &&
-        (!expectedNetworkId || updatedOrder.networkId === expectedNetworkId),
+        (!expectedNetworkId || updatedOrder.networkId === expectedNetworkId) &&
+        (!expectedRecordAttemptId ||
+          updatedOrder.recordAttemptId === expectedRecordAttemptId),
       order: updatedOrder,
     };
   }

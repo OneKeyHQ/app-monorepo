@@ -3166,6 +3166,7 @@ class ServiceStaking extends ServiceBase {
     status: EDecodedTxStatus;
     expectedOrderId?: string;
     expectedNetworkId?: string;
+    expectedRecordAttemptId?: string;
   }) {
     const result =
       await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
@@ -3692,14 +3693,22 @@ class ServiceStaking extends ServiceBase {
     txId: string;
     maxAttempts?: number;
     intervalMs?: number;
+    requireFinalizedFailure?: boolean;
   }): Promise<'finalized' | 'failed' | 'timeout'> {
-    const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
+    const {
+      networkId,
+      txId,
+      maxAttempts = 40,
+      intervalMs = 3000,
+      requireFinalizedFailure,
+    } = params;
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
 
     return pollSolTxFinalization({
       txId,
       maxAttempts,
       intervalMs,
+      requireFinalizedFailure,
       getSignatureStatuses: async (signatures) => {
         const statuses = await vault.getSignatureStatuses(signatures);
         return statuses?.map((status) =>

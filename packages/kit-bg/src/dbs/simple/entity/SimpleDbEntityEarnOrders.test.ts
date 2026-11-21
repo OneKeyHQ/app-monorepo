@@ -121,6 +121,42 @@ describe('Earn order registration', () => {
     );
   });
 
+  it('finalizes only the matching recording attempt', async () => {
+    const entity = createEntity();
+    const order = {
+      orderId: 'order-1',
+      networkId: 'sol--101',
+      txId: 'tx-1',
+      status: EDecodedTxStatus.Pending,
+    };
+    await entity.addOrder(order, { recordAttemptId: 'attempt-1' });
+    const update = {
+      currentTxId: order.txId,
+      expectedOrderId: order.orderId,
+      expectedNetworkId: order.networkId,
+      status: EDecodedTxStatus.Confirmed,
+    };
+    expect(
+      (
+        await entity.updateOrderStatusByTxId({
+          ...update,
+          expectedRecordAttemptId: 'attempt-2',
+        })
+      ).success,
+    ).toBe(false);
+    expect((await entity.getOrderByTxId(order.txId))?.status).toBe(
+      EDecodedTxStatus.Pending,
+    );
+    expect(
+      (
+        await entity.updateOrderStatusByTxId({
+          ...update,
+          expectedRecordAttemptId: 'attempt-1',
+        })
+      ).success,
+    ).toBe(true);
+  });
+
   it('does not reset a confirmed order when the same transaction is registered again', async () => {
     const entity = createEntity();
     const order = {

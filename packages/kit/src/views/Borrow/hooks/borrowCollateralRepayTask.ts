@@ -78,6 +78,7 @@ type IConfirmArgs = {
   recordRepay: (
     txid: string,
     record: (retry: boolean) => Promise<IRepayRecording>,
+    recover: (isValid: () => Promise<boolean>) => Promise<boolean>,
   ) => Promise<IRepayRecording>;
 };
 type IRepayRecording =
@@ -137,6 +138,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
         attemptId: string;
         txid: string;
         record: (retry: boolean) => Promise<IRepayRecording>;
+        recover: (isValid: () => Promise<boolean>) => Promise<boolean>;
         result?: IRepayRecording;
         flight?: Promise<IRepayRecording>;
       }
@@ -145,6 +147,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
     attemptId: string,
     txid: string,
     record: (retry: boolean) => Promise<IRepayRecording>,
+    recover: (isValid: () => Promise<boolean>) => Promise<boolean>,
   ) => {
     if (repayRecovery) {
       if (repayRecovery.attemptId !== attemptId || repayRecovery.txid !== txid)
@@ -153,7 +156,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
       if (repayRecovery.result !== 'localFailed')
         return Promise.resolve(repayRecovery.result ?? 'remoteUnknown');
     } else {
-      repayRecovery = { attemptId, txid, record };
+      repayRecovery = { attemptId, txid, record, recover };
     }
     const recovery = repayRecovery;
     const retry = recovery.result === 'localFailed';
@@ -364,9 +367,9 @@ export function createBorrowCollateralRepayTask<TIntent>({
                       value: 'failed',
                     });
                 },
-                recordRepay: (txid, record) =>
+                recordRepay: (txid, record, recover) =>
                   step.id === 'repay'
-                    ? recordRepay(attemptId, txid, record)
+                    ? recordRepay(attemptId, txid, record, recover)
                     : Promise.resolve('remoteUnknown'),
                 onConfirmed: async (txid, status, wasSettled) => {
                   const accepted = onSubmitted(txid);
@@ -570,6 +573,7 @@ export function createBorrowCollateralRepayTask<TIntent>({
     tryRetryTransaction: controller.tryRetryTransaction,
     hasRetryableRepayRecording: () =>
       repayRecovery?.result === 'localFailed' ||
+      repayRecovery?.result === 'remoteUnknown' ||
       ((repayRecovery?.result === 'synced' ||
         repayRecovery?.result === 'notTracked') &&
         controller.getTask().facts?.repayCallback !== 'completed'),
@@ -582,44 +586,45 @@ export function createBorrowCollateralRepayTask<TIntent>({
         !binding.owner.isCurrent() ||
         !recovery ||
         (recovery.result !== 'localFailed' &&
+          recovery.result !== 'remoteUnknown' &&
           recovery.result !== 'synced' &&
           recovery.result !== 'notTracked')
       )
         return false;
-      await binding.owner.verify();
-      const snapshot = controller.getTask();
-      const step = snapshot.steps.find((item) => item.id === 'repay');
-      if (
-        bound !== binding ||
-        !binding.owner.isCurrent() ||
-        repayRecovery !== recovery ||
-        !step ||
-        step.attemptId !== recovery.attemptId ||
-        !('txid' in step.status) ||
-        step.status.txid !== recovery.txid ||
-        ('txidConflict' in step.status && step.status.txidConflict)
-      )
-        return false;
-      const result = await recordRepay(
-        recovery.attemptId,
-        recovery.txid,
-        recovery.record,
-      );
-      await binding.owner.verify();
-      const latest = controller
-        .getTask()
-        .steps.find((item) => item.id === 'repay');
-      if (
-        bound !== binding ||
-        !binding.owner.isCurrent() ||
-        repayRecovery !== recovery ||
-        !latest ||
-        latest.attemptId !== recovery.attemptId ||
-        !('txid' in latest.status) ||
-        latest.status.txid !== recovery.txid ||
-        ('txidConflict' in latest.status && latest.status.txidConflict)
-      )
-        return false;
+      const isValid = async () => {
+        const matches = () => {
+          const step = controller
+            .getTask()
+            .steps.find((item) => item.id === 'repay');
+          return Boolean(
+            bound === binding &&
+            binding.owner.isCurrent() &&
+            repayRecovery === recovery &&
+            step &&
+            step.attemptId === recovery.attemptId &&
+            'txid' in step.status &&
+            step.status.txid === recovery.txid &&
+            !('txidConflict' in step.status && step.status.txidConflict),
+          );
+        };
+        if (!matches()) return false;
+        await binding.owner.verify();
+        return matches();
+      };
+      if (!(await isValid())) return false;
+      let result: IRepayRecording;
+      if (recovery.result === 'remoteUnknown') {
+        result = (await recovery.recover(isValid)) ? 'synced' : 'remoteUnknown';
+        if (result === 'synced') recovery.result = result;
+      } else {
+        result = await recordRepay(
+          recovery.attemptId,
+          recovery.txid,
+          recovery.record,
+          recovery.recover,
+        );
+      }
+      if (!(await isValid())) return false;
       if (result === 'synced' || result === 'notTracked')
         writeFact('repay', recovery.attemptId, {
           type: 'repayCallback',

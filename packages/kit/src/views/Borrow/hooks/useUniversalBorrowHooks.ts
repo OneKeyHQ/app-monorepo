@@ -871,37 +871,96 @@ export function useUniversalBorrowRepayWithCollateral({
             }
             const recordAttemptId = generateUUID();
             const recordOrder = (txid: string, status: EDecodedTxStatus) =>
-              recordRepay(txid, async (retry) => {
-                if (!built.orderId) return 'notTracked';
-                const result =
-                  await backgroundApiProxy.serviceStaking.addEarnOrder(
-                    {
-                      orderId: built.orderId,
-                      networkId,
-                      txId: txid,
-                      status,
-                      ...getEarnOrderTrackingInfo(info),
-                    },
-                    {
-                      remoteSync: 'once',
-                      preserveExistingTx: true,
-                      recordAttemptId,
-                      ...(retry ? { retryLocalFailure: true as const } : {}),
-                    },
-                  );
-                if (
-                  (result.localStatus === 'failed' ||
-                    result.localStatus === 'unavailable') &&
-                  result.remoteStatus === 'notAttempted'
-                )
-                  return 'localFailed';
-                if (
-                  result.localStatus === 'saved' &&
-                  result.remoteStatus === 'synced'
-                )
-                  return 'synced';
-                return 'remoteUnknown';
-              });
+              recordRepay(
+                txid,
+                async (retry) => {
+                  if (!built.orderId) return 'notTracked';
+                  const result =
+                    await backgroundApiProxy.serviceStaking.addEarnOrder(
+                      {
+                        orderId: built.orderId,
+                        networkId,
+                        txId: txid,
+                        status,
+                        ...getEarnOrderTrackingInfo(info),
+                      },
+                      {
+                        remoteSync: 'once',
+                        preserveExistingTx: true,
+                        recordAttemptId,
+                        ...(retry ? { retryLocalFailure: true as const } : {}),
+                      },
+                    );
+                  if (
+                    (result.localStatus === 'failed' ||
+                      result.localStatus === 'unavailable') &&
+                    result.remoteStatus === 'notAttempted'
+                  )
+                    return 'localFailed';
+                  if (
+                    result.localStatus === 'saved' &&
+                    result.remoteStatus === 'synced'
+                  )
+                    return 'synced';
+                  return 'remoteUnknown';
+                },
+                async (isValid) => {
+                  if (!built.orderId) return false;
+                  try {
+                    if (!(await isValid())) return false;
+                    const finality =
+                      await backgroundApiProxy.serviceStaking.waitForSolTxFinalized(
+                        {
+                          networkId,
+                          txId: txid,
+                          maxAttempts: 1,
+                          requireFinalizedFailure: true,
+                        },
+                      );
+                    if (
+                      (finality !== 'finalized' && finality !== 'failed') ||
+                      !(await isValid())
+                    )
+                      return false;
+                    const detail =
+                      await backgroundApiProxy.serviceStaking.getEarnOrderDetail(
+                        {
+                          accountId,
+                          networkId,
+                          orderId: built.orderId,
+                          expectedAccountAddress: frozenAddress,
+                        },
+                      );
+                    if (
+                      !(await isValid()) ||
+                      detail?.orderId !== built.orderId ||
+                      detail.networkId !== networkId ||
+                      detail.provider?.toLowerCase() !== 'kamino' ||
+                      detail.action !== 'repayWithColl' ||
+                      detail.txId !== txid ||
+                      detail.status !==
+                        (finality === 'finalized' ? 'success' : 'failed')
+                    )
+                      return false;
+                    const updated =
+                      await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId(
+                        {
+                          currentTxId: txid,
+                          expectedOrderId: built.orderId,
+                          expectedNetworkId: networkId,
+                          expectedRecordAttemptId: recordAttemptId,
+                          status:
+                            finality === 'finalized'
+                              ? EDecodedTxStatus.Confirmed
+                              : EDecodedTxStatus.Failed,
+                        },
+                      );
+                    return updated && (await isValid());
+                  } catch {
+                    return false;
+                  }
+                },
+              );
             const result = await waitForTxConfirmResult({
               encodedTx: parseBorrowEncodedTx(built.tx),
               stakingInfo: info,

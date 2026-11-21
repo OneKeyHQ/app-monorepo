@@ -97,6 +97,7 @@ jest.mock('./borrowLutTaskRegistry', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     addEarnOrder: jest.fn(),
+    getEarnOrderDetail: jest.fn(),
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
     borrowBuildSetupLutTransaction: jest.fn(),
@@ -171,6 +172,7 @@ const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
   serviceAccount: { getAccountAddressForApi: jest.Mock };
   serviceStaking: {
     addEarnOrder: jest.Mock;
+    getEarnOrderDetail: jest.Mock;
     getBorrowRepayWithCollateralQuote: jest.Mock;
     borrowBuildRepayWithCollateralTransaction: jest.Mock;
     borrowBuildSetupLutTransaction: jest.Mock;
@@ -208,6 +210,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       .mockResolvedValue('test-account-address');
     signatureConfirmMock.navigationToTxConfirm.mockReset();
     backgroundMock.serviceStaking.addEarnOrder.mockReset();
+    backgroundMock.serviceStaking.getEarnOrderDetail.mockReset();
     backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockReset();
     backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockReset();
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockReset();
@@ -360,6 +363,107 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     },
   );
 
+  it.each([
+    ['matching terminal order', {}, 'finalized', true, true],
+    ['different transaction', { txId: 'different' }, 'finalized', true, false],
+    [
+      'different account order',
+      { orderId: 'different' },
+      'finalized',
+      true,
+      false,
+    ],
+    ['different network', { networkId: 'sol--102' }, 'finalized', true, false],
+    ['different provider', { provider: 'other' }, 'finalized', true, false],
+    ['different action', { action: 'borrow' }, 'finalized', true, false],
+    ['pending server order', { status: 'pending' }, 'finalized', true, false],
+    ['unfinalized transaction', {}, 'timeout', true, false],
+    ['replaced local attempt', {}, 'finalized', false, false],
+  ])(
+    'recovers an unknown late repay only with %s',
+    async (_label, override, finality, updateResult, canContinue) => {
+      backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'repay-original' },
+      );
+      backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
+        localStatus: 'saved',
+        remoteStatus: 'failed',
+      });
+      backgroundMock.serviceStaking.waitForSolTxFinalized.mockResolvedValue(
+        finality,
+      );
+      backgroundMock.serviceStaking.getEarnOrderDetail.mockResolvedValue({
+        orderId: 'repay-original',
+        networkId: 'sol--101',
+        provider: 'kamino',
+        action: 'repayWithColl',
+        txId: 'repay-tx',
+        status: 'success',
+        ...override,
+      });
+      backgroundMock.serviceStaking.updateOrderStatusByTxId.mockResolvedValue(
+        updateResult,
+      );
+      let late: ITestBorrowConfirm['onLateBroadcastAccepted'] | undefined;
+      signatureConfirmMock.navigationToTxConfirm
+        .mockImplementationOnce(
+          async ({
+            onBeforeSend,
+            onCancel,
+            onLateBroadcastAccepted,
+          }: ITestBorrowConfirm) => {
+            await onBeforeSend();
+            late = onLateBroadcastAccepted;
+            onCancel();
+          },
+        )
+        .mockImplementationOnce(async ({ onCancel }: ITestBorrowConfirm) =>
+          onCancel(),
+        );
+      const accountId = `remote-recovery-${_label}`;
+      const { result } = renderHook(() =>
+        useUniversalBorrowRepayWithCollateral({
+          networkId: 'sol--101',
+          accountId,
+        }),
+      );
+      const params = {
+        amount: '1',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        collateralReserveAddress: 'collateral',
+        needsSetupLut: false,
+      };
+      await act(async () => {
+        expect(await result.current(params)).toBe(false);
+        await late?.({
+          uuid: 'repay-uuid',
+          accountId,
+          networkId: 'sol--101',
+          txid: 'repay-tx',
+        });
+        expect(await result.current({ ...params, amount: '2' })).toBe(false);
+      });
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        canContinue ? 2 : 1,
+      );
+      expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(
+        1,
+      );
+      if (canContinue)
+        expect(
+          backgroundMock.serviceStaking.updateOrderStatusByTxId,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            currentTxId: 'repay-tx',
+            expectedOrderId: 'repay-original',
+            expectedRecordAttemptId: expect.any(String),
+          }),
+        );
+    },
+  );
+
   it.each([false, true])(
     'retries the original late repay order before a new route (different market=%s)',
     async (differentMarket) => {
@@ -440,6 +544,73 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       );
     },
   );
+
+  it('recovers a normal repay after an unknown remote result without reposting', async () => {
+    backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'normal-repay' },
+    );
+    backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
+      localStatus: 'saved',
+      remoteStatus: 'failed',
+    });
+    backgroundMock.serviceStaking.waitForSolTxFinalized.mockResolvedValue(
+      'finalized',
+    );
+    backgroundMock.serviceStaking.getEarnOrderDetail.mockResolvedValue({
+      orderId: 'normal-repay',
+      networkId: 'sol--101',
+      provider: 'kamino',
+      action: 'repayWithColl',
+      txId: 'normal-tx',
+      status: 'success',
+    });
+    backgroundMock.serviceStaking.updateOrderStatusByTxId.mockResolvedValue(
+      true,
+    );
+    signatureConfirmMock.navigationToTxConfirm
+      .mockImplementationOnce(
+        async ({ onBeforeSend, onSuccess }: ITestBorrowConfirm) => {
+          await onBeforeSend();
+          onSuccess([
+            {
+              signedTx: { txid: 'normal-tx' },
+              decodedTx: { txid: 'normal-tx', status: 'Pending' },
+            },
+          ]);
+        },
+      )
+      .mockImplementationOnce(async ({ onCancel }: ITestBorrowConfirm) =>
+        onCancel(),
+      );
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'normal-remote-recovery',
+      }),
+    );
+    const params = {
+      amount: '1',
+      provider: 'kamino',
+      marketAddress: 'market',
+      reserveAddress: 'reserve',
+      collateralReserveAddress: 'collateral',
+      needsSetupLut: false,
+    };
+    await act(async () => {
+      await result.current(params);
+      await result.current({ ...params, amount: '2' });
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(2);
+    expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundMock.serviceStaking.getEarnOrderDetail,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'normal-repay',
+        expectedAccountAddress: 'test-account-address',
+      }),
+    );
+  });
 
   it.each([false, true])(
     'recovers a normal repay local recording failure with confirmation sheet=%s',
