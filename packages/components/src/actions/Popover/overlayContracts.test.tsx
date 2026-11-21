@@ -244,11 +244,15 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
     visible,
     presentation,
     sheet,
+    backdrop,
+    onRequestDismiss,
   }: {
     children?: ReactNode;
     visible: boolean;
     presentation: string;
     sheet?: { height?: number };
+    backdrop?: unknown;
+    onRequestDismiss?: (reason: string) => void;
   }) =>
     visible ? (
       <div
@@ -256,6 +260,15 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
         data-presentation={presentation}
         data-height={sheet?.height}
       >
+        {backdrop ? (
+          <button
+            type="button"
+            data-testid="overlay-backdrop"
+            onClick={() => onRequestDismiss?.('backdrop')}
+          >
+            Outside
+          </button>
+        ) : null}
         {children}
       </div>
     ) : null,
@@ -754,25 +767,32 @@ describe('hover and trigger press interaction', () => {
     expect(screen.queryByTestId('overlay')).not.toBeNull();
   });
 
-  it('opens a triggerless panel on hovering its web anchor element', () => {
+  it('opens a triggerless panel on hovering its anchor; a regular one closes on an outside press', () => {
     const anchor = document.createElement('span');
     document.body.appendChild(anchor);
-    const onOpenChange = jest.fn();
-    render(
-      <Popover
-        title="Rates"
-        hoverable={hoverable}
-        open={false}
-        onOpenChange={onOpenChange}
-        renderTrigger={null}
-        webAnchorElement={anchor}
-        renderContent={<span>Rate breakdown</span>}
-      />,
-    );
+    // Like the OneKey ID usage panel: a press turns a hover panel regular.
+    function Host({ hover }: { hover: boolean }) {
+      const [open, setOpen] = useState(false);
+      return (
+        <Popover
+          title="Rates"
+          hoverable={hover ? hoverable : false}
+          open={open}
+          onOpenChange={setOpen}
+          renderTrigger={null}
+          webAnchorElement={anchor}
+          renderContent={<span>Rate breakdown</span>}
+        />
+      );
+    }
+    const view = render(<Host hover />);
     try {
       fireEvent.mouseEnter(anchor);
       advance(250);
-      expect(onOpenChange).toHaveBeenLastCalledWith(true);
+      expect(screen.getByText('Rate breakdown')).toBeTruthy();
+      view.rerender(<Host hover={false} />);
+      fireEvent.click(screen.getByTestId('overlay-backdrop'));
+      expect(screen.queryByText('Rate breakdown')).toBeNull();
     } finally {
       anchor.remove();
     }

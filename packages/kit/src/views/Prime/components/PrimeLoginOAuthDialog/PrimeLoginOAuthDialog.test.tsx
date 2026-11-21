@@ -1,5 +1,4 @@
 /** @jest-environment jsdom */
-/* cspell:ignore hoverable */
 
 import {
   act,
@@ -17,9 +16,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
-const mockFirstEmailChange: {
-  current?: (email: string | undefined) => void;
-} = {};
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
 let mockDevSettingsEnabled = true;
@@ -49,16 +45,14 @@ jest.mock('@onekeyhq/components', () => {
     children,
     onPress,
     testID,
-    ref,
   }: {
     children?: import('react').ReactNode;
     onPress?: () => void;
     testID?: string;
-    ref?: import('react').Ref<HTMLDivElement>;
   }) {
     return React.createElement(
       'div',
-      { 'data-testid': testID, onClick: onPress, ref },
+      { 'data-testid': testID, onClick: onPress },
       children,
     );
   }
@@ -254,8 +248,8 @@ jest.mock('@onekeyhq/components', () => {
     }) =>
       React.createElement(
         'div',
-        { 'data-testid': 'prime-login-purpose' },
-        React.createElement('span', { 'data-testid': 'leading' }, leadingText),
+        null,
+        leadingText,
         React.createElement('span', { 'data-testid': 'dashed' }, children),
       ),
     Dialog: {
@@ -267,12 +261,22 @@ jest.mock('@onekeyhq/components', () => {
     },
     HeightTransition,
     Icon: () => null,
+    // The real Popover is covered in the components package.
+    Popover: ({
+      open,
+      renderContent,
+    }: {
+      open: boolean;
+      renderContent: import('react').ReactNode;
+    }) => (open ? renderContent : null),
     SizableText: Container,
     Stack: Container,
     Toast: {
       error: jest.fn(),
     },
+    XStack: Container,
     YStack: Container,
+    useMedia: () => ({ md: false }),
   };
 });
 
@@ -337,10 +341,6 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
     debugPanelOpenCount?: number;
     onEmbeddedVerificationEmailChange?: (email: string | undefined) => void;
   }) {
-    // The real dialog calls back after an awaited storage write, possibly
-    // with the callback of the render that started the submit.
-    const firstEmailChange = React.useRef(onEmbeddedVerificationEmailChange);
-    mockFirstEmailChange.current = firstEmailChange.current;
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
@@ -358,11 +358,6 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
         type: 'button',
         onClick: () => onEmbeddedVerificationEmailChange?.('a@example.com'),
       }),
-      React.createElement('button', {
-        'data-testid': 'mock-email-back',
-        type: 'button',
-        onClick: () => onEmbeddedVerificationEmailChange?.(undefined),
-      }),
     );
   }
 
@@ -371,17 +366,6 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
     default: MockPrimeLoginEmailDialog,
   };
 });
-
-// The popover's own presentation is covered in the components package; here
-// only what the dialog hands to it matters.
-const mockUsagePopoverProps = jest.fn();
-jest.mock('./OneKeyIdUsagePopover', () => ({
-  ONEKEY_ID_USAGE_TRACK_ID: 'onekey-id-usage',
-  OneKeyIdUsagePopover: (props: unknown) => {
-    mockUsagePopoverProps(props);
-    return null;
-  },
-}));
 
 jest.mock('../useOneKeyIdLocalKeylessOAuth', () => {
   let onAccountMismatch: (() => void) | undefined;
@@ -432,106 +416,28 @@ function getBackgroundApiMocks() {
 }
 
 describe('PrimeLoginOAuthDialog', () => {
-  const lastUsagePopoverProps = () =>
-    mockUsagePopoverProps.mock.calls[
-      mockUsagePopoverProps.mock.calls.length - 1
-    ]?.[0] as
-      | {
-          open: boolean;
-          hoverable: boolean;
-          onOpenChange: (open: boolean) => void;
-          webAnchorElement?: HTMLElement;
-        }
-      | undefined;
-
-  test('closes the usage panel on the email code step and keeps it closed after', () => {
-    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-    act(() => lastUsagePopoverProps()?.onOpenChange(true));
-    expect(lastUsagePopoverProps()?.open).toBe(true);
-
-    const popoverClose = jest
-      .spyOn(defaultLogger.ui.popover, 'popoverClose')
-      .mockImplementation((params) => params);
-    fireEvent.click(screen.getByTestId('mock-email-submit'));
-    expect(screen.queryByTestId('prime-login-usage-link')).toBeNull();
-    expect(lastUsagePopoverProps()?.open).toBe(false);
-    // The popover does not see this close, so the dialog logs it.
-    expect(popoverClose.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
-    popoverClose.mockRestore();
-
-    fireEvent.click(screen.getByTestId('mock-email-back'));
-    expect(screen.getByTestId('prime-login-usage-link')).toBeTruthy();
-    expect(lastUsagePopoverProps()?.open).toBe(false);
-  });
-
-  test('closes and logs a panel opened while the email submit was pending', () => {
-    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-    const staleEmailChange = mockFirstEmailChange.current;
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-    expect(lastUsagePopoverProps()?.open).toBe(true);
-
-    const popoverClose = jest
-      .spyOn(defaultLogger.ui.popover, 'popoverClose')
-      .mockImplementation((params) => params);
-    act(() => staleEmailChange?.('a@example.com'));
-    expect(lastUsagePopoverProps()?.open).toBe(false);
-    expect(popoverClose).toHaveBeenCalledTimes(1);
-    popoverClose.mockRestore();
-  });
-
-  test('opens a pressed usage panel as a regular popover and a hovered one as a hover panel', () => {
-    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-    // Closed: hovering the link may open it.
-    expect(lastUsagePopoverProps()?.hoverable).toBe(true);
-
-    // A press opens it as a regular popover and logs the open, which the
-    // popover itself only does for hover opens.
+  test('a tap on the trailing link opens the usage panel and logs it once', () => {
     const popoverOpen = jest
       .spyOn(defaultLogger.ui.popover, 'popoverOpen')
       .mockImplementation((params) => params);
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-    expect(lastUsagePopoverProps()).toEqual(
-      expect.objectContaining({ open: true, hoverable: false }),
-    );
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-    expect(popoverOpen.mock.calls).toEqual([[{ trackId: 'onekey-id-usage' }]]);
-    act(() => lastUsagePopoverProps()?.onOpenChange(false));
-    expect(lastUsagePopoverProps()).toEqual(
-      expect.objectContaining({ open: false, hoverable: true }),
-    );
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const link = screen.getByTestId('prime-login-usage-link');
+    // Only the link sits in the dashed part of the subtitle.
+    expect(screen.getByTestId('dashed').textContent).toBe(link.textContent);
+    expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
 
-    // A hover open is a hover panel until a press on the link turns it into
-    // a regular one, without logging a second open.
-    act(() => lastUsagePopoverProps()?.onOpenChange(true));
-    expect(lastUsagePopoverProps()).toEqual(
-      expect.objectContaining({ open: true, hoverable: true }),
-    );
-    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
-    expect(lastUsagePopoverProps()).toEqual(
-      expect.objectContaining({ open: true, hoverable: false }),
-    );
+    fireEvent.click(link);
+    fireEvent.click(link);
+    expect(screen.getByText('onekey_id_usage_keyless__desc')).toBeTruthy();
     expect(popoverOpen).toHaveBeenCalledTimes(1);
     popoverOpen.mockRestore();
   });
 
-  test('opens the usage explainer anchored to the subtitle link on web', () => {
+  test('the email code step closes the usage panel', () => {
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
-    expect(lastUsagePopoverProps()?.open).toBe(false);
-
-    // Only the link carries the dashes; the sentence before it is plain.
-    expect(screen.getByTestId('leading').textContent).toBe(
-      'onekey_id_purpose__desc ',
-    );
-    const link = screen.getByTestId('prime-login-usage-link');
-    expect(screen.getByTestId('dashed').firstChild).toBe(link);
-    expect(link.textContent).toBe('onekey_id_purpose__desc:link');
-    // The anchor is known before any press, so hovering it can open the panel.
-    expect(lastUsagePopoverProps()?.webAnchorElement).toBe(link);
-    fireEvent.click(link);
-
-    expect(lastUsagePopoverProps()).toEqual(
-      expect.objectContaining({ open: true, webAnchorElement: link }),
-    );
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    fireEvent.click(screen.getByTestId('mock-email-submit'));
+    expect(screen.queryByText('onekey_id_usage_keyless__desc')).toBeNull();
   });
 
   test.each(['google', 'apple'])(

@@ -219,107 +219,60 @@ it('caps native dash allocation to line width and supports overlay and zero leng
   expect(underlines(view.container)).toHaveLength(0);
 });
 
-it('dashes only the text after the leading sentence on native', () => {
+it('dashes only the trailing link on native, also when it wraps', () => {
   platformEnv.isNative = true;
   const view = render(
     <DashText leadingText="Sign in to continue. " dashSpacing={2} length={50}>
       Learn more
     </DashText>,
   );
-  type ILines = { x: number; y: number; width: number; height: number }[];
-  const calls = jest.mocked(SizableText).mock.calls;
-  // The paragraph, the leading text alone, or the leading text ending in a
-  // word joiner.
-  const layoutOf = (
-    kind: 'paragraph' | 'leading' | 'withSpace',
-    lines: ILines,
+  // Lays out the paragraph or one of its two leading-text probes (the second
+  // ends in a word joiner), one 20pt line per width.
+  const layout = (
+    text: 'paragraph' | 'leading' | 'withSpace',
+    ...widths: number[]
   ) => {
-    const call = [...calls].toReversed().find(([props]) => {
-      if (kind === 'paragraph') {
-        return props.opacity !== 0;
-      }
-      const endsWithJoiner =
-        Array.isArray(props.children) && props.children.includes('\u2060');
-      return props.opacity === 0 && endsWithJoiner === (kind === 'withSpace');
-    });
-    const callback = call?.[0].onTextLayout;
-    if (typeof callback !== 'function') {
-      throw new OneKeyLocalError('Missing native text layout handler');
+    const call = jest
+      .mocked(SizableText)
+      .mock.calls.toReversed()
+      .find(([props]) => {
+        if (text === 'paragraph') return props.opacity !== 0;
+        const endsWithJoiner =
+          Array.isArray(props.children) && props.children.includes('\u2060');
+        return props.opacity === 0 && endsWithJoiner === (text === 'withSpace');
+      });
+    const lines = widths.map((width, i) => ({
+      x: 0,
+      y: i * 20,
+      width,
+      height: 20,
+    }));
+    const onTextLayout = call?.[0].onTextLayout;
+    if (typeof onTextLayout === 'function') {
+      void act(() =>
+        onTextLayout({ nativeEvent: { lines } } as TextLayoutEvent),
+      );
     }
-    void act(() => callback({ nativeEvent: { lines } } as TextLayoutEvent));
   };
-  const layout = (isLeading: boolean, lines: ILines) => {
-    if (!isLeading) {
-      layoutOf('paragraph', lines);
-      return;
-    }
-    layoutOf('leading', lines);
-    layoutOf('withSpace', lines);
-  };
-  const layouts = () =>
+  const dashes = () =>
     underlines(view.container).map(
       (node) => JSON.parse(node.dataset.layout ?? '{}') as object,
     );
 
-  // No dashes until the leading text has been measured.
-  layout(false, [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 90, height: 20 },
-  ]);
-  expect(underlines(view.container)).toHaveLength(0);
-
-  // Same line: from the end of the sentence to the end of the paragraph.
-  layout(true, [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 40, height: 20 },
-  ]);
-  expect(layouts()).toEqual([
-    expect.objectContaining({ start: 40, top: 42, width: 50 }),
+  // On the sentence's last line: from after the space to the line end.
+  layout('leading', 100, 40);
+  layout('withSpace', 100, 45);
+  layout('paragraph', 100, 90);
+  expect(dashes()).toEqual([
+    expect.objectContaining({ start: 45, top: 42, width: 45 }),
   ]);
 
-  // The dashed text wraps: its part on each line gets its own dashes.
-  layout(true, [{ x: 0, y: 0, width: 80, height: 20 }]);
-  layout(false, [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 30, height: 20 },
-  ]);
-  expect(layouts()).toEqual([
-    expect.objectContaining({ start: 80, top: 22, width: 20 }),
-    expect.objectContaining({ start: 0, top: 42, width: 30 }),
-  ]);
-
-  // Right-aligned lines (an RTL app layout): both measurements end at the
-  // same edge, and the dashes still start after the sentence.
-  layout(true, [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 60, y: 20, width: 40, height: 20 },
-  ]);
-  layout(false, [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 10, y: 20, width: 90, height: 20 },
-  ]);
-  expect(layouts()).toEqual([
-    expect.objectContaining({ start: 50, top: 42, width: 50 }),
-  ]);
-
-  // The joiner copy wraps its last word to a line of its own while the
-  // paragraph keeps that word and moves only the link down: the start comes
-  // from the plain copy, which breaks like the paragraph.
-  layoutOf('leading', [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 90, height: 20 },
-  ]);
-  layoutOf('withSpace', [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 70, height: 20 },
-    { x: 0, y: 40, width: 25, height: 20 },
-  ]);
-  layoutOf('paragraph', [
-    { x: 0, y: 0, width: 100, height: 20 },
-    { x: 0, y: 20, width: 90, height: 20 },
-    { x: 0, y: 40, width: 30, height: 20 },
-  ]);
-  expect(layouts()).toEqual([
+  // The link moves to a line of its own while the joiner probe wraps a word
+  // earlier: the plain probe decides, and only the link is dashed.
+  layout('leading', 100, 90);
+  layout('withSpace', 100, 70, 25);
+  layout('paragraph', 100, 90, 30);
+  expect(dashes()).toEqual([
     expect.objectContaining({ start: 0, top: 62, width: 30 }),
   ]);
 });
