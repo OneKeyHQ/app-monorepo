@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
@@ -52,6 +53,9 @@ const WithdrawOptionsContent = ({
     provider: routeProvider,
   } = params;
   const isCancelWithdrawal = withdrawType === 'cancel';
+  const isEtherFi = earnUtils.isEtherFiProvider({
+    providerName: protocolInfo?.provider || routeProvider || '',
+  });
   const isEtherFiCancellation =
     isCancelWithdrawal &&
     getEarnProtocol(
@@ -81,16 +85,35 @@ const WithdrawOptionsContent = ({
   };
   const { result, isLoading, run } = usePromiseResult(
     () =>
-      runForCurrentLifecycle(() =>
-        backgroundApiProxy.serviceStaking.getWithdrawList({
+      runForCurrentLifecycle(() => {
+        const address = protocolInfo?.earnAccount?.accountAddress;
+        if (
+          isEtherFi &&
+          (!address ||
+            protocolInfo?.earnAccount?.accountId !== accountId ||
+            protocolInfo?.earnAccount?.networkId !== networkId)
+        )
+          throw new OneKeyLocalError('Task account address unavailable');
+        return backgroundApiProxy.serviceStaking.getWithdrawList({
           networkId,
           accountId,
           symbol,
           provider,
           vault: protocolInfo?.vault,
-        }),
-      ),
-    [accountId, networkId, symbol, provider, protocolInfo?.vault],
+          ...(isEtherFi ? { expectedAccountAddress: address } : undefined),
+        });
+      }),
+    [
+      accountId,
+      networkId,
+      symbol,
+      provider,
+      protocolInfo?.vault,
+      protocolInfo?.earnAccount?.accountAddress,
+      protocolInfo?.earnAccount?.accountId,
+      protocolInfo?.earnAccount?.networkId,
+      isEtherFi,
+    ],
     {
       watchLoading: true,
       undefinedResultIfReRun: true,

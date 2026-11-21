@@ -333,37 +333,38 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
 
   @backgroundMethod()
   async recoverPendingSwapHistoryItems() {
-    const snapshot = await this.getRawData();
-    if (!snapshot?.pendingWrites?.length) {
-      return 0;
-    }
     let recoveredCount = 0;
-    await this.setRawData((currentData) => {
-      const pendingWrites = currentData?.pendingWrites ?? [];
-      let histories = currentData?.histories ?? [];
-      const unresolved: ISwapTxHistory[] = [];
-      [...pendingWrites].toReversed().forEach((item) => {
-        const next = addSwapHistoryToList(histories, item);
-        if (
-          item.sourceTxFailed &&
-          !next.some(
-            (history) =>
-              isSameSwapHistoryItem(history, item) && history.sourceTxFailed,
-          )
-        )
-          unresolved.unshift(item);
-        else {
-          histories = next;
-          recoveredCount += 1;
-        }
-      });
-      return {
-        ...currentData,
-        histories,
-        pendingWrites: unresolved,
-      };
-    });
-    return recoveredCount;
+    const result = await withWebEntityLock(this.entityKey, () =>
+      this.setRawDataTransaction({
+        shouldCommit: () => true,
+        build: (currentData) => {
+          const pendingWrites = currentData?.pendingWrites ?? [];
+          let histories = currentData?.histories ?? [];
+          const unresolved: ISwapTxHistory[] = [];
+          [...pendingWrites].toReversed().forEach((item) => {
+            const next = addSwapHistoryToList(histories, item);
+            if (
+              item.sourceTxFailed &&
+              !next.some(
+                (history) =>
+                  isSameSwapHistoryItem(history, item) &&
+                  history.sourceTxFailed,
+              )
+            )
+              unresolved.unshift(item);
+            else {
+              histories = next;
+              recoveredCount += 1;
+            }
+          });
+          if (!recoveredCount) return undefined;
+          return {
+            data: { ...currentData, histories, pendingWrites: unresolved },
+          };
+        },
+      }),
+    );
+    return result.committed ? recoveredCount : 0;
   }
 
   @backgroundMethod()

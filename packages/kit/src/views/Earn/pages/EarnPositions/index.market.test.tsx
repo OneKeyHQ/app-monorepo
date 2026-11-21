@@ -4,7 +4,9 @@ import EarnPositions from '.';
 
 import { render, screen } from '@testing-library/react';
 
-let mockRouteParams: { focusMarket?: string; focusAt?: number } | undefined;
+let mockRouteParams:
+  | { focusMarket?: string; focusTab?: 'rewards'; focusAt?: number }
+  | undefined;
 let mockWide = false;
 
 jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 0 }));
@@ -78,13 +80,16 @@ jest.mock('./mobile/useMyPortfolioLayout', () => ({
 jest.mock('./mobile/MyPortfolioPage', () => ({
   MyPortfolioPage: ({
     marketRequest,
+    tabRequest,
     tableLayout,
   }: {
     marketRequest?: { marketKey: string; at: number };
+    tabRequest?: { tab: string; at: number };
     tableLayout: boolean;
   }) => (
     <div>
       {marketRequest?.marketKey} {tableLayout ? 'wide' : 'narrow'}
+      {tabRequest ? ` ${tabRequest.tab}:${tabRequest.at}` : null}
     </div>
   ),
 }));
@@ -92,6 +97,13 @@ jest.mock('./mobile/MyPortfolioPage', () => ({
 beforeEach(() => {
   mockWide = false;
   mockRouteParams = undefined;
+});
+
+it('opens the requested rewards tab on a narrow layout', () => {
+  mockRouteParams = { focusTab: 'rewards', focusAt: 456 };
+  render(<EarnPositions />);
+  expect(screen.getByText('narrow rewards:456')).toBeTruthy();
+  expect(screen.queryByText('Previous portfolio')).toBeNull();
 });
 
 it('opens the market controls on a narrow non-native layout and keeps the ordinary portfolio', () => {

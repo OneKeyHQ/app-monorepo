@@ -485,3 +485,31 @@ it('continues from a legacy approval into one signed deposit after the allowance
   await waitFor(() => expect(mockSign).toHaveBeenCalledTimes(2));
   expect(mockOrderDialog).not.toHaveBeenCalled();
 });
+
+it('tracks a Unitas server order after an initially insufficient allowance', async () => {
+  mockAllowance = '0';
+  mockReadAllowance.mockResolvedValue({ allowanceParsed: '0' });
+  await enterAmount('Unitas');
+  await act(async () => {
+    const press = mockPress;
+    await Promise.all([press(), press()]);
+  });
+  await waitFor(() =>
+    expect(mockSign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [expect.objectContaining({ spender: spenderAddress })],
+      }),
+    ),
+  );
+  await act(async () => {
+    await mockSign.mock.calls[0][0].onBeforeSend?.();
+    mockReadAllowance.mockResolvedValue({ allowanceParsed: '10' });
+    mockSign.mock.calls[0][0].onSuccess?.([
+      { decodedTx: { txid: 'approval-hash' } },
+    ]);
+  });
+  await waitFor(() => expect(mockBuild).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockOrderDialog).toHaveBeenCalledTimes(1));
+  expect(mockTrackAllowance).toHaveBeenCalledWith('approval-hash');
+  expect(mockSign).toHaveBeenCalledTimes(1);
+});

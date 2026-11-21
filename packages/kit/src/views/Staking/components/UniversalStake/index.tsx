@@ -3065,8 +3065,10 @@ export function UniversalStake({
   // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
   // can re-enter the approve step once the allowance has been reset to 0.
   const permitAttemptRef = useRef<symbol | undefined>(undefined);
+  const approvalInvocationRef = useRef<symbol | undefined>(undefined);
   useLayoutEffect(() => {
     permitAttemptRef.current = undefined;
+    approvalInvocationRef.current = undefined;
   }, [approvalScopeKey]);
   // Whitelist flag for the deliberate USDT-reset re-entry (OK-58027): that
   // flow re-enters onApprove while approving === true, so the reentry guard
@@ -3327,7 +3329,10 @@ export function UniversalStake({
   );
 
   const onApprove = useCallback(async () => {
+    if (approvalInvocationRef.current && !usdtResetReentryRef.current) return;
     if (usePermit2Approve && permitAttemptRef.current) return;
+    const approvalInvocation = Symbol('approval-invocation');
+    approvalInvocationRef.current = approvalInvocation;
     const permitAttempt = usePermit2Approve
       ? Symbol('permit-attempt')
       : undefined;
@@ -3797,6 +3802,8 @@ export function UniversalStake({
         },
       });
     } finally {
+      if (approvalInvocationRef.current === approvalInvocation)
+        approvalInvocationRef.current = undefined;
       if (permitAttempt && permitAttemptRef.current === permitAttempt)
         permitAttemptRef.current = undefined;
     }
@@ -4309,6 +4316,7 @@ export function UniversalStake({
       (preparationPolicy || shouldApprove) &&
       useApprove &&
       !usePermit2Approve &&
+      !isProtocolExecutedStake &&
       !isWrapStake
     )
       return () => void startDirectDepositTask();
@@ -4335,6 +4343,7 @@ export function UniversalStake({
     amountValue,
     allowance,
     isWrapStake,
+    isProtocolExecutedStake,
     startDirectDepositTask,
     clearTaskAfterCancel,
     clearTaskBeforeAnySend,

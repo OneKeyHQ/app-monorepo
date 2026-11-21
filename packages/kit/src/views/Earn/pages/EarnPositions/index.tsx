@@ -148,7 +148,7 @@ export default function EarnPositions() {
   // Phones get the revamped "My portfolio" page, and wide layouts get it laid
   // out for desktop, the way the wallet DeFi Portfolio switches on gtMd. The
   // layouts between (a narrow extension or desktop window) keep the existing
-  // page unless an entry asks to manage a lending market.
+  // page unless an entry asks for a specific market or portfolio tab.
   const isMyPortfolioLayout = useMyPortfolioLayout();
   const { gtMd } = useMedia();
   // A share of the DeFi home's split asks for its protocols' cards
@@ -188,7 +188,7 @@ export default function EarnPositions() {
         {route.params?.returnScope ? (
           <ScopedEarnWindowReturn scope={route.params.returnScope} />
         ) : null}
-        {isMyPortfolioLayout || gtMd || marketRequest ? (
+        {isMyPortfolioLayout || gtMd || marketRequest || tabRequest ? (
           <MyPortfolioPage
             tableLayout={gtMd}
             focusRequest={focusRequest}
