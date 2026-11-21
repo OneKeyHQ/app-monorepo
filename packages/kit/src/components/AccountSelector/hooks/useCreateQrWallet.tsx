@@ -15,6 +15,7 @@ import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
+  OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -35,6 +36,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import {
+  getAddressCreationRequestSignal,
+  getAddressCreationRequestState,
+} from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
@@ -57,6 +62,7 @@ export function useCreateQrWallet() {
       params: ICreateQrWalletByScanParams & {
         urJson: IAirGapUrJson;
         isCreateAccountAction?: boolean;
+        assertCanCreate?: () => void;
       },
     ) => {
       const {
@@ -66,11 +72,13 @@ export function useCreateQrWallet() {
         isOnboardingV2,
         byDevice,
         isCreateAccountAction,
+        assertCanCreate,
       } = params;
       const { qrDevice, airGapAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
           urJson,
         });
+      assertCanCreate?.();
       if (isCreateAccountAction && byDevice?.deviceId && qrDevice?.deviceId) {
         if (byDevice?.deviceId !== qrDevice?.deviceId) {
           throw new OneKeyErrorAirGapDeviceMismatch();
@@ -106,6 +114,7 @@ export function useCreateQrWallet() {
           qrDevice,
           airGapAccounts,
           isOnboarding,
+          assertCanCreate,
         });
         return result;
       } catch (error) {
@@ -187,31 +196,56 @@ export function useCreateQrWallet() {
           dbDeviceId: byWallet.associatedDevice,
         });
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      // const { wallet: walletCreated } = await createQrWallet({
-      //   isOnboarding: false,
-      //   byDevice,
-      //   byWallet,
-      // });
-      const urJson =
-        await backgroundApiProxy.serviceQrWallet.prepareQrcodeWalletAddressCreate(
-          {
-            walletId,
-            networkId,
-            indexedAccountId,
-            addressCreationRequest,
-            // eslint-disable-next-line onekey/no-app-locale-main-thread
-            appQrCodeModalTitle: appLocale.intl.formatMessage({
-              // oxlint-disable-next-line @cspell/spellchecker
-              id: ETranslations.scan_to_create_an_address,
-            }),
-          },
-        );
+      if (getAddressCreationRequestState(addressCreationRequest) !== 'active') {
+        throw new OneKeyErrorScanQrCodeCancel();
+      }
+      const { serviceQrWallet } = backgroundApiProxy;
+      const scanSignal = getAddressCreationRequestSignal(
+        addressCreationRequest,
+      );
+      const assertCanCreate = addressCreationRequest
+        ? () => {
+            // The legacy child may finish before navigation restores scanner focus.
+            if (
+              scanSignal?.aborted ??
+              getAddressCreationRequestState(addressCreationRequest) !==
+                'active'
+            ) {
+              throw new OneKeyErrorScanQrCodeCancel();
+            }
+          }
+        : undefined;
+      const cancel = () => {
+        if (addressCreationRequest) {
+          void serviceQrWallet
+            .cancelQrWalletAddressCreate({ owner: addressCreationRequest.id })
+            .catch(() => undefined);
+        }
+      };
+      scanSignal?.addEventListener('abort', cancel, { once: true });
+      let urJson: IAirGapUrJson;
+      try {
+        urJson = await serviceQrWallet.prepareQrcodeWalletAddressCreate({
+          walletId,
+          networkId,
+          indexedAccountId,
+          addressCreationRequest,
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          appQrCodeModalTitle: appLocale.intl.formatMessage({
+            // oxlint-disable-next-line @cspell/spellchecker
+            id: ETranslations.scan_to_create_an_address,
+          }),
+        });
+      } finally {
+        scanSignal?.removeEventListener('abort', cancel);
+      }
+      assertCanCreate?.();
       const result = await createQrWalletByUr({
         urJson,
         byDevice,
         byWallet,
         isCreateAccountAction: true,
+        assertCanCreate,
       });
       return result;
     },

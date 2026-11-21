@@ -1111,7 +1111,7 @@ export class InvalidLightningPaymentRequest extends OneKeyAppError {
   }
 }
 
-export class RetryableLightningInvoiceDecodeError extends OneKeyAppError {}
+export class RetryableLightningScanError extends OneKeyAppError {}
 
 export function isRetryableLightningInvoiceDecodeFailure(
   error: unknown,

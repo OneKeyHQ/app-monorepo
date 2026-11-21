@@ -3,7 +3,7 @@ import { UrScanRejectedError } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
 import {
   InvoiceExpiredError,
   OneKeyErrorAirGapInvalidQrCode,
-  RetryableLightningInvoiceDecodeError,
+  RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -57,7 +57,7 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
       }
       if (
         error instanceof InvoiceExpiredError ||
-        error instanceof RetryableLightningInvoiceDecodeError
+        error instanceof RetryableLightningScanError
       ) {
         throw error;
       }

@@ -106,6 +106,8 @@ class ServiceQrWallet extends ServiceBase {
   /** Each cancellation is consumed by its delayed start, independently of other callers. */
   private cancelledStageAirGapOwners = new Set<string>();
 
+  private pendingAddressCreationOwners = new Set<string>();
+
   /** True once for the owner that cancelled early: its session must not open. */
   private takeCancelledStageAirGapOwner(owner: string | undefined) {
     return owner !== undefined && this.cancelledStageAirGapOwners.delete(owner);
@@ -594,22 +596,41 @@ class ServiceQrWallet extends ServiceBase {
   }
 
   @backgroundMethod()
+  async cancelQrWalletAddressCreate({ owner }: { owner: string }) {
+    if (this.pendingAddressCreationOwners.has(owner)) {
+      await this.cancelStageAirGapScan({ owner, scanning: true });
+    }
+  }
+
+  @backgroundMethod()
   @toastIfError()
-  async prepareQrcodeWalletAddressCreate({
-    walletId,
-    networkId,
-    indexedAccountId,
-    appQrCodeModalTitle,
-    addressCreationRequest,
-  }: // deriveType,
-  {
+  async prepareQrcodeWalletAddressCreate(params: {
     walletId: IDBWalletId;
     networkId: string;
     indexedAccountId: string;
     appQrCodeModalTitle?: string;
     addressCreationRequest?: IAddressCreationRequest;
-    // deriveType: IAccountDeriveTypes;
   }): Promise<IAirGapUrJson> {
+    const owner = params.addressCreationRequest?.id;
+    if (!owner) return this.prepareQrcodeWalletAddressCreateCore(params);
+    this.pendingAddressCreationOwners.add(owner);
+    try {
+      return await this.prepareQrcodeWalletAddressCreateCore(params);
+    } finally {
+      this.pendingAddressCreationOwners.delete(owner);
+      this.cancelledStageAirGapOwners.delete(owner);
+    }
+  }
+
+  private async prepareQrcodeWalletAddressCreateCore({
+    walletId,
+    networkId,
+    indexedAccountId,
+    appQrCodeModalTitle,
+    addressCreationRequest,
+  }: Parameters<
+    ServiceQrWallet['prepareQrcodeWalletAddressCreate']
+  >[0]): Promise<IAirGapUrJson> {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
@@ -687,6 +708,7 @@ class ServiceQrWallet extends ServiceBase {
       requestUr: request.toUR(),
       appQrCodeModalTitle,
       addressCreationRequest,
+      owner: addressCreationRequest?.id,
     });
 
     const jsonData = airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });

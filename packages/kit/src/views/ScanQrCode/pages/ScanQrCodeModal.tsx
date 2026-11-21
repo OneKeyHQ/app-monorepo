@@ -246,6 +246,7 @@ export default function ScanQrCodeModal() {
   } | null>(null);
   const isFocused = useRef(false);
   const scanGeneration = useRef(0);
+  const photoAttemptId = useRef(0);
   const handoffOwner = useRef<symbol | undefined>(undefined);
   const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
   const route =
@@ -346,6 +347,7 @@ export default function ScanQrCodeModal() {
         childScanScope.current = retained;
         handoffOwner.current = resultOwner;
         scanGeneration.current += 1;
+        photoAttemptId.current += 1;
         resultGeneration = scanGeneration.current;
         return () => {
           if (childScanScope.current !== retained) return;
@@ -384,21 +386,20 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
-  const photoSelectionId = useRef(0);
   const submitPhoto = useCallback(
     async function submitPhoto(
       data: string,
       signal: AbortSignal | undefined,
-      selectionId: number,
+      attemptId: number,
       generation: number,
     ) {
       const canRetry = () =>
-        photoSelectionId.current === selectionId &&
-        scanGeneration.current === generation &&
+        photoAttemptId.current === attemptId &&
         !handoffOwner.current &&
         isScanActive(signal);
       const { retry } = await callback(data, signal, generation);
-      if (!retry || !canRetry()) return;
+      if (!retry || scanGeneration.current !== generation || !canRetry())
+        return;
 
       Toast.error({
         toastId: photoRetryToastId,
@@ -409,12 +410,13 @@ export default function ScanQrCodeModal() {
             if (isPickingImage.current || !canRetry()) return;
             isPickingImage.current = true;
             scanGeneration.current += 1;
+            photoAttemptId.current += 1;
             Toast.dismiss(photoRetryToastId);
             try {
               await submitPhoto(
                 data,
                 signal,
-                selectionId,
+                photoAttemptId.current,
                 scanGeneration.current,
               );
             } finally {
@@ -443,8 +445,8 @@ export default function ScanQrCodeModal() {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
 
-      const selectionId = photoSelectionId.current + 1;
-      photoSelectionId.current = selectionId;
+      photoAttemptId.current += 1;
+      const attemptId = photoAttemptId.current;
       Toast.dismiss(photoRetryToastId);
       const { uri } = result;
       let data: string | null = null;
@@ -456,7 +458,7 @@ export default function ScanQrCodeModal() {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data) {
-        await submitPhoto(data, signal, selectionId, generation);
+        await submitPhoto(data, signal, attemptId, generation);
       } else if (
         generation === scanGeneration.current &&
         isScanActive(signal)

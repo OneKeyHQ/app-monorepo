@@ -3709,6 +3709,27 @@ describe('useAccountSelectorActions', () => {
       deviceId: 'qr-device-1',
     } as unknown as IDBCreateQRWalletParams['qrDevice'];
 
+    it('checks the scanner request immediately before persisting QR accounts', async () => {
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const error = new Error('The scan was cancelled while the action loaded');
+      const assertCanCreate = jest.fn(() => {
+        throw error;
+      });
+
+      await expect(
+        result.current.createQrWallet({
+          qrDevice,
+          airGapAccounts: [],
+          assertCanCreate,
+        }),
+      ).rejects.toBe(error);
+      expect(assertCanCreate).toHaveBeenCalledTimes(1);
+      expect(mockCreateQrWalletService).not.toHaveBeenCalled();
+    });
+
     function seedAllNetworksSelection(
       store: ReturnType<typeof createWrapper>['store'],
     ) {

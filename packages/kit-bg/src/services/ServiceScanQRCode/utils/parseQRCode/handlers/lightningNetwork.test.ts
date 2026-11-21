@@ -1,8 +1,15 @@
+import { AxiosError } from 'axios';
 import { bech32 } from 'bech32';
 
 import ClientLightning from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
+import {
+  InvoiceExpiredError,
+  OneKeyError,
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
 import {
   EQRCodeHandlerNames,
@@ -217,6 +224,49 @@ it('resolves a recognized LNURL URI and preserves its scheme for validation', as
     toVal: address,
     networkId: getNetworkIdsMap().lightning,
   });
+});
+
+it.each([
+  ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
+  [
+    'HTTP 429',
+    Object.assign(new Error('rate limited'), { httpStatusCode: 429 }),
+  ],
+  ['a timeout', new AxiosError('timeout', AxiosError.ECONNABORTED)],
+  [
+    'an offline connection',
+    new OneKeyError({ className: EOneKeyErrorClassNames.AxiosNetworkError }),
+  ],
+])('keeps an LNURL scan retryable after %s', async (_label, error) => {
+  const { options, findAndValidateLnurl } = setup();
+  findAndValidateLnurl.mockRejectedValueOnce(error);
+  const parseOptions = {
+    ...options,
+    handlers: [EQRCodeHandlerNames.lightningNetwork],
+  };
+  const value = 'lightning:satoshi@example.com';
+
+  await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
+    autoToast: false,
+  });
+  await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+  });
+});
+
+it.each([
+  new OneKeyServerApiError({ httpStatusCode: 400 }),
+  new OneKeyLocalError('Invalid lnurl'),
+])('keeps the copy fallback for an invalid LNURL', async (error) => {
+  const { options, findAndValidateLnurl } = setup();
+  findAndValidateLnurl.mockRejectedValueOnce(error);
+
+  await expect(
+    parseQRCode(LNURL, {
+      ...options,
+      handlers: [EQRCodeHandlerNames.lightningNetwork],
+    }),
+  ).resolves.toMatchObject({ type: EQRCodeHandlerType.UNKNOWN });
 });
 
 it('retries an invoice after a transient decoder failure', async () => {

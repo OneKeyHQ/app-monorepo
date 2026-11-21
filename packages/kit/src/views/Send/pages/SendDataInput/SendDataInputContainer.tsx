@@ -28,6 +28,7 @@ import {
   Toast,
   XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -692,6 +693,11 @@ function SendDataInputContainer() {
       if (!toResolved) return;
       const submittedRaw = form.getValues('to')?.raw;
       const getCurrentLightningRecipient = () => {
+        if (
+          isUnmountedRef.current ||
+          rootNavigationRef.current?.getCurrentRoute()?.key !== route.key
+        )
+          return undefined;
         const recipient = form.getValues('to');
         if (
           !recipient?.pending &&
@@ -799,6 +805,7 @@ function SendDataInputContainer() {
               networkId: currentAccount.networkId,
               accountId: currentAccount.accountId,
             });
+          if (!getCurrentLightningRecipient()) return;
           if (!isZeroAmount) {
             const decoded =
               await backgroundApiProxy.serviceLightning.decodedInvoice({
@@ -954,6 +961,7 @@ function SendDataInputContainer() {
     intl,
     network?.name,
     isZcashMemo,
+    route.key,
   ]);
 
   const handleNavigateToAmountInput = useCallback(async () => {

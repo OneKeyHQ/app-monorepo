@@ -4127,6 +4127,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       params: IDBCreateQRWalletParams & {
         isOnboarding?: boolean;
+        assertCanCreate?: () => void;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -4136,6 +4137,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (!qrDevice) {
             throw new OneKeyLocalError('qrDevice is required');
           }
+          params.assertCanCreate?.();
           const result = await serviceAccount.createQrWallet({
             qrDevice,
             airGapAccounts,

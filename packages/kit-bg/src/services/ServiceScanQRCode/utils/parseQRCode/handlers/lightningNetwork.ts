@@ -1,9 +1,15 @@
+import { isAxiosError, isCancel } from 'axios';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   InvoiceExpiredError,
-  RetryableLightningInvoiceDecodeError,
+  RetryableLightningScanError,
   isRetryableLightningInvoiceDecodeFailure,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   findLnurl,
   getLightningInvoiceNetwork,
@@ -47,7 +53,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
       .decodedInvoice(address)
       .catch((error: unknown) => {
         if (isRetryableLightningInvoiceDecodeFailure(error)) {
-          throw new RetryableLightningInvoiceDecodeError({
+          throw new RetryableLightningScanError({
             message: 'Lightning invoice decoding temporarily unavailable',
             autoToast: false,
           });
@@ -72,10 +78,27 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
   const network = await backgroundApi.serviceNetwork.getNetwork({ networkId });
   const lnurlDetails =
     lnurl || isAddress
-      ? await backgroundApi.serviceLightning.findAndValidateLnurl({
-          toVal: address,
-          networkId: network.id,
-        })
+      ? await backgroundApi.serviceLightning
+          .findAndValidateLnurl({ toVal: address, networkId: network.id })
+          .catch((error: unknown) => {
+            const requestError = error as IOneKeyError | undefined;
+            const isRequestError =
+              requestError?.httpStatusCode !== undefined ||
+              requestError?.className ===
+                EOneKeyErrorClassNames.AxiosNetworkError ||
+              (isAxiosError(error) && !isCancel(error));
+            if (
+              isRequestError &&
+              isRetryableLightningInvoiceDecodeFailure(error)
+            ) {
+              throw new RetryableLightningScanError({
+                message:
+                  'Lightning recipient validation temporarily unavailable',
+                autoToast: false,
+              });
+            }
+            throw error;
+          })
       : undefined;
 
   return {

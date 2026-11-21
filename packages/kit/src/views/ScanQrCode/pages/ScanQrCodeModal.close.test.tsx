@@ -2,7 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -567,6 +573,44 @@ test('only the most recently selected photo can be retried', async () => {
     'first invoice',
     'second invoice',
     'second invoice',
+  ]);
+});
+
+test('cancelling the picker preserves the previous photo retry once', async () => {
+  const picker = jest.mocked(PhotoLibrary.pickImage);
+  picker
+    .mockReset()
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://retry-photo' })
+    .mockResolvedValueOnce({ canceled: true });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
+  jest
+    .mocked(scanFromURLAsync)
+    .mockReset()
+    .mockResolvedValueOnce('invoice from photo');
+  mockRouteCallback.mockResolvedValueOnce({ retry: true });
+  render(<ScanQrCodeModal />);
+  const pickerButton = screen.getByRole('button', { name: 'Pick image' });
+  fireEvent.click(pickerButton);
+  await waitFor(() =>
+    expect(Toast.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions: expect.objectContaining({ onPress: expect.any(Function) }),
+      }),
+    ),
+  );
+  const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
+  const retry = Array.isArray(actions) ? actions[0] : actions;
+  await act(async () => {
+    fireEvent.click(pickerButton);
+  });
+  expect(picker).toHaveBeenCalledTimes(2);
+  expect(retry?.onPress).toEqual(expect.any(Function));
+
+  await retry?.onPress?.();
+  await retry?.onPress?.();
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'invoice from photo',
+    'invoice from photo',
   ]);
 });
 
