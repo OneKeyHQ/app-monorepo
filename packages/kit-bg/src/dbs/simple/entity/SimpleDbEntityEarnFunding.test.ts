@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityEarnFunding } from './SimpleDbEntityEarnFunding';
@@ -9,6 +10,90 @@ function createFundingEntity(storage = createMemoryStorage(null)) {
 }
 
 const scope = 'wallet-a|evm--1|wallet-a-base|evm--8453|vault-a';
+
+it('recovers only the original destination attempt and source from its unique UUID', async () => {
+  const { entity, storage } = createFundingEntity();
+  await entity.changeFunding('source', { type: 'claim', attemptId: 'swap' });
+  await entity.changeFunding('source', {
+    type: 'submitted',
+    attemptId: 'swap',
+    txId: 'swap-tx',
+  });
+  await entity.changeFunding('source', {
+    type: 'settled',
+    txId: 'swap-tx',
+    receivedAmount: '2',
+  });
+  const recovery = {
+    uuid: 'destination-uuid',
+    accountId: 'wallet-a',
+    networkId: 'evm--1',
+    accountAddress: '0xowner',
+  };
+  await entity.changeFunding(scope, {
+    type: 'claim',
+    attemptId: 'destination-attempt',
+    intentAmount: '1',
+    source: { scope: 'source', txId: 'swap-tx' },
+    destinationRecovery: recovery,
+  });
+  const restarted = createFundingEntity(storage).entity;
+  const candidate = await restarted.getDestinationRecoveryCandidate(scope);
+  if (!candidate) throw new OneKeyLocalError('Missing destination candidate');
+  await restarted.changeFunding('other', {
+    type: 'claim',
+    attemptId: 'other',
+    swapTxUuid: recovery.uuid,
+  });
+  expect(
+    await restarted.getDestinationRecoveryCandidate(scope),
+  ).toBeUndefined();
+  expect(
+    (await restarted.recoverDestinationFunding(scope, candidate, 'deposit-tx'))
+      .applied,
+  ).toBe(false);
+  await restarted.changeFunding('other', {
+    type: 'cancelled',
+    attemptId: 'other',
+  });
+  expect(
+    (
+      await restarted.recoverDestinationFunding(
+        scope,
+        { ...candidate, attemptId: 'old' },
+        'deposit-tx',
+      )
+    ).applied,
+  ).toBe(false);
+  expect(
+    (
+      await restarted.recoverDestinationFunding(
+        scope,
+        { ...candidate, recovery: { ...recovery, uuid: 'wrong' } },
+        'deposit-tx',
+      )
+    ).applied,
+  ).toBe(false);
+  expect(
+    (await restarted.recoverDestinationFunding(scope, candidate, 'deposit-tx'))
+      .funding,
+  ).toMatchObject({
+    status: 'submitted',
+    txId: 'deposit-tx',
+    source: { scope: 'source', txId: 'swap-tx' },
+    destinationRecovery: recovery,
+  });
+  expect(
+    (
+      await restarted.changeFunding(scope, {
+        type: 'submitted',
+        attemptId: 'destination-attempt',
+        txId: 'DEPOSIT-TX',
+      })
+    ).funding,
+  ).toMatchObject({ status: 'submitted', txId: 'deposit-tx' });
+  expect((await restarted.getFunding('source'))?.status).toBe('funded');
+});
 
 const swapRecovery = {
   sender: {

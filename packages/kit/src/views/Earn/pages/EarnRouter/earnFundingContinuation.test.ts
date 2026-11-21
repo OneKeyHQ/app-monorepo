@@ -8,6 +8,7 @@ import {
 } from './earnFundingContinuation';
 import {
   completeEarnFunding,
+  recoverEarnFundingDestination,
   refreshEarnFunding,
   releaseEarnFunding,
   reserveEarnFunding,
@@ -21,6 +22,7 @@ jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
 jest.mock('./earnFundingRegistry', () => ({
   completeEarnFunding: jest.fn(),
   refreshEarnFunding: jest.fn(),
+  recoverEarnFundingDestination: jest.fn(),
   releaseEarnFunding: jest.fn(),
   reserveEarnFunding: jest.fn(),
   settleEarnFunding: jest.fn(),
@@ -34,6 +36,17 @@ const scope = {
   accountId: 'account',
   networkId: 'evm--1',
   accountAddress: '0xaccount',
+};
+
+const destinationTx = {
+  unsignedTxs: [
+    {
+      encodedTx: '0x',
+      uuid: 'destination-uuid',
+      accountId: 'account',
+      networkId: 'evm--1',
+    },
+  ],
 };
 
 function makeReservation() {
@@ -50,6 +63,89 @@ beforeEach(() => {
   jest.mocked(completeEarnFunding).mockResolvedValue(true);
 });
 
+it('does not claim funding for missing, multiple or mismatched destination transactions', async () => {
+  const reservation = makeReservation();
+  jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
+  const guard = reserveEarnFundingContinuation(scope);
+  if (!guard) throw new OneKeyLocalError('Missing reservation');
+  await expect(guard.beforeSend()).rejects.toThrow(
+    'Missing destination transaction identity',
+  );
+  await expect(
+    guard.beforeSend({
+      unsignedTxs: [...destinationTx.unsignedTxs, ...destinationTx.unsignedTxs],
+    }),
+  ).rejects.toThrow('Missing destination transaction identity');
+  await expect(
+    guard.beforeSend({
+      unsignedTxs: [{ ...destinationTx.unsignedTxs[0], accountId: 'other' }],
+    }),
+  ).rejects.toThrow('Missing destination transaction identity');
+  await expect(
+    guard.beforeSend({
+      unsignedTxs: [{ ...destinationTx.unsignedTxs[0], networkId: 'evm--2' }],
+    }),
+  ).rejects.toThrow('Missing destination transaction identity');
+  await expect(
+    guard.beforeSend({
+      unsignedTxs: [
+        {
+          ...destinationTx.unsignedTxs[0],
+          approveInfo: {
+            owner: '0xaccount',
+            spender: '0xspender',
+            amount: '1',
+          },
+        },
+      ],
+    }),
+  ).rejects.toThrow('Missing destination transaction identity');
+  expect(reservation.markUnknown).not.toHaveBeenCalled();
+});
+
+it.each([EOnChainHistoryTxStatus.Success, EOnChainHistoryTxStatus.Failed])(
+  'recovers an unknown destination before reconciling its %s chain status',
+  async (status) => {
+    const recovery = {
+      uuid: 'destination-uuid',
+      accountId: scope.accountId,
+      networkId: scope.networkId,
+      accountAddress: scope.accountAddress,
+    };
+    jest
+      .mocked(refreshEarnFunding)
+      .mockResolvedValue({ status: 'unknown', destinationRecovery: recovery });
+    jest.mocked(recoverEarnFundingDestination).mockResolvedValue({
+      status: 'submitted',
+      txId: 'deposit-tx',
+      intentAmount: '1.5',
+      destinationRecovery: recovery,
+    });
+    jest.mocked(waitForTxFinalStatus).mockResolvedValue(status);
+    await expect(reconcileEarnFundingContinuation(scope)).resolves.toBe(
+      status === EOnChainHistoryTxStatus.Success ? 'confirmed' : 'failed',
+    );
+    if (status === EOnChainHistoryTxStatus.Success) {
+      expect(settleEarnFunding).toHaveBeenCalledWith(
+        'destination',
+        'deposit-tx',
+        '1.5',
+      );
+      expect(completeEarnFunding).toHaveBeenCalledWith(
+        'destination',
+        'deposit-tx',
+      );
+      expect(releaseEarnFunding).not.toHaveBeenCalled();
+    } else {
+      expect(releaseEarnFunding).toHaveBeenCalledWith(
+        'destination',
+        'deposit-tx',
+      );
+      expect(completeEarnFunding).not.toHaveBeenCalled();
+    }
+  },
+);
+
 it('claims the exact source and retains it after broadcast until chain confirmation', async () => {
   const reservation = makeReservation();
   jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
@@ -59,8 +155,14 @@ it('claims the exact source and retains it after broadcast until chain confirmat
     amount: '1.5',
     source: { scope: 'source', txId: 'swap-tx' },
   });
-  await guard?.beforeSend();
+  await guard?.beforeSend(destinationTx);
   expect(reservation.markUnknown).toHaveBeenCalledTimes(1);
+  expect(reservation.markUnknown).toHaveBeenCalledWith(undefined, undefined, {
+    uuid: 'destination-uuid',
+    accountId: 'account',
+    networkId: 'evm--1',
+    accountAddress: '0xaccount',
+  });
   expect(completeEarnFunding).not.toHaveBeenCalled();
   await Promise.all([
     guard?.onAccepted('deposit-tx'),
@@ -84,7 +186,7 @@ it('waits for an in-flight claim before releasing a safely cancelled attempt', a
   jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
   const guard = reserveEarnFundingContinuation(scope);
   if (!guard) throw new OneKeyLocalError('Missing reservation');
-  const sending = guard.beforeSend();
+  const sending = guard.beforeSend(destinationTx);
   const cancellation = guard.onSafeCancel();
   expect(reservation.release).not.toHaveBeenCalled();
   resolveClaim?.();
@@ -106,7 +208,7 @@ it('does not release an accepted destination while its transaction is being reco
   jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
   const guard = reserveEarnFundingContinuation(scope);
   if (!guard) throw new OneKeyLocalError('Missing reservation');
-  await guard.beforeSend();
+  await guard.beforeSend(destinationTx);
   const accepted = guard.onAccepted('deposit-tx');
   await Promise.resolve();
   await guard.onSafeCancel();
@@ -174,12 +276,27 @@ it('keeps an unresolved transaction locked and rejects a different txid', async 
   expect(completeEarnFunding).not.toHaveBeenCalled();
 });
 
+it('accepts the same EVM destination hash with different casing', async () => {
+  jest.mocked(refreshEarnFunding).mockResolvedValue({
+    status: 'submitted',
+    txId: '0xabc',
+    intentAmount: '1.5',
+  });
+  jest
+    .mocked(waitForTxFinalStatus)
+    .mockResolvedValue(EOnChainHistoryTxStatus.Success);
+  await expect(
+    reconcileEarnFundingContinuation({ ...scope, expectedTxId: '0xABC' }),
+  ).resolves.toBe('confirmed');
+  expect(completeEarnFunding).toHaveBeenCalledWith('destination', '0xabc');
+});
+
 it('refuses a missing destination txid and keeps the source receipt', async () => {
   const reservation = makeReservation();
   jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
   const guard = reserveEarnFundingContinuation(scope);
   if (!guard) throw new OneKeyLocalError('Missing reservation');
-  await guard.beforeSend();
+  await guard.beforeSend(destinationTx);
   await expect(guard.onAccepted('  ')).rejects.toThrow(
     'Missing destination transaction ID',
   );
@@ -194,13 +311,13 @@ it('only releases a not-started operation before its send guard begins', async (
   if (!first) throw new OneKeyLocalError('Missing reservation');
   await first.onNotStarted();
   expect(reservation.release).toHaveBeenCalledTimes(1);
-  await expect(first.beforeSend()).rejects.toThrow('cancelled');
+  await expect(first.beforeSend(destinationTx)).rejects.toThrow('cancelled');
 
   const nextReservation = makeReservation();
   jest.mocked(reserveEarnFunding).mockReturnValue(nextReservation);
   const second = reserveEarnFundingContinuation(scope);
   if (!second) throw new OneKeyLocalError('Missing reservation');
-  await second.beforeSend();
+  await second.beforeSend(destinationTx);
   await second.onNotStarted();
   expect(nextReservation.release).not.toHaveBeenCalled();
 });

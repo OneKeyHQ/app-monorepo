@@ -1,3 +1,4 @@
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { createEarnConfirmationTaskAdapter } from '@onekeyhq/kit/src/views/Earn/tasks/confirmationTaskAdapter';
@@ -71,7 +72,9 @@ export type IBorrowWorkflowHandoff = {
 };
 
 export type IBorrowFundingGuard = {
-  beforeSend: () => Promise<void>;
+  beforeSend: (params?: {
+    unsignedTxs?: readonly IUnsignedTxPro[];
+  }) => Promise<void>;
   onAccepted: (txid: string) => Promise<void>;
   onSafeCancel: () => Promise<void>;
 };
@@ -218,6 +221,7 @@ export function createBorrowConfirmationAdapter<
       navigationToTxConfirm({
         encodedTx: prepared.encodedTx,
         stakingInfo: prepared.stakingInfo,
+        ...(fundingGuard ? { preserveBatchTxIds: true } : {}),
         onSuccess: (data) => {
           const txid = getBorrowTxid(data);
           if (txid) reportFundingAccepted(txid);
@@ -278,7 +282,7 @@ export function createBorrowConfirmationAdapter<
           if (!sendObserved && !beforeSendPending) releaseSafeFunding();
           callbacks.onCancel();
         },
-        onBeforeSend: async () => {
+        onBeforeSend: async (sendParams) => {
           if (!fundingGuard) {
             await verifyAccount();
             callbacks.onSendObserved();
@@ -293,7 +297,7 @@ export function createBorrowConfirmationAdapter<
           beforeSendPending = true;
           try {
             await verifyAccount();
-            await fundingGuard.beforeSend();
+            await fundingGuard.beforeSend(sendParams);
             if (cancelled)
               throw new OneKeyLocalError('Borrow confirmation cancelled');
             await verifyAccount();

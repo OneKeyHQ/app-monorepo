@@ -1,11 +1,16 @@
 import BigNumber from 'bignumber.js';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IEarnDestinationRecovery } from '@onekeyhq/shared/types/earn/funding';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import {
   completeEarnFunding,
+  recoverEarnFundingDestination,
   refreshEarnFunding,
   releaseEarnFunding,
   reserveEarnFunding,
@@ -27,14 +32,31 @@ export async function reconcileEarnFundingContinuation({
   accountAddress,
   expectedTxId,
 }: IContinuationIdentity & { expectedTxId?: string }) {
-  const current = await refreshEarnFunding(depositKey);
+  let current = await refreshEarnFunding(depositKey);
+  if (current?.status === 'unknown' && current.destinationRecovery) {
+    const recovery = current.destinationRecovery;
+    if (
+      recovery.accountId !== accountId ||
+      recovery.networkId !== networkId ||
+      normalizeTaskAccountAddress(networkId, recovery.accountAddress) !==
+        normalizeTaskAccountAddress(networkId, accountAddress)
+    )
+      return 'pending' as const;
+    current = (await recoverEarnFundingDestination(depositKey)) ?? undefined;
+  }
   if (
     !current ||
     current.status === 'preparing' ||
     current.status === 'unknown'
   )
     return 'pending' as const;
-  if (expectedTxId && current.txId !== expectedTxId) return 'pending' as const;
+  if (
+    expectedTxId &&
+    (networkUtils.isEvmNetwork({ networkId })
+      ? current.txId.toLowerCase() !== expectedTxId.toLowerCase()
+      : current.txId !== expectedTxId)
+  )
+    return 'pending' as const;
   if (current.status === 'funded') {
     return (await completeEarnFunding(depositKey, current.txId))
       ? ('confirmed' as const)
@@ -94,10 +116,10 @@ export function reserveEarnFundingContinuation({
   let claim: Promise<void> | undefined;
   let release: Promise<void> | undefined;
   const accepted = new Map<string, Promise<void>>();
-  const startClaim = () => {
+  const startClaim = (recovery?: IEarnDestinationRecovery) => {
     if (cancelled)
       throw new OneKeyLocalError('Earn funding continuation was cancelled');
-    claim ??= reservation.markUnknown();
+    claim ??= reservation.markUnknown(undefined, undefined, recovery);
     return claim;
   };
   const onSafeCancel = () => {
@@ -114,13 +136,24 @@ export function reserveEarnFundingContinuation({
     return release;
   };
   return {
-    beforeSend: async () => {
-      await startClaim();
+    beforeSend: async (params?: {
+      unsignedTxs?: readonly IUnsignedTxPro[];
+    }) => {
+      const tx =
+        params?.unsignedTxs?.length === 1 ? params.unsignedTxs[0] : undefined;
+      if (
+        !tx?.uuid?.trim() ||
+        tx.approveInfo ||
+        (tx.accountId && tx.accountId !== accountId) ||
+        (tx.networkId && tx.networkId !== networkId)
+      )
+        throw new OneKeyLocalError('Missing destination transaction identity');
+      await startClaim({ uuid: tx.uuid, accountId, networkId, accountAddress });
       if (cancelled)
         throw new OneKeyLocalError('Earn funding continuation was cancelled');
     },
     onSafeCancel,
-    onUncertain: startClaim,
+    onUncertain: () => startClaim(),
     onNotStarted: () => (claim ? Promise.resolve() : onSafeCancel()),
     onAccepted: (txId: string) => {
       const id = txId.trim();

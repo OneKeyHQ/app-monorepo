@@ -65,7 +65,10 @@ type IConfirmParams = {
   onConfirmationFail?: (error: Error) => void;
   onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    unsignedTxs?: readonly import('@onekeyhq/core/src/types').IUnsignedTxPro[];
+  }) => void | Promise<void>;
+  preserveBatchTxIds?: boolean;
   onLateBroadcastAccepted?: (
     fact: IBroadcastAcceptedFact,
   ) => void | Promise<void>;
@@ -455,8 +458,10 @@ describe('useUniversalStake deposits and wrapping', () => {
     const confirmation = mockNavigate.mock.calls[0][0];
     expect(guard.beforeSend).not.toHaveBeenCalled();
 
-    await confirmation.onBeforeSend?.();
-    expect(guard.beforeSend).toHaveBeenCalledTimes(1);
+    const context = { unsignedTxs: [{ uuid: 'stake-uuid', encodedTx: '0x' }] };
+    await confirmation.onBeforeSend?.(context);
+    expect(guard.beforeSend).toHaveBeenCalledWith(context);
+    expect(confirmation.preserveBatchTxIds).toBe(true);
     const completed = confirmation.onSuccess?.(successData('stake-tx'));
     await waitFor(() =>
       expect(guard.onAccepted).toHaveBeenCalledWith('stake-tx'),
@@ -465,6 +470,28 @@ describe('useUniversalStake deposits and wrapping', () => {
     saved.resolve(undefined);
     await completed;
     expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps funding reserved when a second Stake send is rejected after an unknown first send', async () => {
+    const guard = createFundingGuard();
+    mockNavigate.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUniversalStake(account));
+    await result.current({
+      ...params,
+      stakeType: 'normal',
+      fundingGuard: guard,
+    });
+    const confirmation = mockNavigate.mock.calls[0][0];
+    const context = { unsignedTxs: [{ uuid: 'stake-uuid', encodedTx: '0x' }] };
+    await confirmation.onBeforeSend?.(context);
+    confirmation.onConfirmationFail?.(new Error('unknown broadcast'));
+    await expect(confirmation.onBeforeSend?.(context)).rejects.toThrow(
+      'Stake confirmation closed',
+    );
+    confirmation.onSafePreSendFail?.(new Error('retry blocked'));
+    await Promise.resolve();
+    expect(guard.onSafeCancel).not.toHaveBeenCalled();
+    expect(guard.onUncertain).toHaveBeenCalled();
   });
 
   it('records only the matching late Stake broadcast after the form closes', async () => {

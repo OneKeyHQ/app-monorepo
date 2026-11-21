@@ -114,6 +114,102 @@ describe('recovering an Earn swap broadcast', () => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
   });
 
+  it('restores a destination only after verifying its account and accepted transaction', async () => {
+    const candidate = {
+      attemptId: 'attempt',
+      source: { scope: 'source', txId: 'swap' },
+      recovery: {
+        uuid: 'deposit-uuid',
+        accountId: 'account',
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      },
+    };
+    const funding = {
+      status: 'unknown' as const,
+      destinationRecovery: candidate.recovery,
+    };
+    const getFunding = jest.fn(async () => funding);
+    const getDestinationRecoveryCandidate = jest.fn(async () => candidate);
+    const recoverDestinationFunding = jest.fn(async () => ({
+      applied: true,
+      funding: { status: 'submitted', txId: 'deposit-tx' },
+    }));
+    const getAccountAddressForApi = jest.fn().mockResolvedValue('0xABC');
+    const resolveBroadcastAcceptanceFactByUuid = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 'unknown' })
+      .mockResolvedValue({
+        status: 'accepted',
+        uuid: 'deposit-uuid',
+        accountId: 'account',
+        networkId: 'evm--1',
+        txid: 'deposit-tx',
+      });
+    const service = new ServiceStaking({
+      backgroundApi: {
+        serviceAccount: { getAccountAddressForApi },
+        serviceSend: { resolveBroadcastAcceptanceFactByUuid },
+      },
+    });
+    Reflect.set(service, 'earnFunding', {
+      getFunding,
+      getDestinationRecoveryCandidate,
+      recoverDestinationFunding,
+    });
+    await expect(
+      service.recoverEarnFundingDestination('destination'),
+    ).resolves.toEqual(funding);
+    expect(recoverDestinationFunding).not.toHaveBeenCalled();
+    getAccountAddressForApi
+      .mockResolvedValueOnce('0xabc')
+      .mockResolvedValueOnce('0xother');
+    await expect(
+      service.recoverEarnFundingDestination('destination'),
+    ).resolves.toEqual(funding);
+    expect(recoverDestinationFunding).not.toHaveBeenCalled();
+    await service.recoverEarnFundingDestination('destination');
+    expect(recoverDestinationFunding).toHaveBeenCalledWith(
+      'destination',
+      candidate,
+      'deposit-tx',
+    );
+  });
+
+  it('does not infer an external destination from the wallet-reported hash', async () => {
+    const candidate = {
+      attemptId: 'attempt',
+      source: { scope: 'source', txId: 'swap' },
+      recovery: {
+        uuid: 'deposit-uuid',
+        accountId: 'external--wc--topic--evm',
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      },
+    };
+    const funding = {
+      status: 'unknown' as const,
+      destinationRecovery: candidate.recovery,
+    };
+    const getFunding = jest.fn(async () => funding);
+    const getDestinationRecoveryCandidate = jest.fn(async () => candidate);
+    const recoverDestinationFunding = jest.fn();
+    const resolveBroadcastAcceptanceFactByUuid = jest.fn();
+    const service = new ServiceStaking({
+      backgroundApi: { serviceSend: { resolveBroadcastAcceptanceFactByUuid } },
+    });
+    Reflect.set(service, 'earnFunding', {
+      getFunding,
+      getDestinationRecoveryCandidate,
+      recoverDestinationFunding,
+    });
+    await expect(
+      service.recoverEarnFundingDestination('destination'),
+    ).resolves.toEqual(funding);
+    expect(resolveBroadcastAcceptanceFactByUuid).not.toHaveBeenCalled();
+    expect(recoverDestinationFunding).not.toHaveBeenCalled();
+  });
+
   it('promotes only a persisted accepted fact for the stored UUID and account', async () => {
     const funding = {
       status: 'unknown' as const,

@@ -3,6 +3,14 @@ export type IEarnFundingIntent = {
   positionBefore?: string;
   swapRecovery?: IEarnSwapRecovery;
   swapTxUuid?: string;
+  destinationRecovery?: IEarnDestinationRecovery;
+};
+
+export type IEarnDestinationRecovery = {
+  uuid: string;
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
 };
 
 export type IEarnSwapRecovery = {

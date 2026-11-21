@@ -594,8 +594,17 @@ const StakeSectionContent = ({
     setHandoff((prev) => (prev ? { ...prev, autoSubmitKey: undefined } : prev));
   }, []);
   const [isCheckingDestination, setIsCheckingDestination] = useState(false);
+  const destinationCheckRef = useRef<string | undefined>(undefined);
   const reconcileDestination = useCallback(async () => {
     if (!destinationKey || !destinationAccountAddress) return;
+    const checkKey = JSON.stringify([
+      destinationKey,
+      accountId,
+      networkId,
+      normalizeTaskAccountAddress(networkId, destinationAccountAddress),
+    ]);
+    if (destinationCheckRef.current === checkKey) return;
+    destinationCheckRef.current = checkKey;
     const isCurrent = handoffScope.capture();
     setIsCheckingDestination(true);
     try {
@@ -612,7 +621,10 @@ const StakeSectionContent = ({
         });
       }
     } finally {
-      if (isCurrent()) setIsCheckingDestination(false);
+      if (destinationCheckRef.current === checkKey) {
+        destinationCheckRef.current = undefined;
+        if (isCurrent()) setIsCheckingDestination(false);
+      }
     }
   }, [
     accountId,
@@ -624,9 +636,10 @@ const StakeSectionContent = ({
   ]);
   useEffect(() => setIsCheckingDestination(false), [destinationKey]);
   const trackedDestinationTxId =
-    destination?.status === 'submitted' || destination?.status === 'funded'
-      ? destination.txId
-      : undefined;
+    (destination && 'txId' in destination ? destination.txId : undefined) ??
+    (destination?.status === 'unknown'
+      ? destination.destinationRecovery?.uuid
+      : undefined);
   useEffect(() => {
     if (trackedDestinationTxId && !handoff) void reconcileDestination();
   }, [handoff, reconcileDestination, trackedDestinationTxId]);
@@ -639,7 +652,9 @@ const StakeSectionContent = ({
           id: ETranslations.earn_pending_transactions_data_out_of_sync,
         })}
         action={
-          destination.status === 'submitted' || destination.status === 'funded'
+          destination.status === 'submitted' ||
+          destination.status === 'funded' ||
+          (destination.status === 'unknown' && destination.destinationRecovery)
             ? {
                 primary: intl.formatMessage({
                   id: ETranslations.global_refresh,
@@ -1523,9 +1538,11 @@ const StakeSectionContent = ({
       };
       return {
         ...guard,
-        beforeSend: async () => {
+        beforeSend: async (
+          sendParams: Parameters<typeof guard.beforeSend>[0],
+        ) => {
           await assertCurrentFunding();
-          await guard.beforeSend();
+          await guard.beforeSend(sendParams);
           await assertCurrentFunding();
         },
       };

@@ -2894,7 +2894,10 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
 
 describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
   type ISupplyConfirmation = {
-    onBeforeSend: () => Promise<void>;
+    onBeforeSend: (params?: {
+      unsignedTxs?: readonly import('@onekeyhq/core/src/types').IUnsignedTxPro[];
+    }) => Promise<void>;
+    preserveBatchTxIds?: boolean;
     onCancel: () => void;
     onSafePreSendFail?: (error: Error) => void;
     onConfirmationFail: (error: Error) => void;
@@ -3010,13 +3013,16 @@ describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
       });
     });
     const confirmation = getConfirmation();
+    const context = { unsignedTxs: [{ uuid: 'supply-uuid', encodedTx: '0x' }] };
     await act(async () => {
-      await confirmation.onBeforeSend();
+      await confirmation.onBeforeSend(context);
       await confirmation.onSuccess([
         { signedTx: { txid: 'supply-tx' }, decodedTx: { txid: 'supply-tx' } },
       ]);
     });
     expect(fundingGuard.beforeSend).toHaveBeenCalledTimes(1);
+    expect(fundingGuard.beforeSend).toHaveBeenCalledWith(context);
+    expect(confirmation.preserveBatchTxIds).toBe(true);
     expect(fundingGuard.onAccepted).toHaveBeenCalledWith('supply-tx');
     expect(fundingGuard.onSafeCancel).not.toHaveBeenCalled();
   });

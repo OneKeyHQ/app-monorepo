@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEarnSwapRecovery } from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IEarnDestinationRecovery,
   IEarnFundingChange,
   IEarnFundingReceipt,
   IEarnFundingState,
@@ -27,7 +28,14 @@ type IFundingRecord = {
 type IFundingRecords = Record<string, IFundingRecord>;
 type IFundingUpdate =
   | IEarnFundingChange
-  | { type: 'recoverSwap'; uuid: string; txId: string; sourceTxFailed?: true };
+  | { type: 'recoverSwap'; uuid: string; txId: string; sourceTxFailed?: true }
+  | {
+      type: 'recoverDestination';
+      attemptId: string;
+      source: IEarnFundingReceipt;
+      recovery: IEarnDestinationRecovery;
+      txId: string;
+    };
 
 function isValidAmount(amount: unknown, allowZero = false): amount is string {
   return (
@@ -52,6 +60,23 @@ function isValidReceipt(receipt: unknown): receipt is IEarnFundingReceipt {
     isValidId(receipt.scope, 2048) &&
     'txId' in receipt &&
     isValidId(receipt.txId),
+  );
+}
+
+function isValidDestinationRecovery(
+  value: unknown,
+): value is IEarnDestinationRecovery {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    'uuid' in value &&
+    isValidId(value.uuid) &&
+    'accountId' in value &&
+    isValidId(value.accountId) &&
+    'networkId' in value &&
+    isValidId(value.networkId) &&
+    'accountAddress' in value &&
+    isValidId(value.accountAddress),
   );
 }
 
@@ -116,6 +141,16 @@ function isValidRecord(record: unknown): record is IFundingRecord {
     !isValidId(state.swapTxUuid)
   )
     return false;
+  if (
+    'destinationRecovery' in state &&
+    state.destinationRecovery !== undefined &&
+    (!isValidDestinationRecovery(state.destinationRecovery) ||
+      !('source' in record) ||
+      !isValidReceipt(record.source) ||
+      ('swapRecovery' in state && state.swapRecovery !== undefined) ||
+      ('swapTxUuid' in state && state.swapTxUuid !== undefined))
+  )
+    return false;
   if (!('status' in state)) return false;
   if (state.status === 'unknown') return true;
   if (!('txId' in state) || !isValidId(state.txId)) return false;
@@ -161,7 +196,12 @@ function applyChange(
         !isValidAmount(change.positionBefore, true)) ||
       (change.swapRecovery !== undefined &&
         !isEarnSwapRecovery(change.swapRecovery)) ||
-      (change.swapTxUuid !== undefined && !isValidId(change.swapTxUuid))
+      (change.swapTxUuid !== undefined && !isValidId(change.swapTxUuid)) ||
+      (change.destinationRecovery !== undefined &&
+        (!isValidDestinationRecovery(change.destinationRecovery) ||
+          !change.source ||
+          change.swapRecovery !== undefined ||
+          change.swapTxUuid !== undefined))
     )
       return current;
     return {
@@ -174,17 +214,30 @@ function applyChange(
         positionBefore: change.positionBefore,
         ...(change.swapRecovery ? { swapRecovery: change.swapRecovery } : {}),
         ...(change.swapTxUuid ? { swapTxUuid: change.swapTxUuid } : {}),
+        ...(change.destinationRecovery
+          ? { destinationRecovery: change.destinationRecovery }
+          : {}),
       },
     };
   }
   if (!current) return current;
   const { attemptId, state } = current;
-  const { intentAmount, positionBefore, swapRecovery, swapTxUuid } = state;
+  const {
+    intentAmount,
+    positionBefore,
+    swapRecovery,
+    swapTxUuid,
+    destinationRecovery,
+  } = state;
+  const transactionNetworkId =
+    swapRecovery?.sender.networkId ?? destinationRecovery?.networkId;
+  const normalizeTxId = (value: string) =>
+    transactionNetworkId &&
+    networkUtils.isEvmNetwork({ networkId: transactionNetworkId })
+      ? value.toLowerCase()
+      : value;
   const sameTxId = (first: string, second: string) =>
-    swapRecovery &&
-    networkUtils.isEvmNetwork({ networkId: swapRecovery.sender.networkId })
-      ? first.toLowerCase() === second.toLowerCase()
-      : first === second;
+    normalizeTxId(first) === normalizeTxId(second);
   if (change.type === 'submitted' || change.type === 'recoverSwap') {
     if (change.type === 'submitted' && attemptId !== change.attemptId)
       return current;
@@ -193,15 +246,11 @@ function applyChange(
       (!swapRecovery || swapTxUuid !== change.uuid)
     )
       return current;
-    const normalize = (value: string) =>
-      swapRecovery &&
-      networkUtils.isEvmNetwork({ networkId: swapRecovery.sender.networkId })
-        ? value.toLowerCase()
-        : value;
     if (
       current.externalAcceptanceConflict ||
       (current.externalAcceptedTxId &&
-        normalize(current.externalAcceptedTxId) !== normalize(change.txId))
+        normalizeTxId(current.externalAcceptedTxId) !==
+          normalizeTxId(change.txId))
     ) {
       if (state.status === 'funded') return current;
       return {
@@ -214,11 +263,44 @@ function applyChange(
           positionBefore,
           ...(swapRecovery ? { swapRecovery } : {}),
           ...(swapTxUuid ? { swapTxUuid } : {}),
+          ...(destinationRecovery ? { destinationRecovery } : {}),
         },
       };
     }
   }
   switch (change.type) {
+    case 'recoverDestination':
+      if (
+        attemptId !== change.attemptId ||
+        current.externalAcceptanceConflict ||
+        (current.externalAcceptedTxId &&
+          (networkUtils.isEvmNetwork({ networkId: change.recovery.networkId })
+            ? current.externalAcceptedTxId.toLowerCase() !==
+              change.txId.toLowerCase()
+            : current.externalAcceptedTxId !== change.txId)) ||
+        state.status !== 'unknown' ||
+        state.txIdConflict ||
+        !current.source ||
+        current.source.scope !== change.source.scope ||
+        current.source.txId !== change.source.txId ||
+        !destinationRecovery ||
+        destinationRecovery.uuid !== change.recovery.uuid ||
+        destinationRecovery.accountId !== change.recovery.accountId ||
+        destinationRecovery.networkId !== change.recovery.networkId ||
+        destinationRecovery.accountAddress !== change.recovery.accountAddress ||
+        !isValidId(change.txId)
+      )
+        return current;
+      return {
+        ...current,
+        state: {
+          status: 'submitted',
+          txId: change.txId,
+          intentAmount,
+          positionBefore,
+          destinationRecovery,
+        },
+      };
     case 'recoverSwap':
       if (
         !swapRecovery ||
@@ -264,6 +346,7 @@ function applyChange(
                 positionBefore,
                 ...(swapRecovery ? { swapRecovery } : {}),
                 ...(swapTxUuid ? { swapTxUuid } : {}),
+                ...(destinationRecovery ? { destinationRecovery } : {}),
               },
             };
       }
@@ -278,6 +361,7 @@ function applyChange(
               positionBefore,
               ...(swapRecovery ? { swapRecovery } : {}),
               ...(swapTxUuid ? { swapTxUuid } : {}),
+              ...(destinationRecovery ? { destinationRecovery } : {}),
             },
           };
     case 'settled':
@@ -379,6 +463,42 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
 
   async getFunding(scope: string) {
     return getFundingState(readRecord(await this.getRawData(), scope));
+  }
+
+  async getDestinationRecoveryCandidate(scope: string) {
+    const records = await this.getRawData();
+    const record = readRecord(records, scope);
+    const recovery = record?.state.destinationRecovery;
+    if (
+      !record ||
+      record.state.status !== 'unknown' ||
+      record.state.txIdConflict ||
+      !record.source ||
+      !recovery ||
+      Object.values(records ?? {}).filter(
+        (item) =>
+          item.state.destinationRecovery?.uuid === recovery.uuid ||
+          item.state.swapTxUuid === recovery.uuid,
+      ).length !== 1
+    )
+      return undefined;
+    return { attemptId: record.attemptId, source: record.source, recovery };
+  }
+
+  async recoverDestinationFunding(
+    scope: string,
+    candidate: {
+      attemptId: string;
+      source: IEarnFundingReceipt;
+      recovery: IEarnDestinationRecovery;
+    },
+    txId: string,
+  ) {
+    return this.changeFundingInternal(scope, {
+      type: 'recoverDestination',
+      ...candidate,
+      txId,
+    });
   }
 
   private matchingExternalSwap(
@@ -572,6 +692,20 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
         shouldCommit: () => true,
         build: (records) => {
           const previous = readRecord(records, scope);
+          if (change.type === 'recoverDestination') {
+            const source = readRecord(records, change.source.scope)?.state;
+            if (
+              source?.status !== 'funded' ||
+              source.txId !== change.source.txId ||
+              Object.values(records ?? {}).filter(
+                (item) =>
+                  item.state.destinationRecovery?.uuid ===
+                    change.recovery.uuid ||
+                  item.state.swapTxUuid === change.recovery.uuid,
+              ).length !== 1
+            )
+              return undefined;
+          }
           if (
             change.type === 'claim' &&
             change.group !== undefined &&

@@ -347,6 +347,57 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async recoverEarnFundingDestination(scope: string) {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks)
+      return this.earnFunding.getFunding(scope);
+    const candidate =
+      await this.earnFunding.getDestinationRecoveryCandidate(scope);
+    if (!candidate) return this.earnFunding.getFunding(scope);
+    const { recovery } = candidate;
+    if (accountUtils.isExternalAccount({ accountId: recovery.accountId }))
+      return this.earnFunding.getFunding(scope);
+    const matchesAccount = async () => {
+      const current =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: recovery.accountId,
+          networkId: recovery.networkId,
+        });
+      return Boolean(
+        current &&
+        (networkUtils.isEvmNetwork({ networkId: recovery.networkId })
+          ? current.toLowerCase() === recovery.accountAddress.toLowerCase()
+          : current === recovery.accountAddress),
+      );
+    };
+    if (!(await matchesAccount())) return this.earnFunding.getFunding(scope);
+    const fact =
+      await this.backgroundApi.serviceSend.resolveBroadcastAcceptanceFactByUuid(
+        {
+          uuid: recovery.uuid,
+          accountId: recovery.accountId,
+          networkId: recovery.networkId,
+          expectedAccountAddress: recovery.accountAddress,
+        },
+      );
+    if (
+      fact.status !== 'accepted' ||
+      fact.uuid !== recovery.uuid ||
+      fact.accountId !== recovery.accountId ||
+      fact.networkId !== recovery.networkId ||
+      !fact.txid?.trim() ||
+      !(await matchesAccount())
+    )
+      return this.earnFunding.getFunding(scope);
+    const result = await this.earnFunding.recoverDestinationFunding(
+      scope,
+      candidate,
+      fact.txid,
+    );
+    if (result.applied) this.notifyEarnFundingChanged(scope);
+    return result.funding;
+  }
+
+  @backgroundMethod()
   async changeEarnFunding(scope: string, change: IEarnFundingChange) {
     const result = await this.earnFunding.changeFunding(scope, change);
     if (result.applied) {

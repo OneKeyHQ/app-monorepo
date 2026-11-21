@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IEarnDestinationRecovery,
   IEarnFundingChange,
   IEarnFundingReceipt,
   IEarnFundingState,
@@ -70,6 +71,16 @@ export function refreshEarnFunding(scope: string) {
   );
   reads.set(scope, request);
   return request;
+}
+
+export async function recoverEarnFundingDestination(scope: string) {
+  const state =
+    await backgroundApiProxy.serviceStaking.recoverEarnFundingDestination(
+      scope,
+    );
+  reads.delete(scope);
+  publishFunding(scope, state);
+  return state;
 }
 
 export function useEarnFunding(scope?: string) {
@@ -210,6 +221,7 @@ export function reserveEarnFunding(
     markUnknown: async (
       swapRecovery?: IEarnSwapRecovery,
       swapTxUuid?: string,
+      destinationRecovery?: IEarnDestinationRecovery,
     ) => {
       if (active.get(scope) !== attempt) {
         throw new OneKeyLocalError('Earn funding ownership changed');
@@ -225,6 +237,7 @@ export function reserveEarnFunding(
         startsGroup,
         swapRecovery,
         swapTxUuid,
+        destinationRecovery,
       });
       if (!applied)
         throw new OneKeyLocalError(
@@ -243,7 +256,9 @@ export function reserveEarnFunding(
         attemptId,
         txId,
       });
-      const networkId = funding?.swapRecovery?.sender.networkId;
+      const networkId =
+        funding?.swapRecovery?.sender.networkId ??
+        funding?.destinationRecovery?.networkId;
       const matches =
         funding &&
         'txId' in funding &&

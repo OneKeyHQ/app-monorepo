@@ -28,6 +28,7 @@ export function withStakeFundingConfirmation({
     let sendObserved = false;
     let guardEntered = false;
     let closed = false;
+    let blockedRetry = false;
     const invokeFunding = (operation: () => Promise<void>) => {
       void Promise.resolve().then(operation).catch(onFundingError);
     };
@@ -38,18 +39,24 @@ export function withStakeFundingConfirmation({
     try {
       await navigationToTxConfirm({
         ...params,
-        onBeforeSend: async () => {
-          if (closed || guardEntered)
+        preserveBatchTxIds: true,
+        onBeforeSend: async (sendParams) => {
+          if (closed || guardEntered) {
+            blockedRetry = true;
             throw new OneKeyLocalError('Stake confirmation closed');
+          }
           guardEntered = true;
-          await guard.beforeSend();
+          await guard.beforeSend(sendParams);
           if (closed) throw new OneKeyLocalError('Stake confirmation closed');
-          await params.onBeforeSend?.();
+          await params.onBeforeSend?.(sendParams);
           if (closed) throw new OneKeyLocalError('Stake confirmation closed');
           sendObserved = true;
         },
         onFail: (error) => {
-          release();
+          if (sendObserved) {
+            closed = true;
+            invokeFunding(guard.onUncertain);
+          } else release();
           params.onFail?.(error);
         },
         onConfirmationFail: (error) => {
@@ -59,7 +66,7 @@ export function withStakeFundingConfirmation({
           (params.onConfirmationFail ?? params.onFail)?.(error);
         },
         onSafePreSendFail: (error) => {
-          if (guardEntered) release();
+          if (guardEntered && !closed && !blockedRetry) release();
           (params.onSafePreSendFail ?? params.onFail)?.(error);
         },
         onCancel: () => {
