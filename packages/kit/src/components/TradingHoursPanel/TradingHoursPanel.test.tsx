@@ -107,7 +107,7 @@ it.each(['ondo', 'xstock', 'bstock'])(
     expect(
       screen
         .getByText(ETranslations.trading_hours_market_closed)
-        .closest('[data-bg="$bgSuccess"]'),
+        .closest('[data-bg="$bgStrongHover"]'),
     ).not.toBeNull();
     expect(
       screen
