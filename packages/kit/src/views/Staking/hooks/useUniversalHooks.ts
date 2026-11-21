@@ -43,7 +43,10 @@ import {
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxStatus,
+  type ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import { getEarnProtocol } from '../../Earn/protocols';
 import { withdrawProtocolRuntime } from '../../Earn/protocols/withdrawProtocolRuntime';
@@ -1888,7 +1891,80 @@ type IEthenaPendingSwap = {
   unstakeUnknown?: boolean;
   unstakeTxid?: string;
   unstakeOwner?: object;
+  unstakeOrder?: IEthenaUnstakeOrder;
 };
+
+type IEthenaUnstakeOrderParams = Parameters<
+  typeof backgroundApiProxy.serviceStaking.addEarnOrder
+>[0];
+type IEthenaUnstakeOrderState = 'retryable' | 'unknown' | 'synced';
+type IEthenaUnstakeOrder = {
+  order: IEthenaUnstakeOrderParams;
+  attemptId: string;
+  state: IEthenaUnstakeOrderState;
+  error?: unknown;
+  pending?: Promise<IEthenaUnstakeOrderState>;
+};
+
+async function recordEthenaUnstakeOrder({
+  attempt,
+  order,
+  retry,
+}: {
+  attempt: IEthenaPendingSwap;
+  order: IEthenaUnstakeOrderParams;
+  retry?: boolean;
+}): Promise<IEthenaUnstakeOrderState> {
+  let recording = attempt.unstakeOrder;
+  if (recording) {
+    if (
+      recording.order.orderId !== order.orderId ||
+      recording.order.networkId !== order.networkId ||
+      recording.order.txId !== order.txId
+    ) {
+      attempt.txidConflict = true;
+      return 'unknown';
+    }
+    if (recording.pending) return recording.pending;
+    if (!retry || recording.state !== 'retryable') return recording.state;
+  } else {
+    recording = { order, attemptId: generateUUID(), state: 'unknown' };
+    attempt.unstakeOrder = recording;
+  }
+  const current = recording;
+  const pending = (async (): Promise<IEthenaUnstakeOrderState> => {
+    try {
+      const result = await backgroundApiProxy.serviceStaking.addEarnOrder(
+        { ...current.order, status: order.status },
+        {
+          remoteSync: 'once',
+          preserveExistingTx: true,
+          recordAttemptId: current.attemptId,
+          ...(retry ? { retryLocalFailure: true } : undefined),
+        },
+      );
+      if (
+        (result.localStatus === 'failed' ||
+          result.localStatus === 'unavailable') &&
+        result.remoteStatus === 'notAttempted'
+      )
+        return 'retryable';
+      if (result.localStatus === 'saved' && result.remoteStatus === 'synced')
+        return 'synced';
+      return 'unknown';
+    } catch (error) {
+      current.error = error;
+      return 'unknown';
+    }
+  })();
+  current.pending = pending;
+  const state = await pending;
+  if (current.pending === pending) {
+    current.pending = undefined;
+    current.state = state;
+  }
+  return state;
+}
 
 export function useUniversalWithdraw({
   networkId,
@@ -2076,6 +2152,82 @@ export function useUniversalWithdraw({
               !stillCurrent()
             )
               return false;
+            const unstakeOrder = pendingEthenaSwap.unstakeOrder;
+            if (
+              unstakeOrder &&
+              (status === EOnChainHistoryTxStatus.Success ||
+                status === EOnChainHistoryTxStatus.Failed)
+            ) {
+              const finalStatus =
+                status === EOnChainHistoryTxStatus.Success
+                  ? EDecodedTxStatus.Confirmed
+                  : EDecodedTxStatus.Failed;
+              const recorded = await recordEthenaUnstakeOrder({
+                attempt: pendingEthenaSwap,
+                order: { ...unstakeOrder.order, status: finalStatus },
+                retry: true,
+              });
+              if (!stillCurrent()) return false;
+              if (recorded === 'retryable') {
+                showUnknownEthenaSwap();
+                return false;
+              }
+              const detail = await backgroundApiProxy.serviceStaking
+                .getEarnOrderDetail({
+                  accountId,
+                  networkId,
+                  orderId: unstakeOrder.order.orderId,
+                  expectedAccountAddress: pendingEthenaSwap.accountAddress,
+                })
+                .catch(() => undefined);
+              if (
+                !stillCurrent() ||
+                !(await isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress: pendingEthenaSwap.accountAddress,
+                })) ||
+                !stillCurrent()
+              )
+                return false;
+              if (
+                detail?.orderId !== unstakeOrder.order.orderId ||
+                detail.networkId !== networkId ||
+                typeof detail.txId !== 'string' ||
+                detail.txId.toLowerCase() !== txid.toLowerCase() ||
+                (detail.status !== 'pending' &&
+                  detail.status !==
+                    (status === EOnChainHistoryTxStatus.Success
+                      ? 'success'
+                      : 'failed'))
+              ) {
+                showUnknownEthenaSwap();
+                return false;
+              }
+              const finalized =
+                await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId(
+                  {
+                    currentTxId: txid,
+                    expectedOrderId: unstakeOrder.order.orderId,
+                    expectedNetworkId: networkId,
+                    status: finalStatus,
+                  },
+                );
+              if (
+                !stillCurrent() ||
+                !(await isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress: pendingEthenaSwap.accountAddress,
+                })) ||
+                !stillCurrent()
+              )
+                return false;
+              if (!finalized) {
+                showUnknownEthenaSwap();
+                return false;
+              }
+            }
             if (status === EOnChainHistoryTxStatus.Success) {
               unknownEthenaSwapsRef.current.delete(ethenaScope);
               onEthenaCooldownUnstakeCompleted?.();
@@ -2087,6 +2239,8 @@ export function useUniversalWithdraw({
             }
             pendingEthenaSwap.unstakeUnknown = false;
             pendingEthenaSwap.unstakeTxid = undefined;
+            pendingEthenaSwap.unstakeOrder = undefined;
+            pendingEthenaSwap.unstakeOwner = undefined;
           }
           if (!pendingEthenaSwap.ready) {
             const txid = pendingEthenaSwap.txid;
@@ -3444,11 +3598,39 @@ export function useUniversalWithdraw({
               }
               if (stage === 'unstake' && resultCurrent()) onStepChange?.(3);
               try {
-                await handleStakeSuccess({
-                  data,
-                  stakeInfo,
-                  networkId,
-                });
+                const transaction = data[data.length - 1];
+                const txid =
+                  transaction?.signedTx?.txid?.trim() ||
+                  transaction?.decodedTx?.txid?.trim();
+                if (
+                  stage === 'unstake' &&
+                  ethenaAttempt &&
+                  transaction &&
+                  txid &&
+                  stakeInfo?.orderId
+                ) {
+                  const state = await recordEthenaUnstakeOrder({
+                    attempt: ethenaAttempt,
+                    order: {
+                      orderId: stakeInfo.orderId,
+                      networkId,
+                      txId: txid,
+                      status: transaction.decodedTx.status,
+                      ...getEarnOrderTrackingInfo(stakeInfo),
+                    },
+                  });
+                  if (state !== 'synced')
+                    throw (
+                      ethenaAttempt.unstakeOrder?.error ??
+                      new OneKeyLocalError(
+                        intl.formatMessage({
+                          id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                        }),
+                      )
+                    );
+                } else {
+                  await handleStakeSuccess({ data, stakeInfo, networkId });
+                }
               } catch (error) {
                 if (stage === 'swap' && ethenaAttempt)
                   ethenaAttempt.inProgress = false;
@@ -3544,18 +3726,20 @@ export function useUniversalWithdraw({
               if (ethenaAttempt?.unstakeOwner === unstakeOwner)
                 ethenaAttempt.unstakeUnknown = true;
             },
-            onLateUnstakeBroadcast: (txid, accepted) => {
+            onLateUnstakeBroadcast: async (txid, accepted, stakeInfo) => {
               if (
                 !ethenaAttempt ||
                 unknownEthenaSwapsRef.current.get(ethenaScope) !== ethenaAttempt
               )
-                return;
+                return false;
               const normalized = txid.trim();
-              if (!normalized) return;
+              if (!normalized) return false;
               if (ethenaAttempt.unstakeOwner !== unstakeOwner) {
-                if (acceptedUnstakeTxid && acceptedUnstakeTxid !== normalized)
+                if (acceptedUnstakeTxid && acceptedUnstakeTxid !== normalized) {
                   ethenaAttempt.txidConflict = true;
-                return;
+                  return true;
+                }
+                return false;
               }
               if (
                 ethenaAttempt.unstakeTxid &&
@@ -3565,7 +3749,22 @@ export function useUniversalWithdraw({
               } else if (accepted) {
                 acceptedUnstakeTxid = normalized;
                 ethenaAttempt.unstakeTxid = normalized;
+                if (stakeInfo?.orderId) {
+                  const state = await recordEthenaUnstakeOrder({
+                    attempt: ethenaAttempt,
+                    order: {
+                      orderId: stakeInfo.orderId,
+                      networkId,
+                      txId: normalized,
+                      status: EDecodedTxStatus.Pending,
+                      ...getEarnOrderTrackingInfo(stakeInfo),
+                    },
+                  });
+                  if (state !== 'synced')
+                    throw new OneKeyLocalError('Unable to record Earn order');
+                }
               }
+              return true;
             },
             onUnstakeSend: () => {
               if (ethenaAttempt) {

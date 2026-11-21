@@ -10,6 +10,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
@@ -29,8 +30,13 @@ const mockOrderDialog = jest.fn<
   unknown[]
 >();
 const mockSign = jest.fn<
-  void,
-  [{ onSuccess?: (data: { decodedTx: { txid: string } }[]) => void }]
+  Promise<void>,
+  [
+    {
+      onBeforeSend?: () => void | Promise<void>;
+      onSuccess?: (data: { decodedTx: { txid: string } }[]) => void;
+    },
+  ]
 >();
 const mockFeeAlert = jest.fn<
   void,
@@ -43,8 +49,28 @@ const mockFeeAlert = jest.fn<
 >();
 let mockPress: () => Promise<void>;
 let mockAllowance = '10';
-const mockReadAllowance = jest.fn();
+const mockReadAllowance = jest.fn<
+  Promise<{ allowanceParsed: string }>,
+  unknown[]
+>();
 const mockTrackAllowance = jest.fn();
+
+jest.mock('../EarnFooterFade', () => ({
+  EarnFooterFade: ({ children }: PropsWithChildren) => <>{children}</>,
+}));
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
+  Easing: { bezierFn: () => (value: number) => value },
+}));
+jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
+  FormatHyperlinkText: ({ children }: PropsWithChildren) => <>{children}</>,
+}));
+jest.mock('./EarnFormSummary', () => ({
+  ...jest.requireActual<typeof import('./EarnFormSummary')>(
+    './EarnFormSummary',
+  ),
+  EarnFormSummary: () => null,
+}));
 
 jest.mock('@onekeyhq/components', () => {
   const Box = ({ children }: PropsWithChildren) => <div>{children}</div>;
@@ -52,6 +78,14 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Box,
     YStack: Box,
     XStack: Box,
+    Alert: Box,
+    Divider: Box,
+    HeightTransition: Box,
+    Icon: Box,
+    IconButton: Box,
+    Image: Box,
+    NumberSizeableText: Box,
+    SizableText: Box,
     Skeleton: { BodyMd: () => null, BodyLg: () => null },
     Page: {
       FooterActions: ({
@@ -86,14 +120,18 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceAccount: { getAccount: () => ({ address: 'account' }) },
+    serviceAccount: {
+      getAccount: () => ({ address: 'account' }),
+      getAccountAddressForApi: async () => 'account',
+    },
     serviceStaking: {
       checkAmount: () => ({ code: 0 }),
       getTransactionConfirmation: () => undefined,
       assertEarnApproval: (...args: unknown[]) => mockValidate(...args),
+      fetchTokenAllowance: (...args: unknown[]) => mockReadAllowance(...args),
       estimateFee: (...args: unknown[]) => mockEstimate(...args),
       buildStakeTransaction: (...args: unknown[]) => mockBuild(...args),
-      buildInternalDappTx: () => ({ to: 'staking-contract' }),
+      buildInternalDappTx: () => ({ from: 'account', to: 'staking-contract' }),
     },
   },
 }));
@@ -120,7 +158,9 @@ jest.mock('@onekeyhq/kit/src/utils/botWalletAccountUtils', () => ({
   isAccountIdDeactivatedBotWallet: () => false,
 }));
 jest.mock('@onekeyhq/kit/src/utils/botWalletWarningDialog', () => ({}));
-jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({}));
+jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
+  waitForTxFinalStatus: async () => EOnChainHistoryTxStatus.Success,
+}));
 jest.mock('@onekeyhq/kit/src/components/PercentageStageOnKeyboard', () => ({
   PercentageStageOnKeyboard: () => null,
 }));
@@ -189,6 +229,7 @@ jest.mock('../ClaimConversionDialog', () => ({}));
 jest.mock('../StakeProgress', () => ({
   EStakeProgressStep: { approve: 1 },
   StakeProgress: () => null,
+  StakeTaskProgress: () => null,
 }));
 jest.mock('../TradeOrBuy', () => ({ TradeOrBuy: () => null }));
 jest.mock('../ManagePageV2ReceiveInput', () => ({
@@ -196,7 +237,9 @@ jest.mock('../ManagePageV2ReceiveInput', () => ({
 }));
 jest.mock('../StakingAmountInput/StakingAmountInputSkeleton', () => ({}));
 jest.mock('../ProtocolDisplayShared', () => ({}));
-jest.mock('../ProtocolDetails/PendleSharedComponents', () => ({}));
+jest.mock('../ProtocolDetails/PendleSharedComponents', () => ({
+  usePendleTransactionDetails: () => [],
+}));
 jest.mock('../ProtocolDetails/EarnValidatorSelect', () => ({}));
 jest.mock('../ProtocolDetails/EarnPlatformBonusSection', () => ({}));
 jest.mock('../ProtocolDetails/EarnActionIcon', () => ({}));
@@ -208,11 +251,17 @@ jest.mock('../CalculationList', () => ({}));
 const accountId = 'account';
 const networkId = 'evm--56';
 const token = {
+  uniqueKey: 'usdt',
   symbol: 'USDT',
   name: 'Tether',
   decimals: 18,
   address: '0x55d398326f99059ff775485246999027b3197955',
   isNative: false,
+  logoURI: '',
+  totalSupply: '0',
+  riskLevel: 0,
+  coingeckoId: 'tether',
+  networkId,
 };
 const spenderAddress = '0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae';
 
@@ -226,14 +275,59 @@ function StakeForm({ provider }: { provider: string }) {
       decimals={18}
       tokenSymbol="USDT"
       providerName={provider}
+      transactionInputTokenAddress={token.address}
+      tokenInfo={{
+        token,
+        balanceParsed: '10',
+        price: '1',
+        accountId,
+        networkId,
+        provider,
+        vault: spenderAddress,
+      }}
+      protocolInfo={{
+        stakeTag: '',
+        earnAccount: {
+          accountId,
+          networkId,
+          accountAddress: 'account',
+          account: {
+            id: accountId,
+            name: 'Account',
+            type: undefined,
+            path: '',
+            coinType: '60',
+            impl: 'evm',
+            pub: '',
+            address: 'account',
+            addressDetail: {
+              isValid: true,
+              networkId,
+              address: 'account',
+              baseAddress: 'account',
+              normalizedAddress: 'account',
+              displayAddress: 'account',
+              allowEmptyAddress: false,
+            },
+          },
+        },
+        provider,
+        networkId,
+        symbol: 'USDT',
+        vault: spenderAddress,
+        providerDetail: { name: provider, logoURI: '' },
+      }}
       approveType={EApproveType.Legacy}
       approveTarget={{ accountId, networkId, spenderAddress, token }}
-      onConfirm={({ amount }) =>
+      onConfirm={(action, isActionCurrent) =>
         stake({
-          amount,
+          ...action,
           provider,
           symbol: 'USDT',
           protocolVault: spenderAddress,
+          inputTokenAddress: token.address,
+          inputToken: token,
+          isActionCurrent,
         })
       }
     />
@@ -256,6 +350,7 @@ beforeEach(() => {
   mockReadAllowance.mockResolvedValue({ allowanceParsed: '10' });
   mockBuild.mockResolvedValue({ tx: null, orderId: 'order-1' });
   mockOrderDialog.mockResolvedValue({ status: 'success' });
+  mockSign.mockResolvedValue(undefined);
 });
 
 it('builds one Unitas order for repeated presses before validation and while the order dialog is open', async () => {
@@ -360,7 +455,7 @@ it('holds a signed deposit through its fee warning and allows retry after dismis
 
 it('continues from a legacy approval into one signed deposit after the allowance is visible', async () => {
   mockAllowance = '0';
-  mockReadAllowance.mockResolvedValueOnce({ allowanceParsed: '0' });
+  mockReadAllowance.mockResolvedValue({ allowanceParsed: '0' });
   mockBuild.mockResolvedValue({
     tx: { to: 'staking-contract' },
     orderId: 'order-2',
@@ -370,20 +465,23 @@ it('continues from a legacy approval into one signed deposit after the allowance
     await mockPress();
   });
   expect(mockBuild).not.toHaveBeenCalled();
-  expect(mockSign).toHaveBeenCalledWith(
-    expect.objectContaining({
-      approvesInfo: [
-        expect.objectContaining({ spender: spenderAddress, amount: '1' }),
-      ],
-    }),
+  await waitFor(() =>
+    expect(mockSign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [
+          expect.objectContaining({ spender: spenderAddress, amount: '1' }),
+        ],
+      }),
+    ),
   );
   await act(async () => {
-    mockSign.mock.calls[0][0].onSuccess!([
+    await mockSign.mock.calls[0][0].onBeforeSend?.();
+    mockReadAllowance.mockResolvedValue({ allowanceParsed: '10' });
+    mockSign.mock.calls[0][0].onSuccess?.([
       { decodedTx: { txid: 'approval-hash' } },
     ]);
   });
-  expect(mockTrackAllowance).toHaveBeenCalledWith('approval-hash');
-  expect(mockBuild).toHaveBeenCalledTimes(1);
-  expect(mockSign).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(mockBuild).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockSign).toHaveBeenCalledTimes(2));
   expect(mockOrderDialog).not.toHaveBeenCalled();
 });

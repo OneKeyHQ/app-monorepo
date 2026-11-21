@@ -492,6 +492,65 @@ describe('Ethena withdrawal workflow plan', () => {
     expect(confirmations).toHaveLength(1);
   });
 
+  it('falls back to the late recorder only for an accepted unstake fact', async () => {
+    type INavigateParams = Parameters<
+      ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']
+    >[0];
+    let confirmation: INavigateParams | undefined;
+    const onLateUnstakeBroadcast = jest.fn(async () => false);
+    const operation = runEthenaWithdrawTask({
+      taskId: 'late-unstake',
+      identity,
+      resumeUnstake: true,
+      prepare: async () => ({
+        encodedTx: {
+          from: '0xowner',
+          to: '0xtarget',
+          value: '0x0',
+          data: '0x',
+        },
+      }),
+      navigate: async (params) => {
+        confirmation = params;
+      },
+      onSubmitted: jest.fn(),
+      waitForSwap: jest.fn(async () => true),
+      onUnknownSwap: jest.fn(),
+      onSwapSend: jest.fn(),
+      onObserverError: jest.fn(),
+      onLateUnstakeBroadcast,
+    });
+    await waitFor(() => expect(confirmation).toBeDefined());
+    await confirmation?.onBeforeSend?.();
+    confirmation?.onCancel?.();
+    await operation;
+    const recordLateOrder = jest
+      .mocked(createLateEarnOrderRecorder)
+      .mock.results.at(-1)?.value;
+    await confirmation?.onLateBroadcastAccepted?.({
+      ...identity,
+      uuid: 'request',
+      txid: 'late-unstake',
+    });
+    expect(onLateUnstakeBroadcast).toHaveBeenCalledWith(
+      'late-unstake',
+      true,
+      undefined,
+    );
+    expect(recordLateOrder).toHaveBeenCalledTimes(1);
+    await confirmation?.onLateBroadcastAccepted?.({
+      ...identity,
+      uuid: 'request',
+      txid: 'different-unstake',
+    });
+    expect(onLateUnstakeBroadcast).toHaveBeenLastCalledWith(
+      'different-unstake',
+      false,
+      undefined,
+    );
+    expect(recordLateOrder).toHaveBeenCalledTimes(1);
+  });
+
   it('does not treat approval or its wait as an Ethena protocol step', () => {
     const getAdapter = createEthenaWithdrawAdapters({
       identity,

@@ -1,19 +1,36 @@
 import axios from 'axios';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { SimpleDbEntityEarnOrders } from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
 
 import ServiceStaking from './ServiceStaking';
 
 const mockAddOrder = jest.fn<
   Promise<boolean | undefined>,
-  [unknown, { preserveExistingTx: boolean }?]
+  [
+    unknown,
+    {
+      preserveExistingTx: boolean;
+      recordAttemptId?: string;
+      retryLocalFailure?: boolean;
+    }?,
+  ]
 >();
 jest.mock('../dbs/simple/simpleDb', () => ({
   __esModule: true,
   default: {
     earnOrders: {
-      addOrder: (order: unknown, options?: { preserveExistingTx: boolean }) =>
-        options ? mockAddOrder(order, options) : mockAddOrder(order),
+      addOrder: (
+        order: unknown,
+        options?: {
+          preserveExistingTx: boolean;
+          recordAttemptId?: string;
+          retryLocalFailure?: boolean;
+        },
+      ) => (options ? mockAddOrder(order, options) : mockAddOrder(order)),
     },
   },
 }));
@@ -144,6 +161,173 @@ describe('Earn order registration', () => {
       remoteStatus: 'failed',
     });
     expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries only the same attempt after a definite local failure', async () => {
+    mockAddOrder
+      .mockRejectedValueOnce(new Error('local storage failed'))
+      .mockResolvedValueOnce(true);
+    const service = new ServiceStaking({ backgroundApi: {} });
+    const sync = jest
+      .spyOn(service, 'updateEarnOrderStatusToServer')
+      .mockResolvedValue(undefined);
+    const initial = {
+      remoteSync: 'once' as const,
+      preserveExistingTx: true as const,
+      recordAttemptId: 'attempt-1',
+    };
+    await expect(service.addEarnOrder(order, initial)).resolves.toEqual({
+      localStatus: 'failed',
+      remoteStatus: 'notAttempted',
+    });
+    expect(sync).not.toHaveBeenCalled();
+    await expect(
+      service.addEarnOrder(
+        { ...order, txId: 'other-tx' },
+        { ...initial, retryLocalFailure: true },
+      ),
+    ).resolves.toEqual({ localStatus: 'existing', remoteStatus: 'skipped' });
+    await expect(
+      service.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'saved', remoteStatus: 'synced' });
+    await expect(
+      service.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'existing', remoteStatus: 'skipped' });
+    expect(sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers a local write that succeeded before reporting an error', async () => {
+    const entity = new SimpleDbEntityEarnOrders();
+    Reflect.set(entity, 'appStorage', createMemoryStorage(null));
+    const write = entity.setRawData.bind(entity);
+    jest.spyOn(entity, 'setRawData').mockImplementationOnce(async (data) => {
+      await write(data);
+      throw new OneKeyLocalError('local write response lost');
+    });
+    mockAddOrder.mockImplementation((_order, options) =>
+      entity.addOrder(order, options),
+    );
+    const service = new ServiceStaking({ backgroundApi: {} });
+    const sync = jest
+      .spyOn(service, 'updateEarnOrderStatusToServer')
+      .mockResolvedValue(undefined);
+    const initial = {
+      remoteSync: 'once' as const,
+      preserveExistingTx: true as const,
+      recordAttemptId: 'attempt-1',
+    };
+    await expect(service.addEarnOrder(order, initial)).resolves.toEqual({
+      localStatus: 'failed',
+      remoteStatus: 'notAttempted',
+    });
+    expect(sync).not.toHaveBeenCalled();
+    await expect(
+      service.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'saved', remoteStatus: 'synced' });
+    expect(sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send twice when the same recording attempt is concurrent', async () => {
+    let release: (value: boolean) => void = () => undefined;
+    const local = new Promise<boolean>((resolve) => {
+      release = resolve;
+    });
+    mockAddOrder.mockReturnValueOnce(local);
+    const service = new ServiceStaking({ backgroundApi: {} });
+    const sync = jest
+      .spyOn(service, 'updateEarnOrderStatusToServer')
+      .mockResolvedValue(undefined);
+    const initial = {
+      remoteSync: 'once' as const,
+      preserveExistingTx: true as const,
+      recordAttemptId: 'attempt-1',
+    };
+    const first = service.addEarnOrder(order, initial);
+    await expect(service.addEarnOrder(order, initial)).resolves.toEqual({
+      localStatus: 'existing',
+      remoteStatus: 'skipped',
+    });
+    release(true);
+    await expect(first).resolves.toEqual({
+      localStatus: 'saved',
+      remoteStatus: 'synced',
+    });
+    expect(sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry after an uncertain remote result or a service restart', async () => {
+    mockAddOrder.mockResolvedValue(true);
+    const service = new ServiceStaking({ backgroundApi: {} });
+    const sync = jest
+      .spyOn(service, 'updateEarnOrderStatusToServer')
+      .mockRejectedValue(new Error('response lost'));
+    const initial = {
+      remoteSync: 'once' as const,
+      preserveExistingTx: true as const,
+      recordAttemptId: 'attempt-1',
+    };
+    await expect(service.addEarnOrder(order, initial)).resolves.toEqual({
+      localStatus: 'saved',
+      remoteStatus: 'failed',
+    });
+    await expect(
+      service.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'existing', remoteStatus: 'skipped' });
+    const restarted = new ServiceStaking({ backgroundApi: {} });
+    await expect(
+      restarted.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'existing', remoteStatus: 'skipped' });
+    expect(sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a server retryable response pending without posting twice', async () => {
+    mockAddOrder.mockResolvedValue(true);
+    const client = axios.create({
+      adapter: async (config) => ({
+        config,
+        data: { data: { retryable: true } },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      }),
+    });
+    const post = jest.spyOn(client, 'post');
+    const service = new ServiceStaking({ backgroundApi: {} });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    const initial = {
+      remoteSync: 'once' as const,
+      preserveExistingTx: true as const,
+      recordAttemptId: 'attempt-1',
+    };
+    await expect(service.addEarnOrder(order, initial)).resolves.toEqual({
+      localStatus: 'saved',
+      remoteStatus: 'pending',
+    });
+    await expect(
+      service.addEarnOrder(order, { ...initial, retryLocalFailure: true }),
+    ).resolves.toEqual({ localStatus: 'existing', remoteStatus: 'skipped' });
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a retryable server response for a late order without an attempt id', async () => {
+    mockAddOrder.mockResolvedValue(true);
+    const client = axios.create({
+      adapter: async (config) => ({
+        config,
+        data: { data: { retryable: true } },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      }),
+    });
+    const service = new ServiceStaking({ backgroundApi: {} });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    await expect(
+      service.addEarnOrder(order, {
+        remoteSync: 'once',
+        preserveExistingTx: true,
+      }),
+    ).resolves.toEqual({ localStatus: 'saved', remoteStatus: 'pending' });
   });
 
   it('rejects an invalid remote retry bound before making a request', async () => {

@@ -78,9 +78,33 @@ const mockStakefishSign = jest.fn<
 >();
 const mockUnstakePush = jest.fn<Promise<void>, [unknown]>();
 const mockAddEarnOrder = jest.fn<
-  Promise<void | { localStatus: 'saved'; remoteStatus: 'synced' }>,
-  [unknown, { remoteSync: 'once'; preserveExistingTx?: true }?]
+  Promise<
+    | void
+    | { localStatus: 'saved'; remoteStatus: 'synced' }
+    | { localStatus: 'saved'; remoteStatus: 'pending' | 'failed' }
+    | { localStatus: 'failed'; remoteStatus: 'notAttempted' }
+    | { localStatus: 'unavailable'; remoteStatus: 'notAttempted' }
+  >,
+  [
+    unknown,
+    {
+      remoteSync: 'once';
+      preserveExistingTx?: true;
+      recordAttemptId?: string;
+      retryLocalFailure?: true;
+    }?,
+  ]
 >();
+const mockGetEarnOrderDetail = jest.fn<
+  Promise<{
+    orderId: string;
+    networkId: string;
+    txId?: string;
+    status: 'created' | 'pending' | 'success' | 'failed';
+  }>,
+  [unknown]
+>();
+const mockUpdateOrderStatus = jest.fn<Promise<boolean>, [unknown]>();
 const mockRiskAccepted = jest.fn<Promise<boolean>, [unknown]>();
 const mockToastSuccess = jest.fn<void, [unknown]>();
 const mockToastError = jest.fn<void, [unknown]>();
@@ -140,9 +164,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       unstakePush: (params: unknown) => mockUnstakePush(params),
       addEarnOrder: (
         params: unknown,
-        options?: { remoteSync: 'once'; preserveExistingTx?: true },
+        options?: {
+          remoteSync: 'once';
+          preserveExistingTx?: true;
+          recordAttemptId?: string;
+          retryLocalFailure?: true;
+        },
       ) =>
         options ? mockAddEarnOrder(params, options) : mockAddEarnOrder(params),
+      getEarnOrderDetail: (params: unknown) => mockGetEarnOrderDetail(params),
+      updateOrderStatusByTxId: (params: unknown) =>
+        mockUpdateOrderStatus(params),
       estimateFee: (params: unknown) => mockEstimateFee(params),
     },
   },
@@ -240,7 +272,17 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     mockBuildInternal.mockResolvedValue(tx);
     mockNavigate.mockResolvedValue(undefined);
     mockUnstakePush.mockResolvedValue(undefined);
-    mockAddEarnOrder.mockResolvedValue(undefined);
+    mockAddEarnOrder.mockResolvedValue({
+      localStatus: 'saved',
+      remoteStatus: 'synced',
+    });
+    mockGetEarnOrderDetail.mockResolvedValue({
+      orderId: 'order-1',
+      networkId: account.networkId,
+      txId: 'unstake-tx',
+      status: 'pending',
+    });
+    mockUpdateOrderStatus.mockResolvedValue(true);
     mockWaitFinality.mockResolvedValue(EOnChainHistoryTxStatus.Success);
   });
 
@@ -2026,6 +2068,253 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     );
     expect(completed).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
+  });
+
+  it('repairs the unstake order after a confirmed local recording failure', async () => {
+    mockBuildUnstake
+      .mockResolvedValueOnce({ tx, orderId: 'swap-order' })
+      .mockResolvedValueOnce({ tx, orderId: 'unstake-order' });
+    mockAddEarnOrder
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        localStatus: 'failed',
+        remoteStatus: 'notAttempted',
+      })
+      .mockResolvedValueOnce({ localStatus: 'saved', remoteStatus: 'synced' });
+    mockGetEarnOrderDetail.mockResolvedValue({
+      orderId: 'unstake-order',
+      networkId: account.networkId,
+      txId: 'unstake-tx',
+      status: 'success',
+    });
+    mockUpdateOrderStatus.mockResolvedValue(true);
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onSuccess }) => {
+      await onBeforeSend?.();
+      const data = submittedData();
+      data[0].signedTx.txid = 'unstake-tx';
+      data[0].decodedTx.txid = 'unstake-tx';
+      await onSuccess?.(data);
+    });
+    const completed = jest.fn();
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = {
+      ...params,
+      provider: 'pendle',
+      useEthenaCooldown: true,
+      onEthenaCooldownUnstakeCompleted: completed,
+    };
+
+    await expect(result.current(ethena)).rejects.toThrow();
+    expect(completed).not.toHaveBeenCalled();
+    await expect(
+      result.current({ ...ethena, resumeEthenaCooldownUnstake: true }),
+    ).resolves.toBe(false);
+    expect(mockAddEarnOrder).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        orderId: 'unstake-order',
+        txId: 'unstake-tx',
+        networkId: account.networkId,
+        status: EDecodedTxStatus.Confirmed,
+      }),
+      expect.objectContaining({ remoteSync: 'once' }),
+    );
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([undefined, 'different-tx'])(
+    'does not resend an uncertain order when the remote transaction is %s',
+    async (remoteTxId) => {
+      mockAddEarnOrder.mockResolvedValueOnce(undefined).mockResolvedValueOnce({
+        localStatus: 'saved',
+        remoteStatus: 'pending',
+      });
+      mockGetEarnOrderDetail.mockResolvedValue({
+        orderId: 'order-1',
+        networkId: account.networkId,
+        txId: remoteTxId,
+        status: 'pending',
+      });
+      mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+        await onSuccess?.(submittedData());
+      });
+      mockNavigate.mockImplementationOnce(
+        async ({ onBeforeSend, onSuccess }) => {
+          await onBeforeSend?.();
+          const data = submittedData();
+          data[0].signedTx.txid = 'unstake-tx';
+          data[0].decodedTx.txid = 'unstake-tx';
+          await onSuccess?.(data);
+        },
+      );
+      const completed = jest.fn();
+      const { result } = renderHook(() => useUniversalWithdraw(account));
+      const ethena = {
+        ...params,
+        provider: 'pendle',
+        useEthenaCooldown: true,
+        onEthenaCooldownUnstakeCompleted: completed,
+      };
+
+      await expect(result.current(ethena)).rejects.toThrow();
+      await result.current({ ...ethena, resumeEthenaCooldownUnstake: true });
+      await result.current({ ...ethena, resumeEthenaCooldownUnstake: true });
+      expect(mockAddEarnOrder).toHaveBeenCalledTimes(2);
+      expect(mockNavigate).toHaveBeenCalledTimes(2);
+      expect(completed).not.toHaveBeenCalled();
+      expect(mockUpdateOrderStatus).not.toHaveBeenCalled();
+    },
+  );
+
+  it('shares an in-flight order recording between normal and late unstake callbacks', async () => {
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
+    await expect(result.current(ethena)).resolves.toBe(true);
+    const confirmation = mockNavigate.mock.calls[1][0];
+    const pending = deferred<{
+      localStatus: 'saved';
+      remoteStatus: 'synced';
+    }>();
+    mockAddEarnOrder.mockReturnValueOnce(pending.promise);
+    const late = confirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'late-unstake',
+      txid: 'unstake-tx',
+    });
+    await waitFor(() => expect(mockAddEarnOrder).toHaveBeenCalledTimes(2));
+    const data = submittedData();
+    data[0].signedTx.txid = 'unstake-tx';
+    data[0].decodedTx.txid = 'unstake-tx';
+    const normal = confirmation.onSuccess?.(data);
+    expect(mockAddEarnOrder).toHaveBeenCalledTimes(2);
+    pending.resolve({ localStatus: 'saved', remoteStatus: 'synced' });
+    await Promise.all([late, normal]);
+    expect(mockAddEarnOrder).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not finish recovery after its action becomes stale during order lookup', async () => {
+    mockAddEarnOrder
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        localStatus: 'failed',
+        remoteStatus: 'notAttempted',
+      })
+      .mockResolvedValueOnce({ localStatus: 'saved', remoteStatus: 'synced' });
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onSuccess }) => {
+      await onBeforeSend?.();
+      const data = submittedData();
+      data[0].signedTx.txid = 'unstake-tx';
+      data[0].decodedTx.txid = 'unstake-tx';
+      await onSuccess?.(data);
+    });
+    const pending = deferred<{
+      orderId: string;
+      networkId: string;
+      txId?: string;
+      status: 'created' | 'pending' | 'success' | 'failed';
+    }>();
+    mockGetEarnOrderDetail.mockReturnValueOnce(pending.promise);
+    let current = true;
+    const completed = jest.fn();
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = {
+      ...params,
+      provider: 'pendle',
+      useEthenaCooldown: true,
+      isActionCurrent: () => current,
+      onEthenaCooldownUnstakeCompleted: completed,
+    };
+    await expect(result.current(ethena)).rejects.toThrow();
+    const recovery = result.current({
+      ...ethena,
+      resumeEthenaCooldownUnstake: true,
+    });
+    await waitFor(() => expect(mockGetEarnOrderDetail).toHaveBeenCalled());
+    current = false;
+    pending.resolve({
+      orderId: 'order-1',
+      networkId: account.networkId,
+      txId: 'unstake-tx',
+      status: 'success',
+    });
+    await expect(recovery).resolves.toBe(false);
+    expect(completed).not.toHaveBeenCalled();
+    expect(mockUpdateOrderStatus).not.toHaveBeenCalled();
+  });
+
+  it('records a new unstake after the prior unstake is confirmed failed', async () => {
+    mockBuildUnstake
+      .mockResolvedValueOnce({ tx, orderId: 'swap-order' })
+      .mockResolvedValueOnce({ tx, orderId: 'old-order' })
+      .mockResolvedValueOnce({ tx, orderId: 'new-order' });
+    mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
+      await onSuccess?.(submittedData());
+    });
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onCancel }) => {
+      await onBeforeSend?.();
+      onCancel?.();
+    });
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
+    await expect(result.current(ethena)).resolves.toBe(true);
+    const oldConfirmation = mockNavigate.mock.calls[1][0];
+    await oldConfirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'old-unstake',
+      txid: 'old-tx',
+    });
+    mockWaitFinality.mockResolvedValueOnce(EOnChainHistoryTxStatus.Failed);
+    mockGetEarnOrderDetail.mockResolvedValueOnce({
+      orderId: 'old-order',
+      networkId: account.networkId,
+      txId: 'old-tx',
+      status: 'failed',
+    });
+    const allowNewSend = deferred<void>();
+    mockNavigate.mockImplementationOnce(async ({ onBeforeSend, onSuccess }) => {
+      await allowNewSend.promise;
+      await onBeforeSend?.();
+      const data = submittedData();
+      data[0].signedTx.txid = 'new-tx';
+      data[0].decodedTx.txid = 'new-tx';
+      await onSuccess?.(data);
+    });
+
+    const recovery = result.current({
+      ...ethena,
+      resumeEthenaCooldownUnstake: true,
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    await oldConfirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'old-unstake',
+      txid: 'old-tx',
+    });
+    allowNewSend.resolve();
+    await recovery;
+    expect(mockAddEarnOrder).toHaveBeenLastCalledWith(
+      expect.objectContaining({ orderId: 'new-order', txId: 'new-tx' }),
+      expect.objectContaining({ remoteSync: 'once' }),
+    );
+    await oldConfirmation.onLateBroadcastAccepted?.({
+      ...account,
+      uuid: 'old-unstake',
+      txid: 'old-tx',
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(3);
   });
 
   it.each([

@@ -193,6 +193,11 @@ const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private readonly earnOrderRecordAttempts = new Map<
+    string,
+    { identity: string; state: 'pending' | 'retryable' | 'sent' }
+  >();
+
   private readonly earnFunding = createLazyServiceProxy({
     serviceName: 'simpleDb@earnFunding',
     loader: () =>
@@ -2653,14 +2658,24 @@ class ServiceStaking extends ServiceBase {
     networkId,
     accountId,
     orderId,
+    expectedAccountAddress,
   }: {
     networkId: string;
     accountId: string;
     orderId: string;
+    expectedAccountAddress?: string;
   }): Promise<IEarnServerOrderDetail> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress) {
+      const normalize = (address: string) =>
+        networkUtils.isEvmNetwork({ networkId })
+          ? address.toLowerCase()
+          : address;
+      if (normalize(account.address) !== normalize(expectedAccountAddress))
+        throw new OneKeyLocalError('Earn order account changed');
+    }
     const resp = await client.get<{ data: IEarnServerOrderDetail }>(
       '/earn/v1/orders/detail',
       {
@@ -2898,8 +2913,38 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async addEarnOrder(
     order: IAddEarnOrderParams,
-    options?: { remoteSync: 'once'; preserveExistingTx?: true },
+    options?: {
+      remoteSync: 'once';
+      preserveExistingTx?: true;
+      recordAttemptId?: string;
+      retryLocalFailure?: true;
+    },
   ) {
+    const attemptId = options?.recordAttemptId;
+    const identity = JSON.stringify([
+      order.networkId,
+      order.orderId,
+      order.txId,
+    ]);
+    if (attemptId) {
+      if (!options?.preserveExistingTx)
+        throw new OneKeyLocalError('Invalid Earn order recording attempt');
+      const previous = this.earnOrderRecordAttempts.get(attemptId);
+      if (
+        (options.retryLocalFailure &&
+          (!previous ||
+            previous.identity !== identity ||
+            previous.state !== 'retryable')) ||
+        (!options.retryLocalFailure && previous)
+      )
+        return { localStatus: 'existing', remoteStatus: 'skipped' } as const;
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        state: 'pending',
+      });
+    } else if (options?.retryLocalFailure) {
+      throw new OneKeyLocalError('Invalid Earn order recording attempt');
+    }
     defaultLogger.staking.order.addOrder({
       status: order.status,
       stakingLabel: order.stakingLabel,
@@ -2911,32 +2956,54 @@ class ServiceStaking extends ServiceBase {
       isCurrent = options?.preserveExistingTx
         ? await simpleDb.earnOrders.addOrder(order, {
             preserveExistingTx: true,
+            ...(attemptId ? { recordAttemptId: attemptId } : undefined),
+            ...(options.retryLocalFailure
+              ? { retryLocalFailure: true }
+              : undefined),
           })
         : await simpleDb.earnOrders.addOrder(order);
     } catch (error) {
       if (options?.remoteSync === 'once') {
+        if (attemptId)
+          this.earnOrderRecordAttempts.set(attemptId, {
+            identity,
+            state: 'retryable',
+          });
         return { localStatus: 'failed', remoteStatus: 'notAttempted' } as const;
       }
       throw error;
     }
     if (isCurrent === undefined && options?.remoteSync === 'once') {
+      if (attemptId)
+        this.earnOrderRecordAttempts.set(attemptId, {
+          identity,
+          state: 'retryable',
+        });
       return {
         localStatus: 'unavailable',
         remoteStatus: 'notAttempted',
       } as const;
     }
     if (isCurrent === false) {
+      if (attemptId)
+        this.earnOrderRecordAttempts.set(attemptId, {
+          identity,
+          state: 'sent',
+        });
       return {
         localStatus: options?.preserveExistingTx ? 'existing' : 'superseded',
         remoteStatus: 'skipped',
       } as const;
     }
-    let remoteStatus: 'synced' | 'failed' = 'synced';
+    let remoteStatus: 'synced' | 'failed' | 'pending' = 'synced';
+    if (attemptId)
+      this.earnOrderRecordAttempts.set(attemptId, { identity, state: 'sent' });
     try {
-      await this.updateEarnOrderStatusToServer({
+      const result = await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
         ...(options?.remoteSync === 'once' ? { maxAttempts: 1 as const } : {}),
       });
+      if (result?.retryable) remoteStatus = 'pending';
     } catch (_e) {
       // ignore error, continue
       remoteStatus = 'failed';
@@ -3021,11 +3088,15 @@ class ServiceStaking extends ServiceBase {
     for (let i = 0; i < maxRetries; i += 1) {
       try {
         const client = await this.getClient(EServiceEndpointEnum.Earn);
-        await client.post('/earn/v1/orders', {
+        const response = await client.post<{
+          data?: { retryable?: boolean };
+        }>('/earn/v1/orders', {
           orderId: order.orderId,
           networkId: order.networkId,
           txId: order.txId,
         });
+        if (maxAttempts === 1 && response?.data?.data?.retryable === true)
+          return { retryable: true };
         return; // Return early on success
       } catch (error) {
         lastError = error;
@@ -3042,13 +3113,15 @@ class ServiceStaking extends ServiceBase {
     currentTxId: string;
     newTxId?: string;
     status: EDecodedTxStatus;
+    expectedOrderId?: string;
+    expectedNetworkId?: string;
   }) {
     const result =
       await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
         params,
       );
     if (!result.success || !result.order) {
-      return;
+      return false;
     }
     defaultLogger.staking.order.updateOrderStatusByTxId({
       status: params.status,
@@ -3056,6 +3129,7 @@ class ServiceStaking extends ServiceBase {
       stakingProtocol: result.order.stakingProtocol,
       stakingTags: result.order.stakingTags,
     });
+    return true;
   }
 
   @backgroundMethod()

@@ -138,8 +138,19 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
               )
                 return;
               const accepted = callbacks.onLateBroadcastAccepted(fact.txid);
-              if (stage === 'unstake')
-                onLateUnstakeBroadcast?.(fact.txid, accepted);
+              if (stage === 'unstake' && onLateUnstakeBroadcast) {
+                try {
+                  const handled = await onLateUnstakeBroadcast(
+                    fact.txid,
+                    accepted,
+                    prepared.stakeInfo,
+                  );
+                  if (handled || !accepted) return;
+                } catch (error) {
+                  onObserverError(error);
+                  return;
+                }
+              }
               if (!accepted) return;
               const recordingResult = await recordLateOrder({
                 fact,
@@ -243,7 +254,11 @@ type IEthenaWithdrawTaskParams<TIdentity extends IEarnTaskScope> = {
   waitForSwap: (txid?: string) => Promise<boolean>;
   onUnknownSwap: (txid?: string) => void;
   onUnknownUnstake?: () => void;
-  onLateUnstakeBroadcast?: (txid: string, accepted: boolean) => void;
+  onLateUnstakeBroadcast?: (
+    txid: string,
+    accepted: boolean,
+    stakeInfo?: IStakingInfo,
+  ) => boolean | void | Promise<boolean | void>;
   onUnstakeSend?: () => void;
   onUnstakeSendBlocked?: () => void;
   onSwapSend: () => void;
