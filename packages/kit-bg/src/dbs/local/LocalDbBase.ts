@@ -9079,6 +9079,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItem: IDBCloudSyncItem | undefined;
     let acceptedUploadItem: IDBCloudSyncItem | undefined;
+    let retryWalletUploadRead:
+      | ((item: IDBCloudSyncItem, error: unknown) => void)
+      | undefined;
     const matchesUploadCandidate = (
       accepted: IDBCloudSyncItem,
       candidate: IDBCloudSyncItem,
@@ -9129,6 +9132,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         shouldSkipWalletUpdate = !shouldUseSyncPayload;
       } else {
         try {
+          const syncCredential =
+            verifiedCredential ??
+            (await syncManagers.wallet.getSyncCredential());
+          const hardwareCredential = syncCredential?.keylessCredential;
+          if (!verifiedCredential && hardwareCredential?.hardwareSession) {
+            retryWalletUploadRead =
+              this.backgroundApi.servicePrimeCloudSync.captureWalletUploadReadRetry(
+                hardwareCredential,
+              );
+          }
           syncItem = await syncManagers.wallet.buildSyncItemByDBQuery({
             dbRecord: {
               ...wallet,
@@ -9139,9 +9152,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             allDevices: passiveDevice
               ? [this.refillDeviceInfo({ device: { ...passiveDevice } })]
               : undefined,
-            syncCredential:
-              verifiedCredential ??
-              (await syncManagers.wallet.getSyncCredential()),
+            syncCredential,
             isDeleted: false,
             dataTime: undefined,
           });
@@ -9492,8 +9503,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         // A normal upsert may preserve a newer pool row. This optional
         // read must not abort or delay an already-committed Wallet write.
         const accepted =
-          acceptedUploadItem ?? (await this.getSyncItem({ id: candidate.id }));
-        if (!matchesUploadCandidate(accepted, candidate)) return;
+          acceptedUploadItem ??
+          (await (retryWalletUploadRead
+            ? this.getRecordById({
+                name: ELocalDBStoreNames.CloudSyncItem,
+                id: candidate.id,
+              }).catch((error: unknown) => {
+                // Missing or superseded rows are not read failures.
+                retryWalletUploadRead?.(candidate, error);
+                throw error;
+              })
+            : this.getSyncItem({ id: candidate.id })));
+        if (!accepted || !matchesUploadCandidate(accepted, candidate)) return;
         await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
           localItems: [accepted],
         });

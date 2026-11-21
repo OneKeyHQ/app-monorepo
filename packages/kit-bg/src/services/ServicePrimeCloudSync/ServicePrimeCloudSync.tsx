@@ -118,7 +118,10 @@ import { CloudSyncFlowManagerCustomToken } from './CloudSyncFlowManager/CloudSyn
 import { CloudSyncFlowManagerIndexedAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerIndexedAccount';
 import { CloudSyncFlowManagerLock } from './CloudSyncFlowManager/CloudSyncFlowManagerLock';
 import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList';
-import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
+import {
+  CloudSyncFlowManagerWallet,
+  isRetryableWalletVerificationReadError,
+} from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import { splitCloudSyncUploadPostData } from './cloudSyncUploadBatching';
 import { waitForCloudSyncUploadBatch } from './cloudSyncUploadPacing';
@@ -2042,6 +2045,42 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     });
   };
+
+  captureWalletUploadReadRetry(credential: IKeylessCloudSyncCredential) {
+    const { pwdHash, hardwareSession, source } = credential;
+    const origin = hardwareSession?.boundBaseURL;
+    if (
+      source?.type !== 'hardware' ||
+      !origin?.startsWith('https://') ||
+      !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+    )
+      return undefined;
+    const isCurrent = this.captureHardwareDirectUploadScope();
+    return (item: IDBCloudSyncItem, error: unknown) => {
+      if (
+        !isRetryableWalletVerificationReadError(error) ||
+        item.dataType !== EPrimeCloudSyncDataType.Wallet ||
+        item.pwdHash !== pwdHash ||
+        !item.data ||
+        item.serverUploaded ||
+        item.isDeleted ||
+        item.pendingPublicAccountDeletionAt ||
+        item.pendingPublicAccountDeletionHash
+      )
+        return;
+      this.scheduleWalletUploadReadRetry({
+        items: [
+          {
+            ...item,
+            dataTime: cloudSyncItemBuilder.normalizeDataTime(item.dataTime),
+          },
+        ],
+        pwdHash,
+        origin,
+        isCurrent,
+      });
+    };
+  }
 
   private walletUploadReadRetry:
     | {

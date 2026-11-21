@@ -288,6 +288,9 @@ it.each([
   'stale-same-key',
   'same-key-fractional-time',
   'verification-read-unavailable',
+  'hardware-verification-read-unavailable',
+  'hardware-verification-row-deleted',
+  'hardware-verification-row-replaced',
   'verification-read-delayed',
   'missing-row',
   'local-error',
@@ -351,6 +354,10 @@ it.each([
       { skipCloudCredentialWarmup: true },
     );
     const before = await db.getSyncItemSafe({ id: original.id });
+    const isHardwareRetryFixture = scenario.startsWith('hardware-');
+    const schedule = jest.fn();
+    const captureWalletUploadReadRetry = jest.fn(() => schedule);
+    const hardwareCredential = { hardwareSession: {}, pwdHash };
     const uploaded = Promise.withResolvers<void>();
     const apiUploadItems = jest.fn(async () => uploaded.resolve());
     const buildSyncItemByDBQuery = jest.fn(async () => candidate);
@@ -365,9 +372,14 @@ it.each([
       },
       servicePrimeCloudSync: {
         apiUploadItems,
+        captureWalletUploadReadRetry,
         syncManagers: {
           wallet: {
-            getSyncCredential: jest.fn(async () => undefined),
+            getSyncCredential: jest.fn(async () =>
+              isHardwareRetryFixture
+                ? { keylessCredential: hardwareCredential }
+                : undefined,
+            ),
             buildSyncItemByDBQuery,
           },
         },
@@ -386,6 +398,20 @@ it.each([
         .mockRejectedValueOnce(
           new OneKeyLocalError('Synthetic verification read error'),
         );
+    }
+    if (isHardwareRetryFixture) {
+      const read = db.getRecordById.bind(db);
+      jest.spyOn(db, 'getRecordById').mockImplementation(async (params) => {
+        if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+          if (scenario === 'hardware-verification-read-unavailable')
+            throw new OneKeyLocalError('Synthetic pool read error');
+          if (scenario === 'hardware-verification-row-deleted')
+            return undefined;
+          const record = await read(params);
+          return record ? { ...record, data: 'replacement-box' } : record;
+        }
+        return read(params);
+      });
     }
     const delayedRead =
       scenario === 'verification-read-delayed'
@@ -417,7 +443,22 @@ it.each([
     ).resolves.toMatchObject({
       name: scenario === 'local-error' ? wallet.name : `New local ${scenario}`,
     });
-    if (
+    if (isHardwareRetryFixture) {
+      expect(captureWalletUploadReadRetry).toHaveBeenCalledWith(
+        hardwareCredential,
+      );
+      if (scenario === 'hardware-verification-read-unavailable')
+        expect(schedule).toHaveBeenCalledWith(
+          candidate,
+          expect.any(OneKeyLocalError),
+        );
+      else expect(schedule).not.toHaveBeenCalled();
+      expect(apiUploadItems).not.toHaveBeenCalled();
+      // An independent handle still sees the committed business and pool rows.
+      await expect(
+        new LocalDbIndexed().getSyncItem({ id: candidate.id }),
+      ).resolves.toMatchObject({ data: candidate.data, serverUploaded: false });
+    } else if (
       scenario === 'same-key' ||
       scenario === 'same-key-fractional-time' ||
       scenario === 'verification-read-unavailable' ||

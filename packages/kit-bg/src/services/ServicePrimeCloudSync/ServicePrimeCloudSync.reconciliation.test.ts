@@ -115,6 +115,12 @@ jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList', () => ({
   CloudSyncFlowManagerMarketWatchList: jest.fn(),
 }));
 jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerWallet', () => ({
+  isRetryableWalletVerificationReadError: (error: unknown) =>
+    jest
+      .requireActual<
+        typeof import('./CloudSyncFlowManager/CloudSyncFlowManagerWallet')
+      >('./CloudSyncFlowManager/CloudSyncFlowManagerWallet')
+      .isRetryableWalletVerificationReadError(error),
   CloudSyncFlowManagerWallet: jest.fn(() => ({
     canUploadPendingWalletName: jest.fn(async () => true),
   })),
@@ -159,7 +165,12 @@ jest.mock('./cloudSyncCheckUtils', () => ({
 jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
   default: {
-    normalizeDataTime: (time: number | undefined) => time,
+    normalizeDataTime: (value: number | undefined) =>
+      jest
+        .requireActual<typeof import('./cloudSyncItemBuilder')>(
+          './cloudSyncItemBuilder',
+        )
+        .default.normalizeDataTime(value),
     decryptSyncItem: jest.fn(),
     canLocalItemSyncToScene: jest.fn(),
     setDefaultPropsOfServerToLocalItem: ({
@@ -1122,8 +1133,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     'clock-corrected-contested-reject',
     'clock-corrected-contested-timeout',
     'second-timeout',
+    'committed-read-recovery',
+    'committed-permanent-read-failure',
+    'committed-row-deleted',
+    'committed-row-replaced',
+    'committed-scope-switched',
+    'committed-read-failed-after-switch',
+    'committed-origin-changed',
   ])(
-    'one-shot Wallet timeout retry respects current authority: %s',
+    'one-shot Wallet read retry respects current authority: %s',
     async (scenario) => {
       const scope = 'hw-dek-wallet-retry-fixture';
       const wallet: IDBCloudSyncItem = {
@@ -1163,6 +1181,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             accessTokenExpiresAt: 0,
             refreshToken: 'synthetic-refresh',
             dekId: 'current-fixture-dek',
+            boundBaseURL: endpointsMap.prod.prime,
           },
         },
       };
@@ -1255,7 +1274,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
                   },
                 }
               : actual,
-            scenario === 'changed-origin'
+            scenario === 'changed-origin' ||
+              scenario === 'committed-origin-changed'
               ? endpointsMap.test.prime
               : endpointsMap.prod.prime,
           );
@@ -1267,11 +1287,40 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           wire(send ? send() : postData);
           return { nonce: 1, created: 1, updated: 0 };
         });
-      h.service.uploadItemsToMerge = [wallet];
-      const direct = h.service._callApiUploadItemsInstantly({ pwdHash: scope });
-      await jest.advanceTimersByTimeAsync(1500);
-      await direct;
-      firstRead.resolve(true);
+      if (scenario.startsWith('committed-')) {
+        const credential = selected.keylessCredential;
+        if (!credential) throw new OneKeyLocalError('Missing test credential');
+        // The detached caller captures this before entering the DB transaction.
+        const retry = h.service.captureWalletUploadReadRetry(credential);
+        expect(retry).toBeDefined();
+        verify.mockReset();
+        verify.mockImplementation(async ({ onVerifiedWallet }) => {
+          onVerifiedWallet?.(canonical, physical);
+          return true;
+        });
+        jest
+          .spyOn(h.service, 'getCloudSyncDataTime')
+          .mockResolvedValue(Date.now());
+        if (scenario === 'committed-read-failed-after-switch') h.changeSource();
+        retry?.(
+          { ...wallet, dataTime: 100.5 },
+          scenario === 'committed-permanent-read-failure'
+            ? new DOMException('Invalid fixture', 'DataError')
+            : new OneKeyLocalError('Transient pool read unavailable'),
+        );
+        if (scenario === 'committed-row-deleted') h.pool.delete(wallet.id);
+        if (scenario === 'committed-row-replaced')
+          h.pool.set(wallet.id, { ...wallet, data: 'newer-committed-box' });
+        if (scenario === 'committed-scope-switched') h.changeSource();
+      } else {
+        h.service.uploadItemsToMerge = [wallet];
+        const direct = h.service._callApiUploadItemsInstantly({
+          pwdHash: scope,
+        });
+        await jest.advanceTimersByTimeAsync(1500);
+        await direct;
+        firstRead.resolve(true);
+      }
       expect(wire).not.toHaveBeenCalled();
       const corrected = {
         ...wallet,
@@ -1334,6 +1383,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           'conflict',
           'missing-credential',
           'switched',
+          'committed-scope-switched',
+          'committed-read-failed-after-switch',
+          'committed-permanent-read-failure',
           'disabled',
           'clock-corrected-unrecorded',
         ].includes(scenario)
@@ -1342,13 +1394,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       );
       if (
         scenario === 'available' ||
+        scenario === 'committed-read-recovery' ||
         scenario === 'clock-corrected' ||
         scenario === 'clock-corrected-out-of-order' ||
         contestedReadFails
       ) {
         let expected: IDBCloudSyncItem = corrected;
         if (contestedReadFails) expected = sibling;
-        if (scenario === 'available') expected = wallet;
+        if (scenario === 'available' || scenario === 'committed-read-recovery')
+          expected = wallet;
         expect(wire).toHaveBeenCalledWith(
           expect.objectContaining({
             localData: [

@@ -31,7 +31,9 @@ import type {
   IDBWallet,
 } from '../../../dbs/local/types';
 
-function isRetryableWalletVerificationReadError(error: unknown): boolean {
+export function isRetryableWalletVerificationReadError(
+  error: unknown,
+): boolean {
   const name =
     error && typeof error === 'object' && 'name' in error
       ? error.name
