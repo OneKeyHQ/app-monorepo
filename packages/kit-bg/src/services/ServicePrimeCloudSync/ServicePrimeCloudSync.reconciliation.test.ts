@@ -835,6 +835,11 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     'disabled',
     'already-sent',
     'newer-during-read',
+    'clock-corrected',
+    'clock-corrected-out-of-order',
+    'clock-corrected-unrecorded',
+    'clock-corrected-contested-reject',
+    'clock-corrected-contested-timeout',
     'second-timeout',
   ])(
     'one-shot Wallet timeout retry respects current authority: %s',
@@ -987,6 +992,43 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       await direct;
       firstRead.resolve(true);
       expect(wire).not.toHaveBeenCalled();
+      const corrected = {
+        ...wallet,
+        data: 'clock-corrected-box',
+        dataTime: 99,
+      };
+      const sibling = { ...wallet, id: 'healthy-sibling-wallet' };
+      const contestedReadFails = scenario.startsWith(
+        'clock-corrected-contested',
+      );
+      if (scenario.startsWith('clock-corrected')) {
+        const queued =
+          scenario === 'clock-corrected-unrecorded'
+            ? { ...corrected, data: 'not-persisted-box' }
+            : corrected;
+        const schedule = (item: IDBCloudSyncItem) =>
+          h.service['scheduleWalletUploadReadRetry']({
+            items: [item],
+            pwdHash: scope,
+            origin: endpointsMap.prod.prime,
+            isCurrent: () => true,
+          });
+        h.pool.set(wallet.id, corrected);
+        schedule(queued);
+        if (scenario === 'clock-corrected-out-of-order') schedule(wallet);
+        if (contestedReadFails) {
+          schedule(sibling);
+          h.pool.set(sibling.id, sibling);
+          h.getRecords.mockImplementation(async ({ ids }) => {
+            if (ids.includes(wallet.id)) {
+              if (scenario === 'clock-corrected-contested-reject')
+                throw new OneKeyLocalError('Contested Wallet read unavailable');
+              await deferred<boolean>().promise;
+            }
+            return { records: ids.map((id) => h.pool.get(id)) };
+          });
+        }
+      }
       if (scenario === 'switched') h.changeSource();
       if (scenario === 'disabled')
         jest
@@ -1007,25 +1049,38 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       retryRead.resolve(true);
       await jest.advanceTimersByTimeAsync(60_000);
       expect(api).toHaveBeenCalledTimes(
-        ['conflict', 'missing-credential', 'switched', 'disabled'].includes(
-          scenario,
-        )
+        [
+          'conflict',
+          'missing-credential',
+          'switched',
+          'disabled',
+          'clock-corrected-unrecorded',
+        ].includes(scenario)
           ? 0
           : 1,
       );
-      if (scenario === 'available')
+      if (
+        scenario === 'available' ||
+        scenario === 'clock-corrected' ||
+        scenario === 'clock-corrected-out-of-order' ||
+        contestedReadFails
+      ) {
+        let expected: IDBCloudSyncItem = corrected;
+        if (contestedReadFails) expected = sibling;
+        if (scenario === 'available') expected = wallet;
         expect(wire).toHaveBeenCalledWith(
           expect.objectContaining({
             localData: [
               expect.objectContaining({
-                key: wallet.id,
-                data: wallet.data,
-                dataTimestamp: wallet.dataTime,
+                key: expected.id,
+                data: expected.data,
+                dataTimestamp: expected.dataTime,
               }),
             ],
           }),
         );
-      else expect(wire).not.toHaveBeenCalled();
+        expect(wire).toHaveBeenCalledTimes(1);
+      } else expect(wire).not.toHaveBeenCalled();
       expect(h.service.uploadItemsToMerge).toEqual(
         scenario === 'newer-during-read' ? [newer] : [],
       );

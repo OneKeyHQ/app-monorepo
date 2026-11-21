@@ -203,6 +203,33 @@ type ISyncNowKeylessParams = {
   askPasswordOnlyIfHdXfpMissing?: boolean;
 };
 
+const MAX_WALLET_UPLOAD_RETRY_VERSIONS = 4;
+const MAX_WALLET_UPLOAD_RETRY_ITEMS = 500;
+const MAX_WALLET_UPLOAD_RETRY_CACHE_BYTES = 2 * 1024 * 1024;
+const WALLET_UPLOAD_RETRY_CONTESTED_READ_MS = 250;
+
+function matchesWalletUploadRetryVersion(
+  row: IDBCloudSyncItem,
+  expected: IDBCloudSyncItem,
+) {
+  return (
+    row.id === expected.id &&
+    row.dataType === expected.dataType &&
+    row.pwdHash === expected.pwdHash &&
+    row.data === expected.data &&
+    row.dataTime === expected.dataTime &&
+    row.rawKey === expected.rawKey &&
+    row.rawData === expected.rawData &&
+    row.localSceneUpdated === expected.localSceneUpdated &&
+    row.serverUploaded === expected.serverUploaded &&
+    row.isDeleted === expected.isDeleted &&
+    row.pendingPublicAccountDeletionAt ===
+      expected.pendingPublicAccountDeletionAt &&
+    row.pendingPublicAccountDeletionHash ===
+      expected.pendingPublicAccountDeletionHash
+  );
+}
+
 @backgroundClass()
 class ServicePrimeCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1945,7 +1972,8 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private walletUploadReadRetry:
     | {
-        items: Map<string, IDBCloudSyncItem>;
+        items: Map<string, IDBCloudSyncItem[] | null>;
+        retainedBytes: number;
         pwdHash: string;
         origin: string;
         isCurrent: () => boolean;
@@ -1972,24 +2000,54 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
     if (!eligible.length) return;
     const pending = this.walletUploadReadRetry;
-    if (
+    const canCoalesce =
       pending?.pwdHash === pwdHash &&
       pending.origin === origin &&
-      pending.isCurrent()
-    ) {
-      for (const item of eligible) {
-        const previous = pending.items.get(item.id);
-        if (!previous || (item.dataTime ?? 0) > (previous.dataTime ?? 0))
-          pending.items.set(item.id, { ...item });
+      pending.isCurrent();
+    const retry = canCoalesce
+      ? pending
+      : {
+          items: new Map<string, IDBCloudSyncItem[] | null>(),
+          retainedBytes: 0,
+          pwdHash,
+          origin,
+          isCurrent,
+        };
+    for (const item of eligible) {
+      const previous = retry.items.get(item.id);
+      if (
+        previous === null ||
+        previous?.some((candidate) =>
+          matchesWalletUploadRetryVersion(item, candidate),
+        )
+      )
+        continue;
+      if (!previous && retry.items.size >= MAX_WALLET_UPLOAD_RETRY_ITEMS)
+        continue;
+      // Approximate worst-case UTF-16 bytes for the retained local data, not
+      // just the encrypted wire bytes. Keep the queue bounded across calls.
+      const retainedBytes =
+        128 +
+        2 *
+          (item.id.length +
+            item.rawKey.length +
+            item.pwdHash.length +
+            (item.rawData?.length ?? 0) +
+            (item.data?.length ?? 0));
+      if (
+        (previous && previous.length >= MAX_WALLET_UPLOAD_RETRY_VERSIONS) ||
+        retry.retainedBytes + retainedBytes >
+          MAX_WALLET_UPLOAD_RETRY_CACHE_BYTES
+      ) {
+        // Never fall back to an earlier candidate when a version wasn't
+        // retained. Leave this ID to ordinary reconciliation.
+        if (previous) retry.items.set(item.id, null);
+        continue;
       }
-      return;
+      retry.retainedBytes += retainedBytes;
+      retry.items.set(item.id, [...(previous ?? []), { ...item }]);
     }
-    const retry = {
-      items: new Map(eligible.map((item) => [item.id, { ...item }])),
-      pwdHash,
-      origin,
-      isCurrent,
-    };
+    if (canCoalesce) return;
     this.walletUploadReadRetry = retry;
     const expiresAt = Date.now() + 30_000;
     setTimeout(() => {
@@ -2005,24 +2063,67 @@ class ServicePrimeCloudSync extends ServiceBase {
           this.cloudSyncItemAbortControllers.add(controller);
           try {
             await resolveBeforeTimeout(
-              this._callApiUploadItems({
-                localItems: [...retry.items.values()],
-                isFlush: false,
-                lockItem: undefined,
-                pwdHash,
-                setUndefinedTimeToNow: false,
-                requestOptions: { signal: controller.signal, timeout: 10_000 },
-                skipLastSyncTime: true,
-                prepareWalletRetry: async (batch, credential, baseURL) => {
-                  if (baseURL !== origin) return undefined;
-                  return this.prepareWalletUploadReadRetry({
-                    batch,
-                    credential,
-                    expected: retry.items,
-                    isCurrent: isRetryCurrent,
-                  });
-                },
-              }),
+              (async () => {
+                const expected = new Map<string, IDBCloudSyncItem>();
+                const contested: string[] = [];
+                for (const [id, versions] of retry.items) {
+                  if (versions?.length === 1) expected.set(id, versions[0]);
+                  else if (versions) contested.push(id);
+                }
+                // A corrected clock may persist a later edit at a lower
+                // timestamp. Only the exact stored candidate wins, never
+                // the greater timestamp or the last arrival.
+                if (contested.length) {
+                  const contestedRead = await resolveBeforeTimeout(
+                    (async () => {
+                      try {
+                        return await localDb.getRecordsByIds({
+                          name: ELocalDBStoreNames.CloudSyncItem,
+                          ids: contested,
+                        });
+                      } catch (error) {
+                        errorUtils.autoPrintErrorIgnore(error);
+                        return undefined;
+                      }
+                    })(),
+                    WALLET_UPLOAD_RETRY_CONTESTED_READ_MS,
+                  );
+                  if (!isRetryCurrent()) return;
+                  for (const row of contestedRead?.records ?? []) {
+                    if (
+                      row &&
+                      retry.items
+                        .get(row.id)
+                        ?.some((candidate) =>
+                          matchesWalletUploadRetryVersion(row, candidate),
+                        )
+                    )
+                      expected.set(row.id, { ...row });
+                  }
+                }
+                if (!expected.size || !isRetryCurrent()) return;
+                return this._callApiUploadItems({
+                  localItems: [...expected.values()],
+                  isFlush: false,
+                  lockItem: undefined,
+                  pwdHash,
+                  setUndefinedTimeToNow: false,
+                  requestOptions: {
+                    signal: controller.signal,
+                    timeout: 10_000,
+                  },
+                  skipLastSyncTime: true,
+                  prepareWalletRetry: async (batch, credential, baseURL) => {
+                    if (baseURL !== origin) return undefined;
+                    return this.prepareWalletUploadReadRetry({
+                      batch,
+                      credential,
+                      expected,
+                      isCurrent: isRetryCurrent,
+                    });
+                  },
+                });
+              })(),
               12_000,
             );
           } finally {
