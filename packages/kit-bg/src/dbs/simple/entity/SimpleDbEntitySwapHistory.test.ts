@@ -176,6 +176,39 @@ it('marks a matching history despite different token metadata and clears its out
   expect(stored.pendingWrites).toEqual([]);
 });
 
+it('preserves another transaction’s pending failure when marking a source failure', async () => {
+  const entity = new SimpleDbEntitySwapHistory();
+  const other = createHistoryItem({
+    id: 'other-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  const expected = createHistoryItem({
+    id: 'target-tx',
+    protocol: EProtocolOfExchange.SWAP,
+    status: ESwapTxHistoryStatus.PENDING,
+  });
+  const otherFailure = {
+    ...other,
+    status: ESwapTxHistoryStatus.FAILED,
+    sourceTxFailed: true as const,
+  };
+  let stored: ISwapTxHistoryPersistList = {
+    histories: [{ ...other, status: ESwapTxHistoryStatus.SUCCESS }, expected],
+    pendingWrites: [otherFailure, expected],
+  };
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (data) => {
+    stored = typeof data === 'function' ? await data(stored) : data;
+    return stored;
+  });
+
+  await entity.markEarnSwapSourceFailed(expected);
+
+  expect(stored.histories[0].status).toBe(ESwapTxHistoryStatus.SUCCESS);
+  expect(stored.histories[1]).toMatchObject({ sourceTxFailed: true });
+  expect(stored.pendingWrites).toEqual([otherFailure]);
+});
+
 it('does not merge failed history for a different token or native flag', async () => {
   for (const token of [
     { ...usdc, contractAddress: '0xother' },

@@ -490,8 +490,10 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
           .map(update)
           .filter(
             (item) =>
+              item.txInfo.txId !== expected.txInfo.txId ||
               !histories.some(
                 (history) =>
+                  history.sourceTxFailed &&
                   history.txInfo.txId === item.txInfo.txId &&
                   hasSameSourceIdentity(history, item),
               ),
