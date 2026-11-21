@@ -2166,6 +2166,14 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
       }),
       expect.objectContaining({ remoteSync: 'once' }),
     );
+    expect(mockUpdateOrderStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentTxId: 'unstake-tx',
+        expectedOrderId: 'unstake-order',
+        expectedRecordAttemptId:
+          mockAddEarnOrder.mock.calls.at(-1)?.[1]?.recordAttemptId,
+      }),
+    );
     expect(completed).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });

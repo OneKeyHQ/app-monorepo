@@ -2234,6 +2234,7 @@ export function useUniversalWithdraw({
                     currentTxId: txid,
                     expectedOrderId: unstakeOrder.order.orderId,
                     expectedNetworkId: networkId,
+                    expectedRecordAttemptId: unstakeOrder.attemptId,
                     status: finalStatus,
                   },
                 );
