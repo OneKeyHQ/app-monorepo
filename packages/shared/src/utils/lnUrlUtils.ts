@@ -106,6 +106,8 @@ const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*\d+\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
+const LNURL_TAB_ORDER_LABEL =
+  /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] *)(?=\S)/iy;
 const LNURL_WRAPPER_BOUNDARY = /[\s.,!?，。！？;；:：)>"']/u;
 const LNURL_CLOSER_END = /[)>"'.,!?，。！？;；:：—]*(?=\s|$)/uy;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
@@ -263,13 +265,15 @@ function readReusableLightningRecipient(
     }
     const noSameLineSuffix = firstAfter >= lineEnd;
     LNURL_CLOSER_END.lastIndex = firstAfter;
+    LNURL_TAB_ORDER_LABEL.lastIndex = firstAfter;
     const hasUriContinuation =
       LNURL_QUERY_CONTINUATION.test(
         address.slice(firstAfter, firstAfter + 2),
       ) ||
       (!noSameLineSuffix &&
         address.slice(tokenEnd, firstAfter).includes('\t') &&
-        !LNURL_CLOSER_END.test(address));
+        !LNURL_CLOSER_END.test(address) &&
+        !LNURL_TAB_ORDER_LABEL.test(address));
     let candidate: string | undefined;
     if (
       opener === '(' &&

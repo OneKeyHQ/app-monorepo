@@ -130,6 +130,10 @@ describe('LightningVault.validateAddress', () => {
     ['Pay here: (lnurlp://example.com/pay).', 'lnurlp://example.com/pay'],
     ['(lnurlp://example.com/pay)\nThanks', 'lnurlp://example.com/pay'],
     [
+      'lnurlp://merchant.example/checkout?order=12\tOrder #34',
+      'lnurlp://merchant.example/checkout?order=12',
+    ],
+    [
       'Pay (lnurlp://merchant.example/checkout?order=12\n)— keep the receipt.',
       'lnurlp://merchant.example/checkout?order=12',
     ],

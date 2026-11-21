@@ -115,6 +115,9 @@ it.each([
   '(lnurlp://merchant.example/checkout?order=12\n),34)',
   '(lnurlp://merchant.example/checkout?order=12\n)—34)',
   'Pay: lnurlp://merchant.example/checkout?order=12\t34',
+  'Pay: lnurlp://merchant.example/checkout?order=12\t34 for this order',
+  'Pay: lnurlp://merchant.example/checkout?order=12\tAB34 Keep the receipt',
+  'Pay: lnurlp://merchant.example/checkout?order=12\tOrder34',
   'Pay: (lnurlp://merchant.example/checkout?order=12\t34)',
 ])('rejects an LNURL with an ambiguous continuation', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
@@ -169,6 +172,17 @@ it('keeps an LNURL when an explicit wrapper closes before a tab', () => {
     parseReusableLightningRecipient(`Pay: (${uri})\tKeep the receipt.`),
   ).toEqual({ kind: 'recipient', address: uri });
 });
+
+it.each(['Order #34', 'Order 34', 'Order ID: AB34', '订单：34'])(
+  'keeps a complete LNURL in a spreadsheet row labelled %s',
+  (label) => {
+    const uri = 'lnurlp://merchant.example/checkout?order=12';
+    expect(parseReusableLightningRecipient(`${uri}\t${label}`)).toEqual({
+      kind: 'recipient',
+      address: uri,
+    });
+  },
+);
 
 it('extracts a complete link followed by prose in the same parenthetical', () => {
   const uri = 'lnurlp://example.com/pay?note=thanks!';
