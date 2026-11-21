@@ -553,7 +553,7 @@ export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
 
 export type IPerpsActivePositionAtom = {
   accountAddress: string | undefined;
-  // A switch placeholder belongs to the new account before its first snapshot arrives.
+  // Live snapshots explicitly clear the flag so cached empty positions stay confirmed.
   isPending?: boolean;
   activePositions: HL.IPerpsAssetPosition[];
 };
@@ -569,6 +569,13 @@ export const {
     coldStartCache: true,
     coldStartCacheKey:
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
+    // Older caches stored both switch placeholders and confirmed empty snapshots without a flag.
+    coldStartCacheTransform: (value) =>
+      value?.accountAddress &&
+      value.isPending === undefined &&
+      value.activePositions?.length === 0
+        ? { ...value, isPending: true }
+        : value,
   },
 );
 export const {

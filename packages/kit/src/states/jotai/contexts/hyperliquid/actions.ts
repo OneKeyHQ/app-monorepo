@@ -784,6 +784,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(perpsActivePositionAtom(), {
           accountAddress: activeAccountAddress,
           activePositions,
+          isPending: false,
         });
       }
 
@@ -956,6 +957,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
         activePositions,
+        isPending: false,
       });
     },
   );

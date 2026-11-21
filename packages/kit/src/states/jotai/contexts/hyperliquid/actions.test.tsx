@@ -27,6 +27,7 @@ import type {
   IPerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { readContextAtomSnapshotRaw } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { formatSpotAssetCtx } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPlaceTwapOrderParams } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -86,6 +87,13 @@ const mockAmendOrderPriceByOid = jest.fn<
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches')
+  >('@onekeyhq/shared/src/storage/uiSnapshotCaches'),
+  readContextAtomSnapshotRaw: jest.fn(),
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -414,6 +422,38 @@ describe('useHyperliquidActions position updates', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  const emptyCache = { accountAddress: accountB, activePositions: [] };
+  it.each([
+    ['legacy empty', emptyCache, true],
+    [
+      'legacy populated',
+      { accountAddress: accountB, activePositions: [btcPosition] },
+      undefined,
+    ],
+    ['unscoped empty', { activePositions: [] }, undefined],
+    ['confirmed empty', { ...emptyCache, isPending: false }, false],
+    ['pending empty', { ...emptyCache, isPending: true }, true],
+  ] as const)(
+    'hydrates %s positions on a cold start',
+    (_name, cached, pending) => {
+      const snapshot = { 'store:perps::ctx:perpsActivePositionAtom': cached };
+      jest
+        .mocked(readContextAtomSnapshotRaw)
+        .mockReturnValueOnce(JSON.stringify(snapshot));
+      const store = Object.assign(createStore(), {
+        __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__: 'store:perps',
+      });
+      render(
+        <ProviderJotaiContextHyperliquid store={store}>
+          {null}
+        </ProviderJotaiContextHyperliquid>,
+      );
+      const restored = store.get(perpsActivePositionAtom());
+      expect(restored).toMatchObject(cached);
+      expect(restored.isPending).toBe(pending);
+    },
+  );
+
   it.each(['updateAllDexsClearinghouseState', 'updateWebData2'] as const)(
     '%s waits for live positions after a stale account frame',
     async (action) => {
@@ -496,6 +536,7 @@ describe('useHyperliquidActions position updates', () => {
       expect(currentPositions).toEqual({
         accountAddress: accountB,
         activePositions: [ethPosition],
+        isPending: false,
       });
       await updatePositions(accountA, [btcPosition]);
       expect(getPositions()).toBe(currentPositions);
@@ -512,6 +553,7 @@ describe('useHyperliquidActions position updates', () => {
       expect(emptyPositions).toEqual({
         accountAddress: accountB,
         activePositions: [],
+        isPending: false,
       });
       await updatePositions(accountA, [btcPosition]);
       expect(getPositions()).toBe(emptyPositions);
