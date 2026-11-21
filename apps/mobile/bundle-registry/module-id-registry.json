@@ -26036,6 +26036,7 @@
     "packages/kit/src/views/Prime/components/PrimeLoginEmailCodeDialogV2/PrimeLoginEmailCodeDialogV2.tsx": 3533,
     "packages/kit/src/views/Prime/components/PrimeLoginEmailCodeDialogV2/index.tsx": 24531,
     "packages/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2.tsx": 21153,
+    "packages/kit/src/views/Prime/components/PrimeLoginOAuthDialog/OneKeyIdUsagePopover.tsx": 9508,
     "packages/kit/src/views/Prime/components/PrimeLoginOAuthDialog/PrimeLoginOAuthDialog.tsx": 13233,
     "packages/kit/src/views/Prime/components/PrimeLoginOAuthDialog/oneKeyIdLoginMethods.ts": 15421,
     "packages/kit/src/views/Prime/components/PrimeLoginPasswordDialog/PrimeLoginPasswordDialog.tsx": 8456,
