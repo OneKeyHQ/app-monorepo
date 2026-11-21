@@ -199,10 +199,12 @@ export async function parseQRCodeWithDeps(
       ? (result.data as ILightningNetworkValue).expiresAt
       : undefined;
   const pickerDone = waitForPhotoPicker?.();
-  if (pickerDone) {
-    await pickerDone;
-    if (invoiceExpiresAt !== undefined)
-      await ensureInvoiceIsCurrent(invoiceExpiresAt);
+  if (pickerDone) await pickerDone;
+  if (
+    invoiceExpiresAt !== undefined &&
+    (pickerDone || !options?.autoExecuteParsedAction)
+  ) {
+    await ensureInvoiceIsCurrent(invoiceExpiresAt);
   }
 
   ensureScanIsActive();

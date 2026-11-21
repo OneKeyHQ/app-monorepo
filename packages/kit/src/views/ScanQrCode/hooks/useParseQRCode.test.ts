@@ -397,6 +397,45 @@ it('rechecks a deferred invoice before offering to create a missing address', as
   expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
 });
 
+it.each(['camera', 'photo'])(
+  'checks expiry before resolving a manual %s result',
+  async (source) => {
+    const expiresAt = 1_900_000_000;
+    const result = Promise.withResolvers<unknown>();
+    mockParse.mockReturnValueOnce(result.promise);
+    const onResultWillClose = jest.fn();
+    const parsing = parseQRCodeWithDeps(
+      'lightning:invoice',
+      { popNavigation: true, autoExecuteParsedAction: false },
+      {
+        ...deps,
+        scanRequestId: 'manual-lightning',
+        canApplyScanResult: () => true,
+        waitForPhotoPicker: source === 'photo' ? () => undefined : undefined,
+        onResultWillClose,
+      },
+    );
+    const expire = new InvoiceExpiredError({ autoToast: false });
+    mockEnsureLightningInvoiceIsCurrent.mockRejectedValueOnce(expire);
+    result.resolve({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: { address: 'invoice', expiresAt },
+    });
+    await expect(parsing).rejects.toBe(expire);
+    expect(mockEnsureLightningInvoiceIsCurrent).toHaveBeenCalledTimes(1);
+    expect(mockEnsureLightningInvoiceIsCurrent).toHaveBeenCalledWith({
+      expiresAt,
+    });
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.send_the_invoice_has_expired,
+    });
+    expect(onResultWillClose).toHaveBeenCalledTimes(1);
+    expect(mockResetScanModalRoute).toHaveBeenCalledWith({
+      scanRequestId: 'manual-lightning',
+    });
+  },
+);
+
 it('rechecks invoice expiry after a missing address is created and before opening Send', async () => {
   const expiresAt = 1_900_000_000;
   const creationStarted = Promise.withResolvers<void>();

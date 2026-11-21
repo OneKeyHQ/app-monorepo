@@ -106,7 +106,7 @@ const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*\d+\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
-const LNURL_CLOSER_END = /[)>"'.,!?，。！？;；:：]*(?=\s|$)/uy;
+const LNURL_CLOSER_END = /[)>"'.,!?，。！？;；:：—]*(?=\s|$)/uy;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
   '"': '"',
@@ -151,7 +151,7 @@ function readParenthesizedLnurl({
   directEnd,
   enclosingDepth,
   firstCloser,
-  hasQueryContinuation,
+  hasUriContinuation,
 }: {
   address: string;
   tokenStart: number;
@@ -159,7 +159,7 @@ function readParenthesizedLnurl({
   directEnd: number;
   enclosingDepth: number;
   firstCloser: IClosingParenthesis | undefined;
-  hasQueryContinuation: boolean;
+  hasUriContinuation: boolean;
 }): string | null {
   if (!firstCloser) return null;
   // Reserve closers for enclosing prose only when all openers can be paired.
@@ -189,7 +189,7 @@ function readParenthesizedLnurl({
   }
   if (
     wrapperEnd === undefined ||
-    (wrapperEnd === tokenEnd && hasQueryContinuation)
+    (wrapperEnd === tokenEnd && hasUriContinuation)
   ) {
     return null;
   }
@@ -240,9 +240,14 @@ function readReusableLightningRecipient(
       firstAfter += 1;
     }
     const noSameLineSuffix = firstAfter >= lineEnd;
-    const hasQueryContinuation = LNURL_QUERY_CONTINUATION.test(
-      address.slice(firstAfter, firstAfter + 2),
-    );
+    LNURL_CLOSER_END.lastIndex = firstAfter;
+    const hasUriContinuation =
+      LNURL_QUERY_CONTINUATION.test(
+        address.slice(firstAfter, firstAfter + 2),
+      ) ||
+      (!noSameLineSuffix &&
+        address.slice(tokenEnd, firstAfter).includes('\t') &&
+        !LNURL_CLOSER_END.test(address));
     let candidate: string | undefined;
     if (
       opener === '(' &&
@@ -267,7 +272,7 @@ function readReusableLightningRecipient(
         tokenEnd,
         directEnd: closesOnNextLine ? firstAfter + 1 : lineEnd,
         enclosingDepth,
-        hasQueryContinuation,
+        hasUriContinuation,
       };
       let uri = readParenthesizedLnurl({
         ...wrapper,
@@ -320,7 +325,7 @@ function readReusableLightningRecipient(
           if (
             (noSameLineSuffix &&
               firstAfter < (followingBreak?.index ?? address.length)) ||
-            hasQueryContinuation
+            hasUriContinuation
           ) {
             return { kind: 'ambiguous' };
           }

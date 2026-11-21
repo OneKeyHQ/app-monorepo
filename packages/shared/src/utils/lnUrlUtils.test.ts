@@ -113,6 +113,9 @@ it.each([
   'Pay: lnurlp://merchant.example/checkout?order=12 &item=34',
   '(lnurlp://merchant.example/checkout?order=12\n)34)',
   '(lnurlp://merchant.example/checkout?order=12\n),34)',
+  '(lnurlp://merchant.example/checkout?order=12\n)—34)',
+  'Pay: lnurlp://merchant.example/checkout?order=12\t34',
+  'Pay: (lnurlp://merchant.example/checkout?order=12\t34)',
 ])('rejects an LNURL with an ambiguous continuation', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(parseReusableLightningRecipient(text)).toEqual({ kind: 'ambiguous' });
@@ -151,6 +154,20 @@ it('preserves a wrapped link when only whitespace separates it from the closer',
     kind: 'recipient',
     address: uri,
   });
+});
+
+it('keeps a wrapped LNURL when an em dash introduces prose after its closer', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12';
+  expect(
+    parseReusableLightningRecipient(`Pay (${uri}\n)— keep the receipt.`),
+  ).toEqual({ kind: 'recipient', address: uri });
+});
+
+it('keeps an LNURL when an explicit wrapper closes before a tab', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12';
+  expect(
+    parseReusableLightningRecipient(`Pay: (${uri})\tKeep the receipt.`),
+  ).toEqual({ kind: 'recipient', address: uri });
 });
 
 it('extracts a complete link followed by prose in the same parenthetical', () => {

@@ -102,6 +102,7 @@ it.each([
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
   'Pay lnu\nrlp://merchant.example/pay',
+  'Pay: lnurlp://merchant.example/checkout?order=12\t34',
   'Pay here: <LIGHTNING:LNURL\nP://merchant.example/pay>',
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
   `Pay ${LNURL}; or <${LNURL_URI}>.`,
@@ -144,6 +145,7 @@ it.each([
   'lnurlp://example.com/pay\n\nThanks',
   'Please pay (use this link (lnurlp://merchant.example/pay)).',
   'Please pay (use this link (lnurlp://merchant.example/pay)).\n1) Keep the receipt.',
+  'Pay (lnurlp://merchant.example/checkout?order=12\n)— keep the receipt.',
   'Pay <lnurlp://merchant.example/Pay?ref=ABC> or <LNURLP://merchant.example/Pay?ref=ABC>.',
 ])(
   'preserves the pasted payment instructions when validating a complete LNURL',

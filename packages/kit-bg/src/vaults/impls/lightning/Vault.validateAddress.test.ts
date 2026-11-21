@@ -111,6 +111,7 @@ describe('LightningVault.validateAddress', () => {
     'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
     '(lnurlp://merchant.example/checkout?order=12\n)34)',
     'Pay lnu\nrlp://merchant.example/pay',
+    'Pay: lnurlp://merchant.example/checkout?order=12\t34',
     'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
     `Pay ${LNURL}; or <${LNURL_URI}>.`,
   ])(
@@ -128,6 +129,10 @@ describe('LightningVault.validateAddress', () => {
   it.each([
     ['Pay here: (lnurlp://example.com/pay).', 'lnurlp://example.com/pay'],
     ['(lnurlp://example.com/pay)\nThanks', 'lnurlp://example.com/pay'],
+    [
+      'Pay (lnurlp://merchant.example/checkout?order=12\n)— keep the receipt.',
+      'lnurlp://merchant.example/checkout?order=12',
+    ],
     ['lnurlp://example.com/pay\n\nThanks', 'lnurlp://example.com/pay'],
     [
       'Pay (lnurlp://example.com/pay before Friday).',
