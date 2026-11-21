@@ -20,6 +20,7 @@ import {
 } from '../EarnRouter/earnFundingRegistry';
 
 import { loanOperationKey } from './loanRouter.utils';
+import { readLoanRoutePosition } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
 import type { ILoanRoute } from './loanRouter.utils';
@@ -34,6 +35,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: { getAccount: jest.fn() },
     serviceStaking: {
       borrowBuildBorrowTransaction: jest.fn(),
+      borrowBuildSupplyTransaction: jest.fn(),
       fetchTokenAllowance: jest.fn(),
     },
   },
@@ -66,7 +68,14 @@ jest.mock('../../../Staking/components/EarnRiskWarningDialog', () => ({
   useEarnRiskWarningGate: () => async () => true,
 }));
 jest.mock('../../../Borrow/components/borrowRepayPosition.utils', () => ({
-  resolveBorrowTokenApproveSpenderAddress: () => '0xspender',
+  resolveBorrowTokenApproveSpenderAddress: ({
+    providerName,
+  }: {
+    providerName: string;
+  }) =>
+    ['kamino', 'unknown'].includes(providerName.toLowerCase())
+      ? ''
+      : '0xspender',
   shouldUseAaveNativeGateway: () => false,
 }));
 jest.mock('../../../Borrow/hooks/useUniversalBorrowWithdrawRepayHooks', () => ({
@@ -404,3 +413,82 @@ it('confirms the USDT allowance reset before asking to authorize the new amount'
   expect(result.current.phase).toBe('idle');
   expect(onDone).not.toHaveBeenCalled();
 });
+
+it('builds Kamino SPL supply without requesting an EVM allowance', async () => {
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  const fetchAllowance = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'fetchTokenAllowance',
+  );
+  const solRoute = {
+    ...route,
+    market: { ...route.market, provider: 'Kamino', networkId: 'sol--101' },
+    collateral: {
+      ...route.collateral,
+      networkId: 'sol--101',
+      address: 'spl-usdc',
+    },
+  };
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  buildSupply.mockResolvedValue({ tx: '{}', orderId: 'order' });
+  confirm.mockImplementation(async ({ onCancel }) => onCancel?.());
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, route: solRoute, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      route: solRoute,
+      collateralAmount: '10',
+      borrowAmount: '0',
+    }),
+  );
+  expect(fetchAllowance).not.toHaveBeenCalled();
+  expect(buildSupply).toHaveBeenCalledWith(
+    expect.objectContaining({
+      networkId: 'sol--101',
+      provider: 'Kamino',
+      amount: '10',
+    }),
+  );
+  expect(confirm).toHaveBeenCalledTimes(1);
+});
+
+it.each(['Unknown', 'Kamino'])(
+  'does not skip a missing EVM approval target for %s',
+  async (provider) => {
+    const buildSupply = jest.spyOn(
+      backgroundApiProxy.serviceStaking,
+      'borrowBuildSupplyTransaction',
+    );
+    const fetchAllowance = jest.spyOn(
+      backgroundApiProxy.serviceStaking,
+      'fetchTokenAllowance',
+    );
+    const evmRoute = {
+      ...route,
+      market: { ...route.market, provider },
+    };
+    const { result } = renderHook(() =>
+      useLoanRouterRun({ ...plan, route: evmRoute, onDone: jest.fn() }),
+    );
+    await act(async () =>
+      result.current.start({
+        ...plan,
+        route: evmRoute,
+        collateralAmount: '10',
+        borrowAmount: '0',
+      }),
+    );
+    expect(fetchAllowance).not.toHaveBeenCalled();
+    expect(buildSupply).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+  },
+);

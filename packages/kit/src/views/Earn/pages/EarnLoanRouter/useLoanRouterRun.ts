@@ -19,6 +19,8 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnFundingReceipt,
   IEarnFundingState,
@@ -479,6 +481,12 @@ export function useLoanRouterRun({
     async (plan: ILoanExecutionPlan, signal: AbortSignal) => {
       const { route: planRoute } = plan;
       const token = toIToken(planRoute.collateral);
+      if (
+        networkUtils.isSolanaNetworkByNetworkId(planRoute.market.networkId) &&
+        planRoute.market.provider.toLowerCase() ===
+          EEarnProviderEnum.Kamino.toLowerCase()
+      )
+        return true;
       const spenderAddress = resolveBorrowTokenApproveSpenderAddress({
         providerName: planRoute.market.provider,
         marketAddress: planRoute.market.marketAddress,
