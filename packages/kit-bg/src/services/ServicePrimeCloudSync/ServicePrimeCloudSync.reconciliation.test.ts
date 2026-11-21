@@ -2679,6 +2679,47 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(3);
   });
 
+  test.each(['unavailable', 'unavailable-silent', 'cancelled'] as const)(
+    'legacy flush leaves the local pool alone when the incremental loader is %s',
+    async (outcome) => {
+      const h = harness();
+      const fill = jest.spyOn(
+        h.service,
+        'fillingSyncItemsMissingDataFromRawData',
+      );
+      const unavailable = new OneKeyLocalError(
+        'incremental segment unavailable',
+      );
+      let cancellation: Promise<void> | undefined;
+      const load = jest.fn(() => {
+        if (outcome !== 'cancelled') throw unavailable;
+        cancellation = h.service.cancelPublicAccountSnapshotImport();
+        return jest.requireActual<typeof import('./incrementalCloudSync')>(
+          './incrementalCloudSync',
+        );
+      });
+      jest.doMock('./incrementalCloudSync', load);
+      try {
+        const work =
+          outcome === 'unavailable-silent'
+            ? h.service.startServerSyncFlowSilently({ isFlush: true })
+            : h.service.startServerSyncFlow({ isFlush: true });
+        if (outcome === 'unavailable')
+          await expect(work).rejects.toBe(unavailable);
+        else await expect(work).resolves.toBe(false);
+        await cancellation;
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(fill).not.toHaveBeenCalled();
+        expect(h.getPool).not.toHaveBeenCalled();
+        expect(h.check).not.toHaveBeenCalled();
+        expect(h.replay).not.toHaveBeenCalled();
+        expect(h.scene).not.toHaveBeenCalled();
+      } finally {
+        jest.dontMock('./incrementalCloudSync');
+      }
+    },
+  );
+
   test('explicit manual bypass retries immediately while automatic forceSync remains backed off', async () => {
     const h = harness();
     h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));

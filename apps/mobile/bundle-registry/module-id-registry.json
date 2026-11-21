@@ -21928,6 +21928,7 @@
     "packages/kit-bg/src/services/ServicePrimeCloudSync/cloudSyncReconciliation.ts": 18280,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/cloudSyncUploadBatching.ts": 22996,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/cloudSyncUploadPacing.ts": 21127,
+    "packages/kit-bg/src/services/ServicePrimeCloudSync/incrementalCloudSync.ts": 17291,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/index.ts": 18083,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/keylessCloudSyncApi.ts": 1039,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/keylessCloudSyncUtils.ts": 3906,

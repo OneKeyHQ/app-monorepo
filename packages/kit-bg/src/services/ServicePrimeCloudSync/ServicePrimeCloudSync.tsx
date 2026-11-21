@@ -9,10 +9,7 @@ import {
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  endpointsMap,
-  getEndpointByServiceName,
-} from '@onekeyhq/shared/src/config/endpointsMap';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
@@ -52,7 +49,6 @@ import timerUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -4294,6 +4290,25 @@ class ServicePrimeCloudSync extends ServiceBase {
           onManualResult,
         });
 
+      // Resolve the shared runner before the legacy flush fills or prunes
+      // rows. The immediate entry reuses it without another module load.
+      const loadGeneration = this.publicAccountSnapshotImportGeneration;
+      const loadKeyGeneration =
+        this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+      try {
+        await this.getIncrementalCloudSyncRunner();
+      } catch (error) {
+        if (throwError) throw error;
+        errorUtils.autoPrintErrorIgnore(error);
+        return false;
+      }
+      if (
+        loadGeneration !== this.publicAccountSnapshotImportGeneration ||
+        loadKeyGeneration !==
+          this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration()
+      )
+        return false;
+
       // when data is written, because the cached password is missing to encrypt, so data is undefined
       await this.fillingSyncItemsMissingDataFromRawData({
         skipUploadToServer: true, // will call server sync flow later
@@ -4540,16 +4555,21 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
+  private incrementalCloudSyncRunner:
+    | typeof import('./incrementalCloudSync').runIncrementalCloudSync
+    | undefined;
+
+  private async getIncrementalCloudSyncRunner() {
+    if (!this.incrementalCloudSyncRunner) {
+      const { runIncrementalCloudSync } =
+        await import('./incrementalCloudSync');
+      this.incrementalCloudSyncRunner = runIncrementalCloudSync;
+    }
+    return this.incrementalCloudSyncRunner;
+  }
+
   private async startServerSyncFlowForItemsImmediately(
-    {
-      localItems,
-      isFlush,
-      setUndefinedTimeToNow,
-      encryptedSecurityPasswordR1ForServer,
-      isFullDBChecking,
-      noDebounceUpload,
-      expectedSyncCredential,
-    }: Parameters<ServicePrimeCloudSync['startServerSyncFlowForItems']>[0],
+    params: Parameters<ServicePrimeCloudSync['startServerSyncFlowForItems']>[0],
     parentIsCurrent?: () => boolean,
   ) {
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -4570,190 +4590,38 @@ class ServicePrimeCloudSync extends ServiceBase {
           'Cloud sync was cancelled. Pending data has been preserved.',
         );
     };
-    const requestOptions = { signal: controller.signal, timeout: 10_000 };
-    let stopStampScopeObservation: (() => void) | undefined;
-    let stampScopeChanged = false;
-    const stampIsCurrent = () => !stampScopeChanged && isCurrent();
     try {
       guard();
       if (!(await this.isCloudSyncIsAvailable())) return;
       guard();
       await this.ensureCloudSyncIsAvailable();
       guard();
+      const runIncrementalCloudSync =
+        await this.getIncrementalCloudSyncRunner();
+      guard();
 
       const expectedCredential =
-        expectedSyncCredential ?? (await this.getSyncCredentialSafe());
+        params.expectedSyncCredential ?? (await this.getSyncCredentialSafe());
       const assertSelectedKey = () =>
         this.assertSyncCredentialUnchanged(expectedCredential);
       await assertSelectedKey();
-      const ownsLastSyncTime = !isFlush && !isFullDBChecking;
-      const readStampScope = () =>
-        resolveBeforeTimeout(
-          Promise.all([
-            this.getActiveSyncMode(),
-            getEndpointByServiceName(EServiceEndpointEnum.Prime),
-          ]).catch(() => undefined),
-          250,
-        );
-      if (ownsLastSyncTime) {
-        try {
-          // Endpoint settings can leave and return to the same value during
-          // a request. Invalidate only this timestamp, never the data path.
-          stopStampScopeObservation = devSettingsPersistAtom.sub(() => {
-            stampScopeChanged = true;
-          });
-        } catch {
-          stampScopeChanged = true;
-        }
-      }
-      const stampScope = ownsLastSyncTime ? await readStampScope() : undefined;
-      guard();
-      const checkRequestItems = localItems.map((item) => ({ ...item }));
-      const serverStatus = await this.checkServerStatusWithRequestOptions(
-        {
-          localItems,
-          isFullDBChecking,
-        },
-        requestOptions,
-      );
-      guard();
-      const syncCredential = expectedCredential;
-      await assertSelectedKey();
-      guard();
-
-      const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
-      const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
-      const observeDeferredWalletName: IWalletNameDeferredObserver = (item) => {
-        if (
-          isCurrent() &&
-          item.serverUploaded &&
-          item.data &&
-          !item.isDeleted &&
-          !item.localSceneUpdated &&
-          item.pwdHash === spaceId
-        )
-          deferredWalletNames.set(item.id, item);
-      };
-      let completedWork = false;
-      let heldOutgoing = false;
-      let outboundSettled = true;
-      let uploadIncomplete = false;
-      if (serverStatus.obsoleted.length || isFlush) {
-        const itemsToUpload = localItems.filter((item) =>
-          serverStatus.obsoleted.includes(item.id),
-        );
-        await assertSelectedKey();
-        const outgoing = isFlush
-          ? itemsToUpload
-          : await this.filterDivergentPendingWalletNames({
-              items: itemsToUpload,
-              credential: syncCredential,
-              signal: controller.signal,
-              isCurrent,
-            });
-        heldOutgoing = outgoing.length < itemsToUpload.length;
-        const upload =
-          outgoing.length || outgoing.length === itemsToUpload.length
-            ? await this.uploadItemsWithRequestOptions(
-                {
-                  localItems: outgoing,
-                  isFlush: isFlush ?? false,
-                  setUndefinedTimeToNow: setUndefinedTimeToNow ?? true,
-                  syncCredential,
-                  encryptedSecurityPasswordR1ForServer,
-                  noDebounceUpload,
-                },
-                requestOptions,
-                ownsLastSyncTime || heldOutgoing,
-              )
-            : undefined;
-        await assertSelectedKey();
-        guard();
-        const acknowledged = (upload?.created ?? 0) + (upload?.updated ?? 0);
-        uploadIncomplete = !isFlush && acknowledged < outgoing.length;
-        if (outgoing.length) {
-          outboundSettled =
-            acknowledged === outgoing.length &&
-            Number.isSafeInteger(upload?.created) &&
-            Number.isSafeInteger(upload?.updated) &&
-            (upload?.created ?? -1) >= 0 &&
-            (upload?.updated ?? -1) >= 0;
-          completedWork = outboundSettled;
-        }
-      }
-
-      for (const serverItems of [serverStatus.diff, serverStatus.updated]) {
-        guard();
-        await assertSelectedKey();
-        if (serverItems.length) {
-          const applied = await this.saveServerSyncItemsToLocal({
-            serverItems,
-            shouldSyncToScene: true,
-            syncCredential,
-            serverPwdHash: serverStatus.pwdHash,
-            isCurrent,
-            ...(ownsLastSyncTime
-              ? {
-                  skipLastSyncTime: true,
-                  onWalletNameHistoryDeferred: observeDeferredWalletName,
-                }
-              : {}),
-          });
-          completedWork ||= applied === true;
-        }
-      }
-      guard();
-      await assertSelectedKey();
-      if (serverStatus.deleted.length) {
-        const applied = await this.saveServerDeletedItemsToLocal({
-          deletedItemIds: serverStatus.deleted,
-          requestItems: checkRequestItems,
-          shouldSyncToScene: true,
-          syncCredential,
-          serverPwdHash: serverStatus.pwdHash,
-          isCurrent,
-          ...(ownsLastSyncTime ? { skipLastSyncTime: true } : {}),
-        });
-        completedWork ||= applied === true;
-      }
-      guard();
-      if (uploadIncomplete) {
-        throw new OneKeyLocalError({
-          message: 'Cloud sync upload was only partially acknowledged',
-          autoToast: false,
-        });
-      }
-      if (
-        ownsLastSyncTime &&
-        completedWork &&
-        outboundSettled &&
-        !heldOutgoing &&
-        !!syncCredential &&
-        !!spaceId &&
-        spaceId === serverStatus.pwdHash &&
-        stampScope &&
-        stampScope[0] !== ECloudSyncMode.None &&
-        !(await this.hasDurableDeferredWalletName(deferredWalletNames, {
-          syncCredential,
-          isCurrent: stampIsCurrent,
-        })) &&
-        stampIsCurrent()
-      ) {
-        const currentStampScope = await readStampScope();
-        if (
-          currentStampScope?.[0] !== stampScope[0] ||
-          currentStampScope[1] !== stampScope[1]
-        )
-          return;
-        await assertSelectedKey();
-        guard();
-        await this.updateLastSyncTimeInternal({
-          syncMode: stampScope[0],
-          isCurrent: stampIsCurrent,
-        });
-      }
+      await runIncrementalCloudSync({
+        service: this,
+        params,
+        expectedCredential,
+        signal: controller.signal,
+        isCurrent,
+        guard,
+        assertSelectedKey,
+        uploadItemsWithRequestOptions:
+          this.uploadItemsWithRequestOptions.bind(this),
+        filterDivergentPendingWalletNames:
+          this.filterDivergentPendingWalletNames.bind(this),
+        hasDurableDeferredWalletName:
+          this.hasDurableDeferredWalletName.bind(this),
+        updateLastSyncTime: this.updateLastSyncTimeInternal.bind(this),
+      });
     } finally {
-      stopStampScopeObservation?.();
       controller.abort();
       this.cloudSyncItemAbortControllers.delete(controller);
     }

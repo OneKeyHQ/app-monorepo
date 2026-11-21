@@ -34,7 +34,6 @@ import {
   getHardwareCloudSyncErrorDiagnostics,
   logHardwareCloudSyncDiagnostic,
 } from './hardwareCloudSyncLog';
-import { forEachHardwareCloudSyncResetPage } from './hardwareCloudSyncResetDownload';
 
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
@@ -1128,6 +1127,9 @@ export async function rotateHardwareCloudSyncDataKey<
       throw new HardwareCloudSyncCancelledError();
     }
   };
+  assertCurrent();
+  const { forEachHardwareCloudSyncResetPage } =
+    await import('./hardwareCloudSyncResetDownload');
   assertCurrent();
   const existing = await readLockEnvelope({ client, session });
   // Nobody reset it meanwhile. The wallet itself was checked by its identity

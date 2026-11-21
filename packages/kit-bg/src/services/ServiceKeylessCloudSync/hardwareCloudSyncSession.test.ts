@@ -1035,6 +1035,41 @@ describe('hardware Cloud sync session', () => {
       };
     }
 
+    test('checks cancellation after loading reset validation and before the first request', async () => {
+      const { key } = await firstDevice();
+      const c = fakeClient();
+      const savePending = jest.fn();
+      let isCurrent = true;
+      const loadResetDownload = jest.fn(() => {
+        isCurrent = false;
+        return jest.requireActual<
+          typeof import('./hardwareCloudSyncResetDownload')
+        >('./hardwareCloudSyncResetDownload');
+      });
+      jest.doMock('./hardwareCloudSyncResetDownload', loadResetDownload);
+      try {
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+            isCurrent: () => isCurrent,
+          }),
+        ).rejects.toMatchObject({
+          key: ETranslations.update_operation_canceled,
+        });
+        expect(loadResetDownload).toHaveBeenCalledTimes(1);
+        expect(c.get).not.toHaveBeenCalled();
+        expect(c.post).not.toHaveBeenCalled();
+        expect(savePending).not.toHaveBeenCalled();
+      } finally {
+        jest.dontMock('./hardwareCloudSyncResetDownload');
+      }
+    });
+
     test('re-encrypts records with the new key in one guarded flush', async () => {
       const { key, lock, envelopeItem } = await firstDevice();
       const local = [

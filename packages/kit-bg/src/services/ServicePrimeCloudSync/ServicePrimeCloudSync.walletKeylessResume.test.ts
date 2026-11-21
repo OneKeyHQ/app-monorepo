@@ -101,6 +101,8 @@ it.each([
   'incremental-history-successor-deferred',
   'incremental-history-successor-applied',
   'incremental-history-successor-unreadable',
+  'incremental-history-import-failure',
+  'incremental-history-import-cancelled',
   'push-name-history-deferred',
   'push-name-history-retained',
   'push-name-history-source-changed',
@@ -366,7 +368,12 @@ it.each([
         { skipCloudCredentialWarmup: true },
       );
       if (incrementalNameHistory) {
+        const importFailure = scenario === 'incremental-history-import-failure';
+        const importCancelled =
+          scenario === 'incremental-history-import-cancelled';
         const retained =
+          importFailure ||
+          importCancelled ||
           scenario === 'incremental-history-retained' ||
           scenario === 'incremental-history-healthy-mixed';
         const successorCase = scenario.startsWith(
@@ -499,11 +506,48 @@ it.each([
           pwdHash: scope,
           serverTime: Date.now(),
         });
-        const work = prime.startServerSyncFlowForItems({
-          localItems: expectsUpload ? [outgoing] : [],
-          noDebounceUpload: true,
-          expectedSyncCredential: credential,
-        });
+        const startIncremental = () =>
+          prime.startServerSyncFlowForItems({
+            localItems: expectsUpload ? [outgoing] : [],
+            noDebounceUpload: true,
+            expectedSyncCredential: credential,
+          });
+        if (importFailure || importCancelled) {
+          const unavailable = new OneKeyLocalError(
+            'incremental segment unavailable',
+          );
+          let cancellation: Promise<void> | undefined;
+          const load = jest.fn(() => {
+            if (importFailure) throw unavailable;
+            cancellation = prime.cancelPublicAccountSnapshotImport();
+            return jest.requireActual<typeof import('./incrementalCloudSync')>(
+              './incrementalCloudSync',
+            );
+          });
+          jest.doMock('./incrementalCloudSync', load);
+          try {
+            if (importFailure)
+              await expect(startIncremental()).rejects.toBe(unavailable);
+            else
+              await expect(startIncremental()).rejects.toThrow(
+                'Cloud sync was cancelled',
+              );
+            await cancellation;
+            expect(load).toHaveBeenCalledTimes(1);
+            expect(check).not.toHaveBeenCalled();
+            expect(sent).not.toHaveBeenCalled();
+            expect(config.lastSyncTimeKeyless).toBeUndefined();
+            expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject(
+              {
+                data: acknowledged.data,
+              },
+            );
+          } finally {
+            jest.dontMock('./incrementalCloudSync');
+          }
+        }
+        // A later ordinary run still works after an unavailable or cancelled load.
+        const work = startIncremental();
         if (scopeChanged)
           await expect(work).rejects.toThrow('Cloud sync was cancelled');
         else if (shortReceipt)
