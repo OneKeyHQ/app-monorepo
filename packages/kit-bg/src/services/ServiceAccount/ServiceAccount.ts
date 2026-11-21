@@ -839,6 +839,7 @@ class ServiceAccount extends ServiceBase {
   async getAllHwQrWalletWithDevice(params?: {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
+    metadataForDisplay?: boolean;
     skipDuplicateDevice?: boolean;
     skipDuplicateDeviceSameType?: boolean;
   }) {
@@ -935,6 +936,17 @@ class ServiceAccount extends ServiceBase {
 
       const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
       result[wallet.id] = { wallet, device };
+    }
+
+    if (params?.metadataForDisplay) {
+      // Keep device selection canonical; only project the rows this view renders.
+      const walletsForDisplay = await localDb.getWalletsForMetadataPresentation(
+        Object.values(result).map(({ wallet }) => wallet),
+      );
+      for (const wallet of walletsForDisplay) {
+        const entry = result[wallet.id];
+        if (entry) entry.wallet = wallet;
+      }
     }
 
     return result;

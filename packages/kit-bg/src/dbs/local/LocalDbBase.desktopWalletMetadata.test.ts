@@ -8,9 +8,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import ServiceAccount from '../../services/ServiceAccount/ServiceAccount';
+
 import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE } from './consts';
 import { IndexedDBAgent } from './indexed/IndexedDBAgent';
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
+import localDb from './localDb';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { EIndexedDBBucketNames } from './types';
 
@@ -30,9 +33,9 @@ function walletFixture(index: number): IDBWallet {
   };
 }
 
-async function setUp(index: number) {
+async function setUp(index: number, overrides?: Partial<IDBWallet>) {
   const db = new LocalDbIndexed();
-  const wallet = walletFixture(index);
+  const wallet = { ...walletFixture(index), ...overrides };
   const pool: IDBCloudSyncItem = {
     id: `synthetic-wallet-row-${index}`,
     data: 'retained-synthetic-ciphertext',
@@ -538,4 +541,94 @@ it('does not attempt a side save if only the actual Wallet store rejects', async
   ).resolves.toEqual([canonical]);
   expect(await db.getSyncItem({ id: pool.id })).toEqual(pool);
   expect(apiUploadItems).not.toHaveBeenCalled();
+});
+
+it('shows a scope-rejected QR rename in the device list without changing canonical lookup', async () => {
+  const {
+    db,
+    wallet,
+    pool,
+    apiUploadItems,
+    runWithDesktopWalletMetadataKey,
+    syncManagers,
+  } = await setUp(12, {
+    id: 'qr-wallet-12',
+    type: 'qr',
+    associatedDevice: 'db-device-qr-12',
+  });
+  const currentScope: ICloudSyncCredential = {
+    primeAccountSalt: 'synthetic',
+    securityPasswordR1: 'synthetic',
+    masterPasswordUUID: 'different-verified-scope',
+  };
+  syncManagers.wallet.buildSyncItemByDBQuery.mockResolvedValueOnce({
+    ...pool,
+    pwdHash: currentScope.masterPasswordUUID,
+    data: 'new-scope-synthetic-data',
+    dataTime: 43,
+    serverUploaded: false,
+  });
+  runWithDesktopWalletMetadataKey.mockImplementationOnce(async (apply) =>
+    apply(currentScope, () => true),
+  );
+  await expect(
+    db.setWalletNameAndAvatar({
+      walletId: wallet.id,
+      allowDesktopLocalMetadata: true,
+      name: 'Renamed only on this device',
+    }),
+  ).resolves.toMatchObject({ hasDesktopLocalMetadata: true });
+
+  const previousBackground = globalThis.$onekeyIsInBackground;
+  globalThis.$onekeyIsInBackground = true;
+  try {
+    const service = new ServiceAccount({ backgroundApi: {} });
+    const getWallets = jest.spyOn(service, 'getAllWallets');
+    const canonical = await db.getWallet({ walletId: wallet.id });
+    getWallets.mockResolvedValue({
+      wallets: [canonical],
+      allDevices: undefined,
+    });
+    const project = jest.spyOn(localDb, 'getWalletsForMetadataPresentation');
+    project.mockImplementation(db.getWalletsForMetadataPresentation.bind(db));
+
+    await expect(
+      service.getAllHwQrWalletWithDevice({ metadataForDisplay: true }),
+    ).resolves.toMatchObject({
+      [wallet.id]: { wallet: { name: 'Renamed only on this device' } },
+    });
+    runWithDesktopWalletMetadataKey.mockImplementationOnce(async (apply) =>
+      apply(undefined, () => true),
+    );
+    await expect(
+      db.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        allowDesktopLocalMetadata: true,
+        name: 'Renamed while sync was off',
+      }),
+    ).resolves.toMatchObject({ hasDesktopLocalMetadata: true });
+    await expect(
+      service.getAllHwQrWalletWithDevice({ metadataForDisplay: true }),
+    ).resolves.toMatchObject({
+      [wallet.id]: { wallet: { name: 'Renamed while sync was off' } },
+    });
+
+    await expect(service.getAllHwQrWalletWithDevice()).resolves.toEqual({
+      [wallet.id]: { wallet: canonical, device: undefined },
+    });
+    expect(project).toHaveBeenCalledTimes(2);
+    expect(project).toHaveBeenCalledWith([canonical]);
+    expect(getWallets.mock.calls).toEqual([
+      [{ refillWalletInfo: true }],
+      [{ refillWalletInfo: true }],
+      [{ refillWalletInfo: true }],
+    ]);
+    expect((await db.getWallet({ walletId: wallet.id })).name).toBe(
+      wallet.name,
+    );
+    expect(await db.getSyncItem({ id: pool.id })).toEqual(pool);
+    expect(apiUploadItems).not.toHaveBeenCalled();
+  } finally {
+    globalThis.$onekeyIsInBackground = previousBackground;
+  }
 });
