@@ -4348,7 +4348,7 @@ describe('hardware reset session and local data races', () => {
       Object.create(LocalDbBase.prototype) as LocalDbBase,
       {
         backgroundApi: { serviceKeylessCloudSync: service },
-        setAccountNameWithCloudKeyLock: write,
+        setAccountNameInternal: write,
       },
     );
     const params = {
