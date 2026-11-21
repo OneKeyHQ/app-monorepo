@@ -1500,38 +1500,40 @@ export default class ServiceHyperliquid extends ServiceBase {
     newFills: IFill[],
     userAddress?: string,
   ): Promise<void> {
-    const current = await perpsTradesHistoryDataAtom.get();
-    if (!current.isLoaded || newFills.length === 0) {
+    if (newFills.length === 0) {
       return;
     }
 
-    if (
-      userAddress &&
-      current.accountAddress &&
-      userAddress.toLowerCase() !== current.accountAddress.toLowerCase()
-    ) {
-      return;
-    }
+    // REST recovery and live fills can append at the same time.
+    await perpsTradesHistoryDataAtom.set((current) => {
+      if (
+        !current.isLoaded ||
+        (userAddress &&
+          current.accountAddress &&
+          userAddress.toLowerCase() !== current.accountAddress.toLowerCase())
+      ) {
+        return current;
+      }
 
-    const currentFillKeys = new Set(
-      current.fills.map((fill) => this._getFillKey(fill)),
-    );
-    const hasNewFill = newFills.some(
-      (fill) => !currentFillKeys.has(this._getFillKey(fill)),
-    );
-    if (!hasNewFill) {
-      return;
-    }
+      const currentFillKeys = new Set(
+        current.fills.map((fill) => this._getFillKey(fill)),
+      );
+      const hasNewFill = newFills.some(
+        (fill) => !currentFillKeys.has(this._getFillKey(fill)),
+      );
+      if (!hasNewFill) {
+        return current;
+      }
 
-    const fills = this._sortAndDedupeFills([
-      ...filterSupportedTradeHistoryFills(newFills),
-      ...current.fills,
-    ]);
-
-    await perpsTradesHistoryDataAtom.set({
-      ...current,
-      fills,
-      latestTime: fills[0]?.time ?? current.latestTime,
+      const fills = this._sortAndDedupeFills([
+        ...filterSupportedTradeHistoryFills(newFills),
+        ...current.fills,
+      ]);
+      return {
+        ...current,
+        fills,
+        latestTime: fills[0]?.time ?? current.latestTime,
+      };
     });
   }
 

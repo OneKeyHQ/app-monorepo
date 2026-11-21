@@ -153,6 +153,7 @@ interface IPublicTradesBatch {
 
 const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
 const PUBLIC_TRADES_BATCH_LIMIT = 10;
+const SUBSCRIPTION_REQUEST_TIMEOUT_MS = 5000;
 
 type IHyperliquidWsClient = {
   clientId: string;
@@ -249,7 +250,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _socketOpenedAt: number | null = null;
 
-  private _resumeReconnectPromise: Promise<void> | null = null;
+  private _resumeReconnectPromise: Promise<boolean> | null = null;
 
   private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1331,17 +1332,27 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._resumeRecoveryPromise = (async () => {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (this._bboNeedsResubscribe) {
+        const canRecoverBbo = () =>
+          this._canRecoverBbo({
+            client,
+            openedAt,
+            lifecycleVersion,
+            disabledCount,
+          });
         this._bboNeedsResubscribe = false;
         this._hasInitialSubscription = false;
         this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
         // BBO changes while delivery is paused are lost; resubscribe for a snapshot.
         for (const spec of Object.values(this.allSubSpecsMap)) {
-          if (
-            spec.type === ESubscriptionType.BBO &&
-            !(await this._destroySubscription(spec))
-          ) {
-            await this._forceReconnectTransport();
-            return true;
+          if (spec.type === ESubscriptionType.BBO) {
+            const removed = await this._destroySubscription(spec);
+            if (!canRecoverBbo()) {
+              return lifecycleVersion !== this._subscriptionLifecycleVersion;
+            }
+            if (!removed) {
+              await this._reconnectTransportSingleFlight(canRecoverBbo);
+              return lifecycleVersion !== this._subscriptionLifecycleVersion;
+            }
           }
         }
       }
@@ -1497,14 +1508,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       console.log('resumeSubscriptions__force_reconnect_transport');
       // Prewarm and AutoPause both fire resume on foreground; single-flight
       // so they cannot race two concurrent transport rebuilds.
-      if (!this._resumeReconnectPromise) {
-        this._resumeReconnectPromise = this._forceReconnectTransport().finally(
-          () => {
-            this._resumeReconnectPromise = null;
-          },
-        );
-      }
-      await this._resumeReconnectPromise;
+      await this._reconnectTransportSingleFlight();
       return;
     }
     if (action === 'waitForOpen') {
@@ -1543,6 +1547,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   subscriptionsHandlerDisabledCount = 0;
 
   private _bboNeedsResubscribe = false;
+
+  private _interruptedBboReconnectFills?: {
+    key: string;
+    disconnectedAt: number;
+  };
 
   @backgroundMethod()
   async disableSubscriptionsHandler(): Promise<void> {
@@ -1716,10 +1725,50 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._cleanupAllSubscriptions();
   }
 
+  private _canRecoverBbo(params: {
+    client: IHyperliquidWsClient | null;
+    openedAt: number | null;
+    lifecycleVersion: number;
+    disabledCount: number;
+  }): boolean {
+    return (
+      !this.subscriptionsHandlerDisabled &&
+      params.disabledCount === this.subscriptionsHandlerDisabledCount &&
+      params.client === this._client &&
+      params.openedAt === this._socketOpenedAt &&
+      params.lifecycleVersion === this._subscriptionLifecycleVersion &&
+      params.client?.transport.socket.readyState === WebSocket.OPEN
+    );
+  }
+
+  private async _reconnectTransportSingleFlight(
+    canRecoverBbo?: () => boolean,
+  ): Promise<void> {
+    if (!this._resumeReconnectPromise) {
+      this._resumeReconnectPromise = this._forceReconnectTransport(
+        canRecoverBbo,
+      ).finally(() => {
+        this._resumeReconnectPromise = null;
+      });
+    }
+    const rebuilt = await this._resumeReconnectPromise;
+    if (rebuilt === false && (!canRecoverBbo || canRecoverBbo())) {
+      // A later resume can still be valid after the original task is cancelled.
+      await this._reconnectTransportSingleFlight(canRecoverBbo);
+    }
+  }
+
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
-  private async _forceReconnectTransport(): Promise<void> {
+  private async _forceReconnectTransport(
+    canRecoverBbo?: () => boolean,
+  ): Promise<boolean> {
     await invalidatePerpsLiquidationRiskInputs();
+    // A blur can land while invalidation waits. Keep the live fills stream
+    // until the next focus retries BBO recovery.
+    if (canRecoverBbo && !canRecoverBbo()) {
+      return false;
+    }
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1729,6 +1778,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clearCriticalSubscriptionHealthCheck();
     this._clearNetworkTimeout();
     this._stopPingLoop();
+    if (canRecoverBbo) {
+      const fills = Array.from(this._activeSubscriptions.values()).find(
+        (sub) =>
+          sub.type === ESubscriptionType.USER_FILLS &&
+          this._isSubscriptionSpecPending(sub.spec),
+      );
+      if (fills && this._interruptedBboReconnectFills?.key !== fills.key) {
+        this._interruptedBboReconnectFills = {
+          key: fills.key,
+          disconnectedAt: Date.now(),
+        };
+      }
+    }
     this._forgetTransportSubscriptions();
     await this._closeClient();
     this._client = null;
@@ -1741,6 +1803,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._armOfflineGrace();
     this._emitConnectionStatus();
     await this.getWebSocketClient();
+    return true;
   }
 
   private async _recoverNotOpenSocketBeforeSubscriptionUpdate(params: {
@@ -2240,7 +2303,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         // default, leaving the order book empty. Keep this at or above
         // reconnect.connectionTimeout so frames rews buffers while the socket
         // is reconnecting still get a chance to flush before aborting.
-        timeout: 5000,
+        timeout: SUBSCRIPTION_REQUEST_TIMEOUT_MS,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
@@ -2541,6 +2604,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const client = this._client;
     const openedAt = this._socketOpenedAt;
     const lifecycleVersion = this._subscriptionLifecycleVersion;
+    const disabledCount = this.subscriptionsHandlerDisabledCount;
     let bboUnsubscribeFailed = false;
     const otherTasks = [
       ...toDestroySubscriptions
@@ -2570,7 +2634,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                 ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
                 task,
               ),
-            reconnect: () => this._forceReconnectTransport(),
+            reconnect: async () => {
+              await this._forceReconnectTransport();
+            },
           })
         : Promise.resolve(true);
 
@@ -2578,16 +2644,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       orderBookTask,
       otherTasks,
     });
-    // A lost BBO ACK leaves its server-side state unknown. Reset the transport
-    // if the order book transition or a socket recovery has not reset it yet.
-    if (
-      bboUnsubscribeFailed &&
-      client === this._client &&
-      openedAt === this._socketOpenedAt &&
-      lifecycleVersion === this._subscriptionLifecycleVersion &&
-      client?.transport.socket.readyState === WebSocket.OPEN
-    ) {
-      await this._forceReconnectTransport();
+    // A lost ACK leaves BBO state untrusted. If focus changed in the meantime,
+    // the pending BBO refresh now belongs to the latest resume.
+    const canRecoverBbo = () =>
+      this._canRecoverBbo({
+        client,
+        openedAt,
+        lifecycleVersion,
+        disabledCount,
+      });
+    if (bboUnsubscribeFailed && canRecoverBbo()) {
+      await this._reconnectTransportSingleFlight(canRecoverBbo);
     }
   }
 
@@ -2599,6 +2666,50 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._subscriptionMutationQueue.enqueue(spec.key, async () => {
       await this._createSubscriptionLocked(spec);
     });
+  }
+
+  private async _backfillInterruptedBboReconnectFills(
+    spec: ISubscriptionSpec<ESubscriptionType.USER_FILLS>,
+  ): Promise<void> {
+    const interrupted = this._interruptedBboReconnectFills;
+    this._interruptedBboReconnectFills = undefined;
+    if (interrupted?.key !== spec.key) {
+      return;
+    }
+
+    try {
+      const { user } = spec.params;
+      const service = this.backgroundApi.serviceHyperliquid;
+      const fills = await service.getUserFillsByTime({
+        user,
+        // Include fills already in flight when the old connection was closed.
+        startTime: interrupted.disconnectedAt - SUBSCRIPTION_REQUEST_TIMEOUT_MS,
+        endTime: Date.now(),
+        reversed: true,
+      });
+      if (this._isSubscriptionSpecPending(spec)) {
+        await service.appendTradesHistory(fills, user);
+      }
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+        type: spec.type,
+        error,
+      });
+      if (this._isSubscriptionSpecPending(spec)) {
+        // Another reconnect can record a gap while this request is in flight.
+        const pending = this._interruptedBboReconnectFills as
+          | typeof interrupted
+          | undefined;
+        if (
+          !pending ||
+          (pending.key === spec.key &&
+            pending.disconnectedAt > interrupted.disconnectedAt)
+        ) {
+          this._interruptedBboReconnectFills = interrupted;
+        }
+        this.hasNewUserFills = true;
+      }
+    }
   }
 
   private async _createSubscriptionLocked<T extends ESubscriptionType>(
@@ -2656,6 +2767,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
+      if (spec.type === ESubscriptionType.USER_FILLS) {
+        void this._backfillInterruptedBboReconnectFills(
+          spec as ISubscriptionSpec<ESubscriptionType.USER_FILLS>,
+        );
+      }
       if (spec.type === ESubscriptionType.L2_BOOK) {
         this._activeL2BookSpec =
           spec as ISubscriptionSpec<ESubscriptionType.L2_BOOK>;
