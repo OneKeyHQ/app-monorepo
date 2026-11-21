@@ -78,7 +78,6 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorProviderMirror: ({ children }: PropsWithChildren) => children,
 }));
 jest.mock('@onekeyhq/kit/src/components/RenameDialog', () => ({}));
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => jest.fn());
 jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
   useAppRoute: () => ({ params: { parentKeylessWalletId: mockParentId } }),
@@ -87,14 +86,6 @@ jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions',
   () => ({ useAccountSelectorActions: jest.fn() }),
 );
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({}));
-jest.mock(
-  '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit',
-  () => ({}),
-);
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({}));
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { WalletUpdate: 'WalletUpdate' },
   appEventBus: {
@@ -107,10 +98,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {},
 }));
-jest.mock(
-  '@onekeyhq/kit/src/views/Prime/pages/PrimeCloudSync/HardwareCloudSyncDevicePicker',
-  () => ({}),
-);
 jest.mock('./useExportBotWalletToCli', () => ({
   useExportBotWalletToCli: jest.fn(),
 }));
@@ -163,6 +150,18 @@ it.each(['local-deferred', 'incomplete'] as const)(
     expect(mockToast).not.toHaveBeenCalled();
   },
 );
+
+it('shows the existing turn-on guidance only when the current Keyless setting is Off', async () => {
+  mockSync.mockResolvedValueOnce('sync-disabled');
+  await startRefresh();
+  expect(mockReadWallets).toHaveBeenCalledTimes(1);
+  expect(mockEmit).not.toHaveBeenCalled();
+  expect(mockToast).toHaveBeenCalledTimes(1);
+  expect(mockToast).toHaveBeenCalledWith({
+    method: 'error',
+    title: '请先开启 Keyless 云同步',
+  });
+});
 
 it('does not reread or show feedback for a cancelled run', async () => {
   mockSync.mockResolvedValueOnce('cancelled');

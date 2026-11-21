@@ -669,7 +669,7 @@ test('Sync now uses the hardware key and asks for a password only when needed', 
   );
 });
 
-test.each(['local-deferred', 'cancelled', 'incomplete'])(
+test.each(['local-deferred', 'cancelled', 'incomplete', 'sync-disabled'])(
   'hardware sync does not toast for %s',
   async (outcome) => {
     mockConfig.isCloudSyncEnabledKeyless = true;

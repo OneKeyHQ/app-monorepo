@@ -211,10 +211,13 @@ function buildService({
   const promptPasswordVerify = jest.fn(async () => ({
     password: 'prompted-pwd',
   }));
+  const getCloudAccountImportGeneration = jest.fn(() => 0);
+  const isKeylessSyncOffStateSettled = jest.fn(() => true);
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       serviceKeylessCloudSync: {
-        getCloudAccountImportGeneration: () => 0,
+        getCloudAccountImportGeneration,
+        isKeylessSyncOffStateSettled,
         repairKeylessSyncCredentialIfNeeded,
         runWithCloudSyncKeyLock,
       },
@@ -245,12 +248,49 @@ function buildService({
     repairKeylessSyncCredentialIfNeeded,
     runWithCloudSyncKeyLock,
     promptPasswordVerify,
+    getCloudAccountImportGeneration,
+    isKeylessSyncOffStateSettled,
   };
 }
 
 describe('ServicePrimeCloudSync.syncNowKeyless', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  test.each([
+    { enabled: false, settled: true, outcome: 'sync-disabled' },
+    { enabled: false, settled: false, outcome: 'incomplete' },
+    { enabled: undefined, settled: true, outcome: 'incomplete' },
+  ])(
+    'reports $outcome from current Keyless setting $enabled with settled=$settled',
+    async ({ enabled, settled, outcome }) => {
+      const { service, isKeylessSyncOffStateSettled } = buildService();
+      jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+        isCloudSyncEnabled: false,
+        isCloudSyncEnabledKeyless: enabled,
+      });
+      isKeylessSyncOffStateSettled.mockReturnValue(settled);
+
+      await expect(service.syncNowKeylessWithResult()).resolves.toBe(outcome);
+      expect(primeCloudSyncPersistAtom.get).toHaveBeenCalledTimes(1);
+      expect(service.getSyncCredentialSafe).not.toHaveBeenCalled();
+      expect(service.initLocalSyncItemsDB).not.toHaveBeenCalled();
+      expect(service.updateLastSyncTime).not.toHaveBeenCalled();
+      await expect(service.syncNowKeyless()).resolves.toBe(false);
+    },
+  );
+
+  test('a stale Off snapshot still returns cancellation', async () => {
+    const { service, getCloudAccountImportGeneration } = buildService({
+      isCloudSyncEnabledKeyless: false,
+    });
+    getCloudAccountImportGeneration
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1);
+
+    await expect(service.syncNowKeylessWithResult()).resolves.toBe('cancelled');
+    expect(service.getSyncCredentialSafe).not.toHaveBeenCalled();
   });
 
   test('manual keyless sync repairs credential with local secret envelope errors enabled', async () => {

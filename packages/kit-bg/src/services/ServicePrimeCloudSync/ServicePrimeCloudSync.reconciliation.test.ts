@@ -286,6 +286,7 @@ function harness(
           keyGeneration + hardwareOperationGeneration,
         getCloudAccountImportGeneration: () =>
           keyGeneration + hardwareOperationGeneration,
+        isKeylessSyncOffStateSettled: () => true,
         getKeylessWalletSelectionGeneration: () => keyGeneration,
         cancelHardwareCloudKeyOperation,
       },
@@ -641,7 +642,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       readKey.mockResolvedValueOnce(undefined);
       await expect(invoke()).resolves.toBe('software-key-unavailable');
       h.patchConfig({ isCloudSyncEnabledKeyless: false });
-      await expect(invoke()).resolves.toBe('incomplete');
+      await expect(invoke()).resolves.toBe('sync-disabled');
     },
   );
 

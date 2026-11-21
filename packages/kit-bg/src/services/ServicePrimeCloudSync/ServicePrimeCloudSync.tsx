@@ -191,6 +191,7 @@ export type IManualCloudSyncResult =
   | 'hardware-key-unavailable'
   | 'software-key-unavailable'
   | 'sync-blocked'
+  | 'sync-disabled'
   | 'local-deferred'
   | 'cancelled'
   | 'incomplete';
@@ -5054,7 +5055,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { isCloudSyncEnabledKeyless } = selection;
     if (!isSelected()) return 'cancelled';
     if (!isCloudSyncEnabledKeyless) {
-      return 'incomplete';
+      // Hardware setup may temporarily persist false while committing a key.
+      return withManualResult &&
+        isCloudSyncEnabledKeyless === false &&
+        keyless.isKeylessSyncOffStateSettled()
+        ? 'sync-disabled'
+        : 'incomplete';
     }
     if (password) {
       await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(

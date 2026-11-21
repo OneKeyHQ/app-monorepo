@@ -948,6 +948,78 @@ describe('hardware Cloud key source lifecycle', () => {
     );
   });
 
+  test('does not report Off while overlapping software enable calls prepare outside the key lock', async () => {
+    const { service } = setup();
+    const firstEntered = Promise.withResolvers<void>();
+    const secondEntered = Promise.withResolvers<void>();
+    const firstPrepare = Promise.withResolvers<{ success: boolean }>();
+    const secondPrepare = Promise.withResolvers<{ success: boolean }>();
+    jest
+      .spyOn(service, 'prepareCloudSyncKeyless')
+      .mockImplementationOnce(() => {
+        firstEntered.resolve();
+        return firstPrepare.promise;
+      })
+      .mockImplementationOnce(() => {
+        secondEntered.resolve();
+        return secondPrepare.promise;
+      });
+
+    const first = service.toggleCloudSyncKeyless({
+      enabled: true,
+      silentEnable: true,
+    });
+    const second = service.toggleCloudSyncKeyless({
+      enabled: true,
+      silentEnable: true,
+    });
+    try {
+      await Promise.all([firstEntered.promise, secondEntered.promise]);
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+      firstPrepare.resolve({ success: false });
+      await first;
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+    } finally {
+      firstPrepare.resolve({ success: false });
+      secondPrepare.resolve({ success: false });
+      await Promise.all([first, second]);
+    }
+    expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+  });
+
+  test('does not report Off while an admitted migration is waiting for legacy presync', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.isCloudSyncEnabled = true;
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<undefined>();
+    backgroundApi.servicePrimeCloudSync.startServerSyncFlow.mockImplementationOnce(
+      () => {
+        entered.resolve();
+        return release.promise;
+      },
+    );
+    const toggle = jest
+      .spyOn(service, 'toggleCloudSyncKeyless')
+      .mockImplementationOnce(async () => {
+        expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+        return undefined;
+      });
+
+    const migration = service.enableKeylessCloudSyncWithMigrationIfNeeded();
+    try {
+      await entered.promise;
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(toggle).not.toHaveBeenCalled();
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
+    } finally {
+      release.resolve(undefined);
+      await migration;
+    }
+    expect(toggle).toHaveBeenCalledTimes(1);
+    expect(service.isKeylessSyncOffStateSettled()).toBe(true);
+  });
+
   test('only settled and explicitly Off settings skip the Wallet sync guard', async () => {
     const { service } = setup();
     const keyLock = jest.spyOn(service, 'runWithCloudSyncKeyLock');
@@ -1608,6 +1680,7 @@ describe('hardware Cloud key source lifecycle', () => {
     try {
       await revoking.promise;
       expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(service.isKeylessSyncOffStateSettled()).toBe(false);
       await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(
         false,
       );
@@ -1616,6 +1689,7 @@ describe('hardware Cloud key source lifecycle', () => {
       await disable;
     }
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(service.isKeylessSyncOffStateSettled()).toBe(true);
     expect(
       service.getKeylessCloudSyncCredentialCacheSync(source.credentialId),
     ).toBeUndefined();

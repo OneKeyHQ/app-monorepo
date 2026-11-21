@@ -160,10 +160,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('./HardwareCloudSyncKeySection', () => ({
   chooseCloudSyncKey: () => mockChoose(),
-  getManualCloudSyncFeedback: (result: string) =>
-    result === 'network-unavailable'
-      ? { method: 'error', title: 'global.network_error' }
-      : undefined,
   useHardwareCloudSyncKey: () => ({
     supported: mockHardwareSupported,
     source: mockSettings.hardwareCloudSyncKeySource,
@@ -335,7 +331,7 @@ it('keeps active Keyless sync off available without a supported Keyless recovery
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
-it.each(['local-deferred', 'network-unavailable'])(
+it.each(['local-deferred', 'sync-disabled', 'network-unavailable'])(
   'uses this software Sync Now request outcome without showing generic pending (%s)',
   async (outcome) => {
     mockSettings.isCloudSyncEnabledKeyless = true;

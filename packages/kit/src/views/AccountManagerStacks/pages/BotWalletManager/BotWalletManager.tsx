@@ -25,7 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
-import { getManualCloudSyncFeedback } from '@onekeyhq/kit/src/views/Prime/pages/PrimeCloudSync/HardwareCloudSyncKeySection';
+import { getManualCloudSyncFeedback } from '@onekeyhq/kit/src/views/Prime/pages/PrimeCloudSync/manualCloudSyncFeedback';
 import {
   BOT_WALLET_STATUS_ACTIVE,
   BOT_WALLET_STATUS_DEACTIVATED,
@@ -568,6 +568,14 @@ function BotWalletManagerContent() {
         if (result === 'completed') {
           emitWalletUpdate();
         }
+      }
+
+      if (result === 'sync-disabled') {
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'error',
+          title: '请先开启 Keyless 云同步',
+        });
+        return;
       }
 
       const feedback = getManualCloudSyncFeedback(result);

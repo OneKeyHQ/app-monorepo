@@ -144,6 +144,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // Keep the explicit "Switch Now" intent in memory until the keyless wallet is created.
   private pendingAutoEnableCloudSyncKeyless = false;
 
+  private keylessSyncEnableAttempts = 0;
+
   private async updateHardwareCloudSyncDeviceName(
     source: Pick<
       IHardwareCloudSyncKeySource,
@@ -352,6 +354,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       return operation();
     });
+  }
+
+  isKeylessSyncOffStateSettled(): boolean {
+    return (
+      this.keylessSyncEnableAttempts === 0 &&
+      !this.hardwareCloudKeyPending &&
+      !this.hardwareCloudKeyCommitting &&
+      !this.hardwareSessionEnding &&
+      !this.cloudSyncKeyMutex.isLocked()
+    );
   }
 
   async isExplicitWalletMetadataSyncOff(): Promise<boolean> {
@@ -3401,6 +3413,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
       onlyIfSyncOff
         ? this.setCloudSyncEnabledKeyless(value, { onlyIfSyncOff: true })
         : this.setCloudSyncEnabledKeyless(value);
+    // Software enable prepares and prompts before acquiring the key lock.
+    if (enabled) this.keylessSyncEnableAttempts += 1;
     try {
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({
@@ -3475,6 +3489,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       throw error;
     } finally {
+      if (enabled) this.keylessSyncEnableAttempts -= 1;
       void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     }
   }
@@ -3504,28 +3519,34 @@ class ServiceKeylessCloudSync extends ServiceBase {
       ) {
         return;
       }
-      if (isCloudSyncEnabled) {
-        try {
-          await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
-            callerName: showLoading
-              ? 'Migration: ID sync before switch'
-              : 'Auto-migration: ID sync before switch',
-            noDebounceUpload: true,
-          });
-        } catch (error) {
-          if (!ignorePreMigrationSyncError) {
-            throw error;
+      // Keyless can still be Off while an admitted migration syncs the old mode.
+      this.keylessSyncEnableAttempts += 1;
+      try {
+        if (isCloudSyncEnabled) {
+          try {
+            await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+              callerName: showLoading
+                ? 'Migration: ID sync before switch'
+                : 'Auto-migration: ID sync before switch',
+              noDebounceUpload: true,
+            });
+          } catch (error) {
+            if (!ignorePreMigrationSyncError) {
+              throw error;
+            }
           }
         }
-      }
 
-      await this.toggleCloudSyncKeyless({
-        enabled: true,
-        silentEnable: true,
-        forceEnable: true,
-        handleLocalSecretEnvelopeUnavailable,
-        onlyIfSyncOff,
-      });
+        await this.toggleCloudSyncKeyless({
+          enabled: true,
+          silentEnable: true,
+          forceEnable: true,
+          handleLocalSecretEnvelopeUnavailable,
+          onlyIfSyncOff,
+        });
+      } finally {
+        this.keylessSyncEnableAttempts -= 1;
+      }
     };
 
     if (!showLoading) {

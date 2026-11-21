@@ -53,9 +53,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   chooseCloudSyncKey,
-  getManualCloudSyncFeedback,
   useHardwareCloudSyncKey,
 } from './HardwareCloudSyncKeySection';
+import { getManualCloudSyncFeedback } from './manualCloudSyncFeedback';
 
 function formatSyncLastUpdateTime(syncTime?: number): string {
   if (syncTime) {
