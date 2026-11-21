@@ -280,6 +280,8 @@ function harness(
         runWithCloudSyncKeyLock,
         getLocalMutationSyncCredential: readLocalCredential,
         getHardwareWalletRetryOrigin: async () => endpointsMap.prod.prime,
+        getHardwareUploadGeneration: () =>
+          keyGeneration + hardwareOperationGeneration,
         getCloudAccountImportGeneration: () =>
           keyGeneration + hardwareOperationGeneration,
         getKeylessWalletSelectionGeneration: () => keyGeneration,

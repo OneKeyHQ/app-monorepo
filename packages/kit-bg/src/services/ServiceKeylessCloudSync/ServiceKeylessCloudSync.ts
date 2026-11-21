@@ -1369,6 +1369,17 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   private hardwareSessionEnding = false;
 
+  private hardwareUploadEndGeneration = 0;
+
+  private hardwareUploadAbortControllers = new Set<AbortController>();
+
+  getHardwareUploadGeneration(): number | undefined {
+    if (this.hardwareSessionEnding) return undefined;
+    return (
+      this.getCloudAccountImportGeneration() + this.hardwareUploadEndGeneration
+    );
+  }
+
   // One refresh at a time: refreshing twice with one token voids the first
   // reply's token, and later using it makes the server revoke the session.
   // A failed refresh keeps the stored token; the server accepts it once more
@@ -1879,6 +1890,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     requestOptions,
     filterUpload,
     prepareWalletRetry,
+    assertCanUpload,
   }: {
     credential: IKeylessCloudSyncCredential;
     urlPath: string;
@@ -1886,6 +1898,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // Uploads carry records encrypted with the old key, so they never retry.
     retryAfterKeySwitch?: boolean;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    assertCanUpload?: () => void;
     prepareWalletRetry?: (
       credential: IKeylessCloudSyncCredential,
       baseURL: string | undefined,
@@ -1897,9 +1910,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }) {
     // An optional detached retry must not refresh or hydrate a selected
     // session as a side effect. Keep the normal request path unchanged.
+    assertCanUpload?.();
     const fresh = prepareWalletRetry
       ? credential
       : await this.getFreshHardwareCredential(credential);
+    assertCanUpload?.();
     // Records built before a key switch must not go out under the new key:
     // the server would accept data nobody can decrypt.
     if (
@@ -1914,6 +1929,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
     const client = await this.getHardwareSyncClient();
     const send = (current: IKeylessCloudSyncCredential) => {
+      assertCanUpload?.();
       if (!current.hardwareSession) {
         throw hardwareSignedOutError();
       }
@@ -1924,6 +1940,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         urlPath,
         data: { ...postData, pwdHash: current.pwdHash },
         requestOptions,
+        ...(assertCanUpload ? { assertCanSend: assertCanUpload } : {}),
         ...(prepareWalletRetry
           ? {
               prepareWalletRetry: (baseURL) =>
@@ -1941,6 +1958,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     try {
       return await send(fresh);
     } catch (error) {
+      assertCanUpload?.();
       if (prepareWalletRetry) throw error;
       if (isHardwareCloudSyncUnauthorizedError(error)) {
         logHardwareCloudSyncDiagnostic(
@@ -2378,10 +2396,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     urlPath,
     filterHardwareUpload,
     prepareWalletRetry,
+    canUploadHardware,
   }: {
     requestOptions?: { signal?: AbortSignal; timeout?: number };
     postData: ICloudSyncUploadPostData;
     urlPath: string;
+    canUploadHardware?: () => boolean;
     prepareWalletRetry?: (
       credential: IKeylessCloudSyncCredential,
       baseURL: string | undefined,
@@ -2391,9 +2411,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
       pwdHash: string,
     ) => ICloudSyncUploadPostData;
   }) {
+    const assertCanUpload =
+      canUploadHardware || prepareWalletRetry
+        ? () => {
+            if (
+              this.hardwareSessionEnding ||
+              requestOptions?.signal?.aborted ||
+              canUploadHardware?.() === false
+            )
+              throw new OneKeyLocalError({
+                message: 'Hardware Cloud upload cancelled',
+                autoToast: false,
+              });
+          }
+        : undefined;
+    assertCanUpload?.();
     const hardwareCredential = prepareWalletRetry
       ? (await this.getLocalMutationSyncCredential())?.keylessCredential
       : await this.getHardwareSessionCredential();
+    assertCanUpload?.();
     if (
       prepareWalletRetry &&
       (!hardwareCredential?.hardwareSession ||
@@ -2404,17 +2440,37 @@ class ServiceKeylessCloudSync extends ServiceBase {
         autoToast: false,
       });
     }
+    if (canUploadHardware && !hardwareCredential?.hardwareSession)
+      throw hardwareSignedOutError();
     if (hardwareCredential) {
-      return (
-        await this.hardwareSyncPost<ICloudSyncUploadResult>({
-          credential: hardwareCredential,
-          urlPath,
-          postData,
-          requestOptions,
-          filterUpload: filterHardwareUpload,
-          prepareWalletRetry,
-        })
-      ).data.data;
+      const controller = assertCanUpload ? new AbortController() : undefined;
+      const callerSignal = requestOptions?.signal;
+      const forwardAbort = () => controller?.abort();
+      if (controller) {
+        this.hardwareUploadAbortControllers.add(controller);
+        if (callerSignal?.aborted) forwardAbort();
+        else callerSignal?.addEventListener('abort', forwardAbort);
+      }
+      try {
+        return (
+          await this.hardwareSyncPost<ICloudSyncUploadResult>({
+            credential: hardwareCredential,
+            urlPath,
+            postData,
+            requestOptions: controller
+              ? { ...requestOptions, signal: controller.signal }
+              : requestOptions,
+            filterUpload: filterHardwareUpload,
+            prepareWalletRetry,
+            assertCanUpload,
+          })
+        ).data.data;
+      } finally {
+        if (controller) {
+          this.hardwareUploadAbortControllers.delete(controller);
+          callerSignal?.removeEventListener('abort', forwardAbort);
+        }
+      }
     }
     const auth = await this.getKeylessSyncAuth({
       postData,
@@ -3046,7 +3102,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // earlier OneKey ID initialization, even when both are temporarily off.
     this.backgroundApi.servicePrimeCloudSync.invalidateOneKeyIdCloudSyncToggle();
     const endingHardwareSession = !shouldEnableKeyless && !!hardwareSource;
-    if (endingHardwareSession) this.hardwareSessionEnding = true;
+    if (endingHardwareSession) {
+      this.hardwareSessionEnding = true;
+      this.hardwareUploadEndGeneration += 1;
+      // Axios and its selected adapter may still be awaiting preflight after
+      // admitting the POST. Stop those operations with the request's signal.
+      for (const controller of this.hardwareUploadAbortControllers)
+        controller.abort();
+    }
     try {
       if (endingHardwareSession) {
         // Let the existing refresh persist before disabling storage writes, and

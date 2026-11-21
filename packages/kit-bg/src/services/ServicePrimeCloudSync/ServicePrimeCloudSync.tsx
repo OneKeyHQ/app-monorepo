@@ -599,10 +599,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     requestOptions,
     filterHardwareUpload,
     prepareWalletRetry,
+    canUploadHardware,
   }: {
     postData: ICloudSyncUploadPostData;
     urlPath: string;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    canUploadHardware?: () => boolean;
     prepareWalletRetry?: (
       credential: IKeylessCloudSyncCredential,
       baseURL: string | undefined,
@@ -618,6 +620,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       requestOptions,
       filterHardwareUpload,
       prepareWalletRetry,
+      canUploadHardware,
     });
   }
 
@@ -1139,6 +1142,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     this.publicAccountSnapshotImportGeneration += 1;
     this.clearLocalMutationRetry();
     this.walletUploadReadRetry = undefined;
+    this.clearQueuedHardwareDirectUploads();
     this._startServerSyncFlowForItemsDebounced.cancel();
     this.reconciliationAbortController?.abort();
     for (const controller of this.cloudSyncItemAbortControllers)
@@ -1517,6 +1521,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     requestOptions?: { signal?: AbortSignal; timeout?: number },
     skipLastSyncTime = false,
   ) {
+    const generation = this.publicAccountSnapshotImportGeneration;
     const devSettings = await devSettingsPersistAtom.get();
     const activeMode = await this.getActiveSyncMode();
     if (!skipPrimeStatusCheck) {
@@ -1587,6 +1592,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       );
     }
 
+    if (
+      pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+      generation !== this.publicAccountSnapshotImportGeneration
+    )
+      return undefined;
     return this._callApiUploadItemsDebounceMerge({
       localItems,
       pwdHash,
@@ -1635,6 +1645,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     requestOptions,
     skipLastSyncTime,
     prepareWalletRetry,
+    canUploadHardware,
+    hardwareUploadSignal,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush: boolean | undefined;
@@ -1643,12 +1655,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow: boolean | undefined;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
     skipLastSyncTime?: boolean;
+    canUploadHardware?: () => boolean;
+    hardwareUploadSignal?: AbortSignal;
     prepareWalletRetry?: (
       batch: ICloudSyncUploadPostData,
       credential: IKeylessCloudSyncCredential,
       baseURL: string | undefined,
     ) => Promise<(() => ICloudSyncUploadPostData) | undefined>;
   }) => {
+    if (canUploadHardware && !canUploadHardware()) return undefined;
     const uploadGeneration = this.publicAccountSnapshotImportGeneration;
     const now = await this.getCloudSyncDataTime();
     // Only guard detached direct uploads. Reconciliation keeps its
@@ -1728,7 +1743,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       ? [postData]
       : splitCloudSyncUploadPostData({ postData });
     const uploadMode = await this.getActiveSyncMode();
-    if (prepareWalletRetry && uploadMode !== ECloudSyncMode.Keyless) return;
+    if (
+      (prepareWalletRetry || canUploadHardware) &&
+      uploadMode !== ECloudSyncMode.Keyless
+    )
+      return undefined;
     let heldItems = false;
     let previousBatchStartedAt: number | undefined;
     for (const batch of postDataBatches) {
@@ -1750,6 +1769,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           'Cloud sync was cancelled. Pending data has been preserved.',
         );
       }
+      if (canUploadHardware && !canUploadHardware()) return undefined;
       previousBatchStartedAt = Date.now();
       let batchResult: ICloudSyncUploadResult | undefined;
       if (uploadMode === ECloudSyncMode.Keyless) {
@@ -1762,7 +1782,10 @@ class ServicePrimeCloudSync extends ServiceBase {
           batchResult = await this.apiUploadItemsKeyless({
             postData: batch,
             urlPath,
-            requestOptions,
+            requestOptions: hardwareUploadSignal
+              ? { ...requestOptions, signal: hardwareUploadSignal }
+              : requestOptions,
+            ...(canUploadHardware ? { canUploadHardware } : {}),
             ...(prepareWalletRetry
               ? {
                   prepareWalletRetry: async (
@@ -1817,6 +1840,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               : {}),
           });
         } catch (error) {
+          if (canUploadHardware && !canUploadHardware()) return undefined;
           if (error !== noUpload) throw error;
         }
         if (actualSentCount !== batch.localData.length) {
@@ -1843,6 +1867,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         console.log('prime cloud sync apiUploadItems: ', result?.data?.data);
         batchResult = result?.data?.data;
       }
+      if (canUploadHardware && !canUploadHardware()) return undefined;
       if (requestOptions?.signal?.aborted)
         throw new OneKeyLocalError('Cloud sync was cancelled');
       if (batchResult) {
@@ -1863,6 +1888,26 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private uploadItemsMutex = new Semaphore(1);
 
+  private queuedHardwareUploadIsCurrent: (() => boolean) | undefined;
+
+  private captureHardwareDirectUploadScope(): () => boolean {
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    const generation = this.publicAccountSnapshotImportGeneration;
+    const keyGeneration = keyless.getHardwareUploadGeneration();
+    return () =>
+      keyGeneration !== undefined &&
+      generation === this.publicAccountSnapshotImportGeneration &&
+      keyGeneration === keyless.getHardwareUploadGeneration();
+  }
+
+  private clearQueuedHardwareDirectUploads() {
+    this.queuedHardwareUploadIsCurrent = undefined;
+    this.uploadItemsToMerge = this.uploadItemsToMerge.filter(
+      (item) =>
+        !item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX),
+    );
+  }
+
   _callApiUploadItemsDebounceMerge({
     localItems,
     pwdHash,
@@ -1874,6 +1919,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow?: boolean;
     noDebounceUpload?: boolean;
   }) {
+    const hardware = pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX);
+    const canUploadHardware = hardware
+      ? this.captureHardwareDirectUploadScope()
+      : undefined;
+    if (canUploadHardware) {
+      if (!canUploadHardware()) return undefined;
+      if (!this.queuedHardwareUploadIsCurrent?.())
+        this.clearQueuedHardwareDirectUploads();
+      this.queuedHardwareUploadIsCurrent = canUploadHardware;
+    }
     this.uploadItemsToMerge = uniqBy(
       [...localItems, ...this.uploadItemsToMerge],
       (i: IDBCloudSyncItem) => i.id,
@@ -1882,30 +1937,43 @@ class ServicePrimeCloudSync extends ServiceBase {
       return this._callApiUploadItemsInstantly({
         pwdHash,
         setUndefinedTimeToNow,
+        canUploadHardware,
       });
     }
     return this._callApiUploadItemsDebounced({
       pwdHash,
       setUndefinedTimeToNow,
+      canUploadHardware,
     });
   }
 
   _callApiUploadItemsInstantly = async ({
     pwdHash,
     setUndefinedTimeToNow,
+    canUploadHardware: queuedScope,
   }: {
     pwdHash: string;
     setUndefinedTimeToNow?: boolean;
+    canUploadHardware?: () => boolean;
   }) => {
-    const generation = this.publicAccountSnapshotImportGeneration;
+    const canUploadHardware =
+      queuedScope ??
+      (pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+        ? this.captureHardwareDirectUploadScope()
+        : undefined);
     return this.uploadItemsMutex.runExclusive(async () => {
+      if (canUploadHardware && !canUploadHardware()) return;
       const localItems = [...this.uploadItemsToMerge];
       this.uploadItemsToMerge = [];
       if (localItems.length) {
+        const controller = canUploadHardware
+          ? new AbortController()
+          : undefined;
+        if (controller) this.cloudSyncItemAbortControllers.add(controller);
         try {
           let outgoing = localItems;
           if (
-            pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+            canUploadHardware &&
             localItems.some(
               (item) =>
                 item.dataType === EPrimeCloudSyncDataType.Wallet &&
@@ -1916,10 +1984,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             )
           ) {
             const keyless = this.backgroundApi.serviceKeylessCloudSync;
-            const keyGeneration = keyless.getCloudAccountImportGeneration();
-            const isCurrent = () =>
-              generation === this.publicAccountSnapshotImportGeneration &&
-              keyGeneration === keyless.getCloudAccountImportGeneration();
+            const isCurrent = canUploadHardware;
             // Record the actual client origin while the initial attempt owns
             // this scope, never retrospectively from the retry request.
             let retryOrigin: string | undefined;
@@ -1956,8 +2021,11 @@ class ServicePrimeCloudSync extends ServiceBase {
             lockItem: undefined,
             pwdHash,
             setUndefinedTimeToNow,
+            canUploadHardware,
+            hardwareUploadSignal: controller?.signal,
           });
         } catch (error) {
+          if (canUploadHardware && !canUploadHardware()) return;
           // Newer queued writes win. Acknowledged batches may be retried;
           // persistent sync items remain the source of truth after a restart.
           this.uploadItemsToMerge = uniqBy(
@@ -1965,6 +2033,8 @@ class ServicePrimeCloudSync extends ServiceBase {
             (item) => item.id,
           );
           throw error;
+        } finally {
+          if (controller) this.cloudSyncItemAbortControllers.delete(controller);
         }
       }
     });
@@ -2113,6 +2183,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                     timeout: 10_000,
                   },
                   skipLastSyncTime: true,
+                  canUploadHardware: isRetryCurrent,
                   prepareWalletRetry: async (batch, credential, baseURL) => {
                     if (baseURL !== origin) return undefined;
                     return this.prepareWalletUploadReadRetry({
@@ -4491,6 +4562,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     this.publicAccountSnapshotImportGeneration += 1;
     this.clearLocalMutationRetry();
     this.walletUploadReadRetry = undefined;
+    this.clearQueuedHardwareDirectUploads();
     this.reconciliationAbortController?.abort();
     for (const controller of this.cloudSyncItemAbortControllers)
       controller.abort();

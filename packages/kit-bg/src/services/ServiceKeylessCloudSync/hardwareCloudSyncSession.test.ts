@@ -153,6 +153,32 @@ describe('hardware Cloud sync session', () => {
     );
   });
 
+  test('rechecks upload authority after awaited retry preparation and before POST', async () => {
+    const c = fakeClient();
+    c.client.defaults.baseURL = 'https://prime.onekeycn.com';
+    let isCurrent = true;
+    const assertCanSend = () => {
+      if (!isCurrent) throw new OneKeyLocalError('closed fixture session');
+    };
+    const prepareWalletRetry = jest.fn(async () => {
+      await Promise.resolve();
+      isCurrent = false;
+      return () => ({ localData: ['previously-verified-wallet-row'] });
+    });
+    await expect(
+      requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: session(),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        prepareWalletRetry,
+        assertCanSend,
+      }),
+    ).rejects.toThrow('closed fixture session');
+    expect(prepareWalletRetry).toHaveBeenCalledTimes(1);
+    expect(c.post).not.toHaveBeenCalled();
+  });
+
   test.each([false, true])(
     'revalidates one-shot Wallet upload at hardware dispatch before sending (%s)',
     async (replaceEndpoint) => {

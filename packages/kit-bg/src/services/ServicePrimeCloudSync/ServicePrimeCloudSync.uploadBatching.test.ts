@@ -140,8 +140,12 @@ function buildService(mode = ECloudSyncMode.Keyless) {
       },
     }),
   );
+  const getHardwareUploadGeneration = jest.fn<undefined | number, []>(() => 0);
   const service = new ServicePrimeCloudSync({
-    backgroundApi: { servicePrime: { getPrimeClient: async () => ({ post }) } },
+    backgroundApi: {
+      servicePrime: { getPrimeClient: async () => ({ post }) },
+      serviceKeylessCloudSync: { getHardwareUploadGeneration },
+    },
   });
   jest.spyOn(service, 'getCloudSyncDataTime').mockResolvedValue(10);
   jest.spyOn(service, 'getActiveSyncMode').mockResolvedValue(mode);
@@ -155,7 +159,13 @@ function buildService(mode = ECloudSyncMode.Keyless) {
       created: postData.localData.length,
       updated: 0,
     }));
-  return { service, upload, post, updateLastSyncTime };
+  return {
+    service,
+    upload,
+    post,
+    updateLastSyncTime,
+    getHardwareUploadGeneration,
+  };
 }
 
 function uploadParams(localItems: IDBCloudSyncItem[]) {
@@ -432,6 +442,65 @@ describe('ServicePrimeCloudSync bounded uploads', () => {
       item('same', 'new'),
       item('other'),
     ]);
+  });
+
+  test('a hardware debounce from before cancellation cannot reuse the new epoch', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service, upload, updateLastSyncTime } = buildService();
+      const pwdHash = 'hw-dek-public-test';
+      void service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item('old'), pwdHash }],
+        pwdHash,
+      });
+      await service.cancelPublicAccountSnapshotImport();
+      await jest.advanceTimersByTimeAsync(5000);
+      expect(upload).not.toHaveBeenCalled();
+      expect(updateLastSyncTime).not.toHaveBeenCalled();
+      await service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item('fresh'), pwdHash }],
+        pwdHash,
+        noDebounceUpload: true,
+      });
+      expect(upload).toHaveBeenCalledTimes(1);
+      expect(
+        upload.mock.calls[0][0].postData.localData.map(({ key }) => key),
+      ).toEqual(['fresh']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('ending hardware session rejects late admission and a drain already waiting for the mutex', async () => {
+    const { service, upload, getHardwareUploadGeneration } = buildService();
+    const pwdHash = 'hw-dek-public-test';
+    const started = deferred<void>();
+    const release = deferred<ICloudSyncUploadResult>();
+    upload.mockImplementationOnce(async () => {
+      started.resolve();
+      return release.promise;
+    });
+    const send = (key: string) =>
+      service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item(key), pwdHash }],
+        pwdHash,
+        noDebounceUpload: true,
+      });
+    const first = send('in-flight');
+    await started.promise;
+    const waiting = send('waiting');
+    getHardwareUploadGeneration.mockReturnValue(undefined);
+    await send('during-end');
+    await service.cancelPublicAccountSnapshotImport();
+    getHardwareUploadGeneration.mockReturnValue(1);
+    const fresh = send('after-reenable');
+    release.resolve({ nonce: 1, created: 1, updated: 0 });
+    await Promise.all([first, waiting, fresh]);
+    expect(
+      upload.mock.calls.flatMap(([request]) =>
+        request.postData.localData.map(({ key }) => key),
+      ),
+    ).toEqual(['in-flight', 'after-reenable']);
   });
 
   test('simultaneous immediate drains never send concurrent batches or lose queued items', async () => {

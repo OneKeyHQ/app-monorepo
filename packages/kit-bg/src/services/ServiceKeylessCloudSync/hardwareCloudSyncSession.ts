@@ -184,6 +184,7 @@ async function requestRaw<T>({
   requestOptions,
   prepareUpload,
   prepareWalletRetry,
+  assertCanSend,
   jwk,
   accessToken,
 }: {
@@ -192,6 +193,7 @@ async function requestRaw<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  assertCanSend?: () => void;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
     baseURL: string | undefined,
@@ -257,6 +259,7 @@ async function requestRaw<T>({
         headers,
         ...(prepareWalletRetry ? { baseURL } : {}),
       };
+      assertCanSend?.();
       return method === 'GET'
         ? client.get<IApiClientResponse<T>>(urlPath, config)
         : client.post<IApiClientResponse<T>>(urlPath, outboundData, config);
@@ -271,6 +274,7 @@ async function requestRaw<T>({
       autoToast: false,
     });
   }
+  assertCanSend?.();
   const clockOffsetMs = await measureServerClockOffsetMs();
   try {
     return await send(clockOffsetMs);
@@ -286,6 +290,7 @@ async function requestRaw<T>({
     });
     if (prepareWalletRetry || !isHardwareCloudSyncUnauthorizedError(error))
       throw error;
+    assertCanSend?.();
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
       diagnostic('request_clock_retry_skipped', { clockRetry: false });
@@ -505,6 +510,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   requestOptions,
   prepareUpload,
   prepareWalletRetry,
+  assertCanSend,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
@@ -512,6 +518,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  assertCanSend?: () => void;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
     baseURL: string | undefined,
@@ -525,6 +532,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     requestOptions,
     prepareUpload,
     prepareWalletRetry,
+    assertCanSend,
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });

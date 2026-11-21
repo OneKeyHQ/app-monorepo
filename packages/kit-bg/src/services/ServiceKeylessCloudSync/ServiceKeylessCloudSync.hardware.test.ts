@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import axios from 'axios';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { buildHardwareCloudSyncAuthMessage } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -3842,6 +3843,7 @@ describe('hardware reset session and local data races', () => {
         refreshEntered();
         return reply;
       });
+    const preDisableGeneration = service.getHardwareUploadGeneration();
     const refreshing = service['getFreshHardwareCredential'](stale);
     const observedRefresh = refreshing.then(
       (value) => ({ value }),
@@ -3851,12 +3853,38 @@ describe('hardware reset session and local data races', () => {
     const disabling = service.setCloudSyncEnabledKeyless(false);
     // Let the disable flow reach its wait before the server answers refresh.
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(service.getHardwareUploadGeneration()).toBeUndefined();
+    const postData = { pwdHash: stale.pwdHash, localData: [], nonce: 0 };
+    const prepareWalletRetry = jest.fn(async () => undefined);
+    await expect(
+      service.apiUploadItemsKeyless({
+        postData,
+        urlPath: '/prime/v1/sync/upload',
+        prepareWalletRetry,
+      }),
+    ).rejects.toThrow('Hardware Cloud upload cancelled');
+    // Check the standard direct-admission path independently of the caller's
+    // generation check, while the original credential is still present.
+    await expect(
+      service.apiUploadItemsKeyless({
+        postData,
+        urlPath: '/prime/v1/sync/upload',
+        canUploadHardware: () => true,
+      }),
+    ).rejects.toThrow('Hardware Cloud upload cancelled');
+    expect(prepareWalletRetry).not.toHaveBeenCalled();
+    expect(
+      sessionApi.requestRawWithHardwareCloudSyncSession,
+    ).not.toHaveBeenCalled();
     const blockedRefresh = service['getFreshHardwareCredential'](stale).then(
       () => undefined,
       (error: unknown) => error,
     );
     finishRefresh();
     await disabling;
+    expect(service.getHardwareUploadGeneration()).not.toBe(
+      preDisableGeneration,
+    );
     expect(await observedRefresh).toMatchObject({
       value: { hardwareSession: refreshedSession },
     });
@@ -3871,6 +3899,73 @@ describe('hardware reset session and local data races', () => {
     expect(mockStored).toBeUndefined();
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
   });
+
+  test.each(['ending-session', 'caller-abort'] as const)(
+    'cancels a protected request already admitted into the real Axios pipeline: %s',
+    async (scenario) => {
+      const { service, getClient } = setup();
+      mockStored = current;
+      const caller = new AbortController();
+      const adapter = jest.fn();
+      const client = axios.create({
+        baseURL: 'https://prime.example.invalid',
+        adapter,
+      });
+      let enterInterceptor = () => {};
+      const entered = new Promise<void>((resolve) => {
+        enterInterceptor = resolve;
+      });
+      let resumeInterceptor = () => {};
+      const paused = new Promise<void>((resolve) => {
+        resumeInterceptor = resolve;
+      });
+      let transportSignal: { readonly aborted: boolean } | undefined;
+      client.interceptors.request.use(async (config) => {
+        transportSignal = config.signal;
+        enterInterceptor();
+        await paused;
+        return config;
+      });
+      getClient.mockResolvedValue(client);
+      const selected = jest
+        .spyOn(service, 'getLocalMutationSyncCredential')
+        .mockResolvedValueOnce({
+          primeAccountSalt: '',
+          masterPasswordUUID: '',
+          securityPasswordR1: '',
+          keylessCredential: current,
+        });
+      jest
+        .mocked(sessionApi.requestRawWithHardwareCloudSyncSession)
+        .mockImplementationOnce(
+          async ({ client: requestClient, urlPath, data, requestOptions }) =>
+            requestClient.post(urlPath, data, requestOptions),
+        );
+      const request = service.apiUploadItemsKeyless({
+        postData: { pwdHash: current.pwdHash, localData: [], nonce: 0 },
+        urlPath: '/prime/v1/sync/upload',
+        requestOptions: { signal: caller.signal, timeout: 1000 },
+        prepareWalletRetry: async () => undefined,
+      });
+      const settlement = request.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      await entered;
+      if (scenario === 'caller-abort') caller.abort();
+      else await service.setCloudSyncEnabledKeyless(false);
+      expect(transportSignal?.aborted).toBe(true);
+      resumeInterceptor();
+      expect(await settlement).toMatchObject(
+        scenario === 'caller-abort'
+          ? { message: 'Hardware Cloud upload cancelled' }
+          : { code: 'ERR_CANCELED' },
+      );
+      expect(adapter).not.toHaveBeenCalled();
+      expect(service['hardwareUploadAbortControllers'].size).toBe(0);
+      selected.mockRestore();
+    },
+  );
 
   test('revocation reads the stored session after waiting for an earlier refresh', async () => {
     const { service } = setup();
