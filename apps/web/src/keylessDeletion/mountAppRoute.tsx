@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { createRoot } from 'react-dom/client';
 import { useIntl } from 'react-intl';
@@ -39,17 +39,19 @@ import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { exchangeOAuthAccessToken } from './authentication';
 import { createDeletionTransport } from './connection';
-import { DeletionPage } from './DeletionPage';
+import { DeletionPage, SupportContact } from './DeletionPage';
 import { getKeylessEntry, getKeylessSite } from './entry';
 import {
   OPTIONAL_SETTINGS_TIMEOUT_MS,
+  createLocalePreference,
   getPreferredLocale,
   readLocalePreference,
   resolveLocale,
 } from './localePreference';
-import { messages } from './messages';
 import { resetOnHistoryRestore } from './pageLifecycle';
 import { KEYLESS_OAUTH_MARKER } from './paths';
+import { PopupBlockedError } from './popupBlockedError';
+import { createSupportContact, loadStartupText } from './startupText';
 import './styles.css';
 
 import type { IBusinessAuth } from './useDeletionFlow';
@@ -67,11 +69,7 @@ function connect(
         '_blank',
         'popup,width=480,height=660',
       );
-      if (!popup)
-        throw new DOMException(
-          'Unable to open OAuth popup.',
-          'NotAllowedError',
-        );
+      if (!popup) throw new PopupBlockedError();
       try {
         const token = await exchangeOAuthAccessToken(
           {
@@ -156,17 +154,34 @@ function LanguageSelector({
   );
 }
 
+function OpenInvitationNotice() {
+  const intl = useIntl();
+  return (
+    <YStack render="main" gap="$4">
+      <SizableText color="$textSubdued" testID="app-open-invitation">
+        {intl.formatMessage({
+          id: ETranslations.keyless_deletion_open_link__desc,
+        })}
+      </SizableText>
+      <SupportContact centered={false} />
+    </YStack>
+  );
+}
+
 function InviteRoute({
   business,
   invitationToken,
   onLanguageChange,
   preference,
+  localePersistenceIssue,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
   onLanguageChange: (locale: ILocaleSymbol) => void;
+  localePersistenceIssue: boolean;
   preference: ILocaleSymbol;
 }) {
+  const intl = useIntl();
   return (
     <YStack
       className="keyless-app-route"
@@ -197,6 +212,19 @@ function InviteRoute({
         px="$5"
         py="$6"
       >
+        {localePersistenceIssue ? (
+          <SizableText
+            role="status"
+            color="$textSubdued"
+            testID="keyless-language-persistence-warning"
+          >
+            {intl.formatMessage({ id: ETranslations.global_language })}
+            {': '}
+            {intl.formatMessage({
+              id: ETranslations.global_close_confirm_description,
+            })}
+          </SizableText>
+        ) : null}
         {invitationToken ? (
           <DeletionPage
             key={invitationToken}
@@ -204,11 +232,7 @@ function InviteRoute({
             invitationToken={invitationToken}
           />
         ) : (
-          <YStack render="main" gap="$4">
-            <SizableText color="$textSubdued" testID="app-open-invitation">
-              {messages.openInvitation}
-            </SizableText>
-          </YStack>
+          <OpenInvitationNotice />
         )}
       </YStack>
     </YStack>
@@ -220,11 +244,13 @@ function ThemedInvite({
   invitationToken,
   preference,
   onLanguageChange,
+  localePersistenceIssue,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
   preference: ILocaleSymbol;
   onLanguageChange: (locale: ILocaleSymbol) => void;
+  localePersistenceIssue: boolean;
 }) {
   const [theme, setTheme] = useState(readAppTheme);
   const { locale } = useIntl();
@@ -265,6 +291,7 @@ function ThemedInvite({
             invitationToken={invitationToken}
             preference={preference}
             onLanguageChange={onLanguageChange}
+            localePersistenceIssue={localePersistenceIssue}
           />
         </SafeAreaProvider>
       </SettingConfigContext.Provider>
@@ -275,24 +302,36 @@ function ThemedInvite({
 function LocalizedInvite({
   business,
   invitationToken,
-  initialPreference,
+  localePreference,
 }: {
   business: IBusinessAuth;
   invitationToken: string;
-  initialPreference: ILocaleSymbol;
+  localePreference: ReturnType<typeof createLocalePreference>;
 }) {
-  const [preference, setPreference] = useState(initialPreference);
-  const save = useRef(Promise.resolve());
+  const [preference, setPreference] = useState(localePreference.get);
+  const [localePersistenceIssue, setLocalePersistenceIssue] = useState(false);
 
   function changeLanguage(locale: ILocaleSymbol) {
-    save.current = save.current
-      .then(async () => {
-        await loadLocaleMessages(resolveLocale(locale));
-        setPreference(locale);
-      })
-      .catch(() => {
-        // Keep the current language if the App locale catalogue could not load.
+    void (async () => {
+      const selection = await localePreference
+        .change(locale)
+        .catch(() => undefined);
+      if (!selection?.isCurrent()) return;
+
+      setPreference(locale);
+      setLocalePersistenceIssue(false);
+
+      const { isCurrent, persisted } = selection;
+      const saved = await createTimeoutPromise({
+        asyncFunc: () => persisted,
+        timeout: OPTIONAL_SETTINGS_TIMEOUT_MS,
+        timeoutResult: false,
       });
+      if (isCurrent()) setLocalePersistenceIssue(!saved);
+      if (!saved && (await persisted) && isCurrent()) {
+        setLocalePersistenceIssue(false);
+      }
+    })();
   }
 
   return (
@@ -302,6 +341,7 @@ function LocalizedInvite({
         invitationToken={invitationToken}
         preference={preference}
         onLanguageChange={changeLanguage}
+        localePersistenceIssue={localePersistenceIssue}
       />
     </AppIntlProvider>
   );
@@ -326,14 +366,27 @@ export async function mount(container: HTMLElement) {
       : defaults,
     readLocalePreference(),
   ]);
-  const connection = createDeletionTransport(page, {
-    enabled: devSettings?.enabled === true,
-    settings: {
-      enableTestEndpoint: devSettings?.settings?.enableTestEndpoint === true,
+  const localePreference = createLocalePreference(initialPreference);
+  const connection = createDeletionTransport(
+    page,
+    {
+      enabled: devSettings?.enabled === true,
+      settings: {
+        enableTestEndpoint: devSettings?.settings?.enableTestEndpoint === true,
+      },
     },
-  });
+    { getLocalePreference: localePreference.get },
+  );
   if (!connection) {
-    container.textContent = messages.serviceClosed;
+    const locale = resolveLocale(initialPreference);
+    const [notice, contact] = await Promise.all([
+      loadStartupText('openLink', locale),
+      loadStartupText('contact', locale),
+    ]);
+    const message = globalThis.document.createElement('p');
+    message.textContent = notice ?? '';
+    container.replaceChildren(message);
+    if (contact) container.append(createSupportContact(contact));
     return;
   }
   const business = connect(connection);
@@ -344,7 +397,7 @@ export async function mount(container: HTMLElement) {
       <LocalizedInvite
         business={business}
         invitationToken={token}
-        initialPreference={initialPreference}
+        localePreference={localePreference}
       />,
     );
   };
