@@ -16,6 +16,7 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION } from '../../dbs/local/consts';
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
@@ -248,12 +249,17 @@ function harness(
   const runWithCloudSyncKeyLock = jest.fn((operation: () => Promise<unknown>) =>
     sourceMutex.runExclusive(operation),
   );
+  const readLocalCredential = jest.fn<
+    ReturnType<ServicePrimeCloudSync['getSyncCredentialSafe']>,
+    []
+  >(async () => undefined);
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       localDb,
       serviceApp: { isAppLocked: isLocked },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
+        getLocalMutationSyncCredential: readLocalCredential,
         getCloudAccountImportGeneration: () =>
           keyGeneration + hardwareOperationGeneration,
         getKeylessWalletSelectionGeneration: () => keyGeneration,
@@ -366,6 +372,7 @@ function harness(
   return {
     service,
     sourceMutex,
+    readLocalCredential,
     cancelHardwareCloudKeyOperation,
     pool,
     remote,
@@ -1818,6 +1825,11 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       jest.replaceProperty(platformEnv, 'isDesktop', true);
       jest.replaceProperty(platformEnv, 'isMas', false);
       jest.replaceProperty(platformEnv, 'isDev', false);
+      jest.replaceProperty(
+        platformEnv,
+        'desktopEmbeddedAccountDbCompatibilityVersion',
+        INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+      );
       const pwdHash = 'hw-dek-active';
       const credential = {
         masterPasswordUUID: pwdHash,
@@ -1923,8 +1935,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       jest.replaceProperty(platformEnv, 'isDesktop', true);
       jest.replaceProperty(platformEnv, 'isMas', false);
       jest.replaceProperty(platformEnv, 'isDev', false);
+      jest.replaceProperty(
+        platformEnv,
+        'desktopEmbeddedAccountDbCompatibilityVersion',
+        INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+      );
       jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
       const h = harness();
+      const genericCredential = jest.spyOn(h.service, 'getSyncCredentialSafe');
+      const availability = jest.spyOn(h.service, 'isCloudSyncIsAvailable');
       const snapshot = publicAccountTestSnapshot();
       const walletId = 'hd-6042';
       const source = 'hw-dek-durable-privacy-fixture';
@@ -2015,7 +2034,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         .mockImplementation((pwdHash) =>
           restarted.getPendingCloudAccountHandoffs(pwdHash),
         );
-      jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+      h.readLocalCredential.mockResolvedValue({
         masterPasswordUUID: source,
         keylessCredential: {
           source: { type: 'hardware' },
@@ -2082,9 +2101,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           });
         },
       );
-      await h.service.setCloudSyncNetworkReachable(false);
-      await h.service.resumeCloudSyncReconciliation({ reason });
+      // A network update can race the already queued local-only UI wake.
+      await h.service.setCloudSyncNetworkReachable(true);
+      await h.service.resumeCloudSyncReconciliation({
+        reason,
+        localOnly: true,
+      });
       expect(getHandoffs).toHaveBeenCalledWith(source);
+      expect(genericCredential).not.toHaveBeenCalled();
+      expect(availability).not.toHaveBeenCalled();
       expect(h.check).not.toHaveBeenCalled();
       expect(h.replay).toHaveBeenCalledTimes(1);
       expect(h.scene).toHaveBeenCalledTimes(2);
@@ -2104,11 +2129,57 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     15_000,
   );
 
+  test('local-only startup never enters generic credential or legacy Prime checks when source changes under the key lock', async () => {
+    const h = harness();
+    jest.replaceProperty(platformEnv, 'isDesktop', true);
+    jest.replaceProperty(platformEnv, 'isMas', false);
+    jest.replaceProperty(platformEnv, 'isDev', false);
+    jest.replaceProperty(
+      platformEnv,
+      'desktopEmbeddedAccountDbCompatibilityVersion',
+      INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+    );
+    const available = jest.spyOn(h.service, 'isCloudSyncIsAvailable');
+    const genericCredential = jest.spyOn(h.service, 'getSyncCredentialSafe');
+    await h.service.setCloudSyncNetworkReachable(true);
+    await h.service.resumeCloudSyncReconciliation({
+      reason: 'startup',
+      localOnly: true,
+    });
+    expect(h.readLocalCredential).toHaveBeenCalledTimes(1);
+    expect(h.scene).not.toHaveBeenCalled();
+    h.readLocalCredential.mockResolvedValueOnce({
+      masterPasswordUUID: 'hw-dek-local-only-fallback',
+      keylessCredential: { source: { type: 'hardware' }, hardwareSession: {} },
+    } as NonNullable<
+      Awaited<ReturnType<typeof h.service.getSyncCredentialSafe>>
+    >);
+    h.readLocalCredential.mockImplementationOnce(async () => {
+      expect(h.sourceMutex.isLocked()).toBe(true);
+      h.changeSource();
+      return undefined;
+    });
+    await h.service.resumeCloudSyncReconciliation({
+      reason: 'unlock',
+      localOnly: true,
+    });
+    expect(h.readLocalCredential).toHaveBeenCalledTimes(3);
+    expect(available).not.toHaveBeenCalled();
+    expect(genericCredential).not.toHaveBeenCalled();
+    expect(h.scene).not.toHaveBeenCalled();
+    expect(h.check).not.toHaveBeenCalled();
+  });
+
   test('wallet-ready replays the matching Desktop pending handoff offline without adding it to the pool', async () => {
     const h = harness();
     jest.replaceProperty(platformEnv, 'isDesktop', true);
     jest.replaceProperty(platformEnv, 'isMas', false);
     jest.replaceProperty(platformEnv, 'isDev', false);
+    jest.replaceProperty(
+      platformEnv,
+      'desktopEmbeddedAccountDbCompatibilityVersion',
+      INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+    );
     const server = { ...serverItem(1), pwdHash: 'hw-dek-offline-test' };
     jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
       masterPasswordUUID: server.pwdHash,

@@ -542,7 +542,9 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     isCurrent: isOperationCurrent,
     onAccountsChanged,
     foreignAccountsByWireId,
+    localOnly = false,
   }: {
+    localOnly?: boolean;
     foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
@@ -641,11 +643,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     }
     await keyless.runWithCloudAccountImportLock(async () => {
       if (!isCurrent()) return;
-      const selected =
-        await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+      const selected = localOnly
+        ? await keyless.getLocalMutationSyncCredential()
+        : await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
       if (
+        !isCurrent() ||
         cloudSyncItemBuilder.getPwdHash(selected) !==
-        cloudSyncItemBuilder.getPwdHash(syncCredential)
+          cloudSyncItemBuilder.getPwdHash(syncCredential)
       )
         return;
       await super.syncToScene({

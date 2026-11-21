@@ -1,6 +1,9 @@
 /** @jest-environment jsdom */
 import { act, render } from '@testing-library/react';
 
+import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { CloudSyncReconciliationEffect } from './CloudSyncReconciliationEffect';
 
 let mockLocked = true;
@@ -31,6 +34,14 @@ jest.mock('../../../hooks/useHandleAppStateActive', () => ({
   },
 }));
 
+afterEach(() => {
+  mockLocked = true;
+  mockReachable = null;
+  mockForeground = undefined;
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
+});
+
 test('startup, unlock, network recovery and foreground only wake an unlocked online background', async () => {
   const { rerender } = render(<CloudSyncReconciliationEffect />);
   expect(mockResume).not.toHaveBeenCalled();
@@ -58,4 +69,60 @@ test('startup, unlock, network recovery and foreground only wake an unlocked onl
   expect(mockResume).toHaveBeenLastCalledWith({ reason: 'network' });
   await act(async () => mockForeground?.());
   expect(mockResume).toHaveBeenLastCalledWith({ reason: 'foreground' });
+});
+
+test('production Desktop requests local-only startup and unlock offline, without hiding its next online wakes', async () => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isMas', false);
+  jest.replaceProperty(platformEnv, 'isDev', false);
+  jest.replaceProperty(
+    platformEnv,
+    'desktopEmbeddedAccountDbCompatibilityVersion',
+    INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
+  );
+  mockReachable = false;
+  const { rerender } = render(<CloudSyncReconciliationEffect />);
+  expect(mockResume).not.toHaveBeenCalled();
+  mockLocked = false;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenLastCalledWith({
+    reason: 'startup',
+    localOnly: true,
+  });
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  await act(async () => mockForeground?.());
+  expect(mockResume).toHaveBeenCalledTimes(1);
+  mockLocked = true;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenCalledTimes(1);
+  mockLocked = false;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenLastCalledWith({
+    reason: 'unlock',
+    localOnly: true,
+  });
+  mockReachable = true;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenLastCalledWith({ reason: 'startup' });
+  mockReachable = false;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenCalledTimes(3);
+  mockReachable = true;
+  await act(async () => rerender(<CloudSyncReconciliationEffect />));
+  expect(mockResume).toHaveBeenLastCalledWith({ reason: 'network' });
+});
+
+test('offline Desktop with an older embedded database never issues an archive wake', () => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isMas', false);
+  jest.replaceProperty(platformEnv, 'isDev', false);
+  jest.replaceProperty(
+    platformEnv,
+    'desktopEmbeddedAccountDbCompatibilityVersion',
+    INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION - 1,
+  );
+  mockReachable = false;
+  mockLocked = false;
+  render(<CloudSyncReconciliationEffect />);
+  expect(mockResume).not.toHaveBeenCalled();
 });

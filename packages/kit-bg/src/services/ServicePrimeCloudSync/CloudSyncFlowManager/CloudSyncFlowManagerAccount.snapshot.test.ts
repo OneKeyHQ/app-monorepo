@@ -110,6 +110,7 @@ function harness() {
     },
     serviceKeylessCloudSync: {
       getCloudAccountImportGeneration: () => generation,
+      getLocalMutationSyncCredential: jest.fn(async () => undefined),
       runWithCloudAccountImportLock: async <T>(operation: () => Promise<T>) =>
         operation(),
     },
@@ -207,6 +208,23 @@ describe('public account snapshot Cloud scene integration', () => {
   });
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('offline public account apply never reselects using the generic credential reader', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    await h.manager.syncToScene({
+      items: [item],
+      syncCredential: credential,
+      localOnly: true,
+    });
+    expect(
+      h.bg.serviceKeylessCloudSync.getLocalMutationSyncCredential,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      h.bg.servicePrimeCloudSync.getSyncCredentialSafe,
+    ).not.toHaveBeenCalled();
+    expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
   });
 
   test.each([

@@ -617,6 +617,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async resumeCloudSyncReconciliation({
     reason,
+    localOnly = false,
   }: {
     reason:
       | 'startup'
@@ -627,7 +628,15 @@ class ServicePrimeCloudSync extends ServiceBase {
       | 'manual'
       | 'wallet-ready'
       | 'local-mutation';
+    localOnly?: boolean;
   }) {
+    if (
+      localOnly &&
+      (!supportsIndexedCloudAccountArchive() ||
+        (reason !== 'startup' && reason !== 'unlock'))
+    )
+      return;
+    const offline = () => localOnly || this.cloudSyncNetworkReachable === false;
     const generation = this.publicAccountSnapshotImportGeneration;
     const keyGeneration =
       this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
@@ -636,10 +645,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       keyGeneration ===
         this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
     if (await this.backgroundApi.serviceApp.isAppLocked()) return;
-    if (!(await this.isCloudSyncIsAvailable())) return;
-    const credential = await this.getSyncCredentialSafe();
+    if (!localOnly && !(await this.isCloudSyncIsAvailable())) return;
+    const credential = await this.readReconciliationCredential(localOnly);
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     if (!credential || !spaceId || !isCurrent()) return;
+    if (localOnly && !this.canReadPendingAccountHandoffs(credential, spaceId))
+      return;
     if (reason === 'wallet-ready') {
       const { items } = await this.getAllLocalSyncItems();
       await this.replayDownloadedAccounts({ items, credential, isCurrent });
@@ -657,7 +668,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       (reason === 'startup' || reason === 'unlock') &&
       this.canReadPendingAccountHandoffs(credential, spaceId);
     if (recoverArchiveOnLifecycle) {
-      await this.replayDownloadedAccounts({ items: [], credential, isCurrent });
+      await this.replayDownloadedAccounts({
+        items: [],
+        credential,
+        isCurrent,
+        localOnly,
+      });
       if (!isCurrent()) return;
     }
     if (reason === 'manual' && state?.nextRetryAt) {
@@ -680,7 +696,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       state = { ...state, nextRetryAt: undefined };
     }
     if (this.hasPendingLocalMutation(spaceId)) {
-      if (this.cloudSyncNetworkReachable === false) return;
+      if (offline()) return;
       return this.startServerSyncFlowSilently({
         callerName: `Cloud local mutation ${reason}`,
       });
@@ -697,16 +713,18 @@ class ServicePrimeCloudSync extends ServiceBase {
           credential,
           isCurrent,
           includeArchive: !recoverArchiveOnLifecycle,
+          localOnly,
         });
       }
-      const offline = this.cloudSyncNetworkReachable === false;
+      const isOffline = offline();
       if (
         !isCurrent() ||
-        (offline && !(recoverArchiveOnLifecycle && state.status === 'partial'))
+        (isOffline &&
+          !(recoverArchiveOnLifecycle && state.status === 'partial'))
       )
         return;
       if (
-        !offline &&
+        !isOffline &&
         items.some(
           (item) =>
             item.pwdHash === spaceId &&
@@ -730,6 +748,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     )
       return;
     if (state?.nextRetryAt && state.nextRetryAt > Date.now()) {
+      if (localOnly) return;
       const nextRetryAt = Math.min(state.nextRetryAt, Date.now() + 30 * 60_000);
       if (nextRetryAt !== state.nextRetryAt)
         await primeCloudSyncPersistAtom.set((value) => ({
@@ -748,13 +767,18 @@ class ServicePrimeCloudSync extends ServiceBase {
           this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
             async () => {
               if (!isCurrent()) return;
-              const selected = await this.getSyncCredentialSafe();
+              const selected =
+                await this.readReconciliationCredential(localOnly);
               if (
                 !isCurrent() ||
+                !selected ||
                 cloudSyncItemBuilder.getPwdHash(selected) !== spaceId
               )
                 return;
-              await this.syncPendingItemsToScene({ isCurrent });
+              await this.syncPendingItemsToScene({
+                isCurrent,
+                ...(localOnly ? { offlineCredential: selected } : {}),
+              });
               if (!isCurrent()) return;
               await primeCloudSyncPersistAtom.set((value) => {
                 if (
@@ -794,16 +818,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       // Pending local dependencies must not hide later changes in other wallets.
       // Timer retries remain local-only; lifecycle/manual wakes compare the full
       // downloaded summary through the normal bounded, single-flight runner.
-      if (
-        reason === 'timer' ||
-        !isCurrent() ||
-        this.cloudSyncNetworkReachable === false
-      )
-        return;
+      if (reason === 'timer' || !isCurrent() || offline()) return;
       const selected = await this.getSyncCredentialSafe();
       if (!isCurrent() || cloudSyncItemBuilder.getPwdHash(selected) !== spaceId)
         return;
     }
+    if (localOnly) return;
     return this.startServerSyncFlowSilently({
       callerName: `Cloud reconciliation ${reason}`,
     });
@@ -821,16 +841,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
+  private readReconciliationCredential(localOnly: boolean) {
+    return localOnly
+      ? this.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential()
+      : this.getSyncCredentialSafe();
+  }
+
   private async replayDownloadedAccounts({
     items,
     credential,
     isCurrent,
     includeArchive = true,
+    localOnly = false,
   }: {
     items: IDBCloudSyncItem[];
     credential: ICloudSyncCredential;
     isCurrent: () => boolean;
     includeArchive?: boolean;
+    localOnly?: boolean;
   }) {
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     const pending = items.filter(
@@ -849,7 +877,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
         if (!isCurrent()) return;
-        const selected = await this.getSyncCredentialSafe();
+        const selected = await this.readReconciliationCredential(localOnly);
         if (
           !isCurrent() ||
           cloudSyncItemBuilder.getPwdHash(selected) !== spaceId
@@ -866,6 +894,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           items: [...pending, ...handoffs.map((record) => record.candidate)],
           syncCredential: credential,
           isCurrent,
+          localOnly,
           ...(handoffs.length
             ? {
                 foreignAccountsByWireId: new Map(
@@ -1609,14 +1638,17 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncPendingItemsToScene({
     forceSync,
     isCurrent,
+    offlineCredential,
   }: {
+    offlineCredential?: ICloudSyncCredential;
     forceSync?: boolean;
     isCurrent?: () => boolean;
   } = {}) {
-    if (!(await this.isCloudSyncIsAvailable())) {
+    if (!offlineCredential && !(await this.isCloudSyncIsAvailable())) {
       return;
     }
-    const syncCredential = await this.getSyncCredentialSafe();
+    const syncCredential =
+      offlineCredential ?? (await this.getSyncCredentialSafe());
     if (!syncCredential) {
       return;
     }
@@ -1634,6 +1666,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       forceSync,
       isCurrent,
+      localOnly: !!offlineCredential,
     });
   }
 
@@ -1644,7 +1677,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     isCurrent,
     foreignAccountsByWireId,
+    localOnly = false,
   }: {
+    localOnly?: boolean;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
     forceSync?: boolean;
@@ -1654,7 +1689,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!syncCredential) {
       return;
     }
-    if (!(await this.isCloudSyncIsAvailable())) {
+    if (!localOnly && !(await this.isCloudSyncIsAvailable())) {
       return;
     }
     return this._syncToSceneWithLocalSyncItems({
@@ -1663,6 +1698,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       forceSync,
       isCurrent,
       foreignAccountsByWireId,
+      localOnly,
     });
   }
 
@@ -1672,7 +1708,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     isCurrent,
     foreignAccountsByWireId,
+    localOnly = false,
   }: {
+    localOnly?: boolean;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     forceSync?: boolean;
@@ -1776,6 +1814,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       forceSync,
       isCurrent,
       foreignAccountsByWireId,
+      localOnly,
       onAccountsChanged: () => {
         accountsChanged = true;
       },
