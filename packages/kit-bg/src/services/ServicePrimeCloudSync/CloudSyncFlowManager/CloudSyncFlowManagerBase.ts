@@ -192,6 +192,7 @@ export abstract class CloudSyncFlowManagerBase<
     isDeleted,
     dataTime,
     allowHistoricalTime,
+    resolveHistoricalDataTime,
     existingDataTime,
     syncCredential,
   }: {
@@ -200,6 +201,7 @@ export abstract class CloudSyncFlowManagerBase<
     isDeleted: boolean | undefined;
     dataTime: number | undefined;
     allowHistoricalTime?: boolean;
+    resolveHistoricalDataTime?: () => number;
     existingDataTime?: number;
     syncCredential: ICloudSyncCredential | undefined;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -211,6 +213,7 @@ export abstract class CloudSyncFlowManagerBase<
       target,
       dataTime,
       allowHistoricalTime,
+      resolveHistoricalDataTime,
       existingDataTime,
       syncCredential,
       isDeleted,
@@ -230,6 +233,7 @@ export abstract class CloudSyncFlowManagerBase<
     target: ICloudSyncTargetMap[T];
     dataTime: number | undefined;
     allowHistoricalTime?: boolean;
+    resolveHistoricalDataTime?: () => number;
     existingDataTime?: number;
     preserveUndefinedDataTime?: boolean;
     dataTimeScope?: string;

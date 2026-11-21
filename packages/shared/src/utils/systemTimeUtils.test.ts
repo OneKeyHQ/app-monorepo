@@ -108,6 +108,70 @@ describe('system time error notifications', () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    { origin: 'https://wallet.onekeycn.com', projected: true },
+    { origin: 'https://unexpected.test', projected: false },
+    { origin: 'https://wallet.onekeytest.com', projected: false },
+    { origin: 'https://wallet.onekeycn.com', projected: false, badNonce: true },
+    {
+      origin: 'https://wallet.onekeycn.com',
+      projected: false,
+      cachedAge: '10',
+    },
+  ])(
+    'backprojects only an exact first-party health receipt ($origin projected=$projected badNonce=$badNonce cachedAge=$cachedAge)',
+    async ({ origin, projected, badNonce, cachedAge }) => {
+      // Begin before the current runtime's first estimate.
+      jest.resetModules();
+      systemTimeUtils = (await import('./systemTimeUtils')).default;
+      const assertLocalClock = BASE_TIME + 600;
+      jest.setSystemTime(assertLocalClock);
+      monotonicTime = 1000;
+      const resolveTime =
+        systemTimeUtils.captureColdCloudActionTime(assertLocalClock);
+      mockGet.mockImplementation(async (_path, options) => {
+        const params = (
+          options as { params: { timestamp: number; nonce: string } }
+        ).params;
+        const responseURL = new URL('/wallet/v1/health', origin);
+        responseURL.searchParams.set('_', 'system_time_utils');
+        responseURL.searchParams.set('timestamp', String(params.timestamp));
+        responseURL.searchParams.set(
+          'nonce',
+          badNonce ? 'different' : params.nonce,
+        );
+        monotonicTime += 250.25;
+        jest.setSystemTime(assertLocalClock + 250);
+        return {
+          status: 200,
+          request: { responseURL: responseURL.href },
+          headers: { date: new Date(BASE_TIME).toUTCString(), age: cachedAge },
+        };
+      });
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      monotonicTime += 300.25;
+      expect(resolveTime?.()).toBe(
+        projected ? BASE_TIME - 251 : assertLocalClock,
+      );
+      monotonicTime += MINUTE;
+      expect(resolveTime?.()).toBe(
+        projected ? BASE_TIME - 251 : assertLocalClock,
+      );
+    },
+  );
+
+  it('does not backproject an unverified in-process or persisted estimate', async () => {
+    jest.resetModules();
+    systemTimeUtils = (await import('./systemTimeUtils')).default;
+    const actionWall = BASE_TIME + 500;
+    systemTimeUtils.lastServerTime = BASE_TIME;
+    const resolveTime = systemTimeUtils.captureColdCloudActionTime(actionWall);
+    expect(resolveTime).toBeDefined();
+    monotonicTime += 100;
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(resolveTime?.()).toBe(actionWall);
+  });
+
   it('keeps initial and periodic healthy time checks silent', async () => {
     mockGet.mockImplementation(async () => ({
       headers: { date: new Date(Date.now()).toUTCString() },

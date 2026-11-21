@@ -287,7 +287,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     // Do not turn preparation latency into a newer business action. This
     // applies only after the existing encrypted Account passed authentication.
     const requestedDeletionTime = hasAuthenticatedDeletionBase
-      ? params.dataTime
+      ? (params.resolveHistoricalDataTime?.() ?? params.dataTime)
       : undefined;
     if (
       requestedDeletionTime !== undefined &&
@@ -298,6 +298,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       return undefined;
     const built = await super.buildSyncItem({
       ...params,
+      dataTime: requestedDeletionTime ?? params.dataTime,
       allowHistoricalTime:
         requestedDeletionTime !== undefined || params.allowHistoricalTime,
       // A downloaded version may be ahead of this process's clock or cache.

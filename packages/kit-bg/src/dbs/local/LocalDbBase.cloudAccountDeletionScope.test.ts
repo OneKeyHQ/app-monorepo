@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
@@ -77,6 +78,7 @@ async function fixture({
   beforeTime,
   useHistoricalTime = false,
   historicalClockAdjustment = 0,
+  historicalClockCeiling,
   foreign,
   snapshotOverride,
 }: {
@@ -87,6 +89,7 @@ async function fixture({
   missingCredential?: boolean;
   useHistoricalTime?: boolean;
   historicalClockAdjustment?: number;
+  historicalClockCeiling?: number;
   beforeTime?: (
     db: LocalDbIndexed,
     id: string,
@@ -130,7 +133,10 @@ async function fixture({
           params?.allowHistoricalTime &&
           params.explicitHistoricalTime !== undefined
         )
-          return params.explicitHistoricalTime + historicalClockAdjustment;
+          return Math.min(
+            params.explicitHistoricalTime + historicalClockAdjustment,
+            historicalClockCeiling ?? Infinity,
+          );
         return Math.max(Date.now(), (params?.existingDataTime ?? 0) + 1);
       }
       return currentTime;
@@ -896,6 +902,78 @@ it.each([
         !clockAdjustment && (batch || delta < 0) ? 1 : 0,
       );
     } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+it.each([
+  { delta: -40, shouldDeleteInCloud: true },
+  { delta: 0, shouldDeleteInCloud: false },
+  { delta: 40, shouldDeleteInCloud: false },
+  { delta: -40, shouldDeleteInCloud: false, unverified: true },
+])(
+  'uses the authenticated Account and normalized click ($delta cloud=$shouldDeleteInCloud unverified=$unverified)',
+  async ({ delta, shouldDeleteInCloud, unverified }) => {
+    const wallClick = 1_750_000_000_000;
+    const correctedClick = wallClick - 300;
+    const h = await fixture({
+      useHistoricalTime: true,
+      historicalClockCeiling: wallClick - 50,
+      beforeKey: async () => {
+        jest.setSystemTime(wallClick + 250);
+      },
+    });
+    const rawKey = h.old.rawKey;
+    const sealed = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: h.old.id,
+      rawDataJson: {
+        rawKey,
+        dataType: EPrimeCloudSyncDataType.Account,
+        payload: {
+          accountId: getPublicAccountSnapshotId(h.snapshot),
+          name: h.snapshot.account.name,
+          publicAccountSnapshot: h.snapshot,
+        },
+      },
+      dataTime: correctedClick + delta,
+      syncCredential,
+    });
+    await h.db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+      h.db.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [h.old.id],
+        updater: (row) =>
+          Object.assign(row, {
+            ...sealed,
+            rawData: '',
+            localSceneUpdated: true,
+            serverUploaded: true,
+          }),
+      }),
+    );
+    jest.useFakeTimers({
+      now: wallClick,
+      doNotFake: ['setImmediate', 'nextTick'],
+    });
+    const capture = jest
+      .spyOn(systemTimeUtils, 'captureColdCloudActionTime')
+      .mockImplementation((time) => () => (unverified ? time : correctedClick));
+    try {
+      await h.remove();
+      expect(capture).toHaveBeenCalledWith(wallClick);
+      expect(
+        await h.other.getAccountSafe({ accountId: h.account.id }),
+      ).toBeFalsy();
+      expect(await h.other.getSyncItem({ id: h.old.id })).toMatchObject({
+        isDeleted: shouldDeleteInCloud,
+        dataTime: shouldDeleteInCloud ? correctedClick : correctedClick + delta,
+      });
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(h.syncLater).toHaveBeenCalledTimes(shouldDeleteInCloud ? 1 : 0);
+    } finally {
+      capture.mockRestore();
       jest.useRealTimers();
     }
   },

@@ -11712,6 +11712,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accounts: IDBAccount[],
     prepareCloud: boolean,
     requestedAt?: number,
+    resolveHistoricalDataTime?: () => number,
   ): Promise<IDBCloudSyncItem[]> {
     if (!prepareCloud) return [];
     let isCurrent = true;
@@ -11731,6 +11732,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accounts,
           () => isCurrent,
           requestedAt,
+          resolveHistoricalDataTime,
         ),
       ]);
     } finally {
@@ -11743,6 +11745,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accounts: IDBAccount[],
     isCurrent: () => boolean,
     requestedAt: number | undefined,
+    resolveHistoricalDataTime: (() => number) | undefined,
   ) {
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
@@ -11790,6 +11793,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               dbRecord: { ...account, name },
               isDeleted: true,
               dataTime: requestedAt,
+              ...(syncCredential && resolveHistoricalDataTime
+                ? { resolveHistoricalDataTime }
+                : {}),
               syncCredential,
             });
           if (item) items.push(item);
@@ -12355,11 +12361,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: Parameters<LocalDbBase['removeAccountsByIdsWithCloudKeyLock']>[0],
   ) {
     const requestedAt = this.getOfflineAccountRemovalTime();
+    const resolveHistoricalDataTime =
+      systemTimeUtils.captureColdCloudActionTime(requestedAt);
     return this.runLocalAccountRemoval((prepareCloud) =>
       this.removeAccountsByIdsWithCloudKeyLock(
         params,
         prepareCloud,
         requestedAt,
+        resolveHistoricalDataTime,
       ),
     );
   }
@@ -12372,6 +12381,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     },
     prepareCloud: boolean,
     requestedAt: number,
+    resolveHistoricalDataTime: (() => number) | undefined,
   ) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
@@ -12393,6 +12403,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }),
         prepareCloud,
         requestedAt,
+        resolveHistoricalDataTime,
       );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
@@ -12444,8 +12455,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: Parameters<LocalDbBase['removeAccountWithCloudKeyLock']>[0],
   ) {
     const requestedAt = this.getOfflineAccountRemovalTime();
+    const resolveHistoricalDataTime =
+      systemTimeUtils.captureColdCloudActionTime(requestedAt);
     return this.runLocalAccountRemoval((prepareCloud) =>
-      this.removeAccountWithCloudKeyLock(params, prepareCloud, requestedAt),
+      this.removeAccountWithCloudKeyLock(
+        params,
+        prepareCloud,
+        requestedAt,
+        resolveHistoricalDataTime,
+      ),
     );
   }
 
@@ -12459,6 +12477,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     },
     prepareCloud: boolean,
     requestedAt: number,
+    resolveHistoricalDataTime: (() => number) | undefined,
   ): Promise<void> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const account = prepareCloud
@@ -12474,6 +12493,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         account && isPublicAccountWallet ? [account] : [],
         prepareCloud,
         requestedAt,
+        resolveHistoricalDataTime,
       );
     if (prepareCloud && account && !isPublicAccountWallet) {
       try {
