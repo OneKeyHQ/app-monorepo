@@ -9,6 +9,7 @@ import {
   OneKeyError,
   OneKeyLocalError,
   OneKeyServerApiError,
+  RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
@@ -318,6 +319,26 @@ it('retries an invoice after a transient decoder failure', async () => {
   };
 
   await expect(parseQRCode(INVOICE, parseOptions)).rejects.toThrow();
+  expect(getNetwork).not.toHaveBeenCalled();
+  await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+  });
+});
+
+it('keeps an invoice retryable when the Lightning client fails to initialize', async () => {
+  const { options, getLnClient, decodedInvoice, getNetwork } = setup();
+  const parseOptions = {
+    ...options,
+    handlers: [EQRCodeHandlerNames.lightningNetwork],
+  };
+  getLnClient.mockRejectedValueOnce(
+    new OneKeyServerApiError({ httpStatusCode: 503 }),
+  );
+
+  const first = parseQRCode(INVOICE, parseOptions);
+  await expect(first).rejects.toBeInstanceOf(RetryableLightningScanError);
+  await expect(first).rejects.toMatchObject({ autoToast: false });
+  expect(decodedInvoice).not.toHaveBeenCalled();
   expect(getNetwork).not.toHaveBeenCalled();
   await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
     type: EQRCodeHandlerType.LIGHTNING_NETWORK,

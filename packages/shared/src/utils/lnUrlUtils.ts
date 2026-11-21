@@ -82,14 +82,6 @@ export const normalizeLightningInput = (input: string): string => {
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
 };
 
-export function isAmbiguousMultilineLnurl(input: string): boolean {
-  const address = normalizeLightningInput(input).trim();
-  return (
-    /[\r\n]/.test(address) &&
-    /^lnurl[pwc]:\S+$/i.test(address.replace(/[\r\n]+/g, ''))
-  );
-}
-
 const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
 
 export function getLightningInvoiceNetwork(
@@ -107,29 +99,68 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
   return isLightningAddress(input) || !!findLnurl(input);
 };
 
-export const resolveReusableLightningRecipient = (address: string) => {
+const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
+const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
+  '(': ')',
+  '<': '>',
+  '"': '"',
+  "'": "'",
+};
+
+type IReusableLightningRecipient =
+  | { kind: 'recipient'; address: string }
+  | { kind: 'ambiguous' };
+
+function readReusableLightningRecipient(
+  address: string,
+): IReusableLightningRecipient | undefined {
   if (isReusableLightningRecipient(address)) {
-    return address;
+    return { kind: 'recipient', address };
+  }
+  const standalone = normalizeLightningInput(address).trim();
+  if (
+    /[\r\n]/.test(standalone) &&
+    /^lnurl[pwc]:\S+$/i.test(standalone.replace(/[\r\n]+/g, ''))
+  ) {
+    return { kind: 'ambiguous' };
   }
   // Payment text can contain an LNURL as a separate token. Keep QR detection
   // strict so a scan cannot interpret arbitrary text as a payment.
   const candidates = address.matchAll(
-    /(^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
+    /(^|[\s<("'：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
-  for (const [, opener, input] of candidates) {
+  for (const match of candidates) {
+    const [matchedText, opener, input] = match;
     // Strip adjacent prose only when the end of the wrapper identifies it.
-    let uri = input;
-    if (opener === '(' || opener === "'") {
-      const closer = opener === '(' ? ')' : "'";
-      const token = input.replace(/[.,!?，。！？]+$/u, '');
-      if (token.endsWith(closer)) {
-        uri = token.slice(0, -1);
-      }
-    }
+    const closer = LNURL_WRAPPER_CLOSERS[opener];
+    const token = input.replace(/[.,!?，。！？]+$/u, '');
+    const closedInToken = closer && token.endsWith(closer);
+    const uri = closedInToken ? token.slice(0, -1) : input;
     const candidate = normalizeLightningInput(uri);
     if (findLnurl(candidate)) {
-      return candidate;
+      const suffix = address.slice(match.index + matchedText.length);
+      const nextLine = /^[\r\n]/.test(suffix) ? suffix.trimStart() : '';
+      if (
+        LNURL_URI_SCHEME.test(candidate) &&
+        nextLine &&
+        !closedInToken &&
+        !(closer && nextLine.startsWith(closer))
+      ) {
+        return { kind: 'ambiguous' };
+      }
+      return { kind: 'recipient', address: candidate };
     }
   }
-  return null;
+}
+
+export function isAmbiguousMultilineLnurl(input: string): boolean {
+  return (
+    /[\r\n]/.test(input.trim()) &&
+    readReusableLightningRecipient(input)?.kind === 'ambiguous'
+  );
+}
+
+export const resolveReusableLightningRecipient = (input: string) => {
+  const result = readReusableLightningRecipient(input);
+  return result?.kind === 'recipient' ? result.address : null;
 };

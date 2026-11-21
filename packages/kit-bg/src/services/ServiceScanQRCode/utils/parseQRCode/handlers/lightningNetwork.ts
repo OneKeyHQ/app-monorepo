@@ -42,9 +42,9 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
     networkId = isTestnet ? networkIds.tlightning : networkIds.lightning;
     // Decode before the scan action can offer to create a Lightning account.
     // The decoder needs the invoice only and does not require a payer.
-    const client = await backgroundApi.serviceLightning.getLnClient(isTestnet);
-    const decodedInvoice = await client
-      .decodedInvoice(address)
+    const decodedInvoice = await backgroundApi.serviceLightning
+      .getLnClient(isTestnet)
+      .then((client) => client.decodedInvoice(address))
       .catch((error: unknown) => {
         if (isRetryableLightningInvoiceDecodeFailure(error)) {
           throw new RetryableLightningScanError({

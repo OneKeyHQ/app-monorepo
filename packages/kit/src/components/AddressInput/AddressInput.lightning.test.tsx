@@ -85,6 +85,7 @@ it.each([
 
 it.each([
   'lnurlp://example.com/pay\nThanks',
+  'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(

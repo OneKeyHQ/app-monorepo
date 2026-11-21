@@ -2,6 +2,7 @@ import { bech32 } from 'bech32';
 
 import {
   findLnurl,
+  isAmbiguousMultilineLnurl,
   isReusableLightningRecipient,
   normalizeLightningInput,
   resolveReusableLightningRecipient,
@@ -78,6 +79,29 @@ it('excludes a surrounding wrapper and adjacent sentence punctuation', () => {
     resolveReusableLightningRecipient('Pay here: (lnurlp://example.com/pay).'),
   ).toBe('lnurlp://example.com/pay');
   expect(resolveReusableLightningRecipient(`请支付 ${LNURL}。`)).toBe(LNURL);
+  expect(resolveReusableLightningRecipient(`请支付：${LNURL}。`)).toBe(LNURL);
+});
+
+it.each([
+  'Pay:\nlnurlp://merchant.example/checkout?order=12\n34',
+  'Pay here:\r\nLIGHTNING:lnurlp://merchant.example/checkout?order=12\r\n  34',
+])(
+  'rejects an open-ended LNURL that could continue on the next line',
+  (text) => {
+    expect(isAmbiguousMultilineLnurl(text)).toBe(true);
+    expect(resolveReusableLightningRecipient(text)).toBeNull();
+  },
+);
+
+it('uses explicit wrappers and checksum validation as recipient boundaries', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12';
+  for (const token of [`(${uri})`, `<${uri}>`, `"${uri}"`, `'${uri}'`, LNURL]) {
+    const text = `Pay:\n${token}\n34`;
+    expect(isAmbiguousMultilineLnurl(text)).toBe(false);
+    expect(resolveReusableLightningRecipient(text)).toBe(
+      token === LNURL ? LNURL : uri,
+    );
+  }
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(
