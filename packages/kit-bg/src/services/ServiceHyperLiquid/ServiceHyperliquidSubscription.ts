@@ -2538,10 +2538,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       spec.type === ESubscriptionType.L2_BOOK;
     const orderBookToDestroy = toDestroySubscriptions.filter(isOrderBookSpec);
     const orderBookToCreate = toCreateSubscriptions.filter(isOrderBookSpec);
+    const client = this._client;
+    const openedAt = this._socketOpenedAt;
+    const lifecycleVersion = this._subscriptionLifecycleVersion;
+    let bboUnsubscribeFailed = false;
     const otherTasks = [
       ...toDestroySubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
-        .map((spec) => () => this._destroySubscription(spec)),
+        .map((spec) => async () => {
+          const removed = await this._destroySubscription(spec);
+          if (!removed && spec.type === ESubscriptionType.BBO) {
+            bboUnsubscribeFailed = true;
+          }
+        }),
       ...toCreateSubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
         .map((spec) => () => this._createSubscription(spec)),
@@ -2569,6 +2578,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       orderBookTask,
       otherTasks,
     });
+    // A lost BBO ACK leaves its server-side state unknown. Reset the transport
+    // if the order book transition or a socket recovery has not reset it yet.
+    if (
+      bboUnsubscribeFailed &&
+      client === this._client &&
+      openedAt === this._socketOpenedAt &&
+      lifecycleVersion === this._subscriptionLifecycleVersion &&
+      client?.transport.socket.readyState === WebSocket.OPEN
+    ) {
+      await this._forceReconnectTransport();
+    }
   }
 
   private async _createSubscription<T extends ESubscriptionType>(

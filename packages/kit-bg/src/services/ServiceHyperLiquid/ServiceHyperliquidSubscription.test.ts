@@ -582,7 +582,13 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
   }: {
     activeSpecs?: ISubscriptionSpec<ESubscriptionType>[];
   } = {}) {
-    const service = createService();
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquidCache: {
+          flushPendingL2BookSnapshotCache: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
     const subscribe = jest
       .fn<Promise<void>, [ESubscriptionType, unknown]>()
       .mockResolvedValue(undefined);
@@ -594,6 +600,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       transport: { socket: { readyState: WebSocket.OPEN } },
       subscribe,
       unsubscribe,
+      dispose: jest.fn().mockResolvedValue(undefined),
     };
     const activeSubscriptions = new Map(
       activeSpecs.map((spec) => [
@@ -616,6 +623,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       _lastMessageAt: number | null;
       _socketOpenedAt: number;
       _watchSubscriptionAtoms: () => void;
+      getWebSocketClient: () => Promise<typeof client>;
     };
     internals._activeSubscriptions = activeSubscriptions;
     internals._client = client;
@@ -682,6 +690,106 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       unsubscribe.mock.invocationCallOrder[0],
     );
   });
+
+  it.each([false, true])(
+    'restores BTC BBO after a late unsubscribe ACK (book also times out: %s)',
+    async (bookTimesOut) => {
+      const btcBook: ISubscriptionSpec<ESubscriptionType.L2_BOOK> = {
+        key: 'l2Book:BTC',
+        type: ESubscriptionType.L2_BOOK,
+        params: { coin: 'BTC' },
+        priority: 1,
+      };
+      const ethBook = {
+        ...btcBook,
+        key: 'l2Book:ETH',
+        params: { coin: 'ETH' },
+      };
+      const btcBbo: ISubscriptionSpec<ESubscriptionType.BBO> = {
+        key: 'bbo:BTC',
+        type: ESubscriptionType.BBO,
+        params: { coin: 'BTC' },
+        priority: 2,
+      };
+      const ethBbo = { ...btcBbo, key: 'bbo:ETH', params: { coin: 'ETH' } };
+      const { service, internals, subscribe, unsubscribe } = setupSwitch({
+        activeSpecs: [btcBook, btcBbo, allDexs, allMids],
+      });
+      const oldClient = internals._client;
+      const newClient = {
+        ...oldClient,
+        clientId: 'replacement-connection',
+        transport: { socket: { readyState: WebSocket.OPEN } },
+        subscribe: jest.fn().mockResolvedValue(undefined),
+        unsubscribe: jest.fn().mockResolvedValue(undefined),
+        dispose: jest.fn().mockResolvedValue(undefined),
+      };
+      jest
+        .spyOn(internals, 'getWebSocketClient')
+        .mockImplementation(async () => {
+          if (oldClient.dispose.mock.calls.length > 0) {
+            internals._client = newClient;
+          }
+          return internals._client;
+        });
+      const lateAck = jest.fn<void, [ESubscriptionType]>();
+      unsubscribe.mockImplementation(async (type) => {
+        if (
+          type === ESubscriptionType.BBO ||
+          (bookTimesOut && type === ESubscriptionType.L2_BOOK)
+        ) {
+          // The server removed the subscription, but its ACK arrives after the
+          // dispatcher has timed out and removed the matching request.
+          setTimeout(() => lateAck(type), 5100);
+          await new Promise<void>((_resolve, reject) => {
+            setTimeout(() => reject(new Error('Request timed out')), 5000);
+          });
+        }
+      });
+      const switchTo = (
+        book: ISubscriptionSpec<ESubscriptionType.L2_BOOK>,
+        bbo: ISubscriptionSpec<ESubscriptionType.BBO>,
+      ) => {
+        jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
+          requiredSubSpecsMap: {
+            [book.key]: book,
+            [bbo.key]: bbo,
+            [allDexs.key]: allDexs,
+            [allMids.key]: allMids,
+          },
+          params: {
+            ...internals._currentState,
+            currentSymbol: bbo.params.coin,
+            orderBookTransport: 'l2Book',
+          },
+        });
+        return service.recoverSubscriptionsAfterLivenessProof({
+          disabledCount: 0,
+          switchingToCoin: bbo.params.coin,
+        });
+      };
+
+      const toEth = switchTo(ethBook, ethBbo);
+      await jest.advanceTimersByTimeAsync(5100);
+      await toEth;
+      expect(subscribe).toHaveBeenCalledWith(ethBbo.type, ethBbo.params);
+      expect(lateAck).toHaveBeenCalledWith(btcBbo.type);
+
+      unsubscribe.mockResolvedValue(undefined);
+      internals._lastMessageAt = Date.now();
+      const toBtc = switchTo(btcBook, btcBbo);
+      await jest.advanceTimersByTimeAsync(100);
+      await toBtc;
+
+      expect(subscribe).not.toHaveBeenCalledWith(btcBbo.type, btcBbo.params);
+      expect(newClient.subscribe).toHaveBeenCalledWith(
+        btcBbo.type,
+        btcBbo.params,
+      );
+      expect(oldClient.dispose).toHaveBeenCalledTimes(1);
+      expect(newClient.dispose).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps global streams while the target book subscribe awaits its ack', async () => {
     const { service, subscribe, unsubscribe } = setupSwitch({
