@@ -35,6 +35,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  getLightningInvoiceNetwork,
   normalizeLightningInput,
   resolveReusableLightningRecipient,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
@@ -427,6 +428,13 @@ export default class Vault extends VaultBase {
     }
 
     try {
+      const invoiceNetwork = getLightningInvoiceNetwork(address);
+      if (invoiceNetwork) {
+        const { isTestnet } = await this.getNetwork();
+        if ((invoiceNetwork === 'testnet') !== isTestnet) {
+          throw new InvalidLightningPaymentRequest();
+        }
+      }
       await this.decodedInvoice(address);
       return {
         isValid: true,

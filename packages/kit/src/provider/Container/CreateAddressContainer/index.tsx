@@ -19,7 +19,10 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { LazyAccountSelectorCreateAddressButton } from '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
-import { getAddressCreationRequestState } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
+import {
+  getAddressCreationRequestSignal,
+  getAddressCreationRequestState,
+} from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -192,6 +195,20 @@ function BasicCreateAddressContainer() {
         });
         return;
       }
+      const scanSignal = getAddressCreationRequestSignal(
+        addressCreationRequest,
+      );
+      let settled = false;
+      let cancel = () => {};
+      const settle = async (created: boolean) => {
+        if (settled) return;
+        settled = true;
+        scanSignal?.removeEventListener('abort', cancel);
+        await backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: created,
+        });
+      };
       const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.wallet_no_address,
@@ -207,31 +224,29 @@ function BasicCreateAddressContainer() {
           },
         ),
         showFooter: false,
-        onClose: (extra) => {
-          if (extra?.flag !== 'created') {
-            void backgroundApiProxy.servicePromise.resolveCallback({
-              id: promiseId,
-              data: false,
-            });
-          }
+        onClose: () => {
+          void settle(false);
         },
         renderContent: (
           <CreateAddressDialogContent
             onCreate={async (params) => {
-              const isCreated = params && params.accounts.length > 0;
-              await backgroundApiProxy.servicePromise.resolveCallback({
-                id: promiseId,
-                data: isCreated,
-              });
-              if (isCreated) {
-                await dialog.close({ flag: 'created' });
+              if (settled) return;
+              if (
+                getAddressCreationRequestState(addressCreationRequest) !==
+                'active'
+              ) {
+                cancel();
+                return;
+              }
+              const isCreated = Boolean(params?.accounts.length);
+              await settle(isCreated);
+              await dialog.close();
+              if (isCreated && !scanSignal?.aborted) {
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.swap_page_toast_address_generated,
                   }),
                 });
-              } else {
-                await dialog.close();
               }
             }}
             networkId={networkId}
@@ -241,6 +256,15 @@ function BasicCreateAddressContainer() {
           />
         ),
       });
+      cancel = () => {
+        void settle(false);
+        void dialog.close();
+      };
+      if (scanSignal?.aborted) {
+        cancel();
+      } else {
+        scanSignal?.addEventListener('abort', cancel, { once: true });
+      }
     },
     [intl],
   );

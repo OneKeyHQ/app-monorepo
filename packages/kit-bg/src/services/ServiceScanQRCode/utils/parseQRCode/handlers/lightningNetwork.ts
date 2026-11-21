@@ -1,5 +1,3 @@
-import { bech32 } from 'bech32';
-
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   InvoiceExpiredError,
@@ -8,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   findLnurl,
+  getLightningInvoiceNetwork,
   hasLightningUriScheme,
   isLightningAddress,
   normalizeLightningInput,
@@ -16,7 +15,6 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
-const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 3600;
 
 const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
@@ -35,15 +33,12 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
   const networkIds = getNetworkIdsMap();
   let networkId = networkIds.lightning;
   if (!lnurl && !isAddress) {
-    const invoice = bech32.decodeUnsafe(address, address.length);
-    const supportedPrefix = SUPPORTED_INVOICE_PREFIX.exec(
-      invoice?.prefix ?? '',
-    );
-    if (!supportedPrefix) {
+    const invoiceNetwork = getLightningInvoiceNetwork(address);
+    if (!invoiceNetwork) {
       return null;
     }
 
-    const isTestnet = supportedPrefix[1] === 'tb';
+    const isTestnet = invoiceNetwork === 'testnet';
     networkId = isTestnet ? networkIds.tlightning : networkIds.lightning;
     // Decode before the scan action can offer to create a Lightning account.
     // The decoder needs the invoice only and does not require a payer.

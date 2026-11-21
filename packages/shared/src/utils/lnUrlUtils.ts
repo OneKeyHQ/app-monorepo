@@ -82,6 +82,18 @@ export const normalizeLightningInput = (input: string): string => {
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
 };
 
+const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
+
+export function getLightningInvoiceNetwork(
+  address: string,
+): 'mainnet' | 'testnet' | undefined {
+  const invoice = bech32.decodeUnsafe(address, address.length);
+  const prefix = SUPPORTED_INVOICE_PREFIX.exec(invoice?.prefix ?? '')?.[1];
+  if (prefix) {
+    return prefix === 'tb' ? 'testnet' : 'mainnet';
+  }
+}
+
 export const isReusableLightningRecipient = (input?: string): boolean => {
   if (!input) return false;
   return isLightningAddress(input) || !!findLnurl(input);

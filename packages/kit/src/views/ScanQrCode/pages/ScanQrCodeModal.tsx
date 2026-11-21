@@ -321,6 +321,7 @@ export default function ScanQrCodeModal() {
         value,
         popNavigation: true,
         canApplyScanResult,
+        scanSignal: signal,
         isScanOpen,
         onResultWillClose,
       });

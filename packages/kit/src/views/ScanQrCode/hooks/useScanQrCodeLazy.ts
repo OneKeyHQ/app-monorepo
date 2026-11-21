@@ -61,6 +61,7 @@ export default function useScanQrCodeLazy() {
                 value,
                 popNavigation,
                 canApplyScanResult,
+                scanSignal,
                 isScanOpen,
                 onResultWillClose,
               }) => {
@@ -85,14 +86,13 @@ export default function useScanQrCodeLazy() {
                         intl,
                         scanRequestId,
                         canApplyScanResult,
+                        scanSignal,
                         onResultWillClose,
                       },
                     );
                   } catch (error) {
                     if (error instanceof OneKeyErrorScanQrCodeCancel) {
-                      if (isScanOpen?.()) return { retry: true };
-                      reject(error);
-                      return {};
+                      return isScanOpen?.() ? { retry: true } : {};
                     }
                     // A transient parse failure retries the frame; an action error stays
                     // a dropped frame, as before. The page stays open for both.

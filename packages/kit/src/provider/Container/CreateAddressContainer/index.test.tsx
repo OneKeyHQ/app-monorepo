@@ -1,10 +1,13 @@
 /** @jest-environment jsdom */
 
+import { isValidElement } from 'react';
+
 import { CreateAddressContainer } from '.';
 
 import { render } from '@testing-library/react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   type IAddressCreationRequest,
@@ -22,6 +25,7 @@ const mockResolveCallback = jest.fn<void, [unknown]>();
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { show: jest.fn(), confirm: jest.fn() },
+  Toast: { success: jest.fn() },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -50,6 +54,67 @@ jest.mock(
     }) => children,
   }),
 );
+
+it('closes an open address dialog and ignores completion when its scan is aborted', async () => {
+  jest.clearAllMocks();
+  const controller = new AbortController();
+  const close = jest.fn(async () => undefined);
+  jest.mocked(Dialog.show).mockReturnValueOnce({
+    close,
+    getForm: () => undefined,
+    isExist: () => true,
+  });
+  let reportDialogOpened: () => void = () => {};
+  const dialogOpened = new Promise<void>((resolve) => {
+    reportDialogOpened = resolve;
+  });
+  mockCreateAddress.mockImplementationOnce(
+    async (_params, { addressCreationRequest }) =>
+      new Promise((resolve) => {
+        mockResolveCallback.mockImplementationOnce(() => resolve(undefined));
+        appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+          networkId: 'lightning--0',
+          indexedAccountId: 'hd-1--0',
+          deriveType: 'default',
+          promiseId: 2,
+          autoCreateAddress: true,
+          addressCreationRequest,
+        });
+        reportDialogOpened();
+      }),
+  );
+  render(<CreateAddressContainer />);
+  const lookup = getAccountIdOnNetwork({
+    account: {
+      id: 'hd-1--0',
+      indexedAccountId: 'hd-1--0',
+    } as INetworkAccount,
+    network: {
+      id: 'lightning--0',
+      impl: 'lightning',
+    } as Parameters<typeof getAccountIdOnNetwork>[0]['network'],
+    canApplyScanResult: () => !controller.signal.aborted,
+    scanSignal: controller.signal,
+  });
+  await dialogOpened;
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+  const [{ renderContent }] = jest.mocked(Dialog.show).mock.calls[0];
+  if (
+    !isValidElement<{ onCreate: (value: unknown) => Promise<void> }>(
+      renderContent,
+    )
+  ) {
+    throw new OneKeyLocalError('Expected the address creation dialog content');
+  }
+
+  controller.abort();
+  expect(mockResolveCallback).toHaveBeenCalledWith({ id: 2, data: false });
+  expect(close).toHaveBeenCalledTimes(1);
+  await expect(lookup).resolves.toBeUndefined();
+  await renderContent.props.onCreate({ accounts: [{ id: 'test-account' }] });
+  expect(mockResolveCallback).toHaveBeenCalledTimes(1);
+  expect(Toast.success).not.toHaveBeenCalled();
+});
 jest.mock(
   '../../../components/AccountSelector/hooks/useAccountSelectorTrigger',
   () => ({

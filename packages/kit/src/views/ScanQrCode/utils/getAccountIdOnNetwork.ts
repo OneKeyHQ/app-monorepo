@@ -9,26 +9,40 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-const activeAddressCreationRequests = new Map<string, () => boolean>();
+const activeAddressCreationRequests = new Map<
+  string,
+  { canApplyScanResult: () => boolean; signal?: AbortSignal }
+>();
 
 export function getAddressCreationRequestState(
   request?: IAddressCreationRequest,
 ) {
   if (!request) return 'active';
   if (request.nodeId !== appEventBus.nodeId) return 'foreign';
-  return activeAddressCreationRequests.get(request.id)?.()
+  const active = activeAddressCreationRequests.get(request.id);
+  return !active?.signal?.aborted && active?.canApplyScanResult()
     ? 'active'
     : 'inactive';
+}
+
+export function getAddressCreationRequestSignal(
+  request?: IAddressCreationRequest,
+) {
+  if (request?.nodeId === appEventBus.nodeId) {
+    return activeAddressCreationRequests.get(request.id)?.signal;
+  }
 }
 
 export const getAccountIdOnNetwork = async ({
   account,
   network,
   canApplyScanResult,
+  scanSignal,
 }: {
   account?: INetworkAccount;
   network: IChainValue['network'];
   canApplyScanResult?: () => boolean;
+  scanSignal?: AbortSignal;
 }) => {
   if (account?.indexedAccountId) {
     const { accounts } =
@@ -50,10 +64,10 @@ export const getAccountIdOnNetwork = async ({
           nodeId: appEventBus.nodeId,
           id: generateUUID(),
         };
-        activeAddressCreationRequests.set(
-          addressCreationRequest.id,
+        activeAddressCreationRequests.set(addressCreationRequest.id, {
           canApplyScanResult,
-        );
+          signal: scanSignal,
+        });
       }
       try {
         const newAccount =

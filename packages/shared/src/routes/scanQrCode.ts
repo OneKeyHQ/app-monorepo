@@ -8,6 +8,7 @@ export type IScanQrCodeModalParamList = {
       value: string;
       popNavigation: boolean;
       canApplyScanResult?: () => boolean;
+      scanSignal?: AbortSignal;
       isScanOpen?: () => boolean;
       onResultWillClose?: () => void;
     }) => Promise<{ progress?: number; retry?: boolean }>;

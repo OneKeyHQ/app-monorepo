@@ -5,13 +5,17 @@ import {
 
 import LightningVault from './Vault';
 
-// The first BOLT 11 example invoice.
+// BOLT 11 mainnet and testnet example invoices.
 const INVOICE =
   'lnbc1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq9qrsgq357wnc5r2ueh7ck6q93dj32dlqnls087fxdwk8qakdyafkq3yap9us6v52vjjsrvywa6rt52cm9r9zqt8r2t7mlcwspyetp5h2tztugp9lfyql';
 
-function vaultDecodingWith(decode: jest.Mock) {
+const TESTNET_INVOICE =
+  'lntb20m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygshp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfpp3x9et2e20v6pu37c5d9vax37wxq72un989qrsgqdj545axuxtnfemtpwkc45hx9d2ft7x04mt8q7y6t0k2dge9e7h8kpy9p34ytyslj3yu569aalz2xdk8xkd7ltxqld94u8h2esmsmacgpghe9k8';
+
+function vaultDecodingWith(decode: jest.Mock, isTestnet = false) {
   return Object.assign(Object.create(LightningVault.prototype), {
     decodedInvoice: decode,
+    getNetwork: async () => ({ isTestnet }),
   }) as LightningVault;
 }
 
@@ -31,6 +35,24 @@ describe('LightningVault.validateAddress', () => {
     });
     expect(decode).toHaveBeenCalledWith(INVOICE);
   });
+
+  it.each([
+    ['a mainnet invoice', INVOICE, false],
+    ['a testnet invoice', TESTNET_INVOICE, true],
+  ])(
+    'validates %s only on its own Lightning network',
+    async (_label, invoice, isTestnet) => {
+      const input = `LIGHTNING:${invoice.toUpperCase()}`;
+      const decode = jest.fn(async () => ({}));
+      await expect(
+        vaultDecodingWith(decode, isTestnet).validateAddress(input),
+      ).resolves.toMatchObject({ isValid: true, normalizedAddress: invoice });
+      await expect(
+        vaultDecodingWith(decode, !isTestnet).validateAddress(input),
+      ).rejects.toBeInstanceOf(InvalidLightningPaymentRequest);
+      expect(decode).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each(['satoshi@example.com', 'lnurlalice@example.com'])(
     'preserves the complete lightning address %s behind the scheme',
