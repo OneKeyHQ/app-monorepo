@@ -67,6 +67,35 @@ export function isRetainedHardwareCloudCopy(
   );
 }
 
+// Skipping an unreadable local edit is not proof that its bytes belong to
+// the selected source. This is only an admission check for re-signing.
+export function isUnverifiedPendingHardwareWalletCopy(
+  item: IDBCloudSyncItem,
+): boolean {
+  const keySuffix = item.pwdHash.slice(
+    HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX.length,
+  );
+  return (
+    item.dataType === EPrimeCloudSyncDataType.Wallet &&
+    item.serverUploaded === false &&
+    item.localSceneUpdated === true &&
+    !item.isDeleted &&
+    item.pendingPublicAccountDeletionAt === undefined &&
+    !item.pendingPublicAccountDeletionHash &&
+    item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    /^[a-f0-9]{64}$/.test(keySuffix) &&
+    !!item.rawKey &&
+    sha512ProSync({ data: item.rawKey }) === item.id &&
+    typeof item.dataTime === 'number' &&
+    Number.isSafeInteger(item.dataTime) &&
+    item.dataTime > 0 &&
+    !!item.data &&
+    item.data.length >= 56 &&
+    item.data.length % 2 === 0 &&
+    !/[^a-f0-9]/i.test(item.data)
+  );
+}
+
 // Only a settled foreign Account cache can vacate its wire ID. Intent and
 // unapplied scenes/tombstones stay in their original pool row.
 export function canArchiveForeignAccountCopy(

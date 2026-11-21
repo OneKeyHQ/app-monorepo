@@ -66,6 +66,7 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 import {
   isRetainedHardwareCloudCopy,
   isSupportedCloudSyncDataType,
+  isUnverifiedPendingHardwareWalletCopy,
 } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
@@ -915,6 +916,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
           const recoveredIds = new Set(
             recoveredItems.map((item) => item.original.id),
           );
+          const canSkipUnverifiedPendingWallet =
+            restoresRotatedHardwareKey &&
+            current.currentCloudSyncKeylessWalletId === source.credentialId;
           const localItemKeyMismatch = (item: IDBCloudSyncItem) =>
             !!item.pwdHash &&
             !(
@@ -926,6 +930,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
             !(
               restoresRotatedHardwareKey &&
               isRetainedHardwareCloudCopy(item, credential.pwdHash)
+            ) &&
+            !(
+              canSkipUnverifiedPendingWallet &&
+              isUnverifiedPendingHardwareWalletCopy(item)
             );
           const existingHashRecoverable =
             restoresRotatedHardwareKey &&

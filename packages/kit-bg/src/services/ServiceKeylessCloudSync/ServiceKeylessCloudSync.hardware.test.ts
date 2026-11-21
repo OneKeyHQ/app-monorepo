@@ -1803,6 +1803,103 @@ describe('hardware Cloud key source lifecycle', () => {
     }
   });
 
+  test.each([
+    {
+      label: 'a cached local edit',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawData: '{"unverified":"old edit"}',
+      canRestore: true,
+    },
+    {
+      label: 'a missing cache',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawData: '',
+      canRestore: true,
+    },
+    {
+      label: 'an Account',
+      dataType: EPrimeCloudSyncDataType.Account,
+      rawData: '',
+      canRestore: false,
+    },
+  ])(
+    'same-source re-sign retains an unlisted encrypted Wallet with $label',
+    async ({ dataType, rawData, canRestore }) => {
+      const rawKey = 'hd:__public-test-wallet-key:';
+      const pending = {
+        id: createHash('sha512').update(rawKey).digest('hex'),
+        rawKey,
+        rawData,
+        pwdHash: `hw-dek-${'a'.repeat(64)}`,
+        dataType,
+        data: '0f'.repeat(80),
+        dataTime: 200,
+        localSceneUpdated: true,
+        serverUploaded: false,
+      };
+      const { service, backgroundApi } = setup([pending]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      mockStored = undefined;
+      const currentCredential = {
+        ...credential,
+        pwdHash: 'hw-dek-current',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: 'public-test-current-key',
+        dekId: 'public-test-dek',
+        pwdHash: currentCredential.pwdHash,
+        generation: 4,
+        previousPwdHashes: [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({ credential: currentCredential, source }),
+        );
+      const before = structuredClone(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      );
+      if (canRestore) {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).resolves.toBeUndefined();
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            pwdHash: currentCredential.pwdHash,
+            source,
+          }),
+        );
+        expect(
+          backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ onlyAddMissing: true }),
+        );
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalledWith(expect.objectContaining({ forceSync: true }));
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toThrow("can't unlock your synced data");
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      ).toEqual(before);
+    },
+  );
+
   test.each([true, false])(
     'an opaque historical hardware record reconnects only with known history=%s',
     async (knownHistory) => {
