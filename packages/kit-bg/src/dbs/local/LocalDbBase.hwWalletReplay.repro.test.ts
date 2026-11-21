@@ -6,6 +6,7 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   ICloudSyncCredential,
@@ -169,7 +170,7 @@ it.each([
       dataType: EPrimeCloudSyncDataType.Wallet,
       itemId: key,
       encryptionKey: keylessCredential.encryptionKey,
-      rawData: JSON.stringify({
+      rawData: stringUtils.stableStringify({
         rawKey,
         dataType: EPrimeCloudSyncDataType.Wallet,
         payload: incoming,
