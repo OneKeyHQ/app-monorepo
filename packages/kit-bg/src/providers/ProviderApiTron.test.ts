@@ -1131,4 +1131,140 @@ describe('ProviderApiTron first-time connection node sync', () => {
       }
     }
   });
+
+  it('drops stale pre-wait accounts if site disconnects while same-origin node sync is pending', async () => {
+    const origin = 'https://dapp.example';
+    const address = 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3';
+    let activeNetworks: Array<
+      Pick<IServerNetwork, 'id' | 'chainId' | 'isTestnet'>
+    > = [];
+    let activeAccounts: Array<{ account?: { address: string } }> = [];
+    let resolveDelayedNodes!: () => void;
+    const delayedNodesPromise = new Promise<void>((resolve) => {
+      resolveDelayedNodes = resolve;
+    });
+
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp: {
+          getConnectedNetworks: jest.fn(async () => {
+            await delayedNodesPromise;
+            return activeNetworks;
+          }),
+          dAppGetConnectedAccountsInfo: jest.fn(async () => activeAccounts),
+          openConnectionModal: jest.fn(async () => {
+            activeNetworks = [
+              {
+                id: 'tron--0xcd8690dc',
+                chainId: '0xcd8690dc',
+                isTestnet: true,
+              },
+            ];
+            activeAccounts = [{ account: { address } }];
+          }),
+        },
+        bridgeExtBg: { requestToAllCS: jest.fn() },
+      },
+    });
+
+    const req = {
+      origin,
+      scope: 'tron',
+      data: { method: 'tron_requestAccounts' },
+    } as IJsBridgeMessagePayload;
+
+    const tabAPromise = provider.tron_requestAccounts(req);
+    for (let i = 0; i < 6; i += 1) {
+      await Promise.resolve();
+    }
+
+    // Tab B starts after session was saved, sees activeAccounts non-empty, and waits on Tab A's sync.
+    const tabBPromise = provider.tron_requestAccounts(req);
+    for (let i = 0; i < 6; i += 1) {
+      await Promise.resolve();
+    }
+
+    // User disconnects the website while both tabs are waiting on node sync.
+    activeNetworks = [];
+    activeAccounts = [];
+    resolveDelayedNodes();
+
+    await expect(tabAPromise).resolves.toEqual([]);
+    await expect(tabBPromise).resolves.toEqual([]);
+  });
+
+  it('coalesces retries to a single attempt when multiple same-origin requests wait on a failed initial sync', async () => {
+    const origin = 'https://dapp.example';
+    const address = 'TV9tkfhtLHMyLvU5Lsr3WMvp4AoKFxmgn3';
+    const nile = {
+      id: 'tron--0xcd8690dc',
+      chainId: '0xcd8690dc',
+      isTestnet: true,
+    };
+    const activeAccounts: Array<{ account?: { address: string } }> = [];
+    const requestToAllCS = jest.fn();
+
+    let rejectFirstSync!: (err: Error) => void;
+    const firstSyncPromise = new Promise<never>((_resolve, reject) => {
+      rejectFirstSync = reject;
+    });
+    let getNetworksCalls = 0;
+    const getConnectedNetworks = jest.fn(() => {
+      getNetworksCalls += 1;
+      if (getNetworksCalls === 1) {
+        return firstSyncPromise;
+      }
+      return Promise.resolve([nile]);
+    });
+
+    const provider = new ProviderApiTron({
+      backgroundApi: {
+        serviceDApp: {
+          getConnectedNetworks,
+          dAppGetConnectedAccountsInfo: jest.fn(async () => activeAccounts),
+          openConnectionModal: jest.fn(async () => {
+            activeAccounts.push({ account: { address } });
+          }),
+        },
+        bridgeExtBg: { requestToAllCS },
+      },
+    });
+
+    const req = {
+      origin,
+      scope: 'tron',
+      data: { method: 'tron_requestAccounts' },
+    } as IJsBridgeMessagePayload;
+
+    const tabAPromise = provider.tron_requestAccounts(req);
+    for (let i = 0; i < 6; i += 1) {
+      await Promise.resolve();
+    }
+
+    const tabBPromise = provider.tron_requestAccounts(req);
+    const tabCPromise = provider.tron_requestAccounts(req);
+    for (let i = 0; i < 6; i += 1) {
+      await Promise.resolve();
+    }
+
+    expect(getConnectedNetworks).toHaveBeenCalledTimes(1);
+
+    rejectFirstSync(new Error('transient read error'));
+
+    await expect(tabAPromise).resolves.toEqual([address]);
+    await expect(tabBPromise).resolves.toEqual([address]);
+    await expect(tabCPromise).resolves.toEqual([address]);
+
+    // 1 failed initial attempt + 1 coalesced retry = 2 calls total, 1 broadcast.
+    expect(getConnectedNetworks).toHaveBeenCalledTimes(2);
+    expect(requestToAllCS).toHaveBeenCalledTimes(1);
+    expect(requestToAllCS).toHaveBeenCalledWith(
+      'tron',
+      expect.objectContaining({
+        method: 'wallet_events_nodesChanged',
+        params: expect.objectContaining({ chainId: '0xcd8690dc' }),
+      }),
+      origin,
+    );
+  });
 });

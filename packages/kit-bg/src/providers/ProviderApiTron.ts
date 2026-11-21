@@ -340,12 +340,17 @@ class ProviderApiTron extends ProviderApiBase {
     }
 
     const { origin } = request;
-    const inFlight = this.pendingNodeSyncs.get(origin);
-    if (inFlight) {
+    let joinedRetry = false;
+    let inFlight = this.pendingNodeSyncs.get(origin);
+    while (inFlight) {
       await inFlight;
-      if (!this.unsyncedNodeOrigins.has(origin)) {
+      if (!this.unsyncedNodeOrigins.has(origin) || joinedRetry) {
         return;
       }
+      // First waiter after a failed attempt starts a single shared retry;
+      // remaining waiters see that retry in pendingNodeSyncs and await it.
+      joinedRetry = true;
+      inFlight = this.pendingNodeSyncs.get(origin);
     }
 
     const syncPromise = this.performNodeSync(origin);
@@ -376,6 +381,9 @@ class ProviderApiTron extends ProviderApiBase {
           (this.pendingConnectionCountByOrigin.get(origin) ?? 0) > 0)
       ) {
         await this.syncConnectedNodes(request);
+        // Re-check current session after awaiting sync in case the site was
+        // disconnected or its session changed while waiting.
+        return this.tron_accounts(request);
       }
       return accounts;
     }
@@ -391,6 +399,7 @@ class ProviderApiTron extends ProviderApiBase {
       const connectedAccounts = await this.tron_accounts(request);
       if (connectedAccounts.length) {
         await this.syncConnectedNodes(request);
+        return this.tron_accounts(request);
       }
       return connectedAccounts;
     } finally {
