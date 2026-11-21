@@ -258,6 +258,7 @@ export type IDesktopWalletLocalMetadata = {
 
 export type IDBSetWalletNameAndAvatarParams = {
   allowDesktopLocalMetadata?: boolean;
+  passiveDeviceMetadata?: { dbDeviceId: string };
   cloudSyncSource?: IDBCloudSyncItem;
   firstEvmAddress?: string;
   walletId: IDBWalletId;

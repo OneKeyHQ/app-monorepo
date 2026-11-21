@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -6,6 +7,7 @@ import {
   RenameDuplicateNameError,
 } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import ServiceAccount from '../../services/ServiceAccount/ServiceAccount';
@@ -17,7 +19,7 @@ import localDb from './localDb';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { EIndexedDBBucketNames } from './types';
 
-import type { IDBCloudSyncItem, IDBWallet } from './types';
+import type { IDBCloudSyncItem, IDBDevice, IDBWallet } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 function walletFixture(index: number): IDBWallet {
@@ -632,3 +634,217 @@ it('shows a scope-rejected QR rename in the device list without changing canonic
     globalThis.$onekeyIsInBackground = previousBackground;
   }
 });
+
+it('projects a genuine device label on the first uninitialized wallet read without rewriting the canonical wallet', async () => {
+  const { db, wallet, pool, apiUploadItems } = await setUp(21, {
+    id: 'hw-first-presentation',
+    type: 'hw',
+    name: '',
+    associatedDevice: 'device-first-presentation',
+  });
+  const getDevice = jest.spyOn(db, 'getWalletDeviceSafe').mockResolvedValue({
+    id: wallet.associatedDevice,
+    deviceType: EDeviceType.Pro,
+    featuresInfo: { label: 'Confirmed hardware name' },
+  } as IDBDevice);
+  await expect(db.getWallet({ walletId: wallet.id })).resolves.toMatchObject({
+    name: 'Confirmed hardware name',
+  });
+  expect(getDevice).toHaveBeenCalled();
+  await expect(
+    db.getWallet({ walletId: wallet.id, withoutRefill: true }),
+  ).resolves.toMatchObject({ name: '' });
+  expect(await db.getSyncItem({ id: pool.id })).toEqual(pool);
+  expect(apiUploadItems).not.toHaveBeenCalled();
+});
+
+const passiveMetadataScenarios = [
+  'label',
+  'first-label',
+  'trezor-label',
+  'avatar',
+  'foreign',
+  'stale-label',
+  'device-changed',
+  'device-removed',
+  'wallet-changed',
+  'sync-off',
+  'shadow-label',
+  'shadow-avatar',
+  'pending-scene',
+] as const;
+
+it.each(passiveMetadataScenarios)(
+  'checks the current Device and sends only canonical fields for passive presentation: %s',
+  async (scenario) => {
+    const id = `device-passive-${scenario}`;
+    const label = 'Current firmware label';
+    const serialNo = 'TEST-DEVICE-001';
+    const h = await setUp(30 + passiveMetadataScenarios.indexOf(scenario), {
+      id: `hw-${id}`,
+      type: 'hw',
+      ...(scenario === 'first-label' ? { name: '' } : {}),
+      associatedDevice: id,
+      avatar: JSON.stringify({ img: 'bear' }),
+    });
+    const device: IDBDevice = {
+      id,
+      connectId: id,
+      deviceId: id,
+      uuid: serialNo,
+      name: 'Local Device',
+      deviceType: EDeviceType.Pro,
+      features: JSON.stringify({ label, serial_no: serialNo }),
+      settingsRaw: scenario === 'trezor-label' ? '{"vendor":"trezor"}' : '{}',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const expectedImg = getDeviceAvatarImage(EDeviceType.Pro, serialNo);
+    let shadowName: string | undefined = 'Unbound local override';
+    if (
+      ['label', 'first-label', 'trezor-label', 'shadow-avatar'].includes(
+        scenario,
+      )
+    )
+      shadowName = undefined;
+    if (scenario === 'shadow-label') shadowName = label;
+    const shadowAvatar =
+      scenario === 'avatar' || scenario === 'shadow-label'
+        ? undefined
+        : ({
+            img: scenario === 'shadow-avatar' ? expectedImg : 'bear',
+          } as const);
+    await h.db.setWalletNameAndAvatar({
+      walletId: h.wallet.id,
+      allowDesktopLocalMetadata: true,
+      name: shadowName,
+      avatar: shadowAvatar,
+    });
+    await h.db.withTransaction(
+      EIndexedDBBucketNames.account,
+      (tx) =>
+        h.db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [device],
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+    const selected =
+      scenario === 'foreign'
+        ? { ...h.verifiedCredential, masterPasswordUUID: 'foreign-selection' }
+        : h.verifiedCredential;
+    if (scenario === 'pending-scene')
+      await h.db.updateSyncItem({
+        ids: [h.pool.id],
+        updater: (item) => Object.assign(item, { localSceneUpdated: false }),
+      });
+    const prior = await h.db.getSyncItem({ id: h.pool.id });
+    h.syncManagers.wallet.buildSyncItemByDBQuery.mockImplementationOnce(
+      async () => {
+        if (scenario === 'device-changed')
+          await h.db.withTransaction(
+            EIndexedDBBucketNames.account,
+            (tx) =>
+              h.db.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: [id],
+                updater: (current) =>
+                  Object.assign(current, {
+                    features: JSON.stringify({
+                      label: 'Newer firmware name',
+                      serial_no: serialNo,
+                    }),
+                  }),
+              }),
+            { skipCloudCredentialWarmup: true },
+          );
+        if (scenario === 'device-removed')
+          await h.db.withTransaction(
+            EIndexedDBBucketNames.account,
+            (tx) =>
+              h.db.txRemoveRecords({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: [id],
+              }),
+            { skipCloudCredentialWarmup: true },
+          );
+        if (scenario === 'wallet-changed')
+          await h.db.withTransaction(
+            EIndexedDBBucketNames.account,
+            (tx) =>
+              h.db.txUpdateWallet({
+                tx,
+                walletId: h.wallet.id,
+                updater: (current) =>
+                  Object.assign(current, { name: 'Later canonical edit' }),
+              }),
+            { skipCloudCredentialWarmup: true },
+          );
+        return {
+          ...prior,
+          pwdHash: selected.masterPasswordUUID,
+          data: 'new-synthetic-ciphertext',
+          dataTime: 43,
+          serverUploaded: false,
+        };
+      },
+    );
+    h.runWithDesktopWalletMetadataKey.mockImplementationOnce(async (write) =>
+      write(scenario === 'sync-off' ? undefined : selected, () => true),
+    );
+    const attemptsBefore = h.runWithDesktopWalletMetadataKey.mock.calls.length;
+    await h.db.setWalletNameAndAvatar({
+      walletId: h.wallet.id,
+      passiveDeviceMetadata: { dbDeviceId: id },
+      ...(scenario === 'avatar' || scenario === 'shadow-avatar'
+        ? { avatar: { img: expectedImg } }
+        : { name: scenario === 'stale-label' ? 'old event' : label }),
+    });
+
+    const isApplied = ['label', 'first-label', 'avatar'].includes(scenario);
+    const canonical = await h.db.getWallet({
+      walletId: h.wallet.id,
+      withoutRefill: true,
+    });
+    let expectedName = h.wallet.name;
+    if (['label', 'first-label', 'trezor-label'].includes(scenario))
+      expectedName = label;
+    if (scenario === 'wallet-changed') expectedName = 'Later canonical edit';
+    expect(canonical.name).toBe(expectedName);
+    expect(canonical.avatar).toBe(
+      scenario === 'avatar'
+        ? JSON.stringify({ img: expectedImg })
+        : h.wallet.avatar,
+    );
+    if (scenario === 'trezor-label')
+      expect(h.runWithDesktopWalletMetadataKey).toHaveBeenCalledTimes(
+        attemptsBefore,
+      );
+    if (isApplied) {
+      expect(h.syncManagers.wallet.buildSyncItemByDBQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dbRecord: expect.objectContaining({
+            name: canonical.name,
+            avatar: canonical.avatar,
+          }),
+        }),
+      );
+      expect(h.apiUploadItems).toHaveBeenCalledTimes(1);
+    } else {
+      expect(await h.db.getSyncItem({ id: h.pool.id })).toEqual(prior);
+      expect(h.apiUploadItems).not.toHaveBeenCalled();
+    }
+    await expect(
+      h.db.getWalletsForMetadataPresentation([canonical]),
+    ).resolves.toMatchObject([
+      {
+        hasDesktopLocalMetadata: true,
+        name: shadowName ?? canonical.name,
+        ...(shadowAvatar ? { avatarInfo: shadowAvatar } : {}),
+      },
+    ]);
+  },
+);

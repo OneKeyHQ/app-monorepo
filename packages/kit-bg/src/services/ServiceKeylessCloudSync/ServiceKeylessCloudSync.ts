@@ -189,10 +189,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async syncHardwareCloudSyncDeviceLabel({
     walletId,
     label,
-  }: {
-    walletId: string;
-    label: string;
-  }) {
+    dbDeviceId,
+  }: { walletId: string } & (
+    | { label: string; dbDeviceId?: never }
+    | { dbDeviceId: string; label?: never }
+  )) {
     const source = (await primeCloudSyncPersistAtom.get())
       .hardwareCloudSyncKeySource;
     if (
@@ -206,7 +207,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
       walletId,
       withoutRefill: true,
     });
-    if (!wallet?.xfp || wallet.passphraseState || !wallet.associatedDevice)
+    if (
+      !wallet?.xfp ||
+      wallet.passphraseState ||
+      !wallet.associatedDevice ||
+      (dbDeviceId !== undefined && wallet.associatedDevice !== dbDeviceId)
+    )
       return;
     // Cloud has no wallet record of its own; match the standard wallet identity
     // before reusing another flow's device metadata.
@@ -226,10 +232,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return;
     }
     if (credentialId !== source.credentialId) return;
-    const device = await localDb.getDeviceSafe(wallet.associatedDevice);
-    if (!device) return;
     const { getHardwareCloudSyncDeviceSerialNoHash } =
       await import('./hardwareCloudSyncDeviceName');
+    const device = await localDb.getDeviceSafe(wallet.associatedDevice);
+    if (!device) return;
     const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
       device.deviceStateInfo?.identity.serialNo ||
         deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ||
@@ -242,9 +248,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
           preferBleName: true,
         })
       : deviceUtils.buildDeviceBleName({ features: device.featuresInfo });
+    // A passive wallet refill can be older than a confirmed firmware edit.
+    // Use the linked Device record, never the wallet's presentation metadata.
+    let currentLabel: string | null | undefined = label;
+    if (dbDeviceId !== undefined) {
+      currentLabel = device.deviceStateInfo
+        ? device.deviceStateInfo.identity.label
+        : device.featuresInfo?.label;
+      if (!bleName && !currentLabel) return;
+    }
     const deviceName =
       bleName ||
-      label ||
+      currentLabel ||
       deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
       device.name;
     await this.updateHardwareCloudSyncDeviceName(

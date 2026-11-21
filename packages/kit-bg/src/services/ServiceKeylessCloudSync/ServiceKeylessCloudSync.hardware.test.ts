@@ -501,6 +501,82 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([
+    {
+      associatedDevice: 'device-1',
+      label: 'Firmware name',
+      expected: 'Firmware name',
+    },
+    {
+      associatedDevice: 'device-1',
+      label: 'Cached V1 label',
+      stateLabel: 'Current V2 label',
+      expected: 'Current V2 label',
+    },
+    {
+      associatedDevice: 'replaced-device',
+      label: 'Different device',
+      expected: 'Old label',
+    },
+    { associatedDevice: 'device-1', label: undefined, expected: 'Old label' },
+  ])(
+    'reads only the current linked device for passive Cloud label refresh ($associatedDevice, $label)',
+    async ({ associatedDevice, label, stateLabel, expected }) => {
+      const { service } = setup();
+      const xfp = `00001234--xpub${'A'.repeat(107)}`;
+      mockConfig.hardwareCloudSyncKeySource = {
+        ...source,
+        credentialId: `hardware-cloud-v1-${createHash('sha256').update(xfp).digest('hex')}`,
+        deviceName: 'Old label',
+        deviceSerialNoHash: displayDeviceSerialNoHash,
+      };
+      const getWallet = jest.spyOn(localDb, 'getWalletSafe').mockResolvedValue({
+        id: 'hw-device-1',
+        associatedDevice,
+        xfp,
+        name: 'Stale local shadow',
+      } as IDBWallet);
+      const getDevice = jest.spyOn(localDb, 'getDeviceSafe').mockResolvedValue({
+        id: 'device-1',
+        uuid: displayDeviceSerialNo,
+        name: 'Not a confirmed label',
+        featuresInfo: { label },
+        ...(stateLabel
+          ? {
+              deviceStateInfo: {
+                protocol: 'V2',
+                revision: 2,
+                updatedAt: 100,
+                identity: {
+                  label: stateLabel,
+                  serialNo: displayDeviceSerialNo,
+                },
+                status: {},
+                settings: {},
+                versions: {},
+              },
+            }
+          : {}),
+      } as IDBDevice);
+      try {
+        await service.syncHardwareCloudSyncDeviceLabel({
+          walletId: 'hw-device-1',
+          dbDeviceId: 'device-1',
+        });
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(expected);
+        expect(getWallet).toHaveBeenCalledWith({
+          walletId: 'hw-device-1',
+          withoutRefill: true,
+        });
+        if (associatedDevice !== 'device-1')
+          expect(getDevice).not.toHaveBeenCalled();
+      } finally {
+        getWallet.mockRestore();
+        getDevice.mockRestore();
+      }
+    },
+  );
+
   test('keeps a legacy Cloud source name until a signing operation identifies its device', async () => {
     const { service } = setup();
     mockConfig.hardwareCloudSyncKeySource = {

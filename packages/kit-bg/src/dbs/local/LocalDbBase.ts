@@ -8691,9 +8691,131 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  private readCanonicalWalletAvatar(
+    wallet: IDBWallet,
+  ): IAvatarInfo | undefined {
+    try {
+      const avatar = JSON.parse(wallet.avatar || '{}') as IAvatarInfo;
+      return isPlainObject(avatar) && Object.keys(avatar).length
+        ? avatar
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private verifyPassiveDeviceWalletFields(
+    wallet: IDBWallet,
+    device: IDBDevice,
+    params: IDBSetWalletNameAndAvatarParams,
+  ) {
+    if (
+      wallet.associatedDevice !== device.id ||
+      wallet.isTemp ||
+      wallet.isMocked ||
+      accountUtils.isHwHiddenWallet({ wallet })
+    )
+      return false;
+
+    const info = this.refillDeviceInfo({ device: { ...device } });
+    const profile = getVendorProfile(info.vendor ?? EHardwareVendor.onekey);
+    if (params.name) {
+      if (
+        !accountUtils.isHwWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id }) ||
+        (profile.isThirdParty && profile.presentation.label.mode !== 'device')
+      )
+        return false;
+      const label =
+        !profile.isThirdParty && info.deviceStateInfo
+          ? info.deviceStateInfo.identity.label
+          : info.featuresInfo?.label;
+      return !!label && params.name === label;
+    }
+    const deviceType = info.deviceType;
+    const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+      info.featuresInfo,
+    );
+    return (
+      !profile.isThirdParty &&
+      !!params.avatar &&
+      !!serialNo &&
+      !!deviceType &&
+      (deviceType === EDeviceType.Pro ||
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure ||
+        isProtocolV2ProductType(deviceType)) &&
+      params.avatar.img === getDeviceAvatarImage(deviceType, serialNo)
+    );
+  }
+
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
   ): Promise<IDBWallet> {
+    const passive = params.passiveDeviceMetadata;
+    if (passive) {
+      const canonical = await this.getWallet({
+        walletId: params.walletId,
+        withoutRefill: true,
+      });
+      const readCanonical = async () => {
+        const {
+          records: [current],
+        } = await this.getRecordsByIds({
+          name: ELocalDBStoreNames.Wallet,
+          ids: [params.walletId],
+        });
+        return current ?? canonical;
+      };
+      if (
+        !supportsIndexedCloudAccountArchive() ||
+        !accountUtils.isHwOrQrWallet({ walletId: params.walletId }) ||
+        params.cloudSyncSource ||
+        params.firstEvmAddress ||
+        params.applyRestoreSyncPolicy ||
+        !!params.name === !!params.avatar
+      )
+        return canonical;
+      const {
+        records: [device],
+      } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.Device,
+        ids: [passive.dbDeviceId],
+      });
+      if (
+        !device ||
+        !this.verifyPassiveDeviceWalletFields(canonical, device, params)
+      )
+        return canonical;
+      const vendor = this.refillDeviceInfo({ device: { ...device } }).vendor;
+      if (vendor && !getVendorProfile(vendor).supportsCloudSync) {
+        try {
+          return await this.setWalletNameAndAvatarInternal(
+            { ...params, skipSaveLocalSyncItem: true },
+            { skipCloudCredentialWarmup: true, passiveLocalVendor: true },
+          );
+        } catch (error) {
+          if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED) throw error;
+          return readCanonical();
+        }
+      }
+      return this.backgroundApi.serviceKeylessCloudSync.runWithDesktopWalletMetadataKey(
+        async (verifiedCredential, claimWrite) => {
+          try {
+            return await this.setWalletNameAndAvatarInternal(
+              { ...params, skipSaveLocalSyncItem: !verifiedCredential },
+              { verifiedCredential, claimWrite },
+            );
+          } catch (error) {
+            if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED || !claimWrite())
+              throw error;
+            // An unverified passive event can never create a local shadow.
+            return readCanonical();
+          }
+        },
+        readCanonical,
+      );
+    }
     // Replay and restore policy never create a new sync item. They must
     // not reacquire this lock from within a Cloud sync operation.
     if (params.skipSaveLocalSyncItem || params.applyRestoreSyncPolicy) {
@@ -8761,15 +8883,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       verifiedCredential,
       claimWrite,
       skipCloudCredentialWarmup,
+      passiveLocalVendor,
     }: {
       verifiedCredential?: ICloudSyncCredential;
       claimWrite?: () => boolean;
       skipCloudCredentialWarmup?: boolean;
+      passiveLocalVendor?: boolean;
     } = {},
   ): Promise<IDBWallet> {
     const skipCloudWarmup = !!claimWrite;
     const { walletId } = params;
-    let wallet = await this.getWallet({ walletId });
+    const passive = params.passiveDeviceMetadata;
+    let wallet = await this.getWallet({ walletId, withoutRefill: !!passive });
+    const passiveDevice = passive
+      ? await this.getRecordById({
+          name: ELocalDBStoreNames.Device,
+          id: passive.dbDeviceId,
+        })
+      : undefined;
+    if (
+      passive &&
+      (!passiveDevice ||
+        !this.verifyPassiveDeviceWalletFields(wallet, passiveDevice, params) ||
+        (passiveLocalVendor &&
+          getVendorProfile(
+            this.refillDeviceInfo({ device: { ...passiveDevice } }).vendor ??
+              EHardwareVendor.onekey,
+          ).supportsCloudSync))
+    )
+      return wallet;
 
     if (!skipCloudWarmup && params.shouldCheckDuplicate && params.name) {
       const { wallets } = await this.getAllWallets();
@@ -8796,13 +8938,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     let walletName = params.name || wallet.name;
-    let avatarInfo = wallet.avatarInfo;
+    let avatarInfo = passive
+      ? this.readCanonicalWalletAvatar(wallet)
+      : wallet.avatarInfo;
     if (
       params.avatar &&
       isPlainObject(params.avatar) &&
       !isString(params.avatar)
     ) {
-      avatarInfo = params.avatar;
+      avatarInfo = passive
+        ? { ...avatarInfo, img: params.avatar.img }
+        : params.avatar;
     }
 
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
@@ -8853,7 +8999,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               avatarInfo,
               avatar: JSON.stringify(avatarInfo),
             },
-            // allDevices,
+            allDevices: passiveDevice
+              ? [this.refillDeviceInfo({ device: { ...passiveDevice } })]
+              : undefined,
             syncCredential:
               verifiedCredential ??
               (await syncManagers.wallet.getSyncCredential()),
@@ -8873,6 +9021,52 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     const writeWalletMetadata = async (tx: ILocalDBTransaction) => {
+      if (passive && passiveDevice) {
+        const {
+          records: [currentWallet],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+        });
+        const {
+          records: [currentDevice],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [passive.dbDeviceId],
+        });
+        if (
+          !currentWallet ||
+          currentWallet.name !== wallet.name ||
+          currentWallet.avatar !== wallet.avatar ||
+          currentWallet.walletNo !== wallet.walletNo ||
+          currentWallet.type !== wallet.type ||
+          currentWallet.passphraseState !== wallet.passphraseState ||
+          currentWallet.hash !== wallet.hash ||
+          currentWallet.xfp !== wallet.xfp ||
+          currentWallet.firstEvmAddress !== wallet.firstEvmAddress ||
+          !currentDevice ||
+          !isEqual(currentDevice, passiveDevice) ||
+          !this.verifyPassiveDeviceWalletFields(
+            currentWallet,
+            currentDevice,
+            params,
+          )
+        )
+          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+        const shadow = await this.txGetDesktopLocalWalletMetadata(
+          tx,
+          currentWallet,
+        );
+        // Confirmed DeviceState can echo a deliberate local-only edit written
+        // to firmware in a previous scope. It is not new publication authority.
+        if (
+          (params.name && shadow?.name !== undefined) ||
+          (params.avatar && shadow?.avatar !== undefined)
+        )
+          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+      }
       await this.txAssertCloudSyncMetadataSource({
         tx,
         source: params.cloudSyncSource,
@@ -8880,6 +9074,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // Do not promote an unbound display edit merely because a formerly
       // selected scope was switched off. Another local edit supersedes it.
       if (
+        !passive &&
         skipCloudWarmup &&
         !verifiedCredential &&
         (await this.txGetDesktopLocalWalletMetadata(tx, wallet))
@@ -8908,6 +9103,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               (!current.pwdHash &&
                 (current.data || current.rawData || current.serverUploaded)) ||
               current.dataType !== EPrimeCloudSyncDataType.Wallet ||
+              (passive && current.localSceneUpdated !== true) ||
               current.isDeleted ||
               current.pendingPublicAccountDeletionAt)
           )
@@ -8942,6 +9138,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // Do not remove a local-only value until a separately intentional edit
       // for that field is actually accepted into the current encrypted pool.
       if (
+        !passive &&
         params.allowDesktopLocalMetadata &&
         tx.desktopWalletLocalMetadata &&
         syncItem?.data &&
@@ -9048,7 +9245,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         .apiUploadItems({ localItems: [syncItem] })
         .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
-    wallet = await this.getWallet({ walletId });
+    wallet = await this.getWallet({ walletId, withoutRefill: !!passive });
     return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);
   }
 

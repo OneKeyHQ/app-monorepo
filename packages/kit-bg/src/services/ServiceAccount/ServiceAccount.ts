@@ -5600,6 +5600,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    // A projection-driven write is not an explicit rename or a new UI event.
+    if (params.passiveDeviceMetadata)
+      return localDb.setWalletNameAndAvatar(params);
     const { walletId, name } = params;
 
     let oldName = '';
