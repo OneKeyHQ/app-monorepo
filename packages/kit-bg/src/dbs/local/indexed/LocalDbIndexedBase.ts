@@ -25,13 +25,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
-import {
-  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
-  INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION,
-  getIndexedLocalDbBucketVersion,
-  storeNameSupportCreatedAt,
-  supportsIndexedCloudAccountArchive,
-} from '../consts';
+import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { maskedLocalDbAgent } from '../MaskedLocalDbAgent';
@@ -102,17 +96,6 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         tx: transaction,
         storeName,
         bucketName,
-      });
-    }
-
-    if (
-      bucketName === EIndexedDBBucketNames.account &&
-      supportsIndexedCloudAccountArchive() &&
-      (options.newVersion ?? 0) >= INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION &&
-      !nativeDB.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-    ) {
-      nativeDB.createObjectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, {
-        keyPath: 'id',
       });
     }
 
@@ -193,7 +176,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
           bucketName,
           name: indexedDBUtils.buildDbName(bucketName),
-          version: getIndexedLocalDbBucketVersion(bucketName),
+          version: INDEXED_DB_VERSION,
           upgrade: (params) => {
             return self._handleDbUpgrade({
               bucketName,

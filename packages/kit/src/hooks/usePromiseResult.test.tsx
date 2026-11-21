@@ -2069,8 +2069,6 @@ describe('usePromiseResult', () => {
 describe('wallet metadata presentation', () => {
   it('shows an avatar saved for the same wallet while its route was blurred', async () => {
     focusControl.__resetFocus();
-    const previousIsDesktop = platformEnv.isDesktop;
-    platformEnv.isDesktop = true;
     const wallet: IDBWallet = {
       id: 'hd-1',
       name: 'Wallet 1',
@@ -2087,10 +2085,7 @@ describe('wallet metadata presentation', () => {
     );
     readWallet.mockResolvedValue(wallet);
     const { result, unmount } = renderHook(() =>
-      useWalletMetadataPresentation(wallet.id, {
-        ...wallet,
-        avatar: 'canonical',
-      }),
+      useWalletMetadataPresentation(wallet.id),
     );
     try {
       await waitFor(() => expect(result.current?.avatar).toBe('before-edit'));
@@ -2113,8 +2108,34 @@ describe('wallet metadata presentation', () => {
     } finally {
       unmount();
       readWallet.mockReset();
-      platformEnv.isDesktop = previousIsDesktop;
       focusControl.__resetFocus();
     }
+  });
+
+  it('uses refreshed canonical QR metadata without a separate lookup', () => {
+    const wallet: IDBWallet = {
+      id: 'qr-v21',
+      name: 'Before edit',
+      type: 'qr',
+      walletNo: 1,
+      accounts: [],
+      backuped: true,
+      nextIds: {},
+    };
+    const readWallet = jest.spyOn(
+      backgroundApiProxy.serviceAccount,
+      'getWalletSafe',
+    );
+    readWallet.mockClear();
+    const { result, rerender } = renderHook(
+      (canonical: IDBWallet) =>
+        useWalletMetadataPresentation(canonical.id, canonical),
+      { initialProps: wallet },
+    );
+    expect(result.current).toBe(wallet);
+    const edited = { ...wallet, name: 'Confirmed edit' };
+    rerender(edited);
+    expect(result.current).toBe(edited);
+    expect(readWallet).not.toHaveBeenCalled();
   });
 });

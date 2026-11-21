@@ -16,7 +16,6 @@ jest.mock('electron', () => ({
   app: {
     getPath: jest.fn(() => os.tmpdir()),
     getVersion: jest.fn(() => '1.0.0'),
-    isPackaged: true,
     getAppPath: jest.fn(() => '/mock/app'),
     exit: jest.fn(),
   },
@@ -46,14 +45,6 @@ jest.mock('./libs/store', () => ({
   setFallbackUpdateBundleData: jest.fn(),
 }));
 
-jest.mock('./libs/desktopAccountDbCompatibility', () => ({
-  ...jest.requireActual<typeof import('./libs/desktopAccountDbCompatibility')>(
-    './libs/desktopAccountDbCompatibility',
-  ),
-  getEmbeddedDesktopAccountDbCompatibility: jest.fn(),
-}));
-
-import { app } from 'electron';
 import * as openpgp from 'openpgp';
 
 import {
@@ -61,7 +52,6 @@ import {
   calculateSHA256,
   checkFileHash,
   checkFileSha512,
-  getBundleExtractDir,
   getBundleIndexHtmlPath,
   getMetadata,
   lastSHA256FailureReason,
@@ -70,12 +60,6 @@ import {
   verifyMetadataFileSha256,
   verifySha256,
 } from './bundle';
-import {
-  DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-  DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE,
-  getEmbeddedDesktopAccountDbCompatibility,
-  readDesktopAccountDbCompatibility,
-} from './libs/desktopAccountDbCompatibility';
 import {
   clearUpdateBundleData,
   getDevSettingsEnabled,
@@ -568,159 +552,3 @@ test.each(['../outside', 'bad/version', 'a..b'])(
     }
   },
 );
-
-describe('Desktop bundled/OTA account schema compatibility', () => {
-  const bundle = {
-    appVersion: '1.0.0',
-    bundleVersion: 'synthetic-schema-test',
-  };
-  let profile: string;
-  let embedded: string;
-  let extracted: string;
-  let renderer: string;
-  beforeEach(() => {
-    profile = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-account-schema-'));
-    embedded = path.join(profile, 'app-asar', 'build');
-    fs.mkdirSync(embedded, { recursive: true });
-    jest.spyOn(app, 'getPath').mockReturnValue(profile);
-    jest
-      .mocked(getEmbeddedDesktopAccountDbCompatibility)
-      .mockImplementation((isPackaged) =>
-        isPackaged ? readDesktopAccountDbCompatibility(embedded) : undefined,
-      );
-    extracted = getBundleExtractDir(bundle);
-    renderer = path.join(extracted, 'build');
-    fs.mkdirSync(renderer, { recursive: true });
-    fs.writeFileSync(path.join(renderer, 'index.html'), '<!doctype html>');
-    jest.mocked(clearUpdateBundleData).mockClear();
-  });
-  afterEach(() => {
-    jest.spyOn(app, 'getPath').mockReturnValue(os.tmpdir());
-    jest.mocked(getEmbeddedDesktopAccountDbCompatibility).mockReset();
-    fs.rmSync(profile, { recursive: true, force: true });
-  });
-
-  test('a candidate OTA marker never grants an older shell the v22 capability', () => {
-    fs.writeFileSync(
-      path.join(renderer, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-      DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-    );
-    expect(getEmbeddedDesktopAccountDbCompatibility(true)).toBeUndefined();
-    expect(getBundleIndexHtmlPath(bundle)).toBe(
-      path.join(renderer, 'index.html'),
-    );
-    expect(clearUpdateBundleData).not.toHaveBeenCalled();
-  });
-
-  test('a v22 shell rejects same-version old downloads and uses its packaged fallback', () => {
-    fs.writeFileSync(
-      path.join(embedded, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-      DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-    );
-    expect(getEmbeddedDesktopAccountDbCompatibility(true)).toBe(22);
-    expect(
-      jest
-        .requireActual<typeof import('./libs/desktopAccountDbCompatibility')>(
-          './libs/desktopAccountDbCompatibility',
-        )
-        .getEmbeddedDesktopAccountDbCompatibility(false),
-    ).toBeUndefined();
-    expect(getBundleIndexHtmlPath(bundle)).toBeUndefined();
-    expect(clearUpdateBundleData).toHaveBeenCalledTimes(1);
-    fs.writeFileSync(
-      path.join(renderer, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-      DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-    );
-    expect(getBundleIndexHtmlPath(bundle)).toBe(
-      path.join(renderer, 'index.html'),
-    );
-  });
-
-  test('a v22-capable packaged shell requires a signature even when the developer flags allow bypass', async () => {
-    fs.writeFileSync(
-      path.join(embedded, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-      DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-    );
-    fs.writeFileSync(
-      path.join(renderer, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-      DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-    );
-    fs.writeFileSync(
-      path.join(extracted, 'metadata.json'),
-      JSON.stringify({
-        [DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE]: computeSha512(
-          DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-        ),
-      }),
-    );
-    const old = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
-    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
-    jest.mocked(getDevSettingsEnabled).mockReturnValue(true);
-    jest.mocked(getSkipGPGVerification).mockReturnValue(true);
-    try {
-      await expect(
-        getMetadata({ ...bundle, bundleDir: renderer, signature: '' }),
-      ).rejects.toThrow('Invalid asc file');
-    } finally {
-      if (old === undefined)
-        delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
-      else process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = old;
-      jest.mocked(getDevSettingsEnabled).mockReturnValue(false);
-      jest.mocked(getSkipGPGVerification).mockReturnValue(false);
-    }
-  });
-
-  test.each(['valid', 'missing hash', 'changed bytes'] as const)(
-    'requires the signed compatibility entry and exact OTA bytes: %s',
-    async (variant) => {
-      fs.writeFileSync(
-        path.join(embedded, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-        DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-      );
-      fs.writeFileSync(
-        path.join(renderer, DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE),
-        variant === 'changed bytes'
-          ? '21\n'
-          : DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-      );
-      const metadata = JSON.stringify(
-        variant === 'missing hash'
-          ? {}
-          : {
-              [DESKTOP_ACCOUNT_DB_COMPATIBILITY_FILE]: computeSha512(
-                DESKTOP_ACCOUNT_DB_COMPATIBILITY_CONTENT,
-              ),
-            },
-      );
-      fs.writeFileSync(path.join(extracted, 'metadata.json'), metadata);
-      const pgp = jest
-        .spyOn(openpgp, 'readCleartextMessage')
-        .mockResolvedValueOnce({
-          verify: async () => [{ verified: Promise.resolve(true) }],
-          getText: () =>
-            JSON.stringify({
-              fileName: 'metadata.json',
-              sha256: computeSha256(metadata),
-              appType: 'electron',
-              ...bundle,
-            }),
-        } as unknown as openpgp.CleartextMessage);
-      try {
-        const verification = getMetadata({
-          ...bundle,
-          bundleDir: renderer,
-          signature: 'public-test-signed-metadata',
-        });
-        if (variant === 'valid') {
-          await expect(verification).resolves.toEqual(JSON.parse(metadata));
-        } else {
-          await expect(verification).rejects.toThrow(
-            'Desktop bundle cannot open the account database',
-          );
-        }
-      } finally {
-        pgp.mockRestore();
-      }
-    },
-  );
-});

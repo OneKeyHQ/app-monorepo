@@ -357,6 +357,37 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
   }
 
+  async isExplicitWalletMetadataSyncOff(): Promise<boolean> {
+    // This is a local settings read, never credential hydration or recovery.
+    const generation = this.hardwareCloudKeyGeneration;
+    const importGeneration = this.cloudAccountImportGeneration;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const config = await Promise.race([
+        primeCloudSyncPersistAtom.get(),
+        new Promise<undefined>((resolve) => {
+          timer = setTimeout(() => resolve(undefined), 200);
+        }),
+      ]);
+      return (
+        generation === this.hardwareCloudKeyGeneration &&
+        importGeneration === this.cloudAccountImportGeneration &&
+        !this.hardwareCloudKeyPending &&
+        !this.hardwareCloudKeyCommitting &&
+        !this.hardwareSessionEnding &&
+        config?.isCloudSyncEnabled === false &&
+        config.isCloudSyncEnabledKeyless === false &&
+        !config.hardwareCloudSyncKeySource &&
+        !config.currentCloudSyncKeylessWalletId
+      );
+    } catch {
+      // Unknown is not an explicit Off choice.
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async runWithDesktopWalletMetadataKey<T>(
     applyVerifiedScope: (
       credential: ICloudSyncCredential | undefined,

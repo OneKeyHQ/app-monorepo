@@ -220,10 +220,6 @@ jobs:
           yarn exec cross-env NODE_ENV=production yarn clean:build
           yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
 
-      - name: Verify Desktop renderer compatibility before uploads
-        id: verify_desktop_renderer_schema
-        run: node ./apps/desktop/scripts/check-account-db-compatibility.js ./apps/desktop/web-build embedded
-
       # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
       # build without mutating emitted JS files. Sentry failures should not block
       # renderer artifact creation; failed uploads are archived separately before
@@ -255,7 +251,7 @@ jobs:
           fi
 
       - name: Upload Desktop Sourcemap Diagnostic Artifact
-        if: always() && steps.verify_desktop_renderer_schema.outcome == 'success' && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
+        if: always() && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -274,9 +270,6 @@ jobs:
         run: |
           cd apps/desktop
           node scripts/finalize-renderer-assets.js
-
-      - name: Verify built-in Desktop account database compatibility
-        run: node ./apps/desktop/scripts/check-account-db-compatibility.js ./apps/desktop/app/build embedded
 
       - name: Export build metadata
         id: export-metadata

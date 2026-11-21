@@ -9,39 +9,23 @@ export const IS_DB_BUCKET_SUPPORT = Boolean(
 );
 
 const LOCAL_DB_NAME = 'OneKeyV5';
-const LOCAL_DB_VERSION = 22;
-// Realm, the legacy IndexedDB, and unchanged IndexedDB buckets keep v21.
-const LOCAL_DB_COMPATIBILITY_VERSION = 21;
+const LOCAL_DB_VERSION = 21;
 
 // ----------------------------------------------
 
 export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
   `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
 export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
-export const INDEXED_DB_VERSION = LOCAL_DB_COMPATIBILITY_VERSION;
-// Web tabs still lack a shared Cloud authority transaction. Desktop hot
-// updates can only enable the archive when the native fallback can open it.
-export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION = LOCAL_DB_VERSION;
+export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
+// Kept as a distinct on-disk name for non-destructive handling of old builds.
 export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE = 'CloudSyncAccountArchive';
 
 export function supportsIndexedCloudAccountArchive(): boolean {
-  return (
-    !!platformEnv.isDesktop &&
-    typeof platformEnv.isMas === 'boolean' &&
-    platformEnv.desktopEmbeddedAccountDbCompatibilityVersion ===
-      INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION &&
-    !platformEnv.isDev
-  );
-}
-
-export function getIndexedLocalDbBucketVersion(bucket: EIndexedDBBucketNames) {
-  return bucket === EIndexedDBBucketNames.account &&
-    supportsIndexedCloudAccountArchive()
-    ? INDEXED_CLOUD_ACCOUNT_ARCHIVE_VERSION
-    : INDEXED_DB_VERSION;
+  // v21 has no separate canonical and historical slots for one wire ID.
+  return false;
 }
 export const REALM_DB_NAME = LOCAL_DB_NAME;
-export const REALM_DB_VERSION = LOCAL_DB_COMPATIBILITY_VERSION;
+export const REALM_DB_VERSION = LOCAL_DB_VERSION;
 export const ENABLE_INDEXEDDB_BUCKET = true;
 
 // ---------------------------------------------- const

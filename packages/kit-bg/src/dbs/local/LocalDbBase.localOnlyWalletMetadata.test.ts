@@ -124,3 +124,101 @@ it.each([
     expect(apiUploadItems).not.toHaveBeenCalled();
   },
 );
+
+it.each([
+  { confirmedOff: true, type: 'hd' },
+  { confirmedOff: true, type: 'hw' },
+  { confirmedOff: false, type: 'hd' },
+] as const)(
+  'uses the common local-only Wallet path only for confirmed Off (Off=$confirmedOff, type=$type)',
+  async ({ confirmedOff, type }) => {
+    const db = new LocalDbIndexed();
+    const wallet: IDBWallet = {
+      id: `${type}-explicit-off-v21-${String(confirmedOff)}`,
+      name: 'Prior name',
+      type,
+      associatedDevice:
+        type === 'hw' ? 'missing-hw-read-must-not-start' : undefined,
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 200,
+      avatar: '{"img":"bear"}',
+    };
+    const changedName = confirmedOff
+      ? `Changed while Off ${type}`
+      : 'Changed after guard';
+    const getWalletDevice = jest.spyOn(db, 'getWalletDeviceSafe');
+    const getSyncCredential = jest.fn(async () => undefined);
+    const buildSyncItemByDBQuery = jest.fn(async () => undefined);
+    const prime = {
+      apiUploadItems: jest.fn(async () => undefined),
+      syncManagers: { wallet: { getSyncCredential, buildSyncItemByDBQuery } },
+    };
+    const recoveryStarted = Promise.withResolvers<void>();
+    const recovery = Promise.withResolvers<void>();
+    const runWithCloudSyncKeyLock = jest.fn(
+      async <T>(operation: () => Promise<T>) => {
+        recoveryStarted.resolve();
+        await recovery.promise;
+        return operation();
+      },
+    );
+    db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        isExplicitWalletMetadataSyncOff: async () => confirmedOff,
+        runWithCloudSyncKeyLock,
+      },
+      servicePrimeCloudSync: prime,
+    } as unknown as IBackgroundApi);
+    await db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) =>
+        db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+    const rename = (name = changedName) =>
+      db.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        name,
+        shouldCheckDuplicate: true,
+        allowDesktopLocalMetadata: true,
+      });
+    const read = () =>
+      new LocalDbIndexed().getRecordById({
+        name: ELocalDBStoreNames.Wallet,
+        id: wallet.id,
+      });
+    try {
+      if (confirmedOff) {
+        const saved = await expectSavedWithoutCloudWarmup(() => rename());
+        expect(saved.name).toBe(changedName);
+        expect(runWithCloudSyncKeyLock).not.toHaveBeenCalled();
+        expect(getWalletDevice).not.toHaveBeenCalled();
+        expect(getSyncCredential).not.toHaveBeenCalled();
+        expect(buildSyncItemByDBQuery).not.toHaveBeenCalled();
+      } else {
+        const saving = rename();
+        await recoveryStarted.promise;
+        await expect(read()).resolves.toMatchObject({ name: 'Prior name' });
+        expect(buildSyncItemByDBQuery).not.toHaveBeenCalled();
+        recovery.resolve();
+        await expect(saving).resolves.toMatchObject({ name: changedName });
+        expect(runWithCloudSyncKeyLock).toHaveBeenCalledTimes(1);
+        expect(getSyncCredential).toHaveBeenCalledTimes(1);
+        expect(buildSyncItemByDBQuery).toHaveBeenCalledTimes(1);
+      }
+      await expect(read()).resolves.toMatchObject({
+        name: changedName,
+        avatar: '{"img":"bear"}',
+      });
+      expect(prime.apiUploadItems).not.toHaveBeenCalled();
+    } finally {
+      recovery.resolve();
+    }
+  },
+);

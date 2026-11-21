@@ -1180,14 +1180,9 @@ describe('public account deletion tombstones', () => {
       const savedDesktop = platformEnv.isDesktop;
       const savedMas = platformEnv.isMas;
       const savedDev = platformEnv.isDev;
-      const savedEmbeddedDb =
-        platformEnv.desktopEmbeddedAccountDbCompatibilityVersion;
       platformEnv.isDesktop = desktop;
       platformEnv.isMas = false;
       platformEnv.isDev = false;
-      platformEnv.desktopEmbeddedAccountDbCompatibilityVersion = desktop
-        ? 22
-        : undefined;
       let attempts = 0;
       db.beforeTransaction = () => {
         attempts += 1;
@@ -1200,7 +1195,7 @@ describe('public account deletion tombstones', () => {
         expect(db.read(ELocalDBStoreNames.Wallet, walletId)).toBeUndefined();
         await jest.advanceTimersByTimeAsync(0);
         const fromPool = db.read(ELocalDBStoreNames.CloudSyncItem, id);
-        if (mode === 'local live cache' || mode === 'desktop active settled') {
+        if (mode === 'local live cache') {
           expect(fromPool).toBeUndefined();
         } else {
           expect(fromPool).toEqual(
@@ -1211,8 +1206,6 @@ describe('public account deletion tombstones', () => {
         platformEnv.isDesktop = savedDesktop;
         platformEnv.isMas = savedMas;
         platformEnv.isDev = savedDev;
-        platformEnv.desktopEmbeddedAccountDbCompatibilityVersion =
-          savedEmbeddedDb;
       }
     },
   );

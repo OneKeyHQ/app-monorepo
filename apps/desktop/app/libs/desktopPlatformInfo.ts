@@ -1,10 +1,7 @@
 import os from 'os';
 
-import { app } from 'electron';
-
 import type { IDesktopApiPlatformInfo } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
 
-import { getEmbeddedDesktopAccountDbCompatibility } from './desktopAccountDbCompatibility';
 import { getProcessStartAt } from './getProcessStartAt';
 
 // cspell:ignore Flathub bubblewrap
@@ -56,8 +53,6 @@ export const buildDesktopPlatformInfo = (): IDesktopApiPlatformInfo => ({
   deskChannel: process.env.DESK_CHANNEL || '',
   processStartAt: getProcessStartAt(),
   supportsShareImageFile: process.platform === 'darwin',
-  embeddedAccountDbCompatibilityVersion:
-    getEmbeddedDesktopAccountDbCompatibility(app?.isPackaged === true),
 });
 
 let cachedDesktopPlatformInfo: IDesktopApiPlatformInfo | undefined;

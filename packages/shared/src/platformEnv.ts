@@ -129,7 +129,6 @@ export type IPlatformEnv = {
   isDesktopWithCustomTitleBar?: boolean;
   /** macos for appStore */
   isMas?: boolean;
-  desktopEmbeddedAccountDbCompatibilityVersion?: number;
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
@@ -602,8 +601,6 @@ const platformEnv: IPlatformEnv = {
   isDesktopWithCustomTitleBar,
   isDesktopStore,
   isMas,
-  desktopEmbeddedAccountDbCompatibilityVersion:
-    globalThis?.desktopApi?.embeddedAccountDbCompatibilityVersion,
 
   isExtFirefox,
   isExtChrome,

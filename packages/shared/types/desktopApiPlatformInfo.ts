@@ -39,8 +39,6 @@ export interface IDesktopApiPlatformInfo {
   // reads `undefined` here and must treat it as false (hide the share entry
   // instead of showing a button that degrades into a duplicate of "save").
   supportsShareImageFile: boolean;
-  // Maximum account schema understood by this shell’s packaged fallback.
-  embeddedAccountDbCompatibilityVersion?: number;
 }
 
 export interface IDesktopApiGlobal extends IDesktopApiPlatformInfo {

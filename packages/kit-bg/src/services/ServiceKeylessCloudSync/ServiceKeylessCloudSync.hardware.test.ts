@@ -915,6 +915,58 @@ describe('hardware Cloud key source lifecycle', () => {
     );
   });
 
+  test('only settled and explicitly Off settings skip the Wallet sync guard', async () => {
+    const { service } = setup();
+    const keyLock = jest.spyOn(service, 'runWithCloudSyncKeyLock');
+    await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(true);
+    for (const flags of [
+      { isCloudSyncEnabled: true },
+      {
+        isCloudSyncEnabledKeyless: true,
+        currentCloudSyncKeylessWalletId: 'hd-software',
+      },
+      { hardwareCloudSyncKeySource: source },
+      { currentCloudSyncKeylessWalletId: 'hd-selected-before-enable' },
+      { isCloudSyncEnabledKeyless: undefined },
+    ]) {
+      mockConfig = {
+        isCloudSyncEnabled: false,
+        isCloudSyncEnabledKeyless: false,
+        ...flags,
+      };
+      await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(
+        false,
+      );
+    }
+    const unavailable = new OneKeyLocalError('Synthetic settings read failure');
+    jest
+      .mocked(primeCloudSyncPersistAtom.get)
+      .mockRejectedValueOnce(unavailable);
+    await expect(service.isExplicitWalletMetadataSyncOff()).resolves.toBe(
+      false,
+    );
+    const pending = Promise.withResolvers<IPrimeCloudSyncPersistAtomData>();
+    jest
+      .mocked(primeCloudSyncPersistAtom.get)
+      .mockReturnValueOnce(pending.promise);
+    jest.useFakeTimers();
+    try {
+      const check = service.isExplicitWalletMetadataSyncOff();
+      await jest.advanceTimersByTimeAsync(200);
+      await expect(check).resolves.toBe(false);
+      pending.resolve({
+        isCloudSyncEnabled: false,
+        isCloudSyncEnabledKeyless: false,
+      });
+      await jest.runAllTimersAsync();
+      expect(keyLock).not.toHaveBeenCalled();
+      expect(keylessSyncCredentialStorage.getCredential).not.toHaveBeenCalled();
+    } finally {
+      pending.resolve(mockConfig);
+      jest.useRealTimers();
+    }
+  });
+
   test('an unreadable Desktop credential permits only the local display callback', async () => {
     const { service } = setup();
     mockConfig.hardwareCloudSyncKeySource = source;

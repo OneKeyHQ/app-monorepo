@@ -4,7 +4,6 @@ import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
@@ -14,7 +13,6 @@ import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSync
 import {
   buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
-  normalizePublicAccountSnapshotRecord,
   publicAccountSnapshotToAccount,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
@@ -27,8 +25,6 @@ import {
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
 import { rememberOfflinePublicAccountSnapshotFill } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
-import { INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE } from './consts';
-import { IndexedDBAgent } from './indexed/IndexedDBAgent';
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
@@ -75,7 +71,6 @@ const syncCredential: ICloudSyncCredential = {
 async function fixture({
   refuseAuthority = false,
   rejectPreflight = false,
-  beforeAuthority,
   beforeKey,
   unsent = false,
   missingCredential = false,
@@ -85,7 +80,6 @@ async function fixture({
 }: {
   refuseAuthority?: boolean;
   rejectPreflight?: boolean;
-  beforeAuthority?: () => Promise<void>;
   beforeKey?: () => Promise<void>;
   unsent?: boolean;
   missingCredential?: boolean;
@@ -157,7 +151,6 @@ async function fixture({
       ) => {
         stages.push('repair');
         expect(selected).toBe(hardware);
-        await beforeAuthority?.();
         return refuseAuthority ? undefined : fn();
       },
     },
@@ -281,65 +274,18 @@ async function fixture({
   };
 }
 
-async function archived(db: LocalDbIndexed) {
-  const agent = await db.readyDb;
-  if (!(agent instanceof IndexedDBAgent))
-    throw new OneKeyLocalError('Expected IndexedDB agent');
-  return (
-    await agent
-      .getIndexedByBucketName(EIndexedDBBucketNames.account)
-      .getAll(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-  ).flatMap((item) => ('record' in item ? [item.record] : []));
-}
-
 beforeEach(() => {
   jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
-  jest.replaceProperty(platformEnv, 'isDesktop', true);
-  jest.replaceProperty(platformEnv, 'isMas', false);
-  jest.replaceProperty(platformEnv, 'isDev', false);
-  jest.replaceProperty(
-    platformEnv,
-    'desktopEmbeddedAccountDbCompatibilityVersion',
-    22,
-  );
 });
 
 afterEach(() => jest.restoreAllMocks());
 
-it.each([false, true])('archives on local delete (MAS=%s)', async (mas) => {
-  platformEnv.isMas = mas;
+it('deletes only the local account and keeps the foreign settled ciphertext exactly', async () => {
   const h = await fixture();
-  await h.remove();
-  expect(h.stages).toEqual(['key', 'import', 'repair']);
-  const tombstone = await h.other.getSyncItem({ id: h.old.id });
-  expect(tombstone).toMatchObject({
-    pwdHash: hardware.pwdHash,
-    dataTime: currentTime,
-    isDeleted: true,
-    localSceneUpdated: true,
-    serverUploaded: false,
-    rawData: '',
-  });
-  expect(tombstone.pendingPublicAccountDeletionAt).toBeUndefined();
-  expect(tombstone.data).not.toBe(h.old.data);
-  expect(h.getCloudSyncDataTime).toHaveBeenCalledWith(
-    expect.objectContaining({
-      existingDataTime: undefined,
-      syncItemKey: `${hardware.pwdHash}:${h.old.id}`,
-    }),
-  );
-  const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
-    item: { ...tombstone },
-    syncCredential,
-  });
-  expect(
-    normalizePublicAccountSnapshotRecord(decrypted.rawDataJson).rawKey,
-  ).toBe(h.old.rawKey);
-  expect(await archived(h.other)).toEqual([h.old]);
+  await expect(h.remove()).resolves.toBeUndefined();
   expect(await h.other.getAccountSafe({ accountId: h.account.id })).toBeFalsy();
-  expect(
-    (await h.other.getWallet({ walletId: h.wallet.id })).accounts,
-  ).not.toContain(h.account.id);
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+  expect(h.stages).toEqual(['key']);
   expect(h.syncLater).not.toHaveBeenCalled();
 });
 
@@ -418,7 +364,6 @@ it.each([
     expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(
       newest ?? h.old,
     );
-    expect(await archived(h.other)).toEqual([]);
     expect(
       Boolean(await h.other.getAccountSafe({ accountId: h.account.id })),
     ).toBe(!localCommitted);
@@ -430,38 +375,6 @@ it.each([
     expect(h.syncLater).not.toHaveBeenCalled();
   },
 );
-
-it('does not wait for late Desktop Cloud authorization or repeat the local commit', async () => {
-  const waiting = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const h = await fixture({
-    beforeAuthority: () => {
-      waiting.resolve();
-      return release.promise;
-    },
-  });
-  const remove = jest.spyOn(h.db, 'txRemoveRecords');
-  jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
-  try {
-    const removing = h.remove();
-    await waiting.promise;
-    await jest.advanceTimersByTimeAsync(1000);
-    await expect(removing).resolves.toBeUndefined();
-    expect(
-      await h.other.getAccountSafe({ accountId: h.account.id }),
-    ).toBeFalsy();
-    expect(remove).toHaveBeenCalledTimes(1);
-    release.resolve();
-    await jest.advanceTimersByTimeAsync(1000);
-    expect(remove).toHaveBeenCalledTimes(1);
-    expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
-    expect(await archived(h.other)).toEqual([]);
-    expect(h.syncLater).not.toHaveBeenCalled();
-  } finally {
-    release.resolve();
-    jest.useRealTimers();
-  }
-});
 
 it.each([false, true])(
   'local delete cancels exact plaintext before a late fill even when key locking times out (batch=%s)',

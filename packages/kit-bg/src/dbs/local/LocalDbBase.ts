@@ -8861,6 +8861,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ) {
       return saveLocalOnly();
     }
+    if (
+      params.allowDesktopLocalMetadata &&
+      !params.cloudSyncSource &&
+      !params.firstEvmAddress &&
+      (params.name || params.avatar) &&
+      (await this.backgroundApi.serviceKeylessCloudSync.isExplicitWalletMetadataSyncOff())
+    ) {
+      return this.setWalletNameAndAvatarInternal(
+        { ...params, skipSaveLocalSyncItem: true },
+        { skipCloudCredentialWarmup: true, explicitSyncOffEdit: true },
+      );
+    }
     if (isDeviceWallet) {
       const device = await this.getWalletDeviceSafe({ walletId });
       if (
@@ -8869,31 +8881,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ) {
         return saveLocalOnly();
       }
-    }
-    if (
-      supportsIndexedCloudAccountArchive() &&
-      params.allowDesktopLocalMetadata &&
-      !params.cloudSyncSource &&
-      !params.firstEvmAddress &&
-      (params.name || params.avatar)
-    ) {
-      return this.backgroundApi.serviceKeylessCloudSync.runWithDesktopWalletMetadataKey(
-        async (verifiedCredential, claimWrite) => {
-          try {
-            return await this.setWalletNameAndAvatarInternal(
-              verifiedCredential
-                ? params
-                : { ...params, skipSaveLocalSyncItem: true },
-              { verifiedCredential, claimWrite },
-            );
-          } catch (error) {
-            if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED || !claimWrite())
-              throw error;
-            return this.setDesktopLocalWalletMetadata(params);
-          }
-        },
-        () => this.setDesktopLocalWalletMetadata(params),
-      );
     }
     // Keep credential selection, encryption and the wallet write together.
     // This lock coordinates writers in this runtime, not other Web tabs.
@@ -8909,17 +8896,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       claimWrite,
       skipCloudCredentialWarmup,
       passiveLocalVendor,
+      explicitSyncOffEdit,
     }: {
       verifiedCredential?: ICloudSyncCredential;
       claimWrite?: () => boolean;
       skipCloudCredentialWarmup?: boolean;
       passiveLocalVendor?: boolean;
+      explicitSyncOffEdit?: boolean;
     } = {},
   ): Promise<IDBWallet> {
     const skipCloudWarmup = !!claimWrite;
     const { walletId } = params;
     const passive = params.passiveDeviceMetadata;
-    let wallet = await this.getWallet({ walletId, withoutRefill: !!passive });
+    const withoutRefill = !!passive || !!explicitSyncOffEdit;
+    let wallet = await this.getWallet({ walletId, withoutRefill });
     const passiveDevice = passive
       ? await this.getRecordById({
           name: ELocalDBStoreNames.Device,
@@ -8938,7 +8928,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     )
       return wallet;
 
-    if (!skipCloudWarmup && params.shouldCheckDuplicate && params.name) {
+    if (
+      !explicitSyncOffEdit &&
+      !skipCloudWarmup &&
+      params.shouldCheckDuplicate &&
+      params.name
+    ) {
       const { wallets } = await this.getAllWallets();
       const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
       const duplicateWallets = wallets.filter((item) => {
@@ -9105,7 +9100,36 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         (await this.txGetDesktopLocalWalletMetadata(tx, wallet))
       )
         throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
-      if (skipCloudWarmup && params.shouldCheckDuplicate && params.name)
+      if (explicitSyncOffEdit) {
+        const {
+          records: [current],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+        });
+        if (
+          !current ||
+          current.walletNo !== wallet.walletNo ||
+          current.type !== wallet.type ||
+          current.associatedDevice !== wallet.associatedDevice ||
+          current.passphraseState !== wallet.passphraseState ||
+          current.firstEvmAddress !== wallet.firstEvmAddress ||
+          current.hash !== wallet.hash ||
+          current.xfp !== wallet.xfp
+        ) {
+          const key = ETranslations.global_unknown_error_retry_message;
+          throw new OneKeyLocalError({
+            key,
+            message: appLocale.intl.formatMessage({ id: key }),
+          });
+        }
+      }
+      if (
+        (explicitSyncOffEdit || skipCloudWarmup) &&
+        params.shouldCheckDuplicate &&
+        params.name
+      )
         await this.txAssertUniqueDesktopWalletName(tx, wallet, params.name);
       // Only this optional pool phase is allowed to decline the Cloud
       // write. Business-store errors below must still fail the edit.
@@ -9204,10 +9228,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
           }
-          if (walletName) {
+          if (walletName && (!explicitSyncOffEdit || params.name)) {
             w.name = walletName;
           }
-          if (avatarInfo) {
+          if (avatarInfo && (!explicitSyncOffEdit || params.avatar)) {
             w.avatar = JSON.stringify(avatarInfo);
           }
           return w;
@@ -9270,7 +9294,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         .apiUploadItems({ localItems: [syncItem] })
         .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
-    wallet = await this.getWallet({ walletId, withoutRefill: !!passive });
+    wallet = await this.getWallet({ walletId, withoutRefill });
     return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);
   }
 

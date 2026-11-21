@@ -87,7 +87,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isDesktop: true,
     isDev: true,
     isMas: undefined,
-    desktopEmbeddedAccountDbCompatibilityVersion: undefined,
     isJest: true,
     isNative: false,
     isSupportDesktopBle: false,
@@ -2591,91 +2590,37 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 describe('device-derived wallet presentation', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it.each([21, 22])(
-    'keeps passive name and avatar behavior scoped to Desktop schema %s',
-    async (version) => {
-      jest.replaceProperty(platformEnv, 'isDev', false);
-      jest.replaceProperty(platformEnv, 'isMas', false);
-      jest.replaceProperty(
-        platformEnv,
-        'desktopEmbeddedAccountDbCompatibilityVersion',
-        version,
-      );
-      const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
-      const syncHardwareCloudSyncDeviceLabel = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      const getWalletSafe = jest.fn().mockResolvedValue(undefined);
-      const service = new ServiceHardware({
-        backgroundApi: {
-          serviceAccount: { getWalletSafe, setWalletNameAndAvatar },
-          serviceKeylessCloudSync: { syncHardwareCloudSyncDeviceLabel },
-        } as unknown as IBackgroundApi,
-      });
-      const walletId = 'hw-passive-1';
-      const dbDeviceId = 'device-passive-1';
-      await service.handleHardwareLabelChanged({
-        walletId,
-        dbDeviceId,
-        label: 'An older emitted label',
-        walletName: undefined,
-      });
-      await service.handleHardwareAvatarChanged({
-        walletId,
-        dbDeviceId,
-        avatarInfo: { img: 'bear' },
-      });
-      if (version === 22) {
-        expect(setWalletNameAndAvatar.mock.calls).toEqual([
-          [
-            {
-              walletId,
-              name: 'An older emitted label',
-              passiveDeviceMetadata: { dbDeviceId },
-            },
-          ],
-          [
-            {
-              walletId,
-              avatar: { img: 'bear' },
-              passiveDeviceMetadata: { dbDeviceId },
-            },
-          ],
-        ]);
-        expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
-          walletId,
-          dbDeviceId,
-        });
-
-        getWalletSafe.mockResolvedValue({ associatedDevice: dbDeviceId });
-        jest.mocked(localDb.getDeviceSafe).mockResolvedValueOnce(undefined);
-        jest
-          .spyOn(service.deviceSettingsManager, 'setDeviceLabel')
-          .mockResolvedValue({
-            message: '',
-            label: 'Firmware confirmed label',
-          });
-        await service.setDeviceLabel({ walletId, label: 'Typed label' });
-        expect(setWalletNameAndAvatar).toHaveBeenCalledTimes(3);
-        expect(setWalletNameAndAvatar).toHaveBeenLastCalledWith({
-          walletId,
-          allowDesktopLocalMetadata: true,
-          name: 'Firmware confirmed label',
-          shouldCheckDuplicate: false,
-        });
-        expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenLastCalledWith({
-          walletId,
-          label: 'Firmware confirmed label',
-        });
-      } else {
-        expect(setWalletNameAndAvatar).toHaveBeenCalledTimes(2);
-        expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
-          walletId,
-          label: 'An older emitted label',
-        });
-      }
-    },
-  );
+  it('keeps the regular device label and avatar path on shared schema v21', async () => {
+    const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+    const syncHardwareCloudSyncDeviceLabel = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const getWalletSafe = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: { getWalletSafe, setWalletNameAndAvatar },
+        serviceKeylessCloudSync: { syncHardwareCloudSyncDeviceLabel },
+      } as unknown as IBackgroundApi,
+    });
+    const walletId = 'hw-passive-1';
+    const dbDeviceId = 'device-passive-1';
+    await service.handleHardwareLabelChanged({
+      walletId,
+      dbDeviceId,
+      label: 'An older emitted label',
+      walletName: undefined,
+    });
+    await service.handleHardwareAvatarChanged({
+      walletId,
+      dbDeviceId,
+      avatarInfo: { img: 'bear' },
+    });
+    expect(setWalletNameAndAvatar).toHaveBeenCalledTimes(2);
+    expect(syncHardwareCloudSyncDeviceLabel).toHaveBeenCalledWith({
+      walletId,
+      label: 'An older emitted label',
+    });
+  });
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {

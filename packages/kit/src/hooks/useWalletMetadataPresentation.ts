@@ -5,7 +5,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -15,7 +14,7 @@ export function useWalletMetadataPresentation(
   walletId: string | undefined,
   canonicalWallet?: IDBWallet,
 ) {
-  const shouldRead = !!walletId && (platformEnv.isDesktop || !canonicalWallet);
+  const shouldRead = !!walletId && !canonicalWallet;
   const { result, run } = usePromiseResult(
     async () => {
       if (!shouldRead || !walletId) return undefined;
@@ -34,5 +33,5 @@ export function useWalletMetadataPresentation(
       appEventBus.off(EAppEventBusNames.WalletUpdate, run);
     };
   }, [shouldRead, run]);
-  return result?.id === walletId && result ? result : canonicalWallet;
+  return canonicalWallet ?? (result?.id === walletId ? result : undefined);
 }
