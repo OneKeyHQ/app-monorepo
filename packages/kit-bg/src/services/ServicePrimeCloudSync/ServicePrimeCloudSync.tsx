@@ -9,6 +9,7 @@ import {
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
@@ -164,10 +165,159 @@ const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
 
+const PRIME_CHECK_CLOCK_MAX_REQUEST_MS = 5000;
+const PRIME_CHECK_CLOCK_MAX_AGE_MS = 30_000;
+
+type IPrimeCheckClock = {
+  origin: string;
+  pwdHash: string;
+  upperServerTime: number;
+  receivedAt: number;
+  receivedWall: number;
+  clock: Performance;
+  timeOrigin: number;
+};
+
 @backgroundClass()
 class ServicePrimeCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private primeCheckClock: IPrimeCheckClock | undefined;
+
+  private isPendingLivePublicAccount(item: IDBCloudSyncItem) {
+    return (
+      item.dataType === EPrimeCloudSyncDataType.Account &&
+      item.rawKey.startsWith(`Account >> ${PUBLIC_ACCOUNT_SNAPSHOT_PREFIX}`) &&
+      !item.serverUploaded &&
+      !item.isDeleted &&
+      !item.pendingPublicAccountDeletionAt &&
+      !!item.data &&
+      Number.isSafeInteger(item.dataTime)
+    );
+  }
+
+  private capturePrimeCheckClock({
+    response,
+    data,
+    pwdHash,
+    startedAt,
+    startedWall,
+    clock,
+    timeOrigin,
+  }: {
+    response: AxiosResponse<
+      IApiClientResponse<ICloudSyncCheckServerStatusResult>
+    >;
+    data: ICloudSyncCheckServerStatusResult;
+    pwdHash: string;
+    startedAt: number | undefined;
+    startedWall: number;
+    clock: Performance;
+    timeOrigin: number;
+  }): IPrimeCheckClock | undefined {
+    const receiptAt = clock?.now();
+    const receivedWall = Date.now();
+    if (
+      response.status !== 200 ||
+      response.data.code !== 0 ||
+      !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) ||
+      (data.pwdHash && data.pwdHash !== pwdHash) ||
+      !response.config ||
+      globalThis.performance !== clock ||
+      !Object.is(clock?.timeOrigin, timeOrigin) ||
+      startedAt === undefined ||
+      receiptAt === undefined ||
+      !Number.isFinite(startedAt) ||
+      !Number.isFinite(receiptAt)
+    )
+      return;
+    const duration = receiptAt - startedAt;
+    if (
+      duration < 0 ||
+      duration > PRIME_CHECK_CLOCK_MAX_REQUEST_MS ||
+      Math.abs(receivedWall - startedWall - duration) > 1000
+    )
+      return;
+    const request = response.request as
+      | { responseURL?: string; oneKeyVerifiedFinalUrl?: string }
+      | undefined;
+    const finalUrl = request?.responseURL ?? request?.oneKeyVerifiedFinalUrl;
+    const age = response.headers?.age ?? response.headers?.Age;
+    const date = response.headers?.date ?? response.headers?.Date;
+    try {
+      if (!finalUrl || (age !== undefined && age !== '0' && age !== 0)) return;
+      const { origin, pathname, username, password, hash } = new URL(finalUrl);
+      if (
+        username ||
+        password ||
+        hash ||
+        ![endpointsMap.prod.prime, endpointsMap.test.prime].includes(origin) ||
+        response.config.baseURL !== origin ||
+        response.config.url !== '/prime/v1/sync/check' ||
+        response.config.method?.toLowerCase() !== 'post' ||
+        pathname !== '/prime/v1/sync/check'
+      )
+        return;
+      const body = (
+        typeof response.config.data === 'string'
+          ? JSON.parse(response.config.data)
+          : response.config.data
+      ) as { pwdHash?: unknown } | undefined;
+      if (body?.pwdHash !== pwdHash) return;
+      const bodyTime = data.serverTime;
+      const headerTime = typeof date === 'string' ? Date.parse(date) : NaN;
+      if (
+        !Number.isSafeInteger(headerTime) ||
+        !systemTimeUtils.isTimeValid({ time: headerTime }) ||
+        new Date(headerTime).toUTCString() !== date ||
+        (bodyTime !== undefined &&
+          (!Number.isSafeInteger(bodyTime) ||
+            Math.abs(bodyTime - headerTime) > PRIME_CHECK_CLOCK_MAX_REQUEST_MS))
+      )
+        return;
+      // Use the latest plausible UTC at receipt, not an inferred event time.
+      return {
+        origin,
+        pwdHash,
+        upperServerTime: Math.ceil(
+          Math.max(bodyTime ?? 0, headerTime + 1000) + duration,
+        ),
+        receivedAt: receiptAt,
+        receivedWall,
+        clock,
+        timeOrigin,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private canHoldFutureAccount(
+    item: IDBCloudSyncItem,
+    proof: IPrimeCheckClock,
+  ): boolean {
+    const now = globalThis.performance?.now();
+    if (
+      !this.isPendingLivePublicAccount(item) ||
+      item.pwdHash !== proof.pwdHash ||
+      globalThis.performance !== proof.clock ||
+      !Object.is(proof.clock.timeOrigin, proof.timeOrigin) ||
+      now === undefined ||
+      !Number.isFinite(now)
+    )
+      return false;
+    const elapsed = now - proof.receivedAt;
+    return (
+      elapsed >= 0 &&
+      elapsed <= PRIME_CHECK_CLOCK_MAX_AGE_MS &&
+      Math.abs(Date.now() - proof.receivedWall - elapsed) <= 1000 &&
+      (item.dataTime ?? 0) >
+        proof.upperServerTime +
+          elapsed +
+          CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS
+    );
   }
 
   private _lastSunsetReminderTime = 0;
@@ -395,15 +545,21 @@ class ServicePrimeCloudSync extends ServiceBase {
     postData,
     urlPath,
     requestOptions,
+    filterHardwareUpload,
   }: {
     postData: ICloudSyncUploadPostData;
     urlPath: string;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    filterHardwareUpload?: (
+      actualBaseURL: string | undefined,
+      pwdHash: string,
+    ) => ICloudSyncUploadPostData;
   }) {
     return this.backgroundApi.serviceKeylessCloudSync.apiUploadItemsKeyless({
       postData,
       urlPath,
       requestOptions,
+      filterHardwareUpload,
     });
   }
 
@@ -1132,7 +1288,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     let pwdHash: string | undefined;
     let masterPasswordUUID: string | undefined;
 
-    if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
+    const clock = globalThis.performance;
+    const timeOrigin = clock?.timeOrigin;
+    const startedAt = clock?.now();
+    const startedWall = Date.now();
+    const isKeylessCheck =
+      (await this.getActiveSyncMode()) === ECloudSyncMode.Keyless;
+    if (isKeylessCheck) {
       const checkResult = await this.apiCheckServerStatusKeyless({
         postData,
         requestOptions: {
@@ -1160,6 +1322,19 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (requestOptions.signal?.aborted)
       throw new OneKeyLocalError('Cloud sync request was cancelled');
     const responseData = response?.data?.data;
+    const proof =
+      isKeylessCheck && response && responseData && pwdHash
+        ? this.capturePrimeCheckClock({
+            response,
+            data: responseData,
+            pwdHash,
+            startedAt,
+            startedWall,
+            clock,
+            timeOrigin,
+          })
+        : undefined;
+    this.primeCheckClock = proof;
     const serverTimeStr = response?.headers?.date as string | undefined;
 
     if (!responseData?.serverTime) {
@@ -1407,6 +1582,17 @@ class ServicePrimeCloudSync extends ServiceBase {
   }) => {
     const uploadGeneration = this.publicAccountSnapshotImportGeneration;
     const now = await this.getCloudSyncDataTime();
+    // Only guard detached direct uploads. Reconciliation keeps its
+    // legacy response, clamping and follow-up semantics entirely unchanged.
+    const proof = isFlush || requestOptions ? undefined : this.primeCheckClock;
+    const guardedLiveItems =
+      proof?.pwdHash === pwdHash
+        ? new Map(
+            localItems
+              .filter((item) => this.canHoldFutureAccount(item, proof))
+              .map((item) => [item.id, item]),
+          )
+        : undefined;
     const localData: ICloudSyncServerItem[] = localItems
       .filter(
         (item) =>
@@ -1472,7 +1658,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     const postDataBatches = isFlush
       ? [postData]
       : splitCloudSyncUploadPostData({ postData });
-    const activeMode = await this.getActiveSyncMode();
+    const uploadMode = await this.getActiveSyncMode();
+    let heldItems = false;
     let previousBatchStartedAt: number | undefined;
     for (const batch of postDataBatches) {
       if (!isFlush) {
@@ -1495,12 +1682,66 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
       previousBatchStartedAt = Date.now();
       let batchResult: ICloudSyncUploadResult | undefined;
-      if (activeMode === ECloudSyncMode.Keyless) {
-        batchResult = await this.apiUploadItemsKeyless({
-          postData: batch,
-          urlPath,
-          requestOptions,
+      if (uploadMode === ECloudSyncMode.Keyless) {
+        let actualSentCount = batch.localData.length;
+        const noUpload = new OneKeyLocalError({
+          message: 'Cloud upload pending trusted time',
+          autoToast: false,
         });
+        try {
+          batchResult = await this.apiUploadItemsKeyless({
+            postData: batch,
+            urlPath,
+            requestOptions,
+            ...(proof && guardedLiveItems?.size
+              ? {
+                  filterHardwareUpload: (
+                    baseURL: string | undefined,
+                    selectedPwdHash: string,
+                  ) => {
+                    if (
+                      baseURL !== proof.origin ||
+                      selectedPwdHash !== proof.pwdHash ||
+                      this.primeCheckClock !== proof
+                    ) {
+                      actualSentCount = batch.localData.length;
+                      return batch;
+                    }
+                    const outgoing = batch.localData.filter((record) => {
+                      const local = guardedLiveItems.get(record.key);
+                      return (
+                        !local ||
+                        local.dataTime !== record.dataTimestamp ||
+                        local.data !== record.data ||
+                        !this.canHoldFutureAccount(local, proof)
+                      );
+                    });
+                    actualSentCount = outgoing.length;
+                    if (!actualSentCount) throw noUpload;
+                    return { ...batch, localData: outgoing };
+                  },
+                }
+              : {}),
+          });
+        } catch (error) {
+          if (error !== noUpload) throw error;
+        }
+        if (actualSentCount !== batch.localData.length) {
+          heldItems = true;
+          if (
+            batchResult &&
+            (!Number.isSafeInteger(batchResult.created) ||
+              !Number.isSafeInteger(batchResult.updated) ||
+              batchResult.created < 0 ||
+              batchResult.updated < 0 ||
+              batchResult.created + batchResult.updated > actualSentCount)
+          ) {
+            throw new OneKeyLocalError({
+              message: 'Cloud sync returned an invalid partial upload count',
+              autoToast: false,
+            });
+          }
+        }
       } else {
         const client = await this.backgroundApi.servicePrime.getPrimeClient();
         const result = await client.post<
@@ -1520,7 +1761,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     }
 
-    void this.updateLastSyncTime();
+    if (!heldItems) void this.updateLastSyncTime();
 
     return uploadResult;
   };

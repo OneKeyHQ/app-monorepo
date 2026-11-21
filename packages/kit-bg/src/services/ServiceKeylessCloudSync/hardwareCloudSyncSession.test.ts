@@ -153,6 +153,32 @@ describe('hardware Cloud sync session', () => {
     );
   });
 
+  test('selects the exact upload subset on the real hardware sender origin', async () => {
+    const c = fakeClient();
+    c.client.defaults.baseURL = 'https://prime.onekeycn.com';
+    c.post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+    const body = { localData: ['safe'] };
+    const prepareUpload = jest.fn(() => body);
+    await requestWithHardwareCloudSyncSession({
+      client: c.client,
+      session: session(),
+      method: 'POST',
+      urlPath: '/prime/v1/sync/upload',
+      data: { localData: ['future', 'safe'] },
+      prepareUpload,
+    });
+    expect(prepareUpload).toHaveBeenCalledWith('https://prime.onekeycn.com');
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/upload',
+      body,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: expect.stringMatching(/^DPoP /),
+        }),
+      }),
+    );
+  });
+
   test('repeated successful sync requests do not produce diagnostic traffic', async () => {
     const logger = jest.spyOn(defaultLogger.app.error, 'log');
     logger.mockClear();

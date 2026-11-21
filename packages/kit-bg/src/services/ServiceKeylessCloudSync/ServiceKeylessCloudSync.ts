@@ -1865,6 +1865,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     postData,
     retryAfterKeySwitch,
     requestOptions,
+    filterUpload,
   }: {
     credential: IKeylessCloudSyncCredential;
     urlPath: string;
@@ -1872,6 +1873,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // Uploads carry records encrypted with the old key, so they never retry.
     retryAfterKeySwitch?: boolean;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    filterUpload?: (
+      baseURL: string | undefined,
+      pwdHash: string,
+    ) => ICloudSyncUploadPostData;
   }) {
     const fresh = await this.getFreshHardwareCredential(credential);
     // Records built before a key switch must not go out under the new key:
@@ -1898,6 +1903,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         urlPath,
         data: { ...postData, pwdHash: current.pwdHash },
         requestOptions,
+        ...(filterUpload
+          ? {
+              prepareUpload: (baseURL: string | undefined) =>
+                filterUpload(baseURL, current.pwdHash),
+            }
+          : {}),
       });
     };
     try {
@@ -2337,10 +2348,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
     postData,
     requestOptions,
     urlPath,
+    filterHardwareUpload,
   }: {
     requestOptions?: { signal?: AbortSignal; timeout?: number };
     postData: ICloudSyncUploadPostData;
     urlPath: string;
+    filterHardwareUpload?: (
+      actualBaseURL: string | undefined,
+      pwdHash: string,
+    ) => ICloudSyncUploadPostData;
   }) {
     const hardwareCredential = await this.getHardwareSessionCredential();
     if (hardwareCredential) {
@@ -2350,6 +2366,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           urlPath,
           postData,
           requestOptions,
+          filterUpload: filterHardwareUpload,
         })
       ).data.data;
     }

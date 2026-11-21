@@ -182,6 +182,7 @@ async function requestRaw<T>({
   urlPath,
   data,
   requestOptions,
+  prepareUpload,
   jwk,
   accessToken,
 }: {
@@ -190,6 +191,7 @@ async function requestRaw<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  prepareUpload?: (baseURL: string | undefined) => unknown;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
@@ -229,10 +231,12 @@ async function requestRaw<T>({
     if (accessToken) {
       headers.Authorization = `DPoP ${accessToken}`;
     }
+    const baseURL = client.defaults.baseURL;
+    const outboundData = prepareUpload ? prepareUpload(baseURL) : data;
     const config: AxiosRequestConfig = { ...requestOptions, headers };
     return method === 'GET'
       ? client.get<IApiClientResponse<T>>(urlPath, config)
-      : client.post<IApiClientResponse<T>>(urlPath, data, config);
+      : client.post<IApiClientResponse<T>>(urlPath, outboundData, config);
   };
   const clockOffsetMs = await measureServerClockOffsetMs();
   try {
@@ -465,6 +469,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   urlPath,
   data,
   requestOptions,
+  prepareUpload,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
@@ -472,6 +477,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   urlPath: string;
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
+  prepareUpload?: (baseURL: string | undefined) => unknown;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
   return requestRaw<T>({
     client,
@@ -479,6 +485,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     urlPath,
     data,
     requestOptions,
+    prepareUpload,
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });
