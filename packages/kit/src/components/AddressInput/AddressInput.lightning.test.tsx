@@ -145,6 +145,7 @@ it.each([
   'lnurlp://example.com/pay\n\nThanks',
   'Please pay (use this link (lnurlp://merchant.example/pay)).',
   'Please pay (use this link (lnurlp://merchant.example/pay)).\n1) Keep the receipt.',
+  'Please pay (use (lnurlp://merchant.example/pay) before Friday).\n1) Keep the receipt.',
   'Pay (lnurlp://merchant.example/checkout?order=12\n)— keep the receipt.',
   'Pay <lnurlp://merchant.example/Pay?ref=ABC> or <LNURLP://merchant.example/Pay?ref=ABC>.',
 ])(

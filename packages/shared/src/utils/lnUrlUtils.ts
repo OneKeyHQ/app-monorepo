@@ -106,6 +106,7 @@ const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*\d+\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
+const LNURL_WRAPPER_BOUNDARY = /[\s.,!?，。！？;；:：)>"']/u;
 const LNURL_CLOSER_END = /[)>"'.,!?，。！？;；:：—]*(?=\s|$)/uy;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
@@ -121,27 +122,52 @@ type IClosingParenthesis = {
   index: number;
   outer: IClosingParenthesis | undefined;
   count: number;
+  sameLineCount: number;
 };
 
 function indexClosingParentheses(text: string, ignoredClosers?: Set<number>) {
   const closers: IClosingParenthesis[] = [];
   const matching = new Map<number, IClosingParenthesis>();
+  let lineEnd = text.length;
   for (let index = text.length - 1; index >= 0; index -= 1) {
-    if (text[index] === ')' && !ignoredClosers?.has(index)) {
+    const char = text[index];
+    if (char === ')' && !ignoredClosers?.has(index)) {
       const outer = closers.at(-1);
-      closers.push({ index, outer, count: (outer?.count ?? 0) + 1 });
-    } else if (text[index] === '(') {
+      closers.push({
+        index,
+        outer,
+        count: (outer?.count ?? 0) + 1,
+        sameLineCount:
+          outer && outer.index < lineEnd ? outer.sameLineCount + 1 : 1,
+      });
+    } else if (char === '(') {
       const closer = closers.pop();
       if (closer) matching.set(index, closer);
+    } else if (LNURL_LINE_BREAK.test(char)) {
+      lineEnd = index;
     }
   }
   return matching;
 }
 
-function endsWithInlineClosers(input: string, count: number) {
-  let end = input.length;
-  while (end > 0 && /[.,!?，。！？]/u.test(input[end - 1])) end -= 1;
-  return end >= count && input.endsWith(')'.repeat(count), end);
+function hasUnbrokenClosingSuffix(
+  address: string,
+  tokenEnd: number,
+  firstCloser: IClosingParenthesis,
+) {
+  for (
+    let closer: IClosingParenthesis | undefined = firstCloser;
+    closer && closer.index < tokenEnd;
+    closer = closer.outer
+  ) {
+    const next = address[closer.index + 1];
+    if (!next || LNURL_WRAPPER_BOUNDARY.test(next)) {
+      return /^\)+[.,!?，。！？]*$/u.test(
+        address.slice(closer.index, tokenEnd),
+      );
+    }
+  }
+  return false;
 }
 
 function readParenthesizedLnurl({
@@ -173,11 +199,7 @@ function readParenthesizedLnurl({
     const { index } = closer;
     if (!enclosingDepth && index >= directEnd) break;
     const next = address[index + 1];
-    if (
-      index >= tokenEnd ||
-      !next ||
-      /[\s.,!?，。！？;；:：)>"']/u.test(next)
-    ) {
+    if (index >= tokenEnd || !next || LNURL_WRAPPER_BOUNDARY.test(next)) {
       // Prose on later lines can close enclosing parentheses but does not
       // supply the only evidence for the end of this URL.
       if (index >= directEnd && wrapperEnd === undefined) return null;
@@ -274,19 +296,18 @@ function readReusableLightningRecipient(
         enclosingDepth,
         hasUriContinuation,
       };
-      let uri = readParenthesizedLnurl({
-        ...wrapper,
-        firstCloser: closingParentheses.get(match.index),
-      });
+      const firstCloser = closingParentheses.get(match.index);
+      let uri = readParenthesizedLnurl({ ...wrapper, firstCloser });
       if (
         !uri &&
         lineBreak &&
-        noSameLineSuffix &&
         enclosingDepth > 0 &&
-        endsWithInlineClosers(input, enclosingDepth + 1)
+        firstCloser &&
+        firstCloser.sameLineCount > enclosingDepth &&
+        hasUnbrokenClosingSuffix(address, tokenEnd, firstCloser)
       ) {
-        // A terminal run of closers can delimit the whole inline parenthetical
-        // before a numbered list. Otherwise the later line can close the prose.
+        // The link and enclosing prose can both close on this line. If any
+        // plausible closer splits the link token, a later line can still matter.
         if (!closingWithoutListMarkers) {
           const listClosers = new Set(
             Array.from(
