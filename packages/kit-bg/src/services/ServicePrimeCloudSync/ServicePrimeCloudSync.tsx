@@ -2034,6 +2034,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       items: walletItems,
       forceSync,
+      isCurrent,
     });
     assertCurrent();
     await this.syncManagers.botWallet.syncToScene({

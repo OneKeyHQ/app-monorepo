@@ -1,0 +1,331 @@
+import 'fake-indexeddb/auto';
+
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
+import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
+import { SimpleDbEntityChangeHistory } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
+import simpleDb from '../../dbs/simple/simpleDb';
+import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import ServiceAccount from '../ServiceAccount/ServiceAccount';
+import ServiceKeylessCloudSync from '../ServiceKeylessCloudSync/ServiceKeylessCloudSync';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+
+import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+import ServicePrimeCloudSync from './ServicePrimeCloudSync';
+
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBWallet } from '../../dbs/local/types';
+import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
+  const passthrough =
+    () =>
+    (...args: unknown[]) =>
+      args.length === 1 ? args[0] : args[2];
+  return {
+    backgroundClass: passthrough,
+    backgroundMethod: passthrough,
+    backgroundMethodForDev: passthrough,
+    toastIfError: passthrough,
+  };
+});
+
+const walletFixture: IDBWallet = {
+  id: 'hd-keyless-off-to-on-synthetic',
+  type: 'hd',
+  name: 'Initial same-space name',
+  avatar: '{"img":"bear"}',
+  hash: 'synthetic-wallet-scene-identity',
+  isKeyless: true,
+  backuped: true,
+  accounts: [],
+  nextIds: {},
+  walletNo: 771,
+};
+let runningPrime: ServicePrimeCloudSync | undefined;
+afterEach(async () => {
+  await runningPrime?.cancelPublicAccountSnapshotImport();
+  runningPrime = undefined;
+  jest.restoreAllMocks();
+});
+
+it.each(['same-space', 'changed-source'] as const)(
+  'replays only the still-current authenticated software Keyless scene (%s)',
+  async (scenario) => {
+    const wallet: IDBWallet = {
+      ...walletFixture,
+      id: `${walletFixture.id}-${scenario}`,
+      hash: `${walletFixture.hash}-${scenario}`,
+    };
+    const credential: ICloudSyncCredential = {
+      primeAccountSalt: '',
+      securityPasswordR1: '',
+      masterPasswordUUID: '',
+      keylessCredential: {
+        keylessWalletId: wallet.id,
+        signingPrivateKey: '',
+        signingPublicKey: 'synthetic-keyless-signing-key',
+        encryptionKey: 'ab'.repeat(32),
+        pwdHash: `keyless-synthetic-current-${scenario}`,
+      },
+    };
+    const scope = credential.keylessCredential?.pwdHash ?? '';
+    const nameFilter = {
+      entityType: EChangeHistoryEntityType.Wallet,
+      entityId: wallet.id,
+      contentType: EChangeHistoryContentType.Name,
+    };
+    jest.replaceProperty(appLocale, 'isReady', Promise.resolve(true));
+    let config: IPrimeCloudSyncPersistAtomData = {
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hasEverEnabledKeylessSync: true,
+      currentCloudSyncKeylessWalletId: wallet.id,
+      cloudSyncAccountApplyVersion: 2,
+    };
+    jest
+      .spyOn(primeCloudSyncPersistAtom, 'get')
+      .mockImplementation(async () => config);
+    jest
+      .spyOn(primeCloudSyncPersistAtom, 'set')
+      .mockImplementation(async (updater) => {
+        config = typeof updater === 'function' ? updater(config) : updater;
+      });
+    const remove = jest
+      .spyOn(keylessSyncCredentialStorage, 'removeAllCredentials')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(keylessSyncCredentialStorage, 'getCredential')
+      .mockResolvedValue(credential.keylessCredential ?? null);
+    const backgroundApi = {
+      localDb,
+      simpleDb,
+      serviceApp: { isAppLocked: async () => false },
+      servicePrime: { apiFetchPrimeUserInfo: async () => undefined },
+    } as unknown as IBackgroundApi;
+    const keyless = new ServiceKeylessCloudSync({ backgroundApi });
+    const prime = new ServicePrimeCloudSync({ backgroundApi });
+    runningPrime = prime;
+    const account = new ServiceAccount({ backgroundApi });
+    backgroundApi.serviceKeylessCloudSync = keyless;
+    backgroundApi.servicePrimeCloudSync = prime;
+    backgroundApi.serviceAccount = account;
+    localDb.setBackgroundApi(backgroundApi);
+    jest.replaceProperty(
+      appGlobals,
+      '$backgroundApiProxy',
+      backgroundApi as unknown as typeof appGlobals.$backgroundApiProxy,
+    );
+    jest.spyOn(account, 'getKeylessWallet').mockResolvedValue(wallet);
+    jest
+      .spyOn(keyless, 'prepareCloudSyncKeyless')
+      .mockResolvedValue({ success: true });
+    jest
+      .spyOn(keyless, 'hydrateKeylessSyncCredentialFromStorageIfNeeded')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(prime, 'getSyncCredentialSafe')
+      .mockImplementation(async () =>
+        config.isCloudSyncEnabledKeyless ? credential : undefined,
+      );
+    jest
+      .spyOn(prime, 'isCloudSyncIsAvailable')
+      .mockImplementation(
+        async () => config.isCloudSyncEnabledKeyless === true,
+      );
+    // The test substitutes network/account availability, not local scene or DB.
+    jest
+      .spyOn(prime, 'ensureCloudSyncIsAvailable')
+      .mockResolvedValue(undefined);
+
+    const target = await prime.syncManagers.wallet.buildSyncTargetByDBQuery({
+      dbRecord: wallet,
+    });
+    const key = await prime.syncManagers.wallet.buildSyncKeyInfo({ target });
+    if (!key) throw new OneKeyLocalError('Missing synthetic wallet identity');
+    const baseTime = Date.now() - 1000;
+    const makeItem = async (
+      name: string,
+      img: 'bear' | 'cat',
+      dataTime: number,
+    ) =>
+      cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+        key: key.key,
+        dataTime,
+        syncCredential: credential,
+        rawDataJson: {
+          rawKey: key.rawKey,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          payload: {
+            name,
+            avatar: { img },
+            walletHash: wallet.hash,
+            walletType: wallet.type,
+            passphraseState: '',
+            hwDeviceId: undefined,
+          },
+        },
+      });
+
+    const acknowledged = {
+      ...(await makeItem(wallet.name, 'bear', baseTime)),
+      localSceneUpdated: scenario === 'same-space',
+      serverUploaded: true,
+    };
+    expect(acknowledged.data).toBeTruthy();
+    await localDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        await localDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [acknowledged],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    const readWallet = () =>
+      localDb.getWallet({ walletId: wallet.id, withoutRefill: true });
+    const check = jest
+      .spyOn(prime, 'checkServerStatusWithRequestOptions')
+      .mockResolvedValue({
+        diff: [],
+        updated: [],
+        deleted: [],
+        obsoleted: [],
+        pwdHash: scope,
+        serverTime: Date.now(),
+      });
+    const upload = jest
+      .spyOn(prime, 'apiUploadItems')
+      .mockResolvedValue(undefined);
+    const replay = jest.spyOn(prime, 'syncPendingItemsToScene');
+
+    await keyless.toggleCloudSyncKeyless({
+      enabled: false,
+      silentEnable: true,
+    });
+    expect(config.isCloudSyncEnabledKeyless).toBe(false);
+    expect(remove).toHaveBeenCalledTimes(1);
+
+    // Use the real out-of-sync local Wallet edit path; do not manufacture a
+    // Wallet sync timestamp from ordinary display metadata.
+    const offlineName = 'Local offline name to restore manually';
+    await account.setWalletNameAndAvatar({
+      walletId: wallet.id,
+      name: offlineName,
+      avatar: { img: 'cat' },
+      allowDesktopLocalMetadata: true,
+      skipEmitEvent: true,
+    });
+    expect(await readWallet()).toMatchObject({
+      name: offlineName,
+      avatar: '{"img":"cat"}',
+    });
+    expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+      data: acknowledged.data,
+      dataTime: baseTime,
+    });
+    expect(upload).not.toHaveBeenCalled();
+
+    // Exercise archival fallback even when ordinary post-commit history had
+    // failed previously: no previously retained offline alias is available.
+    await simpleDb.changeHistory.clearRawData();
+    expect(await simpleDb.changeHistory.getChangeHistory(nameFilter)).toEqual(
+      [],
+    );
+
+    if (scenario === 'changed-source') {
+      // oxlint-disable-next-line typescript/unbound-method -- called with the original entity as this
+      const retain = SimpleDbEntityChangeHistory.prototype.retainWalletName;
+      jest
+        .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+        .mockImplementation(
+          async function retainThenChangeSource(
+            this: SimpleDbEntityChangeHistory,
+            options,
+          ) {
+            const stored = await retain.call(this, options);
+            await keyless.setPersistedCurrentCloudSyncKeylessWalletId(
+              'hd-another-space',
+            );
+            return stored;
+          },
+        );
+      await keyless
+        .toggleCloudSyncKeyless({ enabled: true, silentEnable: true })
+        .catch(() => undefined);
+      expect(replay).toHaveBeenCalledWith(
+        expect.objectContaining({ forceSync: true }),
+      );
+      expect(config.currentCloudSyncKeylessWalletId).toBe('hd-another-space');
+      expect(await readWallet()).toMatchObject({
+        name: offlineName,
+        avatar: '{"img":"cat"}',
+      });
+      expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+        data: acknowledged.data,
+        dataTime: baseTime,
+        localSceneUpdated: false,
+      });
+      return;
+    }
+    await keyless.toggleCloudSyncKeyless({ enabled: true, silentEnable: true });
+    expect(config.isCloudSyncEnabledKeyless).toBe(true);
+    expect(check).toHaveBeenCalled();
+    expect(replay).toHaveBeenCalledWith(
+      expect.objectContaining({ forceSync: true }),
+    );
+    expect((await readWallet()).name).toBe(wallet.name);
+    expect((await readWallet()).avatar).toBe('{"img":"bear"}');
+    const reopenedHistory = new SimpleDbEntityChangeHistory();
+    const previous = await reopenedHistory.getChangeHistory(nameFilter);
+    expect(previous.map(({ value }) => value)).toEqual([offlineName]);
+    expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+      data: acknowledged.data,
+      dataTime: baseTime,
+    });
+
+    // Manual chooser uses this value; exercise the ordinary save entry again.
+    await account.setWalletNameAndAvatar({
+      walletId: wallet.id,
+      name: previous[0].value,
+      skipEmitEvent: true,
+    });
+    expect((await readWallet()).name).toBe(offlineName);
+    const newestLocal = await localDb.getSyncItem({ id: key.key });
+    expect(newestLocal.dataTime).toBeGreaterThan(baseTime);
+    const olderRemote = prime.convertLocalItemToServerItem({
+      localItem: acknowledged,
+    });
+    if (!olderRemote)
+      throw new OneKeyLocalError('Missing synthetic server payload');
+    await prime.saveServerSyncItemsToLocal({
+      serverItems: [olderRemote],
+      shouldSyncToScene: true,
+      syncCredential: credential,
+      serverPwdHash: scope,
+    });
+    expect((await readWallet()).name).toBe(offlineName);
+    expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+      data: newestLocal.data,
+      dataTime: newestLocal.dataTime,
+    });
+  },
+  12_000,
+);
