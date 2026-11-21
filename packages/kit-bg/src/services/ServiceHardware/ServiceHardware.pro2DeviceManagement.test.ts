@@ -1728,7 +1728,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         device: {
           connectId: 'PRO2_USB',
           deviceType: EDeviceType.Pro2,
-          features: { mode: 'normal' },
+          features: { mode: 'normal', deviceId: 'PRO2_DEVICE_ID' },
         },
       },
     });
@@ -1746,8 +1746,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     await new Promise<void>((resolve) => {
       setImmediate(resolve);
     });
+    expect(getDeviceByQueryMock).toHaveBeenCalledTimes(1);
+    expect(getDeviceByQueryMock).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+      featuresDeviceId: 'PRO2_DEVICE_ID',
+    });
     expect(setHardwareUiStateMock).not.toHaveBeenCalled();
 
+    expect(resolvePinDevice).toBeDefined();
     resolvePinDevice?.({
       connectId: 'PRO2_USB',
       deviceType: EDeviceType.Pro2,

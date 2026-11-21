@@ -309,6 +309,36 @@ describe('CheckAndUpdate post-update bootloader recovery', () => {
     jest.restoreAllMocks();
   });
 
+  it('closes the authenticity stage as soon as verification is skipped', async () => {
+    mockConnection.verifyHardware.mockResolvedValue({
+      verified: false,
+      skipVerification: true,
+    });
+    mockCheckRelease.mockResolvedValue({
+      hasUpgrade: false,
+      features: mockApplicationFeatures,
+    });
+    const props = {
+      route: { params: { deviceData: { device: mockDevice } } },
+      navigation: mockNavigation,
+    } as unknown as ComponentProps<typeof CheckAndUpdate>;
+    render(<CheckAndUpdate {...props} />);
+
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.checkAndUpdateVerifyBtn),
+    );
+    // The verification promise resolves immediately, but the page keeps a
+    // 1200 ms minimum beat for the genuine-check animation.
+    await advanceTime(1300);
+
+    expect(mockBurst.endBurst).toHaveBeenCalled();
+    expect(mockCheckRelease).not.toHaveBeenCalled();
+
+    // The firmware check still runs, on its own after the stage is gone.
+    await advanceTime(500);
+    expect(mockCheckRelease).toHaveBeenCalledTimes(1);
+  });
+
   it('restores Update now after an interrupted/cancelled update without accepting bootloader as application firmware', async () => {
     await startUpdateAttempt();
     await advanceTime(10_000);

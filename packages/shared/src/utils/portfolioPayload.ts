@@ -15,7 +15,7 @@ import {
   formatPro2PortfolioFiat,
   formatPro2PortfolioTotalFiat,
 } from './pro2PortfolioAmountUtils';
-import { stableStringify } from './stringUtils';
+import { isPrintableASCIIString, stableStringify } from './stringUtils';
 
 import type { ICurrencyItem } from '../../types/currency';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
@@ -106,6 +106,10 @@ const PORTFOLIO_TOKEN_LIMIT = 5;
 const PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES = 15;
 // Firmware uses char name[48], reserving one byte for the trailing null.
 const PORTFOLIO_TOKEN_NAME_MAX_BYTES = 47;
+// Token names follow the same character set as Pro 2 wallet labels: printable
+// ASCII only. Firmware has no glyphs for anything else, so an unsupported name
+// is sent as this placeholder instead of a corrupted string.
+const PORTFOLIO_TOKEN_NAME_FALLBACK = 'unknown';
 // Firmware uses char account_label[48], reserving one byte for the trailing null.
 const PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES = 47;
 // Token symbols must not carry contact details, URLs, or advertising copy.
@@ -168,6 +172,23 @@ function truncatePortfolioTokenText(
   }
 
   return `${result}${suffix}`;
+}
+
+/**
+ * The firmware can only render printable ASCII in a token name, the same
+ * character set it accepts for a wallet label. Names outside it (CJK, emoji,
+ * typographic punctuation) are sent as `unknown` so the device never renders
+ * replacement glyphs; the length limit still applies to the accepted names.
+ */
+function normalizePortfolioTokenName(value: string): string {
+  if (!isPrintableASCIIString(value)) {
+    return PORTFOLIO_TOKEN_NAME_FALLBACK;
+  }
+  return truncatePortfolioTokenText(
+    value,
+    PORTFOLIO_TOKEN_NAME_MAX_BYTES,
+    '...',
+  );
 }
 
 function isPortfolioTokenSymbolEligible(value: string): boolean {
@@ -521,10 +542,8 @@ export function buildPortfolioPayload({
         iconName,
         isAllNetworks,
         isNative,
-        name: truncatePortfolioTokenText(
+        name: normalizePortfolioTokenName(
           iconName ? getPortfolioTokenCanonicalName(iconName) : token.name,
-          PORTFOLIO_TOKEN_NAME_MAX_BYTES,
-          '...',
         ),
         networkId,
         portfolioPercentage: 0,

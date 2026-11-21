@@ -916,6 +916,12 @@ function CheckAndUpdatePage({
           return newSteps;
         });
         if (shouldContinueToFirmwareCheck && checkFirmwareAfterSuccess) {
+          if (genuineState === ECheckAndUpdateStepState.Skipped) {
+            // The person skipped the authenticity check: its conversation is
+            // over, so close the stage now instead of keeping it up until the
+            // firmware check below finishes (OK-62089 / OK-62484).
+            void endBurst();
+          }
           setTimeout(() => {
             void checkFirmwareUpdate();
           }, 150);

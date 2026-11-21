@@ -378,6 +378,7 @@ Name rules:
 2. A miss keeps the upstream `token.name` and `iconName = null`
 3. The App never assigns a canonical name or icon from a normal contract token `symbol` alone
 4. Aggregate symbols `TRX` and `TRON` both normalize to `name = "TRON"` and `iconName = "TRON"`
+5. A name outside the Pro 2 wallet-label character set (printable ASCII) is sent as `unknown`, matching the wallet-label rule; accepted names are still bounded to the firmware 47-byte limit
 
 Local mock Portfolio keeps the resolved `iconName`. Production server submit clears `iconName` but keeps the canonical `name`:
 
@@ -595,6 +596,7 @@ Production signing keys stay on the server. The App does not hold the production
 - [ ] Token order matches UI order
 - [ ] Allowlisted tokens use canonical `name`
 - [ ] Non-allowlisted tokens keep the original `name` and `iconName = null`
+- [ ] Non-printable-ASCII token names are sent as `unknown`
 - [ ] Percentages sum correctly
 - [ ] Content hash excludes `ts`
 - [ ] Silent All Networks USB / WebUSB uses the 60-second cooldown and does not show hardware processing UI

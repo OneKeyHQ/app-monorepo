@@ -1444,9 +1444,22 @@ class ServiceHardware extends ServiceBase {
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
       const { device, type } = originEvent.payload || {};
       const { features } = device || {};
-      const dbDevice = await localDb.getDeviceByQuery({
-        connectId: newPayload.connectId,
-      });
+      const featuresDeviceId = [features?.deviceId, features?.device_id]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find(Boolean);
+      const requestConnectId = newPayload.connectId?.trim() || undefined;
+      let dbDevice: IDBDevice | undefined;
+      if (featuresDeviceId) {
+        dbDevice = await localDb.getDeviceByQuery({
+          connectId: requestConnectId,
+          featuresDeviceId,
+        });
+        if (!dbDevice && requestConnectId) {
+          dbDevice = await localDb.getDeviceByQuery({
+            featuresDeviceId,
+          });
+        }
+      }
       const payloadDeviceType = features
         ? await deviceUtils.getDeviceTypeFromFeatures({ features })
         : undefined;
@@ -3673,11 +3686,17 @@ class ServiceHardware extends ServiceBase {
   async getPassphraseState({
     connectId,
     forceInputPassphrase,
+    deriveCardano,
   }: {
     connectId: string;
     forceInputPassphrase: boolean;
+    deriveCardano?: boolean;
   }) {
-    return this.getPassphraseStateBase({ connectId, forceInputPassphrase });
+    return this.getPassphraseStateBase({
+      connectId,
+      forceInputPassphrase,
+      ...(deriveCardano ? { deriveCardano: true } : {}),
+    });
   }
 
   @backgroundMethod()
@@ -3685,10 +3704,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     forceInputPassphrase,
     useEmptyPassphrase,
+    deriveCardano,
   }: {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
+    deriveCardano?: boolean;
   }): Promise<string | undefined> {
     const protocol = await this.getKnownDeviceProtocol(connectId);
     if (!protocol) {
@@ -3705,9 +3726,13 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
-      const walletSessionParams = useEmptyPassphrase
-        ? { mode: 'standard' as const }
-        : { mode: 'select-hidden' as const };
+      // Forward deriveCardano for the initial V2 session (hardware-js-sdk#996).
+      const walletSessionParams = {
+        mode: useEmptyPassphrase
+          ? ('standard' as const)
+          : ('select-hidden' as const),
+        ...(deriveCardano ? { deriveCardano: true } : {}),
+      };
       const walletSession = await this.convertHardwareResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
