@@ -230,6 +230,10 @@ it.each([
   'without-key',
   'same-key-without-data',
   'same-key',
+  'stale-same-key',
+  'same-key-fractional-time',
+  'verification-read-unavailable',
+  'verification-read-delayed',
   'missing-row',
   'local-error',
 ] as const)(
@@ -262,6 +266,9 @@ it.each([
     if (scenario === 'without-key') pwdHash = '';
     if (scenario === 'different-key' || scenario === 'retained-off')
       pwdHash = 'hw-dek-different-fixture';
+    let dataTime = 3000;
+    if (scenario === 'stale-same-key') dataTime = 1000;
+    if (scenario === 'same-key-fractional-time') dataTime = 3000.5;
     const candidate: IDBCloudSyncItem = {
       ...original,
       pwdHash,
@@ -269,7 +276,7 @@ it.each([
         scenario === 'without-key' || scenario === 'same-key-without-data'
           ? ''
           : 'cd'.repeat(48),
-      dataTime: 3000,
+      dataTime,
     };
     await db.withTransaction(
       EIndexedDBBucketNames.account,
@@ -289,7 +296,8 @@ it.each([
       { skipCloudCredentialWarmup: true },
     );
     const before = await db.getSyncItemSafe({ id: original.id });
-    const apiUploadItems = jest.fn(async () => undefined);
+    const uploaded = Promise.withResolvers<void>();
+    const apiUploadItems = jest.fn(async () => uploaded.resolve());
     const buildSyncItemByDBQuery = jest.fn(async () => candidate);
     const runWithCloudSyncKeyLock = jest.fn(async <T>(work: () => Promise<T>) =>
       work(),
@@ -317,6 +325,22 @@ it.each([
           new OneKeyLocalError('Synthetic real wallet write error'),
         );
     }
+    if (scenario === 'verification-read-unavailable') {
+      jest
+        .spyOn(db, 'getSyncItem')
+        .mockRejectedValueOnce(
+          new OneKeyLocalError('Synthetic verification read error'),
+        );
+    }
+    const delayedRead =
+      scenario === 'verification-read-delayed'
+        ? Promise.withResolvers<IDBCloudSyncItem>()
+        : undefined;
+    if (delayedRead) {
+      jest
+        .spyOn(db, 'getSyncItem')
+        .mockImplementationOnce(() => delayedRead.promise);
+    }
     const rename = db.setWalletNameAndAvatar({
       walletId: wallet.id,
       name: `New local ${scenario}`,
@@ -338,14 +362,32 @@ it.each([
     ).resolves.toMatchObject({
       name: scenario === 'local-error' ? wallet.name : `New local ${scenario}`,
     });
-    if (scenario === 'same-key' || scenario === 'missing-row') {
-      await expect(db.getSyncItem({ id: original.id })).resolves.toMatchObject({
+    if (
+      scenario === 'same-key' ||
+      scenario === 'same-key-fractional-time' ||
+      scenario === 'verification-read-unavailable' ||
+      scenario === 'verification-read-delayed' ||
+      scenario === 'missing-row'
+    ) {
+      const accepted = await db.getSyncItem({ id: original.id });
+      expect(accepted).toMatchObject({
         data: candidate.data,
         pwdHash: original.pwdHash,
-        dataTime: candidate.dataTime,
+        dataTime: Math.floor(candidate.dataTime ?? 0),
       });
-      expect(apiUploadItems).toHaveBeenCalledTimes(1);
-      expect(apiUploadItems).toHaveBeenCalledWith({ localItems: [candidate] });
+      if (scenario === 'verification-read-unavailable') {
+        expect(apiUploadItems).not.toHaveBeenCalled();
+      } else {
+        if (delayedRead) {
+          // The Wallet edit is committed (including across adapter reopen)
+          // even while the optional verification read has not resolved.
+          expect(apiUploadItems).not.toHaveBeenCalled();
+          delayedRead.resolve(accepted);
+          await uploaded.promise;
+        }
+        expect(apiUploadItems).toHaveBeenCalledTimes(1);
+        expect(apiUploadItems).toHaveBeenCalledWith({ localItems: [accepted] });
+      }
     } else {
       await expect(db.getSyncItem({ id: original.id })).resolves.toEqual(
         before,

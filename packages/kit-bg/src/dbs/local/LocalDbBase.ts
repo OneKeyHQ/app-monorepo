@@ -8973,6 +8973,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItem: IDBCloudSyncItem | undefined;
+    let acceptedUploadItem: IDBCloudSyncItem | undefined;
+    const matchesUploadCandidate = (
+      accepted: IDBCloudSyncItem,
+      candidate: IDBCloudSyncItem,
+    ) =>
+      accepted.data === candidate.data &&
+      accepted.dataTime ===
+        cloudSyncItemBuilder.normalizeDataTime(candidate.dataTime) &&
+      accepted.pwdHash === candidate.pwdHash &&
+      accepted.dataType === candidate.dataType &&
+      accepted.isDeleted === candidate.isDeleted &&
+      !accepted.pendingPublicAccountDeletionAt;
     let shouldSkipWalletUpdate = false;
     if (!params.skipSaveLocalSyncItem) {
       if (params.applyRestoreSyncPolicy) {
@@ -9189,12 +9201,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               name: ELocalDBStoreNames.CloudSyncItem,
               id: syncItem.id,
             });
-            if (
-              accepted?.data !== syncItem.data ||
-              accepted?.dataTime !== syncItem.dataTime ||
-              accepted?.pwdHash !== syncItem.pwdHash
-            )
+            if (!accepted || !matchesUploadCandidate(accepted, syncItem)) {
               throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
+            }
+            acceptedUploadItem = accepted;
           }
         }
       } catch (error) {
@@ -9308,10 +9318,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       },
     );
 
-    if (syncItem) {
-      void this.backgroundApi.servicePrimeCloudSync
-        .apiUploadItems({ localItems: [syncItem] })
-        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    if (syncItem?.data && syncItem.pwdHash) {
+      const candidate = syncItem;
+      void (async () => {
+        // A normal upsert may preserve a newer pool row. This optional
+        // read must not abort or delay an already-committed Wallet write.
+        const accepted =
+          acceptedUploadItem ?? (await this.getSyncItem({ id: candidate.id }));
+        if (!matchesUploadCandidate(accepted, candidate)) return;
+        await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+          localItems: [accepted],
+        });
+      })().catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
     wallet = await this.getWallet({ walletId, withoutRefill });
     return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);
