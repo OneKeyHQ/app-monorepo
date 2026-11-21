@@ -1061,11 +1061,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
         callerName: 'Enable Hardware Cloud Sync',
         forceSync: true,
       });
-      // The commit cleared it, and a sync with nothing to upload or apply
-      // writes no time of its own.
-      await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
-      });
     } finally {
       await timerUtils.wait(1000);
       await this.hideDialogLoading();
@@ -2440,9 +2435,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
           callerName: 'Switch hardware Cloud sync wallet',
           forceSync: true,
         });
-        await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
-          syncMode: ECloudSyncMode.Keyless,
-        });
         return;
       }
       if (!rotated) {
@@ -2461,9 +2453,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
         callerName: 'Reset hardware Cloud sync key',
         forceSync: true,
-      });
-      await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
       });
     } finally {
       // A committed key keeps its fresh display metadata even if synchronization
@@ -3530,16 +3519,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         }
       }
 
-      const applied = await this.toggleCloudSyncKeyless({
+      await this.toggleCloudSyncKeyless({
         enabled: true,
         silentEnable: true,
         forceEnable: true,
         handleLocalSecretEnvelopeUnavailable,
         onlyIfSyncOff,
-      });
-      if (applied === false) return;
-      await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
       });
     };
 

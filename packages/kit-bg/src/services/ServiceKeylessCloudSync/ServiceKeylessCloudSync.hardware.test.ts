@@ -56,7 +56,19 @@ let mockConfig: IPrimeCloudSyncPersistAtomData;
 let mockStored: IKeylessCloudSyncCredential | undefined;
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: { app: { error: { log: jest.fn() } } },
+  defaultLogger: {
+    app: { error: { log: jest.fn() } },
+    account: {
+      secretPerf: {
+        decodePassword: jest.fn(),
+        decodePasswordDone: jest.fn(),
+        keyFromPasswordAndSalt: jest.fn(),
+        keyFromPasswordAndSaltDone: jest.fn(),
+        decryptAES: jest.fn(),
+        decryptAESDone: jest.fn(),
+      },
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -1647,11 +1659,228 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledTimes(1);
     expect(mockStored).toEqual(expect.objectContaining(credential));
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
-    // The first sync sets "Last updated" even when it had nothing to move.
+    // Only full reconciliation may stamp even an empty successful run.
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).toHaveBeenCalledTimes(1);
     expect(
       backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
-    ).toHaveBeenCalledWith({ syncMode: ECloudSyncMode.Keyless });
+    ).not.toHaveBeenCalled();
   });
+
+  test.each(['deferred', 'empty', 'cancelled', 'rollback'] as const)(
+    'same-source re-sign lets actual full reconciliation own its timestamp: %s',
+    async (scenario) => {
+      const { service, backgroundApi, initLocalSyncItemsDB } = setup();
+      const resignedCredential: IKeylessCloudSyncCredential = {
+        ...credential,
+        pwdHash: `hw-dek-${'3'.repeat(64)}`,
+        encryptionKey: '43'.repeat(32),
+        signingPublicKey: '',
+        signingPrivateKey: '',
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: resignedCredential.encryptionKey,
+        dekId: 'synthetic-re-sign-dek',
+        pwdHash: resignedCredential.pwdHash,
+        generation: 4,
+        previousPwdHashes: [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({ credential: resignedCredential, source }),
+        );
+      mockConfig = {
+        ...mockConfig,
+        hardwareCloudSyncKeySource: source,
+        currentCloudSyncKeylessWalletId: source.credentialId,
+        isCloudSyncEnabledKeyless: true,
+        lastSyncTimeKeyless: 123,
+      };
+      // Current source needs a new hardware signature; there is no usable
+      // older session to reuse.
+      mockStored = undefined;
+
+      const api = Object.assign(backgroundApi, {
+        localDb,
+        serviceKeylessCloudSync: service,
+      });
+      const prime = new ServicePrimeCloudSync({ backgroundApi: api });
+      Object.assign(api, { servicePrimeCloudSync: prime });
+      jest.spyOn(prime, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+      jest
+        .spyOn(prime, 'ensureCloudSyncIsAvailable')
+        .mockResolvedValue(undefined);
+      jest.spyOn(prime, 'prepareLocalSyncWallets').mockResolvedValue(undefined);
+      jest
+        .spyOn(prime, 'resolvePasswordOnlyIfHdXfpMissing')
+        .mockResolvedValue(undefined);
+      jest.spyOn(prime, 'initLocalSyncItemsDB').mockImplementation(async () => {
+        await initLocalSyncItemsDB();
+        return {
+          allWallets: [],
+          allAccounts: [],
+          allDevices: [],
+          allIndexedAccounts: [],
+        };
+      });
+      jest.spyOn(prime, 'getSyncCredentialSafe').mockImplementation(async () =>
+        mockStored
+          ? {
+              masterPasswordUUID: '',
+              primeAccountSalt: '',
+              securityPasswordR1: '',
+              keylessCredential: mockStored,
+            }
+          : undefined,
+      );
+      jest
+        .spyOn(prime, 'publishPublicAccountSnapshotStatus')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(prime, 'fillingSyncItemsMissingDataFromRawData')
+        .mockResolvedValue(undefined);
+      const wallet: IDBWallet = {
+        id: 'hd-synthetic-deferred-wallet',
+        hash: 'synthetic-deferred-wallet-hash',
+        name: 'Local visible name',
+        type: 'hd',
+        accounts: [],
+        nextIds: {},
+        backuped: true,
+        walletNo: 1,
+      };
+      const walletTarget =
+        await prime.syncManagers.wallet.buildSyncTargetByDBQuery({
+          dbRecord: wallet,
+        });
+      const key = await prime.syncManagers.wallet.buildSyncKeyInfo({
+        target: walletTarget,
+      });
+      if (!key) throw new OneKeyLocalError('Missing synthetic Wallet identity');
+      const pending = {
+        ...(await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: key.key,
+          dataTime: Date.now() - 1000,
+          syncCredential: {
+            masterPasswordUUID: '',
+            primeAccountSalt: '',
+            securityPasswordR1: '',
+            keylessCredential: resignedCredential,
+          },
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            rawKey: key.rawKey,
+            payload: { ...key.payload, name: 'Downloaded name' },
+          },
+        })),
+        rawData: '',
+        serverUploaded: true,
+        localSceneUpdated: false,
+      };
+      const items = scenario === 'deferred' ? [pending] : [];
+      jest
+        .spyOn(prime, 'getAllLocalSyncItems')
+        .mockImplementation(async () => ({
+          items: items.map((item) => ({ ...item })),
+        }));
+      const scopedReads = [
+        jest
+          .spyOn(localDb, 'getAllAccounts')
+          .mockResolvedValue({ accounts: [] }),
+        jest.spyOn(localDb, 'getWalletBySyncPayload').mockResolvedValue(wallet),
+        jest
+          .spyOn(localDb, 'getRecordById')
+          .mockRejectedValue(
+            new DOMException(
+              'Synthetic canonical Wallet read interrupted',
+              'AbortError',
+            ),
+          ),
+        jest
+          .spyOn(localDb, 'getRecordsByIds')
+          .mockResolvedValue({ records: items }),
+      ];
+      jest
+        .spyOn(prime, 'syncPendingItemsToScene')
+        .mockImplementation(
+          async ({
+            isCurrent,
+            forceSync,
+            onWalletNameHistoryDeferred,
+          } = {}) => {
+            const current = await prime.getSyncCredentialSafe();
+            await prime.syncManagers.wallet.syncToScene({
+              syncCredential: current,
+              items: items.map((item) => ({ ...item })),
+              isCurrent,
+              forceSync,
+              onWalletNameHistoryDeferred,
+            });
+          },
+        );
+      const check = jest
+        .spyOn(prime, 'checkServerStatusWithRequestOptions')
+        .mockImplementation(async () => {
+          if (scenario === 'cancelled')
+            await service.cancelHardwareCloudKeyOperation();
+          return {
+            diff: [],
+            updated: [],
+            obsoleted: [],
+            deleted: [],
+            pwdHash: resignedCredential.pwdHash,
+            serverTime: Date.now(),
+          };
+        });
+      const stamp = jest.spyOn(prime, 'updateLastSyncTime');
+      try {
+        if (scenario === 'rollback') {
+          initLocalSyncItemsDB.mockRejectedValueOnce(
+            new OneKeyLocalError('Synthetic prepared local write failed'),
+          );
+          await expect(
+            service.enableHardwareCloudSync({ connectId }),
+          ).rejects.toThrow('Synthetic prepared local write failed');
+          expect(check).not.toHaveBeenCalled();
+          expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+          expect(mockStored).toBeUndefined();
+        } else {
+          await service.enableHardwareCloudSync({ connectId });
+          expect(check).toHaveBeenCalledTimes(1);
+          expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+          expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+          expect(mockStored).toEqual(
+            expect.objectContaining({
+              pwdHash: resignedCredential.pwdHash,
+              source,
+            }),
+          );
+        }
+        if (scenario === 'empty') {
+          expect(mockConfig.lastSyncTimeKeyless).toEqual(expect.any(Number));
+          expect(mockConfig.lastSyncTimeKeyless).toBeGreaterThan(123);
+          expect(stamp.mock.calls).toEqual([[]]);
+        } else {
+          expect(mockConfig.lastSyncTimeKeyless).toBeUndefined();
+          expect(stamp).not.toHaveBeenCalled();
+        }
+        if (scenario === 'deferred') {
+          expect(mockConfig.cloudSyncReconciliation).toMatchObject({
+            status: 'complete',
+            unfinished: false,
+          });
+          expect(scopedReads[2]).toHaveBeenCalled();
+          expect(scopedReads[3]).toHaveBeenCalledWith(
+            expect.objectContaining({ ids: [pending.id] }),
+          );
+        }
+      } finally {
+        for (const read of scopedReads) read.mockRestore();
+      }
+    },
+  );
 
   test('turning sync on again with another seed switches to that key', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);
@@ -2389,6 +2618,9 @@ describe('hardware Cloud key source lifecycle', () => {
         expect(
           backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
         ).toHaveBeenCalledTimes(1);
+        expect(
+          backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
+        ).not.toHaveBeenCalled();
         expect(
           generateHardwareCloudSyncCredentialWithSdk,
         ).not.toHaveBeenCalled();
@@ -4514,9 +4746,7 @@ describe('hardware reset session and local data races', () => {
     ).toHaveBeenCalledTimes(2);
     expect(
       backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
-    ).toHaveBeenCalledWith({
-      syncMode: ECloudSyncMode.Keyless,
-    });
+    ).not.toHaveBeenCalled();
   });
 
   test('refreshes the committed physical source even when the post-reset sync fails', async () => {
