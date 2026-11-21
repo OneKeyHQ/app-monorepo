@@ -37,6 +37,11 @@ export interface IDashTextProps extends ISizableTextProps {
   dashOverlay?: boolean;
   /** Draw an underline for each wrapped line instead of the whole text box. */
   multiline?: boolean;
+  /**
+   * Plain text laid out in the same paragraph before `children`, which keeps
+   * its dashes, e.g. a sentence ending in a dashed link. Implies `multiline`.
+   */
+  leadingText?: ReactNode;
   // Widened from `string` so a formatted value (a price, a percentage) can
   // carry the same dashes as a plain label. Every existing caller passes a
   // string, which is still a ReactNode.
@@ -60,6 +65,27 @@ export interface IDashTextProps extends ISizableTextProps {
   tooltipHovering?: boolean;
 }
 
+type ITextLine = { x: number; y: number; width: number; height: number };
+
+// The parts of the paragraph lines that follow the leading text (LTR).
+function getTrailingLines(
+  lines: ITextLine[],
+  leadingLines: ITextLine[],
+): ITextLine[] {
+  const leadingEnd = leadingLines[leadingLines.length - 1];
+  if (!leadingEnd) {
+    return [];
+  }
+  const startX = leadingEnd.x + leadingEnd.width;
+  return lines
+    .slice(leadingLines.length - 1)
+    .map((line, index) => {
+      const x = index === 0 ? Math.max(line.x, startX) : line.x;
+      return { ...line, x, width: line.x + line.width - x };
+    })
+    .filter((line) => line.width >= 1);
+}
+
 function DashTextCore({
   children,
   dashLength = 3,
@@ -68,7 +94,8 @@ function DashTextCore({
   dashSpacing = 1,
   dashColor = '$borderStrong',
   dashOverlay = false,
-  multiline = false,
+  multiline: multilineProp = false,
+  leadingText,
   length = 200,
   onTextLayout,
   ...textProps
@@ -80,11 +107,16 @@ function DashTextCore({
   | 'tooltipPlacement'
   | 'tooltipTriggerAsChild'
 >) {
+  const multiline = multilineProp || leadingText !== undefined;
   const theme = useTheme();
   const [textWidth, setTextWidth] = useState(0);
-  const [textLines, setTextLines] = useState<
-    { x: number; y: number; width: number; height: number }[]
-  >([]);
+  const [textLines, setTextLines] = useState<ITextLine[]>([]);
+  const [leadingLines, setLeadingLines] = useState<ITextLine[]>([]);
+  const handleLeadingTextLayout = useCallback<
+    Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
+  >((event) => {
+    setLeadingLines(event.nativeEvent.lines);
+  }, []);
   const handleTextLayout = useCallback<
     Exclude<ISizableTextProps['onTextLayout'], 'unset' | undefined>
   >(
@@ -172,6 +204,12 @@ function DashTextCore({
     : undefined;
 
   if (!platformEnv.isNative) {
+    const webDashedChildren =
+      multiline && length > 0 ? (
+        <span style={webMultilineStyle}>{children}</span>
+      ) : (
+        children
+      );
     return (
       <YStack alignItems="flex-start" style={webDashWrapperStyle}>
         <SizableText
@@ -180,10 +218,13 @@ function DashTextCore({
           paddingBottom={dashOverlay ? 0 : '$0.2'}
           maxWidth={multiline ? '100%' : textProps.maxWidth}
         >
-          {multiline && length > 0 ? (
-            <span style={webMultilineStyle}>{children}</span>
+          {leadingText === undefined ? (
+            webDashedChildren
           ) : (
-            children
+            <>
+              {leadingText}
+              {webDashedChildren}
+            </>
           )}
         </SizableText>
         {length > 0 && !multiline ? (
@@ -202,6 +243,10 @@ function DashTextCore({
   }
 
   if (multiline) {
+    const dashedLines =
+      leadingText === undefined
+        ? textLines
+        : getTrailingLines(textLines, leadingLines);
     return (
       <YStack
         maxWidth="100%"
@@ -210,10 +255,31 @@ function DashTextCore({
         }
       >
         <SizableText {...textProps} onTextLayout={handleTextLayout}>
+          {leadingText}
           {children}
         </SizableText>
+        {leadingText === undefined ? null : (
+          // Lays out the leading text alone at the same width, to find where
+          // `children` starts in the paragraph. The word joiner keeps a
+          // trailing space inside the measured line width.
+          <SizableText
+            {...textProps}
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            opacity={0}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            onTextLayout={handleLeadingTextLayout}
+          >
+            {leadingText}
+            {'\u2060'}
+          </SizableText>
+        )}
         {length > 0
-          ? textLines.map((line, lineIndex) => (
+          ? dashedLines.map((line, lineIndex) => (
               <XStack
                 key={lineIndex}
                 position="absolute"

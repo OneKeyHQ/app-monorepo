@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Button,
+  DashText,
   Dialog,
   HeightTransition,
   Icon,
@@ -101,10 +102,10 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
-  const [usagePopover, setUsagePopover] = useState<{
-    open: boolean;
-    webAnchorElement?: HTMLElement;
-  }>({ open: false });
+  const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
+  // Web: the subtitle link span, which the wide-window panel anchors to and
+  // opens on hover from.
+  const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
   const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
@@ -611,31 +612,21 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
-  // Native always shows a sheet; only the wide web panel anchors to the link,
-  // the element this press or key event came from (on web, the link span).
-  const handleShowUsage = useCallback((event?: { currentTarget?: unknown }) => {
-    const target = platformEnv.isNative ? undefined : event?.currentTarget;
-    setUsagePopover({
-      open: true,
-      webAnchorElement: target instanceof HTMLElement ? target : undefined,
-    });
+  const handleShowUsage = useCallback(() => {
+    setIsUsagePopoverOpen(true);
   }, []);
-  const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
-    setUsagePopover((prev) => ({ ...prev, open }));
+  const handleUsageLinkRef = useCallback((node: unknown) => {
+    setUsageLinkElement(node instanceof HTMLElement ? node : undefined);
   }, []);
   // The inline link is a text span on web: make it focusable and let Enter
   // and Space open it like a native link.
   const handleUsageLinkKeyDown = useCallback(
-    (event: {
-      key: string;
-      currentTarget?: unknown;
-      preventDefault: () => void;
-    }) => {
+    (event: { key: string; preventDefault: () => void }) => {
       if (event.key !== 'Enter' && event.key !== ' ') {
         return;
       }
       event.preventDefault();
-      handleShowUsage(event);
+      handleShowUsage();
     },
     [handleShowUsage],
   );
@@ -679,6 +670,44 @@ function PrimeLoginOAuthDialog(props: {
     return null;
   }
 
+  // Every locale ends this message with the link, so the formatted parts are
+  // the leading sentence followed by the link.
+  const purposeParts = [
+    intl.formatMessage(
+      { id: ETranslations.onekey_id_purpose__desc },
+      {
+        link: (chunks: ReactNode[]) => (
+          <SizableText
+            key="usage-link"
+            ref={platformEnv.isNative ? undefined : handleUsageLinkRef}
+            testID="prime-login-usage-link"
+            size="$bodyLg"
+            color="$textSubdued"
+            cursor="pointer"
+            role="link"
+            onPress={handleShowUsage}
+            {...(platformEnv.isNative
+              ? {}
+              : {
+                  tabIndex: 0,
+                  onKeyDown: handleUsageLinkKeyDown,
+                  focusVisibleStyle: {
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: 2,
+                  },
+                })}
+          >
+            {chunks}
+          </SizableText>
+        ),
+      },
+    ),
+  ].flat();
+  const purposeLink = purposeParts[purposeParts.length - 1];
+  const purposeLeadingText = purposeParts.slice(0, -1);
+
   const titleContent = (
     <Dialog.Title testID="prime-login-title">
       {intl.formatMessage({
@@ -704,38 +733,20 @@ function PrimeLoginOAuthDialog(props: {
           ) : (
             titleContent
           )}
-          <Dialog.Description color="$textSubdued">
-            {intl.formatMessage(
-              { id: ETranslations.onekey_id_purpose__desc },
-              {
-                link: (chunks: ReactNode[]) => (
-                  <SizableText
-                    testID="prime-login-usage-link"
-                    size="$bodyLg"
-                    color="$textSubdued"
-                    textDecorationLine="underline"
-                    cursor="pointer"
-                    role="link"
-                    onPress={handleShowUsage}
-                    {...(platformEnv.isNative
-                      ? {}
-                      : {
-                          tabIndex: 0,
-                          onKeyDown: handleUsageLinkKeyDown,
-                          focusVisibleStyle: {
-                            outlineColor: '$focusRing',
-                            outlineWidth: 2,
-                            outlineStyle: 'solid',
-                            outlineOffset: 2,
-                          },
-                        })}
-                  >
-                    {chunks}
-                  </SizableText>
-                ),
-              },
-            )}
-          </Dialog.Description>
+          <YStack mt="$1.5">
+            <DashText
+              size="$bodyLg"
+              color="$textSubdued"
+              leadingText={purposeLeadingText}
+              dashColor="$textDisabled"
+              dashLength={3}
+              dashGap={2}
+              dashThickness={1}
+              dashSpacing={2}
+            >
+              {purposeLink}
+            </DashText>
+          </YStack>
         </Dialog.Header>
       )}
       <YStack gap="$3">
@@ -864,9 +875,9 @@ function PrimeLoginOAuthDialog(props: {
       {/* Kept outside Dialog.Header, which hands its children to the dialog
           frame through context. */}
       <OneKeyIdUsagePopover
-        open={usagePopover.open}
-        onOpenChange={handleUsagePopoverOpenChange}
-        webAnchorElement={usagePopover.webAnchorElement}
+        open={isUsagePopoverOpen}
+        onOpenChange={setIsUsagePopoverOpen}
+        webAnchorElement={usageLinkElement}
       />
     </Stack>
   );

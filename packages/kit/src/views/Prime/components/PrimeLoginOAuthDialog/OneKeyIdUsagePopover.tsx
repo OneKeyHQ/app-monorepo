@@ -37,9 +37,10 @@ function OneKeyIdUsageItem({
 }
 
 // Explains what OneKey ID is for, opened from the login dialog subtitle link.
-// Wide web windows anchor a panel to the link element; native (phones and
-// iPad alike) and narrow web windows always use a bottom sheet, so nothing
-// depends on measuring the inline link on native.
+// Wide web windows anchor a panel to the link element and also open it on
+// hover; native (phones and iPad alike) and narrow web windows always use a
+// bottom sheet opened by a press, so nothing depends on measuring the inline
+// link on native.
 export function OneKeyIdUsagePopover({
   open,
   onOpenChange,
@@ -63,6 +64,7 @@ export function OneKeyIdUsagePopover({
       onOpenChange={onOpenChange}
       renderTrigger={null}
       webAnchorElement={webAnchorElement}
+      hoverable
       nativePresentation="sheet"
       placement="bottom-start"
       trackID="onekey-id-usage"

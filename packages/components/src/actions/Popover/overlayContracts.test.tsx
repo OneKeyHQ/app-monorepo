@@ -753,4 +753,28 @@ describe('hover and trigger press interaction', () => {
     view.rerender(<Popover {...props} open />);
     expect(screen.queryByTestId('overlay')).not.toBeNull();
   });
+
+  it('opens a triggerless panel on hovering its web anchor element', () => {
+    const anchor = document.createElement('span');
+    document.body.appendChild(anchor);
+    const onOpenChange = jest.fn();
+    render(
+      <Popover
+        title="Rates"
+        hoverable={hoverable}
+        open={false}
+        onOpenChange={onOpenChange}
+        renderTrigger={null}
+        webAnchorElement={anchor}
+        renderContent={<span>Rate breakdown</span>}
+      />,
+    );
+    try {
+      fireEvent.mouseEnter(anchor);
+      advance(250);
+      expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    } finally {
+      anchor.remove();
+    }
+  });
 });

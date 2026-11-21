@@ -21,20 +21,11 @@ let mockDevSettingsEnabled = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    // Rich-text messages render their tags, like react-intl does.
+    // Rich-text messages return their parts, like react-intl does.
     formatMessage: (
       { id }: { id: string },
       values?: { link?: (chunks: string[]) => import('react').ReactNode },
-    ) => {
-      if (!values?.link) return id;
-      const React = jest.requireActual('react') as typeof import('react');
-      return React.createElement(
-        React.Fragment,
-        null,
-        id,
-        values.link([`${id}:link`]),
-      );
-    },
+    ) => (values?.link ? [`${id} `, values.link([`${id}:link`])] : id),
   }),
 }));
 
@@ -53,14 +44,16 @@ jest.mock('@onekeyhq/components', () => {
     children,
     onPress,
     testID,
+    ref,
   }: {
     children?: import('react').ReactNode;
     onPress?: () => void;
     testID?: string;
+    ref?: import('react').Ref<HTMLDivElement>;
   }) {
     return React.createElement(
       'div',
-      { 'data-testid': testID, onClick: onPress },
+      { 'data-testid': testID, onClick: onPress, ref },
       children,
     );
   }
@@ -247,6 +240,19 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
+    DashText: ({
+      leadingText,
+      children,
+    }: {
+      leadingText?: import('react').ReactNode;
+      children?: import('react').ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'prime-login-purpose' },
+        React.createElement('span', { 'data-testid': 'leading' }, leadingText),
+        React.createElement('span', { 'data-testid': 'dashed' }, children),
+      ),
     Dialog: {
       Description: Container,
       Footer: () => null,
@@ -410,8 +416,15 @@ describe('PrimeLoginOAuthDialog', () => {
     render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
     expect(lastUsagePopoverProps()?.open).toBe(false);
 
+    // Only the link carries the dashes; the sentence before it is plain.
+    expect(screen.getByTestId('leading').textContent).toBe(
+      'onekey_id_purpose__desc ',
+    );
     const link = screen.getByTestId('prime-login-usage-link');
+    expect(screen.getByTestId('dashed').firstChild).toBe(link);
     expect(link.textContent).toBe('onekey_id_purpose__desc:link');
+    // The anchor is known before any press, so hovering it can open the panel.
+    expect(lastUsagePopoverProps()?.webAnchorElement).toBe(link);
     fireEvent.click(link);
 
     expect(lastUsagePopoverProps()).toEqual(

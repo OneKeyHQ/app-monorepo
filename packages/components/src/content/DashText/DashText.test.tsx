@@ -219,6 +219,60 @@ it('caps native dash allocation to line width and supports overlay and zero leng
   expect(underlines(view.container)).toHaveLength(0);
 });
 
+it('dashes only the text after the leading sentence on native', () => {
+  platformEnv.isNative = true;
+  const view = render(
+    <DashText leadingText="Sign in to continue. " dashSpacing={2} length={50}>
+      Learn more
+    </DashText>,
+  );
+  const calls = jest.mocked(SizableText).mock.calls;
+  const layout = (
+    isLeading: boolean,
+    lines: { x: number; y: number; width: number; height: number }[],
+  ) => {
+    const call = [...calls]
+      .toReversed()
+      .find(([props]) => (props.opacity === 0) === isLeading);
+    const callback = call?.[0].onTextLayout;
+    if (typeof callback !== 'function') {
+      throw new OneKeyLocalError('Missing native text layout handler');
+    }
+    void act(() => callback({ nativeEvent: { lines } } as TextLayoutEvent));
+  };
+  const layouts = () =>
+    underlines(view.container).map(
+      (node) => JSON.parse(node.dataset.layout ?? '{}') as object,
+    );
+
+  // No dashes until the leading text has been measured.
+  layout(false, [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 90, height: 20 },
+  ]);
+  expect(underlines(view.container)).toHaveLength(0);
+
+  // Same line: from the end of the sentence to the end of the paragraph.
+  layout(true, [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 40, height: 20 },
+  ]);
+  expect(layouts()).toEqual([
+    expect.objectContaining({ start: 40, top: 42, width: 50 }),
+  ]);
+
+  // The dashed text wraps: its part on each line gets its own dashes.
+  layout(true, [{ x: 0, y: 0, width: 80, height: 20 }]);
+  layout(false, [
+    { x: 0, y: 0, width: 100, height: 20 },
+    { x: 0, y: 20, width: 30, height: 20 },
+  ]);
+  expect(layouts()).toEqual([
+    expect.objectContaining({ start: 80, top: 22, width: 20 }),
+    expect.objectContaining({ start: 0, top: 42, width: 30 }),
+  ]);
+});
+
 it('keeps multiline labels in the requested tooltip and native popover', () => {
   const view = render(
     <DashText multiline tooltip="Explanation">
