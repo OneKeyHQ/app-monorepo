@@ -608,7 +608,14 @@ export function useLoanPayWith({
       payAmount,
     }: {
       payAmount: string;
-    }): Promise<{ amount: string; balance?: string } | undefined> => {
+    }): Promise<
+      | {
+          amount: string;
+          balance?: string;
+          receipt: { scope: string; txId: string };
+        }
+      | undefined
+    > => {
       if (
         !route ||
         !fromAccount ||
@@ -663,7 +670,11 @@ export function useLoanPayWith({
             decimals: Math.min(collateral.decimals, 8),
           });
           if (new BigNumber(resumedAmount).gt(0)) {
-            return { amount: resumedAmount, balance };
+            return {
+              amount: resumedAmount,
+              balance,
+              receipt: { scope: fundingKey, txId: retained.txId },
+            };
           }
         } catch {
           if (!isCurrent()) return undefined;
@@ -781,7 +792,11 @@ export function useLoanPayWith({
         void pay.refresh(
           toAccount && fromAccount ? [fromAccount.networkId] : undefined,
         );
-        return { amount: received, balance: balanceAfter };
+        return {
+          amount: received,
+          balance: balanceAfter,
+          receipt: { scope: fundingKey, txId },
+        };
       } catch (error: unknown) {
         let reason = error instanceof EarnSwapError ? error.reason : 'failed';
         try {

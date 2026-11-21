@@ -5,10 +5,30 @@ import { StrictMode } from 'react';
 
 import EarnLoanRouter from '.';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockStart = jest.fn();
 const mockAcknowledgeSupply = jest.fn(async () => false);
+const mockSwap = jest.fn(async () => ({
+  amount: '10',
+  balance: '10',
+  receipt: { scope: 'swap', txId: 'swap-tx' },
+}));
+const mockGetFunding = jest.fn<Promise<unknown>, [string]>();
+let mockFactsRevision = 1;
+let mockAccountId = 'account';
+const mockPayWith = {
+  isLoaded: true,
+  isSwapping: false,
+  isSwapRunning: false,
+  payToken: { amount: '100', token: { symbol: 'DAI', decimals: 18 } },
+  payTokenFor: () => ({ networkId: 'evm--1', token: { symbol: 'ETH' } }),
+  openPicker: jest.fn(),
+  swap: mockSwap,
+  canSwap: true,
+  estimatedSupply: '10',
+  hasFundedSwap: false,
+};
 const mockMetrics = jest.fn((_params: unknown) => ({
   maxLtv: 0.7,
   maxBorrow: 100,
@@ -57,7 +77,7 @@ const mockRoute = {
     logoURI: '',
   },
 };
-const mockFacts = {
+let mockFacts = {
   networkAccountId: 'account',
   hasAccount: true,
   collateralPrice: 100,
@@ -121,7 +141,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceStaking: {} },
+  default: {
+    serviceStaking: { getEarnFunding: (key: string) => mockGetFunding(key) },
+  },
 }));
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorProviderMirror: ({
@@ -311,23 +333,18 @@ jest.mock('./useLoanModalHeight', () => ({
 }));
 jest.mock('./useLoanRouterRun', () => ({ useLoanRouterRun: () => mockRun }));
 jest.mock('./useLoanRouterFacts', () => ({
-  useLoanRouterAccount: () => ({ accountId: 'account' }),
+  useLoanRouterAccount: () => ({ accountId: mockAccountId }),
   useLoanRouterFacts: () => ({
     byRoute: new Map([['route', mockFacts]]),
     isLoaded: true,
     hasFailedRoutes: false,
-    refresh: jest.fn(),
+    factsRevision: mockFactsRevision,
+    nextFactsRevision: () => mockFactsRevision + 1,
+    refresh: jest.fn(async () => {}),
   }),
 }));
 jest.mock('./useLoanPayWith', () => ({
-  useLoanPayWith: () => ({
-    isLoaded: true,
-    isSwapping: false,
-    isSwapRunning: false,
-    payTokenFor: () => ({ networkId: 'evm--1', token: { symbol: 'ETH' } }),
-    openPicker: jest.fn(),
-    swap: jest.fn(),
-  }),
+  useLoanPayWith: () => mockPayWith,
 }));
 jest.mock('./loanRouter.utils', () => ({
   ...jest.requireActual<typeof import('./loanRouter.utils')>(
@@ -349,6 +366,233 @@ beforeEach(() => {
   mockRun.phase = 'idle';
   mockRun.fundedSupplyAmount = '10';
   mockRun.isRunning = false;
+  mockPayWith.isSwapping = false;
+  mockSwap.mockClear();
+  mockGetFunding.mockReset();
+  mockGetFunding.mockResolvedValue(null);
+  mockFactsRevision = 1;
+  mockAccountId = 'account';
+  mockFacts = {
+    ...mockFacts,
+    walletBalance: '100',
+    networkAccountId: 'account',
+  };
+});
+
+it('waits for refreshed market facts after completing retained supply', async () => {
+  const view = render(<EarnLoanRouter />);
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockAcknowledgeSupply).toHaveBeenCalledTimes(1));
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  expect(screen.getByTestId('loan-refresh-positions')).toBeDefined();
+  mockFacts = { ...mockFacts, walletBalance: '0' };
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(false);
+});
+
+it('does not treat facts returned while Done is pending as a post-Done refresh', async () => {
+  let finish: ((closed: boolean) => void) | undefined;
+  mockAcknowledgeSupply.mockImplementationOnce(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = render(<EarnLoanRouter />);
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  mockFacts = { ...mockFacts, walletBalance: '80' };
+  mockFactsRevision = 2;
+  view.rerender(<EarnLoanRouter />);
+  mockRun.fundedSupplyAmount = undefined;
+  finish?.(true);
+  await waitFor(() =>
+    expect(
+      (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+        .disabled,
+    ).toBe(true),
+  );
+  mockFacts = { ...mockFacts, walletBalance: '0' };
+  mockFactsRevision = 3;
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(false);
+});
+
+it('returns to the selected swap path after completing a supplied handoff', async () => {
+  mockRun.fundedSupplyAmount = undefined;
+  mockPayWith.isSwapping = true;
+  const view = render(<EarnLoanRouter />);
+  const collateral = screen.getByTestId('earn-loan-collateral-input');
+  fireEvent.change(collateral, { target: { value: '10' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(1));
+  mockRun.fundedSupplyAmount = '10';
+  view.rerender(<EarnLoanRouter />);
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    mockFacts = { ...mockFacts, walletBalance: '0' };
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockAcknowledgeSupply).toHaveBeenCalledTimes(1));
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  await waitFor(() =>
+    expect((collateral as HTMLInputElement).disabled).toBe(false),
+  );
+  fireEvent.change(collateral, { target: { value: '5' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(2));
+});
+
+it('retains an unconsumed swap handoff when a different supply is completed', async () => {
+  mockRun.fundedSupplyAmount = undefined;
+  mockPayWith.isSwapping = true;
+  const view = render(<EarnLoanRouter />);
+  const collateral = screen.getByTestId('earn-loan-collateral-input');
+  fireEvent.change(collateral, { target: { value: '10' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(1));
+  mockRun.fundedSupplyAmount = '10';
+  view.rerender(<EarnLoanRouter />);
+  mockGetFunding.mockResolvedValue({
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockAcknowledgeSupply).toHaveBeenCalledTimes(1));
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  fireEvent.change(collateral, { target: { value: '5' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  expect(mockSwap).toHaveBeenCalledTimes(1);
+  expect(mockStart).toHaveBeenCalledWith(
+    expect.objectContaining({ collateralAmount: '5' }),
+  );
+});
+
+it('keeps a handoff locked until its receipt can be read after Done', async () => {
+  mockRun.fundedSupplyAmount = undefined;
+  mockPayWith.isSwapping = true;
+  const view = render(<EarnLoanRouter />);
+  fireEvent.change(screen.getByTestId('earn-loan-collateral-input'), {
+    target: { value: '10' },
+  });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(1));
+  mockRun.fundedSupplyAmount = '10';
+  view.rerender(<EarnLoanRouter />);
+  mockGetFunding
+    .mockRejectedValueOnce(new Error('storage unavailable'))
+    .mockResolvedValueOnce(null);
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockGetFunding).toHaveBeenCalledTimes(1));
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByTestId('loan-refresh-positions'));
+  await waitFor(() =>
+    expect(
+      (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+        .disabled,
+    ).toBe(false),
+  );
+});
+
+it('does not apply an old receipt-read failure to a newly selected account', async () => {
+  mockRun.fundedSupplyAmount = undefined;
+  mockPayWith.isSwapping = true;
+  const view = render(<EarnLoanRouter />);
+  fireEvent.change(screen.getByTestId('earn-loan-collateral-input'), {
+    target: { value: '10' },
+  });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(1));
+  mockRun.fundedSupplyAmount = '10';
+  view.rerender(<EarnLoanRouter />);
+  mockGetFunding.mockRejectedValueOnce(new Error('storage unavailable'));
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockGetFunding).toHaveBeenCalledTimes(1));
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  mockAccountId = 'other';
+  mockFacts = { ...mockFacts, networkAccountId: 'other' };
+  view.rerender(<EarnLoanRouter />);
+  expect(
+    (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
+      .disabled,
+  ).toBe(false);
+});
+
+it('ignores an older receipt read after a newer retry has completed', async () => {
+  mockRun.fundedSupplyAmount = undefined;
+  mockPayWith.isSwapping = true;
+  const view = render(<EarnLoanRouter />);
+  const collateral = screen.getByTestId('earn-loan-collateral-input');
+  fireEvent.change(collateral, { target: { value: '10' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(1));
+  mockRun.fundedSupplyAmount = '10';
+  view.rerender(<EarnLoanRouter />);
+  let finish: ((value: unknown) => void) | undefined;
+  mockGetFunding
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValueOnce(null);
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockGetFunding).toHaveBeenCalledTimes(1));
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  fireEvent.click(screen.getByTestId('loan-refresh-positions'));
+  await waitFor(() =>
+    expect((collateral as HTMLInputElement).disabled).toBe(false),
+  );
+  finish?.({ status: 'funded', txId: 'swap-tx', receivedAmount: '10' });
+  await waitFor(() => expect(mockGetFunding).toHaveBeenCalledTimes(2));
+  fireEvent.change(collateral, { target: { value: '5' } });
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() => expect(mockSwap).toHaveBeenCalledTimes(2));
 });
 
 it('previews and submits a retained supply continuation as borrow only', () => {

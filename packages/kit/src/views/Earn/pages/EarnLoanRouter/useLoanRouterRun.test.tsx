@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
@@ -12,6 +13,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   completeEarnFunding,
+  recoverEarnFundingDestination,
   refreshEarnFunding,
   releaseEarnFunding,
   reserveEarnFunding,
@@ -89,6 +91,7 @@ jest.mock('./useLoanRouterFacts', () => ({
 }));
 jest.mock('../EarnRouter/earnFundingRegistry', () => ({
   completeEarnFunding: jest.fn(),
+  recoverEarnFundingDestination: jest.fn(),
   getEarnFunding: jest.fn(),
   refreshEarnFunding: jest.fn(),
   releaseEarnFunding: jest.fn(),
@@ -212,9 +215,16 @@ beforeEach(() => {
     });
   jest
     .mocked(reserveEarnFunding)
-    .mockImplementation((key, { amount } = {}) => ({
-      markUnknown: async () => {
-        store.set(key, { status: 'unknown', intentAmount: amount });
+    .mockImplementation((key, { amount, source, positionBefore } = {}) => ({
+      markUnknown: async (_swap, _uuid, destinationRecovery) => {
+        if (store.get(key)?.status === 'unknown') return;
+        store.set(key, {
+          status: 'unknown',
+          intentAmount: amount,
+          source,
+          positionBefore,
+          destinationRecovery,
+        });
       },
       markSubmitted: async (txId) => setSubmitted(key, txId, amount),
       markFunded: async (receivedAmount) => {
@@ -468,6 +478,391 @@ it('builds Kamino SPL supply without requesting an EVM allowance', async () => {
   expect(confirm).toHaveBeenCalledTimes(1);
 });
 
+it('persists the actual supply transaction identity before spending swap funding', async () => {
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'order' });
+  confirm.mockImplementation(
+    async ({ onBeforeSend, onCancel, preserveBatchTxIds }) => {
+      expect(preserveBatchTxIds).toBe(true);
+      await onBeforeSend?.({
+        unsignedTxs: [
+          {
+            uuid: 'supply-uuid',
+            accountId: 'account',
+            networkId,
+          } as IUnsignedTxPro,
+        ],
+      });
+      await onBeforeSend?.({
+        unsignedTxs: [
+          {
+            uuid: 'supply-uuid',
+            accountId: 'account',
+            networkId,
+          } as IUnsignedTxPro,
+        ],
+      });
+      onCancel?.();
+    },
+  );
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      collateralAmount: '10',
+      borrowAmount: '0',
+      fundingSource: { scope: 'swap-source', txId: 'swap-tx' },
+    }),
+  );
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({
+      status: 'unknown',
+      source: { scope: 'swap-source', txId: 'swap-tx' },
+      destinationRecovery: {
+        uuid: 'supply-uuid',
+        accountId: 'account',
+        networkId,
+        accountAddress: '0xowner',
+      },
+    }),
+  );
+});
+
+it('recovers a submitted supply by identity before checking the position delta', async () => {
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  store.set(supplyKey, {
+    status: 'unknown',
+    intentAmount: '10',
+    positionBefore: '0',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+    destinationRecovery: {
+      uuid: 'supply-uuid',
+      accountId: 'account',
+      networkId,
+      accountAddress: '0xowner',
+    },
+  });
+  jest.mocked(recoverEarnFundingDestination).mockImplementation(async (key) => {
+    const current = store.get(key);
+    if (!current) return null;
+    const submitted = {
+      ...current,
+      status: 'submitted' as const,
+      txId: 'supply-tx',
+    };
+    store.set(key, submitted);
+    return submitted;
+  });
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '10' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  expect(result.current.canReconcile).toBe(true);
+  await act(async () => result.current.reconcile());
+  expect(recoverEarnFundingDestination).toHaveBeenCalledWith(supplyKey);
+  expect(waitForTxFinalStatus).toHaveBeenCalledWith(
+    expect.objectContaining({ txid: 'supply-tx' }),
+  );
+  expect(completeEarnFunding).toHaveBeenCalledWith(supplyKey, 'supply-tx', {
+    keepDestination: true,
+  });
+  expect(store.has('swap-source')).toBe(false);
+});
+
+it.each([
+  { unsignedTxs: [] },
+  {
+    unsignedTxs: [
+      { uuid: 'supply-uuid', accountId: 'other', networkId } as IUnsignedTxPro,
+    ],
+  },
+  {
+    unsignedTxs: [
+      {
+        uuid: 'supply-uuid',
+        accountId: 'account',
+        networkId: 'evm--2',
+      } as IUnsignedTxPro,
+    ],
+  },
+])(
+  'does not send a funded supply with an invalid transaction identity: %p',
+  async ({ unsignedTxs }) => {
+    jest
+      .mocked(readLoanRoutePosition)
+      .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+        ReturnType<typeof readLoanRoutePosition>
+      >);
+    jest
+      .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+      .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+    jest
+      .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+      .mockResolvedValue({ tx: '{}', orderId: 'order' });
+    store.set('swap-source', {
+      status: 'funded',
+      txId: 'swap-tx',
+      receivedAmount: '10',
+    });
+    confirm.mockImplementation(async ({ onBeforeSend }) => {
+      await onBeforeSend?.({ unsignedTxs });
+    });
+    const { result } = renderHook(() =>
+      useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+    );
+    await act(async () =>
+      result.current.start({
+        ...plan,
+        collateralAmount: '10',
+        borrowAmount: '0',
+        fundingSource: { scope: 'swap-source', txId: 'swap-tx' },
+      }),
+    );
+    expect(store.has(supplyKey)).toBe(false);
+    expect(store.get('swap-source')).toEqual(
+      expect.objectContaining({ txId: 'swap-tx' }),
+    );
+  },
+);
+
+it('keeps source funding when destination recovery has no accepted identity', async () => {
+  const unknown = {
+    status: 'unknown' as const,
+    intentAmount: '10',
+    positionBefore: '0',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+    destinationRecovery: {
+      uuid: 'supply-uuid',
+      accountId: 'account',
+      networkId,
+      accountAddress: '0xowner',
+    },
+  };
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  store.set(supplyKey, unknown);
+  jest.mocked(recoverEarnFundingDestination).mockResolvedValue(unknown);
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () => result.current.reconcile());
+  expect(store.get(supplyKey)).toEqual(unknown);
+  expect(store.has('swap-source')).toBe(true);
+  expect(waitForTxFinalStatus).not.toHaveBeenCalled();
+  expect(completeEarnFunding).not.toHaveBeenCalled();
+});
+
+it('does not recover a destination after switching account during its read', async () => {
+  const unknown = {
+    status: 'unknown' as const,
+    intentAmount: '10',
+    positionBefore: '0',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+    destinationRecovery: {
+      uuid: 'supply-uuid',
+      accountId: 'account',
+      networkId,
+      accountAddress: '0xowner',
+    },
+  };
+  store.set(supplyKey, unknown);
+  let finish: ((value: typeof unknown) => void) | undefined;
+  jest.mocked(refreshEarnFunding).mockImplementation(async (key) =>
+    key === supplyKey
+      ? new Promise<typeof unknown>((resolve) => {
+          finish = resolve;
+        })
+      : store.get(key),
+  );
+  const { result, rerender } = renderHook(
+    ({ accountId }: { accountId: string }) =>
+      useLoanRouterRun({
+        ...plan,
+        networkAccountId: accountId,
+        onDone: jest.fn(),
+      }),
+    { initialProps: { accountId: 'account' } },
+  );
+  let pending: Promise<void> | undefined;
+  await act(async () => {
+    pending = result.current.reconcile();
+    await waitFor(() => expect(finish).toBeDefined());
+  });
+  rerender({ accountId: 'another-account' });
+  await act(async () => {
+    finish?.(unknown);
+    await pending;
+  });
+  expect(recoverEarnFundingDestination).not.toHaveBeenCalled();
+  expect(releaseEarnFunding).not.toHaveBeenCalled();
+  expect(completeEarnFunding).not.toHaveBeenCalled();
+});
+
+it('releases a recovered failed supply while retaining the source receipt', async () => {
+  const unknown = {
+    status: 'unknown' as const,
+    intentAmount: '10',
+    positionBefore: '0',
+    source: { scope: 'swap-source', txId: 'swap-tx' },
+    destinationRecovery: {
+      uuid: 'supply-uuid',
+      accountId: 'account',
+      networkId,
+      accountAddress: '0xowner',
+    },
+  };
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-tx',
+    receivedAmount: '10',
+  });
+  store.set(supplyKey, unknown);
+  jest.mocked(recoverEarnFundingDestination).mockImplementation(async (key) => {
+    const submitted = {
+      ...unknown,
+      status: 'submitted' as const,
+      txId: 'failed-tx',
+    };
+    store.set(key, submitted);
+    return submitted;
+  });
+  jest
+    .mocked(waitForTxFinalStatus)
+    .mockResolvedValue(EOnChainHistoryTxStatus.Failed);
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () => result.current.reconcile());
+  expect(releaseEarnFunding).toHaveBeenCalledWith(supplyKey, 'failed-tx');
+  expect(store.has('swap-source')).toBe(true);
+  expect(completeEarnFunding).not.toHaveBeenCalled();
+});
+
+it('keeps the original claim when two destination guards overlap', async () => {
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'order' });
+  let finish: (() => void) | undefined;
+  const release = jest.fn(async () => {});
+  jest.mocked(reserveEarnFunding).mockReturnValue({
+    markUnknown: async () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    markSubmitted: jest.fn(),
+    markFunded: jest.fn(),
+    release,
+  });
+  confirm.mockImplementation(async ({ onBeforeSend, onSafePreSendFail }) => {
+    const first = onBeforeSend?.({
+      unsignedTxs: [
+        { uuid: 'first', accountId: 'account', networkId } as IUnsignedTxPro,
+      ],
+    });
+    await waitFor(() => expect(finish).toBeDefined());
+    await expect(
+      onBeforeSend?.({
+        unsignedTxs: [
+          { uuid: 'second', accountId: 'account', networkId } as IUnsignedTxPro,
+        ],
+      }),
+    ).rejects.toThrow();
+    onSafePreSendFail?.(new Error('duplicate guard'));
+    finish?.();
+    await first;
+  });
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      collateralAmount: '10',
+      borrowAmount: '0',
+      fundingSource: { scope: 'swap-source', txId: 'swap-tx' },
+    }),
+  );
+  expect(release).not.toHaveBeenCalled();
+});
+
+it('does not repeat a destination send after its result becomes unknown', async () => {
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'order' });
+  confirm.mockImplementation(
+    async ({ onBeforeSend, onConfirmationFail, onSafePreSendFail }) => {
+      const params = {
+        unsignedTxs: [
+          {
+            uuid: 'supply-uuid',
+            accountId: 'account',
+            networkId,
+          } as IUnsignedTxPro,
+        ],
+      };
+      await onBeforeSend?.(params);
+      onConfirmationFail?.(new Error('unknown broadcast'));
+      await expect(onBeforeSend?.(params)).rejects.toThrow();
+      onSafePreSendFail?.(new Error('duplicate'));
+    },
+  );
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      collateralAmount: '10',
+      borrowAmount: '0',
+      fundingSource: { scope: 'swap-source', txId: 'swap-tx' },
+    }),
+  );
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({
+      status: 'unknown',
+      destinationRecovery: expect.objectContaining({ uuid: 'supply-uuid' }),
+    }),
+  );
+});
+
 it.each(['Unknown', 'Kamino'])(
   'does not skip a missing EVM approval target for %s',
   async (provider) => {
@@ -653,6 +1048,51 @@ it('acknowledges a retained supply by consuming its source before clearing it', 
   ).toBeLessThan(jest.mocked(releaseEarnFunding).mock.invocationCallOrder[0]);
   expect(store.has('swap-source')).toBe(false);
   expect(store.has(supplyKey)).toBe(false);
+});
+
+it('does not acknowledge a replacement supply that appeared after the displayed one', async () => {
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-a',
+    receivedAmount: '10',
+  });
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  let finish: (() => void) | undefined;
+  jest.mocked(refreshEarnFunding).mockImplementation(async (key) => {
+    if (key === supplyKey)
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    return store.get(key);
+  });
+  let pending: Promise<boolean> | undefined;
+  await act(async () => {
+    pending = result.current.acknowledgeFundedSupply();
+    await waitFor(() => expect(finish).toBeDefined());
+  });
+  store.set('swap-source', {
+    status: 'funded',
+    txId: 'swap-b',
+    receivedAmount: '20',
+  });
+  store.set(supplyKey, {
+    status: 'funded',
+    txId: 'supply-b',
+    receivedAmount: '20',
+    source: { scope: 'swap-source', txId: 'swap-b' },
+  });
+  await act(async () => {
+    finish?.();
+    expect(await pending).toBe(false);
+  });
+  expect(completeEarnFunding).not.toHaveBeenCalled();
+  expect(releaseEarnFunding).not.toHaveBeenCalled();
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({ txId: 'supply-b' }),
+  );
+  expect(store.has('swap-source')).toBe(true);
 });
 
 it('keeps a retained supply locked when its source or downstream claim conflicts', async () => {

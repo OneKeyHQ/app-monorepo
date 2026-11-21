@@ -655,7 +655,55 @@ function EarnLoanRouterPage() {
     routeKey: string;
     autoStart: boolean;
     balance?: string;
+    receipt: { scope: string; txId: string };
   }>();
+  const [supplyRefresh, setSupplyRefresh] = useState<{
+    routeKey: string;
+    revision: number;
+    accountId?: string;
+    indexedAccountId?: string;
+    networkAccountId?: string;
+    sourcePending?: NonNullable<typeof handoff>;
+  }>();
+  const handoffReadRevision = useRef(0);
+  const handoffReadScope = useRef('');
+  const refreshSupplyHandoff = useCallback(
+    async (expected: NonNullable<typeof handoff>, expectedScope: string) => {
+      handoffReadRevision.current += 1;
+      const revision = handoffReadRevision.current;
+      try {
+        const funding = await backgroundApiProxy.serviceStaking.getEarnFunding(
+          expected.receipt.scope,
+        );
+        if (
+          handoffReadRevision.current !== revision ||
+          handoffReadScope.current !== expectedScope
+        )
+          return;
+        if (
+          funding?.status === 'unknown' ||
+          (funding?.status === 'submitted' &&
+            funding.txId === expected.receipt.txId)
+        )
+          return;
+        setHandoff((current) => {
+          if (current !== expected) return current;
+          return funding?.status === 'funded' &&
+            funding.txId === expected.receipt.txId
+            ? current
+            : undefined;
+        });
+        setSupplyRefresh((current) =>
+          current?.sourcePending === expected
+            ? { ...current, sourcePending: undefined }
+            : current,
+        );
+      } catch {
+        // Keep the retry control available until the receipt can be read.
+      }
+    },
+    [],
+  );
 
   const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
     isActive: true,
@@ -776,6 +824,8 @@ function EarnLoanRouterPage() {
     byRoute,
     isLoaded: isFactsLoaded,
     hasFailedRoutes,
+    factsRevision,
+    nextFactsRevision,
     refresh,
   } = useLoanRouterFacts({ routes });
 
@@ -1039,6 +1089,27 @@ function EarnLoanRouterPage() {
   }, [autoPickKey]);
   const selectedRoute = selected?.route;
   const selectedFacts = selected?.facts;
+  const currentHandoffScope = JSON.stringify([
+    loanAccount.accountId,
+    loanAccount.indexedAccountId,
+    selectedFacts?.networkAccountId,
+    selectedRoute?.key,
+  ]);
+  if (handoffReadScope.current !== currentHandoffScope) {
+    handoffReadScope.current = currentHandoffScope;
+    handoffReadRevision.current += 1;
+  }
+  const isSupplyRefreshPending = Boolean(
+    supplyRefresh &&
+    selectedRoute?.key === supplyRefresh.routeKey &&
+    loanAccount.accountId === supplyRefresh.accountId &&
+    loanAccount.indexedAccountId === supplyRefresh.indexedAccountId &&
+    (!selectedFacts ||
+      selectedFacts.networkAccountId === supplyRefresh.networkAccountId) &&
+    (factsRevision < supplyRefresh.revision ||
+      !selectedFacts ||
+      supplyRefresh.sourcePending),
+  );
   const selectedWindowScope = useEarnWindowScope({
     accountId: selectedFacts?.networkAccountId,
     indexedAccountId: loanAccount.indexedAccountId,
@@ -1079,7 +1150,8 @@ function EarnLoanRouterPage() {
     setCollateralAmount('');
   }
   // Nothing changes while a press runs: the swap, then the steps after it
-  const isLocked = run.isRunning || payWith.isSwapRunning;
+  const isLocked =
+    run.isRunning || payWith.isSwapRunning || isSupplyRefreshPending;
 
   // A supply that went in without its loan: the collateral now counts in
   // the market, so the form goes on with the loan alone
@@ -2327,6 +2399,7 @@ function EarnLoanRouterPage() {
       !payWith.hasNoRoute);
   const canStart =
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
+    !isSupplyRefreshPending &&
     (hasLoan || hasCollateral) &&
     (!isBorrowOnlyContinuation ||
       (hasLoan && collateralAmount.trim() === '')) &&
@@ -2385,6 +2458,7 @@ function EarnLoanRouterPage() {
       routeKey: selectedRoute.key,
       autoStart: true,
       balance: swapped.balance,
+      receipt: swapped.receipt,
     });
     void refresh();
   }, [collateralAmount, ensureRiskAccepted, refresh, selectedRoute, swap]);
@@ -2452,13 +2526,22 @@ function EarnLoanRouterPage() {
   // What the press leads to, over the button: the steps show in the footer
   const notes = (() => {
     const lines = [
-      hasFailedRoutes ? (
+      hasFailedRoutes || isSupplyRefreshPending ? (
         <Button
           testID="loan-refresh-positions"
           key="refresh-positions"
           size="small"
           variant="secondary"
-          onPress={() => void refresh()}
+          onPress={() => {
+            if (isSupplyRefreshPending && supplyRefresh?.sourcePending)
+              void refreshSupplyHandoff(
+                supplyRefresh.sourcePending,
+                currentHandoffScope,
+              );
+            void refresh().catch(() => {
+              // Keep the retry control available until a fresh read succeeds.
+            });
+          }}
         >
           {intl.formatMessage({ id: ETranslations.global_failed })} ·{' '}
           {intl.formatMessage({ id: ETranslations.global_refresh })}
@@ -2481,11 +2564,35 @@ function EarnLoanRouterPage() {
             variant="secondary"
             disabled={run.isRunning || !run.canAcknowledgeSupply}
             loading={run.isClosingSupply}
-            onPress={() =>
+            onPress={() => {
+              const previousHandoff = handoff;
+              const completedRouteKey = selectedRoute.key;
+              const completedHandoffScope = currentHandoffScope;
               void run.acknowledgeFundedSupply().then((closed) => {
-                if (closed) void refresh();
-              })
-            }
+                if (
+                  !closed ||
+                  handoffReadScope.current !== completedHandoffScope
+                )
+                  return;
+                handoffReadRevision.current += 1;
+                setSupplyRefresh({
+                  routeKey: completedRouteKey,
+                  revision: nextFactsRevision(),
+                  accountId: loanAccount.accountId,
+                  indexedAccountId: loanAccount.indexedAccountId,
+                  networkAccountId: selectedFacts?.networkAccountId,
+                  sourcePending: previousHandoff,
+                });
+                if (previousHandoff)
+                  void refreshSupplyHandoff(
+                    previousHandoff,
+                    completedHandoffScope,
+                  );
+                void refresh().catch(() => {
+                  // Keep the retry control available until a fresh read succeeds.
+                });
+              });
+            }}
           >
             {intl.formatMessage({ id: ETranslations.global_done })}
           </Button>

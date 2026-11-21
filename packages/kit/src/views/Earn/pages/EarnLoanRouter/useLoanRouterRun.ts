@@ -18,6 +18,7 @@ import {
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -44,6 +45,7 @@ import { buildBorrowTag } from '../../../Staking/utils/utils';
 import {
   completeEarnFunding,
   getEarnFunding,
+  recoverEarnFundingDestination,
   refreshEarnFunding,
   releaseEarnFunding,
   reserveEarnFunding,
@@ -304,6 +306,7 @@ export function useLoanRouterRun({
       stakingInfo,
       orderId,
       reservation,
+      source,
     }: {
       plan: ILoanExecutionPlan;
       encodedTx?: IEncodedTx;
@@ -311,12 +314,20 @@ export function useLoanRouterRun({
       stakingInfo?: IStakingInfo;
       orderId?: string;
       reservation: ILoanReservation;
+      source?: IEarnFundingReceipt;
     }) =>
       new Promise<string | undefined>((resolve, reject) => {
         const recordLateOrder = createLateEarnOrderRecorder();
         let isSettled = false;
         let sendObserved = false;
         let confirmationClosed = false;
+        let confirmationOutcomeObserved = false;
+        let destinationUuid: string | undefined;
+        let destinationGuardPending = false;
+        let duplicateDestinationGuard = false;
+        const recoverableSource =
+          Boolean(source) &&
+          !accountUtils.isExternalAccount({ accountId: plan.networkAccountId });
         const settle = (txid?: string) => {
           if (!isSettled) {
             isSettled = true;
@@ -331,6 +342,10 @@ export function useLoanRouterRun({
         };
         const failBeforeSend = (error: unknown) => {
           confirmationClosed = true;
+          if (duplicateDestinationGuard) {
+            uncertain();
+            return;
+          }
           void reservation.release().then(() => {
             if (!isSettled) {
               isSettled = true;
@@ -342,19 +357,62 @@ export function useLoanRouterRun({
           encodedTx,
           approvesInfo,
           stakingInfo,
+          preserveBatchTxIds: recoverableSource,
           isNavigationCurrent: plan.isCurrent,
-          onBeforeSend: async () => {
-            await assertLoanAccount(plan);
-            if (confirmationClosed) throw LOAN_STOPPED;
-            await reservation.markUnknown();
-            await assertLoanAccount(plan);
-            if (confirmationClosed) {
-              await reservation.release();
-              throw LOAN_STOPPED;
+          onBeforeSend: async (params) => {
+            if (isSettled || confirmationOutcomeObserved) {
+              duplicateDestinationGuard = true;
+              throw LOAN_UNKNOWN;
             }
-            sendObserved = true;
+            if (recoverableSource) {
+              if (destinationGuardPending) {
+                duplicateDestinationGuard = true;
+                throw LOAN_UNKNOWN;
+              }
+              destinationGuardPending = true;
+            }
+            try {
+              await assertLoanAccount(plan);
+              if (confirmationClosed) throw LOAN_STOPPED;
+              if (recoverableSource) {
+                const tx =
+                  params?.unsignedTxs?.length === 1
+                    ? params.unsignedTxs[0]
+                    : undefined;
+                if (
+                  !tx?.uuid?.trim() ||
+                  tx.approveInfo ||
+                  (tx.accountId && tx.accountId !== plan.networkAccountId) ||
+                  (tx.networkId && tx.networkId !== plan.route.market.networkId)
+                )
+                  throw LOAN_UNKNOWN;
+                if (destinationUuid && destinationUuid !== tx.uuid) {
+                  duplicateDestinationGuard = true;
+                  throw LOAN_UNKNOWN;
+                }
+                await reservation.markUnknown(undefined, undefined, {
+                  uuid: tx.uuid,
+                  accountId: plan.networkAccountId,
+                  networkId: plan.route.market.networkId,
+                  accountAddress: plan.accountAddress,
+                });
+                destinationUuid = tx.uuid;
+              } else {
+                await reservation.markUnknown();
+              }
+              await assertLoanAccount(plan);
+              if (confirmationClosed) {
+                if (!sendObserved && !duplicateDestinationGuard)
+                  await reservation.release();
+                throw LOAN_STOPPED;
+              }
+              sendObserved = true;
+            } finally {
+              if (recoverableSource) destinationGuardPending = false;
+            }
           },
           onSuccess: (data) => {
+            confirmationOutcomeObserved = true;
             const txid = getSentTxid(data);
             if (txid) {
               void reservation
@@ -386,10 +444,13 @@ export function useLoanRouterRun({
             if (
               fact.accountId !== plan.networkAccountId ||
               fact.networkId !== plan.route.market.networkId ||
+              (recoverableSource &&
+                (!destinationUuid || fact.uuid !== destinationUuid)) ||
               !fact.txid
             ) {
               return;
             }
+            confirmationOutcomeObserved = true;
             await reservation.markSubmitted(fact.txid);
             if (stakingInfo) {
               await recordLateOrder({
@@ -403,15 +464,21 @@ export function useLoanRouterRun({
           },
           onFail: failBeforeSend,
           onConfirmationFail: () => {
+            confirmationOutcomeObserved = true;
             sendObserved = true;
             void reservation.markUnknown().then(uncertain, uncertain);
           },
           onSafePreSendFail: () => {
+            confirmationClosed = true;
+            if (duplicateDestinationGuard) {
+              uncertain();
+              return;
+            }
             void reservation.release().then(() => settle(undefined), uncertain);
           },
           onCancel: () => {
             confirmationClosed = true;
-            if (sendObserved) uncertain();
+            if (sendObserved || duplicateDestinationGuard) uncertain();
             else
               void reservation
                 .release()
@@ -643,6 +710,7 @@ export function useLoanRouterRun({
         stakingInfo,
         orderId: resp.orderId,
         reservation,
+        source,
       });
       if (!txid) return false;
       const outcome = await waitForFinal(plan, txid, signal);
@@ -714,6 +782,7 @@ export function useLoanRouterRun({
         stakingInfo,
         orderId: resp.orderId,
         reservation,
+        source: plan.fundingSource,
       });
       if (!txid) {
         return 'rejected';
@@ -1122,6 +1191,7 @@ export function useLoanRouterRun({
       const existingBorrow = await refreshEarnFunding(
         loanOperationKey(plan, 'borrow'),
       );
+      await assertLoanAccount(plan);
       if (existingBorrow?.status === 'funded') {
         await restoreBorrow(plan, existingBorrow);
         return;
@@ -1130,7 +1200,25 @@ export function useLoanRouterRun({
         step: 'approval' | 'supply' | 'delegation' | 'borrow',
       ) => {
         const key = loanOperationKey(plan, step);
-        const record = await refreshEarnFunding(key);
+        let record = await refreshEarnFunding(key);
+        await assertLoanAccount(plan);
+        if (record?.status === 'unknown' && record.destinationRecovery) {
+          const recovery = record.destinationRecovery;
+          if (
+            recovery.accountId !== plan.networkAccountId ||
+            recovery.networkId !== plan.route.market.networkId ||
+            !isTaskAccountAddress(
+              {
+                accountAddress: plan.accountAddress,
+                networkId: recovery.networkId,
+              },
+              recovery.accountAddress,
+            )
+          )
+            return;
+          record = (await recoverEarnFundingDestination(key)) ?? undefined;
+          await assertLoanAccount(plan);
+        }
         if (record?.status !== 'submitted') return;
         const outcome = await waitForFinal(
           plan,
@@ -1159,6 +1247,7 @@ export function useLoanRouterRun({
           route: plan.route,
           networkAccountId: plan.networkAccountId,
         });
+        await assertLoanAccount(plan);
         if (
           hasLoanSupplySettled({
             before: record.positionBefore,
@@ -1204,6 +1293,7 @@ export function useLoanRouterRun({
       phase !== 'idle' ||
       startingRef.current ||
       closingSupplyRef.current ||
+      supplyFunding?.status !== 'funded' ||
       approvalFunding ||
       delegationFunding ||
       borrowFunding
@@ -1215,12 +1305,13 @@ export function useLoanRouterRun({
     const isCurrent = scope.capture();
     const plan = { ...ownerPlan, isCurrent };
     const key = loanOperationKey(plan, 'supply');
+    const txId = supplyFunding.txId;
     try {
       await assertLoanAccount(plan);
       let current = await refreshEarnFunding(key);
       await assertLoanAccount(plan);
-      if (current?.status !== 'funded') throw LOAN_UNKNOWN;
-      const txId = current.txId;
+      if (current?.status !== 'funded' || current.txId !== txId)
+        throw LOAN_UNKNOWN;
       if (current.source) {
         await completeEarnFunding(key, txId, { keepDestination: true });
         await assertLoanAccount(plan);
@@ -1255,6 +1346,7 @@ export function useLoanRouterRun({
     phase,
     scope,
     showError,
+    supplyFunding,
   ]);
 
   const reset = useCallback(() => {
@@ -1274,7 +1366,9 @@ export function useLoanRouterRun({
     canReconcile:
       (phase === 'landing' && borrowFunding?.status === 'funded') ||
       [approvalFunding, supplyFunding, delegationFunding, borrowFunding].some(
-        (item) => item?.status === 'submitted',
+        (item) =>
+          item?.status === 'submitted' ||
+          (item?.status === 'unknown' && Boolean(item.destinationRecovery)),
       ),
     isRechecking,
     isClosingSupply,

@@ -368,12 +368,15 @@ export function useLoanRouterFacts({ routes }: { routes: ILoanRoute[] }) {
     scope: string;
     byRoute: Map<string, ILoanRouteFacts>;
   }>({ scope, byRoute: new Map() });
+  const requestRevisionRef = useRef(0);
   if (lastRef.current.scope !== scope) {
     lastRef.current = { scope, byRoute: new Map() };
   }
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
+      requestRevisionRef.current += 1;
+      const requestRevision = requestRevisionRef.current;
       const reads = createLoanReads();
       const entries = await Promise.all(
         routes.map(
@@ -390,7 +393,7 @@ export function useLoanRouterFacts({ routes }: { routes: ILoanRoute[] }) {
         if (facts) byRoute.set(key, facts);
         else failedRoutes.add(key);
       });
-      return { scope, routesKey, byRoute, failedRoutes };
+      return { scope, routesKey, byRoute, failedRoutes, requestRevision };
     },
     // routesKey stands in for the routes, rebuilt on every market poll
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -432,6 +435,11 @@ export function useLoanRouterFacts({ routes }: { routes: ILoanRoute[] }) {
       result.failedRoutes.size,
     ),
     isLoading: Boolean(isLoading),
+    factsRevision:
+      result?.scope === scope && result.routesKey === routesKey
+        ? result.requestRevision
+        : 0,
+    nextFactsRevision: () => requestRevisionRef.current + 1,
     refresh: run,
   };
 }
