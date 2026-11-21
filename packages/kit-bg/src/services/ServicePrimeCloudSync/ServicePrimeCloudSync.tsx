@@ -9,7 +9,10 @@ import {
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import {
+  endpointsMap,
+  getEndpointByServiceName,
+} from '@onekeyhq/shared/src/config/endpointsMap';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
@@ -49,6 +52,7 @@ import timerUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -2716,6 +2720,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     isCurrent,
     onWalletNameHistoryDeferred,
     deferPushBatchLastSyncTime = false,
+    skipLastSyncTime = false,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
@@ -2724,6 +2729,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     deferPushBatchLastSyncTime?: boolean;
+    skipLastSyncTime?: boolean;
   }) {
     const pushGeneration = this.publicAccountSnapshotImportGeneration;
     const keyGeneration = deferPushBatchLastSyncTime
@@ -2784,6 +2790,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       captureFreshWalletAvatar: !!isCurrent && shouldSyncToScene,
       onWalletNameHistoryDeferred,
       pushBatchIsCurrent,
+      skipLastSyncTime,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2801,6 +2808,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     serverPwdHash,
     isCurrent,
+    skipLastSyncTime = false,
   }: {
     deletedItemIds: string[];
     requestItems: IDBCloudSyncItem[];
@@ -2808,13 +2816,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     serverPwdHash: string;
     isCurrent?: () => boolean;
+    skipLastSyncTime?: boolean;
   }) {
     // A bare deletion ACK only applies to the version sent in that request.
     // Preserve that version and compare it atomically inside the DB write.
     const deletedIds = new Set(deletedItemIds);
     const items = requestItems.filter((item) => deletedIds.has(item.id));
 
-    await this.updateLocalItemsByServer({
+    return this.updateLocalItemsByServer({
       localItems: items.filter(Boolean).map((item) => {
         const newItem: IDBCloudSyncItem = {
           ...item,
@@ -2829,6 +2838,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       syncCredential,
       shouldSyncToScene,
       isCurrent,
+      skipLastSyncTime,
     });
   }
 
@@ -2841,6 +2851,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     captureFreshWalletAvatar = false,
     onWalletNameHistoryDeferred,
     pushBatchIsCurrent,
+    skipLastSyncTime = false,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
@@ -2850,6 +2861,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     captureFreshWalletAvatar?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     pushBatchIsCurrent?: () => boolean;
+    skipLastSyncTime?: boolean;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -3124,6 +3136,53 @@ class ServicePrimeCloudSync extends ServiceBase {
           expectedItems: cleanupSources,
         });
       }
+      if (skipLastSyncTime) {
+        // Only this caller owns the timestamp. A live Wallet additionally
+        // needs the existing durable exact scene ACK, not just downloaded
+        // ciphertext: decrypt/target/scene skips may never invoke the observer.
+        const incomingById = new Map(localItems.map((item) => [item.id, item]));
+        const matchesExact = (
+          row: IDBCloudSyncItem,
+          incoming?: IDBCloudSyncItem,
+        ) =>
+          !!activePwdHash &&
+          !!incoming &&
+          row.pwdHash === activePwdHash &&
+          incoming.pwdHash === activePwdHash &&
+          row.serverUploaded &&
+          !!(row.data || row.isDeleted) &&
+          row.data === incoming.data &&
+          row.dataTime === incoming.dataTime &&
+          row.dataType === incoming.dataType &&
+          row.isDeleted === incoming.isDeleted;
+        const matched = cleanupSources.filter((row) =>
+          matchesExact(row, incomingById.get(row.id)),
+        );
+        const walletIds: string[] = [];
+        for (const row of matched) {
+          if (row.dataType !== EPrimeCloudSyncDataType.Wallet || row.isDeleted)
+            return true;
+          walletIds.push(row.id);
+        }
+        if (!walletIds.length) return false;
+        try {
+          const receipt = await resolveBeforeTimeout(
+            localDb.getRecordsByIds({
+              name: ELocalDBStoreNames.CloudSyncItem,
+              ids: walletIds,
+            }),
+            1500,
+          );
+          return !!receipt?.records.some(
+            (row) =>
+              row?.localSceneUpdated &&
+              matchesExact(row, incomingById.get(row.id)),
+          );
+        } catch {
+          // A read failure does not undo the response, but can't prove success.
+          return false;
+        }
+      }
       if (pushBatchIsCurrent) {
         if (
           pushBatchIsCurrent() &&
@@ -3142,7 +3201,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private async hasDurableDeferredWalletName(
     deferredWalletNames: Map<string, IDBCloudSyncItem>,
-    pushScope?: {
+    scope?: {
       syncCredential: ICloudSyncCredential;
       isCurrent: () => boolean;
     },
@@ -3184,7 +3243,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           );
           if (
             isVersionNewer &&
-            pushScope &&
+            scope &&
             current.serverUploaded === true &&
             current.localSceneUpdated === false &&
             !current.isDeleted &&
@@ -3193,13 +3252,12 @@ class ServicePrimeCloudSync extends ServiceBase {
             newerPending.push(current);
           return !isVersionNewer;
         });
-      if (stillDeferred || !pushScope || !newerPending.length)
-        return stillDeferred;
+      if (stillDeferred || !scope || !newerPending.length) return stillDeferred;
       // Server storage alone does not prove the new ciphertext is usable
-      // Wallet data for this selected source and target. Only WS proves it
-      // here; full reconciliation keeps its existing supersession rules.
+      // Wallet data for this selected source and target. Scoped callers can
+      // prove it here; full reconciliation keeps its supersession rules.
       let expired = false;
-      const isProbeCurrent = () => !expired && pushScope.isCurrent();
+      const isProbeCurrent = () => !expired && scope.isCurrent();
       try {
         const verified = await resolveBeforeTimeout(
           (async () => {
@@ -3210,7 +3268,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                 const { rawDataJson } =
                   await cloudSyncItemBuilder.decryptSyncItem({
                     item: { ...item },
-                    syncCredential: pushScope.syncCredential,
+                    syncCredential: scope.syncCredential,
                   });
                 if (
                   !isProbeCurrent() ||
@@ -4513,6 +4571,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         );
     };
     const requestOptions = { signal: controller.signal, timeout: 10_000 };
+    let stopStampScopeObservation: (() => void) | undefined;
+    let stampScopeChanged = false;
+    const stampIsCurrent = () => !stampScopeChanged && isCurrent();
     try {
       guard();
       if (!(await this.isCloudSyncIsAvailable())) return;
@@ -4525,6 +4586,28 @@ class ServicePrimeCloudSync extends ServiceBase {
       const assertSelectedKey = () =>
         this.assertSyncCredentialUnchanged(expectedCredential);
       await assertSelectedKey();
+      const ownsLastSyncTime = !isFlush && !isFullDBChecking;
+      const readStampScope = () =>
+        resolveBeforeTimeout(
+          Promise.all([
+            this.getActiveSyncMode(),
+            getEndpointByServiceName(EServiceEndpointEnum.Prime),
+          ]).catch(() => undefined),
+          250,
+        );
+      if (ownsLastSyncTime) {
+        try {
+          // Endpoint settings can leave and return to the same value during
+          // a request. Invalidate only this timestamp, never the data path.
+          stopStampScopeObservation = devSettingsPersistAtom.sub(() => {
+            stampScopeChanged = true;
+          });
+        } catch {
+          stampScopeChanged = true;
+        }
+      }
+      const stampScope = ownsLastSyncTime ? await readStampScope() : undefined;
+      guard();
       const checkRequestItems = localItems.map((item) => ({ ...item }));
       const serverStatus = await this.checkServerStatusWithRequestOptions(
         {
@@ -4538,6 +4621,22 @@ class ServicePrimeCloudSync extends ServiceBase {
       await assertSelectedKey();
       guard();
 
+      const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
+      const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
+      const observeDeferredWalletName: IWalletNameDeferredObserver = (item) => {
+        if (
+          isCurrent() &&
+          item.serverUploaded &&
+          item.data &&
+          !item.isDeleted &&
+          !item.localSceneUpdated &&
+          item.pwdHash === spaceId
+        )
+          deferredWalletNames.set(item.id, item);
+      };
+      let completedWork = false;
+      let heldOutgoing = false;
+      let outboundSettled = true;
       let uploadIncomplete = false;
       if (serverStatus.obsoleted.length || isFlush) {
         const itemsToUpload = localItems.filter((item) =>
@@ -4552,6 +4651,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               signal: controller.signal,
               isCurrent,
             });
+        heldOutgoing = outgoing.length < itemsToUpload.length;
         const upload =
           outgoing.length || outgoing.length === itemsToUpload.length
             ? await this.uploadItemsWithRequestOptions(
@@ -4564,39 +4664,58 @@ class ServicePrimeCloudSync extends ServiceBase {
                   noDebounceUpload,
                 },
                 requestOptions,
-                outgoing.length < itemsToUpload.length,
+                ownsLastSyncTime || heldOutgoing,
               )
             : undefined;
         await assertSelectedKey();
         guard();
-        uploadIncomplete =
-          !isFlush &&
-          (upload?.created ?? 0) + (upload?.updated ?? 0) < outgoing.length;
+        const acknowledged = (upload?.created ?? 0) + (upload?.updated ?? 0);
+        uploadIncomplete = !isFlush && acknowledged < outgoing.length;
+        if (outgoing.length) {
+          outboundSettled =
+            acknowledged === outgoing.length &&
+            Number.isSafeInteger(upload?.created) &&
+            Number.isSafeInteger(upload?.updated) &&
+            (upload?.created ?? -1) >= 0 &&
+            (upload?.updated ?? -1) >= 0;
+          completedWork = outboundSettled;
+        }
       }
 
       for (const serverItems of [serverStatus.diff, serverStatus.updated]) {
         guard();
         await assertSelectedKey();
-        if (serverItems.length)
-          await this.saveServerSyncItemsToLocal({
+        if (serverItems.length) {
+          const applied = await this.saveServerSyncItemsToLocal({
             serverItems,
             shouldSyncToScene: true,
             syncCredential,
             serverPwdHash: serverStatus.pwdHash,
             isCurrent,
+            ...(ownsLastSyncTime
+              ? {
+                  skipLastSyncTime: true,
+                  onWalletNameHistoryDeferred: observeDeferredWalletName,
+                }
+              : {}),
           });
+          completedWork ||= applied === true;
+        }
       }
       guard();
       await assertSelectedKey();
-      if (serverStatus.deleted.length)
-        await this.saveServerDeletedItemsToLocal({
+      if (serverStatus.deleted.length) {
+        const applied = await this.saveServerDeletedItemsToLocal({
           deletedItemIds: serverStatus.deleted,
           requestItems: checkRequestItems,
           shouldSyncToScene: true,
           syncCredential,
           serverPwdHash: serverStatus.pwdHash,
           isCurrent,
+          ...(ownsLastSyncTime ? { skipLastSyncTime: true } : {}),
         });
+        completedWork ||= applied === true;
+      }
       guard();
       if (uploadIncomplete) {
         throw new OneKeyLocalError({
@@ -4604,7 +4723,37 @@ class ServicePrimeCloudSync extends ServiceBase {
           autoToast: false,
         });
       }
+      if (
+        ownsLastSyncTime &&
+        completedWork &&
+        outboundSettled &&
+        !heldOutgoing &&
+        !!syncCredential &&
+        !!spaceId &&
+        spaceId === serverStatus.pwdHash &&
+        stampScope &&
+        stampScope[0] !== ECloudSyncMode.None &&
+        !(await this.hasDurableDeferredWalletName(deferredWalletNames, {
+          syncCredential,
+          isCurrent: stampIsCurrent,
+        })) &&
+        stampIsCurrent()
+      ) {
+        const currentStampScope = await readStampScope();
+        if (
+          currentStampScope?.[0] !== stampScope[0] ||
+          currentStampScope[1] !== stampScope[1]
+        )
+          return;
+        await assertSelectedKey();
+        guard();
+        await this.updateLastSyncTimeInternal({
+          syncMode: stampScope[0],
+          isCurrent: stampIsCurrent,
+        });
+      }
     } finally {
+      stopStampScopeObservation?.();
       controller.abort();
       this.cloudSyncItemAbortControllers.delete(controller);
     }

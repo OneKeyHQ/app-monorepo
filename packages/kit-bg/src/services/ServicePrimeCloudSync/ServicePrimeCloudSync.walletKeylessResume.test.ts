@@ -4,6 +4,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -16,7 +17,10 @@ import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { SimpleDbEntityChangeHistory } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import simpleDb from '../../dbs/simple/simpleDb';
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  primeCloudSyncPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceAccount from '../ServiceAccount/ServiceAccount';
 import ServiceKeylessCloudSync from '../ServiceKeylessCloudSync/ServiceKeylessCloudSync';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
@@ -83,6 +87,20 @@ it.each([
   'canonical-scene-read-immediate-recovers',
   'canonical-scene-read-cancelled',
   'canonical-scene-read-missing',
+  'incremental-history-deferred',
+  'incremental-history-retained',
+  'incremental-history-mixed',
+  'incremental-history-short-receipt',
+  'incremental-history-cancelled',
+  'incremental-history-node-changed',
+  'incremental-history-upload-only',
+  'incremental-history-healthy-mixed',
+  'incremental-history-invalid-envelope',
+  'incremental-history-unavailable-scene',
+  'incremental-history-node-aba',
+  'incremental-history-successor-deferred',
+  'incremental-history-successor-applied',
+  'incremental-history-successor-unreadable',
   'push-name-history-deferred',
   'push-name-history-retained',
   'push-name-history-source-changed',
@@ -95,6 +113,7 @@ it.each([
     const historyFails = scenario.startsWith('history-failure');
     const canonicalSceneRead = scenario.startsWith('canonical-scene-read');
     const pushNameHistory = scenario.startsWith('push-name-history');
+    const incrementalNameHistory = scenario.startsWith('incremental-history');
     const restart = scenario === 'history-failure-restart';
     const finalReadSkipped = scenario === 'history-failure-final-read-skipped';
     const finalInspectionUnavailable =
@@ -284,7 +303,7 @@ it.each([
       .mockResolvedValue(undefined);
     const replay = jest.spyOn(prime, 'syncPendingItemsToScene');
 
-    if (canonicalSceneRead || pushNameHistory) {
+    if (canonicalSceneRead || pushNameHistory || incrementalNameHistory) {
       const remoteName = 'Cloud Wallet name';
       const pending = {
         ...(await makeItem(remoteName, 'cat', baseTime + 100)),
@@ -331,7 +350,7 @@ it.each([
             name: ELocalDBStoreNames.Wallet,
             records: [sibling],
           });
-          if (!immediateRecovers)
+          if (!immediateRecovers && !incrementalNameHistory)
             await localDb.txUpdateRecords({
               tx,
               name: ELocalDBStoreNames.CloudSyncItem,
@@ -346,6 +365,195 @@ it.each([
         },
         { skipCloudCredentialWarmup: true },
       );
+      if (incrementalNameHistory) {
+        const retained =
+          scenario === 'incremental-history-retained' ||
+          scenario === 'incremental-history-healthy-mixed';
+        const successorCase = scenario.startsWith(
+          'incremental-history-successor',
+        );
+        const successorApplies =
+          scenario === 'incremental-history-successor-applied';
+        const successorUnreadable =
+          scenario === 'incremental-history-successor-unreadable';
+        const successorName = 'Newer pushed Wallet name';
+        const hasSibling =
+          scenario === 'incremental-history-mixed' ||
+          scenario === 'incremental-history-healthy-mixed' ||
+          successorCase;
+        const uploadOnly = scenario === 'incremental-history-upload-only';
+        const shortReceipt = scenario === 'incremental-history-short-receipt';
+        const scopeChanged = scenario === 'incremental-history-cancelled';
+        const nodeChanged = scenario === 'incremental-history-node-changed';
+        const nodeAba = scenario === 'incremental-history-node-aba';
+        const invalidEnvelope =
+          scenario === 'incremental-history-invalid-envelope';
+        const unavailableScene =
+          scenario === 'incremental-history-unavailable-scene';
+        let devSettingsChanged = () => {};
+        const unsubscribe = jest.fn();
+        jest
+          .spyOn(devSettingsPersistAtom, 'sub')
+          .mockImplementation((notify) => {
+            devSettingsChanged = notify;
+            return unsubscribe;
+          });
+        jest
+          .spyOn(devSettingsPersistAtom, 'get')
+          .mockResolvedValue({ enabled: false });
+        const pickedEndpoint = jest
+          .spyOn(requestHelper, 'getDevSettingsPersistAtom')
+          .mockResolvedValue({ enabled: false, settings: {} });
+        let primaryHistoryChecks = 0;
+        jest
+          .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+          .mockImplementation(async ({ walletId }) => {
+            if (scopeChanged) await prime.cancelPublicAccountSnapshotImport();
+            if (nodeChanged || nodeAba) {
+              pickedEndpoint.mockResolvedValue({
+                enabled: true,
+                settings: { enableTestEndpoint: true },
+              });
+              devSettingsChanged();
+              if (nodeAba) {
+                pickedEndpoint.mockResolvedValue({
+                  enabled: false,
+                  settings: {},
+                });
+                devSettingsChanged();
+              }
+            }
+            if (successorCase) {
+              if (walletId !== wallet.id) return true;
+              primaryHistoryChecks += 1;
+              return successorApplies && primaryHistoryChecks > 1;
+            }
+            return retained || shortReceipt || nodeChanged || nodeAba;
+          });
+        const pack = (item: IDBCloudSyncItem) => {
+          const value = prime.convertLocalItemToServerItem({ localItem: item });
+          if (!value)
+            throw new OneKeyLocalError('Missing incremental response fixture');
+          return value;
+        };
+        const outgoing: IDBCloudSyncItem = {
+          ...pending,
+          id: 'synthetic-unrelated-outgoing',
+          dataType: EPrimeCloudSyncDataType.Account,
+          serverUploaded: false,
+          localSceneUpdated: true,
+        };
+        jest
+          .spyOn(prime, 'getCloudSyncDataTime')
+          .mockResolvedValue(baseTime + 500);
+        const sent = jest
+          .spyOn(prime, 'apiUploadItemsKeyless')
+          .mockResolvedValue({
+            created: shortReceipt ? 0 : 1,
+            updated: 0,
+            nonce: 1,
+          });
+        const expectsUpload = hasSibling || shortReceipt || uploadOnly;
+        const downloaded = invalidEnvelope
+          ? { ...pending, data: 'unreadable-legacy-ciphertext' }
+          : pending;
+        if (unavailableScene)
+          jest
+            .spyOn(prime, 'syncToSceneWithLocalSyncItems')
+            .mockResolvedValue(undefined);
+        let pushedSuccessor: IDBCloudSyncItem | undefined;
+        if (successorCase) {
+          const newer = await makeItem(successorName, 'cat', baseTime + 300);
+          const successor = successorUnreadable
+            ? { ...newer, data: 'unreadable-newer-wallet-ciphertext' }
+            : newer;
+          const save = prime.saveServerSyncItemsToLocal.bind(prime);
+          jest
+            .spyOn(prime, 'saveServerSyncItemsToLocal')
+            .mockImplementationOnce(async (options) => {
+              const result = await save(options);
+              expect(
+                await localDb.getSyncItem({ id: pending.id }),
+              ).toMatchObject({
+                data: pending.data,
+                localSceneUpdated: false,
+              });
+              await save({
+                serverItems: [pack(successor)],
+                shouldSyncToScene: true,
+                syncCredential: credential,
+                serverPwdHash: scope,
+                deferPushBatchLastSyncTime: true,
+              });
+              pushedSuccessor = await localDb.getSyncItem({ id: pending.id });
+              // Isolate the still-running incremental operation's timestamp.
+              config = { ...config, lastSyncTimeKeyless: undefined };
+              return result;
+            });
+        }
+        check.mockResolvedValueOnce({
+          diff: uploadOnly ? [] : [pack(downloaded)],
+          updated: hasSibling ? [pack(siblingPending)] : [],
+          deleted: [],
+          obsoleted: expectsUpload ? [outgoing.id] : [],
+          pwdHash: scope,
+          serverTime: Date.now(),
+        });
+        const work = prime.startServerSyncFlowForItems({
+          localItems: expectsUpload ? [outgoing] : [],
+          noDebounceUpload: true,
+          expectedSyncCredential: credential,
+        });
+        if (scopeChanged)
+          await expect(work).rejects.toThrow('Cloud sync was cancelled');
+        else if (shortReceipt)
+          await expect(work).rejects.toThrow('only partially acknowledged');
+        else await work;
+        expect(check).toHaveBeenCalledTimes(1);
+        expect(unsubscribe).toHaveBeenCalledTimes(1);
+        expect(sent).toHaveBeenCalledTimes(expectsUpload ? 1 : 0);
+        const applied = retained || shortReceipt || nodeChanged || nodeAba;
+        if (successorCase) {
+          expect(pushedSuccessor).toMatchObject({
+            serverUploaded: true,
+            localSceneUpdated: successorApplies,
+            dataTime: baseTime + 300,
+          });
+          expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+            ...pushedSuccessor,
+          });
+          expect(await readWallet()).toMatchObject({
+            name: successorApplies ? successorName : wallet.name,
+          });
+        } else {
+          expect(await readWallet()).toMatchObject({
+            name: applied ? remoteName : wallet.name,
+          });
+          expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+            data: uploadOnly ? acknowledged.data : downloaded.data,
+            localSceneUpdated: applied,
+          });
+        }
+        if (hasSibling) {
+          expect(
+            await localDb.getWallet({
+              walletId: sibling.id,
+              withoutRefill: true,
+            }),
+          ).toMatchObject({
+            avatar: '{"img":"cat"}',
+          });
+          expect(
+            await localDb.getSyncItem({ id: siblingPending.id }),
+          ).toMatchObject({
+            localSceneUpdated: true,
+          });
+        }
+        if (retained || uploadOnly || successorApplies || successorUnreadable)
+          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+        else expect(config.lastSyncTimeKeyless).toBeUndefined();
+        return;
+      }
       if (pushNameHistory) {
         const retained = scenario === 'push-name-history-retained';
         const sourceChanged = scenario === 'push-name-history-source-changed';
@@ -414,7 +622,7 @@ it.each([
             reachedNewerScene = resolve;
           });
           let singleWalletReads = 0;
-          let newerWork: Promise<void> | undefined;
+          let newerWork: ReturnType<typeof push> | undefined;
           jest
             .spyOn(localDb, 'getRecordsByIds')
             .mockImplementation(async (options) => {
