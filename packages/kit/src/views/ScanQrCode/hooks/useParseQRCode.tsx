@@ -71,6 +71,7 @@ export type IParseQRCodeRuntimeDeps = {
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
   canApplyScanResult?: () => boolean;
+  waitForPhotoPicker?: () => Promise<void> | undefined;
   scanSignal?: AbortSignal;
   holdForChildScan?: () => () => void;
   onResultWillClose?: () => void;
@@ -85,6 +86,7 @@ export async function parseQRCodeWithDeps(
     intl,
     scanRequestId,
     canApplyScanResult,
+    waitForPhotoPicker,
     scanSignal,
     holdForChildScan,
     onResultWillClose,
@@ -157,6 +159,8 @@ export async function parseQRCodeWithDeps(
   try {
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
   } catch (error) {
+    const pickerDone = waitForPhotoPicker?.();
+    if (pickerDone) await pickerDone;
     ensureScanIsActive();
     if (isInvalidQrCodeError(error)) {
       if (isExpiredInvoiceScanError(error)) {
@@ -173,6 +177,8 @@ export async function parseQRCodeWithDeps(
     throw error;
   }
 
+  const pickerDone = waitForPhotoPicker?.();
+  if (pickerDone) await pickerDone;
   ensureScanIsActive();
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
@@ -533,6 +539,7 @@ const useParseQRCode = () => {
       lifecycle?: Pick<
         IParseQRCodeRuntimeDeps,
         | 'canApplyScanResult'
+        | 'waitForPhotoPicker'
         | 'scanSignal'
         | 'holdForChildScan'
         | 'onResultWillClose'

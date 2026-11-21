@@ -80,6 +80,7 @@ it('excludes a surrounding wrapper and adjacent sentence punctuation', () => {
   ).toBe('lnurlp://example.com/pay');
   expect(resolveReusableLightningRecipient(`请支付 ${LNURL}。`)).toBe(LNURL);
   expect(resolveReusableLightningRecipient(`请支付：${LNURL}。`)).toBe(LNURL);
+  expect(resolveReusableLightningRecipient(`Pay:${LNURL}`)).toBe(LNURL);
 });
 
 it.each([
@@ -124,6 +125,13 @@ it('uses explicit wrappers and checksum validation as recipient boundaries', () 
 it('preserves a wrapped link when only whitespace separates it from the closer', () => {
   const uri = 'lnurlp://example.com/pay';
   expect(resolveReusableLightningRecipient(`<${uri}\n\n>\nThanks`)).toBe(uri);
+});
+
+it('extracts a complete link followed by prose in the same parenthetical', () => {
+  const uri = 'lnurlp://example.com/pay?note=thanks!';
+  expect(resolveReusableLightningRecipient(`Pay (${uri} before Friday).`)).toBe(
+    uri,
+  );
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(

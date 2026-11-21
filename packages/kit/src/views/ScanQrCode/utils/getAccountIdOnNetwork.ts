@@ -17,6 +17,7 @@ const activeAddressCreationRequests = new Map<
     holdForChildScan?: () => () => void;
   }
 >();
+const scansCreatingAddress = new WeakSet<AbortSignal>();
 
 export function getAddressCreationRequestState(
   request?: IAddressCreationRequest,
@@ -86,7 +87,11 @@ export const getAccountIdOnNetwork = async ({
       let addressCreationRequest: IAddressCreationRequest | undefined;
       let detachScanAbort: (() => void) | undefined;
       if (canApplyScanResult) {
-        if (scanSignal?.aborted || !canApplyScanResult()) {
+        if (
+          scanSignal?.aborted ||
+          !canApplyScanResult() ||
+          (scanSignal && scansCreatingAddress.has(scanSignal))
+        ) {
           throw new OneKeyErrorScanQrCodeCancel();
         }
         addressCreationRequest = {
@@ -102,6 +107,7 @@ export const getAccountIdOnNetwork = async ({
           controller,
           holdForChildScan,
         });
+        if (scanSignal) scansCreatingAddress.add(scanSignal);
       }
       try {
         const newAccount =
@@ -124,6 +130,7 @@ export const getAccountIdOnNetwork = async ({
         detachScanAbort?.();
         if (addressCreationRequest) {
           activeAddressCreationRequests.delete(addressCreationRequest.id);
+          if (scanSignal) scansCreatingAddress.delete(scanSignal);
         }
       }
     }

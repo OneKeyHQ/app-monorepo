@@ -99,6 +99,7 @@ import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpSt
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import { usePrimeFeatureAccess } from '../../views/Prime/hooks/usePrimeFeatureAccess';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import { isExpiredInvoiceScanError } from '../../views/ScanQrCode/utils/isInvalidQrCodeError';
 import { logSettingCategoryOpened } from '../../views/Setting/pages/Tab/settingsAnalytics';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import {
@@ -249,17 +250,21 @@ function MoreActionContentHeader({
 
   const handleScan = useCallback(async () => {
     await closePopover?.();
-    await scanQrCode.start({
-      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoExecuteParsedAction: true,
-      account,
-      network,
-      tokens: {
-        data: tokens,
-        keys,
-        map,
-      },
-    });
+    await scanQrCode
+      .start({
+        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+        autoExecuteParsedAction: true,
+        account,
+        network,
+        tokens: {
+          data: tokens,
+          keys,
+          map,
+        },
+      })
+      .catch((error: unknown) => {
+        if (!isExpiredInvoiceScanError(error)) throw error;
+      });
   }, [closePopover, scanQrCode, account, network, tokens, keys, map]);
 
   const popupMenu = useMemo(() => {
@@ -1148,17 +1153,21 @@ function MoreActionGeneralGrid() {
   const { tokens, keys, map } = useHomeTokenListSnapshot();
 
   const handleScan = useCallback(async () => {
-    await scanQrCode.start({
-      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoExecuteParsedAction: true,
-      account,
-      network,
-      tokens: {
-        data: tokens,
-        keys,
-        map,
-      },
-    });
+    await scanQrCode
+      .start({
+        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+        autoExecuteParsedAction: true,
+        account,
+        network,
+        tokens: {
+          data: tokens,
+          keys,
+          map,
+        },
+      })
+      .catch((error: unknown) => {
+        if (!isExpiredInvoiceScanError(error)) throw error;
+      });
   }, [scanQrCode, account, network, tokens, keys, map]);
 
   const handlePrime = useCallback(() => {

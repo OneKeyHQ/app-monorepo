@@ -54,6 +54,7 @@ export default function useScanQrCode() {
                 value,
                 popNavigation,
                 canApplyScanResult,
+                waitForPhotoPicker,
                 scanSignal,
                 holdForChildScan,
                 isScanOpen,
@@ -74,6 +75,7 @@ export default function useScanQrCode() {
                       },
                       {
                         canApplyScanResult,
+                        waitForPhotoPicker,
                         scanSignal,
                         holdForChildScan,
                         onResultWillClose,

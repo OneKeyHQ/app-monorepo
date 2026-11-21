@@ -58,6 +58,12 @@ type IScanNavigationState = {
   routes: readonly { key?: string; state?: IScanNavigationState }[];
 };
 
+type IPhotoValidation = {
+  signal: AbortSignal | undefined;
+  generation: number;
+  applying: boolean;
+};
+
 function hasRouteKey(
   state: IScanNavigationState | undefined,
   key: string,
@@ -247,6 +253,8 @@ export default function ScanQrCodeModal() {
   const isFocused = useRef(false);
   const scanGeneration = useRef(0);
   const photoAttemptId = useRef(0);
+  const photoPickerDone = useRef<Promise<void> | undefined>(undefined);
+  const photoValidation = useRef<IPhotoValidation | null>(null);
   const handoffOwner = useRef<symbol | undefined>(undefined);
   const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
   const route =
@@ -319,6 +327,7 @@ export default function ScanQrCodeModal() {
       value: string,
       signal = scanScope.current?.signal,
       generation = scanGeneration.current,
+      validation?: IPhotoValidation,
     ) => {
       const resultOwner = Symbol('scan result');
       let resultGeneration = generation;
@@ -359,11 +368,18 @@ export default function ScanQrCodeModal() {
           }
         };
       };
+      const waitForPhotoPicker = validation
+        ? () => {
+            validation.applying = true;
+            return photoPickerDone.current;
+          }
+        : undefined;
       try {
         return await routeCallback({
           value,
           popNavigation: true,
           canApplyScanResult,
+          waitForPhotoPicker,
           scanSignal: signal,
           holdForChildScan,
           isScanOpen,
@@ -385,11 +401,6 @@ export default function ScanQrCodeModal() {
     navigation.popStack();
   }, [cancelScan, isScanOpen, navigation]);
 
-  const isPickingImage = useRef(false);
-  const photoValidation = useRef<{
-    signal: AbortSignal | undefined;
-    generation: number;
-  } | null>(null);
   const submitPhoto = useCallback(
     async function submitPhoto(
       data: string,
@@ -403,11 +414,11 @@ export default function ScanQrCodeModal() {
         isScanActive(signal);
       if (scanGeneration.current !== generation || !canRetry()) return;
 
-      const validation = { signal, generation };
+      const validation = { signal, generation, applying: false };
       photoValidation.current = validation;
       let retry: boolean | undefined;
       try {
-        ({ retry } = await callback(data, signal, generation));
+        ({ retry } = await callback(data, signal, generation, validation));
       } finally {
         if (photoValidation.current === validation) {
           photoValidation.current = null;
@@ -423,7 +434,7 @@ export default function ScanQrCodeModal() {
         actions: {
           label: intl.formatMessage({ id: ETranslations.global_try_again }),
           onPress: async () => {
-            if (isPickingImage.current || !canRetry()) return;
+            if (photoPickerDone.current || !canRetry()) return;
             scanGeneration.current += 1;
             photoAttemptId.current += 1;
             Toast.dismiss(photoRetryToastId);
@@ -442,22 +453,36 @@ export default function ScanQrCodeModal() {
 
   const pickImage = useCallback(async () => {
     const signal = scanScope.current?.signal;
+    const validation = photoValidation.current;
+    const hasPendingPhoto =
+      validation?.generation === scanGeneration.current &&
+      validation.signal === signal;
     if (
-      isPickingImage.current ||
+      photoPickerDone.current ||
       handoffOwner.current ||
+      (hasPendingPhoto && validation.applying) ||
       !isScanActive(signal)
     ) {
       return;
     }
-    isPickingImage.current = true;
-    scanGeneration.current += 1;
-    const generation = scanGeneration.current;
+    // Opening the picker invalidates a camera frame. A pending photo only
+    // loses ownership once the user chooses a replacement.
+    if (!hasPendingPhoto) scanGeneration.current += 1;
+    let generation = scanGeneration.current;
+    let finishPicker: () => void = () => {};
+    photoPickerDone.current = new Promise<void>((resolve) => {
+      finishPicker = resolve;
+    });
     let data: string | null = null;
     let attemptId: number;
     try {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
 
+      if (hasPendingPhoto) {
+        scanGeneration.current += 1;
+        generation = scanGeneration.current;
+      }
       photoAttemptId.current += 1;
       attemptId = photoAttemptId.current;
       Toast.dismiss(photoRetryToastId);
@@ -470,7 +495,8 @@ export default function ScanQrCodeModal() {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
     } finally {
-      isPickingImage.current = false;
+      photoPickerDone.current = undefined;
+      finishPicker();
     }
     if (data) {
       await submitPhoto(data, signal, attemptId, generation);
@@ -489,7 +515,7 @@ export default function ScanQrCodeModal() {
       if (!value) return {};
       const validation = photoValidation.current;
       if (
-        isPickingImage.current ||
+        photoPickerDone.current ||
         handoffOwner.current ||
         (validation?.generation === scanGeneration.current &&
           validation.signal === scanScope.current?.signal)

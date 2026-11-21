@@ -24,6 +24,7 @@ const mockRouteCallback = jest.fn(
   async (_params: {
     value: string;
     canApplyScanResult: () => boolean;
+    waitForPhotoPicker?: () => Promise<void> | undefined;
     isScanOpen: () => boolean;
     scanSignal?: AbortSignal;
     holdForChildScan?: () => () => void;
@@ -654,6 +655,52 @@ test('cancelling the picker preserves the previous photo retry once', async () =
     'invoice from photo',
     'invoice from photo',
   ]);
+});
+
+test('cancelling a replacement picker resumes the original photo validation', async () => {
+  let cancelPicker: () => void = () => {};
+  const picker = jest
+    .mocked(PhotoLibrary.pickImage)
+    .mockClear()
+    .mockResolvedValueOnce({ canceled: false, uri: 'test://pending-photo' })
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        cancelPicker = () => resolve({ canceled: true });
+      }),
+    );
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('pending invoice');
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
+  let finishValidation: () => void = () => {};
+  const validating = new Promise<void>((resolve) => {
+    finishValidation = resolve;
+  });
+  let applied: boolean | undefined;
+  mockRouteCallback.mockImplementationOnce(async (params) => {
+    await validating;
+    const pickerDone = params.waitForPhotoPicker?.();
+    if (pickerDone) await pickerDone;
+    applied = params.canApplyScanResult();
+    return {};
+  });
+  render(<ScanQrCodeModal />);
+
+  const button = screen.getByRole('button', { name: 'Pick image' });
+  fireEvent.click(button);
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  fireEvent.click(button);
+  expect(picker).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    finishValidation();
+    await validating;
+  });
+  const appliedBeforePickerClosed = applied;
+  await act(async () => {
+    cancelPicker();
+  });
+
+  expect(appliedBeforePickerClosed).toBeUndefined();
+  expect(applied).toBe(true);
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
 });
 
 test.each(['header close', 'system Back', 'focus loss'])(

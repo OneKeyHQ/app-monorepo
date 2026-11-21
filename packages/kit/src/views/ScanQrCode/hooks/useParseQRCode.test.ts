@@ -108,6 +108,63 @@ beforeEach(() => {
   });
 });
 
+it('gives one result per scan scope ownership of address creation until it settles', async () => {
+  const network = { id: 'lightning--0', impl: 'lightning' };
+  const scope = new AbortController();
+  const otherScope = new AbortController();
+  let signalAddressRequestStarted: () => void = () => {};
+  const addressRequestStarted = new Promise<void>((resolve) => {
+    signalAddressRequestStarted = resolve;
+  });
+  let finishAddressRequest: () => void = () => {};
+  const result = new Promise<undefined>((resolve) => {
+    finishAddressRequest = () => resolve(undefined);
+  });
+  mockCreateAddressIfNotExists.mockImplementationOnce(() => {
+    signalAddressRequestStarted();
+    return result;
+  });
+  function scan(address: string, scanScope: AbortController) {
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: { address, network },
+    });
+    return parseQRCodeWithDeps(
+      address,
+      {
+        popNavigation: false,
+        autoExecuteParsedAction: true,
+        account: {
+          id: 'hd-1--0',
+          indexedAccountId: 'hd-1--0',
+          impl: 'btc',
+        } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+      },
+      {
+        ...deps,
+        scanSignal: scanScope.signal,
+        canApplyScanResult: () => !scanScope.signal.aborted,
+      },
+    );
+  }
+
+  const first = scan('first invoice', scope);
+  await addressRequestStarted;
+  try {
+    await expect(scan('another invoice', scope)).rejects.toBeInstanceOf(
+      OneKeyErrorScanQrCodeCancel,
+    );
+    expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(1);
+    await scan('invoice from another scope', otherScope);
+    expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(2);
+  } finally {
+    finishAddressRequest();
+    await first;
+  }
+  await scan('invoice after cancellation', scope);
+  expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(3);
+});
+
 it.each([
   [EDeviceType.Pro2, false],
   [EDeviceType.Neo, false],

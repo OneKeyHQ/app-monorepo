@@ -130,7 +130,7 @@ function readReusableLightningRecipient(
   // Payment text can contain an LNURL as a separate token. Keep QR detection
   // strict so a scan cannot interpret arbitrary text as a payment.
   const candidates = address.matchAll(
-    /(^|[\s<("'：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
+    /(^|[\s<("':：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
   for (const match of candidates) {
     const [matchedText, opener, input] = match;
@@ -143,16 +143,21 @@ function readReusableLightningRecipient(
     if (findLnurl(candidate)) {
       if (LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
         const suffix = address.slice(match.index + matchedText.length);
+        const [sameLine, followingLine = ''] = suffix.split(
+          LNURL_LINE_BREAK,
+          2,
+        );
         if (closer) {
-          if (!suffix.trimStart().startsWith(closer)) {
+          const closesParentheticalOnSameLine =
+            opener === '(' && sameLine.includes(closer);
+          if (
+            !closesParentheticalOnSameLine &&
+            !suffix.trimStart().startsWith(closer)
+          ) {
             return { kind: 'ambiguous' };
           }
         } else {
           // A blank line can separate paragraphs outside an explicit wrapper.
-          const [sameLine, followingLine = ''] = suffix.split(
-            LNURL_LINE_BREAK,
-            2,
-          );
           if (!sameLine.trim() && followingLine.trim()) {
             return { kind: 'ambiguous' };
           }
