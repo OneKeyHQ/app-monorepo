@@ -153,6 +153,44 @@ describe('hardware Cloud sync session', () => {
     );
   });
 
+  test.each([false, true])(
+    'revalidates one-shot Wallet upload at hardware dispatch before sending (%s)',
+    async (replaceEndpoint) => {
+      const c = fakeClient();
+      const original = 'https://prime.onekeycn.com';
+      c.client.defaults.baseURL = original;
+      c.post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+      const body = { localData: ['revalidated-wallet-row'] };
+      const finalGuard = jest.fn(() => body);
+      const prepareWalletRetry = jest.fn(async () => {
+        await Promise.resolve();
+        if (replaceEndpoint) c.client.defaults.baseURL = 'https://next.invalid';
+        return finalGuard;
+      });
+      const request = requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: session(),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        data: { localData: ['not-for-dispatch'] },
+        prepareWalletRetry,
+      });
+      if (replaceEndpoint) {
+        await expect(request).rejects.toThrow('retry cancelled');
+        expect(c.post).not.toHaveBeenCalled();
+        expect(finalGuard).not.toHaveBeenCalled();
+      } else {
+        await expect(request).resolves.toEqual({ created: 1, updated: 0 });
+        expect(finalGuard).toHaveBeenCalledTimes(1);
+        expect(c.post).toHaveBeenCalledWith(
+          '/prime/v1/sync/upload',
+          body,
+          expect.objectContaining({ baseURL: original }),
+        );
+      }
+    },
+  );
+
   test('selects the exact upload subset on the real hardware sender origin', async () => {
     const c = fakeClient();
     c.client.defaults.baseURL = 'https://prime.onekeycn.com';
@@ -266,6 +304,26 @@ describe('hardware Cloud sync session', () => {
         9 * MINUTE,
       );
       expect(second.headers.DPoP).not.toBe(first.headers.DPoP);
+    });
+
+    test('a guarded one-shot upload never retries a refused proof', async () => {
+      measuredClockOffsetMs = 10 * MINUTE;
+      const { client, post } = fakeClient();
+      post
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce(ok({ nonce: 3 }));
+      const prepare = jest.fn(async () => () => ({ localData: ['verified'] }));
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: session(),
+          method: 'POST',
+          urlPath: '/prime/v1/sync/upload',
+          prepareWalletRetry: prepare,
+        }),
+      ).rejects.toMatchObject({ code: 90_700 });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(prepare).toHaveBeenCalledTimes(1);
     });
 
     test('a refusal the clock does not explain is not resent', async () => {

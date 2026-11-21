@@ -43,6 +43,61 @@ async function expectSavedWithoutCloudWarmup(
   }
 }
 
+it('reads a Wallet and its pending encrypted row in one read-only account transaction', async () => {
+  const db = new LocalDbIndexed();
+  const wallet: IDBWallet = {
+    id: 'hd-wallet-retry-fixture',
+    name: 'Latest canonical name',
+    type: 'hd',
+    accounts: [],
+    nextIds: {},
+    backuped: true,
+    walletNo: 900,
+  };
+  const item: IDBCloudSyncItem = {
+    id: 'wallet-retry-wire-id',
+    pwdHash: 'hw-dek-test-current',
+    dataType: EPrimeCloudSyncDataType.Wallet,
+    data: 'test-encrypted-row',
+    dataTime: 1_750_000_000_000,
+    rawKey: '',
+    rawData: '',
+    isDeleted: false,
+    localSceneUpdated: true,
+    serverUploaded: false,
+  };
+  await db.withTransaction(
+    EIndexedDBBucketNames.account,
+    async (tx) => {
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        records: [wallet],
+      });
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        records: [item],
+      });
+    },
+    { skipCloudCredentialWarmup: true },
+  );
+  const transaction = jest.spyOn(db, 'withTransaction');
+  await expect(
+    db.readWalletNameUploadRetrySources({
+      walletIds: [wallet.id],
+      itemIds: [item.id],
+      deviceIds: [],
+    }),
+  ).resolves.toEqual({ wallets: [wallet], items: [item], devices: [] });
+  expect(transaction).toHaveBeenCalledTimes(1);
+  expect(transaction).toHaveBeenCalledWith(
+    EIndexedDBBucketNames.account,
+    expect.any(Function),
+    { readOnly: true, skipCloudCredentialWarmup: true },
+  );
+});
+
 it.each([
   [EHardwareVendor.ledger, true],
   [EHardwareVendor.trezor, true],

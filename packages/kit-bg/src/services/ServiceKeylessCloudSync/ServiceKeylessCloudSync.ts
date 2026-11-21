@@ -14,7 +14,7 @@ import {
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -1359,6 +1359,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return this.getClient(EServiceEndpointEnum.Prime);
   }
 
+  async getHardwareWalletRetryOrigin() {
+    return (await this.getHardwareSyncClient()).defaults.baseURL;
+  }
+
   private hardwareSessionRefresh:
     | Promise<IKeylessCloudSyncCredential>
     | undefined;
@@ -1874,6 +1878,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     retryAfterKeySwitch,
     requestOptions,
     filterUpload,
+    prepareWalletRetry,
   }: {
     credential: IKeylessCloudSyncCredential;
     urlPath: string;
@@ -1881,12 +1886,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // Uploads carry records encrypted with the old key, so they never retry.
     retryAfterKeySwitch?: boolean;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    prepareWalletRetry?: (
+      credential: IKeylessCloudSyncCredential,
+      baseURL: string | undefined,
+    ) => Promise<(() => ICloudSyncUploadPostData) | undefined>;
     filterUpload?: (
       baseURL: string | undefined,
       pwdHash: string,
     ) => ICloudSyncUploadPostData;
   }) {
-    const fresh = await this.getFreshHardwareCredential(credential);
+    // An optional detached retry must not refresh or hydrate a selected
+    // session as a side effect. Keep the normal request path unchanged.
+    const fresh = prepareWalletRetry
+      ? credential
+      : await this.getFreshHardwareCredential(credential);
     // Records built before a key switch must not go out under the new key:
     // the server would accept data nobody can decrypt.
     if (
@@ -1911,6 +1924,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         urlPath,
         data: { ...postData, pwdHash: current.pwdHash },
         requestOptions,
+        ...(prepareWalletRetry
+          ? {
+              prepareWalletRetry: (baseURL) =>
+                prepareWalletRetry(current, baseURL),
+            }
+          : {}),
         ...(filterUpload
           ? {
               prepareUpload: (baseURL: string | undefined) =>
@@ -1922,6 +1941,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     try {
       return await send(fresh);
     } catch (error) {
+      if (prepareWalletRetry) throw error;
       if (isHardwareCloudSyncUnauthorizedError(error)) {
         logHardwareCloudSyncDiagnostic(
           'business_unauthorized_response_refresh_requested',
@@ -2357,16 +2377,33 @@ class ServiceKeylessCloudSync extends ServiceBase {
     requestOptions,
     urlPath,
     filterHardwareUpload,
+    prepareWalletRetry,
   }: {
     requestOptions?: { signal?: AbortSignal; timeout?: number };
     postData: ICloudSyncUploadPostData;
     urlPath: string;
+    prepareWalletRetry?: (
+      credential: IKeylessCloudSyncCredential,
+      baseURL: string | undefined,
+    ) => Promise<(() => ICloudSyncUploadPostData) | undefined>;
     filterHardwareUpload?: (
       actualBaseURL: string | undefined,
       pwdHash: string,
     ) => ICloudSyncUploadPostData;
   }) {
-    const hardwareCredential = await this.getHardwareSessionCredential();
+    const hardwareCredential = prepareWalletRetry
+      ? (await this.getLocalMutationSyncCredential())?.keylessCredential
+      : await this.getHardwareSessionCredential();
+    if (
+      prepareWalletRetry &&
+      (!hardwareCredential?.hardwareSession ||
+        hardwareCredential.hardwareSession.accessTokenExpiresAt <= Date.now())
+    ) {
+      throw new OneKeyLocalError({
+        message: 'Hardware Cloud Wallet upload retry cancelled',
+        autoToast: false,
+      });
+    }
     if (hardwareCredential) {
       return (
         await this.hardwareSyncPost<ICloudSyncUploadResult>({
@@ -2375,6 +2412,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           postData,
           requestOptions,
           filterUpload: filterHardwareUpload,
+          prepareWalletRetry,
         })
       ).data.data;
     }

@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
@@ -33,7 +34,11 @@ import {
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -122,6 +127,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getAllAccounts: jest.fn(),
     getAllDevices: jest.fn(),
     getRecordsByIds: jest.fn(),
+    readWalletNameUploadRetrySources: jest.fn(),
     addAndUpdateSyncItems: jest.fn(),
     removeCloudSyncPoolItems: jest.fn(),
   },
@@ -273,6 +279,7 @@ function harness(
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
         getLocalMutationSyncCredential: readLocalCredential,
+        getHardwareWalletRetryOrigin: async () => endpointsMap.prod.prime,
         getCloudAccountImportGeneration: () =>
           keyGeneration + hardwareOperationGeneration,
         getKeylessWalletSelectionGeneration: () => keyGeneration,
@@ -811,6 +818,219 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       await jest.advanceTimersByTimeAsync(0);
       expect(verify).toHaveBeenCalledTimes(stalled === 'wallet' ? 9 : 0);
       expect(network).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each([
+    'available',
+    'conflict',
+    'missing-credential',
+    'renewed-session',
+    'changed-origin',
+    'canonical-changed',
+    'same-name-new-avatar',
+    'same-device-new-model',
+    'same-device-new-vendor',
+    'switched',
+    'disabled',
+    'already-sent',
+    'newer-during-read',
+    'second-timeout',
+  ])(
+    'one-shot Wallet timeout retry respects current authority: %s',
+    async (scenario) => {
+      const scope = 'hw-dek-wallet-retry-fixture';
+      const wallet: IDBCloudSyncItem = {
+        id: 'pending-wallet',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'pending-wallet-box',
+        dataTime: 100,
+        rawKey: '',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: true,
+        isDeleted: false,
+      };
+      const h = harness(0, { initialPool: new Map([[wallet.id, wallet]]) });
+      const selected: ICloudSyncCredential = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+        keylessCredential: {
+          keylessWalletId: 'hardware-source',
+          pwdHash: scope,
+          encryptionKey: 'public-fixture-credential',
+          signingPublicKey: '',
+          signingPrivateKey: '',
+          source: {
+            type: 'hardware',
+            credentialId: 'hardware-source',
+            derivationVersion: 1,
+            deviceName: 'Test device',
+            deviceType: EDeviceType.Pro,
+          },
+          hardwareSession: {
+            deviceKeyJwk: { kty: 'EC', crv: 'P-256', x: '', y: '', d: '' },
+            sessionId: 'synthetic-session',
+            accessToken: 'synthetic-access',
+            accessTokenExpiresAt: 0,
+            refreshToken: 'synthetic-refresh',
+            dekId: 'current-fixture-dek',
+          },
+        },
+      };
+      const changedDevice =
+        scenario === 'same-device-new-model' ||
+        scenario === 'same-device-new-vendor';
+      const physical: IDBDevice | undefined = changedDevice
+        ? {
+            id: 'verified-device',
+            name: 'Test device',
+            features: '{}',
+            connectId: 'public-fixture-connect',
+            uuid: 'public-fixture-uuid',
+            deviceId: 'public-fixture-device',
+            deviceType: EDeviceType.Pro,
+            settingsRaw: '{}',
+            createdAt: 1,
+            updatedAt: 1,
+          }
+        : undefined;
+      const canonical: IDBWallet = {
+        id: physical ? 'hw-1' : 'hd-1',
+        type: physical ? 'hw' : 'hd',
+        associatedDevice: physical?.id,
+        name: 'Saved local name',
+        hash: 'public-wallet-hash',
+        nextIds: {},
+        accounts: [],
+        backuped: true,
+        walletNo: 1,
+      };
+      const firstRead = deferred<boolean>();
+      const retryRead = deferred<boolean>();
+      h.readLocalCredential.mockResolvedValue(selected);
+      const verify = jest.spyOn(
+        h.service.syncManagers.wallet,
+        'canUploadPendingWalletName',
+      );
+      verify.mockImplementation(async ({ onVerifiedWallet }) => {
+        const verified =
+          scenario === 'newer-during-read' || scenario === 'second-timeout'
+            ? await retryRead.promise
+            : true;
+        if (verified) onVerifiedWallet?.(canonical, physical);
+        return verified;
+      });
+      jest
+        .spyOn(localDb, 'readWalletNameUploadRetrySources')
+        .mockImplementation(async ({ itemIds }) => {
+          let canonicalAtDispatch = canonical;
+          if (scenario === 'canonical-changed')
+            canonicalAtDispatch = {
+              ...canonical,
+              name: 'Newer unbound local name',
+            };
+          if (scenario === 'same-name-new-avatar')
+            canonicalAtDispatch = { ...canonical, avatar: '{"img":"bear"}' };
+          let deviceAtDispatch = physical;
+          if (physical && scenario === 'same-device-new-model')
+            deviceAtDispatch = { ...physical, deviceType: EDeviceType.Classic };
+          if (physical && scenario === 'same-device-new-vendor')
+            deviceAtDispatch = {
+              ...physical,
+              settingsRaw: '{"vendor":"trezor"}',
+            };
+          return {
+            items: itemIds.map((id) => h.pool.get(id)),
+            wallets: [canonicalAtDispatch],
+            devices: deviceAtDispatch ? [deviceAtDispatch] : [],
+          };
+        });
+      if (scenario === 'missing-credential')
+        h.readLocalCredential.mockResolvedValueOnce(undefined);
+      else if (scenario === 'conflict') verify.mockResolvedValueOnce(false);
+      else verify.mockReturnValueOnce(firstRead.promise);
+      const wire = jest.fn();
+      const api = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockImplementation(async ({ postData, prepareWalletRetry }) => {
+          const actual = selected.keylessCredential;
+          if (!actual?.hardwareSession)
+            throw new OneKeyLocalError('Missing test session');
+          const send = await prepareWalletRetry?.(
+            scenario === 'renewed-session'
+              ? {
+                  ...actual,
+                  hardwareSession: {
+                    ...actual.hardwareSession,
+                    sessionId: 'replacement-session',
+                  },
+                }
+              : actual,
+            scenario === 'changed-origin'
+              ? endpointsMap.test.prime
+              : endpointsMap.prod.prime,
+          );
+          if (prepareWalletRetry && !send)
+            throw new OneKeyLocalError({
+              message: 'Declined retry fixture',
+              autoToast: false,
+            });
+          wire(send ? send() : postData);
+          return { nonce: 1, created: 1, updated: 0 };
+        });
+      h.service.uploadItemsToMerge = [wallet];
+      const direct = h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      await jest.advanceTimersByTimeAsync(1500);
+      await direct;
+      firstRead.resolve(true);
+      expect(wire).not.toHaveBeenCalled();
+      if (scenario === 'switched') h.changeSource();
+      if (scenario === 'disabled')
+        jest
+          .spyOn(h.service, 'getActiveSyncMode')
+          .mockResolvedValue(ECloudSyncMode.None);
+      if (scenario === 'already-sent')
+        h.pool.set(wallet.id, { ...wallet, serverUploaded: true });
+
+      await jest.advanceTimersByTimeAsync(1000);
+      const newer = { ...wallet, data: 'new-avatar-box', dataTime: 101 };
+      if (scenario === 'newer-during-read') {
+        expect(verify).toHaveBeenCalledTimes(2);
+        h.pool.set(wallet.id, newer);
+        h.service.uploadItemsToMerge = [newer];
+        retryRead.resolve(true);
+      }
+      await jest.advanceTimersByTimeAsync(1500);
+      retryRead.resolve(true);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(api).toHaveBeenCalledTimes(
+        ['conflict', 'missing-credential', 'switched', 'disabled'].includes(
+          scenario,
+        )
+          ? 0
+          : 1,
+      );
+      if (scenario === 'available')
+        expect(wire).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localData: [
+              expect.objectContaining({
+                key: wallet.id,
+                data: wallet.data,
+                dataTimestamp: wallet.dataTime,
+              }),
+            ],
+          }),
+        );
+      else expect(wire).not.toHaveBeenCalled();
+      expect(h.service.uploadItemsToMerge).toEqual(
+        scenario === 'newer-during-read' ? [newer] : [],
+      );
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.check).not.toHaveBeenCalled();
     },
   );
 

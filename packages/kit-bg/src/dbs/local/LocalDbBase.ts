@@ -5548,6 +5548,43 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
+  async readWalletNameUploadRetrySources({
+    walletIds,
+    itemIds,
+    deviceIds,
+  }: {
+    walletIds: string[];
+    itemIds: string[];
+    deviceIds: string[];
+  }) {
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const { records: wallets } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: walletIds,
+        });
+        const { records: items } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: itemIds,
+        });
+        const devices = deviceIds.length
+          ? (
+              await this.txGetRecordsByIds({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: deviceIds,
+              })
+            ).records
+          : [];
+        return { wallets, items, devices };
+      },
+      { readOnly: true, skipCloudCredentialWarmup: true },
+    );
+  }
+
   async getSyncItem({ id }: { id: string }): Promise<IDBCloudSyncItem> {
     const item = await this.getRecordById({
       name: ELocalDBStoreNames.CloudSyncItem,

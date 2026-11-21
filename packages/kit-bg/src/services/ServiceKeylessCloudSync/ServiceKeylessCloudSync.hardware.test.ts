@@ -327,6 +327,20 @@ describe('hardware Cloud key source lifecycle', () => {
       .mockImplementation(withSignIn({ credential, source }));
   });
 
+  test('a Wallet read retry never falls back to software Cloud sync', async () => {
+    const { service, getClient } = setup();
+    const prepareWalletRetry = jest.fn(async () => undefined);
+    await expect(
+      service.apiUploadItemsKeyless({
+        urlPath: '/prime/v1/sync/upload',
+        postData: { pwdHash: 'hw-dek-test-retry', localData: [], nonce: 0 },
+        prepareWalletRetry,
+      }),
+    ).rejects.toThrow('retry cancelled');
+    expect(getClient).not.toHaveBeenCalled();
+    expect(prepareWalletRetry).not.toHaveBeenCalled();
+  });
+
   test.each([
     'current',
     'revoked',

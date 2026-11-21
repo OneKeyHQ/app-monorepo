@@ -1,3 +1,5 @@
+import { isEqual } from 'lodash';
+
 import {
   DEV_UNKNOWN_AVATAR_DEVICE_ID,
   WALLET_TYPE_HD,
@@ -113,9 +115,11 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   async canUploadPendingWalletName({
     item,
     syncCredential,
+    onVerifiedWallet,
   }: {
     item: IDBCloudSyncItem;
     syncCredential: ICloudSyncCredential;
+    onVerifiedWallet?: (wallet: IDBWallet, device?: IDBDevice) => void;
   }): Promise<boolean> {
     if (
       item.dataType !== EPrimeCloudSyncDataType.Wallet ||
@@ -171,7 +175,27 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
         walletId: target.wallet.id,
         withoutRefill: true,
       });
-      return !payload.name?.trim() || wallet.name === payload.name;
+      const nameMatches = !payload.name?.trim() || wallet.name === payload.name;
+      if (!nameMatches || !onVerifiedWallet) return nameMatches;
+      // Retrying a previously boxed version must not carry a stale sibling
+      // field along with a still-matching name.
+      const parsedAvatar: unknown = wallet.avatar
+        ? JSON.parse(wallet.avatar)
+        : undefined;
+      const avatar =
+        parsedAvatar &&
+        typeof parsedAvatar === 'object' &&
+        Object.keys(parsedAvatar).length
+          ? parsedAvatar
+          : undefined;
+      if (
+        wallet.name !== payload.name ||
+        !isEqual(avatar, payload.avatar) ||
+        wallet.firstEvmAddress !== payload.firstEvmAddress
+      )
+        return false;
+      onVerifiedWallet(wallet, device);
+      return true;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return false;
