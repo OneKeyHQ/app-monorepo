@@ -6,6 +6,9 @@ import {
   OneKeyLocalError,
   RenameDuplicateNameError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -848,3 +851,52 @@ it.each(passiveMetadataScenarios)(
     ]);
   },
 );
+
+it('shows the current locale for a changed local wallet identity without saving the edit', async () => {
+  const { db, wallet, pool, apiUploadItems } = await setUp(55);
+  const key = ETranslations.global_unknown_error_retry_message;
+  const catalog = await loadLocaleMessages('zh-CN');
+  const previousLocale = appLocale.intl;
+  appLocale.setLocale('zh-CN', catalog);
+  const withTransaction = db.withTransaction.bind(db);
+  const transaction = jest.spyOn(db, 'withTransaction');
+  transaction.mockImplementationOnce(async (bucket, task, options) => {
+    await withTransaction(
+      EIndexedDBBucketNames.account,
+      (tx) =>
+        db.txUpdateWallet({
+          tx,
+          walletId: wallet.id,
+          updater: (current) =>
+            Object.assign(current, { xfp: 'new-local-wallet-identity' }),
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+    return withTransaction(bucket, task, options);
+  });
+  try {
+    await expect(
+      db.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        allowDesktopLocalMetadata: true,
+        name: 'Must not save to replacement',
+      }),
+    ).rejects.toMatchObject({ key, message: catalog[key] });
+  } finally {
+    transaction.mockRestore();
+    appLocale.setLocale(previousLocale.locale, previousLocale.messages);
+  }
+  const canonical = await db.getWallet({
+    walletId: wallet.id,
+    withoutRefill: true,
+  });
+  expect(canonical).toMatchObject({
+    xfp: 'new-local-wallet-identity',
+    name: wallet.name,
+  });
+  await expect(
+    db.getWalletsForMetadataPresentation([canonical]),
+  ).resolves.toEqual([canonical]);
+  expect(await db.getSyncItem({ id: pool.id })).toEqual(pool);
+  expect(apiUploadItems).not.toHaveBeenCalled();
+});

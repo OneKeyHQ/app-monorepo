@@ -8663,7 +8663,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           current.xfp !== wallet.xfp ||
           current.hash !== wallet.hash
         ) {
-          throw new OneKeyLocalError('Wallet changed. Try again.');
+          const key = ETranslations.global_unknown_error_retry_message;
+          throw new OneKeyLocalError({
+            key,
+            message: appLocale.intl.formatMessage({
+              id: key,
+              defaultMessage: 'Wallet changed. Try again.',
+            }),
+          });
         }
         if (shouldCheckDuplicate && name)
           await this.txAssertUniqueDesktopWalletName(tx, current, name);
