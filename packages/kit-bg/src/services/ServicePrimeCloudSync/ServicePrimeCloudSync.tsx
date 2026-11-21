@@ -43,7 +43,9 @@ import systemTimeUtils, {
   ELocalSystemTimeStatus,
   type ICloudSyncCorrectedTime,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -1478,6 +1480,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       noDebounceUpload,
     }: IApiUploadItemsParams,
     requestOptions?: { signal?: AbortSignal; timeout?: number },
+    skipLastSyncTime = false,
   ) {
     const devSettings = await devSettingsPersistAtom.get();
     const activeMode = await this.getActiveSyncMode();
@@ -1544,6 +1547,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           pwdHash,
           setUndefinedTimeToNow,
           requestOptions,
+          ...(skipLastSyncTime ? { skipLastSyncTime } : {}),
         }),
       );
     }
@@ -1594,6 +1598,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     pwdHash,
     setUndefinedTimeToNow,
     requestOptions,
+    skipLastSyncTime,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush: boolean | undefined;
@@ -1601,6 +1606,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     pwdHash: string;
     setUndefinedTimeToNow: boolean | undefined;
     requestOptions?: { signal?: AbortSignal; timeout?: number };
+    skipLastSyncTime?: boolean;
   }) => {
     const uploadGeneration = this.publicAccountSnapshotImportGeneration;
     const now = await this.getCloudSyncDataTime();
@@ -1783,7 +1789,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     }
 
-    if (!heldItems) void this.updateLastSyncTime();
+    if (!heldItems && !skipLastSyncTime) void this.updateLastSyncTime();
 
     return uploadResult;
   };
@@ -1826,13 +1832,42 @@ class ServicePrimeCloudSync extends ServiceBase {
     pwdHash: string;
     setUndefinedTimeToNow?: boolean;
   }) => {
+    const generation = this.publicAccountSnapshotImportGeneration;
     return this.uploadItemsMutex.runExclusive(async () => {
       const localItems = [...this.uploadItemsToMerge];
       this.uploadItemsToMerge = [];
       if (localItems.length) {
         try {
+          let outgoing = localItems;
+          if (
+            pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+            localItems.some(
+              (item) =>
+                item.dataType === EPrimeCloudSyncDataType.Wallet &&
+                !!item.data &&
+                !item.isDeleted &&
+                !item.serverUploaded &&
+                item.pwdHash === pwdHash,
+            )
+          ) {
+            const keyless = this.backgroundApi.serviceKeylessCloudSync;
+            const keyGeneration = keyless.getCloudAccountImportGeneration();
+            const isCurrent = () =>
+              generation === this.publicAccountSnapshotImportGeneration &&
+              keyGeneration === keyless.getCloudAccountImportGeneration();
+            outgoing = await this.filterDivergentPendingWalletNames({
+              items: localItems,
+              credential: () => keyless.getLocalMutationSyncCredential(),
+              expectedPwdHash: pwdHash,
+              isCurrent,
+            });
+          }
+          if (!outgoing.length) return;
           await this._callApiUploadItems({
-            localItems,
+            localItems: outgoing,
+            ...(outgoing.length < localItems.length
+              ? { skipLastSyncTime: true }
+              : {}),
             isFlush: false,
             lockItem: undefined,
             pwdHash,
@@ -2695,6 +2730,86 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  private async filterDivergentPendingWalletNames({
+    items,
+    credential,
+    expectedPwdHash,
+    signal,
+    isCurrent,
+  }: {
+    items: IDBCloudSyncItem[];
+    credential:
+      | ICloudSyncCredential
+      | undefined
+      | (() => Promise<ICloudSyncCredential | undefined>);
+    expectedPwdHash?: string;
+    signal?: AbortSignal;
+    isCurrent: () => boolean;
+  }): Promise<IDBCloudSyncItem[]> {
+    const pwdHash =
+      expectedPwdHash ??
+      (typeof credential === 'function'
+        ? ''
+        : cloudSyncItemBuilder.getPwdHash(credential));
+    if (!pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX))
+      return items;
+
+    const candidates = items.filter(
+      (item) =>
+        item.dataType === EPrimeCloudSyncDataType.Wallet &&
+        !!item.data &&
+        !item.isDeleted &&
+        !item.serverUploaded &&
+        item.pwdHash === pwdHash,
+    );
+    if (!candidates.length) return items;
+
+    // Keep candidate envelopes unchanged. One deadline covers credential
+    // lookup and the whole verification batch, not 1.5s for every row.
+    const withheld = new Set(candidates);
+    let expired = false;
+    const canVerify = () => !expired && !signal?.aborted && isCurrent();
+    try {
+      await resolveBeforeTimeout(
+        (async () => {
+          if (!canVerify()) return;
+          const selected =
+            typeof credential === 'function' ? await credential() : credential;
+          if (
+            !selected ||
+            !canVerify() ||
+            cloudSyncItemBuilder.getPwdHash(selected) !== pwdHash
+          )
+            return;
+          let index = 0;
+          const check = async () => {
+            while (index < candidates.length && canVerify()) {
+              const item = candidates[index];
+              index += 1;
+              const verified =
+                await this.syncManagers.wallet.canUploadPendingWalletName({
+                  item,
+                  syncCredential: selected,
+                });
+              if (verified && canVerify()) withheld.delete(item);
+            }
+          };
+          await Promise.all(
+            Array.from({ length: Math.min(8, candidates.length) }, check),
+          );
+        })(),
+        1500,
+      );
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    } finally {
+      expired = true;
+    }
+    if (!isCurrent() || signal?.aborted)
+      throw new OneKeyLocalError('Cloud sync was cancelled');
+    return items.filter((item) => !withheld.has(item));
+  }
+
   private async runFullCloudReconciliation({
     forceSync,
     bypassRetryBackoff,
@@ -2830,6 +2945,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         },
       );
       let transportFailure: IManualCloudSyncResult | undefined;
+      let heldDivergentWalletName = false;
       const recordTransportFailure = (error: unknown) => {
         const failure = error as {
           code?: string;
@@ -2936,7 +3052,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               }
             }
           },
-          uploadObsoleted: ({ keys, signal }) => {
+          uploadObsoleted: ({ keys, response, signal }) => {
             const work = (async () => {
               if (!isCurrent() || signal.aborted)
                 throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -2945,11 +3061,26 @@ class ServicePrimeCloudSync extends ServiceBase {
               const localItems = latestItems.filter((item) =>
                 keySet.has(item.id),
               );
+              let skipped = 0;
               const uploaded = await this.uploadItemsMutex.runExclusive(
                 async () => {
+                  // Only the deployed legacy full compare has a one-pass
+                  // completion receipt. A bounded server needs its own
+                  // pagination protocol for versions we intentionally hold.
+                  const outgoing = response.reconciliation
+                    ? localItems
+                    : await this.filterDivergentPendingWalletNames({
+                        items: localItems,
+                        credential,
+                        signal,
+                        isCurrent,
+                      });
+                  skipped = localItems.length - outgoing.length;
+                  heldDivergentWalletName ||= skipped > 0;
+                  if (skipped > 0 && !outgoing.length) return undefined;
                   try {
                     return await this._callApiUploadItems({
-                      localItems,
+                      localItems: outgoing,
                       isFlush: false,
                       lockItem: undefined,
                       pwdHash: spaceId,
@@ -2964,6 +3095,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               );
               return {
                 uploaded: (uploaded?.created ?? 0) + (uploaded?.updated ?? 0),
+                skipped,
               };
             })();
             activeUpload = work;
@@ -3072,7 +3204,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
-      let deferredLocalWalletName = false;
+      let deferredLocalWalletName = heldDivergentWalletName;
       if (shouldReplay) {
         await this.syncPendingItemsToScene({
           forceSync:
@@ -3081,7 +3213,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             config.cloudSyncAccountApplyVersion !== 2,
           isCurrent,
           onWalletHistoryReplayResult: (deferred) => {
-            deferredLocalWalletName = deferred;
+            deferredLocalWalletName ||= deferred;
           },
         });
         if (isCurrent())
@@ -3565,23 +3697,34 @@ class ServicePrimeCloudSync extends ServiceBase {
           serverStatus.obsoleted.includes(item.id),
         );
         await assertSelectedKey();
-        const upload = await this.uploadItemsWithRequestOptions(
-          {
-            localItems: itemsToUpload,
-            isFlush: isFlush ?? false,
-            setUndefinedTimeToNow: setUndefinedTimeToNow ?? true,
-            syncCredential,
-            encryptedSecurityPasswordR1ForServer,
-            noDebounceUpload,
-          },
-          requestOptions,
-        );
+        const outgoing = isFlush
+          ? itemsToUpload
+          : await this.filterDivergentPendingWalletNames({
+              items: itemsToUpload,
+              credential: syncCredential,
+              signal: controller.signal,
+              isCurrent,
+            });
+        const upload =
+          outgoing.length || outgoing.length === itemsToUpload.length
+            ? await this.uploadItemsWithRequestOptions(
+                {
+                  localItems: outgoing,
+                  isFlush: isFlush ?? false,
+                  setUndefinedTimeToNow: setUndefinedTimeToNow ?? true,
+                  syncCredential,
+                  encryptedSecurityPasswordR1ForServer,
+                  noDebounceUpload,
+                },
+                requestOptions,
+                outgoing.length < itemsToUpload.length,
+              )
+            : undefined;
         await assertSelectedKey();
         guard();
         uploadIncomplete =
           !isFlush &&
-          (upload?.created ?? 0) + (upload?.updated ?? 0) <
-            itemsToUpload.length;
+          (upload?.created ?? 0) + (upload?.updated ?? 0) < outgoing.length;
       }
 
       for (const serverItems of [serverStatus.diff, serverStatus.updated]) {

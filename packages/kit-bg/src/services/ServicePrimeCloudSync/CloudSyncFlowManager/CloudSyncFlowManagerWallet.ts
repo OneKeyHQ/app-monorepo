@@ -1,10 +1,16 @@
-import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  DEV_UNKNOWN_AVATAR_DEVICE_ID,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_QR,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  ICloudSyncCredential,
   ICloudSyncPayloadWallet,
   ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -102,6 +108,74 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       hwDeviceId: dbDevice?.deviceId,
       passphraseState,
     };
+  }
+
+  async canUploadPendingWalletName({
+    item,
+    syncCredential,
+  }: {
+    item: IDBCloudSyncItem;
+    syncCredential: ICloudSyncCredential;
+  }): Promise<boolean> {
+    if (
+      item.dataType !== EPrimeCloudSyncDataType.Wallet ||
+      !item.data ||
+      item.isDeleted ||
+      item.serverUploaded
+    )
+      return true;
+    if (item.pwdHash !== cloudSyncItemBuilder.getPwdHash(syncCredential))
+      return false;
+    try {
+      const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+        item: { ...item },
+        syncCredential,
+      });
+      if (rawDataJson?.dataType !== EPrimeCloudSyncDataType.Wallet)
+        return false;
+      const { payload } = rawDataJson;
+      if (!payload || typeof payload.name !== 'string') return false;
+      const localDb = this.backgroundApi.localDb;
+      // The normal scene lookup refills presentation and may emit hardware
+      // avatar events. This optional upload verification must only read.
+      const { wallets } = await localDb.getAllWallets();
+      const isHardware =
+        payload.walletType === WALLET_TYPE_HW ||
+        payload.walletType === WALLET_TYPE_QR;
+      const device =
+        isHardware && payload.hwDeviceId
+          ? await localDb.getDeviceByQuery({
+              featuresDeviceId: payload.hwDeviceId,
+            })
+          : undefined;
+      const matching = wallets.filter(
+        (wallet) =>
+          wallet.type === payload.walletType &&
+          (isHardware
+            ? !!device &&
+              wallet.associatedDevice === device.id &&
+              (wallet.passphraseState || '') === (payload.passphraseState || '')
+            : wallet.type === WALLET_TYPE_HD &&
+              !!payload.walletHash &&
+              wallet.hash === payload.walletHash),
+      );
+      if (matching.length !== 1) return false;
+      const target = await this.buildSyncTargetByDBQuery({
+        dbRecord: matching[0],
+        allDevices: device ? [device] : undefined,
+      });
+      const key = await this.buildSyncKeyInfo({ target });
+      if (key?.key !== item.id || rawDataJson.rawKey !== key.rawKey)
+        return false;
+      const wallet = await localDb.getWallet({
+        walletId: target.wallet.id,
+        withoutRefill: true,
+      });
+      return !payload.name?.trim() || wallet.name === payload.name;
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      return false;
+    }
   }
 
   override async syncToSceneEachItem(params: {

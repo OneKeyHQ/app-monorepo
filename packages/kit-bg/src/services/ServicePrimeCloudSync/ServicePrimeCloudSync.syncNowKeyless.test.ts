@@ -1861,6 +1861,9 @@ describe('Cloud sync records from opaque server storage', () => {
         isDeleted: localItem.isDeleted,
         pwdHash: localItem.pwdHash,
       }));
+    const updateLastSyncTime = jest
+      .spyOn(service, 'updateLastSyncTime')
+      .mockResolvedValue(undefined);
     const upload = jest
       .spyOn(service, 'apiUploadItemsKeyless')
       .mockResolvedValue({
@@ -1883,6 +1886,18 @@ describe('Cloud sync records from opaque server storage', () => {
         }),
       }),
     );
+
+    expect(updateLastSyncTime).toHaveBeenCalledTimes(1);
+    await service._callApiUploadItems({
+      localItems: [valid],
+      pwdHash: valid.pwdHash,
+      isFlush: false,
+      lockItem: undefined,
+      setUndefinedTimeToNow: false,
+      skipLastSyncTime: true,
+    });
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(updateLastSyncTime).toHaveBeenCalledTimes(1);
   });
 
   test.each(['keyless-old-lock', 'hw-dek-old-lock'])(

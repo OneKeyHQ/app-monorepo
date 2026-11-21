@@ -369,6 +369,7 @@ export async function runCloudSyncReconciliation({
             limits.blockedRetryDelayMs,
           );
         let uploaded = 0;
+        let skipped = 0;
         let applied = 0;
         let hasApplyReceipt = false;
         if (response.obsoleted.length) {
@@ -380,10 +381,13 @@ export async function runCloudSyncReconciliation({
             }),
           );
           uploaded = receipt?.uploaded ?? 0;
+          skipped = receipt?.skipped ?? 0;
           if (
             !Number.isSafeInteger(uploaded) ||
             uploaded < 0 ||
-            uploaded > response.obsoleted.length
+            !Number.isSafeInteger(skipped) ||
+            skipped < 0 ||
+            uploaded + skipped > response.obsoleted.length
           )
             throw new ReconciliationStop('invalid-response');
           state.uploaded += uploaded;
@@ -445,7 +449,7 @@ export async function runCloudSyncReconciliation({
         if (!verified || !contract || !contract.hasMore) {
           // A final check can still be followed by an incomplete upload. Verify
           // the remaining keys with a fresh check after the retry delay.
-          if (uploaded < response.obsoleted.length) {
+          if (uploaded + skipped < response.obsoleted.length) {
             return progress
               ? finish(
                   'waiting',

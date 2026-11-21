@@ -196,6 +196,12 @@ it.each([
   ).resolves.toMatchObject({ name: 'Manual while off' });
   expect(await db.getSyncItem({ id: key })).toEqual(row);
   off = false;
+  await expect(
+    manager.canUploadPendingWalletName({
+      item: row,
+      syncCredential: credential,
+    }),
+  ).resolves.toBe(!scenario.startsWith('unchecked-pending'));
   await manager.syncToScene({
     items: [{ ...(await db.getSyncItem({ id: key })) }],
     syncCredential: credential,

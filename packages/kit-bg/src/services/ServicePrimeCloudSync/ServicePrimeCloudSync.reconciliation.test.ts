@@ -3,7 +3,6 @@ import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
 
 import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
-
 import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
@@ -102,7 +101,9 @@ jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList', () => ({
   CloudSyncFlowManagerMarketWatchList: jest.fn(),
 }));
 jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerWallet', () => ({
-  CloudSyncFlowManagerWallet: jest.fn(),
+  CloudSyncFlowManagerWallet: jest.fn(() => ({
+    canUploadPendingWalletName: jest.fn(async () => true),
+  })),
 }));
 
 jest.mock('../../dbs/local/localDb', () => ({
@@ -618,6 +619,186 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       await expect(invoke()).resolves.toBe('software-key-unavailable');
       h.patchConfig({ isCloudSyncEnabledKeyless: false });
       await expect(invoke()).resolves.toBe('incomplete');
+    },
+  );
+
+  test.each([true, false])(
+    'withholds divergent unsent Wallet rows on a legacy full check while preserving siblings (%s)',
+    async (includeSibling) => {
+      const scope = 'hw-dek-verified-fixture';
+      const old: IDBCloudSyncItem = {
+        id: 'old-name',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'old-validated-wallet',
+        dataTime: 100,
+        rawKey: 'old-synthetic',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: false,
+        isDeleted: false,
+      };
+      const sibling: IDBCloudSyncItem = {
+        ...old,
+        id: 'new-name',
+        data: 'new-explicit-wallet',
+      };
+      const initialPool = new Map([[old.id, old]]);
+      if (includeSibling) initialPool.set(sibling.id, sibling);
+      const h = harness(0, { initialPool });
+      const selected = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+      };
+      jest
+        .spyOn(h.service, 'getSyncCredentialSafe')
+        .mockResolvedValue(selected);
+      h.readLocalCredential.mockResolvedValue(selected);
+      jest
+        .spyOn(h.service.syncManagers.wallet, 'canUploadPendingWalletName')
+        .mockImplementation(async ({ item }) => item.id !== old.id);
+      h.check.mockResolvedValue(
+        reply({
+          reconciliation: undefined,
+          pwdHash: scope,
+          obsoleted: [...initialPool.keys()],
+        }),
+      );
+      const upload = jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockResolvedValue({
+          nonce: 0,
+          created: 1,
+          updated: 0,
+        });
+      await expect(h.run()).resolves.toBe(true);
+      expect(h.check).toHaveBeenCalledTimes(1);
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({ localItems: [sibling] }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+        nextRetryAt: undefined,
+        uploaded: includeSibling ? 1 : 0,
+      });
+
+      upload.mockClear();
+      await h.service.startServerSyncFlowForItems({
+        localItems: [...initialPool.values()],
+        noDebounceUpload: true,
+      });
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localItems: [sibling],
+            skipLastSyncTime: true,
+          }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+
+      upload.mockClear();
+      h.service.uploadItemsToMerge = [...initialPool.values()];
+      await h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      if (includeSibling)
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            localItems: [sibling],
+            skipLastSyncTime: true,
+          }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+      expect(h.pool.get(old.id)).toEqual(old);
+    },
+  );
+
+  test.each(['credential', 'wallet'] as const)(
+    'direct Wallet verification has one deadline and sends healthy sibling despite stalled %s',
+    async (stalled) => {
+      const h = harness();
+      const scope = 'hw-dek-timeout-fixture';
+      const selected = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+      };
+      const resolveCredential = deferred<typeof selected>();
+      const resolveWallet = deferred<boolean>();
+      const read = h.readLocalCredential;
+      if (stalled === 'credential')
+        read.mockImplementationOnce(async () => resolveCredential.promise);
+      else read.mockResolvedValue(selected);
+      const verify = jest.spyOn(
+        h.service.syncManagers.wallet,
+        'canUploadPendingWalletName',
+      );
+      if (stalled === 'wallet')
+        verify.mockImplementation(async ({ item }) =>
+          item.id === 'timely-wallet' ? true : resolveWallet.promise,
+        );
+      jest.spyOn(h.service, 'getCloudSyncDataTime').mockResolvedValue(200);
+      const network = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
+      const healthy: IDBCloudSyncItem = {
+        id: 'healthy-account',
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: 'healthy-fixture-box',
+        dataTime: 100,
+        rawKey: 'healthy-fixture-key',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: false,
+        isDeleted: false,
+      };
+      const walletRows: IDBCloudSyncItem[] = Array.from(
+        { length: 12 },
+        (_, index) => ({
+          ...healthy,
+          id: `held-wallet-${index}`,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+        }),
+      );
+      const goodWallet: IDBCloudSyncItem = {
+        ...healthy,
+        id: 'timely-wallet',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+      };
+      for (const row of [goodWallet, ...walletRows, healthy])
+        h.pool.set(row.id, row);
+      h.service.uploadItemsToMerge = [goodWallet, ...walletRows, healthy];
+      const work = h.service._callApiUploadItemsInstantly({ pwdHash: scope });
+      await jest.advanceTimersByTimeAsync(1499);
+      expect(network).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await work;
+      expect(network).toHaveBeenCalledTimes(1);
+      expect(network).toHaveBeenCalledWith(
+        expect.objectContaining({
+          postData: expect.objectContaining({
+            localData: [
+              ...(stalled === 'wallet'
+                ? [expect.objectContaining({ key: goodWallet.id })]
+                : []),
+              expect.objectContaining({ key: healthy.id }),
+            ],
+          }),
+        }),
+      );
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+      expect(h.pool.get(walletRows[0].id)).toEqual(walletRows[0]);
+      resolveCredential.resolve(selected);
+      resolveWallet.resolve(true);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(verify).toHaveBeenCalledTimes(stalled === 'wallet' ? 9 : 0);
+      expect(network).toHaveBeenCalledTimes(1);
     },
   );
 
