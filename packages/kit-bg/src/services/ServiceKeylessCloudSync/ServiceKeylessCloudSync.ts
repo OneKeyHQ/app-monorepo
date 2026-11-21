@@ -1367,7 +1367,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     | Promise<IKeylessCloudSyncCredential>
     | undefined;
 
+  private hardwareSessionRefreshOrigin?: { baseURL?: string };
+
   private hardwareSessionEnding = false;
+
+  private hardwareCredentialCacheGeneration = 0;
 
   private hardwareUploadEndGeneration = 0;
 
@@ -1386,7 +1390,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // while the token from a lost reply is unused.
   private async getFreshHardwareCredential(
     credential: IKeylessCloudSyncCredential,
-    { force }: { force?: boolean } = {},
+    { force, boundBaseURL }: { force?: boolean; boundBaseURL?: string } = {},
   ): Promise<IKeylessCloudSyncCredential> {
     if (force || this.hardwareSessionEnding || !credential.hardwareSession) {
       logHardwareCloudSyncDiagnostic('credential_refresh_precheck', {
@@ -1406,16 +1410,53 @@ class ServiceKeylessCloudSync extends ServiceBase {
           { forceRequested: true },
         );
       }
-      return this.hardwareSessionRefresh;
+      const origin = this.hardwareSessionRefreshOrigin;
+      const refreshed = await this.hardwareSessionRefresh;
+      if (
+        boundBaseURL &&
+        (origin?.baseURL !== boundBaseURL ||
+          (refreshed.hardwareSession?.boundBaseURL &&
+            refreshed.hardwareSession.boundBaseURL !== boundBaseURL))
+      )
+        throw settingsChangedError();
+      return refreshed;
     }
     const session = credential.hardwareSession;
     if (!session) return credential;
+    const prime = this.backgroundApi.servicePrimeCloudSync;
+    const cacheGeneration = this.hardwareCredentialCacheGeneration;
+    const cancelGeneration = prime.getPublicAccountSnapshotImportGeneration();
+    const canPersist = () =>
+      cacheGeneration === this.hardwareCredentialCacheGeneration;
+    const canPublish = () =>
+      canPersist() &&
+      !this.hardwareSessionEnding &&
+      cancelGeneration === prime.getPublicAccountSnapshotImportGeneration();
+    const origin: { baseURL?: string } = {};
     const refreshing = (async () => {
       // A refresh that finished after this request read its credential has
       // already rotated the token; use the stored one instead of reusing it.
       const stored = await keylessSyncCredentialStorage.getCredential(
         credential.keylessWalletId,
       );
+      if (!canPublish()) throw settingsChangedError();
+      const client = await this.getHardwareSyncClient();
+      if (!canPublish()) throw settingsChangedError();
+      const actualBaseURL = client.defaults?.baseURL;
+      if (
+        (boundBaseURL && actualBaseURL !== boundBaseURL) ||
+        (session.boundBaseURL && actualBaseURL !== session.boundBaseURL) ||
+        (stored?.hardwareSession?.boundBaseURL &&
+          actualBaseURL !== stored.hardwareSession.boundBaseURL)
+      )
+        throw settingsChangedError();
+      origin.baseURL = actualBaseURL;
+      const matchesEndpoint = async () =>
+        !actualBaseURL ||
+        (client.defaults.baseURL === actualBaseURL &&
+          (await this.getHardwareSyncClient()).defaults?.baseURL ===
+            actualBaseURL &&
+          client.defaults.baseURL === actualBaseURL);
       if (
         stored?.hardwareSession?.sessionId === session.sessionId &&
         stored.hardwareSession.refreshToken !== session.refreshToken
@@ -1428,20 +1469,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
         );
         return stored;
       }
-      const client = await this.getHardwareSyncClient();
       let next: IHardwareCloudSyncSession | undefined;
       try {
         next = await refreshHardwareCloudSyncSessionIfNeeded({
           client,
           session,
           force,
+          ...(actualBaseURL ? { boundBaseURL: actualBaseURL } : {}),
         });
       } catch (error) {
         logHardwareCloudSyncDiagnostic('credential_refresh_failed', {
           forceRequested: !!force,
           unauthorized: isHardwareCloudSyncUnauthorizedError(error),
         });
-        if (isHardwareCloudSyncUnauthorizedError(error)) {
+        if (canPublish() && isHardwareCloudSyncUnauthorizedError(error)) {
           logHardwareCloudSyncDiagnostic(
             'sign_in_required_after_unauthorized_refresh',
             {},
@@ -1456,18 +1497,35 @@ class ServiceKeylessCloudSync extends ServiceBase {
           refreshedSession: !!next,
         });
       }
-      if (!next) return credential;
+      if (!next) {
+        if (!canPublish()) throw settingsChangedError();
+        return credential;
+      }
+      // A guarded request must preserve the exact outbound target as at least
+      // a restriction. Only a verified final URL enables seamless resume.
+      if (
+        (next.boundBaseURL && next.boundBaseURL !== actualBaseURL) ||
+        (boundBaseURL && !next.boundBaseURL)
+      )
+        throw settingsChangedError();
       const updated = { ...credential, hardwareSession: next };
       return this.saveHardwareCredential(updated, {
         expected: credential,
         refreshedSession: true,
+        refreshAdmission: {
+          canPersist,
+          canPublish,
+          ...(actualBaseURL ? { matchesEndpoint } : {}),
+        },
       });
     })();
     this.hardwareSessionRefresh = refreshing;
+    this.hardwareSessionRefreshOrigin = origin;
     try {
       return await refreshing;
     } finally {
       this.hardwareSessionRefresh = undefined;
+      this.hardwareSessionRefreshOrigin = undefined;
     }
   }
 
@@ -1700,12 +1758,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
     {
       expected = credential,
       refreshedSession = false,
+      refreshAdmission,
     }: {
       expected?: IKeylessCloudSyncCredential;
       refreshedSession?: boolean;
+      refreshAdmission?: {
+        canPersist: () => boolean;
+        canPublish: () => boolean;
+        matchesEndpoint?: () => Promise<boolean>;
+      };
     } = {},
   ): Promise<IKeylessCloudSyncCredential> {
     const saved = await this.repairCredentialMutex.runExclusive(async () => {
+      if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
       if (!(await this.isStoredHardwareSession(expected))) return undefined;
       const stored = await keylessSyncCredentialStorage.getCredential(
         expected.keylessWalletId,
@@ -1714,6 +1779,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
         !stored?.hardwareSession ||
         stored.pwdHash !== expected.pwdHash ||
         stored.hardwareSession.dekId !== expected.hardwareSession?.dekId ||
+        (expected.hardwareSession?.boundBaseURL &&
+          stored.hardwareSession.boundBaseURL !==
+            expected.hardwareSession.boundBaseURL) ||
         (refreshedSession &&
           stored.hardwareSession.refreshToken !==
             expected.hardwareSession?.refreshToken)
@@ -1734,15 +1802,99 @@ class ServiceKeylessCloudSync extends ServiceBase {
                 stored.hardwareSession.dekId,
             },
           };
+      const before = stored.hardwareSession;
+      const after = updated.hardwareSession;
+      const source = stored.source;
+      const sameSessionIdentity =
+        !!source &&
+        source.type === 'hardware' &&
+        source.credentialId === expected.keylessWalletId &&
+        source.credentialId === expected.source?.credentialId &&
+        source.derivationVersion === expected.source.derivationVersion &&
+        stored.keylessWalletId === expected.keylessWalletId &&
+        stored.encryptionKey === expected.encryptionKey &&
+        stored.signingPublicKey === expected.signingPublicKey &&
+        updated.source?.type === source.type &&
+        updated.source.credentialId === source.credentialId &&
+        updated.source.derivationVersion === source.derivationVersion &&
+        updated.keylessWalletId === stored.keylessWalletId &&
+        updated.pwdHash === stored.pwdHash &&
+        updated.encryptionKey === stored.encryptionKey &&
+        updated.signingPublicKey === stored.signingPublicKey &&
+        !!after &&
+        after.sessionId === before.sessionId &&
+        after.dekId === before.dekId &&
+        (!before.boundBaseURL || after.boundBaseURL === before.boundBaseURL) &&
+        after.deviceKeyJwk.kty === before.deviceKeyJwk.kty &&
+        after.deviceKeyJwk.crv === before.deviceKeyJwk.crv &&
+        after.deviceKeyJwk.x === before.deviceKeyJwk.x &&
+        after.deviceKeyJwk.y === before.deviceKeyJwk.y &&
+        after.deviceKeyJwk.d === before.deviceKeyJwk.d;
+
+      const matchesEndpoint = refreshAdmission?.matchesEndpoint;
+      if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
+      if (
+        refreshAdmission &&
+        (!refreshAdmission.canPersist() ||
+          (!sameSessionIdentity && !refreshAdmission.canPublish()))
+      )
+        return undefined;
       await keylessSyncCredentialStorage.saveCredential(updated);
-      return updated;
+      if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
+      if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
+      if (refreshAdmission && !refreshAdmission.canPublish()) {
+        // A running refresh may have rotated the server token before Off.
+        // Keep the same-session token for revocation, not in the memory cache.
+        return sameSessionIdentity
+          ? { credential: updated, preservesScope: true }
+          : undefined;
+      }
+      if (
+        refreshedSession &&
+        sameSessionIdentity &&
+        !!after?.boundBaseURL &&
+        after.boundBaseURLVerified === true &&
+        !stored.pendingDataKey &&
+        !stored.pendingHardwareKeyMigration &&
+        !this.hardwareSessionEnding
+      ) {
+        // Only replace token data in memory. Invalidating the active Cloud
+        // scope here would cancel the request that just renewed its token.
+        this.setKeylessCloudSyncCredentialCache(updated);
+        this.backgroundApi.servicePrimeCloudSync.invalidateSyncCredentialMemo();
+        return { credential: updated, preservesScope: true };
+      }
+      return {
+        credential: updated,
+        preservesScope: false,
+        preservePendingHardwareRefresh:
+          !refreshedSession &&
+          sameSessionIdentity &&
+          !stored.pendingHardwareKeyMigration &&
+          !updated.pendingHardwareKeyMigration &&
+          !!updated.pendingDataKey,
+      };
     });
     if (!saved) {
       throw settingsChangedError();
     }
-    this.setKeylessCloudSyncCredentialCache(saved);
-    await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-    return saved;
+    if (!saved.preservesScope) {
+      if (refreshAdmission && !refreshAdmission.canPublish())
+        throw settingsChangedError();
+      this.setKeylessCloudSyncCredentialCache(saved.credential);
+      const prime = this.backgroundApi.servicePrimeCloudSync;
+      if (saved.preservePendingHardwareRefresh) {
+        // A pending reset journal did not replace the key. Cancel active
+        // sync but let the old session save the token already rotated by
+        // the server, alongside the journal and without warming the cache.
+        await prime.clearCachedSyncCredential({
+          preservePendingHardwareRefresh: true,
+        });
+      } else {
+        await prime.clearCachedSyncCredential();
+      }
+    }
+    return saved.credential;
   }
 
   // Moves this device to a data key the server already uses.
@@ -1911,9 +2063,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // An optional detached retry must not refresh or hydrate a selected
     // session as a side effect. Keep the normal request path unchanged.
     assertCanUpload?.();
+    const bindUploadEndpoint = !!assertCanUpload && !prepareWalletRetry;
+    const boundBaseURL = bindUploadEndpoint
+      ? (await this.getHardwareSyncClient()).defaults?.baseURL
+      : undefined;
+    if (bindUploadEndpoint && !boundBaseURL) throw settingsChangedError();
+    assertCanUpload?.();
     const fresh = prepareWalletRetry
       ? credential
-      : await this.getFreshHardwareCredential(credential);
+      : await this.getFreshHardwareCredential(credential, { boundBaseURL });
     assertCanUpload?.();
     // Records built before a key switch must not go out under the new key:
     // the server would accept data nobody can decrypt.
@@ -1930,6 +2088,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const client = await this.getHardwareSyncClient();
     const send = (current: IKeylessCloudSyncCredential) => {
       assertCanUpload?.();
+      const sessionBaseURL = current.hardwareSession?.boundBaseURL;
+      const sendBaseURL = boundBaseURL ?? sessionBaseURL;
+      if (
+        (sessionBaseURL && sessionBaseURL !== sendBaseURL) ||
+        (sendBaseURL && client.defaults?.baseURL !== sendBaseURL)
+      )
+        throw settingsChangedError();
       if (!current.hardwareSession) {
         throw hardwareSignedOutError();
       }
@@ -1940,6 +2105,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         urlPath,
         data: { ...postData, pwdHash: current.pwdHash },
         requestOptions,
+        ...(sendBaseURL ? { boundBaseURL: sendBaseURL } : {}),
         ...(assertCanUpload ? { assertCanSend: assertCanUpload } : {}),
         ...(prepareWalletRetry
           ? {
@@ -1970,6 +2136,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         // A revoked session fails the refresh too, which asks for sign-in.
         const refreshed = await this.getFreshHardwareCredential(fresh, {
           force: true,
+          boundBaseURL,
         });
         logHardwareCloudSyncDiagnostic(
           'business_unauthorized_response_retry_decision',
@@ -2926,9 +3093,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   clearKeylessCloudSyncCredentialCache({
     keylessWalletId,
+    preservePendingHardwareRefresh,
   }: {
     keylessWalletId?: string;
+    preservePendingHardwareRefresh?: boolean;
   } = {}) {
+    if (!preservePendingHardwareRefresh) {
+      this.hardwareCredentialCacheGeneration += 1;
+    }
     if (keylessWalletId) {
       this.keylessCloudSyncCredentialCache.delete(keylessWalletId);
       if (this.currentCloudSyncKeylessWalletIdCache === keylessWalletId) {

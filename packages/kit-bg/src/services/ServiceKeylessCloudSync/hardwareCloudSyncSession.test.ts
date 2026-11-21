@@ -217,6 +217,109 @@ describe('hardware Cloud sync session', () => {
     },
   );
 
+  test('missing final proof records a negative endpoint fence, not verified authority', async () => {
+    const { client, post } = fakeClient();
+    const baseURL = 'https://prime.example.invalid';
+    const otherURL = 'https://alternate-prime.example.invalid';
+    const path = '/prime/v1/hw-sync/auth/refresh';
+    client.defaults.baseURL = baseURL;
+    const credentials = session();
+    const body = ok({
+      accessToken: 'public-fixture-renewed-access',
+      refreshToken: 'public-fixture-renewed-refresh',
+      sessionId: credentials.sessionId,
+      accessTokenExpiresIn: 600,
+    });
+    post
+      .mockResolvedValueOnce({
+        ...body,
+        request: { responseURL: baseURL + path },
+      })
+      .mockResolvedValueOnce(body)
+      .mockResolvedValueOnce({
+        ...body,
+        request: { responseURL: otherURL + path },
+      });
+    const renewed = await refreshHardwareCloudSyncSessionIfNeeded({
+      client,
+      session: credentials,
+      force: true,
+    });
+    expect(renewed).toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: true,
+    });
+    const nativeShape = await refreshHardwareCloudSyncSessionIfNeeded({
+      client,
+      session: credentials,
+      force: true,
+    });
+    expect(credentials).not.toHaveProperty('boundBaseURL');
+    expect(nativeShape).toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: false,
+    });
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: credentials,
+        force: true,
+      }),
+    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    if (!renewed || !nativeShape)
+      throw new OneKeyLocalError('Missing token renewal fixture');
+    client.defaults.baseURL = otherURL;
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: nativeShape,
+        force: true,
+      }),
+    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: renewed,
+        force: true,
+      }),
+    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    await expect(
+      requestWithHardwareCloudSyncSession({
+        client,
+        session: renewed,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+      }),
+    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    expect(post).toHaveBeenCalledTimes(3);
+  });
+
+  test('a bound hardware dispatch cannot use a client after its origin changes', async () => {
+    const { client, post } = fakeClient();
+    const origin = 'https://prime.example.invalid';
+    client.defaults.baseURL = origin;
+    post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+    const send = () =>
+      requestWithHardwareCloudSyncSession({
+        client,
+        session: session(),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        boundBaseURL: origin,
+      });
+    const pending = send();
+    client.defaults.baseURL = 'https://alternate-prime.example.invalid';
+    await expect(pending).rejects.toThrow('Hardware Cloud endpoint changed');
+    expect(post).not.toHaveBeenCalled();
+    client.defaults.baseURL = origin;
+    await expect(send()).resolves.toEqual({ created: 1, updated: 0 });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/sync/upload',
+      undefined,
+      expect.objectContaining({ baseURL: origin }),
+    );
+  });
+
   test('selects the exact upload subset on the real hardware sender origin', async () => {
     const c = fakeClient();
     c.client.defaults.baseURL = 'https://prime.onekeycn.com';
@@ -474,6 +577,8 @@ describe('hardware Cloud sync session', () => {
             refreshToken: tokens.refreshToken,
             sessionId: tokens.sessionId,
             dekId: operation === 'refresh' ? current.dekId : '',
+            boundBaseURL: BASE_URL,
+            boundBaseURLVerified: false,
           });
         },
       );

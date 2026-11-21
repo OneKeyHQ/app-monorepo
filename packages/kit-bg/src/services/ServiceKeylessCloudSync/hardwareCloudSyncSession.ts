@@ -160,20 +160,9 @@ function buildPossessionProof({
   return `${input}.${toBase64url(signature.toCompactRawBytes())}`;
 }
 
-function getHtu(client: AxiosInstance, urlPath: string) {
-  const url = new URL(urlPath, client.defaults.baseURL);
+function getHtu(baseURL: string | undefined, urlPath: string) {
+  const url = new URL(urlPath, baseURL);
   return `${url.origin}${url.pathname}`;
-}
-
-async function request<T>(params: {
-  client: AxiosInstance;
-  method: 'GET' | 'POST';
-  urlPath: string;
-  data?: unknown;
-  jwk: IHardwareCloudSyncDeviceKeyJwk;
-  accessToken?: string;
-}): Promise<T> {
-  return (await requestRaw<T>(params)).data.data;
 }
 
 async function requestRaw<T>({
@@ -185,6 +174,7 @@ async function requestRaw<T>({
   prepareUpload,
   prepareWalletRetry,
   assertCanSend,
+  boundBaseURL,
   jwk,
   accessToken,
 }: {
@@ -194,6 +184,7 @@ async function requestRaw<T>({
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
   assertCanSend?: () => void;
+  boundBaseURL?: string;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
     baseURL: string | undefined,
@@ -224,9 +215,17 @@ async function requestRaw<T>({
     'request_challenge',
     'request_verify',
   ];
+  const assertEndpoint = () => {
+    if (boundBaseURL && client.defaults.baseURL !== boundBaseURL)
+      throw new OneKeyLocalError({
+        message: 'Hardware Cloud endpoint changed',
+        autoToast: false,
+      });
+  };
   const send = (clockOffsetMs: number) => {
-    const baseURL = client.defaults.baseURL;
+    const baseURL = boundBaseURL ?? client.defaults.baseURL;
     const dispatch = (retryBody?: () => unknown) => {
+      assertEndpoint();
       if (
         prepareWalletRetry &&
         (!retryBody ||
@@ -245,7 +244,7 @@ async function requestRaw<T>({
         DPoP: buildPossessionProof({
           jwk,
           htm: method,
-          htu: getHtu(client, urlPath),
+          htu: getHtu(baseURL, urlPath),
           accessToken,
           now: Date.now() + clockOffsetMs,
         }),
@@ -257,7 +256,7 @@ async function requestRaw<T>({
       const config: AxiosRequestConfig = {
         ...requestOptions,
         headers,
-        ...(prepareWalletRetry ? { baseURL } : {}),
+        ...(prepareWalletRetry || boundBaseURL ? { baseURL } : {}),
       };
       assertCanSend?.();
       return method === 'GET'
@@ -275,6 +274,7 @@ async function requestRaw<T>({
     });
   }
   assertCanSend?.();
+  assertEndpoint();
   const clockOffsetMs = await measureServerClockOffsetMs();
   try {
     return await send(clockOffsetMs);
@@ -291,6 +291,7 @@ async function requestRaw<T>({
     if (prepareWalletRetry || !isHardwareCloudSyncUnauthorizedError(error))
       throw error;
     assertCanSend?.();
+    assertEndpoint();
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
       diagnostic('request_clock_retry_skipped', { clockRetry: false });
@@ -313,10 +314,52 @@ async function requestRaw<T>({
   }
 }
 
+function verifiedSessionBaseURL(
+  response: AxiosResponse,
+  baseURL: string | undefined,
+  urlPath: string,
+): string | undefined {
+  if (!baseURL) return undefined;
+  const transport = response.request as
+    | { responseURL?: unknown; oneKeyVerifiedFinalUrl?: unknown }
+    | undefined;
+  const finalURL = transport?.responseURL ?? transport?.oneKeyVerifiedFinalUrl;
+  if (!finalURL) return undefined;
+  if (
+    typeof finalURL !== 'string' ||
+    finalURL !== new URL(urlPath, baseURL).href
+  )
+    throw new OneKeyLocalError({
+      message: 'Hardware Cloud endpoint changed',
+      autoToast: false,
+    });
+  return baseURL;
+}
+
+function getBoundSessionEndpoint(
+  session: IHardwareCloudSyncSession,
+  client: AxiosInstance,
+  requestedBaseURL?: string,
+): string | undefined {
+  const boundBaseURL = session.boundBaseURL ?? requestedBaseURL;
+  if (
+    boundBaseURL &&
+    (client.defaults.baseURL !== boundBaseURL ||
+      (requestedBaseURL && requestedBaseURL !== boundBaseURL))
+  )
+    throw new OneKeyLocalError({
+      message: 'Hardware Cloud endpoint changed',
+      autoToast: false,
+    });
+  return boundBaseURL;
+}
+
 function toSession(
   tokens: unknown,
   jwk: IHardwareCloudSyncDeviceKeyJwk,
   dekId: string,
+  boundBaseURL?: string,
+  boundBaseURLVerified = false,
 ): IHardwareCloudSyncSession {
   if (
     typeof tokens !== 'object' ||
@@ -357,6 +400,7 @@ function toSession(
     refreshToken: tokens.refreshToken,
     sessionId: tokens.sessionId,
     dekId,
+    ...(boundBaseURL ? { boundBaseURL, boundBaseURLVerified } : {}),
   };
 }
 
@@ -466,39 +510,65 @@ export async function verifyHardwareCloudSyncChallenge({
   challengeId: string;
   signature: string;
 }): Promise<IHardwareCloudSyncSession> {
-  const tokens = await request<ITokenResponse>({
+  const urlPath = `${AUTH_BASE}/verify`;
+  const boundBaseURL = client.defaults.baseURL;
+  const response = await requestRaw<ITokenResponse>({
     client,
     method: 'POST',
-    urlPath: `${AUTH_BASE}/verify`,
+    urlPath,
     data: { challengeId, signature },
     jwk,
+    boundBaseURL,
   });
-  return toSession(tokens, jwk, '');
+  return toSession(
+    response.data.data,
+    jwk,
+    '',
+    boundBaseURL,
+    !!verifiedSessionBaseURL(response, boundBaseURL, urlPath),
+  );
 }
 
 export async function refreshHardwareCloudSyncSessionIfNeeded({
   client,
   session,
   force,
+  boundBaseURL,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   force?: boolean;
+  boundBaseURL?: string;
 }): Promise<IHardwareCloudSyncSession | undefined> {
+  const endpoint = getBoundSessionEndpoint(session, client, boundBaseURL);
   if (
     !force &&
     session.accessTokenExpiresAt - Date.now() > ACCESS_TOKEN_REFRESH_MARGIN_MS
   ) {
     return undefined;
   }
-  const tokens = await request<ITokenResponse>({
+  const urlPath = `${AUTH_BASE}/refresh`;
+  const selectedBaseURL = endpoint ?? client.defaults.baseURL;
+  const response = await requestRaw<ITokenResponse>({
     client,
     method: 'POST',
-    urlPath: `${AUTH_BASE}/refresh`,
+    urlPath,
     data: { refreshToken: session.refreshToken },
     jwk: session.deviceKeyJwk,
+    boundBaseURL: selectedBaseURL,
   });
-  return toSession(tokens, session.deviceKeyJwk, session.dekId);
+  const verifiedBaseURL = verifiedSessionBaseURL(
+    response,
+    selectedBaseURL,
+    urlPath,
+  );
+  return toSession(
+    response.data.data,
+    session.deviceKeyJwk,
+    session.dekId,
+    selectedBaseURL,
+    !!verifiedBaseURL,
+  );
 }
 
 export async function requestRawWithHardwareCloudSyncSession<T>({
@@ -511,6 +581,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   prepareUpload,
   prepareWalletRetry,
   assertCanSend,
+  boundBaseURL,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
@@ -519,6 +590,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
   assertCanSend?: () => void;
+  boundBaseURL?: string;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
     baseURL: string | undefined,
@@ -533,6 +605,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     prepareUpload,
     prepareWalletRetry,
     assertCanSend,
+    boundBaseURL: getBoundSessionEndpoint(session, client, boundBaseURL),
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });

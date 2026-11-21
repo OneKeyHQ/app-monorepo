@@ -4631,7 +4631,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     },
   );
 
-  async clearCachedSyncCredential() {
+  invalidateSyncCredentialMemo() {
+    this.getSyncCredentialWithCache.clear();
+  }
+
+  async clearCachedSyncCredential({
+    preservePendingHardwareRefresh,
+  }: { preservePendingHardwareRefresh?: boolean } = {}) {
     this.publicAccountSnapshotImportGeneration += 1;
     this.clearLocalMutationRetry();
     this.walletUploadReadRetry = undefined;
@@ -4640,8 +4646,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     for (const controller of this.cloudSyncItemAbortControllers)
       controller.abort();
     this.clearReconciliationTimer();
-    this.getSyncCredentialWithCache.clear();
-    this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
+    this.invalidateSyncCredentialMemo();
+    if (preservePendingHardwareRefresh) {
+      this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache(
+        {
+          preservePendingHardwareRefresh: true,
+        },
+      );
+    } else {
+      this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
+    }
   }
 
   private oneKeyIdCloudSyncToggleOperation = Symbol('OneKey ID sync settings');
