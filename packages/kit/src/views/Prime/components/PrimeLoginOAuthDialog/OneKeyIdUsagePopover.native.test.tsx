@@ -212,6 +212,7 @@ function Host() {
         open={open}
         onOpenChange={setOpen}
         hoverable={false}
+        contentId="usage"
       />
     </>
   );

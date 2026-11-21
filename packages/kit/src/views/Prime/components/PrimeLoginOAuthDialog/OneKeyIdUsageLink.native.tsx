@@ -13,6 +13,8 @@ export function OneKeyIdUsageLink({
   children: ReactNode;
   onPress: () => void;
   onElementChange: (element: HTMLElement | undefined) => void;
+  expanded: boolean;
+  controlsId: string;
 }) {
   return (
     <Text

@@ -1,5 +1,5 @@
 /* cspell:ignore hoverable */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -114,6 +114,7 @@ function PrimeLoginOAuthDialog(props: {
   // Web: the subtitle link span, which the wide-window panel anchors to and
   // opens on hover from.
   const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
+  const usageContentId = useId();
   const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
@@ -698,6 +699,8 @@ function PrimeLoginOAuthDialog(props: {
             key="usage-link"
             onPress={handleShowUsage}
             onElementChange={setUsageLinkElement}
+            expanded={usagePopover.open}
+            controlsId={usageContentId}
           >
             {chunks}
           </OneKeyIdUsageLink>
@@ -878,6 +881,7 @@ function PrimeLoginOAuthDialog(props: {
         open={usagePopover.open && !isEmailVerificationStep}
         onOpenChange={handleUsagePopoverOpenChange}
         hoverable={!usagePopover.open || usagePopover.openedByHover}
+        contentId={usageContentId}
         webAnchorElement={usageLinkElement}
       />
     </Stack>

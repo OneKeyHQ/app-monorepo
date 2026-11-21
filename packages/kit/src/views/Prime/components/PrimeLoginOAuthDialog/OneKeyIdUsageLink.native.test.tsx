@@ -33,7 +33,12 @@ jest.mock('react-native', () => ({
 it('hands the press handler and link role to the native Text', () => {
   const onPress = jest.fn();
   render(
-    <OneKeyIdUsageLink onPress={onPress} onElementChange={jest.fn()}>
+    <OneKeyIdUsageLink
+      onPress={onPress}
+      onElementChange={jest.fn()}
+      expanded={false}
+      controlsId="usage"
+    >
       Learn more
     </OneKeyIdUsageLink>,
   );

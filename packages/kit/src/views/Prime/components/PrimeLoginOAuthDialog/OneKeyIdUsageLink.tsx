@@ -9,10 +9,14 @@ export function OneKeyIdUsageLink({
   children,
   onPress,
   onElementChange,
+  expanded,
+  controlsId,
 }: {
   children: ReactNode;
   onPress: () => void;
   onElementChange: (element: HTMLElement | undefined) => void;
+  expanded: boolean;
+  controlsId: string;
 }) {
   const handleRef = useCallback(
     (node: unknown) => {
@@ -38,6 +42,9 @@ export function OneKeyIdUsageLink({
       color="$textSubdued"
       cursor="pointer"
       role="link"
+      aria-haspopup="dialog"
+      aria-expanded={expanded}
+      aria-controls={controlsId}
       tabIndex={0}
       onPress={onPress}
       onKeyDown={handleKeyDown}
