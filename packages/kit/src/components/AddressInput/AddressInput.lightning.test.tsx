@@ -131,31 +131,36 @@ it.each([
   },
 );
 
-it('preserves the paragraph break when sending an LNURL for validation', async () => {
-  mockQuery.mockClear();
-  mockQuery.mockResolvedValueOnce({ input: '' });
-  const networkId = getNetworkIdsMap().lightning;
-  const onChange = jest.fn();
-  const address = 'lnurlp://example.com/pay\n\nThanks';
-  render(
-    <AddressInput
-      name="to"
-      accountId="account-id"
-      networkId={networkId}
-      onChange={onChange}
-    />,
-  );
-  fireEvent.change(screen.getByRole('textbox', { name: 'Recipient' }), {
-    target: { value: address },
-  });
+it.each([
+  'lnurlp://example.com/pay\n\nThanks',
+  'Please pay (use this link (lnurlp://merchant.example/pay)).',
+])(
+  'preserves the pasted payment instructions when validating a complete LNURL',
+  async (address) => {
+    mockQuery.mockClear();
+    mockQuery.mockResolvedValueOnce({ input: '' });
+    const networkId = getNetworkIdsMap().lightning;
+    const onChange = jest.fn();
+    render(
+      <AddressInput
+        name="to"
+        accountId="account-id"
+        networkId={networkId}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Recipient' }), {
+      target: { value: address },
+    });
 
-  expect(onChange).toHaveBeenCalledWith({ raw: address, pending: true });
-  await waitFor(() =>
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ address, networkId }),
-    ),
-  );
-});
+    expect(onChange).toHaveBeenCalledWith({ raw: address, pending: true });
+    await waitFor(() =>
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ address, networkId }),
+      ),
+    );
+  },
+);
 
 it('joins a wrapped LNURL with a valid checksum before validating it', async () => {
   mockQuery.mockClear();

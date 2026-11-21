@@ -112,6 +112,7 @@ type IReusableLightningRecipient =
   | { kind: 'ambiguous' };
 
 function readParenthesizedLnurl(
+  prefix: string,
   input: string,
   suffix: string,
   sameLine: string,
@@ -119,8 +120,14 @@ function readParenthesizedLnurl(
   const text =
     input +
     (!sameLine.trim() && suffix.trimStart().startsWith(')') ? ')' : sameLine);
+  let enclosingDepth = 0;
+  for (const char of prefix) {
+    if (char === '(') enclosingDepth += 1;
+    if (char === ')' && enclosingDepth > 0) enclosingDepth -= 1;
+  }
+
+  const unmatchedClosers: number[] = [];
   let depth = 0;
-  let wrapperEnd: number | undefined;
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
     if (char === '(') {
@@ -128,17 +135,27 @@ function readParenthesizedLnurl(
     } else if (char === ')') {
       if (depth > 0) {
         depth -= 1;
-      } else if (index >= input.length) {
-        return wrapperEnd === undefined ? input : null;
       } else {
-        const next = text[index + 1];
-        // A literal ')' can be followed by more URI characters. If two
-        // different boundaries are plausible, do not select either path.
-        if (!next || /[\s.,!?，。！？;；:：)>"']/u.test(next)) {
-          if (wrapperEnd !== undefined) return null;
-          wrapperEnd = index;
-        }
+        unmatchedClosers.push(index);
       }
+    }
+  }
+  // Reserve closers for enclosing prose only when all openers can be paired.
+  const linkCloserCount =
+    unmatchedClosers.length > enclosingDepth
+      ? unmatchedClosers.length - enclosingDepth
+      : unmatchedClosers.length;
+  let wrapperEnd: number | undefined;
+  for (const index of unmatchedClosers.slice(0, linkCloserCount)) {
+    const next = text[index + 1];
+    if (
+      index >= input.length ||
+      !next ||
+      /[\s.,!?，。！？;；:：)>"']/u.test(next)
+    ) {
+      const end = Math.min(index, input.length);
+      if (wrapperEnd !== undefined && wrapperEnd !== end) return null;
+      wrapperEnd = end;
     }
   }
   return wrapperEnd === undefined ? null : input.slice(0, wrapperEnd);
@@ -172,7 +189,9 @@ function readReusableLightningRecipient(
       opener === '(' &&
       LNURL_URI_SCHEME.test(normalizeLightningInput(input))
     ) {
-      const uri = readParenthesizedLnurl(input, suffix, sameLine);
+      const prefix =
+        address.slice(0, match.index).split(LNURL_LINE_BREAK).at(-1) ?? '';
+      const uri = readParenthesizedLnurl(prefix, input, suffix, sameLine);
       const candidate = uri && normalizeLightningInput(uri);
       return candidate && findLnurl(candidate)
         ? { kind: 'recipient', address: candidate }

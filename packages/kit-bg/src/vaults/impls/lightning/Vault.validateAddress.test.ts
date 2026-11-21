@@ -124,6 +124,10 @@ describe('LightningVault.validateAddress', () => {
       'Pay (lnurlp://example.com/pay before Friday).',
       'lnurlp://example.com/pay',
     ],
+    [
+      'Please pay (use this link (lnurlp://merchant.example/pay)).',
+      'lnurlp://merchant.example/pay',
+    ],
     [`Pay:${LNURL}`, LNURL],
     [
       'Pay here: lnurlp://example.com/pay?note=thanks!',

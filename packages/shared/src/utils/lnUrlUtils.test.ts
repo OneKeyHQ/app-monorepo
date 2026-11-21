@@ -151,8 +151,23 @@ it('keeps literal closing parentheses inside a clearly wrapped URI', () => {
 });
 
 it.each([
+  [
+    'Please pay (use this link (lnurlp://merchant.example/pay)).',
+    'lnurlp://merchant.example/pay',
+  ],
+  [
+    'Please pay (the invoice (link (lnurlp://merchant.example/pay)weekly?order=1234))).',
+    'lnurlp://merchant.example/pay)weekly?order=1234',
+  ],
+])('uses the link wrapper inside enclosing prose parentheses', (text, uri) => {
+  expect(isAmbiguousLnurl(text)).toBe(false);
+  expect(resolveReusableLightningRecipient(text)).toBe(uri);
+});
+
+it.each([
   '(lnurlp://merchant.example/pay),weekly)',
   'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
+  'Pay (use this link (lnurlp://merchant.example/pay),weekly before Friday) if needed).',
 ])('rejects a wrapper with two plausible closing parentheses', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(resolveReusableLightningRecipient(text)).toBeNull();
