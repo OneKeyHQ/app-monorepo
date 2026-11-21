@@ -113,14 +113,15 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     const walletId = target.wallet.id;
     let expectedCloudSyncWalletName: string | undefined;
     // The base flow has already authenticated and matched the Wallet payload.
-    // A queued local write does not gain server authority from a force replay.
-    if (
-      payload.name?.trim() &&
-      item?.data &&
-      item.serverUploaded &&
-      !item.isDeleted &&
-      !item.pendingPublicAccountDeletionAt
-    ) {
+    // Local pending ciphertext is upload intent, not permission to replace a
+    // divergent canonical name (including after turning the same key back on).
+    // An exact canonical match still allows ordinary same-name scene replay.
+    const isLiveEncryptedSource =
+      item?.data && !item.isDeleted && !item.pendingPublicAccountDeletionAt;
+    const requiresNameCheck = item?.serverUploaded
+      ? !!payload.name?.trim()
+      : !!payload.name;
+    if (isLiveEncryptedSource && requiresNameCheck) {
       let cancelled = false;
       try {
         expectedCloudSyncWalletName = await withWalletNameHistoryDeadline(
@@ -130,6 +131,10 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
               withoutRefill: true,
             });
             if (cancelled || (isCurrent && !isCurrent())) return undefined;
+            if (!item.serverUploaded)
+              return canonical.name === payload.name
+                ? canonical.name
+                : undefined;
             if (
               canonical.name.trim() &&
               canonical.name !== payload.name &&

@@ -400,39 +400,49 @@ describe('CloudSyncFlowManagerWallet', () => {
       },
     );
 
-    test.each(['same-name', 'empty-name', 'not-server-uploaded'] as const)(
-      'does not add history for a %s scene',
-      async (scenario) => {
-        const retainWalletName = jest.fn(async () => true);
-        const sync = new CloudSyncFlowManagerWallet({
-          backgroundApi: {
-            localDb: {
-              getWallet: jest.fn(async () => ({
-                ...wallet,
-                name: (() => {
-                  if (scenario === 'empty-name') return '';
-                  if (scenario === 'same-name') return payload.name;
-                  return wallet.name;
-                })(),
-              })),
-            },
-            simpleDb: { changeHistory: { retainWalletName } },
-            serviceAccount: { setWalletNameAndAvatar },
-          } as unknown as IBackgroundApi,
-        });
-        await expect(
-          sync.syncToSceneEachItem({
-            item: {
-              ...item,
-              serverUploaded: scenario !== 'not-server-uploaded',
-            },
-            target,
-            payload,
-          }),
-        ).resolves.toBe(true);
-        expect(retainWalletName).not.toHaveBeenCalled();
-      },
-    );
+    test.each([
+      'same-name',
+      'empty-name',
+      'not-server-uploaded',
+      'pending-name-matches',
+    ] as const)('does not add history for a %s scene', async (scenario) => {
+      const retainWalletName = jest.fn(async () => true);
+      const sync = new CloudSyncFlowManagerWallet({
+        backgroundApi: {
+          localDb: {
+            getWallet: jest.fn(async () => ({
+              ...wallet,
+              name: (() => {
+                if (scenario === 'empty-name') return '';
+                if (
+                  scenario === 'same-name' ||
+                  scenario === 'pending-name-matches'
+                )
+                  return payload.name;
+                return wallet.name;
+              })(),
+            })),
+          },
+          simpleDb: { changeHistory: { retainWalletName } },
+          serviceAccount: { setWalletNameAndAvatar },
+        } as unknown as IBackgroundApi,
+      });
+      await expect(
+        sync.syncToSceneEachItem({
+          item: {
+            ...item,
+            serverUploaded:
+              scenario !== 'not-server-uploaded' &&
+              scenario !== 'pending-name-matches',
+          },
+          target,
+          payload,
+        }),
+      ).resolves.toBe(scenario !== 'not-server-uploaded');
+      if (scenario === 'not-server-uploaded')
+        expect(setWalletNameAndAvatar).not.toHaveBeenCalled();
+      expect(retainWalletName).not.toHaveBeenCalled();
+    });
 
     test.each(['', wallet.name])(
       'a server avatar applies without writing name history when name is %s',
