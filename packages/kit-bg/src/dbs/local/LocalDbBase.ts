@@ -8692,6 +8692,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return this.setWalletNameAndAvatarInternal(params);
     }
     const { walletId } = params;
+    const saveLocalOnly = () =>
+      this.setWalletNameAndAvatarInternal(
+        { ...params, skipSaveLocalSyncItem: true },
+        { skipCloudCredentialWarmup: true },
+      );
     const isDeviceWallet = accountUtils.isHwOrQrWallet({ walletId });
     // The wallet metadata sync manager does not handle these local records.
     // Bot wallets use a separate, scope-specific sync item.
@@ -8699,10 +8704,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (!isDeviceWallet && !accountUtils.isHdWallet({ walletId })) ||
       accountUtils.isBotWallet({ walletId })
     ) {
-      return this.setWalletNameAndAvatarInternal({
-        ...params,
-        skipSaveLocalSyncItem: true,
-      });
+      return saveLocalOnly();
     }
     if (isDeviceWallet) {
       const device = await this.getWalletDeviceSafe({ walletId });
@@ -8710,10 +8712,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         device?.vendor &&
         !getVendorProfile(device.vendor).supportsCloudSync
       ) {
-        return this.setWalletNameAndAvatarInternal({
-          ...params,
-          skipSaveLocalSyncItem: true,
-        });
+        return saveLocalOnly();
       }
     }
     if (
@@ -8730,8 +8729,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               verifiedCredential
                 ? params
                 : { ...params, skipSaveLocalSyncItem: true },
-              verifiedCredential,
-              claimWrite,
+              { verifiedCredential, claimWrite },
             );
           } catch (error) {
             if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED || !claimWrite())
@@ -8751,8 +8749,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   private async setWalletNameAndAvatarInternal(
     params: IDBSetWalletNameAndAvatarParams,
-    verifiedCredential?: ICloudSyncCredential,
-    claimWrite?: () => boolean,
+    {
+      verifiedCredential,
+      claimWrite,
+      skipCloudCredentialWarmup,
+    }: {
+      verifiedCredential?: ICloudSyncCredential;
+      claimWrite?: () => boolean;
+      skipCloudCredentialWarmup?: boolean;
+    } = {},
   ): Promise<IDBWallet> {
     const skipCloudWarmup = !!claimWrite;
     const { walletId } = params;
@@ -9025,7 +9030,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       EIndexedDBBucketNames.account,
       writeWalletMetadata,
       {
-        skipCloudCredentialWarmup: skipCloudWarmup,
+        skipCloudCredentialWarmup: skipCloudWarmup || skipCloudCredentialWarmup,
         confirmRollbackOnError: !!claimWrite,
       },
     );

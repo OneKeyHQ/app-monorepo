@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -10,6 +11,36 @@ import { EIndexedDBBucketNames } from './types';
 
 import type { IDBDevice, IDBWallet } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+afterEach(() => jest.restoreAllMocks());
+
+async function expectSavedWithoutCloudWarmup(
+  save: () => Promise<IDBWallet>,
+): Promise<IDBWallet> {
+  const started = Promise.withResolvers<'warmup'>();
+  const blocked = Promise.withResolvers<void>();
+  const hydrate = jest.fn(() => {
+    started.resolve('warmup');
+    return blocked.promise;
+  });
+  const property = jest.replaceProperty(appGlobals, '$backgroundApiProxy', {
+    serviceKeylessCloudSync: {
+      hydrateKeylessSyncCredentialFromStorageIfNeeded: hydrate,
+    },
+  } as unknown as typeof appGlobals.$backgroundApiProxy);
+  const mutation = save();
+  try {
+    await expect(
+      Promise.race([mutation.then(() => 'saved'), started.promise]),
+    ).resolves.toBe('saved');
+    expect(hydrate).not.toHaveBeenCalled();
+    return await mutation;
+  } finally {
+    blocked.resolve();
+    await mutation.catch(() => undefined);
+    property.restore();
+  }
+}
 
 it.each([
   [EHardwareVendor.ledger, true],
@@ -66,13 +97,15 @@ it.each([
       });
     });
 
-    const update = db.setWalletNameAndAvatar({
-      walletId: wallet.id,
-      name: 'New local name',
-      avatar: { img: 'bear' },
-    });
+    const update = () =>
+      db.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        name: 'New local name',
+        avatar: { img: 'bear' },
+      });
     if (isLocalOnly) {
-      await expect(update).resolves.toMatchObject({ name: 'New local name' });
+      const saved = await expectSavedWithoutCloudWarmup(update);
+      expect(saved.name).toBe('New local name');
       await expect(
         db.getRecordById({ name: ELocalDBStoreNames.Wallet, id: wallet.id }),
       ).resolves.toMatchObject({
@@ -81,7 +114,7 @@ it.each([
       });
       expect(runWithCloudSyncKeyLock).not.toHaveBeenCalled();
     } else {
-      await expect(update).rejects.toThrow('Synthetic unreadable Cloud key');
+      await expect(update()).rejects.toThrow('Synthetic unreadable Cloud key');
       await expect(
         db.getRecordById({ name: ELocalDBStoreNames.Wallet, id: wallet.id }),
       ).resolves.toMatchObject({ name: wallet.name });
