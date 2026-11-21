@@ -740,6 +740,229 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
+  test.each([
+    'wallet-only',
+    'with-sibling',
+    'confirmed-conflict',
+    'repeated-timeout',
+    'superseded',
+    'removed',
+    'changed-source',
+    'disabled',
+    'restart',
+    'manual',
+  ] as const)(
+    'fresh legacy full check retries only still-unverified Wallet versions: %s',
+    async (scenario) => {
+      const scope = 'hw-dek-full-check-timeout-fixture';
+      const wallet: IDBCloudSyncItem = {
+        id: 'persisted-wallet',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'wallet-pending-envelope',
+        dataTime: 100,
+        rawKey: '',
+        rawData: '',
+        pwdHash: scope,
+        serverUploaded: false,
+        localSceneUpdated: true,
+        isDeleted: false,
+      };
+      const sibling: IDBCloudSyncItem = {
+        ...wallet,
+        id: 'healthy-sibling',
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: 'sibling-envelope',
+      };
+      const selected = {
+        masterPasswordUUID: scope,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+      };
+      const h = harness(0, {
+        initialPool: new Map(
+          (scenario === 'with-sibling' ? [wallet, sibling] : [wallet]).map(
+            (row) => [row.id, row],
+          ),
+        ),
+      });
+      jest
+        .spyOn(h.service, 'getSyncCredentialSafe')
+        .mockResolvedValue(selected);
+      h.check.mockResolvedValueOnce(
+        reply({
+          reconciliation: undefined,
+          pwdHash: scope,
+          obsoleted: [
+            wallet.id,
+            ...(scenario === 'with-sibling' ? [sibling.id] : []),
+          ],
+        }),
+      );
+      const stalled = deferred<boolean>();
+      const verify = jest.spyOn(
+        h.service.syncManagers.wallet,
+        'canUploadPendingWalletName',
+      );
+      if (scenario === 'confirmed-conflict')
+        verify.mockResolvedValueOnce(false);
+      else if (scenario === 'repeated-timeout')
+        verify.mockReturnValue(stalled.promise);
+      else verify.mockReturnValueOnce(stalled.promise);
+      const upload = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
+
+      const updateTime =
+        ServicePrimeCloudSync.prototype.updateLastSyncTime.bind(h.service);
+      h.updateLastSyncTime.mockImplementation(updateTime);
+      const manual = scenario === 'manual';
+      if (manual) {
+        jest
+          .spyOn(h.service, 'resolveInitLocalSyncItemsPassword')
+          .mockResolvedValue('fixture');
+        jest
+          .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+          .mockResolvedValue('fixture');
+        jest
+          .spyOn(h.service, 'prepareLocalSyncWallets')
+          .mockResolvedValue(undefined);
+        jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+          allWallets: [],
+          allDevices: undefined,
+          allAccounts: [],
+          allIndexedAccounts: [],
+        });
+      }
+      const initial = manual
+        ? h.service.syncNowKeylessWithResult({
+            callerName: 'Manual timeout fixture',
+            askPasswordOnlyIfHdXfpMissing: true,
+          })
+        : h.run();
+      await jest.advanceTimersByTimeAsync(1500);
+      const conflict = scenario === 'confirmed-conflict';
+      await expect(initial).resolves.toBe(manual ? 'local-deferred' : conflict);
+      expect(h.pool.get(wallet.id)).toEqual(wallet);
+      expect(h.config().lastSyncTimeKeyless).toBeUndefined();
+      const state = h.config().cloudSyncReconciliation;
+      expect(state).toMatchObject({
+        status: conflict ? 'complete' : 'waiting',
+        reason: conflict ? 'finished' : 'upload-incomplete',
+        unfinished: !conflict,
+        uploaded: scenario === 'with-sibling' ? 1 : 0,
+      });
+      if (scenario === 'with-sibling')
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            postData: expect.objectContaining({
+              localData: [expect.objectContaining({ key: sibling.id })],
+            }),
+          }),
+        );
+      else expect(upload).not.toHaveBeenCalled();
+
+      if (conflict) {
+        await jest.advanceTimersByTimeAsync(120_000);
+        expect(h.check).toHaveBeenCalledTimes(1);
+        return;
+      }
+      if (!state?.nextRetryAt) throw new OneKeyLocalError('Missing retry time');
+      if (scenario === 'superseded')
+        h.pool.set(wallet.id, {
+          ...wallet,
+          data: 'superseding-box',
+          dataTime: 101,
+        });
+      if (scenario === 'removed') h.pool.delete(wallet.id);
+      if (scenario === 'changed-source') h.changeSource();
+      if (scenario === 'disabled') {
+        h.patchConfig({ isCloudSyncEnabledKeyless: false });
+        jest
+          .spyOn(h.service, 'isCloudSyncIsAvailable')
+          .mockResolvedValue(false);
+      }
+      let active = h;
+      let activeUpload = upload;
+      if (scenario === 'restart') {
+        // Drop process-owned timer and use only persisted state + pool.
+        h.service['clearReconciliationTimer']();
+        active = harness(0, {
+          initialPool: h.pool,
+          initialConfig: h.config(),
+        });
+        jest
+          .spyOn(active.service, 'getSyncCredentialSafe')
+          .mockResolvedValue(selected);
+        activeUpload = jest
+          .spyOn(active.service, 'apiUploadItemsKeyless')
+          .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
+        await active.service.resumeCloudSyncReconciliation({
+          reason: 'startup',
+        });
+        expect(active.check).not.toHaveBeenCalled();
+      }
+
+      // Fresh authenticated compare decides on the latest pool, not the held
+      // ciphertext from the first attempt.
+      active.check.mockImplementation(async ({ localItems }) =>
+        reply({
+          reconciliation: undefined,
+          pwdHash: scope,
+          obsoleted: (localItems ?? [])
+            .filter((row) => row.id === wallet.id)
+            .map((row) => row.id),
+        }),
+      );
+      await jest.advanceTimersByTimeAsync(state.nextRetryAt - Date.now());
+      if (scenario === 'changed-source' || scenario === 'disabled') {
+        expect(h.check).toHaveBeenCalledTimes(1);
+        expect(upload).not.toHaveBeenCalled();
+        return;
+      }
+      expect(active.check).toHaveBeenCalledTimes(
+        scenario === 'restart' ? 1 : 2,
+      );
+      if (scenario === 'repeated-timeout') {
+        await jest.advanceTimersByTimeAsync(1500);
+        expect(upload).not.toHaveBeenCalled();
+        const retried = h.config().cloudSyncReconciliation;
+        expect(retried).toMatchObject({
+          status: 'waiting',
+          unfinished: true,
+          failures: 2,
+        });
+        expect(retried?.nextRetryAt).toBe(Date.now() + 60_000);
+        await jest.advanceTimersByTimeAsync(59_999);
+        expect(h.check).toHaveBeenCalledTimes(2);
+        return;
+      }
+      stalled.resolve(true);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(active.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+      });
+      if (scenario === 'removed') {
+        expect(upload).not.toHaveBeenCalled();
+      } else {
+        expect(activeUpload).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            postData: expect.objectContaining({
+              localData: [
+                expect.objectContaining({
+                  key: wallet.id,
+                  data:
+                    scenario === 'superseded' ? 'superseding-box' : wallet.data,
+                }),
+              ],
+            }),
+          }),
+        );
+      }
+      expect(active.updateLastSyncTime).toHaveBeenCalled();
+    },
+  );
+
   test.each(['credential', 'wallet'] as const)(
     'direct Wallet verification has one deadline and sends healthy sibling despite stalled %s',
     async (stalled) => {

@@ -370,6 +370,7 @@ export async function runCloudSyncReconciliation({
           );
         let uploaded = 0;
         let skipped = 0;
+        let verificationTimedOut = 0;
         let applied = 0;
         let hasApplyReceipt = false;
         if (response.obsoleted.length) {
@@ -382,12 +383,17 @@ export async function runCloudSyncReconciliation({
           );
           uploaded = receipt?.uploaded ?? 0;
           skipped = receipt?.skipped ?? 0;
+          verificationTimedOut = receipt?.verificationTimedOut ?? 0;
           if (
             !Number.isSafeInteger(uploaded) ||
             uploaded < 0 ||
             !Number.isSafeInteger(skipped) ||
             skipped < 0 ||
-            uploaded + skipped > response.obsoleted.length
+            !Number.isSafeInteger(verificationTimedOut) ||
+            verificationTimedOut < 0 ||
+            (!legacyResponseSeen && verificationTimedOut > 0) ||
+            uploaded + skipped + verificationTimedOut >
+              response.obsoleted.length
           )
             throw new ReconciliationStop('invalid-response');
           state.uploaded += uploaded;
@@ -450,17 +456,17 @@ export async function runCloudSyncReconciliation({
           // A final check can still be followed by an incomplete upload. Verify
           // the remaining keys with a fresh check after the retry delay.
           if (uploaded + skipped < response.obsoleted.length) {
-            return progress
-              ? finish(
-                  'waiting',
-                  'upload-incomplete',
-                  limits.continuationDelayMs,
-                )
-              : finish(
-                  'blocked',
-                  'upload-incomplete',
-                  limits.blockedRetryDelayMs,
-                );
+            const onlyVerificationTimedOut =
+              verificationTimedOut > 0 &&
+              uploaded + skipped + verificationTimedOut ===
+                response.obsoleted.length;
+            return finish(
+              progress || onlyVerificationTimedOut ? 'waiting' : 'blocked',
+              'upload-incomplete',
+              progress
+                ? limits.continuationDelayMs
+                : limits.blockedRetryDelayMs,
+            );
           }
           return finish('complete', 'finished');
         }

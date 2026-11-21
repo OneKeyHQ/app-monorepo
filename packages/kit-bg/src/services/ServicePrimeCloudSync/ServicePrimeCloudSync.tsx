@@ -3574,6 +3574,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       );
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
+      let onlyWalletVerificationTimedOut = false;
       const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
       const onWalletNameHistoryDeferred = (item: IDBCloudSyncItem) => {
         if (
@@ -3701,6 +3702,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                 keySet.has(item.id),
               );
               let skipped = 0;
+              let verificationTimedOut = 0;
               const uploaded = await this.uploadItemsMutex.runExclusive(
                 async () => {
                   // Only the deployed legacy full compare has a one-pass
@@ -3713,10 +3715,14 @@ class ServicePrimeCloudSync extends ServiceBase {
                         credential,
                         signal,
                         isCurrent,
+                        onTimeout: (items) => {
+                          verificationTimedOut = items.length;
+                        },
                       });
-                  skipped = localItems.length - outgoing.length;
-                  heldDivergentWalletName ||= skipped > 0;
-                  if (skipped > 0 && !outgoing.length) return undefined;
+                  const withheld = localItems.length - outgoing.length;
+                  skipped = withheld - verificationTimedOut;
+                  heldDivergentWalletName ||= withheld > 0;
+                  if (withheld > 0 && !outgoing.length) return undefined;
                   try {
                     return await this._callApiUploadItems({
                       localItems: outgoing,
@@ -3732,9 +3738,15 @@ class ServicePrimeCloudSync extends ServiceBase {
                   }
                 },
               );
+              const confirmed =
+                (uploaded?.created ?? 0) + (uploaded?.updated ?? 0);
+              onlyWalletVerificationTimedOut =
+                verificationTimedOut > 0 &&
+                confirmed + skipped + verificationTimedOut === keys.length;
               return {
-                uploaded: (uploaded?.created ?? 0) + (uploaded?.updated ?? 0),
+                uploaded: confirmed,
                 skipped,
+                verificationTimedOut,
               };
             })();
             activeUpload = work;
@@ -3923,11 +3935,19 @@ class ServicePrimeCloudSync extends ServiceBase {
           issues.conflicts +
           issues.rejected >
           0;
+      const quietWalletRetry =
+        onlyWalletVerificationTimedOut &&
+        result.status === 'waiting' &&
+        result.reason === 'upload-incomplete';
+      // Reuse the durable backoff even when the only missing work was an
+      // unverified Wallet: repeatedly slow local reads must not spin.
+      const shouldBackOff =
+        result.status === 'blocked' || (quietWalletRetry && !result.progress);
       let failures = baseline.failures;
-      if (result.status === 'blocked') failures += 1;
+      if (shouldBackOff) failures += 1;
       else if (result.progress) failures = 0;
       let nextRetryAt = result.nextRetryAt;
-      if (result.status === 'blocked')
+      if (shouldBackOff)
         nextRetryAt =
           Date.now() +
           Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
@@ -3994,6 +4014,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               ? 'local-deferred'
               : 'completed',
           );
+        else if (quietWalletRetry) onManualResult('local-deferred');
         else if (transportFailure) onManualResult(transportFailure);
         else if (
           result.reason === 'invalid-response' ||

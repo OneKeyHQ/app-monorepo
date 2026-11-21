@@ -87,7 +87,11 @@ export type ICloudSyncReconciliationAdapter = {
     keys: string[];
     response: ICloudSyncCheckServerStatusResult;
     signal: AbortSignal;
-  }): Promise<{ uploaded: number; skipped?: number } | void>;
+  }): Promise<{
+    uploaded: number;
+    skipped?: number;
+    verificationTimedOut?: number;
+  } | void>;
   isCurrent(): boolean;
   // A recognized declaration enables bounded draining; it does not prove
   // that a deployed backend has passed its independent acceptance tests.
