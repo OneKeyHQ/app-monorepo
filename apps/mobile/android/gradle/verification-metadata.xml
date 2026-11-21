@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Pins the prebuilt yttrium binaries that @walletconnect/react-native-compat
+  pulls from JitPack. Every other group stays trusted as before.
+
+  To upgrade yttrium-wcpay, check that the .so files in the new AAR match the
+  GitHub release kotlin-wcpay-artifacts.zip of the same tag, then replace the
+  version and the SHA-256 values below in the same change.
+-->
+<verification-metadata xmlns="https://schema.gradle.org/dependency-verification"
+                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                       xsi:schemaLocation="https://schema.gradle.org/dependency-verification https://schema.gradle.org/dependency-verification/dependency-verification-1.3.xsd">
+   <configuration>
+      <verify-metadata>true</verify-metadata>
+      <verify-signatures>false</verify-signatures>
+      <trusted-artifacts>
+         <trust group="^(?!com[.]github[.]reown-com[.]yttrium$).*$" regex="true" reason="Only the yttrium binaries are pinned"/>
+      </trusted-artifacts>
+   </configuration>
+   <components>
+      <component group="com.github.reown-com.yttrium" name="yttrium-wcpay" version="0.10.58">
+         <artifact name="yttrium-wcpay-0.10.58.aar">
+            <sha256 value="c68a75029d579230bf46eb3f7129ccd97110a98f4f78dae0aafe7d6195bcf191" origin="JitPack; the .so files match the GitHub release kotlin-wcpay-artifacts.zip"/>
+         </artifact>
+         <artifact name="yttrium-wcpay-0.10.58.module">
+            <sha256 value="af66a5aee7272d3742093206352f8abac101f3e7274f3a8599a5d00fba81f5fb" origin="JitPack"/>
+         </artifact>
+         <artifact name="yttrium-wcpay-0.10.58.pom">
+            <sha256 value="426b6bcc963fff8bc36bd7bc06606312e0ed26e0c395259100a9ac0a8d072f86" origin="JitPack"/>
+         </artifact>
+      </component>
+   </components>
+</verification-metadata>

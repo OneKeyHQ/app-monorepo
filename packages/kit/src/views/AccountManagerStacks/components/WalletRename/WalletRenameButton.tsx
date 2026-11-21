@@ -29,7 +29,12 @@ export function WalletRenameButton({
 }: ComponentProps<typeof XStack> & {
   wallet: IDBWallet;
   editable: boolean | undefined;
-  textSize?: '$bodyLgMedium' | '$heading2xl' | '$headingXl' | '$headingLg';
+  textSize?:
+    | '$bodyLgMedium'
+    | '$heading3xl'
+    | '$heading2xl'
+    | '$headingXl'
+    | '$headingLg';
 }) {
   const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();

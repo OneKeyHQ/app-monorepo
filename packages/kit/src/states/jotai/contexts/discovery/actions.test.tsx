@@ -10,6 +10,7 @@ import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type {
   IBrowserBookmark,
+  IBrowserHistory,
   IWebTab,
 } from '@onekeyhq/kit/src/views/Discovery/types';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
@@ -21,7 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
-import { useBrowserAction, useBrowserTabActions } from './actions';
+import {
+  useBrowserAction,
+  useBrowserHistoryAction,
+  useBrowserTabActions,
+} from './actions';
 import {
   ProviderJotaiContextDiscovery,
   activeTabIdAtom,
@@ -40,7 +45,12 @@ const mockGetBrowserTabsRawData = jest.fn(
   async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
 );
 const mockSetBrowserTabsRawData = jest.fn();
-const mockSetBrowserHistoryRawData = jest.fn();
+const mockAddBrowserHistoryEntries = jest.fn(
+  async (_entries: IBrowserHistory[]) => true,
+);
+const mockSetBrowserHistoryRawData = jest.fn(
+  async (payload: { data: IBrowserHistory[] }) => payload,
+);
 const mockSetBrowserClosedTabsRawData = jest.fn();
 const mockCrossWebviewLoadUrl = jest.fn();
 const mockFetchDiscoveryHomePageData = jest.fn(async () => ({
@@ -144,8 +154,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
       browserHistory: {
         getRawData: jest.fn(async () => ({ data: [] })),
-        setRawData: (payload: unknown) => {
-          mockSetBrowserHistoryRawData(payload);
+        get addEntries() {
+          return mockAddBrowserHistoryEntries;
+        },
+        get setRawData() {
+          return mockSetBrowserHistoryRawData;
         },
       },
       browserBookmarks: {
@@ -759,6 +772,69 @@ describe('useBrowserTabActions', () => {
           isActive: true,
         }),
       ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes unpinned desktop tabs without waiting for a failing history write', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    jest.useFakeTimers();
+    try {
+      const historyWrite = createDeferred<boolean>();
+      mockAddBrowserHistoryEntries.mockReturnValueOnce(historyWrite.promise);
+      const pinnedTab = {
+        id: 'pinned',
+        url: 'https://pinned.example',
+        title: 'Pinned',
+        isPinned: true,
+        timestamp: 0,
+      };
+      const { result } = renderHook(
+        () => {
+          const [activeTabId] = useActiveTabIdAtom();
+          const [webTabs] = useWebTabsAtom();
+          return {
+            actions: useBrowserTabActions().current,
+            activeTabId,
+            tabs: webTabs.tabs,
+          };
+        },
+        { wrapper: createWrapper({ tabs: [pinnedTab, ...tabsFixture] }) },
+      );
+
+      let completion!: Promise<void>;
+      act(() => {
+        completion = result.current.actions.closeAllWebTabs();
+      });
+
+      const activePinnedTab = { ...pinnedTab, isActive: true };
+      expect(result.current.activeTabId).toBe('pinned');
+      expect(result.current.tabs).toEqual([activePinnedTab]);
+      expect(mockSetBrowserTabsRawData).toHaveBeenLastCalledWith({
+        tabs: [activePinnedTab],
+      });
+      expect(mockAddBrowserHistoryEntries).toHaveBeenCalledTimes(1);
+      const [entries] = mockAddBrowserHistoryEntries.mock.calls[0];
+      expect(entries.map(({ url }) => url)).toEqual(
+        tabsFixture.map(({ url }) => url),
+      );
+      expect(
+        mockAddBrowserHistoryEntries.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockSetBrowserTabsRawData.mock.invocationCallOrder[0]);
+
+      await act(async () => {
+        historyWrite.reject(
+          new DOMException('Write rejected', 'QuotaExceededError'),
+        );
+        await completion;
+      });
+
+      expect(mockAddBrowserHistoryEntries).toHaveBeenCalledTimes(1);
+      expect(result.current.tabs).toEqual([activePinnedTab]);
+      act(() => {
+        jest.advanceTimersByTime(50);
+      });
     } finally {
       jest.useRealTimers();
     }
@@ -1876,4 +1952,20 @@ describe('useBrowserTabActions', () => {
       result.current.tabs.find((tab) => tab.id === result.current.activeTabId),
     ).toEqual(expect.objectContaining({ url: 'https://example.com' }));
   });
+});
+
+it('waits for the history clear write before reporting a committed deletion', async () => {
+  const write = createDeferred<{ data: [] }>();
+  mockSetBrowserHistoryRawData.mockReturnValueOnce(write.promise);
+  const { result } = renderHook(() => useBrowserHistoryAction().current, {
+    wrapper: createWrapper(),
+  });
+  const completed = jest.fn();
+  const clear = result.current.removeAllBrowserHistory().then(completed);
+  await flushMicrotasks();
+  expect(mockSetBrowserHistoryRawData).toHaveBeenLastCalledWith({ data: [] });
+  expect(completed).not.toHaveBeenCalled();
+  write.resolve({ data: [] });
+  await clear;
+  expect(completed).toHaveBeenCalledWith(true);
 });
