@@ -244,17 +244,20 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
     visible,
     presentation,
     sheet,
+    dismissOnBackPress,
   }: {
     children?: ReactNode;
     visible: boolean;
     presentation: string;
     sheet?: { height?: number };
+    dismissOnBackPress?: boolean;
   }) =>
     visible ? (
       <div
         data-testid="overlay"
         data-presentation={presentation}
         data-height={sheet?.height}
+        data-dismiss-on-back-press={String(dismissOnBackPress)}
       >
         {children}
       </div>
@@ -752,5 +755,51 @@ describe('hover and trigger press interaction', () => {
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
     view.rerender(<Popover {...props} open />);
     expect(screen.queryByTestId('overlay')).not.toBeNull();
+  });
+
+  it.each([
+    [undefined, 'false'],
+    [true, 'true'],
+  ])(
+    'lets Escape close a hover panel only when asked (dismissOnEscape=%s)',
+    (dismissOnEscape, expected) => {
+      render(
+        <Popover
+          title="Rates"
+          hoverable={hoverable}
+          dismissOnEscape={dismissOnEscape}
+          open
+          renderTrigger="Rate details"
+          renderContent={<span>Rate breakdown</span>}
+        />,
+      );
+      expect(screen.getByTestId('overlay').dataset.dismissOnBackPress).toBe(
+        expected,
+      );
+    },
+  );
+
+  it('opens a triggerless panel on hovering its web anchor element', () => {
+    const anchor = document.createElement('span');
+    document.body.appendChild(anchor);
+    const onOpenChange = jest.fn();
+    render(
+      <Popover
+        title="Rates"
+        hoverable={hoverable}
+        open={false}
+        onOpenChange={onOpenChange}
+        renderTrigger={null}
+        webAnchorElement={anchor}
+        renderContent={<span>Rate breakdown</span>}
+      />,
+    );
+    try {
+      fireEvent.mouseEnter(anchor);
+      advance(250);
+      expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    } finally {
+      anchor.remove();
+    }
   });
 });

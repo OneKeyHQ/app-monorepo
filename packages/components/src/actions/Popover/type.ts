@@ -33,8 +33,16 @@ export interface IPopoverProps {
   offset?: OffsetOptions;
   /** Anchored panel: flip to the other side when it does not fit. */
   allowFlip?: boolean | FlipOptions;
-  /** Anchored panel: open on hover instead of press. */
+  /**
+   * Anchored panel: open on hover instead of press. Without a trigger, hovering
+   * `webAnchorElement` opens it.
+   */
   hoverable?: IPopoverHoverable;
+  /**
+   * Web anchored panel: Escape closes it. Defaults to true, and to false for
+   * hover panels, which close when the pointer leaves.
+   */
+  dismissOnEscape?: boolean;
   /** Keep the content mounted (hidden) while closed. */
   keepChildrenMounted?: boolean | 'lazy';
   /** Styles the anchored panel. */

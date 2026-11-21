@@ -132,6 +132,7 @@ function RawPopover({
   showHeader = true,
   offset: offsetProp,
   hoverable,
+  dismissOnEscape,
   keepChildrenMounted: keepChildrenMountedProp,
   nativeAnchorRect,
   webAnchorElement,
@@ -211,9 +212,14 @@ function RawPopover({
     offset,
     allowFlip,
   });
+  // Without a trigger, hovering the anchor element opens the panel.
+  const webAnchorRef = useMemo(
+    () => ({ current: webAnchorElement ?? null }),
+    [webAnchorElement],
+  );
   const cancelHover = useHoverOpen({
     hoverable: isSheet ? undefined : (hoverable as IPopoverHoverable),
-    triggerRef,
+    triggerRef: renderTrigger ? triggerRef : webAnchorRef,
     panel,
     open: isOpen,
     onOpen: openPopover ?? noop,
@@ -386,7 +392,7 @@ function RawPopover({
           // modal focus. Hover panels keep their pointer passthrough.
           blocking={false}
           backdrop={hoverable ? false : ANCHORED_BACKDROP}
-          dismissOnBackPress={!hoverable}
+          dismissOnBackPress={dismissOnEscape ?? !hoverable}
           keepContentMounted={keepChildrenMounted}
           onRequestDismiss={requestClose}
           onPresented={reposition}
