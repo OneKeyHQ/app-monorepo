@@ -104,6 +104,7 @@ import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletClou
 import {
   buildOnlyCheckLocalDataTypes,
   canArchiveSettledForeignAccountHandoff,
+  canReplaceSettledPublicAccountCache,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -2843,6 +2844,85 @@ class ServicePrimeCloudSync extends ServiceBase {
     ) => isInactiveHardwareWalletAccount(item, activePwdHash);
     const foreignAccountsByWireId = new Map<string, IDBCloudSyncItem>();
     const collisionCandidates: IDBCloudSyncItem[] = [];
+    const archiveSupported = supportsIndexedCloudAccountArchive();
+    const mayHandoff =
+      allowSettledAccountHandoff &&
+      shouldSyncToScene &&
+      syncCredential?.keylessCredential?.source?.type === 'hardware' &&
+      !!syncCredential.keylessCredential.hardwareSession &&
+      activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX);
+    if (!archiveSupported && mayHandoff) {
+      // Optional collision recognition is read-only and bounded. Do not
+      // serialize DB/crypto work behind the key lock used by local actions.
+      const candidates = localItems.filter(
+        (item) =>
+          item.dataType === EPrimeCloudSyncDataType.Account &&
+          item.pwdHash === activePwdHash &&
+          item.serverUploaded &&
+          !item.isDeleted &&
+          !!item.data &&
+          item.data.length <= 64 * 1024,
+      );
+      if (candidates.length) {
+        let finished = false;
+        const canContinue = () => !finished && (isCurrent?.() ?? true);
+        try {
+          await resolveBeforeTimeout(
+            (async () => {
+              const { records } = await localDb.getRecordsByIds({
+                name: ELocalDBStoreNames.CloudSyncItem,
+                ids: candidates.map((item) => item.id),
+              });
+              if (!canContinue()) return;
+              const byId = new Map(
+                records.map((record) => [record?.id, record]),
+              );
+              let next = 0;
+              const verify = async () => {
+                while (canContinue() && next < candidates.length) {
+                  const item = candidates[next];
+                  next += 1;
+                  const previous = byId.get(item.id);
+                  if (
+                    !previous ||
+                    !canReplaceSettledPublicAccountCache(
+                      previous,
+                      item,
+                      previous.rawKey,
+                    )
+                  )
+                    // eslint-disable-next-line no-continue
+                    continue;
+                  try {
+                    const { rawDataJson } =
+                      await cloudSyncItemBuilder.decryptSyncItem({
+                        item: { ...item, rawData: '', rawDataJson: undefined },
+                        syncCredential,
+                      });
+                    const { rawKey } =
+                      normalizePublicAccountSnapshotRecord(rawDataJson);
+                    if (canContinue() && rawKey === previous.rawKey) {
+                      foreignAccountsByWireId.set(previous.id, { ...previous });
+                      collisionCandidates.push({ ...item, rawKey });
+                    }
+                  } catch {
+                    // Leave unverified versions untouched; healthy records continue.
+                  }
+                }
+              };
+              await Promise.all(
+                Array.from({ length: Math.min(8, candidates.length) }, verify),
+              );
+            })(),
+            1500,
+          );
+        } catch {
+          // A speculative DB read must not prevent ordinary reconciliation.
+        } finally {
+          finished = true;
+        }
+      }
+    }
     const priorWalletVersions = new Map<
       string,
       {
@@ -2856,14 +2936,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         // DB warm-up can await before the transaction starts. Keep the key
         // selected by this check until the write has actually committed.
         await this.assertSyncCredentialUnchanged(syncCredential);
-        if (
-          allowSettledAccountHandoff &&
-          shouldSyncToScene &&
-          supportsIndexedCloudAccountArchive() &&
-          syncCredential?.keylessCredential?.source?.type === 'hardware' &&
-          syncCredential.keylessCredential.hardwareSession &&
-          activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
-        ) {
+        if (archiveSupported && mayHandoff) {
           const handoffCredential = syncCredential;
           const candidates = localItems.filter(
             (item) =>

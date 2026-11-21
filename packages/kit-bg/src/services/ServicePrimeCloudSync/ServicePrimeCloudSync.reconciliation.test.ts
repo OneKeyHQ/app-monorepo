@@ -26,6 +26,7 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
+import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 import {
   getPublicAccountSnapshotId,
@@ -1649,154 +1650,238 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(1);
   });
 
-  test('a legacy full check preserves a same-ID foreign Account and applies its independent sibling', async () => {
-    const builder = jest.requireActual<typeof import('./cloudSyncItemBuilder')>(
-      './cloudSyncItemBuilder',
-    ).default;
-    const keyless = jest.requireActual<
-      typeof import('./keylessCloudSyncUtils')
-    >('./keylessCloudSyncUtils').default;
-    jest
-      .spyOn(keylessCloudSyncUtils, 'isKeylessPwdHash')
-      .mockImplementation((pwdHash) => keyless.isKeylessPwdHash(pwdHash));
+  test.each([
+    'no-hardware-session',
+    'verified-newer',
+    'wrong-ciphertext-key',
+    'withheld-hung-proof',
+  ] as const)(
+    'handles a same-ID Account without interrupting a sibling: %s',
+    async (mode) => {
+      const builder = jest.requireActual<
+        typeof import('./cloudSyncItemBuilder')
+      >('./cloudSyncItemBuilder').default;
+      const keyless = jest.requireActual<
+        typeof import('./keylessCloudSyncUtils')
+      >('./keylessCloudSyncUtils').default;
+      jest
+        .spyOn(keylessCloudSyncUtils, 'isKeylessPwdHash')
+        .mockImplementation((pwdHash) => keyless.isKeylessPwdHash(pwdHash));
 
-    function credential(
-      generation: string,
-      keyByte: string,
-    ): ICloudSyncCredential {
-      const pwdHash = `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${generation}`;
-      return {
-        masterPasswordUUID: pwdHash,
-        primeAccountSalt: '',
-        securityPasswordR1: '',
-        keylessCredential: {
-          keylessWalletId: '-synthetic-hardware-only',
-          signingPrivateKey: '',
-          signingPublicKey: '',
-          pwdHash,
-          encryptionKey: keyByte.repeat(32),
-        },
-      };
-    }
-
-    const active = credential('active', '12');
-    const foreign = credential('retained', '34');
-    async function buildAccount(
-      index: number,
-      syncCredential: ICloudSyncCredential,
-      dataTime: number,
-    ) {
-      const snapshot = publicAccountTestSnapshot(index);
-      const accountId = getPublicAccountSnapshotId(snapshot);
-      const rawKey = `Account >> ${accountId}`;
-      const row = await builder.buildSyncItemFromRawDataJson({
-        key: sha512ProSync({ data: rawKey }),
-        rawDataJson: {
-          dataType: EPrimeCloudSyncDataType.Account,
-          rawKey,
-          payload: {
-            accountId,
-            name: snapshot.account.name,
-            publicAccountSnapshot: snapshot,
+      function credential(
+        generation: string,
+        keyByte: string,
+      ): ICloudSyncCredential {
+        const pwdHash = `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${generation}`;
+        return {
+          masterPasswordUUID: pwdHash,
+          primeAccountSalt: '',
+          securityPasswordR1: '',
+          keylessCredential: {
+            keylessWalletId: '-synthetic-hardware-only',
+            signingPrivateKey: '',
+            signingPublicKey: '',
+            pwdHash,
+            encryptionKey: keyByte.repeat(32),
           },
+        };
+      }
+
+      const active = credential('active', '12');
+      const source = {
+        type: 'hardware' as const,
+        credentialId: '-synthetic-hardware-only',
+        derivationVersion: 1 as const,
+        deviceName: 'Synthetic',
+        deviceType: EDeviceType.Pro,
+      };
+      if (mode !== 'no-hardware-session' && active.keylessCredential) {
+        active.keylessCredential.source = source;
+        active.keylessCredential.hardwareSession = {
+          deviceKeyJwk: { kty: 'EC', crv: 'P-256', x: '', y: '', d: '' },
+          accessToken: 'synthetic',
+          accessTokenExpiresAt: 0,
+          refreshToken: 'synthetic',
+          sessionId: 'synthetic',
+          dekId: 'synthetic',
+        };
+      }
+      const foreign = credential('a'.repeat(64), '34');
+      async function buildAccount(
+        index: number,
+        syncCredential: ICloudSyncCredential,
+        dataTime: number,
+      ) {
+        const snapshot = publicAccountTestSnapshot(index);
+        const accountId = getPublicAccountSnapshotId(snapshot);
+        const rawKey = `Account >> ${accountId}`;
+        const row = await builder.buildSyncItemFromRawDataJson({
+          key: sha512ProSync({ data: rawKey }),
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.Account,
+            rawKey,
+            payload: {
+              accountId,
+              name: snapshot.account.name,
+              publicAccountSnapshot: snapshot,
+            },
+          },
+          syncCredential,
+          dataTime,
+        });
+        const { rawDataJson } = await builder.decryptSyncItem({
+          item: { ...row, rawData: '' },
+          syncCredential,
+        });
+        expect(rawDataJson).toMatchObject({ rawKey });
+        if (!row.data)
+          throw new OneKeyLocalError('Expected encrypted Account fixture');
+        return { ...row, data: row.data };
+      }
+
+      const old = await buildAccount(0, foreign, Date.now() - 20);
+      const collided = await buildAccount(0, active, Date.now() - 10);
+      const sibling = await buildAccount(1, active, Date.now() - 5);
+      expect(collided.id).toBe(old.id);
+      expect(collided.data).not.toBe(old.data);
+      expect(sibling.id).not.toBe(old.id);
+      const preserved = {
+        ...old,
+        rawData: '',
+        serverUploaded: true,
+        localSceneUpdated: true,
+      };
+      const h = harness(0, {
+        initialPool: new Map([[old.id, preserved]]),
+        initialConfig: {
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: true,
+          cloudSyncAccountApplyVersion: 2,
+          ...(mode !== 'no-hardware-session'
+            ? { hardwareCloudSyncKeySource: source }
+            : {}),
         },
-        syncCredential,
-        dataTime,
       });
-      const { rawDataJson } = await builder.decryptSyncItem({
-        item: { ...row, rawData: '' },
-        syncCredential,
-      });
-      expect(rawDataJson).toMatchObject({ rawKey });
-      if (!row.data)
-        throw new OneKeyLocalError('Expected encrypted Account fixture');
-      return { ...row, data: row.data };
-    }
-
-    const old = await buildAccount(0, foreign, Date.now() - 20);
-    const collided = await buildAccount(0, active, Date.now() - 10);
-    const sibling = await buildAccount(1, active, Date.now() - 5);
-    expect(collided.id).toBe(old.id);
-    expect(collided.data).not.toBe(old.data);
-    expect(sibling.id).not.toBe(old.id);
-    const preserved = {
-      ...old,
-      rawData: '',
-      serverUploaded: true,
-      localSceneUpdated: true,
-    };
-    const h = harness(0, { initialPool: new Map([[old.id, preserved]]) });
-    jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue(active);
-    h.readLocalCredential.mockResolvedValue(active);
-    const remote = [collided, sibling].map(
-      (row): ICloudSyncServerItem => ({
-        key: row.id,
-        data: row.data,
-        dataTimestamp: row.dataTime,
-        dataType: EPrimeCloudSyncDataType.Account,
-        isDeleted: false,
-        pwdHash: row.pwdHash,
-      }),
-    );
-    // The deployed response has no reconciliation envelope. The simulated
-    // server returns only the records absent from the client's exact summary.
-    h.check.mockImplementation(async ({ localItems = [] }) =>
-      reply({
-        reconciliation: undefined,
-        pwdHash: active.masterPasswordUUID,
-        diff: remote.filter(
-          (row) =>
-            !localItems.some(
-              (local) =>
-                local.id === row.key && local.dataTime === row.dataTimestamp,
-            ),
-        ),
-      }),
-    );
-    const upload = jest
-      .spyOn(h.service, '_callApiUploadItems')
-      .mockRejectedValue(
-        new OneKeyLocalError('Unexpected upload in download fixture'),
+      const enteredProof = deferred<void>();
+      const releaseProof = deferred<void>();
+      if (mode !== 'no-hardware-session') {
+        jest
+          .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+          .mockImplementation(async (params) => {
+            if (
+              mode === 'withheld-hung-proof' &&
+              params.item.id === collided.id
+            ) {
+              enteredProof.resolve();
+              await releaseProof.promise;
+            }
+            return builder.decryptSyncItem(params);
+          });
+      }
+      jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue(active);
+      h.readLocalCredential.mockResolvedValue(active);
+      const remote = [collided, sibling].map(
+        (row): ICloudSyncServerItem => ({
+          key: row.id,
+          data:
+            mode === 'wrong-ciphertext-key' && row.id === collided.id
+              ? old.data
+              : row.data,
+          dataTimestamp: row.dataTime,
+          dataType: EPrimeCloudSyncDataType.Account,
+          isDeleted: false,
+          pwdHash: row.pwdHash,
+        }),
       );
+      // The deployed response has no reconciliation envelope. The simulated
+      // server returns only the records absent from the client's exact summary.
+      h.check.mockImplementation(async ({ localItems = [] }) =>
+        reply({
+          reconciliation: undefined,
+          pwdHash: active.masterPasswordUUID,
+          diff: remote.filter(
+            (row) =>
+              !localItems.some(
+                (local) =>
+                  local.id === row.key && local.dataTime === row.dataTimestamp,
+              ),
+          ),
+        }),
+      );
+      const upload = jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockRejectedValue(
+          new OneKeyLocalError('Unexpected upload in download fixture'),
+        );
 
-    await expect(h.run()).resolves.toBe(true);
-    expect(h.check).toHaveBeenCalledTimes(1);
-    expect(h.check.mock.calls[0][0].localItems).toEqual([]);
-    expect(h.pool.get(old.id)).toEqual(preserved);
-    expect(h.pool.get(sibling.id)).toMatchObject({
-      data: sibling.data,
-      pwdHash: sibling.pwdHash,
-    });
-    expect(
-      h.scene.mock.calls.flatMap(([params]) =>
-        params.items.map(({ id }) => id),
-      ),
-    ).toEqual([sibling.id]);
-    expect(h.config().cloudSyncReconciliation).toMatchObject({
-      status: 'complete',
-      reason: 'finished',
-      requests: 1,
-      applied: 1,
-      uploaded: 0,
-    });
+      const run = h.run();
+      if (mode === 'withheld-hung-proof') {
+        await enteredProof.promise;
+        expect(h.sourceMutex.isLocked()).toBe(false);
+        await jest.advanceTimersByTimeAsync(1500);
+      }
+      await expect(run).resolves.toBe(true);
+      if (mode === 'withheld-hung-proof') {
+        releaseProof.resolve();
+        await jest.advanceTimersByTimeAsync(0);
+      }
+      expect(h.check).toHaveBeenCalledTimes(1);
+      expect(h.check.mock.calls[0][0].localItems).toEqual([]);
+      expect(h.pool.get(old.id)).toEqual(preserved);
+      expect(h.pool.get(sibling.id)).toMatchObject({
+        data: sibling.data,
+        pwdHash: sibling.pwdHash,
+      });
+      expect(
+        h.scene.mock.calls.flatMap(([params]) =>
+          params.items.map(({ id }) => id),
+        ),
+      ).toEqual(
+        mode === 'verified-newer' ? [sibling.id, old.id] : [sibling.id],
+      );
+      if (mode === 'verified-newer') {
+        expect(
+          h.scene.mock.calls
+            .find(([params]) =>
+              params.items.some((item) => item.id === old.id),
+            )?.[0]
+            .foreignAccountsByWireId?.get(old.id),
+        ).toEqual(preserved);
+        expect(
+          jest.spyOn(localDb, 'storePendingCloudAccountHandoffs'),
+        ).not.toHaveBeenCalled();
+        return;
+      }
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        reason: 'finished',
+        requests: 1,
+        applied: 1,
+        uploaded: 0,
+      });
 
-    h.scene.mockClear();
-    await expect(h.run()).resolves.toBe(true);
-    expect(h.check).toHaveBeenCalledTimes(2);
-    expect(h.check.mock.calls[1][0].localItems?.map(({ id }) => id)).toEqual([
-      sibling.id,
-    ]);
-    expect(h.pool.get(old.id)).toEqual(preserved);
-    expect(h.scene.mock.calls.flatMap(([params]) => params.items)).toEqual([]);
-    expect(upload).not.toHaveBeenCalled();
-    expect(h.config().cloudSyncReconciliation).toMatchObject({
-      status: 'complete',
-      reason: 'finished',
-      requests: 1,
-      applied: 0,
-      uploaded: 0,
-    });
-  });
+      if (mode === 'withheld-hung-proof') return;
+
+      h.scene.mockClear();
+      await expect(h.run()).resolves.toBe(true);
+      expect(h.check).toHaveBeenCalledTimes(2);
+      expect(h.check.mock.calls[1][0].localItems?.map(({ id }) => id)).toEqual([
+        sibling.id,
+      ]);
+      expect(h.pool.get(old.id)).toEqual(preserved);
+      expect(h.scene.mock.calls.flatMap(([params]) => params.items)).toEqual(
+        [],
+      );
+      expect(upload).not.toHaveBeenCalled();
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        reason: 'finished',
+        requests: 1,
+        applied: 0,
+        uploaded: 0,
+      });
+    },
+  );
 
   test('downloads the payload again when a local account item only has matching metadata', async () => {
     const h = harness(1);

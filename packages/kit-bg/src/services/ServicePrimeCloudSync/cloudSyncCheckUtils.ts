@@ -67,14 +67,29 @@ export function isRetainedHardwareCloudCopy(
   );
 }
 
+function isHardwareDekHash(pwdHash: string): boolean {
+  return (
+    pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    /^[a-f0-9]{64}$/.test(
+      pwdHash.slice(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX.length),
+    )
+  );
+}
+
+function hasGcmCiphertextShape(data: string | undefined): boolean {
+  return (
+    !!data &&
+    data.length >= 56 &&
+    data.length % 2 === 0 &&
+    !/[^a-f0-9]/i.test(data)
+  );
+}
+
 // Skipping an unreadable local edit is not proof that its bytes belong to
 // the selected source. This is only an admission check for re-signing.
 export function isUnverifiedPendingHardwareWalletCopy(
   item: IDBCloudSyncItem,
 ): boolean {
-  const keySuffix = item.pwdHash.slice(
-    HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX.length,
-  );
   return (
     item.dataType === EPrimeCloudSyncDataType.Wallet &&
     item.serverUploaded === false &&
@@ -82,17 +97,13 @@ export function isUnverifiedPendingHardwareWalletCopy(
     !item.isDeleted &&
     item.pendingPublicAccountDeletionAt === undefined &&
     !item.pendingPublicAccountDeletionHash &&
-    item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
-    /^[a-f0-9]{64}$/.test(keySuffix) &&
+    isHardwareDekHash(item.pwdHash) &&
     !!item.rawKey &&
     sha512ProSync({ data: item.rawKey }) === item.id &&
     typeof item.dataTime === 'number' &&
     Number.isSafeInteger(item.dataTime) &&
     item.dataTime > 0 &&
-    !!item.data &&
-    item.data.length >= 56 &&
-    item.data.length % 2 === 0 &&
-    !/[^a-f0-9]/i.test(item.data)
+    hasGcmCiphertextShape(item.data)
   );
 }
 
@@ -108,6 +119,43 @@ export function canArchiveForeignAccountCopy(
     item.localSceneUpdated &&
     !item.pendingPublicAccountDeletionHash &&
     isRetainedHardwareCloudCopy(item, activePwdHash)
+  );
+}
+
+// A recognized, already-applied live cache may give way to a newer copy
+// only after the current snapshot and the local business identity are verified.
+export function canReplaceSettledPublicAccountCache(
+  previous: IDBCloudSyncItem,
+  incoming: IDBCloudSyncItem,
+  verifiedRawKey: string,
+): boolean {
+  return (
+    canArchiveForeignAccountCopy(previous, incoming.pwdHash) &&
+    isHardwareDekHash(previous.pwdHash) &&
+    hasGcmCiphertextShape(previous.data) &&
+    previous.serverUploaded === true &&
+    previous.localSceneUpdated === true &&
+    previous.isDeleted === false &&
+    previous.pendingPublicAccountDeletionAt === undefined &&
+    previous.pendingPublicAccountDeletionHash === undefined &&
+    previous.rawData === '' &&
+    previous.remoteHardwareAccountTombstoneProof === undefined &&
+    !!verifiedRawKey &&
+    previous.rawKey === verifiedRawKey &&
+    previous.id === sha512ProSync({ data: verifiedRawKey }) &&
+    incoming.id === previous.id &&
+    incoming.dataType === EPrimeCloudSyncDataType.Account &&
+    incoming.serverUploaded === true &&
+    incoming.isDeleted === false &&
+    incoming.pendingPublicAccountDeletionHash === undefined &&
+    incoming.pendingPublicAccountDeletionAt === undefined &&
+    !!incoming.data &&
+    typeof previous.dataTime === 'number' &&
+    Number.isSafeInteger(previous.dataTime) &&
+    previous.dataTime > 0 &&
+    typeof incoming.dataTime === 'number' &&
+    Number.isSafeInteger(incoming.dataTime) &&
+    incoming.dataTime > previous.dataTime
   );
 }
 

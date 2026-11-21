@@ -170,6 +170,7 @@ import {
   buildRemoteHardwareAccountTombstoneProof,
   canArchiveForeignAccountCopy,
   canArchiveSettledForeignAccountHandoff,
+  canReplaceSettledPublicAccountCache,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
   rememberRemoteHardwareTombstonePromotion,
@@ -10210,6 +10211,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               .filter((id): id is string => Boolean(id)),
           });
           checkCurrent();
+          const replaceableLiveCaches = new Set<string>();
           const prepareAccount = async (account: IDBAccount) => {
             checkCurrent();
             if (expectedSources) {
@@ -10223,15 +10225,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 (await tx.pendingCloudAccountHandoffs?.read(
                   this.getPendingCloudAccountHandoffKey(source),
                 ));
+              const canReplaceLiveCache =
+                !!foreign &&
+                !!source &&
+                !tx.cloudAccountArchive &&
+                action === 'copy' &&
+                canReplaceSettledPublicAccountCache(
+                  foreign,
+                  source,
+                  source.rawKey,
+                );
               const sourceStillMatches = foreign
-                ? (staged
-                    ? this.matchesStagedCloudAccountHandoff(
-                        staged,
-                        source,
-                        foreign,
-                      )
-                    : action === 'copy' && !foreign.isDeleted) &&
-                  !!tx.cloudAccountArchive &&
+                ? ((!!tx.cloudAccountArchive &&
+                    (staged
+                      ? this.matchesStagedCloudAccountHandoff(
+                          staged,
+                          source,
+                          foreign,
+                        )
+                      : action === 'copy' && !foreign.isDeleted)) ||
+                    canReplaceLiveCache) &&
                   !!currentSource &&
                   isEqual(currentSource, foreign) &&
                   canArchiveSettledForeignAccountHandoff(
@@ -10259,6 +10272,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 result.issueByAccountId[account.id] = 'pending';
                 return;
               }
+              if (canReplaceLiveCache) replaceableLiveCaches.add(account.id);
             } else if (action === 'delete') {
               result.pending += 1;
               result.issueByAccountId[account.id] = 'pending';
@@ -10330,6 +10344,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ) {
               result.conflicts += 1;
               result.issueByAccountId[account.id] = 'conflicts';
+              return;
+            }
+            if (
+              replaceableLiveCaches.has(account.id) &&
+              (!existing || !existingIndex)
+            ) {
+              result.pending += 1;
+              result.issueByAccountId[account.id] = 'pending';
               return;
             }
             if (!existingIndex && !indexedToAdd.has(indexedId)) {
@@ -10556,21 +10578,39 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
           }
           // Summary may advertise the new version only after the business
-          // account, the old ciphertext archive and the active row commit.
-          if (foreignAccountsByWireId?.size && tx.cloudAccountArchive) {
+          // account and the active row commit. Where supported the old
+          // ciphertext is archived in the same transaction.
+          if (foreignAccountsByWireId?.size) {
             const promoted = new Set<string>();
             for (const id of new Set(result.appliedAccountIds)) {
               const incoming = expectedSources?.get(id);
               const foreign =
                 incoming && foreignAccountsByWireId.get(incoming.id);
-              // eslint-disable-next-line no-continue
-              if (!incoming || !foreign || promoted.has(incoming.id)) continue;
-              await tx.cloudAccountArchive.retain(foreign);
+              if (
+                !incoming ||
+                !foreign ||
+                promoted.has(incoming.id) ||
+                (!tx.cloudAccountArchive && !replaceableLiveCaches.has(id))
+              )
+                // eslint-disable-next-line no-continue
+                continue;
+              await tx.cloudAccountArchive?.retain(foreign);
               await this.txUpdateRecords({
                 tx,
                 name: ELocalDBStoreNames.CloudSyncItem,
                 ids: [incoming.id],
                 updater: (record) => {
+                  if (!tx.cloudAccountArchive) {
+                    this._updateCloudSyncPoolItemFn({
+                      item: record,
+                      updateItem: {
+                        ...incoming,
+                        rawData: '',
+                        localSceneUpdated: true,
+                      },
+                    });
+                    return record;
+                  }
                   const promotedRow = Object.assign(record, {
                     ...incoming,
                     rawData: '',

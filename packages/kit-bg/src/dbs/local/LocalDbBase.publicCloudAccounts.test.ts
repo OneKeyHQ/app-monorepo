@@ -2,6 +2,8 @@ import { createHash } from 'crypto';
 
 import { cloneDeep } from 'lodash';
 
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -24,6 +26,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
+import { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import { EIndexedDBBucketNames } from './types';
 
 import type {
@@ -89,6 +92,8 @@ class PublicAccountTestDb extends LocalDbBase {
   writes: ELocalDBStoreNames[] = [];
 
   useRealmAccountProjection = false;
+
+  useRealmCloudSchema = false;
 
   projectRecord<T extends ELocalDBStoreNames>(
     name: T,
@@ -256,6 +261,21 @@ class PublicAccountTestDb extends LocalDbBase {
         const input = { ...current };
         const updated = await updater(input);
         if (
+          this.useRealmCloudSchema &&
+          name === ELocalDBStoreNames.CloudSyncItem
+        ) {
+          if (
+            updated !== input ||
+            Object.keys(updated).some(
+              (key) =>
+                !Object.hasOwn(RealmSchemaCloudSyncItem.schema.properties, key),
+            )
+          )
+            throw new OneKeyLocalError(
+              'Expected a writable Realm schema field',
+            );
+        }
+        if (
           this.useRealAvatarHashes &&
           name === ELocalDBStoreNames.IndexedAccount &&
           updated !== input
@@ -384,6 +404,93 @@ describe('wallet metadata avatar seed sync', () => {
 });
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
+  it.each([
+    'newer',
+    'realm-newer',
+    'older',
+    'equal',
+    'pending-edit',
+    'pending-delete',
+    'malformed-old-dek',
+    'malformed-old-ciphertext',
+    'truncated-old-ciphertext',
+    'deleted',
+    'unexpected-raw-key',
+    'missing-local',
+    'changed-before-transaction',
+  ] as const)(
+    'handles a proven live cache replacement: %s',
+    async (variant) => {
+      const db = new PublicAccountTestDb();
+      const cloud = account(9);
+      const local = { ...cloud, name: 'New local name' };
+      if (variant !== 'missing-local') await db.run([local]);
+      const old = {
+        id: sha512ProSync({ data: 'public-key' }),
+        rawKey: 'public-key',
+        rawData: '',
+        dataType: EPrimeCloudSyncDataType.Account,
+        data: `${'ab'.repeat(variant === 'truncated-old-ciphertext' ? 27 : 48)}${variant === 'malformed-old-ciphertext' ? 'zz' : ''}`,
+        dataTime: 10,
+        pwdHash: `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${(variant === 'malformed-old-dek' ? 'A' : 'a').repeat(64)}`,
+        isDeleted: variant === 'deleted',
+        localSceneUpdated: true,
+        serverUploaded: variant !== 'pending-edit',
+        ...(variant === 'pending-delete'
+          ? { pendingPublicAccountDeletionAt: 12 }
+          : {}),
+      } satisfies IDBCloudSyncItem;
+      db.put(ELocalDBStoreNames.CloudSyncItem, { ...old });
+      const times = { older: 9, equal: 10 };
+      const incoming = {
+        ...old,
+        rawKey: variant === 'unexpected-raw-key' ? 'wrong-key' : old.rawKey,
+        data: 'verified-current ciphertext',
+        dataTime:
+          variant === 'older' || variant === 'equal' ? times[variant] : 11,
+        pwdHash: `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}new-source`,
+        isDeleted: false,
+        localSceneUpdated: false,
+        serverUploaded: true,
+        pendingPublicAccountDeletionAt: undefined,
+      };
+      const replaced = variant === 'newer' || variant === 'realm-newer';
+      db.useRealmCloudSchema = variant === 'realm-newer';
+      const expectedOld =
+        variant === 'changed-before-transaction'
+          ? { ...old, pendingPublicAccountDeletionAt: 13 }
+          : old;
+      if (variant === 'changed-before-transaction') {
+        db.beforeTransaction = () =>
+          db.put(ELocalDBStoreNames.CloudSyncItem, expectedOld);
+      }
+      expect(
+        await db.importPublicCloudAccounts({
+          walletId: WALLET.id,
+          expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+          expectedCredential: 'encrypted-local-test-credential',
+          accounts: [cloud],
+          sourceItemsByAccountId: new Map([[cloud.id, incoming]]),
+          foreignAccountsByWireId: new Map([[old.id, old]]),
+          isCurrent: () => true,
+        }),
+      ).toMatchObject({
+        added: 0,
+        unchanged: replaced ? 1 : 0,
+        pending: replaced ? 0 : 1,
+        appliedAccountIds: replaced ? [local.id] : [],
+      });
+      expect(db.stores.get(ELocalDBStoreNames.Account)?.get(local.id)).toEqual(
+        variant === 'missing-local' ? undefined : local,
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(old.id),
+      ).toMatchObject(
+        replaced ? { ...incoming, localSceneUpdated: true } : expectedOld,
+      );
+    },
+  );
+
   it('restores a missing index for an existing matching account', async () => {
     const db = new PublicAccountTestDb();
     const cloud = account(9);
