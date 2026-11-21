@@ -5602,6 +5602,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    return this.setWalletNameAndAvatarInternal(params);
+  }
+
+  // Background-only replay guard; callbacks do not cross the UI bridge.
+  async setWalletNameAndAvatarFromCloud(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent: () => boolean,
+  ): Promise<IDBWallet> {
+    return this.setWalletNameAndAvatarInternal(params, isCurrent);
+  }
+
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent?: () => boolean,
+  ): Promise<IDBWallet> {
     // A projection-driven write is not an explicit rename or a new UI event.
     if (params.passiveDeviceMetadata)
       return localDb.setWalletNameAndAvatar(params);
@@ -5625,7 +5640,9 @@ class ServiceAccount extends ServiceBase {
       oldAvatar = wallet?.avatar || '';
     }
 
-    const result = await localDb.setWalletNameAndAvatar(params);
+    const result = isCurrent
+      ? await localDb.setWalletNameAndAvatar(params, { isCurrent })
+      : await localDb.setWalletNameAndAvatar(params);
     const isWalletMetadataChanged =
       oldName !== result.name || oldAvatar !== (result.avatar || '');
 

@@ -59,7 +59,7 @@ afterEach(async () => {
   jest.restoreAllMocks();
 });
 
-it.each(['same-space', 'changed-source'] as const)(
+it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const wallet: IDBWallet = {
@@ -169,6 +169,9 @@ it.each(['same-space', 'changed-source'] as const)(
           payload: {
             name,
             avatar: { img },
+            ...(scenario === 'disabled-in-transaction'
+              ? { firstEvmAddress: `0x${'23'.repeat(20)}` }
+              : {}),
             walletHash: wallet.hash,
             walletType: wallet.type,
             passphraseState: '',
@@ -249,6 +252,46 @@ it.each(['same-space', 'changed-source'] as const)(
     expect(await simpleDb.changeHistory.getChangeHistory(nameFilter)).toEqual(
       [],
     );
+
+    if (scenario === 'disabled-in-transaction') {
+      const updateWallet = localDb.txUpdateWallet.bind(localDb);
+      let disableCalls = 0;
+      // The real fake-IDB put completes, but its enclosing transaction has
+      // not returned. Disable without changing either source or preimage.
+      const insideTransaction = jest
+        .spyOn(localDb, 'txUpdateWallet')
+        .mockImplementation(async (options) => {
+          await updateWallet(options);
+          disableCalls += 1;
+          await keyless.toggleCloudSyncKeyless({
+            enabled: false,
+            silentEnable: true,
+          });
+        });
+      try {
+        await keyless
+          .toggleCloudSyncKeyless({ enabled: true, silentEnable: true })
+          .catch(() => undefined);
+      } finally {
+        insideTransaction.mockRestore();
+      }
+      expect(disableCalls).toBe(1);
+      expect(config.isCloudSyncEnabledKeyless).toBe(false);
+      expect(config.currentCloudSyncKeylessWalletId).toBe(wallet.id);
+      const current = await readWallet();
+      expect(current).toMatchObject({
+        name: offlineName,
+        avatar: '{"img":"cat"}',
+      });
+      expect(current.firstEvmAddress).toBeUndefined();
+      expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+        data: acknowledged.data,
+        dataTime: baseTime,
+        localSceneUpdated: false,
+      });
+      expect(upload).not.toHaveBeenCalled();
+      return;
+    }
 
     if (scenario === 'changed-source') {
       // oxlint-disable-next-line typescript/unbound-method -- called with the original entity as this

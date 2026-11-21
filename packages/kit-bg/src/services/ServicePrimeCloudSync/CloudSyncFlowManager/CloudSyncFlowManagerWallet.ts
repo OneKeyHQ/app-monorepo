@@ -16,6 +16,7 @@ import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 import type {
   IDBCloudSyncItem,
   IDBDevice,
+  IDBSetWalletNameAndAvatarParams,
   IDBWallet,
 } from '../../../dbs/local/types';
 
@@ -159,7 +160,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       }
     }
     if (isCurrent && !isCurrent()) return false;
-    await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+    const update: IDBSetWalletNameAndAvatarParams = {
       walletId,
       cloudSyncSource: item,
       ...(expectedCloudSyncWalletName === undefined
@@ -171,7 +172,13 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       // avoid infinite loop sync
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,
-    });
+    };
+    const { serviceAccount } = this.backgroundApi;
+    if (isCurrent && item) {
+      await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
+    } else {
+      await serviceAccount.setWalletNameAndAvatar(update);
+    }
     return true;
   }
 

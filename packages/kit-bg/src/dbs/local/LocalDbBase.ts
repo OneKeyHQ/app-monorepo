@@ -8776,6 +8776,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
+    { isCurrent }: { isCurrent?: () => boolean } = {},
   ): Promise<IDBWallet> {
     const passive = params.passiveDeviceMetadata;
     if (passive) {
@@ -8844,7 +8845,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // Replay and restore policy never create a new sync item. They must
     // not reacquire this lock from within a Cloud sync operation.
     if (params.skipSaveLocalSyncItem || params.applyRestoreSyncPolicy) {
-      return this.setWalletNameAndAvatarInternal(params);
+      return isCurrent && params.cloudSyncSource
+        ? this.setWalletNameAndAvatarInternal(params, { isCurrent })
+        : this.setWalletNameAndAvatarInternal(params);
     }
     const { walletId } = params;
     const saveLocalOnly = () =>
@@ -8897,14 +8900,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       skipCloudCredentialWarmup,
       passiveLocalVendor,
       explicitSyncOffEdit,
+      isCurrent,
     }: {
       verifiedCredential?: ICloudSyncCredential;
       claimWrite?: () => boolean;
       skipCloudCredentialWarmup?: boolean;
       passiveLocalVendor?: boolean;
       explicitSyncOffEdit?: boolean;
+      isCurrent?: () => boolean;
     } = {},
   ): Promise<IDBWallet> {
+    const assertCurrent = () => {
+      if (params.cloudSyncSource && isCurrent && !isCurrent())
+        throw new OneKeyLocalError({
+          message: 'Cloud sync metadata replay cancelled',
+          autoToast: false,
+        });
+    };
+    assertCurrent();
     const skipCloudWarmup = !!claimWrite;
     const { walletId } = params;
     const passive = params.passiveDeviceMetadata;
@@ -9053,6 +9066,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     const writeWalletMetadata = async (tx: ILocalDBTransaction) => {
+      assertCurrent();
       if (passive && passiveDevice) {
         const {
           records: [currentWallet],
@@ -9103,6 +9117,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         source: params.cloudSyncSource,
       });
+      assertCurrent();
       // Do not promote an unbound display edit merely because a formerly
       // selected scope was switched off. Another local edit supersedes it.
       if (
@@ -9253,6 +9268,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         walletId,
         updater: (w) => {
+          assertCurrent();
           if (
             params.cloudSyncSource &&
             params.expectedCloudSyncWalletName !== undefined &&
@@ -9316,6 +9332,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       //     },
       //   });
       // }
+      assertCurrent();
       return displayOverride;
     };
     const displayOverride = await this.withTransaction(
