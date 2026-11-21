@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react';
 
-import { Text } from 'react-native';
+import { SizableText } from '@onekeyhq/components';
 
-// A plain React Native Text keeps its own `onPress`, which screen readers call
-// when they activate the link span (TalkBack's click on the span), while
-// Tamagui's text only presses through the touch responder. It inherits the
-// paragraph's font and color.
+// Native opens the panel as a sheet, so nothing needs the link's element.
 export function OneKeyIdUsageLink({
   children,
   onPress,
@@ -13,17 +10,15 @@ export function OneKeyIdUsageLink({
   children: ReactNode;
   onPress: () => void;
   onElementChange: (element: HTMLElement | undefined) => void;
-  expanded: boolean;
-  controlsId: string;
 }) {
   return (
-    <Text
+    <SizableText
       testID="prime-login-usage-link"
-      accessibilityRole="link"
-      suppressHighlighting
+      size="$bodyLg"
+      color="$textSubdued"
       onPress={onPress}
     >
       {children}
-    </Text>
+    </SizableText>
   );
 }

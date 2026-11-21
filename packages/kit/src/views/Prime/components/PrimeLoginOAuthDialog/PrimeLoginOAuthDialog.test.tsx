@@ -456,8 +456,8 @@ describe('PrimeLoginOAuthDialog', () => {
     // Closed: hovering the link may open it.
     expect(lastUsagePopoverProps()?.hoverable).toBe(true);
 
-    // A press (or Enter/Space) opens it as a regular popover and logs the
-    // open, which the popover itself only does for hover opens.
+    // A press opens it as a regular popover and logs the open, which the
+    // popover itself only does for hover opens.
     const popoverOpen = jest
       .spyOn(defaultLogger.ui.popover, 'popoverOpen')
       .mockImplementation((params) => params);
@@ -472,8 +472,8 @@ describe('PrimeLoginOAuthDialog', () => {
       expect.objectContaining({ open: false, hoverable: true }),
     );
 
-    // A hover open is a hover panel until a press or key on the link turns it
-    // into a regular one, without logging a second open.
+    // A hover open is a hover panel until a press on the link turns it into
+    // a regular one, without logging a second open.
     act(() => lastUsagePopoverProps()?.onOpenChange(true));
     expect(lastUsagePopoverProps()).toEqual(
       expect.objectContaining({ open: true, hoverable: true }),

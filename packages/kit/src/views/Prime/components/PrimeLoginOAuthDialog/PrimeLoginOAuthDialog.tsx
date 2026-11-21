@@ -1,5 +1,5 @@
 /* cspell:ignore hoverable */
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -114,7 +114,6 @@ function PrimeLoginOAuthDialog(props: {
   // Web: the subtitle link span, which the wide-window panel anchors to and
   // opens on hover from.
   const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
-  const usageContentId = useId();
   const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
@@ -621,11 +620,10 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
-  // A press or key opens the panel as a regular popover: focus moves into it
-  // and an outside press closes it. A hover open closes when the pointer
-  // leaves, until a press or key on the link turns it into a regular one; the
-  // anchored form and its registration stay the same, only the hover handling,
-  // backdrop and focus scope switch.
+  // A press opens the panel as a regular popover, which an outside press
+  // closes. A hover open closes when the pointer leaves, until a press on the
+  // link turns it into a regular one; the anchored form and its registration
+  // stay the same, only the hover handling and the backdrop switch.
   const handleShowUsage = useCallback(() => {
     if (usagePopover.open && !usagePopover.openedByHover) {
       return;
@@ -640,11 +638,15 @@ function PrimeLoginOAuthDialog(props: {
   }, [usagePopover.open, usagePopover.openedByHover]);
   // The code step drops the header and its link: a panel left open there would
   // have nothing to anchor to or hover away from.
-  useEffect(() => {
-    if (isEmailVerificationStep) {
-      setUsagePopover({ open: false, openedByHover: false });
-    }
-  }, [isEmailVerificationStep]);
+  const handleEmailVerificationEmailChange = useCallback(
+    (email: string | undefined) => {
+      setEmailVerificationEmail(email);
+      if (email !== undefined) {
+        setUsagePopover({ open: false, openedByHover: false });
+      }
+    },
+    [],
+  );
   // The popover reports hover opens and every close.
   const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
     setUsagePopover((prev) => {
@@ -705,8 +707,6 @@ function PrimeLoginOAuthDialog(props: {
             key="usage-link"
             onPress={handleShowUsage}
             onElementChange={setUsageLinkElement}
-            expanded={usagePopover.open}
-            controlsId={usageContentId}
           >
             {chunks}
           </OneKeyIdUsageLink>
@@ -845,7 +845,9 @@ function PrimeLoginOAuthDialog(props: {
                   embedded
                   debugPanelOpenCount={debugPanelOpenCount}
                   embeddedVerificationEmail={emailVerificationEmail}
-                  onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
+                  onEmbeddedVerificationEmailChange={
+                    handleEmailVerificationEmailChange
+                  }
                   disabled={Boolean(loggingInProvider)}
                   onSubmittingChange={handleEmailSubmittingChange}
                   onComplete={onComplete}
@@ -884,10 +886,9 @@ function PrimeLoginOAuthDialog(props: {
       {/* Kept outside Dialog.Header, which hands its children to the dialog
           frame through context. */}
       <OneKeyIdUsagePopover
-        open={usagePopover.open && !isEmailVerificationStep}
+        open={usagePopover.open}
         onOpenChange={handleUsagePopoverOpenChange}
         hoverable={!usagePopover.open || usagePopover.openedByHover}
-        contentId={usageContentId}
         webAnchorElement={usageLinkElement}
       />
     </Stack>

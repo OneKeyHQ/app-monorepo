@@ -47,6 +47,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('react-native', () => ({
   ...jest.requireActual<typeof import('react-native')>('react-native'),
   useWindowDimensions: () => ({ width: 1024, height: 768 }),
+  Platform: {
+    OS: 'ios',
+    select: (specifics: {
+      ios?: unknown;
+      native?: unknown;
+      default?: unknown;
+    }) => specifics.ios ?? specifics.native ?? specifics.default,
+  },
 }));
 
 function MockBox({
@@ -212,7 +220,6 @@ function Host() {
         open={open}
         onOpenChange={setOpen}
         hoverable={false}
-        contentId="usage"
       />
     </>
   );

@@ -132,7 +132,6 @@ function RawPopover({
   showHeader = true,
   offset: offsetProp,
   hoverable,
-  dismissOnEscape,
   keepChildrenMounted: keepChildrenMountedProp,
   nativeAnchorRect,
   webAnchorElement,
@@ -392,7 +391,7 @@ function RawPopover({
           // modal focus. Hover panels keep their pointer passthrough.
           blocking={false}
           backdrop={hoverable ? false : ANCHORED_BACKDROP}
-          dismissOnBackPress={dismissOnEscape ?? !hoverable}
+          dismissOnBackPress={!hoverable}
           keepContentMounted={keepChildrenMounted}
           onRequestDismiss={requestClose}
           onPresented={reposition}

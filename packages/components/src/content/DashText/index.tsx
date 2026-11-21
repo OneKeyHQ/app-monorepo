@@ -264,7 +264,15 @@ function DashTextCore({
           // `children` starts in the paragraph. The word joiner keeps a
           // trailing space inside the measured line width.
           <SizableText
-            {...textProps}
+            size={textProps.size}
+            fontSize={textProps.fontSize}
+            fontFamily={textProps.fontFamily}
+            fontWeight={textProps.fontWeight}
+            fontStyle={textProps.fontStyle}
+            fontVariant={textProps.fontVariant}
+            lineHeight={textProps.lineHeight}
+            letterSpacing={textProps.letterSpacing}
+            textTransform={textProps.textTransform}
             position="absolute"
             top={0}
             left={0}

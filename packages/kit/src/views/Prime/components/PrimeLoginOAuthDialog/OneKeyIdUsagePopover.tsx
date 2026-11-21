@@ -1,7 +1,8 @@
 /* cspell:ignore hoverable */
-import { useCallback, useId, useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -13,7 +14,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const ONEKEY_ID_USAGE_TRACK_ID = 'onekey-id-usage';
 
@@ -50,14 +50,11 @@ export function OneKeyIdUsagePopover({
   open,
   onOpenChange,
   hoverable,
-  contentId,
   webAnchorElement,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hoverable: boolean;
-  /** Lets the web link point at the panel it opens. */
-  contentId: string;
   webAnchorElement?: HTMLElement;
 }) {
   const intl = useIntl();
@@ -65,9 +62,8 @@ export function OneKeyIdUsagePopover({
   const title = intl.formatMessage({
     id: ETranslations.onekey_id_usage__title,
   });
-  const titleId = useId();
   // The sheet header shows the title; the anchored panel has no header.
-  const isAnchoredPanel = !platformEnv.isNative && !md;
+  const isAnchoredPanel = Platform.select({ web: !md, default: false });
 
   // The overlay keeps how it was registered (modal or not) for as long as it
   // is shown, so a window crossing the breakpoint closes the panel; the next
@@ -83,21 +79,6 @@ export function OneKeyIdUsagePopover({
     }
   }, [isAnchoredPanel, onOpenChange, open]);
 
-  // A press or key open (not a hover one) moves focus into the panel, which
-  // has nothing focusable of its own; closing returns it to the link.
-  const contentRef = useRef<HTMLElement | null>(null);
-  const handleContentRef = useCallback((node: unknown) => {
-    contentRef.current = node instanceof HTMLElement ? node : null;
-  }, []);
-  const floatingPanelProps = useMemo(
-    () => ({
-      onOpenAutoFocus: (event: Event) => {
-        event.preventDefault();
-        contentRef.current?.focus();
-      },
-    }),
-    [],
-  );
   return (
     <Popover
       title={title}
@@ -106,33 +87,18 @@ export function OneKeyIdUsagePopover({
       renderTrigger={null}
       webAnchorElement={webAnchorElement}
       hoverable={hoverable}
-      // Escape closes it also as a hover panel, instead of the login dialog.
-      dismissOnEscape
       nativePresentation="sheet"
       placement="bottom-start"
       trackID={ONEKEY_ID_USAGE_TRACK_ID}
-      floatingPanelProps={floatingPanelProps}
       renderContent={
         <YStack
-          ref={handleContentRef}
           testID="onekey-id-usage-content"
-          id={contentId}
           p="$5"
           pt={isAnchoredPanel ? '$5' : '$0'}
           gap="$4"
-          {...(isAnchoredPanel
-            ? {
-                tabIndex: -1,
-                role: 'dialog',
-                'aria-labelledby': titleId,
-                focusVisibleStyle: { outlineWidth: 0 },
-              }
-            : {})}
         >
           {isAnchoredPanel ? (
-            <SizableText id={titleId} size="$headingMd">
-              {title}
-            </SizableText>
+            <SizableText size="$headingMd">{title}</SizableText>
           ) : null}
           <OneKeyIdUsageItem
             icon="CloudOutline"
