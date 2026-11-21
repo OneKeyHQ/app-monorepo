@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 
 import { cloneDeep } from 'lodash';
 
+import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyErrorScanQrCodeCancel,
@@ -9,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { CloudSyncFlowManagerBase } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   buildPublicAccountSnapshot,
@@ -33,6 +35,7 @@ import type {
   IDBAccount,
   IDBBaseObject,
   IDBCloudSyncItem,
+  IDBContext,
   IDBWallet,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
@@ -84,6 +87,24 @@ function account(index = 0): IDBAccount {
   };
 }
 
+function pendingSyncItem(
+  id: string,
+  dataType: EPrimeCloudSyncDataType,
+): IDBCloudSyncItem {
+  return {
+    id,
+    dataType,
+    rawKey: '',
+    rawData: '',
+    data: 'test-encrypted-data',
+    dataTime: 2,
+    isDeleted: false,
+    pwdHash: 'test-cloud',
+    localSceneUpdated: false,
+    serverUploaded: false,
+  };
+}
+
 class PublicAccountTestDb extends LocalDbBase {
   override readyDb = Promise.resolve(this);
 
@@ -115,6 +136,8 @@ class PublicAccountTestDb extends LocalDbBase {
   }
 
   beforeTransaction?: () => void;
+
+  afterCommit?: () => void;
 
   afterWrite?: () => void;
 
@@ -159,7 +182,9 @@ class PublicAccountTestDb extends LocalDbBase {
     this.beforeTransaction?.();
     const original = cloneDeep(this.stores);
     try {
-      return await fn({} as ILocalDBTransaction);
+      const result = await fn({} as ILocalDBTransaction);
+      this.afterCommit?.();
+      return result;
     } catch (error) {
       this.stores = original;
       throw error;
@@ -1400,32 +1425,40 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       const db = new PublicAccountTestDb();
       const value = { ...account(2), name: 'BTC Nested SegWit #3' };
       const indexedTargets: Array<{ indexedAccount: { name: string } }> = [];
+      const syncItem = pendingSyncItem(
+        'new-account-sync-item',
+        EPrimeCloudSyncDataType.Account,
+      );
       let current = true;
-      db.setBackgroundApi({
+      const lifecycle: string[] = [];
+      const startServerSyncFlowForItems = jest.fn(async (_params: unknown) => {
+        lifecycle.push('queue');
+      });
+      db.afterCommit = () => {
+        lifecycle.push('commit');
+      };
+      const flow = Object.create(
+        CloudSyncFlowManagerBase.prototype,
+      ) as typeof CloudSyncFlowManagerBase.prototype;
+      const runCreation = flow.txWithSyncFlowOfDBRecordCreating.bind(flow);
+      const backgroundApi = {
+        localDb: db,
         serviceKeylessCloudSync: {
           runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
             operation(),
         },
         servicePrimeCloudSync: {
+          startServerSyncFlowForItems,
           syncManagers: {
             account: {
               getSyncCredential: async () => undefined,
               buildExistingSyncItemsInfo: async () => ({
                 existingSyncItems: [],
-                newSyncItems: [],
+                newSyncItems: [syncItem],
                 existingSyncItemsInfo: {},
               }),
               buildSyncItemForExplicitAccountCreation: async () => undefined,
-              txWithSyncFlowOfDBRecordCreating: async ({
-                runDbTxFn,
-              }: {
-                runDbTxFn: () => ReturnType<LocalDbBase['addAccountsToWallet']>;
-              }) => {
-                if (cancelAt === 'before-write') current = false;
-                const result = await runDbTxFn();
-                if (cancelAt === 'before-commit') current = false;
-                return result;
-              },
+              txWithSyncFlowOfDBRecordCreating: runCreation,
             },
             indexedAccount: {
               buildExistingSyncItemsInfo: async ({
@@ -1443,7 +1476,21 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
             },
           },
         },
-      } as unknown as IBackgroundApi);
+      };
+      const accountManager =
+        backgroundApi.servicePrimeCloudSync.syncManagers.account;
+      flow.backgroundApi = backgroundApi as unknown as IBackgroundApi;
+      accountManager.txWithSyncFlowOfDBRecordCreating = (options) =>
+        runCreation({
+          ...options,
+          runDbTxFn: async (txOptions) => {
+            if (cancelAt === 'before-write') current = false;
+            const result = await options.runDbTxFn(txOptions);
+            if (cancelAt === 'before-commit') current = false;
+            return result;
+          },
+        });
+      db.setBackgroundApi(backgroundApi as unknown as IBackgroundApi);
       const creating = withPublicAccountCreationContext(
         async (publicAccountCreationContext) => {
           await db.addAccountsToWallet({
@@ -1468,9 +1515,17 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
         expect(
           db.stores.get(ELocalDBStoreNames.Account)?.has(value.id),
         ).toBeFalsy();
+        expect(
+          db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.has(syncItem.id),
+        ).toBeFalsy();
+        expect(lifecycle).toEqual([]);
         return;
       }
       await creating;
+      expect(lifecycle).toEqual(['commit', 'queue']);
+      expect(startServerSyncFlowForItems).toHaveBeenCalledWith({
+        localItems: [syncItem],
+      });
       expect(indexedTargets[0].indexedAccount.name).toBe(
         explicitName || 'Account #3',
       );
@@ -1483,6 +1538,131 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
         db.stores.get(ELocalDBStoreNames.Account)?.get(value.id),
       ).toMatchObject({
         name: 'BTC Nested SegWit #3',
+      });
+    },
+  );
+
+  it.each([false, true])(
+    'guards QR wallet and indexed-account writes through commit (cancelled: %s)',
+    async (cancelAtCommit) => {
+      const db = new PublicAccountTestDb();
+      const context: IDBContext = {
+        id: DB_MAIN_CONTEXT_ID,
+        nextHD: 2,
+        nextWalletNo: 2,
+        verifyString: '',
+        backupUUID: '',
+        nextSignatureMessageId: 0,
+        nextSignatureTransactionId: 0,
+        nextConnectedSiteId: 0,
+      };
+      db.put(ELocalDBStoreNames.Context, context);
+      jest.spyOn(db, 'getAllDevices').mockResolvedValue({ devices: [] });
+      db.getRecordById = async ({ name, id }) => {
+        const { records } = await db.getRecordsByIds({ name, ids: [id] });
+        return records[0];
+      };
+
+      let current = true;
+      const updateContext = db.txUpdateContext.bind(db);
+      jest.spyOn(db, 'txUpdateContext').mockImplementation(async (params) => {
+        await updateContext(params);
+        if (cancelAtCommit) current = false;
+      });
+      const lifecycle: string[] = [];
+      db.afterCommit = () => {
+        lifecycle.push('commit');
+      };
+      const startServerSyncFlowForItems = jest.fn(async (_params: unknown) => {
+        lifecycle.push('queue');
+      });
+      const flow = Object.create(
+        CloudSyncFlowManagerBase.prototype,
+      ) as typeof CloudSyncFlowManagerBase.prototype;
+      const runCreation = flow.txWithSyncFlowOfDBRecordCreating.bind(flow);
+      const walletSyncItem = pendingSyncItem(
+        'wallet-sync',
+        EPrimeCloudSyncDataType.Wallet,
+      );
+      const indexSyncItem = pendingSyncItem(
+        'index-sync',
+        EPrimeCloudSyncDataType.IndexedAccount,
+      );
+      const syncManagers = {
+        wallet: {
+          buildExistingSyncItemsInfo: async () => ({
+            newSyncItems: [walletSyncItem],
+            existingSyncItems: [],
+          }),
+          txWithSyncFlowOfDBRecordCreating: runCreation,
+        },
+        indexedAccount: {
+          buildExistingSyncItemsInfo: async () => ({
+            newSyncItems: [indexSyncItem],
+            existingSyncItems: [],
+          }),
+          txWithSyncFlowOfDBRecordCreating: runCreation,
+        },
+      };
+      const backgroundApi = {
+        localDb: db,
+        servicePrimeCloudSync: {
+          syncManagers,
+          startServerSyncFlowForItems,
+          timeNow: async () => 10,
+        },
+      } as unknown as IBackgroundApi;
+      flow.backgroundApi = backgroundApi;
+      db.setBackgroundApi(backgroundApi);
+      const airGapAccounts = [
+        {
+          chain: 'btc',
+          path: "m/86'/0'/0'",
+          publicKey: '',
+          chainCode: '',
+          extra: { okx: { chainId: 0 } },
+        },
+      ];
+      const creating = withPublicAccountCreationContext(
+        (publicAccountCreationContext) =>
+          db.createQrWallet({
+            qrDevice: {
+              name: 'OneKey Pro',
+              deviceId: 'fixture-device',
+              xfp: '12345678',
+              version: '1.0.0',
+              buildBy: 'multiAccounts',
+            },
+            fullXfp: XFP,
+            airGapAccounts,
+            publicAccountCreationContext,
+          }),
+        () => current,
+      );
+      if (cancelAtCommit) {
+        await expect(creating).rejects.toBeInstanceOf(
+          OneKeyErrorScanQrCodeCancel,
+        );
+        expect(lifecycle).toEqual([]);
+        expect(db.stores.get(ELocalDBStoreNames.Wallet)?.size).toBe(1);
+        expect(db.stores.get(ELocalDBStoreNames.Device)).toBeUndefined();
+        expect(
+          db.stores.get(ELocalDBStoreNames.IndexedAccount),
+        ).toBeUndefined();
+        expect(db.stores.get(ELocalDBStoreNames.CloudSyncItem)).toBeUndefined();
+        expect(await db.getContext()).toMatchObject({ nextWalletNo: 2 });
+        return;
+      }
+      const result = await creating;
+      expect(JSON.parse(result.wallet.airGapAccountsInfoRaw ?? '{}')).toEqual({
+        accounts: airGapAccounts,
+      });
+      expect(result.indexedAccount).toMatchObject({
+        walletId: result.wallet.id,
+      });
+      expect(lifecycle).toEqual(['commit', 'queue']);
+      expect(startServerSyncFlowForItems).toHaveBeenCalledWith({
+        localItems: [indexSyncItem, walletSyncItem],
       });
     },
   );

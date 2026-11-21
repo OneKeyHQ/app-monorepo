@@ -4130,6 +4130,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       params: IDBCreateQRWalletParams & {
         isOnboarding?: boolean;
         assertCanCreate?: () => void;
+        addressCreationPromiseId?: number;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -4143,6 +4144,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const result = await serviceAccount.createQrWallet({
             qrDevice,
             airGapAccounts,
+            addressCreationPromiseId: params.addressCreationPromiseId,
           });
           if (params?.isOnboarding) {
             await this.autoSelectToCreatedWallet.call(set, result);

@@ -119,8 +119,7 @@ describe('Lightning read authorization without wallet interaction', () => {
   test('applies cooldown after the decoder reaches the 30-second request timeout', async () => {
     const { client, get } = harness();
     const failure = new OneKeyLocalError('Synthetic decode timeout');
-    const time = 1_900_000_000_000;
-    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    jest.useFakeTimers();
     let failRequest: (error: unknown) => void = () => {};
     get.mockReturnValueOnce(
       new Promise((_, reject) => {
@@ -129,7 +128,7 @@ describe('Lightning read authorization without wallet interaction', () => {
     );
     try {
       const initial = client.decodedInvoice('lnbc123');
-      now.mockReturnValue(time + 30_000);
+      jest.advanceTimersByTime(30_000);
       failRequest(failure);
       await expect(initial).rejects.toBe(failure);
       await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
@@ -137,11 +136,11 @@ describe('Lightning read authorization without wallet interaction', () => {
       );
       expect(get).toHaveBeenCalledTimes(1);
 
-      now.mockReturnValue(time + 31_000);
+      jest.advanceTimersByTime(1000);
       await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
       expect(get).toHaveBeenCalledTimes(2);
     } finally {
-      now.mockRestore();
+      jest.useRealTimers();
     }
   });
 
@@ -228,7 +227,7 @@ describe('Lightning read authorization without wallet interaction', () => {
   });
 
   test.each([429, 503])(
-    'repeated scans wait through Retry-After on HTTP %s',
+    'repeated scans wait through Retry-After on HTTP %s despite a wall-clock change',
     async (status) => {
       const { client, get } = harness();
       const time = 1_900_000_000_000;
@@ -242,20 +241,21 @@ describe('Lightning read authorization without wallet interaction', () => {
               response: { status, headers: { 'retry-after': '5' } },
             });
       get.mockRejectedValueOnce(failure);
-      const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+      jest.useFakeTimers({ now: time });
       try {
         await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
-        now.mockReturnValue(time + 4999);
+        jest.setSystemTime(time - 3_600_000);
+        jest.advanceTimersByTime(4999);
         await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
           failure,
         );
         expect(get).toHaveBeenCalledTimes(1);
 
-        now.mockReturnValue(time + 5000);
+        jest.advanceTimersByTime(1);
         await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
         expect(get).toHaveBeenCalledTimes(2);
       } finally {
-        now.mockRestore();
+        jest.useRealTimers();
       }
     },
   );
@@ -288,17 +288,17 @@ describe('Lightning read authorization without wallet interaction', () => {
               },
             });
       get.mockRejectedValueOnce(failure);
-      const now = jest.spyOn(Date, 'now').mockReturnValue(localTime);
+      jest.useFakeTimers({ now: localTime });
       try {
         await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
-        now.mockReturnValue(localTime + 29_999);
+        jest.advanceTimersByTime(29_999);
         await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
         expect(get).toHaveBeenCalledTimes(1);
-        now.mockReturnValue(localTime + 30_000);
+        jest.advanceTimersByTime(1);
         await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
         expect(get).toHaveBeenCalledTimes(2);
       } finally {
-        now.mockRestore();
+        jest.useRealTimers();
       }
     },
   );
@@ -310,24 +310,23 @@ describe('Lightning read authorization without wallet interaction', () => {
   ])('backs off repeated %s without Retry-After', async (_label, failure) => {
     const { client, get } = harness();
     get.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
-    const time = 1_900_000_000_000;
-    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    jest.useFakeTimers();
     try {
       await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
       await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
       expect(get).toHaveBeenCalledTimes(1);
 
-      now.mockReturnValue(time + 1000);
+      jest.advanceTimersByTime(1000);
       await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
-      now.mockReturnValue(time + 2999);
+      jest.advanceTimersByTime(1999);
       await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
       expect(get).toHaveBeenCalledTimes(2);
 
-      now.mockReturnValue(time + 3000);
+      jest.advanceTimersByTime(1);
       await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
       expect(get).toHaveBeenCalledTimes(3);
     } finally {
-      now.mockRestore();
+      jest.useRealTimers();
     }
   });
 

@@ -150,8 +150,10 @@ it('keeps literal closing parentheses inside a clearly wrapped URI', () => {
   expect(resolveReusableLightningRecipient(`Pay (${uri}).`)).toBe(uri);
 });
 
-it('rejects a wrapper with two plausible closing parentheses', () => {
-  const text = '(lnurlp://merchant.example/pay),weekly)';
+it.each([
+  '(lnurlp://merchant.example/pay),weekly)',
+  'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
+])('rejects a wrapper with two plausible closing parentheses', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(resolveReusableLightningRecipient(text)).toBeNull();
 });

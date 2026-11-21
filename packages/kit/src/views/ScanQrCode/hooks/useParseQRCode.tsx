@@ -57,6 +57,7 @@ import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
 import {
   isExpiredInvoiceScanError,
   isInvalidQrCodeError,
+  isRetryableLightningScanError,
   markRetryableQrParseFailure,
 } from '../utils/isInvalidQrCodeError';
 import { parseOnChainAmount } from '../utils/parseOnChainAmount';
@@ -356,15 +357,27 @@ export async function parseQRCodeWithDeps(
               canCreateAddress = networkIdsCompatible.includes(networkId);
             }
           }
-          const newAccountId = canCreateAddress
-            ? await getAccountIdOnNetwork({
+          let newAccountId: string | undefined;
+          if (canCreateAddress) {
+            try {
+              newAccountId = await getAccountIdOnNetwork({
                 account,
                 network,
                 canApplyScanResult,
                 scanSignal,
                 holdForChildScan,
-              })
-            : undefined;
+                lightningInvoiceExpiresAt: invoiceExpiresAt,
+              });
+            } catch (error) {
+              if (
+                isExpiredInvoiceScanError(error) ||
+                isRetryableLightningScanError(error)
+              ) {
+                return handleScanError(error);
+              }
+              throw error;
+            }
+          }
           if (newAccountId) {
             accountId = newAccountId;
           } else {

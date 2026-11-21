@@ -18,9 +18,17 @@ import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 3600;
 
-export function assertLightningInvoiceIsCurrent(expiresAt: number) {
-  const serverTime = systemTimeUtils.getEstimatedServerTime();
-  if (serverTime !== undefined && expiresAt <= serverTime / 1000) {
+export async function assertLightningInvoiceIsCurrent(expiresAt: number) {
+  const serverTime = await systemTimeUtils
+    .getFreshEstimatedServerTime()
+    .catch(() => undefined);
+  if (serverTime === undefined) {
+    throw new RetryableLightningScanError({
+      message: 'Lightning invoice time check temporarily unavailable',
+      autoToast: false,
+    });
+  }
+  if (expiresAt <= serverTime / 1000) {
     throw new InvoiceExpiredError({ autoToast: false });
   }
 }
@@ -73,7 +81,8 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
         ? undefined
         : timestamp +
           (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
-    if (expiresAt !== undefined) assertLightningInvoiceIsCurrent(expiresAt);
+    if (expiresAt !== undefined)
+      await assertLightningInvoiceIsCurrent(expiresAt);
   }
 
   const network = await backgroundApi.serviceNetwork.getNetwork({ networkId });

@@ -348,7 +348,7 @@ class ClientLightning {
     const invoice = normalizeLightningInput(input);
     const { decoded, failed, inFlight } = this.invoiceDecodeCache;
     const previousFailure = failed.get(invoice);
-    if (previousFailure && Date.now() < previousFailure.retryAt) {
+    if (previousFailure && performance.now() < previousFailure.retryAt) {
       throw previousFailure.error;
     }
     const cached = decoded.get(invoice);
@@ -373,7 +373,7 @@ class ClientLightning {
         const cooldown = getLightningRequestRetryDelayMs(error, fallbackMs);
         if (cooldown !== undefined) {
           failed.set(invoice, {
-            retryAt: Date.now() + cooldown,
+            retryAt: performance.now() + cooldown,
             nextDelayMs: Math.min(30_000, fallbackMs * 2),
             error,
           });

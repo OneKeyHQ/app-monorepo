@@ -36,7 +36,7 @@ class ServiceScanQRCode extends ServiceBase {
   }: {
     expiresAt: number;
   }) {
-    assertLightningInvoiceIsCurrent(expiresAt);
+    await assertLightningInvoiceIsCurrent(expiresAt);
   }
 
   @backgroundMethod()

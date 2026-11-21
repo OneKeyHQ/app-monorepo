@@ -1,12 +1,22 @@
-import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
+import {
+  InvoiceExpiredError,
+  OneKeyErrorScanQrCodeCancel,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
+import localDb from '../../dbs/local/localDb';
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
 } from '../ServiceHardwareUI/HardwareProcessingManager';
-import { isPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
+import {
+  assertPublicAccountCreationCanContinue,
+  isPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import ServiceAccount from './ServiceAccount';
 
@@ -57,6 +67,86 @@ describe('explicit account creation capability entry', () => {
     expect(active).toEqual([true, false]);
     inner.mockRestore();
   });
+
+  test('stops QR import and skips wallet update when its callback settles during background work', async () => {
+    const hasCallback = jest.fn(() => true);
+    const service = Object.assign(Object.create(ServiceAccount.prototype), {
+      backgroundApi: { servicePromise: { hasCallback } },
+    }) as ServiceAccount;
+    const create = jest.spyOn(localDb, 'createQrWallet');
+    create.mockImplementationOnce(async ({ publicAccountCreationContext }) => {
+      await Promise.resolve();
+      hasCallback.mockReturnValue(false);
+      assertPublicAccountCreationCanContinue(publicAccountCreationContext);
+      throw new OneKeyLocalError('QR import continued after cancellation');
+    });
+    const walletUpdate = jest.spyOn(appEventBus, 'emit');
+    walletUpdate.mockClear();
+
+    await expect(
+      service.createQrWallet({
+        qrDevice: {
+          deviceId: 'fixture-device',
+          name: 'OneKey Pro',
+          version: '1.0.0',
+          xfp: '12345678',
+          buildBy: 'multiAccounts',
+        },
+        airGapAccounts: [],
+        addressCreationPromiseId: 42,
+      }),
+    ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(hasCallback).toHaveBeenCalledWith(42);
+    expect(walletUpdate).not.toHaveBeenCalled();
+  });
+
+  test('checks Lightning expiry after the address lookup misses before creating a dialog', async () => {
+    const lookupStarted = Promise.withResolvers<void>();
+    const lookup = Promise.withResolvers<never>();
+    const getNetworkAccount = jest.fn(() => {
+      lookupStarted.resolve();
+      return lookup.promise;
+    });
+    const createCallback = jest.fn(
+      ({ resolve }: { resolve: (value: boolean) => void }) => {
+        resolve(false);
+        return 42;
+      },
+    );
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceAccount: { getNetworkAccount },
+        serviceNetwork: { getGlobalDeriveTypeOfNetwork: async () => 'default' },
+        servicePromise: { createCallback },
+      },
+    });
+    const expiresAt = 1_900_000_000;
+    const serverTime = jest
+      .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
+      .mockResolvedValue((expiresAt - 1) * 1000);
+    try {
+      const options = {
+        lightningInvoiceExpiresAt: expiresAt,
+        allowWatchAccount: false,
+      };
+      const result = service.createAddressIfNotExists(
+        {
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          networkId: 'lightning--0',
+        },
+        options,
+      );
+      await lookupStarted.promise;
+      serverTime.mockResolvedValue(expiresAt * 1000);
+      lookup.reject(new OneKeyLocalError('Missing test account'));
+      await expect(result).rejects.toBeInstanceOf(InvoiceExpiredError);
+      expect(createCallback).not.toHaveBeenCalled();
+    } finally {
+      serverTime.mockRestore();
+    }
+  });
 });
 
 const mockPrepareAccounts = jest.fn(async () => []);
@@ -91,7 +181,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
-  default: {},
+  default: { createQrWallet: jest.fn() },
 }));
 
 jest.mock('../../states/jotai/atoms/prime', () => ({

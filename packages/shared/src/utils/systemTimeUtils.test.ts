@@ -125,6 +125,26 @@ describe('system time error notifications', () => {
     expect(mockTimeRefreshLog).not.toHaveBeenCalled();
   });
 
+  it('refreshes a pre-suspend estimate once for concurrent callers', async () => {
+    jest.setSystemTime(BASE_TIME + SLEEP_TIME);
+    mockGet.mockResolvedValue({
+      headers: { date: new Date(BASE_TIME + SLEEP_TIME).toUTCString() },
+    });
+    expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
+    const sample = BASE_TIME + SLEEP_TIME;
+    await expect(
+      Promise.all([
+        systemTimeUtils.getFreshEstimatedServerTime(),
+        systemTimeUtils.getFreshEstimatedServerTime(),
+      ]),
+    ).resolves.toEqual([sample, sample]);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    await expect(systemTimeUtils.getFreshEstimatedServerTime()).resolves.toBe(
+      sample,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
       monotonicTime += 1000;

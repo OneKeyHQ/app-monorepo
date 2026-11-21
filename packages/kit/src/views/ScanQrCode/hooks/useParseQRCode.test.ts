@@ -13,6 +13,7 @@ import {
   InvoiceExpiredError,
   OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
+  RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
@@ -373,6 +374,69 @@ it('rechecks invoice expiry after a missing address is created and before openin
   expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
   expect(pushModal).not.toHaveBeenCalled();
 });
+
+it.each([false, true])(
+  'handles a Lightning time check before prompting for an address (retryable: %s)',
+  async (retryable) => {
+    const expiresAt = 1_900_000_000;
+    const error = retryable
+      ? new RetryableLightningScanError({
+          message: 'Synthetic offline time check',
+          autoToast: false,
+        })
+      : new InvoiceExpiredError({ autoToast: false });
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: {
+        address: 'invoice',
+        network: { id: 'lightning--0', impl: 'lightning' },
+        expiresAt,
+      },
+    });
+    mockCreateAddressIfNotExists.mockImplementationOnce(
+      async (_params, options) => {
+        if (
+          'lightningInvoiceExpiresAt' in options &&
+          options.lightningInvoiceExpiresAt === expiresAt
+        ) {
+          throw error;
+        }
+        return undefined;
+      },
+    );
+    const pushModal = jest.fn();
+    await expect(
+      parseQRCodeWithDeps(
+        'lightning:invoice',
+        {
+          popNavigation: true,
+          autoExecuteParsedAction: true,
+          account: {
+            id: 'hd-1--0',
+            indexedAccountId: 'hd-1--0',
+            impl: 'btc',
+          } as NonNullable<
+            Parameters<typeof parseQRCodeWithDeps>[1]
+          >['account'],
+        },
+        { ...deps, navigation: { ...deps.navigation, pushModal } },
+      ),
+    ).rejects.toBe(error);
+    if (retryable) {
+      expect(isRetryableQrParseFailure(error)).toBe(true);
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(resetAboveMainRoute).not.toHaveBeenCalled();
+    } else {
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: ETranslations.send_the_invoice_has_expired,
+      });
+      expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+    }
+    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(mockGetNativeToken).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  },
+);
 
 it.each(['lightning--0', 'tlightning--0'])(
   'copies the invoice instead of trying to create a QR-wallet address on %s',

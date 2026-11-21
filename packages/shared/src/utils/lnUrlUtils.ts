@@ -129,7 +129,7 @@ function readParenthesizedLnurl(
       if (depth > 0) {
         depth -= 1;
       } else if (index >= input.length) {
-        return input.slice(0, wrapperEnd ?? input.length);
+        return wrapperEnd === undefined ? input : null;
       } else {
         const next = text[index + 1];
         // A literal ')' can be followed by more URI characters. If two

@@ -63,6 +63,7 @@ export function useCreateQrWallet() {
         urJson: IAirGapUrJson;
         isCreateAccountAction?: boolean;
         assertCanCreate?: () => void;
+        addressCreationPromiseId?: number;
       },
     ) => {
       const {
@@ -73,6 +74,7 @@ export function useCreateQrWallet() {
         byDevice,
         isCreateAccountAction,
         assertCanCreate,
+        addressCreationPromiseId,
       } = params;
       const { qrDevice, airGapAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
@@ -115,6 +117,7 @@ export function useCreateQrWallet() {
           airGapAccounts,
           isOnboarding,
           assertCanCreate,
+          addressCreationPromiseId,
         });
         return result;
       } catch (error) {
@@ -246,6 +249,7 @@ export function useCreateQrWallet() {
         byWallet,
         isCreateAccountAction: true,
         assertCanCreate,
+        addressCreationPromiseId: addressCreationRequest?.promiseId,
       });
       return result;
     },

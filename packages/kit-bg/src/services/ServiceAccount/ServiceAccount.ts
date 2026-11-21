@@ -226,6 +226,7 @@ import {
   isPublicAccountCreationContext,
   withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
+import { assertLightningInvoiceIsCurrent } from '../ServiceScanQRCode/utils/parseQRCode/handlers/lightningNetwork';
 
 import {
   buildAnalyticsWalletProfile,
@@ -4076,13 +4077,30 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async createQrWallet(params: IDBCreateQRWalletParams) {
+  async createQrWallet({
+    addressCreationPromiseId,
+    ...params
+  }: IDBCreateQRWalletParams & { addressCreationPromiseId?: number }) {
     const fullXfp = this.buildQrWalletFullXfp({
       shortXfp: params.qrDevice.xfp,
       airGapAccounts: params.airGapAccounts,
     });
     // const { name, deviceId, xfp, version } = qrDevice;
-    const result = await localDb.createQrWallet({ ...params, fullXfp });
+    const result =
+      addressCreationPromiseId === undefined
+        ? await localDb.createQrWallet({ ...params, fullXfp })
+        : await withPublicAccountCreationContext(
+            (publicAccountCreationContext) =>
+              localDb.createQrWallet({
+                ...params,
+                fullXfp,
+                publicAccountCreationContext,
+              }),
+            () =>
+              this.backgroundApi.servicePromise.hasCallback(
+                addressCreationPromiseId,
+              ),
+          );
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -7272,9 +7290,11 @@ class ServiceAccount extends ServiceBase {
     {
       allowWatchAccount,
       addressCreationRequest,
+      lightningInvoiceExpiresAt,
     }: {
       allowWatchAccount?: boolean;
       addressCreationRequest?: IAddressCreationRequest;
+      lightningInvoiceExpiresAt?: number;
     },
   ) {
     if (!accountId && !indexedAccountId) {
@@ -7286,7 +7306,10 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
 
-    const showSwitchAccountSelector = () => {
+    const showSwitchAccountSelector = async () => {
+      if (lightningInvoiceExpiresAt !== undefined) {
+        await assertLightningInvoiceIsCurrent(lightningInvoiceExpiresAt);
+      }
       appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
         networkId,
         addressCreationRequest,
@@ -7299,7 +7322,7 @@ class ServiceAccount extends ServiceBase {
         accountId: accountId ?? '',
       })
     ) {
-      showSwitchAccountSelector();
+      await showSwitchAccountSelector();
       return undefined;
     }
 
@@ -7313,6 +7336,9 @@ class ServiceAccount extends ServiceBase {
         });
         return result;
       } catch (_error) {
+        if (lightningInvoiceExpiresAt !== undefined) {
+          await assertLightningInvoiceIsCurrent(lightningInvoiceExpiresAt);
+        }
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -7351,7 +7377,7 @@ class ServiceAccount extends ServiceBase {
         });
         return result;
       } catch (_error) {
-        showSwitchAccountSelector();
+        await showSwitchAccountSelector();
       }
     }
     return undefined;

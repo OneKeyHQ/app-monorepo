@@ -554,6 +554,12 @@ class SystemTimeUtils {
   }
 
   getEstimatedServerTime(): number | undefined {
+    return this.estimateServerTime(false);
+  }
+
+  private estimateServerTime(
+    requireContinuousClock: boolean,
+  ): number | undefined {
     if (
       !this._lastServerTimeIsReal ||
       !this.isTimeValid({ time: this._serverTimeEstimateBase }) ||
@@ -571,6 +577,16 @@ class SystemTimeUtils {
     if (!isNumber(elapsed) || isNaN(elapsed) || isNil(elapsed) || elapsed < 0) {
       return undefined;
     }
+    if (requireContinuousClock) {
+      const localBase = this._lastServerTimeLocalBase;
+      // Detect sleep or wall-clock changes without trusting the wall clock as UTC.
+      if (
+        isNil(localBase) ||
+        Math.abs(Date.now() - localBase - elapsed) > 1000
+      ) {
+        return undefined;
+      }
+    }
 
     const estimated = normalizeTimestamp(
       (this._serverTimeEstimateBase ?? 0) + elapsed,
@@ -579,6 +595,13 @@ class SystemTimeUtils {
       return undefined;
     }
     return estimated;
+  }
+
+  async getFreshEstimatedServerTime(): Promise<number | undefined> {
+    const estimated = this.estimateServerTime(true);
+    if (estimated !== undefined) return estimated;
+    if (!(await this.refreshServerTimeOnce())) return undefined;
+    return this.estimateServerTime(true);
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {

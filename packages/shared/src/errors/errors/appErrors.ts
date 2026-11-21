@@ -1111,7 +1111,11 @@ export class InvalidLightningPaymentRequest extends OneKeyAppError {
   }
 }
 
-export class RetryableLightningScanError extends OneKeyAppError {}
+export class RetryableLightningScanError extends OneKeyAppError {
+  override className = EOneKeyErrorClassNames.RetryableLightningScanError;
+
+  override name = EOneKeyErrorClassNames.RetryableLightningScanError;
+}
 
 export function isRetryableLightningInvoiceDecodeFailure(
   error: unknown,

@@ -60,6 +60,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
+  RetryableLightningScanError = 'RetryableLightningScanError',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
   HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',

@@ -264,7 +264,7 @@ class ServiceLightning extends ServiceBase {
 
     const key = `${networkId}:${address}`;
     const previousFailure = this.lnurlScanFailures.get(key);
-    if (previousFailure && Date.now() < previousFailure.retryAt) {
+    if (previousFailure && performance.now() < previousFailure.retryAt) {
       throw previousFailure.error;
     }
     const current = this.lnurlScanRequests.get(key);
@@ -295,7 +295,7 @@ class ServiceLightning extends ServiceBase {
           autoToast: false,
         });
         this.lnurlScanFailures.set(key, {
-          retryAt: Date.now() + cooldown,
+          retryAt: performance.now() + cooldown,
           nextDelayMs: Math.min(30_000, fallbackMs * 2),
           error: scanError,
         });

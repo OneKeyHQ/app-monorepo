@@ -51,7 +51,7 @@ const params = {
   walletId: 'qr-1',
   networkId: 'btc--0',
   indexedAccountId: 'qr-1--0',
-  addressCreationRequest: { id: 'scan-1', nodeId: 'main' },
+  addressCreationRequest: { id: 'scan-1', nodeId: 'main', promiseId: 42 },
 };
 
 beforeEach(() => {
@@ -118,6 +118,7 @@ it('lets the linked legacy child finish before React Navigation refocuses its sc
     'createQrWallet',
     expect.objectContaining({
       assertCanCreate: expect.any(Function),
+      addressCreationPromiseId: 42,
     }),
   );
 });

@@ -3755,6 +3755,20 @@ describe('useAccountSelectorActions', () => {
       expect(mockCreateQrWalletService).not.toHaveBeenCalled();
     });
 
+    it('carries the scanner promise to background QR import', async () => {
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const params = {
+        qrDevice,
+        airGapAccounts: [],
+        addressCreationPromiseId: 42,
+      };
+      await result.current.createQrWallet(params);
+      expect(mockCreateQrWalletService).toHaveBeenCalledWith(params);
+    });
+
     function seedAllNetworksSelection(
       store: ReturnType<typeof createWrapper>['store'],
     ) {

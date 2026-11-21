@@ -64,12 +64,14 @@ export const getAccountIdOnNetwork = async ({
   canApplyScanResult,
   scanSignal,
   holdForChildScan,
+  lightningInvoiceExpiresAt,
 }: {
   account?: INetworkAccount;
   network: IChainValue['network'];
   canApplyScanResult?: () => boolean;
   scanSignal?: AbortSignal;
   holdForChildScan?: () => () => void;
+  lightningInvoiceExpiresAt?: number;
 }) => {
   if (account?.indexedAccountId) {
     const { accounts } =
@@ -134,6 +136,7 @@ export const getAccountIdOnNetwork = async ({
             {
               allowWatchAccount: false,
               addressCreationRequest,
+              lightningInvoiceExpiresAt,
             },
           );
         return newAccount?.id;

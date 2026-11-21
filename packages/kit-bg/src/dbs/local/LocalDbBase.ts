@@ -4852,6 +4852,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     names,
     skipIfExists,
     skipServerSyncFlow,
+    deferredServerSyncItems,
     applyRestoreSyncPolicy,
     prepared,
   }: {
@@ -4863,6 +4864,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
     skipServerSyncFlow?: boolean;
+    deferredServerSyncItems?: IDBCloudSyncItem[];
     applyRestoreSyncPolicy?: boolean;
     prepared?: IIndexedAccountsCreationPreparedData;
   }) {
@@ -4922,6 +4924,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         },
         skipServerSyncFlow,
+        deferredServerSyncItems,
       });
       return indexedAccounts;
     }
@@ -5084,6 +5087,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         console.log('txAddIndexedAccount txGetWallet');
       },
       skipServerSyncFlow,
+      deferredServerSyncItems,
     });
 
     return indexedAccounts;
@@ -5207,6 +5211,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     onlyAddFirst,
     skipServerSyncFlow,
+    deferredServerSyncItems,
     expectedIndex,
     prepared,
   }: {
@@ -5214,6 +5219,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     onlyAddFirst?: boolean;
     skipServerSyncFlow: boolean;
+    deferredServerSyncItems?: IDBCloudSyncItem[];
     expectedIndex?: number;
     prepared?: IIndexedAccountsCreationPreparedData;
   }) {
@@ -5280,6 +5286,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       indexes: [nextIndex],
       skipIfExists: true,
       skipServerSyncFlow,
+      deferredServerSyncItems,
       prepared,
     });
 
@@ -6814,7 +6821,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     fullXfp = '',
     isMockedStandardHwWallet,
     existingDeviceId,
-  }: IDBCreateQRWalletParams) {
+    publicAccountCreationContext,
+  }: IDBCreateQRWalletParams & {
+    publicAccountCreationContext?: IPublicAccountCreationContext;
+  }) {
+    assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     const { deviceId: rawDeviceId } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
@@ -6929,6 +6940,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           isMockedStandardHwWallet: true,
           existingDeviceId: dbDeviceId,
           firmwareTypeAtCreated: firmwareType,
+          publicAccountCreationContext,
         });
         parentWalletId = createStandardWalletResult.wallet?.id;
         if (!parentWalletId) {
@@ -7054,11 +7066,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
 
+    const deferredServerSyncItems: IDBCloudSyncItem[] | undefined =
+      publicAccountCreationContext ? [] : undefined;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      assertPublicAccountCreationCanContinue(publicAccountCreationContext);
       await syncManager.txWithSyncFlowOfDBRecordCreating({
         tx,
         newSyncItems,
         existingSyncItems,
+        deferredServerSyncItems,
         runDbTxFn: async () => {
           if (existingDevice) {
             await this.txUpdateRecords({
@@ -7156,6 +7172,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               walletId: dbWalletId,
               onlyAddFirst: true,
               skipServerSyncFlow: false,
+              deferredServerSyncItems,
             });
             addedHdAccountIndex = nextIndex;
           }
@@ -7171,7 +7188,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         },
       });
+      assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     });
+    if (deferredServerSyncItems?.length) {
+      void this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowForItems(
+        {
+          localItems: deferredServerSyncItems,
+        },
+      );
+    }
 
     // if (passphraseState) {
     // this.tempWallets[dbWalletId] = true;
@@ -9514,6 +9539,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // db transaction: add accounts to wallet
 
+    const deferredServerSyncItems: IDBCloudSyncItem[] | undefined =
+      publicAccountCreationContext ? [] : undefined;
     let repairedAvatarSeed: string | undefined;
     let addResults: {
       isOverrideAccounts: boolean;
@@ -9526,6 +9553,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const addResults0 =
             await syncManager.txWithSyncFlowOfDBRecordCreating({
               tx,
+              deferredServerSyncItems,
               existingSyncItems:
                 existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
               newSyncItems:
@@ -9898,6 +9926,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
       throw error;
+    }
+
+    if (deferredServerSyncItems?.length) {
+      void this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowForItems(
+        {
+          localItems: deferredServerSyncItems,
+        },
+      );
     }
 
     if (
