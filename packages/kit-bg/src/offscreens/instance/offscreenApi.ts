@@ -14,6 +14,7 @@ import type {
 import type { CoreMessage, LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 let HardwareLowLevelSDK: LowLevelCoreApi;
+let HardwareBridgeLowLevelSDK: LowLevelCoreApi;
 
 const forwardHardwareEventToBackground = (eventParams: CoreMessage) => {
   const backgroundServiceName = 'serviceHardware';
@@ -40,10 +41,8 @@ const forwardHardwareEventToBackground = (eventParams: CoreMessage) => {
   );
 };
 
-const registerHardwareGlobalEventListener = () => {
-  HardwareLowLevelSDK.addHardwareGlobalEventListener(
-    forwardHardwareEventToBackground,
-  );
+const registerHardwareGlobalEventListener = (sdk: LowLevelCoreApi) => {
+  sdk.addHardwareGlobalEventListener(forwardHardwareEventToBackground);
 };
 
 const createOffscreenApiModule = memoizee(
@@ -51,12 +50,23 @@ const createOffscreenApiModule = memoizee(
     switch (name) {
       case 'hardwareSDKLowLevel':
         if (!HardwareLowLevelSDK) {
-          HardwareLowLevelSDK = await (
-            await import('@onekeyhq/shared/src/hardware/sdk-loader')
-          ).importHardwareSDKLowLevel();
-          registerHardwareGlobalEventListener();
+          // The direct SDK owns Core and its transport outside the service worker.
+          HardwareLowLevelSDK = (
+            await import('@onekeyfe/hd-common-connect-sdk-extension')
+          ).HardwareSDKLowLevel;
+          registerHardwareGlobalEventListener(HardwareLowLevelSDK);
         }
         return HardwareLowLevelSDK;
+      case 'hardwareSDKBridgeLowLevel':
+        if (!HardwareBridgeLowLevelSDK) {
+          // Installed Bridge daemons require the trusted iframe origin.
+          // Use the published client modules to share Core with the local SDK.
+          HardwareBridgeLowLevelSDK = (
+            await import('@onekeyfe/hd-web-sdk/dist')
+          ).default.HardwareSDKLowLevel;
+          registerHardwareGlobalEventListener(HardwareBridgeLowLevelSDK);
+        }
+        return HardwareBridgeLowLevelSDK;
       case 'adaSdk':
         return new (await import('../OffscreenApiAdaSdk')).default();
       case 'kaspaSdk':
@@ -87,16 +97,27 @@ const callOffscreenApiMethodBase =
   );
 
 const callOffscreenApiMethod = async (message: IOffscreenApiMessagePayload) => {
-  const result: unknown = await callOffscreenApiMethodBase(message);
   const params = Array.isArray(message.params) ? message.params : [];
   const didClearAllHardwareListeners =
-    message.module === 'hardwareSDKLowLevel' &&
+    (message.module === 'hardwareSDKLowLevel' ||
+      message.module === 'hardwareSDKBridgeLowLevel') &&
     (message.method === 'dispose' ||
       (message.method === 'removeAllListeners' && params.length === 0));
-  if (didClearAllHardwareListeners) {
-    registerHardwareGlobalEventListener();
+  try {
+    const result: unknown = await callOffscreenApiMethodBase(message);
+    return result;
+  } finally {
+    // Keep forwarding available after either SDK clears its listeners.
+    if (didClearAllHardwareListeners) {
+      const sdk =
+        message.module === 'hardwareSDKBridgeLowLevel'
+          ? HardwareBridgeLowLevelSDK
+          : HardwareLowLevelSDK;
+      if (sdk) {
+        registerHardwareGlobalEventListener(sdk);
+      }
+    }
   }
-  return result;
 };
 
 export default {
