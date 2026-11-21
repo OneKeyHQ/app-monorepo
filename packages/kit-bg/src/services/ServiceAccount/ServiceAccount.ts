@@ -5610,11 +5610,13 @@ class ServiceAccount extends ServiceBase {
     params: IDBSetWalletNameAndAvatarParams,
     isCurrent: () => boolean,
     expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
   ): Promise<IDBWallet> {
     return this.setWalletNameAndAvatarInternal(
       params,
       isCurrent,
       expectedCloudSyncWalletAvatar,
+      onCloudWalletWriteFailure,
     );
   }
 
@@ -5622,6 +5624,7 @@ class ServiceAccount extends ServiceBase {
     params: IDBSetWalletNameAndAvatarParams,
     isCurrent?: () => boolean,
     expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
   ): Promise<IDBWallet> {
     // A projection-driven write is not an explicit rename or a new UI event.
     if (params.passiveDeviceMetadata)
@@ -5652,6 +5655,7 @@ class ServiceAccount extends ServiceBase {
           ...(expectedCloudSyncWalletAvatar === undefined
             ? {}
             : { expectedCloudSyncWalletAvatar }),
+          ...(onCloudWalletWriteFailure ? { onCloudWalletWriteFailure } : {}),
         })
       : await localDb.setWalletNameAndAvatar(params);
     const isWalletMetadataChanged =

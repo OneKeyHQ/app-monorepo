@@ -447,7 +447,21 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     };
     const { serviceAccount } = this.backgroundApi;
     if (isCurrent && item) {
-      if (expectedAvatar === undefined)
+      const observer = params.onWalletNameHistoryDeferred;
+      if (
+        observer?.observeCanonicalWrite &&
+        isLiveEncryptedSource &&
+        item.serverUploaded &&
+        !item.localSceneUpdated &&
+        item.pwdHash
+      )
+        await serviceAccount.setWalletNameAndAvatarFromCloud(
+          update,
+          isCurrent,
+          expectedAvatar,
+          () => observer(item, 'canonical-write'),
+        );
+      else if (expectedAvatar === undefined)
         await serviceAccount.setWalletNameAndAvatarFromCloud(update, isCurrent);
       else
         await serviceAccount.setWalletNameAndAvatarFromCloud(

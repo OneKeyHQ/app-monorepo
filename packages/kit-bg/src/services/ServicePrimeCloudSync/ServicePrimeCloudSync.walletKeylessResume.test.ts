@@ -103,6 +103,11 @@ it.each([
   'incremental-history-successor-unreadable',
   'incremental-history-import-failure',
   'incremental-history-import-cancelled',
+  'incremental-history-write-abort',
+  'incremental-history-write-avatar-abort',
+  'incremental-history-write-invalid',
+  'incremental-history-write-superseded',
+  'incremental-history-write-cancelled',
   'push-name-history-deferred',
   'push-name-history-retained',
   'push-name-history-source-changed',
@@ -306,7 +311,10 @@ it.each([
     const replay = jest.spyOn(prime, 'syncPendingItemsToScene');
 
     if (canonicalSceneRead || pushNameHistory || incrementalNameHistory) {
-      const remoteName = 'Cloud Wallet name';
+      const remoteName =
+        scenario === 'incremental-history-write-avatar-abort'
+          ? wallet.name
+          : 'Cloud Wallet name';
       const pending = {
         ...(await makeItem(remoteName, 'cat', baseTime + 100)),
         serverUploaded: true,
@@ -371,23 +379,36 @@ it.each([
         const importFailure = scenario === 'incremental-history-import-failure';
         const importCancelled =
           scenario === 'incremental-history-import-cancelled';
+        const writeFailure = scenario.startsWith('incremental-history-write-');
+        const nonrecoverableWriteFailure =
+          scenario === 'incremental-history-write-invalid';
+        const writeSuperseded =
+          scenario === 'incremental-history-write-superseded';
+        const writeCancelled =
+          scenario === 'incremental-history-write-cancelled';
         const retained =
           importFailure ||
           importCancelled ||
           scenario === 'incremental-history-retained' ||
           scenario === 'incremental-history-healthy-mixed';
-        const successorCase = scenario.startsWith(
-          'incremental-history-successor',
-        );
+        const successorCase =
+          writeSuperseded ||
+          scenario.startsWith('incremental-history-successor');
         const successorApplies =
+          writeSuperseded ||
           scenario === 'incremental-history-successor-applied';
         const successorUnreadable =
           scenario === 'incremental-history-successor-unreadable';
         const successorName = 'Newer pushed Wallet name';
+        const sameBatchWriteFailure =
+          scenario === 'incremental-history-write-abort';
+        const avatarUploadWriteFailure =
+          scenario === 'incremental-history-write-avatar-abort';
         const hasSibling =
           scenario === 'incremental-history-mixed' ||
           scenario === 'incremental-history-healthy-mixed' ||
-          successorCase;
+          successorCase ||
+          (writeFailure && !avatarUploadWriteFailure);
         const uploadOnly = scenario === 'incremental-history-upload-only';
         const shortReceipt = scenario === 'incremental-history-short-receipt';
         const scopeChanged = scenario === 'incremental-history-cancelled';
@@ -430,6 +451,7 @@ it.each([
                 devSettingsChanged();
               }
             }
+            if (writeFailure) return true;
             if (successorCase) {
               if (walletId !== wallet.id) return true;
               primaryHistoryChecks += 1;
@@ -460,7 +482,11 @@ it.each([
             updated: 0,
             nonce: 1,
           });
-        const expectsUpload = hasSibling || shortReceipt || uploadOnly;
+        const expectsUpload =
+          (hasSibling && !sameBatchWriteFailure) ||
+          shortReceipt ||
+          uploadOnly ||
+          avatarUploadWriteFailure;
         const downloaded = invalidEnvelope
           ? { ...pending, data: 'unreadable-legacy-ciphertext' }
           : pending;
@@ -468,6 +494,8 @@ it.each([
           jest
             .spyOn(prime, 'syncToSceneWithLocalSyncItems')
             .mockResolvedValue(undefined);
+        let failsOnWalletPut = 0;
+        let blockWalletPut = writeFailure;
         let pushedSuccessor: IDBCloudSyncItem | undefined;
         if (successorCase) {
           const newer = await makeItem(successorName, 'cat', baseTime + 300);
@@ -485,6 +513,7 @@ it.each([
                 data: pending.data,
                 localSceneUpdated: false,
               });
+              if (writeSuperseded) blockWalletPut = false;
               await save({
                 serverItems: [pack(successor)],
                 shouldSyncToScene: true,
@@ -499,13 +528,62 @@ it.each([
             });
         }
         check.mockResolvedValueOnce({
-          diff: uploadOnly ? [] : [pack(downloaded)],
-          updated: hasSibling ? [pack(siblingPending)] : [],
+          diff: uploadOnly
+            ? []
+            : [
+                pack(downloaded),
+                ...(sameBatchWriteFailure ? [pack(siblingPending)] : []),
+              ],
+          updated:
+            hasSibling && !sameBatchWriteFailure ? [pack(siblingPending)] : [],
           deleted: [],
           obsoleted: expectsUpload ? [outgoing.id] : [],
           pwdHash: scope,
           serverTime: Date.now(),
         });
+        const nativePut: typeof IDBObjectStore.prototype.put = Reflect.get(
+          IDBObjectStore.prototype,
+          'put',
+        );
+        if (writeFailure)
+          jest
+            .spyOn(IDBObjectStore.prototype, 'put')
+            .mockImplementation(function (
+              this: IDBObjectStore,
+              value: unknown,
+              storeKey?: IDBValidKey,
+            ) {
+              if (
+                blockWalletPut &&
+                this.name === ELocalDBStoreNames.Wallet &&
+                value &&
+                typeof value === 'object' &&
+                'id' in value &&
+                value.id === wallet.id
+              ) {
+                failsOnWalletPut += 1;
+                if (writeCancelled)
+                  void prime.cancelPublicAccountSnapshotImport();
+                if (nonrecoverableWriteFailure)
+                  throw new TypeError('invalid write');
+                if (avatarUploadWriteFailure)
+                  throw new DOMException(
+                    'synthetic quota failure',
+                    'QuotaExceededError',
+                  );
+                // Let the IDB request succeed, then abort the actual transaction.
+                const request = nativePut.call(this, value);
+                request.addEventListener(
+                  'success',
+                  () => this.transaction.abort(),
+                  { once: true },
+                );
+                return request;
+              }
+              return storeKey === undefined
+                ? nativePut.call(this, value)
+                : nativePut.call(this, value, storeKey);
+            });
         const startIncremental = () =>
           prime.startServerSyncFlowForItems({
             localItems: expectsUpload ? [outgoing] : [],
@@ -548,7 +626,7 @@ it.each([
         }
         // A later ordinary run still works after an unavailable or cancelled load.
         const work = startIncremental();
-        if (scopeChanged)
+        if (scopeChanged || writeCancelled)
           await expect(work).rejects.toThrow('Cloud sync was cancelled');
         else if (shortReceipt)
           await expect(work).rejects.toThrow('only partially acknowledged');
@@ -557,6 +635,12 @@ it.each([
         expect(unsubscribe).toHaveBeenCalledTimes(1);
         expect(sent).toHaveBeenCalledTimes(expectsUpload ? 1 : 0);
         const applied = retained || shortReceipt || nodeChanged || nodeAba;
+        if (writeFailure) expect(failsOnWalletPut).toBe(1);
+        if (writeFailure && !writeSuperseded)
+          expect(await readWallet()).toMatchObject({
+            name: wallet.name,
+            avatar: wallet.avatar,
+          });
         if (successorCase) {
           expect(pushedSuccessor).toMatchObject({
             serverUploaded: true,
@@ -578,7 +662,7 @@ it.each([
             localSceneUpdated: applied,
           });
         }
-        if (hasSibling) {
+        if (hasSibling && !writeCancelled) {
           expect(
             await localDb.getWallet({
               walletId: sibling.id,
@@ -593,9 +677,43 @@ it.each([
             localSceneUpdated: true,
           });
         }
-        if (retained || uploadOnly || successorApplies || successorUnreadable)
+        if (
+          retained ||
+          uploadOnly ||
+          successorApplies ||
+          successorUnreadable ||
+          nonrecoverableWriteFailure
+        )
           expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
         else expect(config.lastSyncTimeKeyless).toBeUndefined();
+        if (
+          writeFailure &&
+          !nonrecoverableWriteFailure &&
+          !writeCancelled &&
+          !writeSuperseded
+        ) {
+          blockWalletPut = false;
+          check.mockResolvedValueOnce({
+            diff: [pack(downloaded)],
+            updated: [],
+            deleted: [],
+            obsoleted: [],
+            pwdHash: scope,
+            serverTime: Date.now(),
+          });
+          await startIncremental();
+          expect(check).toHaveBeenCalledTimes(2);
+          expect(sent).toHaveBeenCalledTimes(expectsUpload ? 1 : 0);
+          expect(await readWallet()).toMatchObject({
+            name: remoteName,
+            avatar: '{"img":"cat"}',
+          });
+          expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+            data: pending.data,
+            localSceneUpdated: true,
+          });
+          expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+        }
         return;
       }
       if (pushNameHistory) {

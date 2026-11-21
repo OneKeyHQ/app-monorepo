@@ -123,17 +123,21 @@ export async function runIncrementalCloudSync({
 
     const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
     const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
-    const observeDeferredWalletName: IWalletNameDeferredObserver = (item) => {
-      if (
-        isCurrent() &&
-        item.serverUploaded &&
-        item.data &&
-        !item.isDeleted &&
-        !item.localSceneUpdated &&
-        item.pwdHash === spaceId
-      )
-        deferredWalletNames.set(item.id, item);
-    };
+    const observeDeferredWalletName: IWalletNameDeferredObserver =
+      Object.assign(
+        (item: IDBCloudSyncItem) => {
+          if (
+            isCurrent() &&
+            item.serverUploaded &&
+            item.data &&
+            !item.isDeleted &&
+            !item.localSceneUpdated &&
+            item.pwdHash === spaceId
+          )
+            deferredWalletNames.set(item.id, item);
+        },
+        { observeCanonicalWrite: true as const },
+      );
     let completedWork = false;
     let heldOutgoing = false;
     let outboundSettled = true;

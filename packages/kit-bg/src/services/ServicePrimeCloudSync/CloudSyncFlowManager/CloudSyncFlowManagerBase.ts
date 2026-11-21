@@ -45,10 +45,10 @@ function getMutexByDataType(
   return mutexMap[dataType];
 }
 
-export type IWalletNameDeferredObserver = (
+export type IWalletNameDeferredObserver = ((
   item: IDBCloudSyncItem,
-  reason?: 'canonical-read',
-) => void;
+  reason?: 'canonical-read' | 'canonical-write',
+) => void) & { observeCanonicalWrite?: true };
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,

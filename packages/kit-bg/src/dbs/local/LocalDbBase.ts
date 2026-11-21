@@ -8855,9 +8855,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     {
       isCurrent,
       expectedCloudSyncWalletAvatar,
+      onCloudWalletWriteFailure,
     }: {
       isCurrent?: () => boolean;
       expectedCloudSyncWalletAvatar?: string;
+      onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
     const passive = params.passiveDeviceMetadata;
@@ -8931,6 +8933,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ? this.setWalletNameAndAvatarInternal(params, {
             isCurrent,
             expectedCloudSyncWalletAvatar,
+            onCloudWalletWriteFailure,
           })
         : this.setWalletNameAndAvatarInternal(params);
     }
@@ -8987,6 +8990,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       explicitSyncOffEdit,
       isCurrent,
       expectedCloudSyncWalletAvatar,
+      onCloudWalletWriteFailure,
     }: {
       verifiedCredential?: ICloudSyncCredential;
       claimWrite?: () => boolean;
@@ -8995,6 +8999,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       explicitSyncOffEdit?: boolean;
       isCurrent?: () => boolean;
       expectedCloudSyncWalletAvatar?: string;
+      onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
     const assertCurrent = () => {
@@ -9152,6 +9157,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return wallet;
     }
 
+    let attemptedCloudWalletWrite = false;
     const writeWalletMetadata = async (tx: ILocalDBTransaction) => {
       assertCurrent();
       if (passive && passiveDevice) {
@@ -9381,6 +9387,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               message: 'Wallet name changed before the Cloud scene update',
               autoToast: false,
             });
+          const previousName = w.name;
+          const previousAvatar = w.avatar;
           if (firstEvmAddress && !w.firstEvmAddress) {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
@@ -9403,6 +9411,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ) {
             w.avatar = JSON.stringify(avatarInfo);
           }
+          attemptedCloudWalletWrite =
+            !!onCloudWalletWriteFailure &&
+            (w.name !== previousName ||
+              w.avatar !== previousAvatar ||
+              didSetFirstEvmAddress);
           return w;
         },
       });
@@ -9450,7 +9463,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       assertCurrent();
       return displayOverride;
     };
-    const displayOverride = await this.withTransaction(
+    const write = this.withTransaction(
       EIndexedDBBucketNames.account,
       writeWalletMetadata,
       {
@@ -9458,6 +9471,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         confirmRollbackOnError: !!claimWrite,
       },
     );
+    const displayOverride = await (onCloudWalletWriteFailure
+      ? write.catch((error: unknown) => {
+          // Only an admitted canonical write can defer scene completion.
+          if (
+            attemptedCloudWalletWrite &&
+            isCurrent?.() &&
+            typeof DOMException !== 'undefined' &&
+            error instanceof DOMException &&
+            (error.name === 'AbortError' || error.name === 'QuotaExceededError')
+          )
+            onCloudWalletWriteFailure();
+          throw error;
+        })
+      : write);
 
     if (syncItem?.data && syncItem.pwdHash) {
       const candidate = syncItem;
