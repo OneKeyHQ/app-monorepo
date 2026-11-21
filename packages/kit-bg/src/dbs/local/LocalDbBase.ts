@@ -11693,6 +11693,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   private async buildPublicAccountDeletionSyncItems(
     accounts: IDBAccount[],
     prepareCloud: boolean,
+    requestedAt?: number,
   ): Promise<IDBCloudSyncItem[]> {
     if (!prepareCloud) return [];
     let isCurrent = true;
@@ -11708,7 +11709,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // start or repeat the local deletion transaction.
       return await Promise.race([
         elapsed,
-        this.collectPublicAccountDeletionSyncItems(accounts, () => isCurrent),
+        this.collectPublicAccountDeletionSyncItems(
+          accounts,
+          () => isCurrent,
+          requestedAt,
+        ),
       ]);
     } finally {
       isCurrent = false;
@@ -11719,6 +11724,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   private async collectPublicAccountDeletionSyncItems(
     accounts: IDBAccount[],
     isCurrent: () => boolean,
+    requestedAt: number | undefined,
   ) {
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
@@ -11765,7 +11771,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             await syncService.syncManagers.account.buildSyncItemByDBQuery({
               dbRecord: { ...account, name },
               isDeleted: true,
-              dataTime: undefined,
+              dataTime: requestedAt,
               syncCredential,
             });
           if (item) items.push(item);
@@ -12368,6 +12374,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountIds: accountIdsToRemove,
         }),
         prepareCloud,
+        requestedAt,
       );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
@@ -12448,6 +12455,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.buildPublicAccountDeletionSyncItems(
         account && isPublicAccountWallet ? [account] : [],
         prepareCloud,
+        requestedAt,
       );
     if (prepareCloud && account && !isPublicAccountWallet) {
       try {

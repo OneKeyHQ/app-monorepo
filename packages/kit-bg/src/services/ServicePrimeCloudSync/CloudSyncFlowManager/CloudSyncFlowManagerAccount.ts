@@ -180,6 +180,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
   ) {
     const snapshot = await this.snapshotForTarget(params.target);
     let existing: IDBCloudSyncItem | undefined;
+    let hasAuthenticatedDeletionBase = false;
     if (snapshot) {
       const key = this.rawKeyToHashKey(
         `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
@@ -261,6 +262,12 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
                 getPublicAccountSnapshotIdentityHash(snapshot))
           )
             throw new OneKeyLocalError('Invalid public account sync identity');
+          hasAuthenticatedDeletionBase =
+            !!params.isDeleted &&
+            !existing.isDeleted &&
+            existing.dataType === EPrimeCloudSyncDataType.Account &&
+            !!existing.data &&
+            canReadCloudSnapshot;
         } catch (error) {
           if (params.isDeleted) {
             if (
@@ -277,8 +284,22 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         }
       }
     }
+    // Do not turn preparation latency into a newer business action. This
+    // applies only after the existing encrypted Account passed authentication.
+    const requestedDeletionTime = hasAuthenticatedDeletionBase
+      ? params.dataTime
+      : undefined;
+    if (
+      requestedDeletionTime !== undefined &&
+      (!Number.isSafeInteger(requestedDeletionTime) ||
+        requestedDeletionTime <= 0 ||
+        requestedDeletionTime <= (existing?.dataTime ?? 0))
+    )
+      return undefined;
     const built = await super.buildSyncItem({
       ...params,
+      allowHistoricalTime:
+        requestedDeletionTime !== undefined || params.allowHistoricalTime,
       // A downloaded version may be ahead of this process's clock or cache.
       existingDataTime: existing
         ? Math.max(
@@ -288,6 +309,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           )
         : params.existingDataTime,
     });
+    // If the existing clock protection cannot use that exact time, the
+    // local removal may still proceed but we must not send another version.
+    if (
+      requestedDeletionTime !== undefined &&
+      built?.dataTime !== requestedDeletionTime
+    )
+      return undefined;
     if (snapshot && built) {
       if (built.data) built.rawData = '';
       rememberPublicAccountSnapshotWrite(built, existing);

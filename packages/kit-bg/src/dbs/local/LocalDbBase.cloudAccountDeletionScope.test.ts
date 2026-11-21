@@ -75,6 +75,8 @@ async function fixture({
   unsent = false,
   missingCredential = false,
   beforeTime,
+  useHistoricalTime = false,
+  historicalClockAdjustment = 0,
   foreign,
   snapshotOverride,
 }: {
@@ -83,6 +85,8 @@ async function fixture({
   beforeKey?: () => Promise<void>;
   unsent?: boolean;
   missingCredential?: boolean;
+  useHistoricalTime?: boolean;
+  historicalClockAdjustment?: number;
   beforeTime?: (
     db: LocalDbIndexed,
     id: string,
@@ -121,6 +125,14 @@ async function fixture({
     ) => {
       const wireId = params?.syncItemKey?.split(':').at(-1);
       if (wireId) await beforeTime?.(other, wireId, account.id);
+      if (useHistoricalTime) {
+        if (
+          params?.allowHistoricalTime &&
+          params.explicitHistoricalTime !== undefined
+        )
+          return params.explicitHistoricalTime + historicalClockAdjustment;
+        return Math.max(Date.now(), (params?.existingDataTime ?? 0) + 1);
+      }
       return currentTime;
     },
   );
@@ -267,6 +279,7 @@ async function fixture({
       return item;
     },
     getCloudSyncDataTime,
+    accountManager,
     syncLater,
     stages,
     remove: () =>
@@ -739,3 +752,151 @@ it('rolls back an actual plaintext cancellation if the primary Account write fai
   ).toMatchObject({ id: h.account.id });
   expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
 });
+
+it.each([
+  { batch: false, delta: -100, clockAdjustment: 0 },
+  { batch: true, delta: -100, clockAdjustment: 0 },
+  { batch: false, delta: 0, clockAdjustment: 0 },
+  { batch: true, delta: 100, clockAdjustment: 0 },
+  { batch: false, delta: -100, clockAdjustment: -1 },
+  { batch: true, delta: -100, clockAdjustment: 0, lateConflict: true },
+])(
+  'uses the original time only on the existing authenticated Account path (batch=$batch delta=$delta adjustment=$clockAdjustment lateConflict=$lateConflict)',
+  async ({ batch, delta, clockAdjustment, lateConflict }) => {
+    const requestedAt = 1_750_000_000_000;
+    let conflictingWireId: string | undefined;
+    const h = await fixture({
+      useHistoricalTime: true,
+      historicalClockAdjustment: clockAdjustment,
+      beforeTime: async (db, wireId) => {
+        if (wireId !== conflictingWireId) return;
+        await db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+          db.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [wireId],
+            updater: (row) =>
+              Object.assign(row, { dataTime: requestedAt + 100 }),
+          }),
+        );
+      },
+      beforeKey: async () => {
+        jest.setSystemTime(requestedAt + 250);
+      },
+    });
+    const second = {
+      ...publicAccountTestSnapshot(1),
+      wallet: h.snapshot.wallet,
+    };
+    const source = batch ? [h.snapshot, second] : [h.snapshot];
+    const accounts = source.map((snapshot) =>
+      publicAccountSnapshotToAccount(snapshot, h.wallet.id),
+    );
+    const syncItems = await Promise.all(
+      source.map(async (snapshot, index) => {
+        const accountId = getPublicAccountSnapshotId(snapshot);
+        const rawKey = `${EPrimeCloudSyncDataType.Account} >> ${accountId}`;
+        const key = h.accountManager.rawKeyToHashKey(rawKey);
+        return {
+          ...(await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+            key,
+            rawDataJson: {
+              rawKey,
+              dataType: EPrimeCloudSyncDataType.Account,
+              payload: {
+                accountId,
+                name: snapshot.account.name,
+                publicAccountSnapshot: snapshot,
+              },
+            },
+            dataTime: requestedAt + (index === 0 ? delta : -100),
+            syncCredential,
+          })),
+          rawData: '',
+          localSceneUpdated: true,
+          serverUploaded: true,
+          isDeleted: false,
+        };
+      }),
+    );
+    if (lateConflict) conflictingWireId = syncItems[1].id;
+    await h.db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await h.db.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [h.old.id],
+          updater: (row) => Object.assign(row, syncItems[0]),
+        });
+        if (batch) {
+          await h.db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Account,
+            records: accounts.slice(1),
+          });
+          await h.db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            records: syncItems.slice(1),
+          });
+          await h.db.txUpdateWallet({
+            tx,
+            walletId: h.wallet.id,
+            updater: (wallet) =>
+              Object.assign(wallet, {
+                accounts: accounts.map((item) => item.id),
+              }),
+          });
+        }
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    jest.useFakeTimers({
+      now: requestedAt,
+      doNotFake: ['setImmediate', 'nextTick'],
+    });
+    try {
+      if (batch)
+        await h.db.removeAccountsByIds({
+          ids: accounts.map((item) => item.id),
+        });
+      else await h.remove();
+      expect(Date.now()).toBe(requestedAt + 250);
+      for (let index = 0; index < accounts.length; index += 1) {
+        const account = accounts[index];
+        const original = syncItems[index];
+        expect(
+          await h.other.getAccountSafe({ accountId: account.id }),
+        ).toBeFalsy();
+        const pool = await h.other.getSyncItem({ id: original.id });
+        if (lateConflict && index === 1) {
+          expect(pool).toMatchObject({
+            isDeleted: false,
+            dataTime: requestedAt + 100,
+            data: original.data,
+          });
+        } else if ((delta >= 0 && index === 0) || clockAdjustment) {
+          expect(pool).toMatchObject({
+            isDeleted: false,
+            dataTime: original.dataTime,
+            data: original.data,
+          });
+        } else {
+          expect(pool).toMatchObject({
+            isDeleted: true,
+            dataTime: requestedAt,
+            pwdHash: hardware.pwdHash,
+            serverUploaded: false,
+          });
+        }
+      }
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(h.syncLater).toHaveBeenCalledTimes(
+        !clockAdjustment && (batch || delta < 0) ? 1 : 0,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
