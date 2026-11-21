@@ -99,7 +99,7 @@ import ServiceBase from '../ServiceBase';
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
   buildOnlyCheckLocalDataTypes,
-  canArchiveForeignAccountCopy,
+  canArchiveSettledForeignAccountHandoff,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -2083,7 +2083,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             for (const record of records) {
               if (
                 record &&
-                canArchiveForeignAccountCopy(record, activePwdHash)
+                canArchiveSettledForeignAccountHandoff(record, activePwdHash)
               ) {
                 foreignAccountsByWireId.set(record.id, { ...record });
               }

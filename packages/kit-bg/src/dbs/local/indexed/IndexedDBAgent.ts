@@ -22,6 +22,10 @@ import { generateUUID, noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import {
+  consumeRemoteHardwareTombstonePromotion,
+  isProvenSettledRemoteHardwareAccountTombstone,
+} from '../../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
   ALL_LOCAL_DB_STORE_NAMES,
   INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
 } from '../consts';
@@ -107,7 +111,8 @@ function isLegacyCloudAccountArchive(value: unknown): boolean {
     'localSceneUpdated' in record &&
     record.localSceneUpdated === true &&
     'isDeleted' in record &&
-    record.isDeleted === false
+    (record.isDeleted === false ||
+      isProvenSettledRemoteHardwareAccountTombstone(record))
   );
 }
 
@@ -203,7 +208,15 @@ function isValidPendingCloudAccountArchive(
     !('localSceneUpdated' in expectedForeign) ||
     expectedForeign.localSceneUpdated !== true ||
     !('isDeleted' in expectedForeign) ||
-    expectedForeign.isDeleted !== false
+    typeof expectedForeign.isDeleted !== 'boolean' ||
+    (expectedForeign.isDeleted &&
+      (!expectedForeign.pwdHash.startsWith(
+        HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+      ) ||
+        !('dataTime' in expectedForeign) ||
+        typeof expectedForeign.dataTime !== 'number' ||
+        !Number.isSafeInteger(expectedForeign.dataTime) ||
+        expectedForeign.dataTime <= 0))
   )
     return false;
   try {
@@ -633,7 +646,30 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }) {
     if (oldRecord) {
       const store = this._getObjectStoreFromTx(tx, name);
+      const priorCloudProof =
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in oldRecord &&
+        isProvenSettledRemoteHardwareAccountTombstone(oldRecord)
+          ? oldRecord.remoteHardwareAccountTombstoneProof
+          : undefined;
       const newRecord = await updater(oldRecord);
+      if (
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in newRecord
+      ) {
+        const minted = consumeRemoteHardwareTombstonePromotion(newRecord);
+        // Ordinary updates may merge old optional fields. Only the authenticated
+        // handoff can mint a proof; invalidated proof cannot be reintroduced.
+        if (
+          !isProvenSettledRemoteHardwareAccountTombstone(newRecord) ||
+          (!minted &&
+            newRecord.remoteHardwareAccountTombstoneProof !== priorCloudProof)
+        )
+          Reflect.deleteProperty(
+            newRecord,
+            'remoteHardwareAccountTombstoneProof',
+          );
+      }
       await store.put(newRecord as any);
     }
   }
@@ -961,7 +997,20 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        await store.add(record as any);
+        if (
+          name === ELocalDBStoreNames.CloudSyncItem &&
+          'remoteHardwareAccountTombstoneProof' in record
+        ) {
+          // Only the exact remote handoff replacement of an existing row may mint proof.
+          const {
+            remoteHardwareAccountTombstoneProof: discardedProof,
+            ...withoutProof
+          } = record;
+          noopObject(discardedProof);
+          await store.add(withoutProof as any);
+        } else {
+          await store.add(record as any);
+        }
         result.added += 1;
         result.addedIds.push(record.id);
       } else {

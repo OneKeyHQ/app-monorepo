@@ -535,6 +535,9 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   pendingPublicAccountDeletionAt?: number;
   pendingPublicAccountDeletionHash?: string;
 
+  // IndexedDB-only proof of an exact, atomically applied remote hardware tombstone.
+  remoteHardwareAccountTombstoneProof?: string;
+
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;
 };

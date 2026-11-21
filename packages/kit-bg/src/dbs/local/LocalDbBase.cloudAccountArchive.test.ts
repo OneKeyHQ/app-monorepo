@@ -6,6 +6,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICloudSyncCheckServerStatusResult } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import {
+  buildRemoteHardwareAccountTombstoneProof,
+  isProvenSettledRemoteHardwareAccountTombstone,
+} from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import { runCloudSyncReconciliation } from '../../services/ServicePrimeCloudSync/cloudSyncReconciliation';
 import { publicAccountSnapshotToAccount } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
@@ -751,6 +755,180 @@ it.each([false, true])(
       serverUploaded: true,
       rawData: '',
     });
+  },
+);
+
+it.each([false, true])(
+  'restores a returning hardware space only while the other applied deletion remains current (concurrent change=%s)',
+  async (changed) => {
+    jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+    const db = new LocalDbIndexed();
+    const reader = new LocalDbIndexed();
+    const target = wallet(86);
+    const { current } = rows(86);
+    const sourceA = {
+      ...current,
+      pwdHash: 'hw-dek-returning-a',
+      data: 'ab'.repeat(32),
+      rawKey: '',
+      rawData: '',
+      localSceneUpdated: true,
+    };
+    const sourceB = {
+      ...current,
+      data: 'bc'.repeat(32),
+      dataTime: 800,
+      isDeleted: true,
+    };
+    const account = parameters(target, sourceB, sourceA).accounts[0];
+    await retainFixture(db, target, sourceA);
+    await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        records: [account],
+      });
+    });
+    const stage = (candidate: IDBCloudSyncItem, expected: IDBCloudSyncItem) =>
+      db.storePendingCloudAccountHandoffs({
+        candidates: [candidate],
+        expectedForeignById: new Map([[expected.id, expected]]),
+        pwdHash: candidate.pwdHash,
+        isCurrent: () => true,
+      });
+    await stage(sourceB, sourceA);
+    expect(
+      await db.deletePublicCloudAccounts(parameters(target, sourceB, sourceA)),
+    ).toMatchObject({ pending: 0, deleted: 1 });
+    expect(
+      await reader.getAccountSafe({ accountId: account.id }),
+    ).toBeUndefined();
+    const settledB = await reader.getSyncItem({ id: sourceB.id });
+    expect(settledB).toMatchObject({
+      isDeleted: true,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    });
+    const incomingA = {
+      ...sourceA,
+      data: 'cd'.repeat(32),
+      dataTime: 102,
+      localSceneUpdated: false,
+    };
+    expect(
+      await db.importPublicCloudAccounts(
+        parameters(target, incomingA, settledB),
+      ),
+    ).toMatchObject({ pending: 1, added: 0 });
+    await stage(incomingA, settledB);
+    const [pending] = await reader.getPendingCloudAccountHandoffs(
+      incomingA.pwdHash,
+    );
+    expect(pending.expectedForeign).toEqual(settledB);
+    const apply = () =>
+      db.importPublicCloudAccounts(
+        parameters(target, pending.candidate, pending.expectedForeign),
+      );
+    // Simulate a newer local change after the reader loaded the pending proof.
+    const update = (replacement: IDBCloudSyncItem) =>
+      reader.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+        reader.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [replacement.id],
+          updater: (row) => Object.assign(row, replacement),
+        }),
+      );
+    if (changed) {
+      const { remoteHardwareAccountTombstoneProof: discarded, ...unmarked } =
+        settledB;
+      expect(discarded).toBeTruthy();
+      const newer = { ...unmarked, dataTime: 801, serverUploaded: false };
+      await update(newer);
+      expect(
+        await reader.getPendingCloudAccountHandoffs(incomingA.pwdHash),
+      ).toEqual([]);
+      expect(await apply()).toMatchObject({ pending: 1, added: 0 });
+      expect(await reader.getSyncItem({ id: settledB.id })).toEqual(newer);
+      expect(await readArchive(db, sourceA.id)).toEqual([sourceA]);
+      await update(settledB);
+      expect(await reader.getSyncItem({ id: settledB.id })).not.toHaveProperty(
+        'remoteHardwareAccountTombstoneProof',
+      );
+      expect(
+        await reader.getPendingCloudAccountHandoffs(incomingA.pwdHash),
+      ).toEqual([]);
+      return;
+    }
+    expect(await apply()).toMatchObject({ pending: 0, added: 1 });
+    expect(
+      await reader.getAccountSafe({ accountId: account.id }),
+    ).toMatchObject({
+      id: account.id,
+    });
+    expect(await readArchive(db, sourceA.id)).toEqual(
+      expect.arrayContaining([sourceA, settledB]),
+    );
+    await db.clearAllSyncItems();
+    expect(await readArchive(db, sourceA.id)).toEqual([]);
+  },
+);
+
+it.each([
+  { remoteHardwareAccountTombstoneProof: undefined },
+  { serverUploaded: false },
+  { localSceneUpdated: false },
+  { pendingPublicAccountDeletionAt: 1050 },
+  { pendingPublicAccountDeletionHash: 'public-intent-fixture' },
+  { pwdHash: 'unknown-space' },
+  { data: '' },
+  { data: 'not-ciphertext' },
+  { dataTime: 0 },
+])(
+  'does not hand off over an unproven foreign deletion: %p',
+  async (change) => {
+    jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+    const db = new LocalDbIndexed();
+    const target = wallet(87);
+    const { old, current } = rows(87);
+    const marked = {
+      ...old,
+      pwdHash: 'hw-dek-foreign-fixture',
+      data: 'ab'.repeat(32),
+      isDeleted: true,
+    };
+    const foreign = {
+      ...marked,
+      remoteHardwareAccountTombstoneProof:
+        buildRemoteHardwareAccountTombstoneProof(marked),
+      ...change,
+    };
+    expect(isProvenSettledRemoteHardwareAccountTombstone(foreign)).toBe(false);
+    const incoming = { ...current, data: 'bc'.repeat(32) };
+    await retainFixture(db, target, foreign);
+    await db.storePendingCloudAccountHandoffs({
+      candidates: [incoming],
+      expectedForeignById: new Map([[foreign.id, foreign]]),
+      pwdHash: incoming.pwdHash,
+      isCurrent: () => true,
+    });
+    expect(await db.getPendingCloudAccountHandoffs(incoming.pwdHash)).toEqual(
+      [],
+    );
+    expect(
+      await db.importPublicCloudAccounts(parameters(target, incoming, foreign)),
+    ).toMatchObject({ pending: 1, added: 0 });
+    expect(await db.getSyncItem({ id: foreign.id })).toMatchObject({
+      id: foreign.id,
+      data: foreign.data,
+      dataTime: foreign.dataTime,
+      serverUploaded: foreign.serverUploaded,
+      isDeleted: true,
+    });
+    expect(await db.getSyncItem({ id: foreign.id })).not.toHaveProperty(
+      'remoteHardwareAccountTombstoneProof',
+    );
+    expect(await readArchive(db, foreign.id)).toEqual([]);
   },
 );
 

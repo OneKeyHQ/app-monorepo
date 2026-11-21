@@ -163,9 +163,12 @@ import type {
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
+  buildRemoteHardwareAccountTombstoneProof,
   canArchiveForeignAccountCopy,
+  canArchiveSettledForeignAccountHandoff,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
+  rememberRemoteHardwareTombstonePromotion,
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
@@ -9380,7 +9383,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return records.flatMap((entry, index) => {
           const exactForeign = foreground.records[index];
           return exactForeign &&
-            canArchiveForeignAccountCopy(exactForeign, pwdHash) &&
+            canArchiveSettledForeignAccountHandoff(exactForeign, pwdHash) &&
             isEqual(
               entry.expectedForeign,
               this.cloudAccountHandoffWireVersion(exactForeign),
@@ -9432,7 +9435,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               !expected ||
               !current ||
               !isEqual(expected, current) ||
-              !canArchiveForeignAccountCopy(current, pwdHash) ||
+              !canArchiveSettledForeignAccountHandoff(current, pwdHash) ||
               candidate.dataType !== EPrimeCloudSyncDataType.Account ||
               candidate.pwdHash !== pwdHash ||
               !candidate.serverUploaded ||
@@ -9668,11 +9671,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                         source,
                         foreign,
                       )
-                    : action === 'copy') &&
+                    : action === 'copy' && !foreign.isDeleted) &&
                   !!tx.cloudAccountArchive &&
                   !!currentSource &&
                   isEqual(currentSource, foreign) &&
-                  canArchiveForeignAccountCopy(foreign, source.pwdHash) &&
+                  canArchiveSettledForeignAccountHandoff(
+                    foreign,
+                    source.pwdHash,
+                  ) &&
                   source.serverUploaded &&
                   !!source.data
                 : !!source &&
@@ -10005,13 +10011,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 tx,
                 name: ELocalDBStoreNames.CloudSyncItem,
                 ids: [incoming.id],
-                updater: (record) =>
-                  Object.assign(record, {
+                updater: (record) => {
+                  const promotedRow = Object.assign(record, {
                     ...incoming,
                     rawData: '',
                     rawDataJson: undefined,
                     localSceneUpdated: true,
-                  }),
+                    remoteHardwareAccountTombstoneProof: incoming.isDeleted
+                      ? buildRemoteHardwareAccountTombstoneProof(incoming)
+                      : undefined,
+                  });
+                  return incoming.isDeleted
+                    ? rememberRemoteHardwareTombstonePromotion(promotedRow)
+                    : promotedRow;
+                },
               });
               const staged = await tx.pendingCloudAccountHandoffs?.read(
                 this.getPendingCloudAccountHandoffKey(incoming),

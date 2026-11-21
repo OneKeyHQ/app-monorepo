@@ -1,3 +1,4 @@
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 
@@ -77,5 +78,93 @@ export function canArchiveForeignAccountCopy(
     item.localSceneUpdated &&
     !item.pendingPublicAccountDeletionHash &&
     isRetainedHardwareCloudCopy(item, activePwdHash)
+  );
+}
+
+export function buildRemoteHardwareAccountTombstoneProof({
+  id,
+  pwdHash,
+  data,
+  dataTime,
+}: Pick<IDBCloudSyncItem, 'id' | 'pwdHash' | 'data' | 'dataTime'>): string {
+  return sha512ProSync({
+    data: JSON.stringify([
+      'remote-hardware-account-tombstone-v1',
+      id,
+      pwdHash,
+      dataTime,
+      data,
+    ]),
+  });
+}
+
+const remoteTombstonePromotions = new WeakSet<object>();
+
+export function rememberRemoteHardwareTombstonePromotion<T extends object>(
+  row: T,
+): T {
+  remoteTombstonePromotions.add(row);
+  return row;
+}
+
+export function consumeRemoteHardwareTombstonePromotion(row: object): boolean {
+  return remoteTombstonePromotions.delete(row);
+}
+
+export function isProvenSettledRemoteHardwareAccountTombstone(
+  item: unknown,
+): boolean {
+  return (
+    !!item &&
+    typeof item === 'object' &&
+    'id' in item &&
+    typeof item.id === 'string' &&
+    !!item.id &&
+    'isDeleted' in item &&
+    item.isDeleted === true &&
+    'dataType' in item &&
+    item.dataType === EPrimeCloudSyncDataType.Account &&
+    'pwdHash' in item &&
+    typeof item.pwdHash === 'string' &&
+    item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+    'serverUploaded' in item &&
+    item.serverUploaded === true &&
+    'localSceneUpdated' in item &&
+    item.localSceneUpdated === true &&
+    (!('pendingPublicAccountDeletionAt' in item) ||
+      item.pendingPublicAccountDeletionAt === undefined) &&
+    (!('pendingPublicAccountDeletionHash' in item) ||
+      item.pendingPublicAccountDeletionHash === undefined) &&
+    'dataTime' in item &&
+    typeof item.dataTime === 'number' &&
+    Number.isSafeInteger(item.dataTime) &&
+    item.dataTime > 0 &&
+    'data' in item &&
+    typeof item.data === 'string' &&
+    item.data.length >= 32 &&
+    item.data.length % 2 === 0 &&
+    /^[0-9a-f]+$/i.test(item.data) &&
+    'remoteHardwareAccountTombstoneProof' in item &&
+    typeof item.remoteHardwareAccountTombstoneProof === 'string' &&
+    item.remoteHardwareAccountTombstoneProof ===
+      buildRemoteHardwareAccountTombstoneProof({
+        id: item.id,
+        pwdHash: item.pwdHash,
+        dataTime: item.dataTime,
+        data: item.data,
+      })
+  );
+}
+
+// Only authenticated remote handoffs may move another hardware space's fully
+// applied deletion into the archive. Local mutation fallback stays live-only.
+export function canArchiveSettledForeignAccountHandoff(
+  item: IDBCloudSyncItem,
+  activePwdHash: string,
+): boolean {
+  if (!item.isDeleted) return canArchiveForeignAccountCopy(item, activePwdHash);
+  return (
+    isInactiveHardwareWalletAccount(item, activePwdHash) &&
+    isProvenSettledRemoteHardwareAccountTombstone(item)
   );
 }
