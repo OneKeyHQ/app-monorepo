@@ -1,5 +1,8 @@
 import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorScanQrCodeCancel,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -123,4 +126,30 @@ it('keeps a late parse failure scoped to the scanner that produced it', async ()
   expect(mockResetScanModalRoute).toHaveBeenCalledWith({
     scanRequestId: 'old-scan',
   });
+});
+
+it('discards a payment code that finishes parsing after its scanner closes', async () => {
+  const controller = new AbortController();
+  let completeParse: (result: unknown) => void = () => {};
+  mockParse.mockReturnValueOnce(
+    new Promise((resolve) => {
+      completeParse = resolve;
+    }),
+  );
+  const parsing = parseQRCodeWithDeps(
+    'lightning:lnurl',
+    { popNavigation: true, autoExecuteParsedAction: true },
+    { ...deps, canApplyScanResult: () => !controller.signal.aborted },
+  );
+
+  controller.abort();
+  completeParse({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: { network: { id: 'lightning--0' } },
+    raw: 'lightning:lnurl',
+  });
+
+  await expect(parsing).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  expect(resetAboveMainRoute).not.toHaveBeenCalled();
+  expect(Dialog.confirm).not.toHaveBeenCalled();
 });

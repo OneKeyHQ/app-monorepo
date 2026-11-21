@@ -34,7 +34,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { normalizeLightningInput } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import {
+  findLnurl,
+  isLightningAddress,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -71,7 +75,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
-import { findLnurl, isLightningAddress } from './sdkLightning/lnurl';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -415,26 +418,15 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // maybe it's a lnurl
-    try {
-      const lnurl = findLnurl(address);
-      if (!lnurl) {
-        if (isLightningAddress(address)) {
-          return {
-            isValid: true,
-            normalizedAddress: address,
-            displayAddress: address,
-          };
-        }
-        throw new OneKeyLocalError('not a lnurl');
-      }
+    const reusableRecipient = isLightningAddress(address)
+      ? address
+      : findLnurl(address);
+    if (reusableRecipient) {
       return {
         isValid: true,
-        normalizedAddress: lnurl,
-        displayAddress: lnurl,
+        normalizedAddress: reusableRecipient,
+        displayAddress: reusableRecipient,
       };
-    } catch (e) {
-      // ignore parsed lnurl error
     }
 
     try {

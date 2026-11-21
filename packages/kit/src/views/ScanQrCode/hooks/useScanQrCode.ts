@@ -50,19 +50,31 @@ export default function useScanQrCode() {
             params: {
               qrWalletScene,
               showProTutorial,
-              callback: async ({ value, popNavigation }) => {
+              callback: async ({
+                value,
+                popNavigation,
+                canApplyScanResult,
+              }) => {
                 if (value?.length > 0) {
                   let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
                   try {
-                    parseValue = await parseQRCode.parse(value, {
-                      autoExecuteParsedAction,
-                      handlers,
-                      account,
-                      network,
-                      tokens,
-                      popNavigation,
-                    });
+                    parseValue = await parseQRCode.parse(
+                      value,
+                      {
+                        autoExecuteParsedAction,
+                        handlers,
+                        account,
+                        network,
+                        tokens,
+                        popNavigation,
+                      },
+                      canApplyScanResult,
+                    );
                   } catch (error) {
+                    if (error instanceof OneKeyErrorScanQrCodeCancel) {
+                      reject(error);
+                      return {};
+                    }
                     // A transient parse failure retries the frame; an action error stays
                     // a dropped frame, as before. The page stays open for both.
                     if (isRetryableQrParseFailure(error))

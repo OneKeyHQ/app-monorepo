@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -14,6 +14,7 @@ import {
   Toast,
   XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -104,6 +105,7 @@ function DebugInput({
       <MultipleClickStack
         triggerAt={process.env.NODE_ENV === 'production' ? 10 : 3}
         showDevBgColor
+        testID={ScanQrCodeTestIDs.debugTrigger}
         w="$8"
         h="$8"
         onPress={() => setVisible(true)}
@@ -216,7 +218,16 @@ export default function ScanQrCodeModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scannerRef = useRef<IScanCameraRef>(null);
+  const scanScope = useRef<AbortController | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      scanScope.current = controller;
+      return () => controller.abort();
+    }, []),
+  );
   const closeScanner = useCallback(() => {
+    scanScope.current?.abort();
     scannerRef.current?.dispose();
     navigation.popStack();
   }, [navigation]);
@@ -235,6 +246,13 @@ export default function ScanQrCodeModal() {
 
   const callback = useCallback(
     async (value: string) => {
+      const signal = scanScope.current?.signal;
+      const canApplyScanResult = () =>
+        signal?.aborted === false &&
+        rootNavigationRef.current?.getCurrentRoute()?.key === route.key;
+      if (value && !canApplyScanResult()) {
+        return {};
+      }
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
           await appStorage.syncStorage.set(
@@ -244,9 +262,13 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      return routeCallback({ value, popNavigation: true });
+      return routeCallback({
+        value,
+        popNavigation: true,
+        canApplyScanResult,
+      });
     },
-    [routeCallback],
+    [route.key, routeCallback],
   );
 
   const isPickedImage = useRef(false);

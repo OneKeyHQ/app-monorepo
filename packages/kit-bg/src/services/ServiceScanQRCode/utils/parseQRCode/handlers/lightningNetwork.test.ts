@@ -1,3 +1,5 @@
+import { bech32 } from 'bech32';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -18,17 +20,28 @@ function setup() {
     tag: 'payRequest',
     url: 'https://example.com/pay',
   }));
+  const decodedInvoice = jest.fn(async (address: string) => ({
+    paymentRequest: address,
+  }));
+  const getLnClient = jest.fn(async (_isTestnet: boolean) => ({
+    decodedInvoice,
+  }));
+  const getNetwork = jest.fn(async ({ networkId }: { networkId: string }) => ({
+    id: networkId,
+  }));
   const options = {
     backgroundApi: {
-      serviceNetwork: {
-        getNetwork: jest.fn(async ({ networkId }: { networkId: string }) => ({
-          id: networkId,
-        })),
-      },
-      serviceLightning: { findAndValidateLnurl },
+      serviceNetwork: { getNetwork },
+      serviceLightning: { findAndValidateLnurl, getLnClient },
     },
   } as unknown as IQRCodeHandlerOptions;
-  return { options, findAndValidateLnurl };
+  return {
+    options,
+    findAndValidateLnurl,
+    getLnClient,
+    decodedInvoice,
+    getNetwork,
+  };
 }
 
 describe('lightningNetwork QR handler', () => {
@@ -37,7 +50,7 @@ describe('lightningNetwork QR handler', () => {
     ['lightning:<invoice>', `lightning:${INVOICE}`],
     ['an upper case QR code', `lightning:${INVOICE}`.toUpperCase()],
   ])('reads %s as the bare invoice on mainnet', async (_label, value) => {
-    const { options, findAndValidateLnurl } = setup();
+    const { options, findAndValidateLnurl, decodedInvoice } = setup();
     await expect(lightningNetwork(value, options)).resolves.toMatchObject({
       type: EQRCodeHandlerType.LIGHTNING_NETWORK,
       data: {
@@ -45,11 +58,12 @@ describe('lightningNetwork QR handler', () => {
         network: { id: getNetworkIdsMap().lightning },
       },
     });
+    expect(decodedInvoice).toHaveBeenCalledWith(INVOICE);
     expect(findAndValidateLnurl).not.toHaveBeenCalled();
   });
 
   it('sends a testnet invoice to the testnet network', async () => {
-    const { options } = setup();
+    const { options, getLnClient } = setup();
     await expect(
       lightningNetwork(`lightning:${TESTNET_INVOICE}`, options),
     ).resolves.toMatchObject({
@@ -58,6 +72,7 @@ describe('lightningNetwork QR handler', () => {
         network: { id: getNetworkIdsMap().tlightning },
       },
     });
+    expect(getLnClient).toHaveBeenCalledWith(true);
   });
 
   it('reads an upper case LNURL in lower case and resolves its tag', async () => {
@@ -95,5 +110,45 @@ describe('lightningNetwork QR handler', () => {
   ])('leaves %s to the other handlers', async (_label, value) => {
     const { options } = setup();
     await expect(lightningNetwork(value, options)).resolves.toBeNull();
+  });
+});
+
+it.each([
+  ['a truncated invoice', INVOICE.slice(0, -4)],
+  ['an invoice with a wrong checksum', `${INVOICE.slice(0, -1)}q`],
+  ['a bare email with an LNURL prefix', 'LNURLalice@example.com'],
+])('leaves %s to the copy fallback', async (_label, input) => {
+  const { options, findAndValidateLnurl, getLnClient } = setup();
+  await expect(lightningNetwork(input, options)).resolves.toBeNull();
+  expect(getLnClient).not.toHaveBeenCalled();
+  expect(findAndValidateLnurl).not.toHaveBeenCalled();
+});
+
+it.each(['lntbs', 'lnbcrt'])(
+  'does not route %s to Lightning Testnet',
+  async (prefix) => {
+    const { options } = setup();
+    const { words } = bech32.decode(INVOICE, INVOICE.length);
+    const invoice = bech32.encode(prefix, words, INVOICE.length + 2);
+    await expect(lightningNetwork(invoice, options)).resolves.toBeNull();
+  },
+);
+
+it('requires a decoded invoice even when the checksum is valid', async () => {
+  const { options, decodedInvoice, getNetwork } = setup();
+  decodedInvoice.mockResolvedValueOnce({ paymentRequest: '' });
+  await expect(lightningNetwork(INVOICE, options)).resolves.toBeNull();
+  expect(getNetwork).not.toHaveBeenCalled();
+});
+
+it('resolves a recognized LNURL URI and preserves its scheme for validation', async () => {
+  const { options, findAndValidateLnurl } = setup();
+  const address = 'lnurlp://example.com/pay';
+  await expect(lightningNetwork(address, options)).resolves.toMatchObject({
+    data: { address, tag: 'payRequest' },
+  });
+  expect(findAndValidateLnurl).toHaveBeenCalledWith({
+    toVal: address,
+    networkId: getNetworkIdsMap().lightning,
   });
 });

@@ -1,4 +1,5 @@
 import {
+  findLnurl,
   isReusableLightningRecipient,
   normalizeLightningInput,
 } from './lnUrlUtils';
@@ -42,4 +43,15 @@ describe('normalizeLightningInput', () => {
       true,
     );
   });
+});
+
+it('does not extract LNURL text from an invoice', () => {
+  const invoice = INVOICE.replace('pvjluez', 'lnurlqq');
+  expect(findLnurl(invoice)).toBeNull();
+  expect(isReusableLightningRecipient(invoice)).toBe(false);
+});
+
+it('does not extract the username from a Lightning Address', () => {
+  expect(findLnurl('LNURLalice@example.com')).toBeNull();
+  expect(isReusableLightningRecipient('LNURLalice@example.com')).toBe(true);
 });

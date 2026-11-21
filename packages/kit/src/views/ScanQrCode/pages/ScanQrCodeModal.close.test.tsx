@@ -2,15 +2,28 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import ScanQrCodeModal from './ScanQrCodeModal';
 
 const mockCloseOrder: string[] = [];
+const mockRouteCallback = jest.fn(
+  async (_params: { canApplyScanResult: () => boolean }) => ({}),
+);
+let mockCurrentRouteKey = 'scan-route';
 
-jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ params: { callback: jest.fn(async () => ({})) } }),
-}));
+jest.mock('@react-navigation/core', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useFocusEffect: (effect: () => () => void) => {
+      React.useEffect(effect, [effect]);
+    },
+    useRoute: () => ({
+      key: 'scan-route',
+      params: { callback: mockRouteCallback },
+    }),
+  };
+});
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -49,6 +62,9 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Box,
     YStack: Box,
     Toast: { error: jest.fn() },
+    rootNavigationRef: {
+      current: { getCurrentRoute: () => ({ key: mockCurrentRouteKey }) },
+    },
     useMedia: () => ({ md: false }),
     useSafeAreaInsets: () => ({ bottom: 0 }),
     NavCloseButton: ({ onPress }: { onPress: () => void }) => (
@@ -80,7 +96,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/photo-library', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
-  default: { syncStorage: { getString: () => '' } },
+  default: { syncStorage: { getString: () => '', set: jest.fn() } },
 }));
 jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -99,18 +115,33 @@ jest.mock('../../../components/MultipleClickStack', () => ({
 jest.mock('../components', () => {
   const React = require('react') as typeof import('react');
   return {
-    ScanQrCode: React.forwardRef((_props, ref) => {
-      React.useImperativeHandle(ref, () => ({
-        dispose: () => mockCloseOrder.push('dispose'),
-      }));
-      return null;
-    }),
+    ScanQrCode: React.forwardRef(
+      (
+        {
+          handleBarCodeScanned,
+        }: { handleBarCodeScanned: (value: string) => void },
+        ref,
+      ) => {
+        React.useImperativeHandle(ref, () => ({
+          dispose: () => mockCloseOrder.push('dispose'),
+        }));
+        return (
+          <button
+            type="button"
+            aria-label="Scan frame"
+            onClick={() => handleBarCodeScanned('lightning:example')}
+          />
+        );
+      },
+    ),
   };
 });
 jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 
 beforeEach(() => {
   mockCloseOrder.length = 0;
+  mockRouteCallback.mockClear();
+  mockCurrentRouteKey = 'scan-route';
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -124,4 +155,19 @@ test('header and debug close dispose the camera before popping the scan route', 
   fireEvent.click(screen.getByTestId('show-debug'));
   fireEvent.click(screen.getByTestId('scan-qr-code-debug-close-btn'));
   expect(mockCloseOrder).toEqual(['dispose', 'pop']);
+});
+
+test('a parsed frame stops belonging to the scanner when another route opens or the scanner closes', async () => {
+  render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [{ canApplyScanResult }] = mockRouteCallback.mock.calls[0];
+  expect(canApplyScanResult()).toBe(true);
+
+  mockCurrentRouteKey = 'other-route';
+  expect(canApplyScanResult()).toBe(false);
+
+  mockCurrentRouteKey = 'scan-route';
+  fireEvent.click(screen.getByTestId('header-close'));
+  expect(canApplyScanResult()).toBe(false);
 });

@@ -30,6 +30,7 @@ import type {
   IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -67,12 +68,19 @@ export type IParseQRCodeRuntimeDeps = {
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
+  canApplyScanResult?: () => boolean;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
+  {
+    navigation,
+    clipboard,
+    intl,
+    scanRequestId,
+    canApplyScanResult,
+  }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
@@ -126,12 +134,19 @@ export async function parseQRCodeWithDeps(
     }
   };
 
+  const ensureScanIsActive = () => {
+    if (canApplyScanResult?.() === false) {
+      throw new OneKeyErrorScanQrCodeCancel();
+    }
+  };
+  ensureScanIsActive();
   let result: Awaited<
     ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
   >;
   try {
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
   } catch (error) {
+    ensureScanIsActive();
     // A code the scan can never accept (the error toasts itself): end the scan.
     // Any other failure leaves the page open so a scanner can retry the frame.
     if (isInvalidQrCodeError(error)) {
@@ -142,6 +157,7 @@ export async function parseQRCodeWithDeps(
     throw error;
   }
 
+  ensureScanIsActive();
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
     if (
@@ -463,9 +479,18 @@ const useParseQRCode = () => {
   const clipboard = useClipboard();
   const intl = useIntl();
 
-  const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
-    (value, params) =>
-      parseQRCodeWithDeps(value, params, { navigation, clipboard, intl }),
+  const parse = useCallback(
+    (
+      value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
+      params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
+      canApplyScanResult?: () => boolean,
+    ) =>
+      parseQRCodeWithDeps(value, params, {
+        navigation,
+        clipboard,
+        intl,
+        canApplyScanResult,
+      }),
     [navigation, clipboard, intl],
   );
   return useMemo(() => ({ parse }), [parse]);

@@ -52,21 +52,14 @@ export const isLightningAddress = (address?: string) => {
 
 export const findLnurl = memoizee(
   (text: string) => {
-    const trimmedText = text.trim();
-    let match;
-
-    // protocol scheme
-    match = trimmedText.match(/lnurl[pwc]:(\S+)/i);
-    if (match) {
-      return match[1];
+    const input = text.trim();
+    const url = /^lnurl[pwc]:(\S+)$/i.exec(input)?.[1];
+    if (url) {
+      return url;
     }
-
-    // bech32
-    match = trimmedText.match(/(lnurl[a-zA-HJ-NP-Z0-9]+)/i);
-    if (match) {
-      return match[1];
+    if (/^lnurl1/i.test(input) && bech32.decodeUnsafe(input, 2000)) {
+      return input;
     }
-
     return null;
   },
   {
@@ -81,8 +74,9 @@ const LIGHTNING_URI_SCHEME = /^lightning:(\/\/)?/i;
 // all upper case, so a mixed case one is left as is for the decoder to reject.
 const UPPER_CASE_BECH32 = /^LN[0-9A-Z]+$/;
 
-// Reduces what a user scans or pastes to the bare invoice, LNURL or lightning
-// address it carries.
+export const hasLightningUriScheme = (input: string) =>
+  LIGHTNING_URI_SCHEME.test(input.trim());
+
 export const normalizeLightningInput = (input: string): string => {
   const payload = input.trim().replace(LIGHTNING_URI_SCHEME, '');
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;

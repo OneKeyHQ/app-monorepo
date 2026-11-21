@@ -7,6 +7,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -18,11 +22,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
 import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
-import {
-  findLnurl,
-  isLightningAddress,
-  verifyInvoice,
-} from '../vaults/impls/lightning/sdkLightning/lnurl';
+import { verifyInvoice } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
 
@@ -214,19 +214,15 @@ class ServiceLightning extends ServiceBase {
     toVal: string;
     networkId: string;
   }) {
-    let lnurl = findLnurl(toVal);
-    if (!lnurl && isLightningAddress(toVal)) {
-      lnurl = toVal;
-    }
-
-    if (!lnurl) {
+    const address = normalizeLightningInput(toVal);
+    if (!isReusableLightningRecipient(address)) {
       return null;
     }
 
     const { data } =
       await this.backgroundApi.serviceValidator.serverValidateAddress({
         networkId,
-        address: toVal,
+        address,
       });
 
     if (!data.data.lnurlDetails) {

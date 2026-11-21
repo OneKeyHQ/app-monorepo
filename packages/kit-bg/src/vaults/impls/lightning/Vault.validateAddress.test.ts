@@ -32,18 +32,19 @@ describe('LightningVault.validateAddress', () => {
     expect(decode).toHaveBeenCalledWith(INVOICE);
   });
 
-  it('validates a lightning address behind the scheme', async () => {
-    const decode = jest.fn();
-    await expect(
-      vaultDecodingWith(decode).validateAddress(
-        'lightning:satoshi@example.com',
-      ),
-    ).resolves.toMatchObject({
-      isValid: true,
-      normalizedAddress: 'satoshi@example.com',
-    });
-    expect(decode).not.toHaveBeenCalled();
-  });
+  it.each(['satoshi@example.com', 'lnurlalice@example.com'])(
+    'preserves the complete lightning address %s behind the scheme',
+    async (address) => {
+      const decode = jest.fn();
+      await expect(
+        vaultDecodingWith(decode).validateAddress(`lightning:${address}`),
+      ).resolves.toMatchObject({
+        isValid: true,
+        normalizedAddress: address,
+      });
+      expect(decode).not.toHaveBeenCalled();
+    },
+  );
 
   it('still rejects what the decoder rejects', async () => {
     const decode = jest.fn(async () => {

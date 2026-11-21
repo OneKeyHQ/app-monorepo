@@ -633,20 +633,22 @@ function SendDataInputContainer() {
 
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
+      const scanNetwork = result.data?.network;
       if (
         result.type === EQRCodeHandlerType.UNKNOWN ||
-        !result?.data?.network
+        !scanNetwork ||
+        scanNetwork.id !== form.getValues('networkId')
       ) {
         return;
       }
-      const tokenAddress = result?.data?.tokenAddress;
-      const scanNetworkId =
-        result?.data?.network?.id || currentAccount.networkId;
+
+      const tokenAddress = result.data?.tokenAddress;
+      const scanNetworkId = scanNetwork.id;
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
-          network: result.data.network,
-        })) || currentAccount?.accountId;
+          network: scanNetwork,
+        })) || currentAccount.accountId;
 
       if (scanAccountId) {
         let scanToken: IToken | null = null;
@@ -665,23 +667,23 @@ function SendDataInputContainer() {
         }
         if (scanToken) {
           const amountFromScan = await parseOnChainAmount(result, scanToken);
+          if (form.getValues('networkId') !== scanNetworkId) {
+            return;
+          }
           if (amountFromScan) {
             setScannedAmount(amountFromScan);
           }
-          const formNetworkId = form.getValues('networkId');
-          if (formNetworkId === scanNetworkId) {
-            if (currentAccount.accountId && scanNetworkId) {
-              setCurrentAccount({
-                accountId: currentAccount.accountId,
-                networkId: scanNetworkId,
-              });
-              setTokenInfo(scanToken);
-            }
+          if (currentAccount.accountId) {
+            setCurrentAccount({
+              accountId: currentAccount.accountId,
+              networkId: scanNetworkId,
+            });
+            setTokenInfo(scanToken);
           }
         }
       }
     },
-    [account, currentAccount.accountId, currentAccount.networkId, form],
+    [account, currentAccount.accountId, form],
   );
 
   const navigateToAmountInputCore = useCallback(async () => {
