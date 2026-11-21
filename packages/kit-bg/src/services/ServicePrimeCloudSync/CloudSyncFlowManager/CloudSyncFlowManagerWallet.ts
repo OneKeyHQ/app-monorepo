@@ -113,6 +113,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     const { target, payload, item, isCurrent } = params;
     const walletId = target.wallet.id;
     let expectedCloudSyncWalletName: string | undefined;
+    let deferCloudSyncWalletName = false;
     // The base flow has already authenticated and matched the Wallet payload.
     // Local pending ciphertext is upload intent, not permission to replace a
     // divergent canonical name (including after turning the same key back on).
@@ -136,37 +137,49 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
               return canonical.name === payload.name
                 ? canonical.name
                 : undefined;
-            if (
-              canonical.name.trim() &&
-              canonical.name !== payload.name &&
-              !(await this.backgroundApi.simpleDb.changeHistory.retainWalletName(
-                {
-                  walletId,
-                  name: canonical.name,
-                },
-              ))
-            )
-              return undefined;
+            if (canonical.name.trim() && canonical.name !== payload.name) {
+              deferCloudSyncWalletName = true;
+              if (
+                !(await this.backgroundApi.simpleDb.changeHistory.retainWalletName(
+                  { walletId, name: canonical.name },
+                ))
+              )
+                return undefined;
+              if (cancelled) return undefined;
+              deferCloudSyncWalletName = false;
+            }
             return canonical.name;
           })(),
           1500,
         );
-        if (expectedCloudSyncWalletName === undefined) return false;
       } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
-        return false;
       } finally {
         cancelled = true;
       }
+      if (
+        expectedCloudSyncWalletName === undefined &&
+        !deferCloudSyncWalletName
+      )
+        return false;
     }
     if (isCurrent && !isCurrent()) return false;
+    if (
+      deferCloudSyncWalletName &&
+      !payload.avatar &&
+      !payload.firstEvmAddress &&
+      !item?.localSceneUpdated
+    )
+      return false;
+
     const update: IDBSetWalletNameAndAvatarParams = {
       walletId,
       cloudSyncSource: item,
       ...(expectedCloudSyncWalletName === undefined
         ? {}
         : { expectedCloudSyncWalletName }),
-      name: payload.name,
+      ...(deferCloudSyncWalletName ? { deferCloudSyncWalletName: true } : {}),
+      name: deferCloudSyncWalletName ? undefined : payload.name,
       avatar: payload.avatar,
       firstEvmAddress: payload.firstEvmAddress,
       // avoid infinite loop sync
@@ -179,7 +192,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     } else {
       await serviceAccount.setWalletNameAndAvatar(update);
     }
-    return true;
+    return !deferCloudSyncWalletName;
   }
 
   override async getDBRecordBySyncPayload(params: {

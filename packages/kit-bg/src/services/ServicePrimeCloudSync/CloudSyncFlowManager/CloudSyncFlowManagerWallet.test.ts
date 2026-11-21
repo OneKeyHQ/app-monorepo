@@ -358,15 +358,21 @@ describe('CloudSyncFlowManagerWallet', () => {
       expect(await history.getChangeHistory(filter)).toEqual(first);
     });
 
-    test.each(['failure', 'hang', 'cancelled'] as const)(
-      'does not apply or acknowledge the server scene when safety preparation %s',
+    test.each([
+      'failure',
+      'hang',
+      'cancelled',
+      'failure-with-avatar',
+      'hang-with-avatar',
+    ] as const)(
+      'does not apply the unarchived name or acknowledge the scene after a %s',
       async (scenario) => {
         jest.useFakeTimers();
         try {
           let isCurrent = true;
           const retained = Promise.withResolvers<boolean>();
           const retainWalletName = jest.fn(async () => {
-            if (scenario === 'failure')
+            if (scenario === 'failure' || scenario === 'failure-with-avatar')
               throw new OneKeyLocalError('synthetic I/O failure');
             if (scenario === 'cancelled') {
               isCurrent = false;
@@ -375,25 +381,43 @@ describe('CloudSyncFlowManagerWallet', () => {
             return retained.promise;
           });
           const update = jest.fn(async () => undefined);
+          const updateFromCloud = jest.fn(async () => undefined);
           const sync = new CloudSyncFlowManagerWallet({
             backgroundApi: {
               localDb: { getWallet: jest.fn(async () => wallet) },
               simpleDb: { changeHistory: { retainWalletName } },
-              serviceAccount: { setWalletNameAndAvatar: update },
+              serviceAccount: {
+                setWalletNameAndAvatar: update,
+                setWalletNameAndAvatarFromCloud: updateFromCloud,
+              },
             } as unknown as IBackgroundApi,
           });
+          const hasAvatar = scenario.endsWith('with-avatar');
           const apply = sync.syncToSceneEachItem({
             item,
             target,
-            payload,
+            payload: hasAvatar
+              ? { ...payload, avatar: { img: 'bear' } }
+              : payload,
             isCurrent: () => isCurrent,
           });
           await jest.advanceTimersByTimeAsync(1500);
           await expect(apply).resolves.toBe(false);
-          expect(update).not.toHaveBeenCalled();
+          if (hasAvatar) {
+            expect(updateFromCloud).toHaveBeenCalledWith(
+              expect.objectContaining({
+                name: undefined,
+                avatar: { img: 'bear' },
+                cloudSyncSource: item,
+                deferCloudSyncWalletName: true,
+              }),
+              expect.any(Function),
+            );
+          }
           retained.resolve(true);
           await Promise.resolve();
           expect(update).not.toHaveBeenCalled();
+          expect(updateFromCloud).toHaveBeenCalledTimes(hasAvatar ? 1 : 0);
         } finally {
           jest.useRealTimers();
         }

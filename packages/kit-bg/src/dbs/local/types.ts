@@ -262,6 +262,7 @@ export type IDBSetWalletNameAndAvatarParams = {
   cloudSyncSource?: IDBCloudSyncItem;
   // The canonical name retained in manual rename history before scene replay.
   expectedCloudSyncWalletName?: string;
+  deferCloudSyncWalletName?: boolean;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;

@@ -59,11 +59,22 @@ afterEach(async () => {
   jest.restoreAllMocks();
 });
 
-it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
+it.each([
+  'same-space',
+  'changed-source',
+  'disabled-in-transaction',
+  'history-failure',
+  'history-failure-missing-avatar',
+  'history-failure-flag-change',
+] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
+    const historyFails = scenario.startsWith('history-failure');
+    const noLocalAvatar = scenario === 'history-failure-missing-avatar';
+    const losesServerAck = scenario === 'history-failure-flag-change';
     const wallet: IDBWallet = {
       ...walletFixture,
+      ...(noLocalAvatar ? { avatar: undefined } : {}),
       id: `${walletFixture.id}-${scenario}`,
       hash: `${walletFixture.hash}-${scenario}`,
     };
@@ -154,6 +165,7 @@ it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
     const key = await prime.syncManagers.wallet.buildSyncKeyInfo({ target });
     if (!key) throw new OneKeyLocalError('Missing synthetic wallet identity');
     const baseTime = Date.now() - 1000;
+    const remoteAddress = '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const makeItem = async (
       name: string,
       img: 'bear' | 'cat',
@@ -169,8 +181,8 @@ it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
           payload: {
             name,
             avatar: { img },
-            ...(scenario === 'disabled-in-transaction'
-              ? { firstEvmAddress: `0x${'23'.repeat(20)}` }
+            ...(scenario === 'disabled-in-transaction' || historyFails
+              ? { firstEvmAddress: remoteAddress }
               : {}),
             walletHash: wallet.hash,
             walletType: wallet.type,
@@ -182,7 +194,7 @@ it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
 
     const acknowledged = {
       ...(await makeItem(wallet.name, 'bear', baseTime)),
-      localSceneUpdated: scenario === 'same-space',
+      localSceneUpdated: scenario === 'same-space' || historyFails,
       serverUploaded: true,
     };
     expect(acknowledged.data).toBeTruthy();
@@ -232,13 +244,13 @@ it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
     await account.setWalletNameAndAvatar({
       walletId: wallet.id,
       name: offlineName,
-      avatar: { img: 'cat' },
+      ...(noLocalAvatar ? {} : { avatar: { img: 'cat' as const } }),
       allowDesktopLocalMetadata: true,
       skipEmitEvent: true,
     });
     expect(await readWallet()).toMatchObject({
       name: offlineName,
-      avatar: '{"img":"cat"}',
+      avatar: noLocalAvatar ? undefined : '{"img":"cat"}',
     });
     expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
       data: acknowledged.data,
@@ -325,6 +337,38 @@ it.each(['same-space', 'changed-source', 'disabled-in-transaction'] as const)(
         data: acknowledged.data,
         dataTime: baseTime,
         localSceneUpdated: false,
+      });
+      return;
+    }
+    if (historyFails) {
+      jest
+        .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+        .mockImplementation(async () => {
+          if (losesServerAck) {
+            await localDb.updateSyncItem({
+              ids: [key.key],
+              updater: (row) => {
+                row.serverUploaded = false;
+                return row;
+              },
+            });
+          }
+          return false;
+        });
+      await keyless.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+      });
+      expect(await readWallet()).toMatchObject({
+        name: offlineName,
+        avatar: noLocalAvatar ? '{"img":"bear"}' : '{"img":"cat"}',
+        firstEvmAddress: remoteAddress.toLowerCase(),
+      });
+      expect(await localDb.getSyncItem({ id: key.key })).toMatchObject({
+        data: acknowledged.data,
+        dataTime: baseTime,
+        localSceneUpdated: losesServerAck,
+        serverUploaded: !losesServerAck,
       });
       return;
     }

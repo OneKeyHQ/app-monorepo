@@ -9118,6 +9118,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         source: params.cloudSyncSource,
       });
       assertCurrent();
+      if (
+        params.deferCloudSyncWalletName &&
+        params.cloudSyncSource?.serverUploaded &&
+        params.cloudSyncSource.localSceneUpdated
+      ) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [params.cloudSyncSource.id],
+          updater: (current) => {
+            if (current.serverUploaded && current.localSceneUpdated)
+              current.localSceneUpdated = false;
+            return current;
+          },
+        });
+      }
       // Do not promote an unbound display edit merely because a formerly
       // selected scope was switched off. Another local edit supersedes it.
       if (
@@ -9282,10 +9298,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
           }
-          if (walletName && (!explicitSyncOffEdit || params.name)) {
+          // Source payloads may change only explicitly provided fields.
+          const useExplicitFields =
+            explicitSyncOffEdit || !!params.cloudSyncSource;
+          if (walletName && (!useExplicitFields || params.name)) {
             w.name = walletName;
           }
-          if (avatarInfo && (!explicitSyncOffEdit || params.avatar)) {
+          if (
+            avatarInfo &&
+            (!useExplicitFields || params.avatar) &&
+            // A partial scene cannot prove that a nonempty local avatar was
+            // not edited after this snapshot. Only fill a missing value.
+            (!params.deferCloudSyncWalletName || !w.avatar)
+          ) {
             w.avatar = JSON.stringify(avatarInfo);
           }
           return w;
