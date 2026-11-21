@@ -116,6 +116,69 @@ describe('Lightning read authorization without wallet interaction', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
+  test('applies cooldown after the decoder reaches the 30-second request timeout', async () => {
+    const { client, get } = harness();
+    const failure = new OneKeyLocalError('Synthetic decode timeout');
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    let failRequest: (error: unknown) => void = () => {};
+    get.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        failRequest = reject;
+      }),
+    );
+    try {
+      const initial = client.decodedInvoice('lnbc123');
+      now.mockReturnValue(time + 30_000);
+      failRequest(failure);
+      await expect(initial).rejects.toBe(failure);
+      await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
+        failure,
+      );
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 31_000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  test('deduplicates the request until completion and caches the result from completion', async () => {
+    const { client, get } = harness();
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    let finishRequest: (
+      value: Awaited<ReturnType<typeof get>>,
+    ) => void = () => {};
+    get.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishRequest = resolve;
+      }),
+    );
+    try {
+      const initial = client.decodedInvoice('lnbc123');
+      now.mockReturnValue(time + 30_000);
+      const retry = client.decodedInvoice('LIGHTNING:LNBC123');
+      finishRequest({ data: { data: true } });
+      await expect(Promise.all([initial, retry])).resolves.toEqual([
+        true,
+        true,
+      ]);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 59_999);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(time + 60_000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   test('keeps Retry-After across a cached client refresh and isolates networks', async () => {
     jest.useFakeTimers();
     try {

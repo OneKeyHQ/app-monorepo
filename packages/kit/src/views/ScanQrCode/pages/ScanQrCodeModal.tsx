@@ -293,8 +293,13 @@ export default function ScanQrCodeModal() {
     [route.key],
   );
   const callback = useCallback(
-    async (value: string, signal = scanScope.current?.signal) => {
-      const canApplyScanResult = () => isScanActive(signal);
+    async (
+      value: string,
+      signal = scanScope.current?.signal,
+      isCurrent?: () => boolean,
+    ) => {
+      const canApplyScanResult = () =>
+        isScanActive(signal) && (isCurrent?.() ?? true);
       if (value && !canApplyScanResult()) {
         return { retry: true };
       }
@@ -326,6 +331,7 @@ export default function ScanQrCodeModal() {
   }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
+  const cameraGeneration = useRef(0);
   const photoSelectionId = useRef(0);
   const photoRetryToastId = `${route.key}:photo-retry`;
   const submitPhoto = useCallback(
@@ -347,6 +353,7 @@ export default function ScanQrCodeModal() {
           onPress: async () => {
             if (isPickingImage.current || !canRetry()) return;
             isPickingImage.current = true;
+            cameraGeneration.current += 1;
             Toast.dismiss(photoRetryToastId);
             try {
               await submitPhoto(data, signal, selectionId);
@@ -363,6 +370,7 @@ export default function ScanQrCodeModal() {
   const pickImage = useCallback(async () => {
     if (isPickingImage.current) return;
     isPickingImage.current = true;
+    cameraGeneration.current += 1;
     try {
       const result = await PhotoLibrary.pickImage();
       if (result.canceled) return;
@@ -402,8 +410,12 @@ export default function ScanQrCodeModal() {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const result = await callback(value);
-      return result;
+      const generation = cameraGeneration.current;
+      return callback(
+        value,
+        scanScope.current?.signal,
+        () => generation === cameraGeneration.current,
+      );
     },
     [callback],
   );

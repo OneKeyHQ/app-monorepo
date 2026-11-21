@@ -200,16 +200,22 @@ export async function parseQRCodeWithDeps(
     case EQRCodeHandlerType.URL_ACCOUNT: {
       const urlAccountData = result.data as IUrlAccountValue;
       if (popNavigation) {
-        onResultWillClose?.();
         // pushUrlAccountPage uses navigateFromOverlayToTab() which
         // atomically removes all overlay routes (scan modal +
         // ActionCenter) via reset, then switches tab and pushes
         // UrlAccountPage directly. This avoids the native
         // UITabBarController window-nil race.
-        void urlAccountNavigation.pushUrlAccountPage(navigation, {
-          networkId: urlAccountData.networkId,
-          address: urlAccountData.address,
-        });
+        await urlAccountNavigation.pushUrlAccountPage(
+          navigation,
+          {
+            networkId: urlAccountData.networkId,
+            address: urlAccountData.address,
+          },
+          () => {
+            ensureScanIsActive();
+            onResultWillClose?.();
+          },
+        );
       } else {
         void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
           networkId: urlAccountData.networkId,

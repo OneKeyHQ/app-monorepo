@@ -276,6 +276,37 @@ test('resumes the camera and cancels on close after a photo result is discarded'
   );
 });
 
+test('opening the photo picker permanently discards a camera frame already being parsed', async () => {
+  let finishPicking: (
+    result: Awaited<ReturnType<typeof PhotoLibrary.pickImage>>,
+  ) => void = () => {};
+  jest.mocked(PhotoLibrary.pickImage).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishPicking = resolve;
+    }),
+  );
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('selected photo');
+  render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [{ canApplyScanResult: canApplyCameraFrame }] =
+    mockRouteCallback.mock.calls[0];
+  expect(canApplyCameraFrame()).toBe(true);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+  const cameraOwnsResultWhilePicking = canApplyCameraFrame();
+  finishPicking({ canceled: false, uri: 'test://pending-photo' });
+
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
+  const [{ canApplyScanResult: canApplyPhoto, value }] =
+    mockRouteCallback.mock.calls[1];
+  expect(value).toBe('selected photo');
+  expect(canApplyPhoto()).toBe(true);
+  expect(cameraOwnsResultWhilePicking).toBe(false);
+  expect(canApplyCameraFrame()).toBe(false);
+});
+
 test('a successful photo keeps its result when the camera unmounts during navigation', async () => {
   jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
     canceled: false,

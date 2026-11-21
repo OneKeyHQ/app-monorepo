@@ -237,6 +237,7 @@ export const urlAccountNavigation = {
       networkId: string | undefined;
       contextNetworkId?: string;
     },
+    onBeforeNavigate?: () => void,
   ) {
     const networkSegment = await buildUrlNetworkSegment({
       realNetworkId: params.networkId || '',
@@ -246,6 +247,7 @@ export const urlAccountNavigation = {
 
     const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
 
+    onBeforeNavigate?.();
     defaultLogger.app.router.switchTab(ETabRoutes.Home);
 
     if (alreadyOnUrlAccountPage) {

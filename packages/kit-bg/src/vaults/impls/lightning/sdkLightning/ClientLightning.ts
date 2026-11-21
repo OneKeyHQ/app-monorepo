@@ -57,10 +57,11 @@ function invoiceDecodeCooldownMs(
 
 export function createLightningInvoiceDecodeCache() {
   return {
-    decoded: new LRUCache<string, Promise<IInvoiceDecodedResponse>>({
+    decoded: new LRUCache<string, IInvoiceDecodedResponse>({
       ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
       max: 100,
     }),
+    inFlight: new Map<string, Promise<IInvoiceDecodedResponse>>(),
     failed: new LRUCache<
       string,
       { retryAt: number; nextDelayMs: number; error: unknown }
@@ -340,7 +341,7 @@ class ClientLightning {
 
   async decodedInvoice(input: string) {
     const invoice = normalizeLightningInput(input);
-    const { decoded, failed } = this.invoiceDecodeCache;
+    const { decoded, failed, inFlight } = this.invoiceDecodeCache;
     const previousFailure = failed.get(invoice);
     if (previousFailure && Date.now() < previousFailure.retryAt) {
       throw previousFailure.error;
@@ -349,34 +350,37 @@ class ClientLightning {
     if (cached) {
       return cached;
     }
+    const currentRequest = inFlight.get(invoice);
+    if (currentRequest) {
+      return currentRequest;
+    }
     const pending = this.request
       .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
         `${this.prefix}/invoices/decode/${invoice}`,
       )
       .then(({ data }) => {
-        if (previousFailure && failed.get(invoice) === previousFailure) {
-          failed.delete(invoice);
-        }
+        failed.delete(invoice);
+        decoded.set(invoice, data.data);
         return data.data;
       })
       .catch((error: unknown) => {
-        if (decoded.get(invoice) === pending) {
-          const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-          const cooldown = invoiceDecodeCooldownMs(error, fallbackMs);
-          if (cooldown !== undefined) {
-            failed.set(invoice, {
-              retryAt: Date.now() + cooldown,
-              nextDelayMs: Math.min(30_000, fallbackMs * 2),
-              error,
-            });
-          } else if (previousFailure) {
-            failed.delete(invoice);
-          }
-          decoded.delete(invoice);
+        const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
+        const cooldown = invoiceDecodeCooldownMs(error, fallbackMs);
+        if (cooldown !== undefined) {
+          failed.set(invoice, {
+            retryAt: Date.now() + cooldown,
+            nextDelayMs: Math.min(30_000, fallbackMs * 2),
+            error,
+          });
+        } else {
+          failed.delete(invoice);
         }
         throw error;
+      })
+      .finally(() => {
+        inFlight.delete(invoice);
       });
-    decoded.set(invoice, pending);
+    inFlight.set(invoice, pending);
     return pending;
   }
 

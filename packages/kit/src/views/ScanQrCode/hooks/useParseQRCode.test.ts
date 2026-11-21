@@ -1,4 +1,9 @@
-import { Dialog, Toast, resetAboveMainRoute } from '@onekeyhq/components';
+import {
+  Dialog,
+  Toast,
+  navigateFromOverlayToTab,
+  resetAboveMainRoute,
+} from '@onekeyhq/components';
 import {
   InvoiceExpiredError,
   OneKeyErrorScanQrCodeCancel,
@@ -15,17 +20,22 @@ import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetNetworkSafe = jest.fn<Promise<unknown>, unknown[]>();
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
 >();
 
+jest.mock('@react-navigation/native', () => ({
+  StackActions: { push: jest.fn() },
+}));
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { confirm: jest.fn() },
   Toast: { error: jest.fn(), success: jest.fn() },
   rootNavigationRef: { current: undefined },
   useClipboard: jest.fn(),
   resetAboveMainRoute: jest.fn(),
+  navigateFromOverlayToTab: jest.fn(),
   resetScanModalRoute: (options?: { scanRequestId: string }) =>
     mockResetScanModalRoute(options),
 }));
@@ -37,6 +47,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceNetwork: {
       getVaultSettings: async () => ({ isSingleToken: true }),
+      getNetworkSafe: (...args: unknown[]) => mockGetNetworkSafe(...args),
     },
     serviceToken: {
       getNativeToken: (...args: unknown[]) => mockGetNativeToken(...args),
@@ -50,9 +61,6 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: jest.fn(),
-}));
-jest.mock('../../Home/pages/urlAccount/urlAccountUtils', () => ({
-  urlAccountNavigation: {},
 }));
 jest.mock('../../Market/marketUtils', () => ({ marketNavigation: {} }));
 jest.mock('../../WalletConnectPay/dialog/wcPayDialogStore', () => ({
@@ -195,6 +203,58 @@ it('marks result-driven navigation before removing the scanner', async () => {
   ).resolves.toBe(result);
   expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
 });
+
+it.each([true, false])(
+  'checks URL account scan ownership after the network lookup (active: %s)',
+  async (active) => {
+    const controller = new AbortController();
+    const onResultWillClose = jest.fn();
+    let finishLookup: (value: unknown) => void = () => {};
+    let startLookup: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      startLookup = resolve;
+    });
+    mockGetNetworkSafe.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLookup = resolve;
+          startLookup();
+        }),
+    );
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.URL_ACCOUNT,
+      data: { address: 'scanned account', networkId: 'evm--1' },
+    });
+    jest.mocked(navigateFromOverlayToTab).mockImplementationOnce(async () => {
+      if (active) expect(onResultWillClose).toHaveBeenCalledTimes(1);
+    });
+    const parsing = parseQRCodeWithDeps(
+      'account link',
+      { popNavigation: true, autoExecuteParsedAction: true },
+      {
+        ...deps,
+        onResultWillClose,
+        canApplyScanResult: () => !controller.signal.aborted,
+      },
+    );
+
+    await started;
+    const closeMarksWhileWaiting = onResultWillClose.mock.calls.length;
+    if (!active) controller.abort();
+    finishLookup({ code: 'eth' });
+    if (active) {
+      await expect(parsing).resolves.toMatchObject({
+        type: EQRCodeHandlerType.URL_ACCOUNT,
+      });
+      expect(navigateFromOverlayToTab).toHaveBeenCalledTimes(1);
+    } else {
+      await expect(parsing).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+      expect(onResultWillClose).not.toHaveBeenCalled();
+      expect(navigateFromOverlayToTab).not.toHaveBeenCalled();
+    }
+    expect(closeMarksWhileWaiting).toBe(0);
+  },
+);
 
 it('discards a payment code that finishes parsing after its scanner closes', async () => {
   const controller = new AbortController();
