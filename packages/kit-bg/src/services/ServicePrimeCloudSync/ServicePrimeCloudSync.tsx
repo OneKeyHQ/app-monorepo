@@ -3338,6 +3338,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     signal,
     isCurrent,
     onTimeout,
+    onReadFailure,
     onVerifiedWallet,
   }: {
     items: IDBCloudSyncItem[];
@@ -3349,6 +3350,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     signal?: AbortSignal;
     isCurrent: () => boolean;
     onTimeout?: (items: IDBCloudSyncItem[]) => void;
+    onReadFailure?: (item: IDBCloudSyncItem) => void;
     onVerifiedWallet?: (
       item: IDBCloudSyncItem,
       wallet: IDBWallet,
@@ -3401,6 +3403,13 @@ class ServicePrimeCloudSync extends ServiceBase {
                 await this.syncManagers.wallet.canUploadPendingWalletName({
                   item,
                   syncCredential: selected,
+                  ...(onReadFailure
+                    ? {
+                        onReadFailure: () => {
+                          if (canVerify()) onReadFailure(item);
+                        },
+                      }
+                    : {}),
                   ...(onVerifiedWallet
                     ? {
                         onVerifiedWallet: (
@@ -3574,7 +3583,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       );
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
-      let onlyWalletVerificationTimedOut = false;
+      let onlyWalletVerificationDeferred = false;
       const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
       const onWalletNameHistoryDeferred = (item: IDBCloudSyncItem) => {
         if (
@@ -3702,7 +3711,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                 keySet.has(item.id),
               );
               let skipped = 0;
-              let verificationTimedOut = 0;
+              const deferredVerification = new Set<IDBCloudSyncItem>();
               const uploaded = await this.uploadItemsMutex.runExclusive(
                 async () => {
                   // Only the deployed legacy full compare has a one-pass
@@ -3716,11 +3725,15 @@ class ServicePrimeCloudSync extends ServiceBase {
                         signal,
                         isCurrent,
                         onTimeout: (items) => {
-                          verificationTimedOut = items.length;
+                          for (const item of items)
+                            deferredVerification.add(item);
+                        },
+                        onReadFailure: (item) => {
+                          deferredVerification.add(item);
                         },
                       });
                   const withheld = localItems.length - outgoing.length;
-                  skipped = withheld - verificationTimedOut;
+                  skipped = withheld - deferredVerification.size;
                   heldDivergentWalletName ||= withheld > 0;
                   if (withheld > 0 && !outgoing.length) return undefined;
                   try {
@@ -3740,13 +3753,14 @@ class ServicePrimeCloudSync extends ServiceBase {
               );
               const confirmed =
                 (uploaded?.created ?? 0) + (uploaded?.updated ?? 0);
-              onlyWalletVerificationTimedOut =
-                verificationTimedOut > 0 &&
-                confirmed + skipped + verificationTimedOut === keys.length;
+              const verificationDeferred = deferredVerification.size;
+              onlyWalletVerificationDeferred =
+                verificationDeferred > 0 &&
+                confirmed + skipped + verificationDeferred === keys.length;
               return {
                 uploaded: confirmed,
                 skipped,
-                verificationTimedOut,
+                verificationDeferred,
               };
             })();
             activeUpload = work;
@@ -3936,7 +3950,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           issues.rejected >
           0;
       const quietWalletRetry =
-        onlyWalletVerificationTimedOut &&
+        onlyWalletVerificationDeferred &&
         result.status === 'waiting' &&
         result.reason === 'upload-incomplete';
       // Reuse the durable backoff even when the only missing work was an

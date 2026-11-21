@@ -90,7 +90,8 @@ export type ICloudSyncReconciliationAdapter = {
   }): Promise<{
     uploaded: number;
     skipped?: number;
-    verificationTimedOut?: number;
+    // Legacy-only local verification that was interrupted, not a skip or ACK.
+    verificationDeferred?: number;
   } | void>;
   isCurrent(): boolean;
   // A recognized declaration enables bounded draining; it does not prove

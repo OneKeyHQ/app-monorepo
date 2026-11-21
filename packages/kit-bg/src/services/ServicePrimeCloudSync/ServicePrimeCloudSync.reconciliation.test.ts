@@ -35,6 +35,7 @@ import {
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
   IDBCloudSyncItem,
   IDBDevice,
@@ -751,16 +752,25 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     'disabled',
     'restart',
     'manual',
+    'read-failure-with-sibling',
+    'read-failure-repeated-timeout',
+    'read-failure-superseded',
+    'read-failure-removed',
+    'read-failure-changed-source',
+    'read-failure-manual',
   ] as const)(
     'fresh legacy full check retries only still-unverified Wallet versions: %s',
-    async (scenario) => {
+    async (caseName) => {
+      const readFails = caseName.startsWith('read-failure-');
+      const scenario = caseName.replace('read-failure-', '');
       const scope = 'hw-dek-full-check-timeout-fixture';
+      const rawWalletKey = 'Wallet >> synthetic-persisted-wallet';
       const wallet: IDBCloudSyncItem = {
-        id: 'persisted-wallet',
+        id: sha512ProSync({ data: rawWalletKey }),
         dataType: EPrimeCloudSyncDataType.Wallet,
         data: 'wallet-pending-envelope',
         dataTime: 100,
-        rawKey: '',
+        rawKey: rawWalletKey,
         rawData: '',
         pwdHash: scope,
         serverUploaded: false,
@@ -803,7 +813,51 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         h.service.syncManagers.wallet,
         'canUploadPendingWalletName',
       );
-      if (scenario === 'confirmed-conflict')
+      if (readFails) {
+        const { CloudSyncFlowManagerWallet: ActualWalletManager } =
+          jest.requireActual<
+            typeof import('./CloudSyncFlowManager/CloudSyncFlowManagerWallet')
+          >('./CloudSyncFlowManager/CloudSyncFlowManagerWallet');
+        const reader = new ActualWalletManager({
+          backgroundApi: {
+            localDb: {
+              getAllWallets: async () => {
+                throw new DOMException(
+                  'Synthetic local transaction interrupted',
+                  'AbortError',
+                );
+              },
+            },
+          } as unknown as IBackgroundApi,
+        });
+        const decryptWallet: typeof cloudSyncItemBuilder.decryptSyncItem =
+          async ({ item }) => ({
+            dbItem: item,
+            dataType: item.dataType,
+            isDeleted: item.isDeleted,
+            rawDataJson: {
+              dataType: EPrimeCloudSyncDataType.Wallet,
+              rawKey: item.rawKey,
+              payload: {
+                name: 'Pending safe name',
+                walletType: 'hd',
+                walletHash: 'synthetic-hd-hash',
+                hwDeviceId: undefined,
+                avatar: undefined,
+                passphraseState: undefined,
+              },
+            },
+          });
+        const decrypt = jest
+          .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+          .mockImplementationOnce(decryptWallet);
+        const verifyStorage = reader.canUploadPendingWalletName.bind(reader);
+        verify.mockImplementationOnce(verifyStorage);
+        if (scenario === 'repeated-timeout') {
+          decrypt.mockImplementationOnce(decryptWallet);
+          verify.mockImplementationOnce(verifyStorage);
+        }
+      } else if (scenario === 'confirmed-conflict')
         verify.mockResolvedValueOnce(false);
       else if (scenario === 'repeated-timeout')
         verify.mockReturnValue(stalled.promise);
@@ -839,7 +893,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             askPasswordOnlyIfHdXfpMissing: true,
           })
         : h.run();
-      await jest.advanceTimersByTimeAsync(1500);
+      await jest.advanceTimersByTimeAsync(readFails ? 0 : 1500);
       const conflict = scenario === 'confirmed-conflict';
       await expect(initial).resolves.toBe(manual ? 'local-deferred' : conflict);
       expect(h.pool.get(wallet.id)).toEqual(wallet);
@@ -923,7 +977,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         scenario === 'restart' ? 1 : 2,
       );
       if (scenario === 'repeated-timeout') {
-        await jest.advanceTimersByTimeAsync(1500);
+        if (!readFails) await jest.advanceTimersByTimeAsync(1500);
         expect(upload).not.toHaveBeenCalled();
         const retried = h.config().cloudSyncReconciliation;
         expect(retried).toMatchObject({

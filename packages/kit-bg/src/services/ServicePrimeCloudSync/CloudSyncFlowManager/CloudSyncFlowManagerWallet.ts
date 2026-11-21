@@ -7,6 +7,7 @@ import {
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -17,6 +18,7 @@ import type {
   ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { ELocalDBStoreNames } from '../../../dbs/local/localDBStoreNames';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
@@ -116,9 +118,11 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     item,
     syncCredential,
     onVerifiedWallet,
+    onReadFailure,
   }: {
     item: IDBCloudSyncItem;
     syncCredential: ICloudSyncCredential;
+    onReadFailure?: () => void;
     onVerifiedWallet?: (wallet: IDBWallet, device?: IDBDevice) => void;
   }): Promise<boolean> {
     if (
@@ -130,6 +134,35 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       return true;
     if (item.pwdHash !== cloudSyncItemBuilder.getPwdHash(syncCredential))
       return false;
+    // Only the explicit DAO reads can defer a full compare. Payload/identity
+    // verification errors remain hard skips, as do positive absence results.
+    const read = <T>(lookup: () => Promise<T>): Promise<T> => {
+      const result = lookup();
+      if (!onReadFailure) return result;
+      return result.catch((error: unknown) => {
+        const name =
+          error && typeof error === 'object' && 'name' in error
+            ? error.name
+            : undefined;
+        if (
+          name !== 'TypeError' &&
+          name !== 'SyntaxError' &&
+          name !== 'DataError' &&
+          name !== 'NotFoundError' &&
+          name !== 'VersionError' &&
+          !errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
+          }) &&
+          !errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.LocalDbOpenError,
+          })
+        )
+          onReadFailure();
+        throw error;
+      });
+    };
     try {
       const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
         item: { ...item },
@@ -139,18 +172,32 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
         return false;
       const { payload } = rawDataJson;
       if (!payload || typeof payload.name !== 'string') return false;
-      const localDb = this.backgroundApi.localDb;
-      // The normal scene lookup refills presentation and may emit hardware
-      // avatar events. This optional upload verification must only read.
-      const { wallets } = await localDb.getAllWallets();
       const isHardware =
         payload.walletType === WALLET_TYPE_HW ||
         payload.walletType === WALLET_TYPE_QR;
+      if (
+        onReadFailure &&
+        ((isHardware
+          ? typeof payload.hwDeviceId !== 'string' || !payload.hwDeviceId
+          : payload.walletType !== WALLET_TYPE_HD ||
+            typeof payload.walletHash !== 'string' ||
+            !payload.walletHash) ||
+          typeof rawDataJson.rawKey !== 'string' ||
+          !rawDataJson.rawKey ||
+          this.rawKeyToHashKey(rawDataJson.rawKey) !== item.id)
+      )
+        return false;
+      const localDb = this.backgroundApi.localDb;
+      // The normal scene lookup refills presentation and may emit hardware
+      // avatar events. This optional upload verification must only read.
+      const { wallets } = await read(() => localDb.getAllWallets());
       const device =
         isHardware && payload.hwDeviceId
-          ? await localDb.getDeviceByQuery({
-              featuresDeviceId: payload.hwDeviceId,
-            })
+          ? await read(() =>
+              localDb.getDeviceByQuery({
+                featuresDeviceId: payload.hwDeviceId,
+              }),
+            )
           : undefined;
       const matching = wallets.filter(
         (wallet) =>
@@ -171,10 +218,20 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       const key = await this.buildSyncKeyInfo({ target });
       if (key?.key !== item.id || rawDataJson.rawKey !== key.rawKey)
         return false;
-      const wallet = await localDb.getWallet({
-        walletId: target.wallet.id,
-        withoutRefill: true,
-      });
+      // getWallet(withoutRefill) uses this same DAO and only adds a missing
+      // record exception. Here absence is a verified skip, not a read failure.
+      const wallet = onReadFailure
+        ? await read(() =>
+            localDb.getRecordById({
+              name: ELocalDBStoreNames.Wallet,
+              id: target.wallet.id,
+            }),
+          )
+        : await localDb.getWallet({
+            walletId: target.wallet.id,
+            withoutRefill: true,
+          });
+      if (!wallet) return false;
       const nameMatches = !payload.name?.trim() || wallet.name === payload.name;
       if (!nameMatches || !onVerifiedWallet) return nameMatches;
       // Retrying a previously boxed version must not carry a stale sibling

@@ -3,10 +3,14 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import {
   DEV_UNKNOWN_AVATAR_DEVICE_ID,
   WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalDbOpenError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -71,6 +75,168 @@ describe('CloudSyncFlowManagerWallet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  test.each([
+    'wallet-list-fault',
+    'device-query-fault',
+    'wallet-point-fault',
+    'wallet-missing',
+    'device-missing',
+    'canonical-mismatch',
+    'failed-aead',
+    'invalid-payload',
+    'malformed-local-data',
+    'open-failure',
+    'hd-identity-missing',
+    'hw-identity-missing',
+    'unsupported-identity',
+    'wire-identity-mismatch',
+    'direct-caller',
+    'verified',
+  ] as const)(
+    'Wallet verification defers only an actual storage read fault: %s',
+    async (scenario) => {
+      const device = {
+        ...qaDevice,
+        id: 'verification-device',
+        deviceId: 'public-device',
+      };
+      const hardware =
+        scenario.startsWith('device-') ||
+        scenario === 'malformed-local-data' ||
+        scenario === 'hw-identity-missing';
+      const invalidIdentity = scenario.includes('identity');
+      const wallet: IDBWallet = {
+        id: hardware ? 'hw-verification' : 'hd-verification',
+        type: hardware ? WALLET_TYPE_HW : WALLET_TYPE_HD,
+        associatedDevice: hardware ? device.id : undefined,
+        name: 'Verified wallet name',
+        hash: 'public-verification-wallet-hash',
+        accounts: [],
+        backuped: true,
+        walletNo: 1,
+        nextIds: {},
+      };
+      const transient = new DOMException(
+        'Synthetic interrupted local read',
+        'AbortError',
+      );
+      const getAllWallets = jest.fn(async () => ({ wallets: [wallet] }));
+      const getDeviceByQuery = jest.fn<Promise<IDBDevice | undefined>, []>(
+        async () => (scenario === 'device-missing' ? undefined : device),
+      );
+      const getRecordById = jest.fn<Promise<IDBWallet | undefined>, []>(
+        async () => {
+          if (scenario === 'wallet-missing') return undefined;
+          if (scenario === 'canonical-mismatch')
+            return { ...wallet, name: 'Different name' };
+          return wallet;
+        },
+      );
+      const getWallet = jest.fn(async () => wallet);
+      if (scenario === 'open-failure')
+        getAllWallets.mockRejectedValueOnce(
+          new LocalDbOpenError('Unavailable database schema'),
+        );
+      if (
+        invalidIdentity ||
+        scenario === 'wallet-list-fault' ||
+        scenario === 'direct-caller'
+      )
+        getAllWallets.mockRejectedValueOnce(transient);
+      if (scenario === 'device-query-fault')
+        getDeviceByQuery.mockRejectedValueOnce(transient);
+      if (scenario === 'wallet-point-fault')
+        getRecordById.mockRejectedValueOnce(transient);
+      if (scenario === 'malformed-local-data')
+        getDeviceByQuery.mockRejectedValueOnce(
+          new SyntaxError('Invalid device local metadata'),
+        );
+      const sync = new CloudSyncFlowManagerWallet({
+        backgroundApi: {
+          localDb: {
+            getAllWallets,
+            getDeviceByQuery,
+            getWallet,
+            getRecordById,
+            getWalletDeviceSafe: async () => (hardware ? device : undefined),
+          },
+          servicePrimeCloudSync: { getCloudSyncDataTime: async () => 100 },
+        } as unknown as IBackgroundApi,
+      });
+      const syncCredential = {
+        masterPasswordUUID: '',
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+        keylessCredential: {
+          keylessWalletId: 'wallet-verification',
+          pwdHash: 'hw-dek-wallet-verification',
+          encryptionKey: '67'.repeat(32),
+          signingPublicKey: '',
+          signingPrivateKey: '',
+        },
+      };
+      const target = await sync.buildSyncTargetByDBQuery({ dbRecord: wallet });
+      const item = await sync.buildSyncItem({
+        target,
+        syncCredential,
+        dataTime: 100,
+      });
+      if (!item?.data) throw new OneKeyLocalError('Missing AES wallet fixture');
+      const pending = { ...item, rawData: '' };
+      let candidate: IDBCloudSyncItem = pending;
+      if (scenario === 'invalid-payload' || invalidIdentity) {
+        const payload = await sync.buildSyncPayload({ target });
+        if (scenario === 'invalid-payload')
+          Reflect.deleteProperty(payload, 'name');
+        if (scenario === 'hd-identity-missing') payload.walletHash = undefined;
+        if (scenario === 'hw-identity-missing') payload.hwDeviceId = undefined;
+        if (scenario === 'unsupported-identity')
+          payload.walletType = 'watching';
+        candidate = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: item.id,
+          rawDataJson: {
+            rawKey:
+              scenario === 'wire-identity-mismatch'
+                ? 'Wallet >> not-this-wire-id'
+                : item.rawKey,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            payload,
+          },
+          syncCredential,
+          dataTime: 100,
+        });
+        candidate.rawData = '';
+      }
+      const onReadFailure = jest.fn();
+      await expect(
+        sync.canUploadPendingWalletName({
+          item: candidate,
+          syncCredential:
+            scenario === 'failed-aead'
+              ? {
+                  ...syncCredential,
+                  keylessCredential: {
+                    ...syncCredential.keylessCredential,
+                    encryptionKey: '76'.repeat(32),
+                  },
+                }
+              : syncCredential,
+          ...(scenario === 'direct-caller' ? {} : { onReadFailure }),
+        }),
+      ).resolves.toBe(scenario === 'verified');
+      expect(onReadFailure).toHaveBeenCalledTimes(
+        scenario.endsWith('-fault') ? 1 : 0,
+      );
+      if (
+        invalidIdentity ||
+        scenario === 'failed-aead' ||
+        scenario === 'invalid-payload'
+      )
+        expect(getAllWallets).not.toHaveBeenCalled();
+      expect(getWallet).not.toHaveBeenCalled();
+    },
+  );
 
   test('isSupportSync excludes bot wallets', async () => {
     await expect(

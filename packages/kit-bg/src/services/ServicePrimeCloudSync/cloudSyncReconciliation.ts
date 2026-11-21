@@ -370,7 +370,7 @@ export async function runCloudSyncReconciliation({
           );
         let uploaded = 0;
         let skipped = 0;
-        let verificationTimedOut = 0;
+        let verificationDeferred = 0;
         let applied = 0;
         let hasApplyReceipt = false;
         if (response.obsoleted.length) {
@@ -383,16 +383,16 @@ export async function runCloudSyncReconciliation({
           );
           uploaded = receipt?.uploaded ?? 0;
           skipped = receipt?.skipped ?? 0;
-          verificationTimedOut = receipt?.verificationTimedOut ?? 0;
+          verificationDeferred = receipt?.verificationDeferred ?? 0;
           if (
             !Number.isSafeInteger(uploaded) ||
             uploaded < 0 ||
             !Number.isSafeInteger(skipped) ||
             skipped < 0 ||
-            !Number.isSafeInteger(verificationTimedOut) ||
-            verificationTimedOut < 0 ||
-            (!legacyResponseSeen && verificationTimedOut > 0) ||
-            uploaded + skipped + verificationTimedOut >
+            !Number.isSafeInteger(verificationDeferred) ||
+            verificationDeferred < 0 ||
+            (!legacyResponseSeen && verificationDeferred > 0) ||
+            uploaded + skipped + verificationDeferred >
               response.obsoleted.length
           )
             throw new ReconciliationStop('invalid-response');
@@ -456,12 +456,12 @@ export async function runCloudSyncReconciliation({
           // A final check can still be followed by an incomplete upload. Verify
           // the remaining keys with a fresh check after the retry delay.
           if (uploaded + skipped < response.obsoleted.length) {
-            const onlyVerificationTimedOut =
-              verificationTimedOut > 0 &&
-              uploaded + skipped + verificationTimedOut ===
+            const onlyVerificationDeferred =
+              verificationDeferred > 0 &&
+              uploaded + skipped + verificationDeferred ===
                 response.obsoleted.length;
             return finish(
-              progress || onlyVerificationTimedOut ? 'waiting' : 'blocked',
+              progress || onlyVerificationDeferred ? 'waiting' : 'blocked',
               'upload-incomplete',
               progress
                 ? limits.continuationDelayMs
