@@ -2687,7 +2687,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         endTime: Date.now(),
         reversed: true,
       });
-      if (this._isSubscriptionSpecPending(spec)) {
+      const accountAddress = this._currentState.currentUser;
+      if (
+        fills.length > 0 &&
+        accountAddress?.toLowerCase() === user.toLowerCase() &&
+        this._isSubscriptionSpecPending(spec)
+      ) {
+        // An unloaded history would discard appends. Loaded histories reuse their cache.
+        await service.loadTradesHistory(accountAddress);
+        if (!this._isSubscriptionSpecPending(spec)) {
+          return;
+        }
         await service.appendTradesHistory(fills, user);
       }
     } catch (error) {
