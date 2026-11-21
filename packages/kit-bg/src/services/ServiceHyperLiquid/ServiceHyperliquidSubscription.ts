@@ -133,6 +133,14 @@ const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
   {},
 );
 
+const ALL_MIDS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.ALL_MIDS,
+  { dex: 'ALL_DEXS' },
+);
+
+// The all-dex mids feed can go about 12 seconds between updates.
+const ALL_MIDS_SWITCH_STALE_MS = 30_000;
+
 interface IPublicTradesSubscription {
   refCount: number;
   subscriptionPromise: Promise<IPerpsSubscription>;
@@ -261,7 +269,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _reconcileInFlight = false;
 
-  private _resumeRecoveryPromise: Promise<void> | null = null;
+  private _resumeRecoveryPromise: Promise<boolean> | null = null;
 
   private _subscriptionUpdateRecoveryPromise: Promise<void> | null = null;
 
@@ -1107,6 +1115,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _getMissingCriticalOpenSubscriptionTypes(
     requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>,
+    switchingToCoin?: string,
   ): ESubscriptionType[] {
     if (!requiredSubSpecsMap) {
       return [];
@@ -1123,7 +1132,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         criticalTypes.has(spec.type) &&
         !this._activeSubscriptions.has(spec.key)
       ) {
-        missingTypes.add(spec.type);
+        // A new book only becomes active after its subscribe ACK. Let the
+        // normal coin transition finish while the other critical feeds are healthy.
+        const isSwitchingBook =
+          switchingToCoin &&
+          (spec.type === ESubscriptionType.L2 ||
+            spec.type === ESubscriptionType.L2_BOOK) &&
+          getOrderBookSubscriptionCoin(spec) === switchingToCoin &&
+          ((this._reconcileInFlight && this._isSubscriptionSpecPending(spec)) ||
+            Array.from(this._activeSubscriptions.values()).some(
+              (sub) =>
+                sub.type === spec.type &&
+                getOrderBookSubscriptionCoin(sub.spec) !== switchingToCoin,
+            ));
+        if (!isSwitchingBook) {
+          missingTypes.add(spec.type);
+        }
       }
     }
     return Array.from(missingTypes);
@@ -1144,6 +1168,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _shouldRebuildOpenSocketSubscriptionsOnResume(params?: {
     forceRebuild?: boolean;
     requiredSubSpecsMap?: Record<string, ISubscriptionSpec<ESubscriptionType>>;
+    switchingToCoin?: string;
   }): boolean {
     if (params?.forceRebuild) {
       return this._activeSubscriptions.size > 0;
@@ -1153,6 +1178,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return false;
     }
 
+    const allMids = params?.switchingToCoin
+      ? this._activeSubscriptions.get(ALL_MIDS_SUBSCRIPTION_KEY)
+      : undefined;
+    const hasStaleAllMids =
+      allMids && Date.now() - allMids.lastActivity > ALL_MIDS_SWITCH_STALE_MS;
+
     return (
       this._activeSubscriptions.size > 0 &&
       (!this._hasRecentDataFlow() ||
@@ -1160,6 +1191,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           .length > 0 ||
         this._getMissingCriticalOpenSubscriptionTypes(
           params?.requiredSubSpecsMap,
+          this._socketOpenedAt !== null &&
+            this._lastMessageAt !== null &&
+            this._lastMessageAt >= this._socketOpenedAt &&
+            !hasStaleAllMids
+            ? params?.switchingToCoin
+            : undefined,
         ).length > 0)
     );
   }
@@ -1259,7 +1296,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _reconcileOpenSocketSubscriptionsOnResume(params?: {
     forceRebuild?: boolean;
     reason?: string;
+    switchingToCoin?: string;
   }): Promise<void> {
+    const disabledCount = this.subscriptionsHandlerDisabledCount;
     const client = await this.getWebSocketClient();
     if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
       await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
@@ -1268,12 +1307,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       return;
     }
-    if (this._resumeRecoveryPromise) {
-      await this._resumeRecoveryPromise;
-      return;
+    const openedAt = this._socketOpenedAt;
+    let forceRebuild = params?.forceRebuild === true;
+    while (this._resumeRecoveryPromise) {
+      const rebuildSatisfied = await this._resumeRecoveryPromise;
+      if (rebuildSatisfied) {
+        forceRebuild = false;
+      }
+      if (
+        (!forceRebuild && !this._bboNeedsResubscribe) ||
+        this.subscriptionsHandlerDisabled ||
+        disabledCount !== this.subscriptionsHandlerDisabledCount ||
+        client !== this._client ||
+        client.transport.socket.readyState !== WebSocket.OPEN ||
+        openedAt !== this._socketOpenedAt
+      ) {
+        return;
+      }
+      // A blur may have invalidated BBO while recovery was awaiting ACKs.
+      // Share a follow-up for the pending snapshot or an unmet forced rebuild.
     }
 
     this._resumeRecoveryPromise = (async () => {
+      const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (this._bboNeedsResubscribe) {
         this._bboNeedsResubscribe = false;
         this._hasInitialSubscription = false;
@@ -1285,7 +1341,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             !(await this._destroySubscription(spec))
           ) {
             await this._forceReconnectTransport();
-            return;
+            return true;
           }
         }
       }
@@ -1293,6 +1349,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (
         this._shouldRebuildOpenSocketSubscriptionsOnResume({
           ...params,
+          forceRebuild,
           requiredSubSpecsMap: requiredSubInfo?.requiredSubSpecsMap,
         })
       ) {
@@ -1309,6 +1366,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       // Keep socket recovery outside this single-flight to avoid re-entering it.
       this._hasInitialSubscription = true;
       await this._enqueueSubscriptionReconcile();
+      return (
+        forceRebuild || lifecycleVersion !== this._subscriptionLifecycleVersion
+      );
     })().finally(() => {
       this._resumeRecoveryPromise = null;
     });
@@ -1518,14 +1578,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async recoverSubscriptionsAfterLivenessProof(params: {
     disabledCount: number;
+    switchingToCoin?: string;
   }): Promise<boolean> {
     if (this.subscriptionsHandlerDisabledCount > params.disabledCount) {
       return false;
     }
+    const switchingToCoin =
+      this.subscriptionsHandlerDisabled || this._bboNeedsResubscribe
+        ? undefined
+        : params.switchingToCoin;
     await this.enableSubscriptionsHandler({
       ifDisabledCountAtMost: params.disabledCount,
     });
-    if (this.subscriptionsHandlerDisabled) {
+    if (
+      this.subscriptionsHandlerDisabled ||
+      this.subscriptionsHandlerDisabledCount > params.disabledCount
+    ) {
       return false;
     }
     // AutoPause in the UI runtime still reads a stale blur; announce so it
@@ -1534,7 +1602,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
     // before the reconcile (OK-53014 ordering).
     this._watchSubscriptionAtoms();
-    await this._reconcileOpenSocketSubscriptionsOnResume();
+    await this._reconcileOpenSocketSubscriptionsOnResume({ switchingToCoin });
     return true;
   }
 
@@ -2470,10 +2538,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       spec.type === ESubscriptionType.L2_BOOK;
     const orderBookToDestroy = toDestroySubscriptions.filter(isOrderBookSpec);
     const orderBookToCreate = toCreateSubscriptions.filter(isOrderBookSpec);
+    const client = this._client;
+    const openedAt = this._socketOpenedAt;
+    const lifecycleVersion = this._subscriptionLifecycleVersion;
+    let bboUnsubscribeFailed = false;
     const otherTasks = [
       ...toDestroySubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
-        .map((spec) => () => this._destroySubscription(spec)),
+        .map((spec) => async () => {
+          const removed = await this._destroySubscription(spec);
+          if (!removed && spec.type === ESubscriptionType.BBO) {
+            bboUnsubscribeFailed = true;
+          }
+        }),
       ...toCreateSubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
         .map((spec) => () => this._createSubscription(spec)),
@@ -2501,6 +2578,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       orderBookTask,
       otherTasks,
     });
+    // A lost BBO ACK leaves its server-side state unknown. Reset the transport
+    // if the order book transition or a socket recovery has not reset it yet.
+    if (
+      bboUnsubscribeFailed &&
+      client === this._client &&
+      openedAt === this._socketOpenedAt &&
+      lifecycleVersion === this._subscriptionLifecycleVersion &&
+      client?.transport.socket.readyState === WebSocket.OPEN
+    ) {
+      await this._forceReconnectTransport();
+    }
   }
 
   private async _createSubscription<T extends ESubscriptionType>(
