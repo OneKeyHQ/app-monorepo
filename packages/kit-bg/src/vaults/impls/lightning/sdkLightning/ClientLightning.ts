@@ -38,7 +38,7 @@ function isAuthError(error: unknown): boolean {
   );
 }
 
-function invoiceDecodeCooldownMs(
+export function getLightningRequestRetryDelayMs(
   error: unknown,
   fallbackMs: number,
 ): number | undefined {
@@ -365,7 +365,7 @@ class ClientLightning {
       })
       .catch((error: unknown) => {
         const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-        const cooldown = invoiceDecodeCooldownMs(error, fallbackMs);
+        const cooldown = getLightningRequestRetryDelayMs(error, fallbackMs);
         if (cooldown !== undefined) {
           failed.set(invoice, {
             retryAt: Date.now() + cooldown,

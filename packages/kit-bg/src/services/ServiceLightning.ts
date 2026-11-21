@@ -5,8 +5,16 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  OneKeyError,
+  OneKeyLocalError,
+  RetryableLightningScanError,
+} from '@onekeyhq/shared/src/errors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   isReusableLightningRecipient,
   normalizeLightningInput,
@@ -23,6 +31,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { vaultFactory } from '../vaults/factory';
 import ClientLightning, {
   createLightningInvoiceDecodeCache,
+  getLightningRequestRetryDelayMs,
 } from '../vaults/impls/lightning/sdkLightning/ClientLightning';
 import { verifyInvoice } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
@@ -46,6 +55,20 @@ class ServiceLightning extends ServiceBase {
     mainnet: createLightningInvoiceDecodeCache(),
     testnet: createLightningInvoiceDecodeCache(),
   };
+
+  private readonly lnurlScanRequests = new Map<
+    string,
+    Promise<ILNURLDetails>
+  >();
+
+  private readonly lnurlScanFailures = new LRUCache<
+    string,
+    {
+      retryAt: number;
+      nextDelayMs: number;
+      error: RetryableLightningScanError;
+    }
+  >({ max: 100 });
 
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
@@ -225,15 +248,73 @@ class ServiceLightning extends ServiceBase {
   async findAndValidateLnurl({
     toVal,
     networkId,
+    forScan,
   }: {
     toVal: string;
     networkId: string;
+    forScan?: boolean;
   }) {
     const address = normalizeLightningInput(toVal);
     if (!isReusableLightningRecipient(address)) {
       return null;
     }
+    if (!forScan) {
+      return this.validateLnurl({ networkId, address });
+    }
 
+    const key = `${networkId}:${address}`;
+    const previousFailure = this.lnurlScanFailures.get(key);
+    if (previousFailure && Date.now() < previousFailure.retryAt) {
+      throw previousFailure.error;
+    }
+    const current = this.lnurlScanRequests.get(key);
+    if (current) return current;
+
+    const pending = this.validateLnurl({ networkId, address })
+      .then((details) => {
+        this.lnurlScanFailures.delete(key);
+        return details;
+      })
+      .catch((error: unknown) => {
+        const requestError = error as IOneKeyError | undefined;
+        const isRequestError =
+          requestError?.httpStatusCode !== undefined ||
+          requestError?.className ===
+            EOneKeyErrorClassNames.AxiosNetworkError ||
+          (axios.isAxiosError(error) && !axios.isCancel(error));
+        const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
+        const cooldown = isRequestError
+          ? getLightningRequestRetryDelayMs(error, fallbackMs)
+          : undefined;
+        if (cooldown === undefined) {
+          this.lnurlScanFailures.delete(key);
+          throw error;
+        }
+        const scanError = new RetryableLightningScanError({
+          message: 'Lightning recipient validation temporarily unavailable',
+          autoToast: false,
+        });
+        this.lnurlScanFailures.set(key, {
+          retryAt: Date.now() + cooldown,
+          nextDelayMs: Math.min(30_000, fallbackMs * 2),
+          error: scanError,
+        });
+        throw scanError;
+      })
+      .finally(() => {
+        this.lnurlScanRequests.delete(key);
+      });
+    this.lnurlScanRequests.set(key, pending);
+    return pending;
+  }
+
+  private async validateLnurl({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<ILNURLDetails> {
     const { data } =
       await this.backgroundApi.serviceValidator.serverValidateAddress({
         networkId,

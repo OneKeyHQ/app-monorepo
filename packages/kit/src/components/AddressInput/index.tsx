@@ -26,7 +26,11 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { resolveReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+  resolveReusableLightningRecipient,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -407,6 +411,9 @@ export function AddressInput(props: IAddressInputProps) {
       const normalizedText =
         singleLineText !== text &&
         networkUtils.isLightningNetworkByNetworkId(networkId) &&
+        !isReusableLightningRecipient(
+          normalizeLightningInput(singleLineText),
+        ) &&
         resolveReusableLightningRecipient(text)
           ? text
           : singleLineText;

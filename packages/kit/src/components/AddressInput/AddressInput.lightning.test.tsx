@@ -76,3 +76,40 @@ it.each([
     mockQuery.mockClear();
   },
 );
+
+it.each([
+  [
+    'lnurlp://example.com/rece\nive?mode=once',
+    'lnurlp://example.com/receive?mode=once',
+  ],
+  [
+    'lightning:lnurlp://example.com/receive?ref=abc\ndef',
+    'lightning:lnurlp://example.com/receive?ref=abcdef',
+  ],
+])(
+  'sends a wrapped standalone Lightning URI to validation in full',
+  async (text, address) => {
+    mockQuery.mockClear();
+    mockQuery.mockResolvedValueOnce({ input: '' });
+    const networkId = getNetworkIdsMap().lightning;
+    const onChange = jest.fn();
+    render(
+      <AddressInput
+        name="to"
+        accountId="account-id"
+        networkId={networkId}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Recipient' }), {
+      target: { value: text },
+    });
+
+    expect(onChange).toHaveBeenCalledWith({ raw: address, pending: true });
+    await waitFor(() => {
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ address, networkId }),
+      );
+    });
+  },
+);

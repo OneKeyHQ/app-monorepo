@@ -1,6 +1,7 @@
 import { AxiosError } from 'axios';
 import { bech32 } from 'bech32';
 
+import ServiceLightning from '@onekeyhq/kit-bg/src/services/ServiceLightning';
 import ClientLightning from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -22,6 +23,13 @@ import lightningNetwork from './lightningNetwork';
 
 import type { IQRCodeHandlerOptions } from '../type';
 import type { AxiosInstance } from 'axios';
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
+  >('@onekeyhq/shared/src/background/backgroundDecorators');
+  return { ...actual, backgroundClass: () => (target: unknown) => target };
+});
 
 // BOLT 11 example invoices (mainnet and testnet) and the LUD-01 example LNURL.
 const INVOICE =
@@ -62,6 +70,28 @@ function setup() {
     decodedInvoice,
     getNetwork,
   };
+}
+
+function setupRecipientValidation() {
+  const { options } = setup();
+  const lnurlDetails = { tag: 'payRequest', url: 'https://example.com/pay' };
+  const serverValidateAddress = jest.fn(
+    async (_params: { networkId: string; address: string }) => ({
+      data: { data: { lnurlDetails } },
+    }),
+  );
+  const serviceLightning = new ServiceLightning({
+    backgroundApi: { serviceValidator: { serverValidateAddress } },
+  });
+  const parseOptions = {
+    ...options,
+    backgroundApi: {
+      ...options.backgroundApi,
+      serviceLightning,
+    } as typeof options.backgroundApi,
+    handlers: [EQRCodeHandlerNames.lightningNetwork],
+  };
+  return { serverValidateAddress, serviceLightning, parseOptions };
 }
 
 describe('lightningNetwork QR handler', () => {
@@ -106,6 +136,7 @@ describe('lightningNetwork QR handler', () => {
     expect(findAndValidateLnurl).toHaveBeenCalledWith({
       toVal: LNURL,
       networkId: getNetworkIdsMap().lightning,
+      forScan: true,
     });
   });
 
@@ -223,6 +254,7 @@ it('resolves a recognized LNURL URI and preserves its scheme for validation', as
   expect(findAndValidateLnurl).toHaveBeenCalledWith({
     toVal: address,
     networkId: getNetworkIdsMap().lightning,
+    forScan: true,
   });
 });
 
@@ -238,35 +270,43 @@ it.each([
     new OneKeyError({ className: EOneKeyErrorClassNames.AxiosNetworkError }),
   ],
 ])('keeps an LNURL scan retryable after %s', async (_label, error) => {
-  const { options, findAndValidateLnurl } = setup();
-  findAndValidateLnurl.mockRejectedValueOnce(error);
-  const parseOptions = {
-    ...options,
-    handlers: [EQRCodeHandlerNames.lightningNetwork],
-  };
+  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
+  serverValidateAddress.mockRejectedValueOnce(error);
   const value = 'lightning:satoshi@example.com';
-
-  await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
-    autoToast: false,
-  });
-  await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
-    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-  });
+  const time = 1_900_000_000_000;
+  const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+  try {
+    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
+      autoToast: false,
+    });
+    now.mockReturnValue(time + 999);
+    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
+      autoToast: false,
+    });
+    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(time + 1000);
+    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    });
+    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
+  } finally {
+    now.mockRestore();
+  }
 });
 
 it.each([
   new OneKeyServerApiError({ httpStatusCode: 400 }),
   new OneKeyLocalError('Invalid lnurl'),
 ])('keeps the copy fallback for an invalid LNURL', async (error) => {
-  const { options, findAndValidateLnurl } = setup();
-  findAndValidateLnurl.mockRejectedValueOnce(error);
-
-  await expect(
-    parseQRCode(LNURL, {
-      ...options,
-      handlers: [EQRCodeHandlerNames.lightningNetwork],
-    }),
-  ).resolves.toMatchObject({ type: EQRCodeHandlerType.UNKNOWN });
+  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
+  serverValidateAddress.mockRejectedValueOnce(error);
+  await expect(parseQRCode(LNURL, parseOptions)).resolves.toMatchObject({
+    type: EQRCodeHandlerType.UNKNOWN,
+  });
+  await expect(parseQRCode(LNURL, parseOptions)).resolves.toMatchObject({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+  });
+  expect(serverValidateAddress).toHaveBeenCalledTimes(2);
 });
 
 it('retries an invoice after a transient decoder failure', async () => {
@@ -282,6 +322,58 @@ it('retries an invoice after a transient decoder failure', async () => {
   await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
     type: EQRCodeHandlerType.LIGHTNING_NETWORK,
   });
+});
+
+it('backs off repeated scans of a rate-limited recipient until Retry-After elapses', async () => {
+  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
+  const value = 'lightning:satoshi@example.com';
+  const failure = new OneKeyServerApiError({ httpStatusCode: 429 });
+  failure.retryAfter = '30';
+  serverValidateAddress.mockRejectedValueOnce(failure);
+  const time = 1_900_000_000_000;
+  const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+  try {
+    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
+      autoToast: false,
+    });
+    now.mockReturnValue(time + 29_999);
+    await expect(
+      parseQRCode('LIGHTNING:satoshi@example.com', parseOptions),
+    ).rejects.toMatchObject({ autoToast: false });
+    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
+    await expect(
+      parseQRCode('lightning:another@example.com', parseOptions),
+    ).resolves.toMatchObject({ type: EQRCodeHandlerType.LIGHTNING_NETWORK });
+    now.mockReturnValue(time + 30_000);
+    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    });
+    expect(serverValidateAddress).toHaveBeenCalledTimes(3);
+  } finally {
+    now.mockRestore();
+  }
+});
+
+it('shares an in-flight recipient lookup between normalized scans without mixing networks', async () => {
+  const { serviceLightning, serverValidateAddress } =
+    setupRecipientValidation();
+  const networks = getNetworkIdsMap();
+  const address = 'satoshi@example.com';
+  const lookup = (networkId: string, toVal: string) =>
+    serviceLightning.findAndValidateLnurl({
+      toVal,
+      networkId,
+      forScan: true,
+    });
+  await Promise.all([
+    lookup(networks.lightning, address),
+    lookup(networks.lightning, `LIGHTNING:${address}`),
+    lookup(networks.tlightning, address),
+  ]);
+  expect(serverValidateAddress.mock.calls).toEqual([
+    [{ networkId: networks.lightning, address }],
+    [{ networkId: networks.tlightning, address }],
+  ]);
 });
 
 it('still falls back when the decoder rejects an invalid invoice', async () => {
