@@ -329,6 +329,11 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
   };
 });
 
+// The usage explainer is a plain read-only popover; these tests cover login.
+jest.mock('./OneKeyIdUsagePopover', () => ({
+  OneKeyIdUsagePopover: () => null,
+}));
+
 jest.mock('../useOneKeyIdLocalKeylessOAuth', () => {
   let onAccountMismatch: (() => void) | undefined;
   const oauthMocks = {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -62,8 +63,10 @@ import {
   type IOneKeyIdLoginMethod,
   getOneKeyIdLoginMethods,
 } from './oneKeyIdLoginMethods';
+import { OneKeyIdUsagePopover } from './OneKeyIdUsagePopover';
 
 const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
+const USAGE_LINK_TEST_ID = 'prime-login-usage-link';
 
 function PrimeLoginOAuthDialog(props: {
   onComplete: () => Promise<void>;
@@ -99,6 +102,10 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
+  const [usagePopover, setUsagePopover] = useState<{
+    open: boolean;
+    webAnchorElement?: HTMLElement;
+  }>({ open: false });
   const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
@@ -605,6 +612,33 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
+  const handleShowUsage = useCallback(() => {
+    // Native always shows a sheet; only the wide web panel needs an anchor.
+    setUsagePopover({
+      open: true,
+      webAnchorElement: platformEnv.isNative
+        ? undefined
+        : (document.querySelector<HTMLElement>(
+            `[data-testid="${USAGE_LINK_TEST_ID}"]`,
+          ) ?? undefined),
+    });
+  }, []);
+  const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
+    setUsagePopover((prev) => ({ ...prev, open }));
+  }, []);
+  // The inline link is a text span on web: make it focusable and let Enter
+  // and Space open it like a native link.
+  const handleUsageLinkKeyDown = useCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      event.preventDefault();
+      handleShowUsage();
+    },
+    [handleShowUsage],
+  );
+
   const renderOAuthLoginMethod = (method: IOneKeyIdLoginMethod) => {
     const providerName =
       method.provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
@@ -670,9 +704,36 @@ function PrimeLoginOAuthDialog(props: {
             titleContent
           )}
           <Dialog.Description color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.prime_onekeyid_continue_description,
-            })}
+            {intl.formatMessage(
+              { id: ETranslations.onekey_id_purpose__desc },
+              {
+                link: (chunks: ReactNode[]) => (
+                  <SizableText
+                    testID={USAGE_LINK_TEST_ID}
+                    size="$bodyLg"
+                    color="$textSubdued"
+                    textDecorationLine="underline"
+                    cursor="pointer"
+                    role="link"
+                    onPress={handleShowUsage}
+                    {...(platformEnv.isNative
+                      ? {}
+                      : {
+                          tabIndex: 0,
+                          onKeyDown: handleUsageLinkKeyDown,
+                          focusVisibleStyle: {
+                            outlineColor: '$focusRing',
+                            outlineWidth: 2,
+                            outlineStyle: 'solid',
+                            outlineOffset: 2,
+                          },
+                        })}
+                  >
+                    {chunks}
+                  </SizableText>
+                ),
+              },
+            )}
           </Dialog.Description>
         </Dialog.Header>
       )}
@@ -799,6 +860,13 @@ function PrimeLoginOAuthDialog(props: {
         ) : null}
       </YStack>
       {isEmailVerificationStep ? null : <Dialog.Footer showFooter={false} />}
+      {/* Kept outside Dialog.Header, which hands its children to the dialog
+          frame through context. */}
+      <OneKeyIdUsagePopover
+        open={usagePopover.open}
+        onOpenChange={handleUsagePopoverOpenChange}
+        webAnchorElement={usagePopover.webAnchorElement}
+      />
     </Stack>
   );
 }
