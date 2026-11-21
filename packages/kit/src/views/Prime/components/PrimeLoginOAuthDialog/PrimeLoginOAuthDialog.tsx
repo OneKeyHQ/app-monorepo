@@ -73,6 +73,10 @@ import {
 
 const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
 
+// How the usage panel is open: a hover open closes when the pointer leaves, a
+// press open is a regular popover that an outside press closes.
+type IUsagePanelState = 'closed' | 'hover' | 'press';
+
 function PrimeLoginOAuthDialog(props: {
   onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
@@ -107,11 +111,14 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
-  // How the usage panel is open: a hover open closes when the pointer leaves,
-  // a press open is a regular popover that an outside press closes.
-  const [usagePanel, setUsagePanel] = useState<'closed' | 'hover' | 'press'>(
-    'closed',
-  );
+  const [usagePanel, setUsagePanel] = useState<IUsagePanelState>('closed');
+  // The latest state for callbacks that may run late: the email step's change
+  // arrives after its storage write, by which time the panel may have opened.
+  const usagePanelRef = useRef<IUsagePanelState>('closed');
+  const updateUsagePanel = useCallback((next: IUsagePanelState) => {
+    usagePanelRef.current = next;
+    setUsagePanel(next);
+  }, []);
   // Web: the subtitle link span, which the wide-window panel anchors to and
   // opens on hover from.
   const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
@@ -625,39 +632,48 @@ function PrimeLoginOAuthDialog(props: {
   // form and its registration stay the same, only the hover handling and the
   // backdrop switch.
   const handleShowUsage = useCallback(() => {
-    if (usagePanel === 'press') {
+    if (usagePanelRef.current === 'press') {
       return;
     }
-    if (usagePanel === 'closed') {
+    if (usagePanelRef.current === 'closed') {
       // Hover opens go through the popover, which logs them itself.
       defaultLogger.ui.popover.popoverOpen({
         trackId: ONEKEY_ID_USAGE_TRACK_ID,
       });
     }
-    setUsagePanel('press');
-  }, [usagePanel]);
+    updateUsagePanel('press');
+  }, [updateUsagePanel]);
   // The code step drops the header and its link: a panel left open there would
   // have nothing to anchor to or hover away from.
   const handleEmailVerificationEmailChange = useCallback(
     (email: string | undefined) => {
       setEmailVerificationEmail(email);
-      if (email !== undefined && usagePanel !== 'closed') {
+      if (email === undefined) {
+        return;
+      }
+      if (usagePanelRef.current !== 'closed') {
+        // The popover does not see this close, so it is logged here.
         defaultLogger.ui.popover.popoverClose({
           trackId: ONEKEY_ID_USAGE_TRACK_ID,
         });
-        setUsagePanel('closed');
       }
+      updateUsagePanel('closed');
     },
-    [usagePanel],
+    [updateUsagePanel],
   );
   // The popover reports hover opens and every close.
-  const handleUsagePopoverOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setUsagePanel('closed');
-      return;
-    }
-    setUsagePanel((prev) => (prev === 'closed' ? 'hover' : prev));
-  }, []);
+  const handleUsagePopoverOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        updateUsagePanel('closed');
+        return;
+      }
+      if (usagePanelRef.current === 'closed') {
+        updateUsagePanel('hover');
+      }
+    },
+    [updateUsagePanel],
+  );
 
   const renderOAuthLoginMethod = (method: IOneKeyIdLoginMethod) => {
     const providerName =

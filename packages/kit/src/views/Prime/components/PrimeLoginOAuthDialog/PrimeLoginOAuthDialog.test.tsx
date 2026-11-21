@@ -17,6 +17,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
+const mockFirstEmailChange: {
+  current?: (email: string | undefined) => void;
+} = {};
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
 let mockDevSettingsEnabled = true;
@@ -334,6 +337,10 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
     debugPanelOpenCount?: number;
     onEmbeddedVerificationEmailChange?: (email: string | undefined) => void;
   }) {
+    // The real dialog calls back after an awaited storage write, possibly
+    // with the callback of the render that started the submit.
+    const firstEmailChange = React.useRef(onEmbeddedVerificationEmailChange);
+    mockFirstEmailChange.current = firstEmailChange.current;
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
@@ -455,6 +462,21 @@ describe('PrimeLoginOAuthDialog', () => {
     fireEvent.click(screen.getByTestId('mock-email-back'));
     expect(screen.getByTestId('prime-login-usage-link')).toBeTruthy();
     expect(lastUsagePopoverProps()?.open).toBe(false);
+  });
+
+  test('closes and logs a panel opened while the email submit was pending', () => {
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const staleEmailChange = mockFirstEmailChange.current;
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    expect(lastUsagePopoverProps()?.open).toBe(true);
+
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
+    act(() => staleEmailChange?.('a@example.com'));
+    expect(lastUsagePopoverProps()?.open).toBe(false);
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    popoverClose.mockRestore();
   });
 
   test('opens a pressed usage panel as a regular popover and a hovered one as a hover panel', () => {
