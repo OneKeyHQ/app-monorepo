@@ -335,11 +335,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!this.hardwareCloudMigrationRecovered) {
         this.hardwareCloudMigrationRecovering = true;
         try {
-          const { recoverHardwareCloudSyncMigration } =
-            await import('./hardwareCloudSyncMigration');
-          await this.repairCredentialMutex.runExclusive(() =>
-            recoverHardwareCloudSyncMigration(this.backgroundApi),
-          );
+          const config = await primeCloudSyncPersistAtom.get();
+          // Recovery is a no-op without a selected hardware key. Check before
+          // importing the chunk so ordinary offline writes can acquire the lock.
+          if (config.hardwareCloudSyncKeySource?.credentialId) {
+            const { recoverHardwareCloudSyncMigration } =
+              await import('./hardwareCloudSyncMigration');
+            await this.repairCredentialMutex.runExclusive(() =>
+              recoverHardwareCloudSyncMigration(this.backgroundApi),
+            );
+          }
         } finally {
           this.hardwareCloudMigrationRecovering = false;
         }
