@@ -1,0 +1,1 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[25005],{677468(r,e,i){i(933819);var n=i(997514);i.d(e,{SendConfirmWithProvider:()=>n.SendConfirmContainerWithProvider})}}]);

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[97330],{395561(t,e,a){a.r(e);var r=a(922876);let migrate=async(t,e)=>{let a=e?.deeplinkResult;if(a&&a.data.urlPathList?.[0]==="migrate"){let t={address:a.data.urlPathList?.[1]};return{type:r.Wb.MIGRATE,data:t}}return null};a.d(e,{},{default:migrate})}}]);
+//# sourceMappingURL=97330.0073bc43b7.chunk.js.map

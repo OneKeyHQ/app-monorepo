@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[2472],{502395(t,a,e){var i=e(595838);let SimpleDbEntityFirmwareArtifactCache=class SimpleDbEntityFirmwareArtifactCache extends i.t{constructor(...t){super(...t),this.entityName="firmwareArtifactCache",this.enableCache=!1}async getState(){return await this.getRawData()??{slots:{}}}async saveState(t){await this.setRawData(t)}};e.d(a,{SimpleDbEntityFirmwareArtifactCache:()=>SimpleDbEntityFirmwareArtifactCache})}}]);
+//# sourceMappingURL=2472.d91bd85b7f.chunk.js.map
