@@ -1940,6 +1940,7 @@ async function recordEthenaUnstakeOrder({
           remoteSync: 'once',
           preserveExistingTx: true,
           recordAttemptId: current.attemptId,
+          guardHistory: 'ethena-unstake',
           ...(retry ? { retryLocalFailure: true } : undefined),
         },
       );

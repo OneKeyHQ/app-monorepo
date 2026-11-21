@@ -195,7 +195,12 @@ const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 class ServiceStaking extends ServiceBase {
   private readonly earnOrderRecordAttempts = new Map<
     string,
-    { identity: string; state: 'pending' | 'retryable' | 'sent' }
+    {
+      identity: string;
+      state: 'pending' | 'retryable' | 'sent' | 'synced';
+      guardHistory: boolean;
+      order?: IAddEarnOrderParams;
+    }
   >();
 
   private readonly earnFunding = createLazyServiceProxy({
@@ -2969,9 +2974,14 @@ class ServiceStaking extends ServiceBase {
       preserveExistingTx?: true;
       recordAttemptId?: string;
       retryLocalFailure?: true;
+      guardHistory?: 'ethena-unstake';
     },
   ) {
     const attemptId = options?.recordAttemptId;
+    const guardHistory = options?.guardHistory === 'ethena-unstake';
+    const recoveryOrder = guardHistory ? { ...order } : undefined;
+    if (guardHistory && !attemptId)
+      throw new OneKeyLocalError('Invalid Earn order history guard');
     const identity = JSON.stringify([
       order.networkId,
       order.orderId,
@@ -2985,12 +2995,15 @@ class ServiceStaking extends ServiceBase {
         (options.retryLocalFailure &&
           (!previous ||
             previous.identity !== identity ||
+            previous.guardHistory !== guardHistory ||
             previous.state !== 'retryable')) ||
         (!options.retryLocalFailure && previous)
       )
         return { localStatus: 'existing', remoteStatus: 'skipped' } as const;
       this.earnOrderRecordAttempts.set(attemptId, {
         identity,
+        guardHistory,
+        order: recoveryOrder,
         state: 'pending',
       });
     } else if (options?.retryLocalFailure) {
@@ -3018,6 +3031,8 @@ class ServiceStaking extends ServiceBase {
         if (attemptId)
           this.earnOrderRecordAttempts.set(attemptId, {
             identity,
+            guardHistory,
+            order: recoveryOrder,
             state: 'retryable',
           });
         return { localStatus: 'failed', remoteStatus: 'notAttempted' } as const;
@@ -3028,6 +3043,8 @@ class ServiceStaking extends ServiceBase {
       if (attemptId)
         this.earnOrderRecordAttempts.set(attemptId, {
           identity,
+          guardHistory,
+          order: recoveryOrder,
           state: 'retryable',
         });
       return {
@@ -3039,6 +3056,8 @@ class ServiceStaking extends ServiceBase {
       if (attemptId)
         this.earnOrderRecordAttempts.set(attemptId, {
           identity,
+          guardHistory,
+          order: recoveryOrder,
           state: 'sent',
         });
       return {
@@ -3048,7 +3067,12 @@ class ServiceStaking extends ServiceBase {
     }
     let remoteStatus: 'synced' | 'failed' | 'pending' = 'synced';
     if (attemptId)
-      this.earnOrderRecordAttempts.set(attemptId, { identity, state: 'sent' });
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        guardHistory,
+        order: recoveryOrder,
+        state: 'sent',
+      });
     try {
       const result = await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
@@ -3060,6 +3084,19 @@ class ServiceStaking extends ServiceBase {
       remoteStatus = 'failed';
       defaultLogger.staking.order.updateOrderStatusError({
         status: order.status,
+      });
+    }
+    if (
+      attemptId &&
+      guardHistory &&
+      remoteStatus === 'synced' &&
+      order.status === EDecodedTxStatus.Pending
+    ) {
+      this.earnOrderRecordAttempts.set(attemptId, {
+        identity,
+        guardHistory,
+        order: recoveryOrder,
+        state: 'synced',
       });
     }
     return {
@@ -3075,6 +3112,153 @@ class ServiceStaking extends ServiceBase {
     });
   }
 
+  private async recoverGuardedEthenaOrder({
+    order,
+    tx,
+    attempt,
+  }: {
+    order: IEarnOrderItem;
+    tx: IChangedPendingTxInfo;
+    attempt: {
+      identity: string;
+      state: 'pending' | 'retryable' | 'sent' | 'synced';
+    };
+  }) {
+    if (
+      tx.networkId !== order.networkId ||
+      (tx.status !== EDecodedTxStatus.Confirmed &&
+        tx.status !== EDecodedTxStatus.Failed) ||
+      !order.recordAttemptId
+    )
+      return false;
+    if (attempt.state === 'retryable') {
+      await this.addEarnOrder(
+        {
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+          status: tx.status,
+          stakingLabel: order.stakingLabel,
+          stakingProtocol: order.stakingProtocol,
+          stakingTags: order.stakingTags,
+        },
+        {
+          remoteSync: 'once',
+          preserveExistingTx: true,
+          recordAttemptId: order.recordAttemptId,
+          retryLocalFailure: true,
+          guardHistory: 'ethena-unstake',
+        },
+      );
+    }
+    const current = this.earnOrderRecordAttempts.get(order.recordAttemptId);
+    if (current?.identity !== attempt.identity || current.state !== 'sent')
+      return false;
+    const detail = await this.getEarnOrderDetail({
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+      orderId: order.orderId,
+    });
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId: tx.networkId })
+        ? value.toLowerCase()
+        : value;
+    if (
+      detail.orderId !== order.orderId ||
+      detail.networkId !== order.networkId ||
+      !detail.txId ||
+      normalize(detail.txId) !== normalize(order.txId) ||
+      (detail.status !== 'pending' &&
+        detail.status !==
+          (tx.status === EDecodedTxStatus.Confirmed ? 'success' : 'failed'))
+    )
+      return false;
+    return this.updateOrderStatusByTxId({
+      currentTxId: order.txId,
+      expectedOrderId: order.orderId,
+      expectedNetworkId: order.networkId,
+      expectedRecordAttemptId: order.recordAttemptId,
+      status: tx.status,
+    });
+  }
+
+  private async recoverMissingEthenaOrder(tx: IChangedPendingTxInfo) {
+    if (
+      tx.status !== EDecodedTxStatus.Confirmed &&
+      tx.status !== EDecodedTxStatus.Failed
+    )
+      return undefined;
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId: tx.networkId })
+        ? value.toLowerCase()
+        : value;
+    const matches = [...this.earnOrderRecordAttempts.entries()].filter(
+      ([, attempt]) =>
+        attempt.guardHistory &&
+        attempt.state === 'retryable' &&
+        attempt.order?.networkId === tx.networkId &&
+        normalize(attempt.order.txId) === normalize(tx.txId),
+    );
+    if (matches.length !== 1) return undefined;
+    const [attemptId, attempt] = matches[0];
+    const original = attempt.order;
+    if (!original) return undefined;
+    const detail = await this.getEarnOrderDetail({
+      accountId: tx.accountId,
+      networkId: tx.networkId,
+      orderId: original.orderId,
+    });
+    if (
+      detail.orderId !== original.orderId ||
+      detail.networkId !== original.networkId ||
+      detail.action !== 'unstake' ||
+      (detail.txId && normalize(detail.txId) !== normalize(original.txId)) ||
+      (detail.status !== 'pending' &&
+        !(detail.status === 'created' && !detail.txId) &&
+        detail.status !==
+          (tx.status === EDecodedTxStatus.Confirmed ? 'success' : 'failed')) ||
+      this.earnOrderRecordAttempts.get(attemptId) !== attempt
+    )
+      return undefined;
+    if (detail.txId) {
+      this.earnOrderRecordAttempts.set(attemptId, {
+        ...attempt,
+        state: 'pending',
+      });
+      try {
+        const saved = await simpleDb.earnOrders.addOrder(original, {
+          preserveExistingTx: true,
+          recordAttemptId: attemptId,
+        });
+        this.earnOrderRecordAttempts.set(attemptId, {
+          ...attempt,
+          state: 'sent',
+        });
+        if (!saved) return undefined;
+      } catch (error) {
+        this.earnOrderRecordAttempts.set(attemptId, {
+          ...attempt,
+          state: 'sent',
+        });
+        throw error;
+      }
+    } else {
+      if (detail.status !== 'pending' && detail.status !== 'created')
+        return undefined;
+      await this.addEarnOrder(
+        { ...original, status: tx.status },
+        {
+          remoteSync: 'once',
+          preserveExistingTx: true,
+          recordAttemptId: attemptId,
+          retryLocalFailure: true,
+          guardHistory: 'ethena-unstake',
+        },
+      );
+    }
+    return this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+  }
+
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
     const updatedOrders: {
@@ -3084,32 +3268,44 @@ class ServiceStaking extends ServiceBase {
 
     for (const tx of txs) {
       try {
-        const order =
-          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
-        const shouldUpdate =
-          Boolean(order) &&
-          tx.status !== EDecodedTxStatus.Pending &&
-          order?.status !== tx.status;
-        if (order && shouldUpdate) {
-          const updatedOrder = {
-            ...order,
-            status: tx.status,
-          };
-          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
-          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
-            currentTxId: tx.txId,
-            status: tx.status,
-          });
-          defaultLogger.staking.order.updateOrderStatus({
-            status: tx.status,
-            stakingLabel: updatedOrder.stakingLabel,
-            stakingProtocol: updatedOrder.stakingProtocol,
-            stakingTags: updatedOrder.stakingTags,
-          });
-          updatedOrders.push({
-            tx,
-            order: updatedOrder,
-          });
+        let order = await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(
+          tx.txId,
+        );
+        if (!order) order = await this.recoverMissingEthenaOrder(tx);
+        const attempt = order?.recordAttemptId
+          ? this.earnOrderRecordAttempts.get(order.recordAttemptId)
+          : undefined;
+        if (order && attempt?.guardHistory && attempt.state !== 'synced') {
+          if (await this.recoverGuardedEthenaOrder({ order, tx, attempt }))
+            updatedOrders.push({ tx, order: { ...order, status: tx.status } });
+        } else {
+          const shouldUpdate =
+            Boolean(order) &&
+            tx.status !== EDecodedTxStatus.Pending &&
+            order?.status !== tx.status;
+          if (order && shouldUpdate) {
+            const updatedOrder = {
+              ...order,
+              status: tx.status,
+            };
+            await this.updateEarnOrderStatusToServer({ order: updatedOrder });
+            await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+              {
+                currentTxId: tx.txId,
+                status: tx.status,
+              },
+            );
+            defaultLogger.staking.order.updateOrderStatus({
+              status: tx.status,
+              stakingLabel: updatedOrder.stakingLabel,
+              stakingProtocol: updatedOrder.stakingProtocol,
+              stakingTags: updatedOrder.stakingTags,
+            });
+            updatedOrders.push({
+              tx,
+              order: updatedOrder,
+            });
+          }
         }
       } catch (_e) {
         // ignore error, continue loop
@@ -3174,6 +3370,25 @@ class ServiceStaking extends ServiceBase {
       );
     if (!result.success || !result.order) {
       return false;
+    }
+    if (params.expectedRecordAttemptId) {
+      const attempt = this.earnOrderRecordAttempts.get(
+        params.expectedRecordAttemptId,
+      );
+      const identity = JSON.stringify([
+        result.order.networkId,
+        result.order.orderId,
+        result.order.txId,
+      ]);
+      if (
+        attempt?.guardHistory &&
+        attempt.identity === identity &&
+        attempt.state === 'sent'
+      )
+        this.earnOrderRecordAttempts.set(params.expectedRecordAttemptId, {
+          ...attempt,
+          state: 'synced',
+        });
     }
     defaultLogger.staking.order.updateOrderStatusByTxId({
       status: params.status,
