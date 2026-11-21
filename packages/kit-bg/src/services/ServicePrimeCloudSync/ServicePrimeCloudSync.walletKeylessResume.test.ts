@@ -78,10 +78,16 @@ it.each([
   'history-failure-final-inspection-unavailable',
   'history-failure-final-recovered',
   'history-failure-final-superseded',
+  'canonical-scene-read-reject',
+  'canonical-scene-read-timeout',
+  'canonical-scene-read-immediate-recovers',
+  'canonical-scene-read-cancelled',
+  'canonical-scene-read-missing',
 ] as const)(
   'replays only the still-current authenticated software Keyless scene (%s)',
   async (scenario) => {
     const historyFails = scenario.startsWith('history-failure');
+    const canonicalSceneRead = scenario.startsWith('canonical-scene-read');
     const restart = scenario === 'history-failure-restart';
     const finalReadSkipped = scenario === 'history-failure-final-read-skipped';
     const finalInspectionUnavailable =
@@ -270,6 +276,199 @@ it.each([
       .spyOn(prime, 'apiUploadItems')
       .mockResolvedValue(undefined);
     const replay = jest.spyOn(prime, 'syncPendingItemsToScene');
+
+    if (canonicalSceneRead) {
+      const remoteName = 'Cloud Wallet name';
+      const pending = {
+        ...(await makeItem(remoteName, 'cat', baseTime + 100)),
+        serverUploaded: true,
+        localSceneUpdated: false,
+      };
+      const sibling: IDBWallet = {
+        ...wallet,
+        id: `${wallet.id}-sibling`,
+        hash: `${wallet.hash}-sibling`,
+        name: 'Unaffected sibling',
+        walletNo: wallet.walletNo + 1,
+      };
+      const siblingTarget =
+        await prime.syncManagers.wallet.buildSyncTargetByDBQuery({
+          dbRecord: sibling,
+        });
+      const siblingKey = await prime.syncManagers.wallet.buildSyncKeyInfo({
+        target: siblingTarget,
+      });
+      if (!siblingKey)
+        throw new OneKeyLocalError('Missing synthetic sibling identity');
+      const siblingPending = {
+        ...(await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: siblingKey.key,
+          dataTime: baseTime + 200,
+          syncCredential: credential,
+          rawDataJson: {
+            rawKey: siblingKey.rawKey,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            payload: { ...siblingKey.payload, avatar: { img: 'cat' } },
+          },
+        })),
+        serverUploaded: true,
+        localSceneUpdated: false,
+      };
+      const immediateRecovers =
+        scenario === 'canonical-scene-read-immediate-recovers';
+      await localDb.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [sibling],
+          });
+          if (!immediateRecovers)
+            await localDb.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.CloudSyncItem,
+              ids: [pending.id],
+              updater: (row) => Object.assign(row, pending),
+            });
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            records: [siblingPending],
+          });
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+      if (immediateRecovers) {
+        // Keep the stored predecessor and deliver the qualified newer row
+        // in /check; initial read rejects, final replay may recover.
+        const reply = prime.convertLocalItemToServerItem({
+          localItem: pending,
+        });
+        if (!reply)
+          throw new OneKeyLocalError('Missing synthetic check result');
+        check.mockResolvedValueOnce({
+          diff: [reply],
+          updated: [],
+          deleted: [],
+          obsoleted: [],
+          pwdHash: scope,
+          serverTime: Date.now(),
+        });
+      }
+      const actualScene = prime.syncManagers.wallet.syncToSceneEachItem.bind(
+        prime.syncManagers.wallet,
+      );
+      const protectedRead = localDb.getRecordById.bind(localDb);
+      let activeTarget = false;
+      let interrupted = 0;
+      let reachedCanonicalRead = () => {};
+      const canonicalReadReached = new Promise<void>((resolve) => {
+        reachedCanonicalRead = resolve;
+      });
+      let finishLateRead = () => {};
+      const deferredRead = new Promise<void>((resolve) => {
+        finishLateRead = resolve;
+      });
+      const timed = scenario === 'canonical-scene-read-timeout';
+      const cancelled = scenario === 'canonical-scene-read-cancelled';
+      const missing = scenario === 'canonical-scene-read-missing';
+      jest
+        .spyOn(localDb, 'getRecordById')
+        .mockImplementation(async (options) => {
+          if (
+            activeTarget &&
+            interrupted === 0 &&
+            options.name === ELocalDBStoreNames.Wallet &&
+            options.id === wallet.id
+          ) {
+            interrupted += 1;
+            reachedCanonicalRead();
+            if (timed || cancelled) await deferredRead;
+            else if (missing) return undefined;
+            else
+              throw new DOMException(
+                'Synthetic Wallet read interrupted',
+                'AbortError',
+              );
+          }
+          return protectedRead(options);
+        });
+      jest
+        .spyOn(prime.syncManagers.wallet, 'syncToSceneEachItem')
+        .mockImplementation(async (options) => {
+          activeTarget = options.target.wallet.id === wallet.id;
+          try {
+            return await actualScene(options);
+          } finally {
+            activeTarget = false;
+          }
+        });
+      jest
+        .spyOn(prime, 'resolveInitLocalSyncItemsPassword')
+        .mockResolvedValue('');
+      jest.spyOn(prime, 'prepareLocalSyncWallets').mockResolvedValue();
+      jest.spyOn(prime, 'initLocalSyncItemsDB').mockResolvedValue({
+        allWallets: [],
+        allDevices: [],
+        allAccounts: [],
+        allIndexedAccounts: [],
+      });
+      if (timed) jest.useFakeTimers();
+      try {
+        const outcome = prime.syncNowKeylessWithResult().then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        );
+        await canonicalReadReached;
+        if (timed) await jest.advanceTimersByTimeAsync(1500);
+        if (cancelled) {
+          await prime.cancelPublicAccountSnapshotImport();
+          finishLateRead();
+          expect(await outcome).toMatchObject({
+            error: expect.objectContaining({
+              message: 'Cloud sync was cancelled',
+            }),
+          });
+        } else {
+          expect(await outcome).toEqual({
+            value:
+              immediateRecovers || missing ? 'completed' : 'local-deferred',
+          });
+        }
+      } finally {
+        finishLateRead();
+        if (timed) jest.useRealTimers();
+      }
+      expect(interrupted).toBe(1);
+      expect(check).toHaveBeenCalledTimes(1);
+      expect(upload).not.toHaveBeenCalled();
+      expect(await readWallet()).toMatchObject({
+        name: immediateRecovers ? remoteName : wallet.name,
+      });
+      expect(await localDb.getSyncItem({ id: pending.id })).toMatchObject({
+        data: pending.data,
+        serverUploaded: true,
+        localSceneUpdated: immediateRecovers,
+      });
+      if (!cancelled) {
+        expect(
+          await localDb.getWallet({
+            walletId: sibling.id,
+            withoutRefill: true,
+          }),
+        ).toMatchObject({ name: sibling.name, avatar: '{"img":"cat"}' });
+        expect(
+          await localDb.getSyncItem({ id: siblingPending.id }),
+        ).toMatchObject({
+          localSceneUpdated: true,
+        });
+      }
+      if (immediateRecovers || missing)
+        expect(config.lastSyncTimeKeyless).toEqual(expect.any(Number));
+      else expect(config.lastSyncTimeKeyless).toBeUndefined();
+      return;
+    }
 
     await keyless.toggleCloudSyncKeyless({
       enabled: false,

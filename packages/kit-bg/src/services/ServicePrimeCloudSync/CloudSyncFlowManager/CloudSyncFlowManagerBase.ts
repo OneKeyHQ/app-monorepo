@@ -45,6 +45,11 @@ function getMutexByDataType(
   return mutexMap[dataType];
 }
 
+export type IWalletNameDeferredObserver = (
+  item: IDBCloudSyncItem,
+  reason?: 'canonical-read',
+) => void;
+
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
   TRecord extends ICloudSyncDBRecord,
@@ -75,7 +80,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     previousAppliedWalletSource?: {
       item: IDBCloudSyncItem;
       credential: ICloudSyncCredential;
@@ -87,7 +92,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     previousAppliedWalletSource?: {
       item: IDBCloudSyncItem;
       credential: ICloudSyncCredential;
@@ -722,7 +727,7 @@ export abstract class CloudSyncFlowManagerBase<
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!items.length) {

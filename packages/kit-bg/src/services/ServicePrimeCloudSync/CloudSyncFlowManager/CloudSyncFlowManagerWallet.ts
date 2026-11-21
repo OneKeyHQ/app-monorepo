@@ -23,12 +23,35 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
+import type { IWalletNameDeferredObserver } from './CloudSyncFlowManagerBase';
 import type {
   IDBCloudSyncItem,
   IDBDevice,
   IDBSetWalletNameAndAvatarParams,
   IDBWallet,
 } from '../../../dbs/local/types';
+
+function isRetryableWalletVerificationReadError(error: unknown): boolean {
+  const name =
+    error && typeof error === 'object' && 'name' in error
+      ? error.name
+      : undefined;
+  return (
+    name !== 'TypeError' &&
+    name !== 'SyntaxError' &&
+    name !== 'DataError' &&
+    name !== 'NotFoundError' &&
+    name !== 'VersionError' &&
+    !errorUtils.isErrorByClassName({
+      error,
+      className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
+    }) &&
+    !errorUtils.isErrorByClassName({
+      error,
+      className: EOneKeyErrorClassNames.LocalDbOpenError,
+    })
+  );
+}
 
 export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.Wallet,
@@ -140,26 +163,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       const result = lookup();
       if (!onReadFailure) return result;
       return result.catch((error: unknown) => {
-        const name =
-          error && typeof error === 'object' && 'name' in error
-            ? error.name
-            : undefined;
-        if (
-          name !== 'TypeError' &&
-          name !== 'SyntaxError' &&
-          name !== 'DataError' &&
-          name !== 'NotFoundError' &&
-          name !== 'VersionError' &&
-          !errorUtils.isErrorByClassName({
-            error,
-            className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
-          }) &&
-          !errorUtils.isErrorByClassName({
-            error,
-            className: EOneKeyErrorClassNames.LocalDbOpenError,
-          })
-        )
-          onReadFailure();
+        if (isRetryableWalletVerificationReadError(error)) onReadFailure();
         throw error;
       });
     };
@@ -261,7 +265,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
 
   override async syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
-    onWalletNameHistoryDeferred?: (item: IDBCloudSyncItem) => void;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     previousAppliedWalletSource?: {
       item: IDBCloudSyncItem;
       credential: ICloudSyncCredential;
@@ -285,14 +289,38 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       : !!payload.name;
     if (isLiveEncryptedSource && requiresNameCheck) {
       let cancelled = false;
+      let awaitingCanonicalRead = false;
+      let canonicalReadFailed = false;
+      const observeCanonicalRead =
+        item.serverUploaded &&
+        !item.localSceneUpdated &&
+        !!item.pwdHash &&
+        params.onWalletNameHistoryDeferred;
+      const readCanonical = async () => {
+        const { localDb } = this.backgroundApi;
+        if (!observeCanonicalRead)
+          return localDb.getWallet({ walletId, withoutRefill: true });
+        // Same protected DAO as getWallet(withoutRefill), with typed absence.
+        awaitingCanonicalRead = true;
+        try {
+          return await localDb.getRecordById({
+            name: ELocalDBStoreNames.Wallet,
+            id: walletId,
+          });
+        } catch (error) {
+          canonicalReadFailed =
+            !cancelled && isRetryableWalletVerificationReadError(error);
+          throw error;
+        } finally {
+          awaitingCanonicalRead = false;
+        }
+      };
       try {
         expectedCloudSyncWalletName = await resolveBeforeTimeout(
           (async () => {
-            const canonical = await this.backgroundApi.localDb.getWallet({
-              walletId,
-              withoutRefill: true,
-            });
-            if (cancelled || (isCurrent && !isCurrent())) return undefined;
+            const canonical = await readCanonical();
+            if (!canonical || cancelled || (isCurrent && !isCurrent()))
+              return undefined;
             if (!item.serverUploaded)
               return canonical.name === payload.name
                 ? canonical.name
@@ -320,8 +348,17 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       if (
         expectedCloudSyncWalletName === undefined &&
         !deferCloudSyncWalletName
-      )
+      ) {
+        // The AEAD-and-key-checked row was not applied. A confirmed missing
+        // Wallet is a skip; only an interrupted read leaves it unverified.
+        if (
+          observeCanonicalRead &&
+          (canonicalReadFailed || awaitingCanonicalRead) &&
+          (!isCurrent || isCurrent())
+        )
+          observeCanonicalRead(item, 'canonical-read');
         return false;
+      }
     }
     if (isCurrent && !isCurrent()) return false;
     if (deferCloudSyncWalletName && item)
