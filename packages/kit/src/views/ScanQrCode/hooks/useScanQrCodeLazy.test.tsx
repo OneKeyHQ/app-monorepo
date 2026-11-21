@@ -58,11 +58,18 @@ test('a hidden scanner can still return a recipient after regaining focus', asyn
     raw: 'next invoice',
   };
   mockParse.mockResolvedValueOnce(nextResult);
+  const onResultWillClose = jest.fn();
   await params.callback({
     ...firstFrame,
     value: nextResult.raw,
     canApplyScanResult: () => true,
+    onResultWillClose,
   });
+  expect(mockParse).toHaveBeenLastCalledWith(
+    nextResult.raw,
+    expect.anything(),
+    expect.objectContaining({ onResultWillClose }),
+  );
   await expect(scanning).resolves.toEqual(nextResult);
 });
 

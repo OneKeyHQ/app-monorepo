@@ -62,6 +62,7 @@ export default function useScanQrCodeLazy() {
                 popNavigation,
                 canApplyScanResult,
                 isScanOpen,
+                onResultWillClose,
               }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
@@ -84,6 +85,7 @@ export default function useScanQrCodeLazy() {
                         intl,
                         scanRequestId,
                         canApplyScanResult,
+                        onResultWillClose,
                       },
                     );
                   } catch (error) {

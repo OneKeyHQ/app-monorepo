@@ -1,6 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFocusEffect, useRoute } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -232,8 +236,10 @@ function ScanQrCodeModalFooter({
 export default function ScanQrCodeModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
   const scannerRef = useRef<IScanCameraRef>(null);
   const scanScope = useRef<AbortController | null>(null);
+  const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
@@ -254,9 +260,35 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
+  const isScanOpen = useCallback(
+    () => hasRouteKey(rootNavigationRef.current?.getRootState(), route.key),
+    [route.key],
+  );
+  const onResultWillClose = useCallback(() => {
+    exitReason.current = 'result';
+  }, []);
+  const cancelScan = useCallback(() => {
+    if (exitReason.current) return;
+    exitReason.current = 'cancelled';
+    scanScope.current?.abort();
+    void routeCallback({
+      value: '',
+      popNavigation: false,
+    });
+  }, [routeCallback]);
+
+  useEffect(() => {
+    const unsubscribe = reactNavigation.addListener('beforeRemove', cancelScan);
+    return () => {
+      unsubscribe();
+      if (!isScanOpen()) cancelScan();
+    };
+  }, [cancelScan, isScanOpen, reactNavigation]);
+
   const callback = useCallback(
     async (value: string, signal = scanScope.current?.signal) => {
       const canApplyScanResult = () =>
+        !exitReason.current &&
         signal?.aborted === false &&
         rootNavigationRef.current?.getCurrentRoute()?.key === route.key;
       if (value && !canApplyScanResult()) {
@@ -275,19 +307,19 @@ export default function ScanQrCodeModal() {
         value,
         popNavigation: true,
         canApplyScanResult,
-        isScanOpen: () =>
-          hasRouteKey(rootNavigationRef.current?.getRootState(), route.key),
+        isScanOpen,
+        onResultWillClose,
       });
     },
-    [route.key, routeCallback],
+    [isScanOpen, onResultWillClose, route.key, routeCallback],
   );
 
   const closeScanner = useCallback(() => {
-    scanScope.current?.abort();
+    if (exitReason.current === 'cancelled' || !isScanOpen()) return;
     scannerRef.current?.dispose();
-    void callback('');
+    cancelScan();
     navigation.popStack();
-  }, [callback, navigation]);
+  }, [cancelScan, isScanOpen, navigation]);
 
   const isPickingImage = useRef(false);
 
@@ -324,7 +356,9 @@ export default function ScanQrCodeModal() {
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      if (value && isPickingImage.current) {
+      // Camera teardown is independent of the result and modal lifecycle.
+      if (!value) return {};
+      if (isPickingImage.current) {
         return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);

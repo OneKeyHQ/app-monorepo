@@ -135,6 +135,28 @@ it('keeps a late parse failure scoped to the scanner that produced it', async ()
   });
 });
 
+it('marks result-driven navigation before removing the scanner', async () => {
+  const result = {
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: { address: 'invoice' },
+    raw: 'invoice',
+  };
+  mockParse.mockResolvedValueOnce(result);
+  const onResultWillClose = jest.fn();
+  mockResetScanModalRoute.mockImplementationOnce(() => {
+    expect(onResultWillClose).toHaveBeenCalledTimes(1);
+  });
+
+  await expect(
+    parseQRCodeWithDeps(
+      'invoice',
+      { popNavigation: true, autoExecuteParsedAction: false },
+      { ...deps, onResultWillClose },
+    ),
+  ).resolves.toBe(result);
+  expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
+});
+
 it('discards a payment code that finishes parsing after its scanner closes', async () => {
   const controller = new AbortController();
   let completeParse: (result: unknown) => void = () => {};

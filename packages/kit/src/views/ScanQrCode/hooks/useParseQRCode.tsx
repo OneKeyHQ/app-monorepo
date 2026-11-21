@@ -69,6 +69,7 @@ export type IParseQRCodeRuntimeDeps = {
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
   canApplyScanResult?: () => boolean;
+  onResultWillClose?: () => void;
 };
 
 export async function parseQRCodeWithDeps(
@@ -80,6 +81,7 @@ export async function parseQRCodeWithDeps(
     intl,
     scanRequestId,
     canApplyScanResult,
+    onResultWillClose,
   }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
@@ -117,6 +119,7 @@ export async function parseQRCodeWithDeps(
   const closeScanPage = async () => {
     ensureScanIsActive();
     if (popNavigation) {
+      onResultWillClose?.();
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
         // FullScreenPush, etc.) via CommonActions.reset instead of
@@ -188,6 +191,7 @@ export async function parseQRCodeWithDeps(
     case EQRCodeHandlerType.URL_ACCOUNT: {
       const urlAccountData = result.data as IUrlAccountValue;
       if (popNavigation) {
+        onResultWillClose?.();
         // pushUrlAccountPage uses navigateFromOverlayToTab() which
         // atomically removes all overlay routes (scan modal +
         // ActionCenter) via reset, then switches tab and pushes
@@ -210,6 +214,7 @@ export async function parseQRCodeWithDeps(
         const { coinGeckoId } = result.data as IMarketDetailValue;
         if (coinGeckoId) {
           if (popNavigation) {
+            onResultWillClose?.();
             void marketNavigation.pushDetailPageFromOverlay(navigation, {
               coinGeckoId,
             });
@@ -488,13 +493,16 @@ const useParseQRCode = () => {
     (
       value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
       params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-      canApplyScanResult?: () => boolean,
+      lifecycle?: Pick<
+        IParseQRCodeRuntimeDeps,
+        'canApplyScanResult' | 'onResultWillClose'
+      >,
     ) =>
       parseQRCodeWithDeps(value, params, {
         navigation,
         clipboard,
         intl,
-        canApplyScanResult,
+        ...lifecycle,
       }),
     [navigation, clipboard, intl],
   );

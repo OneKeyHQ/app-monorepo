@@ -13,16 +13,28 @@ import ScanQrCodeModal from './ScanQrCodeModal';
 const mockCloseOrder: string[] = [];
 const mockRouteCallback = jest.fn(
   async (_params: {
+    value: string;
     canApplyScanResult: () => boolean;
     isScanOpen: () => boolean;
+    onResultWillClose?: () => void;
   }) => ({}),
 );
 let mockCurrentRouteKey = 'scan-route';
 let mockScanRouteInStack = true;
+let mockBeforeRemove: (() => void) | undefined;
+const mockNavigation = {
+  addListener: (_event: string, listener: () => void) => {
+    mockBeforeRemove = listener;
+    return () => {
+      mockBeforeRemove = undefined;
+    };
+  },
+};
 
 jest.mock('@react-navigation/core', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    useNavigation: () => mockNavigation,
     useFocusEffect: (effect: () => () => void) => {
       React.useEffect(effect, [effect]);
     },
@@ -154,14 +166,24 @@ jest.mock('../components', () => {
         }: { handleBarCodeScanned: (value: string) => void },
         ref,
       ) => {
+        const hasFrame = React.useRef(false);
         React.useImperativeHandle(ref, () => ({
           dispose: () => mockCloseOrder.push('dispose'),
         }));
+        React.useEffect(
+          () => () => {
+            if (!hasFrame.current) handleBarCodeScanned('');
+          },
+          [handleBarCodeScanned],
+        );
         return (
           <button
             type="button"
             aria-label="Scan frame"
-            onClick={() => handleBarCodeScanned('lightning:example')}
+            onClick={() => {
+              hasFrame.current = true;
+              handleBarCodeScanned('lightning:example');
+            }}
           />
         );
       },
@@ -175,6 +197,7 @@ beforeEach(() => {
   mockRouteCallback.mockClear();
   mockCurrentRouteKey = 'scan-route';
   mockScanRouteInStack = true;
+  mockBeforeRemove = undefined;
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -247,4 +270,53 @@ test('resumes the camera and cancels on close after a photo result is discarded'
   expect(mockRouteCallback).toHaveBeenCalledWith(
     expect.objectContaining({ value: '' }),
   );
+});
+
+test('a successful photo keeps its result when the camera unmounts during navigation', async () => {
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'test://photo',
+  });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
+  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
+  let finishClosing: () => void = () => {};
+  let startClosing: () => void = () => {};
+  const closing = new Promise<void>((resolve) => {
+    startClosing = resolve;
+  });
+  mockRouteCallback.mockImplementationOnce(async ({ onResultWillClose }) => {
+    onResultWillClose?.();
+    startClosing();
+    await new Promise<void>((resolve) => {
+      finishClosing = resolve;
+    });
+    return {};
+  });
+  const { unmount } = render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+
+  await closing;
+  mockBeforeRemove?.();
+  mockScanRouteInStack = false;
+  unmount();
+  finishClosing();
+
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'invoice from photo',
+  ]);
+});
+
+test('Android Back cancels a scan after the camera delivered a frame', async () => {
+  const { unmount } = render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+
+  mockBeforeRemove?.();
+  mockScanRouteInStack = false;
+  unmount();
+
+  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
+    'lightning:example',
+    '',
+  ]);
 });
