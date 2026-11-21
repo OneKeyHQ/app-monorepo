@@ -464,7 +464,7 @@ it('does not wait for late Desktop Cloud authorization or repeat the local commi
 });
 
 it.each([false, true])(
-  'normal raw fill cancels a pending snapshot after actual local deletion (batch=%s)',
+  'local delete cancels exact plaintext before a late fill even when key locking times out (batch=%s)',
   async (batch) => {
     const waiting = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
@@ -487,7 +487,7 @@ it.each([false, true])(
       expect(
         await h.other.getAccountSafe({ accountId: h.account.id }),
       ).toBeFalsy();
-      expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
+      expect(await h.other.getSyncItemSafe({ id: h.old.id })).toBeFalsy();
       expect(h.readCredential).not.toHaveBeenCalled();
 
       await h.other.addAndUpdateSyncItems({
@@ -669,7 +669,19 @@ it('preserves plaintext with no real local wallet or a conflicting local account
 
 it('rolls back sync-side cancellation on a later pool transaction failure', async () => {
   const h = await fixture({ unsent: true, rejectPreflight: true });
-  await h.remove();
+  const remove = h.db.txRemoveRecords.bind(h.db);
+  const removal = jest
+    .spyOn(h.db, 'txRemoveRecords')
+    .mockImplementation(async (params) => {
+      await remove(params);
+      if (params.name === ELocalDBStoreNames.CloudSyncItem)
+        throw new OneKeyLocalError('Synthetic optional pool failure');
+    });
+  try {
+    await h.remove();
+  } finally {
+    removal.mockRestore();
+  }
   await expect(
     h.other.addAndUpdateSyncItems({
       items: [await h.buildFill()],
@@ -712,4 +724,105 @@ it('preserves a remote tombstone proof added while an older plaintext tombstone 
     ...h.old,
     remoteHardwareAccountTombstoneProof: proof,
   });
+});
+
+it.each(['same-identity-peer', 'newer-plaintext', 'cipher-first'] as const)(
+  'does not remove uncertain or still-used pool rows after local deletion: %s',
+  async (scenario) => {
+    const h = await fixture({ unsent: true, rejectPreflight: true });
+    let retained = h.old;
+    if (scenario === 'same-identity-peer') {
+      const duplicateWallet = { ...h.wallet, id: 'hd-201', walletNo: 201 };
+      const duplicateAccount = publicAccountSnapshotToAccount(
+        h.snapshot,
+        duplicateWallet.id,
+      );
+      duplicateWallet.accounts = [duplicateAccount.id];
+      const indexedAccountId = duplicateAccount.indexedAccountId;
+      if (!indexedAccountId) throw new OneKeyLocalError('Missing peer index');
+      await h.db.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await h.db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [duplicateWallet],
+          });
+          await h.db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            records: [
+              {
+                id: indexedAccountId,
+                index: 0,
+                idHash: 'duplicate-peer-index',
+                walletId: duplicateWallet.id,
+                name: duplicateAccount.name,
+              },
+            ],
+          });
+          await h.db.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Account,
+            records: [duplicateAccount],
+          });
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+      const peerRecord = {
+        name: ELocalDBStoreNames.Account,
+        id: duplicateAccount.id,
+      } as const;
+      expect(duplicateAccount.id).not.toBe(h.account.id);
+      expect(await h.other.getRecordById(peerRecord)).toMatchObject({
+        id: duplicateAccount.id,
+      });
+      await h.remove();
+      expect(await h.other.getRecordById(peerRecord)).toMatchObject({
+        id: duplicateAccount.id,
+      });
+    } else {
+      retained =
+        scenario === 'cipher-first'
+          ? await h.buildFill()
+          : { ...h.old, dataTime: Date.now() + 60_000 };
+      await h.other.addAndUpdateSyncItems({
+        items: [retained],
+        skipUploadToServer: true,
+      });
+      await h.remove();
+    }
+    expect(
+      await h.other.getAccountSafe({ accountId: h.account.id }),
+    ).toBeFalsy();
+    expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(retained);
+    expect(h.syncLater).not.toHaveBeenCalled();
+  },
+);
+
+it('rolls back an actual plaintext cancellation if the primary Account write fails', async () => {
+  const h = await fixture({ unsent: true, rejectPreflight: true });
+  const remove = h.db.txRemoveRecords.bind(h.db);
+  const primaryFailure = new OneKeyLocalError(
+    'Synthetic business Account write failure',
+  );
+  let removedPoolRow = false;
+  const removal = jest
+    .spyOn(h.db, 'txRemoveRecords')
+    .mockImplementation(async (params) => {
+      await remove(params);
+      if (params.name === ELocalDBStoreNames.CloudSyncItem)
+        removedPoolRow = true;
+      if (params.name === ELocalDBStoreNames.Account) throw primaryFailure;
+    });
+  try {
+    await expect(h.remove()).rejects.toBe(primaryFailure);
+  } finally {
+    removal.mockRestore();
+  }
+  expect(removedPoolRow).toBe(true);
+  expect(
+    await h.other.getAccountSafe({ accountId: h.account.id }),
+  ).toMatchObject({ id: h.account.id });
+  expect(await h.other.getSyncItem({ id: h.old.id })).toEqual(h.old);
 });

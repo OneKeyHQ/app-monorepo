@@ -45,6 +45,7 @@ import {
   sha256Sync,
   shouldUpgradeSecretEncryptPayload,
 } from '@onekeyhq/core/src/secret';
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import type {
   ICoreHyperLiquidAgentCredential,
   ICoreImportedCredential,
@@ -134,7 +135,9 @@ import {
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import systemTimeUtils, {
+  ELocalSystemTimeStatus,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -155,6 +158,7 @@ import type {
   ICloudSyncTargetIndexedAccount,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -176,6 +180,7 @@ import {
   buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
   getPublicAccountSnapshotIdentityHash,
+  normalizePublicAccountSnapshotRecord,
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
@@ -1035,6 +1040,9 @@ const WALLET_METADATA_CLOUD_WRITE_DECLINED = new Error(
 const CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS = 1000;
 
 // Distinguish a declined optional Cloud write from a real local DB failure.
+const OFFLINE_ACCOUNT_CANCELLATION_DECLINED = new Error(
+  'Optional offline Account cancellation declined',
+);
 const CLOUD_ACCOUNT_DELETE_WRITE_DECLINED = new Error(
   'Cloud account deletion write declined',
 );
@@ -5625,24 +5633,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  private async txCheckOfflinePublicAccountSnapshotFill({
-    tx,
-    item,
-    current,
-    wallets,
-  }: {
-    tx: ILocalDBTransaction;
-    item: IDBCloudSyncItem;
-    current: IDBCloudSyncItem | undefined;
-    wallets: IDBWallet[];
-  }) {
-    const fill = getOfflinePublicAccountSnapshotFill(item);
-    if (!fill) return;
-    if (!isEqual(current, fill.previous)) {
-      rejectPublicAccountSnapshotWrite(item);
-      return;
-    }
-    const { snapshot } = fill;
+  private getPublicAccountSnapshotAccountProjections(
+    snapshot: ICloudPublicAccountSnapshot,
+    wallets: IDBWallet[],
+  ) {
     const hardware = snapshot.wallet.kind === 'hardware';
     const candidates = wallets.filter((wallet) => {
       if (wallet.isMocked || wallet.isTemp) return false;
@@ -5664,11 +5658,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return false;
       }
     });
-    const projections = new Map(
+    return new Map(
       candidates.map((wallet) => {
         const expected = publicAccountSnapshotToAccount(snapshot, wallet.id);
         return [expected.id, { wallet, expected }] as const;
       }),
+    );
+  }
+
+  private async txCheckOfflinePublicAccountSnapshotFill({
+    tx,
+    item,
+    current,
+    wallets,
+  }: {
+    tx: ILocalDBTransaction;
+    item: IDBCloudSyncItem;
+    current: IDBCloudSyncItem | undefined;
+    wallets: IDBWallet[];
+  }) {
+    const fill = getOfflinePublicAccountSnapshotFill(item);
+    if (!fill) return;
+    if (!isEqual(current, fill.previous)) {
+      rejectPublicAccountSnapshotWrite(item);
+      return;
+    }
+    const { snapshot } = fill;
+    const projections = this.getPublicAccountSnapshotAccountProjections(
+      snapshot,
+      wallets,
     );
     if (!projections.size) {
       rejectPublicAccountSnapshotWrite(item);
@@ -11730,12 +11748,191 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     { leading: false, trailing: true, maxWait: 5000 },
   );
 
+  private getOfflineAccountRemovalTime() {
+    if (
+      !systemTimeUtils.hasFreshServerTimeInCurrentProcess() &&
+      systemTimeUtils.systemTimeStatus !== ELocalSystemTimeStatus.INVALID
+    )
+      return Date.now();
+    return systemTimeUtils.getCorrectedCloudSyncNow().time;
+  }
+
+  private async txCancelUnboundPublicAccounts({
+    tx,
+    ids,
+    requestedAt,
+  }: {
+    tx: ILocalDBTransaction;
+    ids: string[];
+    requestedAt: number;
+  }) {
+    const { records: accounts } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Account,
+      ids,
+    });
+    const walletIds = [
+      ...new Set(
+        accounts.flatMap((account) =>
+          account
+            ? [accountUtils.getWalletIdFromAccountId({ accountId: account.id })]
+            : [],
+        ),
+      ),
+    ];
+    if (!walletIds.length) return;
+    const { records: wallets } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+      ids: walletIds,
+    });
+    const byWalletId = new Map(
+      wallets.filter(Boolean).map((wallet) => [wallet.id, wallet]),
+    );
+    const plans = new Map<
+      string,
+      {
+        rawKey: string;
+        snapshot: ICloudPublicAccountSnapshot;
+      }
+    >();
+    for (const account of accounts) {
+      // eslint-disable-next-line no-continue
+      if (!account) continue;
+      const wallet = byWalletId.get(
+        accountUtils.getWalletIdFromAccountId({ accountId: account.id }),
+      );
+      if (
+        !wallet ||
+        wallet.isMocked ||
+        wallet.isTemp ||
+        accountUtils.isBotWallet({ walletId: wallet.id })
+      )
+        // eslint-disable-next-line no-continue
+        continue;
+      if (accountUtils.isHwWallet({ walletId: wallet.id })) {
+        // eslint-disable-next-line no-continue
+        if (!wallet.associatedDevice) continue;
+        const {
+          records: [device],
+        } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [wallet.associatedDevice],
+        });
+        if (
+          !device ||
+          (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
+            EHardwareVendor.onekey) !== EHardwareVendor.onekey
+        )
+          // eslint-disable-next-line no-continue
+          continue;
+      }
+      try {
+        const snapshot = buildPublicAccountSnapshot({
+          wallet,
+          account: {
+            ...account,
+            createAtNetwork: account.createAtNetwork ?? undefined,
+            relPath: account.relPath ?? undefined,
+          },
+        });
+        // eslint-disable-next-line no-continue
+        if (!snapshot) continue;
+        const rawKey = `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(snapshot)}`;
+        plans.set(sha512ProSync({ data: rawKey }), { snapshot, rawKey });
+      } catch {
+        // Unsupported or ambiguous local Account identities remain untouched.
+      }
+    }
+    if (!plans.size) return;
+    const { records: pool } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: [...plans.keys()],
+    });
+    const exactRows = pool.filter((row): row is IDBCloudSyncItem => {
+      if (
+        !row ||
+        row.dataType !== EPrimeCloudSyncDataType.Account ||
+        row.pwdHash !== '' ||
+        (row.data !== undefined && row.data !== '') ||
+        !row.rawData ||
+        row.serverUploaded !== false ||
+        row.localSceneUpdated !== true ||
+        row.isDeleted !== false ||
+        row.pendingPublicAccountDeletionAt !== undefined ||
+        row.pendingPublicAccountDeletionHash !== undefined ||
+        row.remoteHardwareAccountTombstoneProof !== undefined ||
+        row.dataTime === undefined ||
+        !Number.isSafeInteger(row.dataTime) ||
+        row.dataTime <= 0 ||
+        row.dataTime > requestedAt
+      )
+        return false;
+      const plan = plans.get(row.id);
+      if (!plan || row.rawKey !== plan.rawKey) return false;
+      try {
+        const existing = normalizePublicAccountSnapshotRecord(
+          JSON.parse(row.rawData),
+        );
+        return (
+          existing.rawKey === plan.rawKey &&
+          getPublicAccountSnapshotIdentityHash(existing.snapshot) ===
+            getPublicAccountSnapshotIdentityHash(plan.snapshot)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (!exactRows.length) return;
+    const { records: allWallets } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const localWallets = allWallets.filter(Boolean);
+    const removing = new Set(ids);
+    const cancellations: string[] = [];
+    for (const row of exactRows) {
+      const plan = plans.get(row.id);
+      // eslint-disable-next-line no-continue
+      if (!plan) continue;
+      const peers = [
+        ...this.getPublicAccountSnapshotAccountProjections(
+          plan.snapshot,
+          localWallets,
+        ).keys(),
+      ].filter((id) => !removing.has(id));
+      if (peers.length) {
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: peers,
+        });
+        // Even a conflicting peer is not evidence the shared row is obsolete.
+        // eslint-disable-next-line no-continue
+        if (records.some(Boolean)) continue;
+      }
+      cancellations.push(row.id);
+    }
+    if (cancellations.length)
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: cancellations,
+      });
+  }
+
   private async withPublicAccountDeletionTransaction(
     items: IDBCloudSyncItem[],
     task: (tx: ILocalDBTransaction) => Promise<void>,
+    offlineCancellation?: { ids: string[]; requestedAt: number },
   ): Promise<boolean> {
     const declined = new Set<string>();
-    const run = (candidates: IDBCloudSyncItem[]) =>
+    const runTransaction = (
+      candidates: IDBCloudSyncItem[],
+      cancelOffline: boolean,
+    ) =>
       this.withSpaceFreeingTransaction(
         EIndexedDBBucketNames.account,
         async (tx) => {
@@ -11744,10 +11941,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             items: candidates,
             declined,
           });
+          if (cancelOffline && offlineCancellation) {
+            try {
+              await this.txCancelUnboundPublicAccounts({
+                tx,
+                ...offlineCancellation,
+              });
+            } catch {
+              throw OFFLINE_ACCOUNT_CANCELLATION_DECLINED;
+            }
+          }
           await task(tx);
         },
-        { skipCloudCredentialWarmup: true },
+        {
+          skipCloudCredentialWarmup: true,
+          confirmRollbackOnError: cancelOffline,
+        },
       );
+    const run = async (candidates: IDBCloudSyncItem[]) => {
+      try {
+        await runTransaction(
+          candidates,
+          candidates.length === 0 && !!offlineCancellation?.ids.length,
+        );
+      } catch (error) {
+        if (error !== OFFLINE_ACCOUNT_CANCELLATION_DECLINED) throw error;
+        // The adapter confirmed rollback; the local mutation has not run.
+        await runTransaction([], false);
+      }
+    };
     const attempt = async (candidates: IDBCloudSyncItem[]) => {
       const foreign = candidates.flatMap((item) => {
         const intent = getForeignAccountDeletion(item);
@@ -12065,8 +12287,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccountsByIds(
     params: Parameters<LocalDbBase['removeAccountsByIdsWithCloudKeyLock']>[0],
   ) {
+    const requestedAt = this.getOfflineAccountRemovalTime();
     return this.runLocalAccountRemoval((prepareCloud) =>
-      this.removeAccountsByIdsWithCloudKeyLock(params, prepareCloud),
+      this.removeAccountsByIdsWithCloudKeyLock(
+        params,
+        prepareCloud,
+        requestedAt,
+      ),
     );
   }
 
@@ -12077,6 +12304,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ids: string[];
     },
     prepareCloud: boolean,
+    requestedAt: number,
   ) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
@@ -12131,6 +12359,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       },
+      { ids: accountIdsToRemove, requestedAt },
     );
     if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();
@@ -12146,8 +12375,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeAccount(
     params: Parameters<LocalDbBase['removeAccountWithCloudKeyLock']>[0],
   ) {
+    const requestedAt = this.getOfflineAccountRemovalTime();
     return this.runLocalAccountRemoval((prepareCloud) =>
-      this.removeAccountWithCloudKeyLock(params, prepareCloud),
+      this.removeAccountWithCloudKeyLock(params, prepareCloud, requestedAt),
     );
   }
 
@@ -12160,6 +12390,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: string;
     },
     prepareCloud: boolean,
+    requestedAt: number,
   ): Promise<void> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const account = prepareCloud
@@ -12219,6 +12450,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       },
+      isPublicAccountWallet ? { ids: [accountId], requestedAt } : undefined,
     );
 
     if (wroteCloud) {
