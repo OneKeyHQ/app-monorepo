@@ -108,10 +108,13 @@ const LNURL_SCHEME_WITH_LINE_BREAKS =
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(\d+)\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
+// A compact label such as Order:AB34 can be part of a URL query value.
 const LNURL_TAB_ORDER_LABEL =
-  /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] *)(?=\S)/iy;
+  /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] +)(?=\S)/iy;
 const LNURL_WRAPPER_BOUNDARY = /[\s.,!?，。！？;；:：)>"']/u;
-const LNURL_CLOSER_END = /[)>"'.,!?，。！？;；:：—]*(?=\s|$)/uy;
+// An em dash can end a wrapper when it introduces prose on the same line.
+const LNURL_CLOSER_END =
+  /[)>"'.,!?，。！？;；:：]*(?:—(?=[^\S\r\n\u2028\u2029]+\S))?(?=\s|$)/uy;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
   '"': '"',
