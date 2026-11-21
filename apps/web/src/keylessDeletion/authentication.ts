@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { createAuthFetch } from './authTransport';
+import { OAuthCancelledError } from './oauthCancelledError';
 
 import type { IAuthProject } from './authTransport';
 import type { IProvider } from './protocol';
@@ -27,16 +28,17 @@ async function createEphemeralAuth(project: IAuthProject, signal: AbortSignal) {
 function waitForAuthorizationCode(
   popup: Window,
   callback: URL,
+  provider: IProvider,
   signal: AbortSignal,
+  callbackMarker: string,
 ) {
   const expectedState = callback.searchParams.get('onekey_oauth_state');
   let cleanup: (() => void) | undefined;
   const authorization = new Promise<string>((resolve, reject) => {
-    const abort = () =>
-      reject(new DOMException('OAuth callback was unavailable.', 'AbortError'));
+    const abort = () => reject(signal.reason);
     const interval = globalThis.setInterval(() => {
       if (popup.closed) {
-        abort();
+        reject(new OAuthCancelledError());
         return;
       }
       let current: URL;
@@ -51,16 +53,36 @@ function waitForAuthorizationCode(
       ) {
         const code = current.searchParams.get('code');
         if (
-          !code ||
-          current.searchParams.get('onekey_oauth_state') !== expectedState
+          current.searchParams.get('onekey_oauth_state') !== expectedState ||
+          current.searchParams.get(callbackMarker) !== '1'
         ) {
-          abort();
+          reject(
+            new DOMException('OAuth callback was invalid.', 'OperationError'),
+          );
+          return;
+        }
+        const error = current.searchParams.get('error');
+        if (
+          provider === 'apple' &&
+          !current.searchParams.has('code') &&
+          error === 'user_cancelled_authorize' &&
+          !current.searchParams.has('error_code')
+        ) {
+          reject(new OAuthCancelledError());
+          return;
+        }
+        if (!code || error || current.searchParams.has('error_code')) {
+          reject(
+            new DOMException('OAuth callback was invalid.', 'OperationError'),
+          );
           return;
         }
         resolve(code);
       }
     }, 200);
-    const timeout = globalThis.setTimeout(abort, POPUP_TIMEOUT_MS);
+    const timeout = globalThis.setTimeout(() => {
+      reject(new DOMException('OAuth callback timed out.', 'TimeoutError'));
+    }, POPUP_TIMEOUT_MS);
     cleanup = () => {
       globalThis.clearInterval(interval);
       globalThis.clearTimeout(timeout);
@@ -111,8 +133,15 @@ export async function exchangeOAuthAccessToken(
   ) {
     return undefined;
   }
+  if (popup.closed) throw new OAuthCancelledError();
   popup.location.href = destination.href;
-  const code = await waitForAuthorizationCode(popup, callback, signal);
+  const code = await waitForAuthorizationCode(
+    popup,
+    callback,
+    provider,
+    signal,
+    callbackMarker,
+  );
   const result = await auth.exchangeCodeForSession(code);
   signal.throwIfAborted();
   return result.error ? undefined : result.data.session?.access_token;

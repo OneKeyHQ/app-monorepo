@@ -85,7 +85,7 @@ async function main() {
       const cors = {
         'access-control-allow-origin': appOrigin,
         'access-control-allow-headers':
-          'content-type,idempotency-key,apikey,authorization,x-client-info,x-supabase-api-version,x-onekey-keyless-result',
+          'content-type,idempotency-key,apikey,authorization,x-client-info,x-supabase-api-version,x-onekey-keyless-result,x-onekey-request-locale',
         'access-control-allow-methods': 'POST,OPTIONS',
         'access-control-expose-headers': 'Retry-After',
       };
@@ -185,6 +185,9 @@ async function main() {
           assert.equal(headers.origin, appOrigin);
           assert.equal(headers.cookie, undefined);
           assert.equal(headers.authorization, undefined);
+          assert.equal(headers['x-onekey-instance-id'], undefined);
+          const requestLocale = headers['x-onekey-request-locale'];
+          assert.match(requestLocale ?? '', /^[a-z]{2,3}(-[a-z0-9]+)*$/);
           if (endpoint === '/link-info') {
             const hardening = await page.evaluate(
               () => globalThis.__ONEKEY_SES_HARDEN_STATE__,
@@ -212,7 +215,7 @@ async function main() {
             });
           }
           if (endpoint !== '/delete') assert.equal(key, undefined);
-          calls.push({ endpoint, key });
+          calls.push({ endpoint, key, requestLocale });
           const custom = await reply?.(endpoint, calls, (next) => {
             currentVersion = next;
           });
@@ -321,6 +324,10 @@ async function main() {
           step,
           verify,
           calls: () => calls.map((call) => call.endpoint),
+          primeLocales: () =>
+            calls
+              .filter((call) => call.requestLocale)
+              .map((call) => call.requestLocale),
           deleteKeys: () =>
             calls
               .filter((call) => call.endpoint === '/delete')
@@ -374,7 +381,7 @@ async function main() {
     );
     for (const mode of ['reject', 'hang']) {
       await scenario(
-        `invitation loading continues when wallet IndexedDB reads ${mode}`,
+        `the current visit can switch language when wallet IndexedDB reads ${mode}`,
         {
           appOrigin: local,
           linkOnly: true,
@@ -390,9 +397,30 @@ async function main() {
               };
             }, mode),
         },
-        async ({ step, calls }) => {
+        async ({ page, id, step, calls, primeLocales }) => {
           await step('identity');
+          const invitationUrl = page.url();
+          const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+          await id('keyless-language-button').click();
+          await id('select-item-ja-JP').click();
+          await page.waitForFunction(
+            () => document.documentElement.lang === 'ja-JP',
+          );
+          await id('keyless-language-persistence-warning').waitFor();
+          await id('keyless-language-button').click();
+          await id('select-item-en').click();
+          await page.waitForFunction(
+            () => document.documentElement.lang === 'en',
+          );
           assert.deepEqual(calls(), ['/link-info']);
+          assert.equal(page.url(), invitationUrl);
+          assert.equal(
+            await page.evaluate(() => performance.timeOrigin),
+            timeOrigin,
+          );
+          await id('sign-in-google').click();
+          await step('confirm');
+          assert.equal(primeLocales().at(-1), 'en');
         },
       );
     }
@@ -940,10 +968,15 @@ async function main() {
             };
           }),
       },
-      async ({ page, id, verify, calls }) => {
+      async ({ page, id, verify, calls, primeLocales }) => {
         await verify();
         const initialUrl = page.url();
         const beforeSwitch = calls();
+        const beforeLocales = primeLocales();
+        assert.deepEqual(beforeLocales, ['zh-cn', 'zh-cn', 'zh-cn']);
+        const beforeNavigation = await page.evaluate(
+          () => performance.timeOrigin,
+        );
         const assertFits = () =>
           page.evaluate(() =>
             Array.from(
@@ -1003,14 +1036,16 @@ async function main() {
         assert.equal(page.url(), initialUrl);
         assert.deepEqual(calls(), beforeSwitch);
         assert.equal(await page.locator('html').getAttribute('lang'), 'ja-JP');
+        await page.waitForFunction(() => globalThis.walletSettingsWrites === 1);
         assert.equal(
-          await page.evaluate(() => globalThis.walletSettingsWrites),
-          0,
+          await page.evaluate(() => performance.timeOrigin),
+          beforeNavigation,
         );
         await id('submit-deletion').click();
         await page
           .getByRole('heading', { name: jaJP.keyless_deletion_complete__title })
           .waitFor();
+        assert.deepEqual(primeLocales(), [...beforeLocales, 'ja-jp', 'ja-jp']);
         await id('keyless-language-button').click();
         await id('select-item-en').click();
         await page.waitForFunction(
@@ -1038,7 +1073,7 @@ async function main() {
           await id('app-open-invitation').waitFor();
         }
         assert.deepEqual(calls(), [...beforeSwitch, '/delete', '/result']);
-        assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
+        assert.equal(await page.locator('html').getAttribute('lang'), 'en');
       },
     );
     await scenario(
