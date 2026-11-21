@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Dialog } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   resolveDeviceState,
@@ -55,6 +56,9 @@ function DeviceSectionSupport({
 
   const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
     useFirmwareVerifyDialog();
+  // The interrupted-check dialog retries through the ref so the callback
+  // below never references itself in its own initializer.
+  const authRequestRef = useRef<() => Promise<void>>(async () => {});
   const onPressAuthRequest = useCallback(async () => {
     const deviceData = await actions.getWalletWithDevice();
     if (!deviceData?.device) {
@@ -67,8 +71,32 @@ function DeviceSectionSupport({
         console.log(checked);
       },
       onClose: async () => {},
+      onDeviceCancel: () => {
+        // Match the connect flow's interrupted-check prompt: the check
+        // stopped with no verdict, offer a way back in.
+        Dialog.show({
+          icon: 'ErrorOutline',
+          tone: 'warning',
+          title: intl.formatMessage({
+            id: ETranslations.device_auth_request_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.genuine_check_interrupt,
+          }),
+          onConfirmText: intl.formatMessage({ id: ETranslations.global_retry }),
+          onCancelText: intl.formatMessage({
+            id: ETranslations.global_cancel,
+          }),
+          onConfirm: () => {
+            void authRequestRef.current();
+          },
+        });
+      },
     });
-  }, [showFirmwareVerifyDialog, actions]);
+  }, [showFirmwareVerifyDialog, actions, intl]);
+  useEffect(() => {
+    authRequestRef.current = onPressAuthRequest;
+  }, [onPressAuthRequest]);
 
   const onPressTroubleshooting = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();
