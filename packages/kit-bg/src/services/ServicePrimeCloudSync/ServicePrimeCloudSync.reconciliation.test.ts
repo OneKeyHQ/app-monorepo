@@ -2,7 +2,9 @@ import { Semaphore } from 'async-mutex';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { cloneDeep } from 'lodash';
 
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
@@ -15,6 +17,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusResult,
+  ICloudSyncCredential,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
@@ -22,7 +25,11 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
-import { publicAccountSnapshotToAccount } from './publicAccountSnapshot';
+import keylessCloudSyncUtils from './keylessCloudSyncUtils';
+import {
+  getPublicAccountSnapshotId,
+  publicAccountSnapshotToAccount,
+} from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
@@ -163,7 +170,12 @@ jest.mock('./cloudSyncItemBuilder', () => ({
 
 jest.mock('./keylessCloudSyncUtils', () => ({
   __esModule: true,
-  default: { isKeylessPwdHash: () => false },
+  default: {
+    ...jest.requireActual<typeof import('./keylessCloudSyncUtils')>(
+      './keylessCloudSyncUtils',
+    ).default,
+    isKeylessPwdHash: () => false,
+  },
 }));
 
 function deferred<T>() {
@@ -1358,6 +1370,155 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     await jest.advanceTimersByTimeAsync(120_000);
     expect(h.check).toHaveBeenCalledTimes(1);
+  });
+
+  test('a legacy full check preserves a same-ID foreign Account and applies its independent sibling', async () => {
+    const builder = jest.requireActual<typeof import('./cloudSyncItemBuilder')>(
+      './cloudSyncItemBuilder',
+    ).default;
+    const keyless = jest.requireActual<
+      typeof import('./keylessCloudSyncUtils')
+    >('./keylessCloudSyncUtils').default;
+    jest
+      .spyOn(keylessCloudSyncUtils, 'isKeylessPwdHash')
+      .mockImplementation((pwdHash) => keyless.isKeylessPwdHash(pwdHash));
+
+    function credential(
+      generation: string,
+      keyByte: string,
+    ): ICloudSyncCredential {
+      const pwdHash = `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${generation}`;
+      return {
+        masterPasswordUUID: pwdHash,
+        primeAccountSalt: '',
+        securityPasswordR1: '',
+        keylessCredential: {
+          keylessWalletId: '-synthetic-hardware-only',
+          signingPrivateKey: '',
+          signingPublicKey: '',
+          pwdHash,
+          encryptionKey: keyByte.repeat(32),
+        },
+      };
+    }
+
+    const active = credential('active', '12');
+    const foreign = credential('retained', '34');
+    async function buildAccount(
+      index: number,
+      syncCredential: ICloudSyncCredential,
+      dataTime: number,
+    ) {
+      const snapshot = publicAccountTestSnapshot(index);
+      const accountId = getPublicAccountSnapshotId(snapshot);
+      const rawKey = `Account >> ${accountId}`;
+      const row = await builder.buildSyncItemFromRawDataJson({
+        key: sha512ProSync({ data: rawKey }),
+        rawDataJson: {
+          dataType: EPrimeCloudSyncDataType.Account,
+          rawKey,
+          payload: {
+            accountId,
+            name: snapshot.account.name,
+            publicAccountSnapshot: snapshot,
+          },
+        },
+        syncCredential,
+        dataTime,
+      });
+      const { rawDataJson } = await builder.decryptSyncItem({
+        item: { ...row, rawData: '' },
+        syncCredential,
+      });
+      expect(rawDataJson).toMatchObject({ rawKey });
+      if (!row.data)
+        throw new OneKeyLocalError('Expected encrypted Account fixture');
+      return { ...row, data: row.data };
+    }
+
+    const old = await buildAccount(0, foreign, Date.now() - 20);
+    const collided = await buildAccount(0, active, Date.now() - 10);
+    const sibling = await buildAccount(1, active, Date.now() - 5);
+    expect(collided.id).toBe(old.id);
+    expect(collided.data).not.toBe(old.data);
+    expect(sibling.id).not.toBe(old.id);
+    const preserved = {
+      ...old,
+      rawData: '',
+      serverUploaded: true,
+      localSceneUpdated: true,
+    };
+    const h = harness(0, { initialPool: new Map([[old.id, preserved]]) });
+    jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue(active);
+    h.readLocalCredential.mockResolvedValue(active);
+    const remote = [collided, sibling].map(
+      (row): ICloudSyncServerItem => ({
+        key: row.id,
+        data: row.data,
+        dataTimestamp: row.dataTime,
+        dataType: EPrimeCloudSyncDataType.Account,
+        isDeleted: false,
+        pwdHash: row.pwdHash,
+      }),
+    );
+    // The deployed response has no reconciliation envelope. The simulated
+    // server returns only the records absent from the client's exact summary.
+    h.check.mockImplementation(async ({ localItems = [] }) =>
+      reply({
+        reconciliation: undefined,
+        pwdHash: active.masterPasswordUUID,
+        diff: remote.filter(
+          (row) =>
+            !localItems.some(
+              (local) =>
+                local.id === row.key && local.dataTime === row.dataTimestamp,
+            ),
+        ),
+      }),
+    );
+    const upload = jest
+      .spyOn(h.service, '_callApiUploadItems')
+      .mockRejectedValue(
+        new OneKeyLocalError('Unexpected upload in download fixture'),
+      );
+
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.check.mock.calls[0][0].localItems).toEqual([]);
+    expect(h.pool.get(old.id)).toEqual(preserved);
+    expect(h.pool.get(sibling.id)).toMatchObject({
+      data: sibling.data,
+      pwdHash: sibling.pwdHash,
+    });
+    expect(
+      h.scene.mock.calls.flatMap(([params]) =>
+        params.items.map(({ id }) => id),
+      ),
+    ).toEqual([sibling.id]);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      requests: 1,
+      applied: 1,
+      uploaded: 0,
+    });
+
+    h.scene.mockClear();
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.check.mock.calls[1][0].localItems?.map(({ id }) => id)).toEqual([
+      sibling.id,
+    ]);
+    expect(h.pool.get(old.id)).toEqual(preserved);
+    expect(h.scene.mock.calls.flatMap(([params]) => params.items)).toEqual([]);
+    expect(upload).not.toHaveBeenCalled();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      requests: 1,
+      applied: 0,
+      uploaded: 0,
+    });
   });
 
   test('downloads the payload again when a local account item only has matching metadata', async () => {
