@@ -150,6 +150,9 @@ class SystemTimeUtils {
 
   private _lastServerTimeLocalBase: number | undefined;
 
+  // This source token and receipt are independent of business Date samples.
+  private _cloudActionTimeSource: { endpoint?: string } = {};
+
   private _cloudActionTimeAnchor:
     | {
         serverTime: number;
@@ -161,10 +164,16 @@ class SystemTimeUtils {
       }
     | undefined;
 
+  invalidateColdCloudActionTime() {
+    this._cloudActionTimeAnchor = undefined;
+    this._cloudActionTimeSource = {};
+  }
+
   // Cold actions can be projected only onto a verified sample received
   // during their own short preparation window, not persisted UTC estimates.
   captureColdCloudActionTime(fallback: number): (() => number) | undefined {
     if (this.hasFreshServerTimeInCurrentProcess()) return undefined;
+    const source = this._cloudActionTimeSource;
     const clock = globalThis.performance;
     // eslint-disable-next-line @typescript-eslint/unbound-method -- Compare identity only; never call this unbound reference.
     const clockNow = clock?.now;
@@ -179,6 +188,7 @@ class SystemTimeUtils {
       const now = getMonotonicTimeNow();
       if (
         !anchor ||
+        this._cloudActionTimeSource !== source ||
         globalThis.performance !== clock ||
         clock.now !== clockNow ||
         !Object.is(clock.timeOrigin, timeOrigin) ||
@@ -207,11 +217,13 @@ class SystemTimeUtils {
         !this.isTimeValid({ time: eventTime })
       )
         return fallback;
-      // Leave a raw click already accepted by the clock unchanged.
-      const correctedNow = this.getCorrectedCloudSyncNow();
-      return correctedNow.source === ECloudSyncDataTimeSource.Estimated &&
-        fallback > correctedNow.time
-        ? Math.min(eventTime, fallback)
+      // Compare against the same verified clock, not whichever business
+      // response last updated the ordinary estimate during this action.
+      const verifiedNow = Math.floor(
+        anchor.serverTime + (now - anchor.monotonicTime),
+      );
+      return this.isTimeValid({ time: verifiedNow }) && fallback > verifiedNow
+        ? eventTime
         : fallback;
     };
     return () => (resolved ??= resolve());
@@ -249,6 +261,7 @@ class SystemTimeUtils {
   }) {
     const timestamp = normalizeTimestamp(value);
     if (!this.isTimeValid({ time: timestamp })) {
+      this.invalidateColdCloudActionTime();
       this._lastServerTime = appBuildTime;
       this._serverTimeEstimateBase = undefined;
       this._lastServerTimePerfBase = undefined;
@@ -461,6 +474,9 @@ class SystemTimeUtils {
   }
 
   async refreshServerTime(): Promise<boolean> {
+    // A settings change can invalidate this request during endpoint lookup,
+    // before it has created a client or started the network transport.
+    const entryActionTimeSource = this._cloudActionTimeSource;
     const startedAt = Date.now();
     const monotonicStartedAt = getMonotonicTimeNow();
     let httpStatus: number | undefined;
@@ -510,6 +526,16 @@ class SystemTimeUtils {
       const endpoint = await getEndpointByServiceName(
         EServiceEndpointEnum.Wallet,
       );
+      let actionTimeSource: typeof entryActionTimeSource | undefined;
+      if (this._cloudActionTimeSource === entryActionTimeSource) {
+        if (entryActionTimeSource.endpoint === undefined) {
+          entryActionTimeSource.endpoint = endpoint;
+        } else if (entryActionTimeSource.endpoint !== endpoint) {
+          this._cloudActionTimeAnchor = undefined;
+          this._cloudActionTimeSource = { endpoint };
+        }
+        actionTimeSource = this._cloudActionTimeSource;
+      }
       const client = await appApiClient.getClient({
         endpoint,
         name: EServiceEndpointEnum.Wallet,
@@ -559,6 +585,7 @@ class SystemTimeUtils {
         return false;
       }
       const localTimestamp = Date.now();
+      const receiptMonotonic = getMonotonicTimeNow();
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -566,13 +593,14 @@ class SystemTimeUtils {
         requestId,
       });
 
-      const receiptMonotonic = this._lastServerTimePerfBase;
       const request = response.request as
         | { responseURL?: unknown; oneKeyVerifiedFinalUrl?: string }
         | undefined;
       const finalUrl = request?.responseURL ?? request?.oneKeyVerifiedFinalUrl;
       if (
         response.status === 200 &&
+        !!actionTimeSource &&
+        this._cloudActionTimeSource === actionTimeSource &&
         globalThis.performance === requestClock &&
         requestClock?.now === requestClockNow &&
         Object.is(requestClock?.timeOrigin, requestClockOrigin) &&
@@ -811,7 +839,6 @@ class SystemTimeUtils {
       return;
     }
 
-    this._cloudActionTimeAnchor = undefined;
     const localTimestamp = localTime ?? Date.now();
     if (
       !isNumber(localTimestamp) ||
