@@ -260,6 +260,8 @@ export type IDBSetWalletNameAndAvatarParams = {
   allowDesktopLocalMetadata?: boolean;
   passiveDeviceMetadata?: { dbDeviceId: string };
   cloudSyncSource?: IDBCloudSyncItem;
+  // The canonical name retained in manual rename history before scene replay.
+  expectedCloudSyncWalletName?: string;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;

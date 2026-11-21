@@ -1,5 +1,6 @@
 import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
@@ -7,6 +8,7 @@ import type {
   ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { withWalletNameHistoryDeadline } from '../../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
@@ -102,14 +104,61 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   }
 
   override async syncToSceneEachItem(params: {
+    isCurrent?: () => boolean;
     item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
   }): Promise<boolean> {
-    const { target, payload } = params;
+    const { target, payload, item, isCurrent } = params;
+    const walletId = target.wallet.id;
+    let expectedCloudSyncWalletName: string | undefined;
+    // The base flow has already authenticated and matched the Wallet payload.
+    // A queued local write does not gain server authority from a force replay.
+    if (
+      payload.name?.trim() &&
+      item?.data &&
+      item.serverUploaded &&
+      !item.isDeleted &&
+      !item.pendingPublicAccountDeletionAt
+    ) {
+      let cancelled = false;
+      try {
+        expectedCloudSyncWalletName = await withWalletNameHistoryDeadline(
+          (async () => {
+            const canonical = await this.backgroundApi.localDb.getWallet({
+              walletId,
+              withoutRefill: true,
+            });
+            if (cancelled || (isCurrent && !isCurrent())) return undefined;
+            if (
+              canonical.name.trim() &&
+              canonical.name !== payload.name &&
+              !(await this.backgroundApi.simpleDb.changeHistory.retainWalletName(
+                {
+                  walletId,
+                  name: canonical.name,
+                },
+              ))
+            )
+              return undefined;
+            return canonical.name;
+          })(),
+        );
+        if (expectedCloudSyncWalletName === undefined) return false;
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+        return false;
+      } finally {
+        cancelled = true;
+      }
+    }
+    if (isCurrent && !isCurrent()) return false;
     await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
-      walletId: target.wallet.id,
-      cloudSyncSource: params.item,
+      walletId,
+      cloudSyncSource: item,
+      ...(expectedCloudSyncWalletName === undefined
+        ? {}
+        : { expectedCloudSyncWalletName }),
       name: payload.name,
       avatar: payload.avatar,
       firstEvmAddress: payload.firstEvmAddress,

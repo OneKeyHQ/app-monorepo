@@ -9253,6 +9253,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         walletId,
         updater: (w) => {
+          if (
+            params.cloudSyncSource &&
+            params.expectedCloudSyncWalletName !== undefined &&
+            w.name !== params.expectedCloudSyncWalletName
+          )
+            throw new OneKeyLocalError({
+              message: 'Wallet name changed before the Cloud scene update',
+              autoToast: false,
+            });
           if (firstEvmAddress && !w.firstEvmAddress) {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;

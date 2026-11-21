@@ -400,3 +400,79 @@ it.each([
     }
   },
 );
+
+it.each(['name-changed', 'source-changed', 'same-version'] as const)(
+  'revalidates a retained Wallet name in the scene transaction (%s)',
+  async (scenario) => {
+    const db = new LocalDbIndexed();
+    const wallet: IDBWallet = {
+      id: `hd-retained-name-cas-${scenario}`,
+      name: scenario === 'name-changed' ? 'Later local name' : 'Retained name',
+      type: 'hd',
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 212,
+    };
+    const source: IDBCloudSyncItem = {
+      id: `wallet-retained-name-cas-${scenario}`,
+      data: 'current-server-box',
+      dataTime: 900,
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawKey: 'synthetic',
+      rawData: '',
+      pwdHash: 'keyless-current',
+      isDeleted: false,
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    await db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [
+            {
+              ...source,
+              dataTime: scenario === 'source-changed' ? 901 : source.dataTime,
+            },
+          ],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    db.setBackgroundApi({
+      servicePrimeCloudSync: { syncManagers: {} },
+    } as unknown as IBackgroundApi);
+    const apply = db.setWalletNameAndAvatar({
+      walletId: wallet.id,
+      name: 'Server name',
+      cloudSyncSource: source,
+      expectedCloudSyncWalletName: 'Retained name',
+      skipSaveLocalSyncItem: true,
+    });
+    if (scenario === 'same-version') {
+      await expect(apply).resolves.toMatchObject({ name: 'Server name' });
+    } else {
+      await expect(apply).rejects.toThrow(
+        scenario === 'name-changed'
+          ? 'Wallet name changed before the Cloud scene update'
+          : 'Cloud sync metadata source changed',
+      );
+    }
+    await expect(
+      new LocalDbIndexed().getWallet({
+        walletId: wallet.id,
+        withoutRefill: true,
+      }),
+    ).resolves.toMatchObject({
+      name: scenario === 'same-version' ? 'Server name' : wallet.name,
+    });
+  },
+);

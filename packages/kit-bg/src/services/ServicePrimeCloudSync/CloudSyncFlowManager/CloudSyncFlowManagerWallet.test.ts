@@ -6,13 +6,28 @@ import {
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { ICloudSyncTargetWallet } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  ICloudSyncPayloadWallet,
+  ICloudSyncTargetWallet,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import { SimpleDbEntityChangeHistory } from '../../../dbs/simple/entity/SimpleDbEntityChangeHistory';
+import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerWallet } from './CloudSyncFlowManagerWallet';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-import type { IDBDevice, IDBWallet } from '../../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../../dbs/local/types';
 
 describe('CloudSyncFlowManagerWallet', () => {
   const qaDevice: IDBDevice = {
@@ -262,6 +277,268 @@ describe('CloudSyncFlowManagerWallet', () => {
       avatar: undefined,
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,
+    });
+  });
+  describe('server scene rename retention', () => {
+    const wallet: IDBWallet = {
+      id: 'hd-canonical-before-cloud',
+      name: 'Local name not yet in history',
+      type: WALLET_TYPE_HD,
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 7,
+    };
+    const target: ICloudSyncTargetWallet = {
+      targetId: wallet.id,
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      wallet: { ...wallet, avatarInfo: undefined },
+      dbDevice: undefined,
+    };
+    const item: IDBCloudSyncItem = {
+      id: 'synthetic-wallet-row',
+      data: 'synthetic-active-scope-box',
+      dataTime: 900,
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawKey: '',
+      rawData: '',
+      pwdHash: 'keyless-synthetic',
+      localSceneUpdated: false,
+      serverUploaded: true,
+      isDeleted: false,
+    };
+    const payload: ICloudSyncPayloadWallet = {
+      name: 'Server name',
+      avatar: undefined,
+      walletHash: undefined,
+      hwDeviceId: undefined,
+      passphraseState: '',
+      walletType: WALLET_TYPE_HD,
+    };
+    const filter = {
+      entityType: EChangeHistoryEntityType.Wallet,
+      entityId: wallet.id,
+      contentType: EChangeHistoryContentType.Name,
+    };
+
+    test('a new history instance sees only the old name before the scene changes', async () => {
+      const values = new Map<string, string>();
+      const history = new SimpleDbEntityChangeHistory();
+      const storage = {
+        getItem: async (key: string) => values.get(key) ?? null,
+        setItem: async (key: string, value: string) => values.set(key, value),
+      } as unknown as typeof history.appStorage;
+      history.appStorage = storage;
+      const update = jest.fn(async () => {
+        const reopened = new SimpleDbEntityChangeHistory();
+        reopened.appStorage = storage;
+        const retained = await reopened.getChangeHistory(filter);
+        expect(retained.map(({ value }) => value)).toEqual([wallet.name]);
+        expect(retained[0].timestamp).not.toBe(item.dataTime);
+      });
+      const sync = new CloudSyncFlowManagerWallet({
+        backgroundApi: {
+          localDb: { getWallet: jest.fn(async () => wallet) },
+          simpleDb: { changeHistory: history },
+          serviceAccount: { setWalletNameAndAvatar: update },
+        } as unknown as IBackgroundApi,
+      });
+      await expect(
+        sync.syncToSceneEachItem({ item, target, payload }),
+      ).resolves.toBe(true);
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedCloudSyncWalletName: wallet.name }),
+      );
+      const first = await history.getChangeHistory(filter);
+      await history.retainWalletName({
+        walletId: wallet.id,
+        name: wallet.name,
+      });
+      await history.retainWalletName({ walletId: wallet.id, name: ' ' });
+      expect(await history.getChangeHistory(filter)).toEqual(first);
+    });
+
+    test.each(['failure', 'hang', 'cancelled'] as const)(
+      'does not apply or acknowledge the server scene when safety preparation %s',
+      async (scenario) => {
+        jest.useFakeTimers();
+        try {
+          let isCurrent = true;
+          const retained = Promise.withResolvers<boolean>();
+          const retainWalletName = jest.fn(async () => {
+            if (scenario === 'failure')
+              throw new OneKeyLocalError('synthetic I/O failure');
+            if (scenario === 'cancelled') {
+              isCurrent = false;
+              return true;
+            }
+            return retained.promise;
+          });
+          const update = jest.fn(async () => undefined);
+          const sync = new CloudSyncFlowManagerWallet({
+            backgroundApi: {
+              localDb: { getWallet: jest.fn(async () => wallet) },
+              simpleDb: { changeHistory: { retainWalletName } },
+              serviceAccount: { setWalletNameAndAvatar: update },
+            } as unknown as IBackgroundApi,
+          });
+          const apply = sync.syncToSceneEachItem({
+            item,
+            target,
+            payload,
+            isCurrent: () => isCurrent,
+          });
+          await jest.advanceTimersByTimeAsync(1500);
+          await expect(apply).resolves.toBe(false);
+          expect(update).not.toHaveBeenCalled();
+          retained.resolve(true);
+          await Promise.resolve();
+          expect(update).not.toHaveBeenCalled();
+        } finally {
+          jest.useRealTimers();
+        }
+      },
+    );
+
+    test.each(['same-name', 'empty-name', 'not-server-uploaded'] as const)(
+      'does not add history for a %s scene',
+      async (scenario) => {
+        const retainWalletName = jest.fn(async () => true);
+        const sync = new CloudSyncFlowManagerWallet({
+          backgroundApi: {
+            localDb: {
+              getWallet: jest.fn(async () => ({
+                ...wallet,
+                name: (() => {
+                  if (scenario === 'empty-name') return '';
+                  if (scenario === 'same-name') return payload.name;
+                  return wallet.name;
+                })(),
+              })),
+            },
+            simpleDb: { changeHistory: { retainWalletName } },
+            serviceAccount: { setWalletNameAndAvatar },
+          } as unknown as IBackgroundApi,
+        });
+        await expect(
+          sync.syncToSceneEachItem({
+            item: {
+              ...item,
+              serverUploaded: scenario !== 'not-server-uploaded',
+            },
+            target,
+            payload,
+          }),
+        ).resolves.toBe(true);
+        expect(retainWalletName).not.toHaveBeenCalled();
+      },
+    );
+
+    test.each(['', wallet.name])(
+      'a server avatar applies without writing name history when name is %s',
+      async (name) => {
+        const retainWalletName = jest.fn(async () => false);
+        const update = jest.fn(async () => undefined);
+        const sync = new CloudSyncFlowManagerWallet({
+          backgroundApi: {
+            localDb: { getWallet: jest.fn(async () => wallet) },
+            simpleDb: { changeHistory: { retainWalletName } },
+            serviceAccount: { setWalletNameAndAvatar: update },
+          } as unknown as IBackgroundApi,
+        });
+        await expect(
+          sync.syncToSceneEachItem({
+            item,
+            target,
+            payload: { ...payload, name, avatar: { img: 'bear' } },
+          }),
+        ).resolves.toBe(true);
+        expect(retainWalletName).not.toHaveBeenCalled();
+        expect(update).toHaveBeenCalledWith(
+          expect.objectContaining({ name, avatar: { img: 'bear' } }),
+        );
+      },
+    );
+
+    test('a deferred old name leaves the scene pending and does not block the next Wallet', async () => {
+      const secondWallet = { ...wallet, id: 'hd-second', hash: 'second-hash' };
+      const firstWallet = { ...wallet, hash: 'first-hash' };
+      const secondItem = { ...item, dataTime: 901 };
+      const retainWalletName = jest.fn(
+        async ({ walletId }: { walletId: string }) =>
+          walletId === secondWallet.id,
+      );
+      const update = jest.fn(async () => undefined);
+      const updateSyncItem = jest.fn(async () => undefined);
+      const localDb = {
+        getWallet: jest.fn(async ({ walletId }: { walletId: string }) =>
+          walletId === secondWallet.id ? secondWallet : firstWallet,
+        ),
+        getWalletBySyncPayload: jest.fn(
+          async ({ payload: current }: { payload: { walletHash: string } }) =>
+            current.walletHash === firstWallet.hash
+              ? firstWallet
+              : secondWallet,
+        ),
+        updateSyncItem,
+      };
+      const sync = new CloudSyncFlowManagerWallet({
+        backgroundApi: {
+          localDb,
+          simpleDb: { changeHistory: { retainWalletName } },
+          serviceAccount: { setWalletNameAndAvatar: update },
+        } as unknown as IBackgroundApi,
+      });
+      const firstKey = await sync.buildSyncKeyInfo({
+        target: await sync.buildSyncTargetByDBQuery({ dbRecord: firstWallet }),
+      });
+      const secondKey = await sync.buildSyncKeyInfo({
+        target: await sync.buildSyncTargetByDBQuery({ dbRecord: secondWallet }),
+      });
+      if (!firstKey || !secondKey)
+        throw new OneKeyLocalError('Missing synthetic identity');
+      jest
+        .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockImplementation(async ({ item: current }) => ({
+          dbItem: current,
+          dataType: current.dataType,
+          isDeleted: current.isDeleted,
+          rawDataJson: {
+            rawKey: current.rawKey,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            payload: {
+              ...payload,
+              walletHash:
+                current.id === firstKey.key
+                  ? firstWallet.hash
+                  : secondWallet.hash,
+            },
+          },
+        }));
+      try {
+        await sync.syncToScene({
+          syncCredential: {
+            primeAccountSalt: '',
+            securityPasswordR1: '',
+            masterPasswordUUID: item.pwdHash,
+          },
+          items: [
+            { ...item, id: firstKey.key, rawKey: firstKey.rawKey },
+            { ...secondItem, id: secondKey.key, rawKey: secondKey.rawKey },
+          ],
+          forceSync: true,
+        });
+        expect(update).toHaveBeenCalledTimes(1);
+        expect(update).toHaveBeenCalledWith(
+          expect.objectContaining({ walletId: secondWallet.id }),
+        );
+        expect(updateSyncItem).toHaveBeenCalledTimes(1);
+        expect(updateSyncItem).toHaveBeenCalledWith(
+          expect.objectContaining({ ids: [secondKey.key] }),
+        );
+      } finally {
+        jest.restoreAllMocks();
+      }
     });
   });
 });

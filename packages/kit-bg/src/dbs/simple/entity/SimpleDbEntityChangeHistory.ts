@@ -1,13 +1,31 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
-  EChangeHistoryContentType,
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
 } from '@onekeyhq/shared/src/types/changeHistory';
-import { EChangeHistoryEntityType } from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+export async function withWalletNameHistoryDeadline<T>(
+  operation: Promise<T>,
+): Promise<T | undefined> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<undefined>((resolve) => {
+        timeout = setTimeout(() => resolve(undefined), 1500);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 // Using IChangeHistoryItem from shared types
 
@@ -39,6 +57,38 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
   entityName = 'changeHistory';
 
   override enableCache = false;
+
+  async retainWalletName({
+    walletId,
+    name,
+  }: {
+    walletId: string;
+    name: string;
+  }): Promise<boolean> {
+    if (!walletId || !name.trim()) return true;
+    const saved = await this.setRawData((data) => {
+      const walletHistory = data?.[EChangeHistoryEntityType.Wallet] ?? {};
+      const entry = walletHistory[walletId] ?? {};
+      const names = entry[EChangeHistoryContentType.Name] ?? {};
+      if (Object.hasOwn(names, name) && names[name]?.value === name)
+        return data ?? {};
+      return {
+        ...data,
+        [EChangeHistoryEntityType.Wallet]: {
+          ...walletHistory,
+          [walletId]: {
+            ...entry,
+            [EChangeHistoryContentType.Name]: {
+              ...names,
+              // This records when the name was retained, not when it was edited.
+              [name]: { oldValue: '', value: name, timestamp: Date.now() },
+            },
+          },
+        },
+      };
+    });
+    return !!saved;
+  }
 
   @backgroundMethod()
   async getChangeHistory(params: {

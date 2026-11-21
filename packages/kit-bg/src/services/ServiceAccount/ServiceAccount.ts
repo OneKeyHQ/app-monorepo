@@ -199,6 +199,7 @@ import {
   type IDBWalletIdSingleton,
   type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
+import { withWalletNameHistoryDeadline } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   devSettingsPersistAtom,
@@ -5605,10 +5606,16 @@ class ServiceAccount extends ServiceBase {
       return localDb.setWalletNameAndAvatar(params);
     const { walletId, name } = params;
 
-    let oldName = '';
+    const retainedSceneName = params.cloudSyncSource
+      ? params.expectedCloudSyncWalletName
+      : undefined;
+    let oldName = retainedSceneName ?? '';
     let oldAvatar = '';
-    // Get the old name before updating
-    if (name || params.applyRestoreSyncPolicy) {
+    // The Cloud scene already retained its exact canonical predecessor.
+    if (
+      retainedSceneName === undefined &&
+      (name || params.applyRestoreSyncPolicy)
+    ) {
       const wallet = await this.getWalletSafe({
         walletId,
         withoutRefill: true,
@@ -5635,19 +5642,26 @@ class ServiceAccount extends ServiceBase {
       name && result.hasDesktopLocalMetadata
         ? (await localDb.getWallet({ walletId })).name
         : result.name;
-    if (name && oldName && oldName !== savedName) {
-      // Record the name change history
-      await simpleDb.changeHistory.addChangeHistory({
-        items: [
-          {
-            entityType: EChangeHistoryEntityType.Wallet,
-            entityId: walletId,
-            contentType: EChangeHistoryContentType.Name,
-            oldValue: oldName,
-            value: savedName,
-          },
-        ],
-      });
+    if (
+      name &&
+      oldName &&
+      oldName !== savedName &&
+      retainedSceneName === undefined
+    ) {
+      // History is auxiliary to the already-committed manual rename.
+      await withWalletNameHistoryDeadline(
+        simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: walletId,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: oldName,
+              value: savedName,
+            },
+          ],
+        }),
+      ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
 
     return result;
