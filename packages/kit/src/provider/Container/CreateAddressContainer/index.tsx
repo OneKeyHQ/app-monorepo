@@ -8,6 +8,7 @@ import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
+  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,6 +19,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { LazyAccountSelectorCreateAddressButton } from '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import { getAddressCreationRequestState } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -128,7 +130,15 @@ function BasicCreateAddressContainer() {
     linkNetwork: false,
   });
   const showSwitchAccountSelector = useCallback(
-    ({ networkId }: { networkId: string }) => {
+    ({
+      networkId,
+      addressCreationRequest,
+    }: {
+      networkId: string;
+      addressCreationRequest?: IAddressCreationRequest;
+    }) => {
+      if (getAddressCreationRequestState(addressCreationRequest) !== 'active')
+        return;
       Dialog.confirm({
         icon: 'ErrorOutline',
         tone: 'warning',
@@ -162,13 +172,26 @@ function BasicCreateAddressContainer() {
       deriveType,
       promiseId,
       autoCreateAddress,
+      addressCreationRequest,
     }: {
       networkId: string;
       indexedAccountId: string;
       deriveType: IAccountDeriveTypes;
       promiseId: number;
       autoCreateAddress: boolean;
+      addressCreationRequest?: IAddressCreationRequest;
     }) => {
+      const requestState = getAddressCreationRequestState(
+        addressCreationRequest,
+      );
+      if (requestState === 'foreign') return;
+      if (requestState === 'inactive') {
+        void backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: false,
+        });
+        return;
+      }
       const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.wallet_no_address,

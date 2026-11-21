@@ -159,6 +159,11 @@ export type IEventBusPayloadAccountUpdate = {
 // shared never depends on kit types or its search-results presentation.
 export type ISettingsSearchResultItem = FuseResult<unknown>;
 
+export type IAddressCreationRequest = {
+  nodeId: string;
+  id: string;
+};
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -571,9 +576,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RefreshNetInfo]: undefined;
   [EAppEventBusNames.ShowSwitchAccountSelector]: {
     networkId: string;
+    addressCreationRequest?: IAddressCreationRequest;
   };
   [EAppEventBusNames.CreateAddressByDialog]: {
     networkId: string;
+    addressCreationRequest?: IAddressCreationRequest;
     indexedAccountId: string;
     promiseId: number;
     autoCreateAddress: boolean;

@@ -4,6 +4,10 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
+
+import { scanFromURLAsync } from '../utils/scanFromURLAsync';
+
 import ScanQrCodeModal from './ScanQrCodeModal';
 
 const mockCloseOrder: string[] = [];
@@ -37,13 +41,21 @@ jest.mock('@onekeyhq/components', () => {
   const Page = Object.assign(Box, {
     Header: ({
       unstable_headerLeftItems,
+      headerRight,
     }: {
       unstable_headerLeftItems: () => { element: ReactNode }[];
-    }) => <>{unstable_headerLeftItems?.()[0]?.element}</>,
+      headerRight: () => ReactNode;
+    }) => (
+      <>
+        {unstable_headerLeftItems?.()[0]?.element}
+        {headerRight()}
+      </>
+    ),
     Body: Box,
     Footer: Box,
   });
   return {
+    __esModule: true,
     Page,
     Icon: Box,
     IconButton: ({
@@ -94,7 +106,9 @@ jest.mock('@onekeyhq/components', () => {
       />
     ),
     glassBarItem: (element: ReactNode) => ({ type: 'custom', element }),
-    default: () => null,
+    default: ({ onPress }: { onPress: () => void }) => (
+      <button type="button" aria-label="Pick image" onClick={onPress} />
+    ),
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -192,4 +206,45 @@ test('a parsed frame stops belonging to the scanner when another route opens or 
   expect(canApplyScanResult()).toBe(false);
   mockScanRouteInStack = false;
   expect(isScanOpen()).toBe(false);
+});
+
+test('resumes the camera and cancels on close after a photo result is discarded', async () => {
+  let completeImageScan: (value: string) => void = () => {};
+  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+    canceled: false,
+    uri: 'test://image',
+  });
+  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
+  jest.mocked(scanFromURLAsync).mockReturnValueOnce(
+    new Promise<string>((resolve) => {
+      completeImageScan = resolve;
+    }),
+  );
+
+  render(<ScanQrCodeModal />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+  await waitFor(() =>
+    expect(scanFromURLAsync).toHaveBeenCalledWith('test://image'),
+  );
+  mockCurrentRouteKey = 'other-route';
+  completeImageScan('from photo');
+  await waitFor(() =>
+    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
+      'test://image',
+    ),
+  );
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+
+  mockCurrentRouteKey = 'scan-route';
+  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
+  await waitFor(() =>
+    expect(mockRouteCallback).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 'lightning:example' }),
+    ),
+  );
+
+  fireEvent.click(screen.getByTestId('header-close'));
+  expect(mockRouteCallback).toHaveBeenCalledWith(
+    expect.objectContaining({ value: '' }),
+  );
 });

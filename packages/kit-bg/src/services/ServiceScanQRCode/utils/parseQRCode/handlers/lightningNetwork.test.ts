@@ -1,7 +1,12 @@
 import { bech32 } from 'bech32';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import {
+  EQRCodeHandlerNames,
+  EQRCodeHandlerType,
+} from '@onekeyhq/shared/types/qrCode';
+
+import { parseQRCode } from '..';
 
 import lightningNetwork from './lightningNetwork';
 
@@ -151,4 +156,34 @@ it('resolves a recognized LNURL URI and preserves its scheme for validation', as
     toVal: address,
     networkId: getNetworkIdsMap().lightning,
   });
+});
+
+it('retries an invoice after a transient decoder failure', async () => {
+  const { options, decodedInvoice, getNetwork } = setup();
+  decodedInvoice.mockRejectedValueOnce(new Error('decoder timeout'));
+  const parseOptions = {
+    ...options,
+    handlers: [EQRCodeHandlerNames.lightningNetwork],
+  };
+
+  await expect(parseQRCode(INVOICE, parseOptions)).rejects.toThrow();
+  expect(getNetwork).not.toHaveBeenCalled();
+  await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+  });
+});
+
+it('still falls back when the decoder rejects an invalid invoice', async () => {
+  const { options, decodedInvoice, getNetwork } = setup();
+  decodedInvoice.mockRejectedValueOnce(
+    Object.assign(new Error('invalid invoice'), { httpStatusCode: 400 }),
+  );
+
+  await expect(
+    parseQRCode(INVOICE, {
+      ...options,
+      handlers: [EQRCodeHandlerNames.lightningNetwork],
+    }),
+  ).resolves.toMatchObject({ type: EQRCodeHandlerType.UNKNOWN });
+  expect(getNetwork).not.toHaveBeenCalled();
 });

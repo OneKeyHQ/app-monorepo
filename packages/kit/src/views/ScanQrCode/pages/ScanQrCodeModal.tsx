@@ -69,7 +69,7 @@ function DebugInput({
   onClose,
 }: {
   onText: (text: string) => void;
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
@@ -87,7 +87,7 @@ function DebugInput({
       <YStack pb={bottom}>
         <XStack>
           <IconButton
-            onPress={onClose ?? (() => navigation.popStack())}
+            onPress={onClose}
             icon="CrossedLargeOutline"
             variant="destructive"
             testID={ScanQrCodeTestIDs.debugCloseBtn}
@@ -241,11 +241,6 @@ export default function ScanQrCodeModal() {
       return () => controller.abort();
     }, []),
   );
-  const closeScanner = useCallback(() => {
-    scanScope.current?.abort();
-    scannerRef.current?.dispose();
-    navigation.popStack();
-  }, [navigation]);
   const route =
     useRoute<
       RouteProp<
@@ -260,13 +255,12 @@ export default function ScanQrCodeModal() {
   } = route.params;
 
   const callback = useCallback(
-    async (value: string) => {
-      const signal = scanScope.current?.signal;
+    async (value: string, signal = scanScope.current?.signal) => {
       const canApplyScanResult = () =>
         signal?.aborted === false &&
         rootNavigationRef.current?.getCurrentRoute()?.key === route.key;
       if (value && !canApplyScanResult()) {
-        return {};
+        return { retry: true };
       }
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
@@ -288,13 +282,24 @@ export default function ScanQrCodeModal() {
     [route.key, routeCallback],
   );
 
-  const isPickedImage = useRef(false);
+  const closeScanner = useCallback(() => {
+    scanScope.current?.abort();
+    scannerRef.current?.dispose();
+    void callback('');
+    navigation.popStack();
+  }, [callback, navigation]);
+
+  const isPickingImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const result = await PhotoLibrary.pickImage();
+    if (isPickingImage.current) return;
+    isPickingImage.current = true;
+    try {
+      const result = await PhotoLibrary.pickImage();
+      if (result.canceled) return;
 
-    if (!result.canceled) {
-      const uri = result.uri;
+      const { uri } = result;
+      const signal = scanScope.current?.signal;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
@@ -303,23 +308,24 @@ export default function ScanQrCodeModal() {
       } finally {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
-      if (data && data.length > 0) {
-        isPickedImage.current = true;
-        await callback(data);
-      } else {
+      if (data) {
+        await callback(data, signal);
+      } else if (!signal?.aborted) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
           }),
         });
       }
+    } finally {
+      isPickingImage.current = false;
     }
   }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      if (isPickedImage.current) {
-        return {};
+      if (value && isPickingImage.current) {
+        return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       const result = await callback(value);
@@ -432,7 +438,7 @@ export default function ScanQrCodeModal() {
       <Page.Footer safeAreaBottomMode="content">
         <DebugInput
           onText={(value) => callback(value)}
-          onClose={platformEnv.isNative ? closeScanner : undefined}
+          onClose={closeScanner}
         />
       </Page.Footer>
     </Page>

@@ -1,6 +1,7 @@
 import { bech32 } from 'bech32';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   findLnurl,
   hasLightningUriScheme,
@@ -8,6 +9,8 @@ import {
   normalizeLightningInput,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+
+import { RetryableLightningInvoiceDecodeError } from '../errors';
 
 import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
@@ -42,7 +45,23 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
     // Decode before the scan action can offer to create a Lightning account.
     // The decoder needs the invoice only and does not require a payer.
     const client = await backgroundApi.serviceLightning.getLnClient(isTestnet);
-    const decodedInvoice = await client.decodedInvoice(address);
+    const decodedInvoice = await client
+      .decodedInvoice(address)
+      .catch((error: unknown) => {
+        const status = (error as IOneKeyError | undefined)?.httpStatusCode;
+        if (
+          status === undefined ||
+          status >= 500 ||
+          status === 408 ||
+          status === 429
+        ) {
+          throw new RetryableLightningInvoiceDecodeError({
+            message: 'Lightning invoice decoding temporarily unavailable',
+            autoToast: false,
+          });
+        }
+        return undefined;
+      });
     if (!decodedInvoice?.paymentRequest) {
       return null;
     }

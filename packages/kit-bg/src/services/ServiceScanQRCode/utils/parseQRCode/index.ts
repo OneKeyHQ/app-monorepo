@@ -7,6 +7,7 @@ import {
   PARSE_HANDLER_NAMES,
 } from '@onekeyhq/shared/types/qrCode';
 
+import { RetryableLightningInvoiceDecodeError } from './errors';
 import { getParseHandler } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
@@ -50,6 +51,9 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
       // would read as a silent cancel.
       if (error instanceof UrScanRejectedError) {
         throw new OneKeyErrorAirGapInvalidQrCode({ autoToast: true });
+      }
+      if (error instanceof RetryableLightningInvoiceDecodeError) {
+        throw error;
       }
       defaultLogger.app.error.log(
         `[ScanQRCode] parse handler failed: ${handlerName}`,

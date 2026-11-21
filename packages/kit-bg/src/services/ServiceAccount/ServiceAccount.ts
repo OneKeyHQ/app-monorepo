@@ -98,6 +98,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
+  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -7258,7 +7259,13 @@ class ServiceAccount extends ServiceBase {
       accountId?: string;
       indexedAccountId?: string;
     },
-    { allowWatchAccount }: { allowWatchAccount?: boolean },
+    {
+      allowWatchAccount,
+      addressCreationRequest,
+    }: {
+      allowWatchAccount?: boolean;
+      addressCreationRequest?: IAddressCreationRequest;
+    },
   ) {
     if (!accountId && !indexedAccountId) {
       throw new OneKeyLocalError('accountId or indexedAccountId is required');
@@ -7272,6 +7279,7 @@ class ServiceAccount extends ServiceBase {
     const showSwitchAccountSelector = () => {
       appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
         networkId,
+        addressCreationRequest,
       });
     };
 
@@ -7302,6 +7310,7 @@ class ServiceAccount extends ServiceBase {
           });
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,
+            addressCreationRequest,
             indexedAccountId,
             deriveType,
             promiseId,

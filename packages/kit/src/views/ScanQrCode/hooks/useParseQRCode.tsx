@@ -290,7 +290,7 @@ export async function parseQRCodeWithDeps(
           const newAccountId = await getAccountIdOnNetwork({
             account,
             network,
-            beforeCreateAccount: ensureScanIsActive,
+            canApplyScanResult,
           });
           if (newAccountId) {
             accountId = newAccountId;
