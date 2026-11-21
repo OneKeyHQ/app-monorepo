@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 
-import { SecureQRCodeDialogCancel } from '@onekeyhq/shared/src/errors';
+import { resetScanModalRoute } from '@onekeyhq/components';
+import {
+  OneKeyErrorScanQrCodeCancel,
+  SecureQRCodeDialogCancel,
+} from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -12,6 +16,11 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import {
+  getAddressCreationRequestSignal,
+  getAddressCreationRequestState,
+  holdAddressCreationForChildScan,
+} from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 export function AirGapQrcodeDialogContainer() {
   const { start: startScan } = useScanQrCodeLazy();
@@ -26,7 +35,29 @@ export function AirGapQrcodeDialogContainer() {
     const fn = (
       event: IAppEventBusPayload[EAppEventBusNames.ShowAirGapQrcode],
     ) => {
-      const { valueUr, title } = event;
+      const { valueUr, title, addressCreationRequest, promiseId } = event;
+      const requestState = getAddressCreationRequestState(
+        addressCreationRequest,
+      );
+      if (requestState === 'foreign') return;
+      if (requestState === 'inactive') {
+        if (promiseId) {
+          void backgroundApiProxy.servicePromise.rejectCallback({
+            id: promiseId,
+            error: new OneKeyErrorScanQrCodeCancel(),
+          });
+        }
+        return;
+      }
+      const scanSignal = getAddressCreationRequestSignal(
+        addressCreationRequest,
+      );
+      const scanRequestId =
+        addressCreationRequest && promiseId
+          ? `air-gap:${promiseId}`
+          : undefined;
+      let scanning = false;
+      let abort = () => {};
       void hideQrToast?.();
       const toast = SecureQRToast.show({
         title,
@@ -35,20 +66,20 @@ export function AirGapQrcodeDialogContainer() {
         showConfirmButton: Boolean(event.promiseId),
 
         onConfirm: async () => {
-          await hideQrToast?.({ flag: 'skipReject' });
-          hideAllUiQrToast({ flag: 'skipReject' });
-
+          if (scanning) return;
+          scanning = true;
+          let release: (() => void) | undefined;
           try {
+            await hideQrToast?.({ flag: 'skipReject' });
+            hideAllUiQrToast({ flag: 'skipReject' });
+            release = holdAddressCreationForChildScan(addressCreationRequest);
             const result = await startScan({
               handlers: [EQRCodeHandlerNames.animation],
               qrWalletScene: true,
               autoExecuteParsedAction: false,
+              ...(scanRequestId ? { scanRequestId } : {}),
             });
-            console.log(
-              'AirGapQrcodeDialogContainer__startScan',
-              result,
-              result.raw,
-            );
+            if (scanSignal?.aborted) throw new OneKeyErrorScanQrCodeCancel();
             if (event.promiseId) {
               await backgroundApiProxy.servicePromise.resolveCallback({
                 id: event.promiseId,
@@ -62,6 +93,9 @@ export function AirGapQrcodeDialogContainer() {
                 error,
               });
             }
+          } finally {
+            release?.();
+            scanSignal?.removeEventListener('abort', abort);
           }
         },
         onCancel: async () => {
@@ -69,6 +103,7 @@ export function AirGapQrcodeDialogContainer() {
           hideAllUiQrToast({});
         },
         onClose: async (params) => {
+          if (!scanning) scanSignal?.removeEventListener('abort', abort);
           if (event.promiseId && params?.flag !== 'skipReject') {
             await backgroundApiProxy.servicePromise.rejectCallback({
               id: event.promiseId,
@@ -77,6 +112,18 @@ export function AirGapQrcodeDialogContainer() {
           }
         },
       });
+      abort = () => {
+        if (scanning && scanRequestId) {
+          resetScanModalRoute({ scanRequestId });
+        } else {
+          void toast.close();
+        }
+      };
+      if (scanSignal?.aborted) {
+        abort();
+      } else {
+        scanSignal?.addEventListener('abort', abort, { once: true });
+      }
       hideQrToast = async (extra) => {
         await toast.close(extra);
       };

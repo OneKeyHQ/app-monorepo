@@ -7,6 +7,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -17,12 +21,10 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
-import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
-import {
-  findLnurl,
-  isLightningAddress,
-  verifyInvoice,
-} from '../vaults/impls/lightning/sdkLightning/lnurl';
+import ClientLightning, {
+  createLightningInvoiceDecodeCache,
+} from '../vaults/impls/lightning/sdkLightning/ClientLightning';
+import { verifyInvoice } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
 
@@ -40,15 +42,28 @@ class ServiceLightning extends ServiceBase {
     return this.getClientCache(isTestnet);
   }
 
+  private readonly invoiceDecodeCaches = {
+    mainnet: createLightningInvoiceDecodeCache(),
+    testnet: createLightningInvoiceDecodeCache(),
+  };
+
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
       const _client = await this.backgroundApi.serviceLightning.getClient(
         EServiceEndpointEnum.Lightning,
       );
-      return new ClientLightning(this.backgroundApi, _client, isTestnet);
+      return new ClientLightning(
+        this.backgroundApi,
+        _client,
+        isTestnet,
+        isTestnet
+          ? this.invoiceDecodeCaches.testnet
+          : this.invoiceDecodeCaches.mainnet,
+      );
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
     },
   );
 
@@ -181,7 +196,7 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     })) as LightningVault;
-    return vault._decodedInvoiceCache(paymentRequest);
+    return vault.decodedInvoice(paymentRequest);
   }
 
   @backgroundMethod()
@@ -214,19 +229,15 @@ class ServiceLightning extends ServiceBase {
     toVal: string;
     networkId: string;
   }) {
-    let lnurl = findLnurl(toVal);
-    if (!lnurl && isLightningAddress(toVal)) {
-      lnurl = toVal;
-    }
-
-    if (!lnurl) {
+    const address = normalizeLightningInput(toVal);
+    if (!isReusableLightningRecipient(address)) {
       return null;
     }
 
     const { data } =
       await this.backgroundApi.serviceValidator.serverValidateAddress({
         networkId,
-        address: toVal,
+        address,
       });
 
     if (!data.data.lnurlDetails) {

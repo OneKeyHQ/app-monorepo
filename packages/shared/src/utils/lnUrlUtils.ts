@@ -52,29 +52,76 @@ export const isLightningAddress = (address?: string) => {
 
 export const findLnurl = memoizee(
   (text: string) => {
-    const trimmedText = text.trim();
-    let match;
-
-    // protocol scheme
-    match = trimmedText.match(/lnurl[pwc]:(\S+)/i);
-    if (match) {
-      return match[1];
+    const input = text.trim();
+    const url = /^lnurl[pwc]:(\S+)$/i.exec(input)?.[1];
+    if (url) {
+      return url;
     }
-
-    // bech32
-    match = trimmedText.match(/(lnurl[a-zA-HJ-NP-Z0-9]+)/i);
-    if (match) {
-      return match[1];
-    }
-
-    return null;
+    const decoded = /^lnurl1/i.test(input)
+      ? bech32.decodeUnsafe(input, 2000)
+      : undefined;
+    return decoded?.prefix === 'lnurl' && decoded.words.length ? input : null;
   },
   {
     maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
   },
 );
 
+// BOLT 11 recommends `lightning:` as the URI prefix of an invoice. It says not
+// to use `lightning://`, which some generators emit anyway.
+const LIGHTNING_URI_SCHEME = /^lightning:(\/\/)?/i;
+// QR codes carry bech32 in upper case. A bech32 string is either all lower or
+// all upper case, so a mixed case one is left as is for the decoder to reject.
+const UPPER_CASE_BECH32 = /^LN[0-9A-Z]+$/;
+
+export const hasLightningUriScheme = (input: string) =>
+  LIGHTNING_URI_SCHEME.test(input.trim());
+
+export const normalizeLightningInput = (input: string): string => {
+  const payload = input.trim().replace(LIGHTNING_URI_SCHEME, '');
+  return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
+};
+
+const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
+
+export function getLightningInvoiceNetwork(
+  address: string,
+): 'mainnet' | 'testnet' | undefined {
+  const invoice = bech32.decodeUnsafe(address, address.length);
+  const prefix = SUPPORTED_INVOICE_PREFIX.exec(invoice?.prefix ?? '')?.[1];
+  if (prefix) {
+    return prefix === 'tb' ? 'testnet' : 'mainnet';
+  }
+}
+
 export const isReusableLightningRecipient = (input?: string): boolean => {
   if (!input) return false;
   return isLightningAddress(input) || !!findLnurl(input);
+};
+
+export const resolveReusableLightningRecipient = (address: string) => {
+  if (isReusableLightningRecipient(address)) {
+    return address;
+  }
+  // Payment text can contain an LNURL as a separate token. Keep QR detection
+  // strict so a scan cannot interpret arbitrary text as a payment.
+  const candidates = address.matchAll(
+    /(^|[\s<("'])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
+  );
+  for (const [, opener, input] of candidates) {
+    // Strip adjacent prose only when the end of the wrapper identifies it.
+    let uri = input;
+    if (opener === '(' || opener === "'") {
+      const closer = opener === '(' ? ')' : "'";
+      const token = input.replace(/[.,!?，。！？]+$/u, '');
+      if (token.endsWith(closer)) {
+        uri = token.slice(0, -1);
+      }
+    }
+    const candidate = normalizeLightningInput(uri);
+    if (findLnurl(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 };

@@ -8,6 +8,7 @@ import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
+  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,6 +19,10 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { LazyAccountSelectorCreateAddressButton } from '../../../components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import {
+  getAddressCreationRequestSignal,
+  getAddressCreationRequestState,
+} from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -45,6 +50,8 @@ function BasicCreateAddressDialogContent({
   indexedAccountId,
   deriveType,
   autoCreateAddress,
+  canStartAddressCreation,
+  addressCreationRequest,
 }: {
   onCreate: (
     params:
@@ -59,6 +66,8 @@ function BasicCreateAddressDialogContent({
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
+  canStartAddressCreation: () => boolean;
+  addressCreationRequest?: IAddressCreationRequest;
 }) {
   const {
     activeAccount: { wallet },
@@ -70,6 +79,8 @@ function BasicCreateAddressDialogContent({
       selectAfterCreate
       autoCreateAddress={autoCreateAddress}
       onCreateDone={onCreate}
+      canStartAddressCreation={canStartAddressCreation}
+      addressCreationRequest={addressCreationRequest}
       account={{
         walletId: wallet?.id,
         networkId,
@@ -87,6 +98,8 @@ function CreateAddressDialogContent({
   indexedAccountId,
   deriveType,
   autoCreateAddress,
+  canStartAddressCreation,
+  addressCreationRequest,
 }: {
   onCreate: (
     params:
@@ -101,6 +114,8 @@ function CreateAddressDialogContent({
   indexedAccountId?: string;
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
+  canStartAddressCreation: () => boolean;
+  addressCreationRequest?: IAddressCreationRequest;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -116,6 +131,8 @@ function CreateAddressDialogContent({
         indexedAccountId={indexedAccountId}
         deriveType={deriveType}
         autoCreateAddress={autoCreateAddress}
+        canStartAddressCreation={canStartAddressCreation}
+        addressCreationRequest={addressCreationRequest}
       />
     </AccountSelectorProviderMirror>
   );
@@ -128,7 +145,15 @@ function BasicCreateAddressContainer() {
     linkNetwork: false,
   });
   const showSwitchAccountSelector = useCallback(
-    ({ networkId }: { networkId: string }) => {
+    ({
+      networkId,
+      addressCreationRequest,
+    }: {
+      networkId: string;
+      addressCreationRequest?: IAddressCreationRequest;
+    }) => {
+      if (getAddressCreationRequestState(addressCreationRequest) !== 'active')
+        return;
       Dialog.confirm({
         icon: 'ErrorOutline',
         tone: 'warning',
@@ -162,13 +187,43 @@ function BasicCreateAddressContainer() {
       deriveType,
       promiseId,
       autoCreateAddress,
+      addressCreationRequest,
     }: {
       networkId: string;
       indexedAccountId: string;
       deriveType: IAccountDeriveTypes;
       promiseId: number;
       autoCreateAddress: boolean;
+      addressCreationRequest?: IAddressCreationRequest;
     }) => {
+      const requestState = getAddressCreationRequestState(
+        addressCreationRequest,
+      );
+      if (requestState === 'foreign') return;
+      if (requestState === 'inactive') {
+        void backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: false,
+        });
+        return;
+      }
+      const scanSignal = getAddressCreationRequestSignal(
+        addressCreationRequest,
+      );
+      let settled = false;
+      const canStartAddressCreation = () =>
+        !settled &&
+        getAddressCreationRequestState(addressCreationRequest) === 'active';
+      let cancel = () => {};
+      const settle = async (created: boolean) => {
+        if (settled) return;
+        settled = true;
+        scanSignal?.removeEventListener('abort', cancel);
+        await backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: created,
+        });
+      };
       const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.wallet_no_address,
@@ -184,40 +239,52 @@ function BasicCreateAddressContainer() {
           },
         ),
         showFooter: false,
-        onClose: (extra) => {
-          if (extra?.flag !== 'created') {
-            void backgroundApiProxy.servicePromise.resolveCallback({
-              id: promiseId,
-              data: false,
-            });
-          }
+        onCloseStart: () => {
+          void settle(false);
+        },
+        onClose: () => {
+          void settle(false);
         },
         renderContent: (
           <CreateAddressDialogContent
             onCreate={async (params) => {
-              const isCreated = params && params.accounts.length > 0;
-              await backgroundApiProxy.servicePromise.resolveCallback({
-                id: promiseId,
-                data: isCreated,
-              });
-              if (isCreated) {
-                await dialog.close({ flag: 'created' });
+              if (settled) return;
+              if (
+                getAddressCreationRequestState(addressCreationRequest) !==
+                'active'
+              ) {
+                cancel();
+                return;
+              }
+              const isCreated = Boolean(params?.accounts.length);
+              await settle(isCreated);
+              await dialog.close();
+              if (isCreated && !scanSignal?.aborted) {
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.swap_page_toast_address_generated,
                   }),
                 });
-              } else {
-                await dialog.close();
               }
             }}
             networkId={networkId}
             indexedAccountId={indexedAccountId}
             deriveType={deriveType}
             autoCreateAddress={autoCreateAddress}
+            canStartAddressCreation={canStartAddressCreation}
+            addressCreationRequest={addressCreationRequest}
           />
         ),
       });
+      cancel = () => {
+        void settle(false);
+        void dialog.close();
+      };
+      if (scanSignal?.aborted) {
+        cancel();
+      } else {
+        scanSignal?.addEventListener('abort', cancel, { once: true });
+      }
     },
     [intl],
   );

@@ -630,20 +630,22 @@ function SendDataInputContainer() {
 
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
+      const scanNetwork = result.data?.network;
       if (
         result.type === EQRCodeHandlerType.UNKNOWN ||
-        !result?.data?.network
+        !scanNetwork ||
+        scanNetwork.id !== form.getValues('networkId')
       ) {
         return;
       }
-      const tokenAddress = result?.data?.tokenAddress;
-      const scanNetworkId =
-        result?.data?.network?.id || currentAccount.networkId;
+
+      const tokenAddress = result.data?.tokenAddress;
+      const scanNetworkId = scanNetwork.id;
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
-          network: result.data.network,
-        })) || currentAccount?.accountId;
+          network: scanNetwork,
+        })) || currentAccount.accountId;
 
       if (scanAccountId) {
         let scanToken: IToken | null = null;
@@ -662,30 +664,45 @@ function SendDataInputContainer() {
         }
         if (scanToken) {
           const amountFromScan = await parseOnChainAmount(result, scanToken);
+          if (form.getValues('networkId') !== scanNetworkId) {
+            return;
+          }
           if (amountFromScan) {
             setScannedAmount(amountFromScan);
           }
-          const formNetworkId = form.getValues('networkId');
-          if (formNetworkId === scanNetworkId) {
-            if (currentAccount.accountId && scanNetworkId) {
-              setCurrentAccount({
-                accountId: currentAccount.accountId,
-                networkId: scanNetworkId,
-              });
-              setTokenInfo(scanToken);
-            }
+          if (currentAccount.accountId) {
+            setCurrentAccount({
+              accountId: currentAccount.accountId,
+              networkId: scanNetworkId,
+            });
+            setTokenInfo(scanToken);
           }
         }
       }
     },
-    [account, currentAccount.accountId, currentAccount.networkId, form],
+    [account, currentAccount.accountId, form],
   );
 
   const navigateToAmountInputCore = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      // Use already-watched toResolved instead of re-getting from form
+      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+        currentAccount.networkId,
+      );
       if (!toResolved) return;
+      const submittedRaw = form.getValues('to')?.raw;
+      const getCurrentLightningRecipient = () => {
+        const recipient = form.getValues('to');
+        if (
+          !recipient?.pending &&
+          recipient?.raw === submittedRaw &&
+          recipient?.resolved === toResolved
+        ) {
+          return recipient.resolved;
+        }
+        return undefined;
+      };
+      if (isLightning && !getCurrentLightningRecipient()) return;
 
       // Reject sending to a deactivated Bot Wallet account. The helper covers
       // the BTC fresh-address fallback so the regular index miss does not
@@ -695,6 +712,7 @@ function SendDataInputContainer() {
           networkId: currentAccount.networkId,
           address: toResolved,
         });
+      if (isLightning && !getCurrentLightningRecipient()) return;
       if (isDeactivatedBotReceiver) {
         Toast.error({
           title: '该 Bot 钱包已停用，无法作为接收地址',
@@ -707,6 +725,7 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      if (isLightning && !getCurrentLightningRecipient()) return;
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -729,21 +748,23 @@ function SendDataInputContainer() {
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
-      // Reuse the matching amount-input route for the active modal stack.
-
-      const isLightning = networkUtils.isLightningNetworkByNetworkId(
-        currentAccount.networkId,
-      );
+      const lightningRecipient = isLightning
+        ? getCurrentLightningRecipient()
+        : undefined;
+      if (isLightning && !lightningRecipient) return;
 
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
-      const rawInput = (toVal?.raw ?? '').trim();
-      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
+      if (
+        lightningRecipient &&
+        account &&
+        isReusableLightningRecipient(lightningRecipient)
+      ) {
         const transfersInfo: ITransferInfo[] = [
           {
             from: account.address,
-            to: rawInput,
+            to: lightningRecipient,
             amount: '0',
             tokenInfo: tokenInfo ?? undefined,
           },
@@ -751,6 +772,7 @@ function SendDataInputContainer() {
         await signatureConfirm.navigationToTxConfirm({
           transfersInfo,
           sameModal: true,
+          isNavigationCurrent: () => Boolean(getCurrentLightningRecipient()),
           onSuccess,
           onFail,
           onCancel,
@@ -758,7 +780,7 @@ function SendDataInputContainer() {
             amountToSend: '0',
             isMaxSend: false,
             isNFT: false,
-            originalRecipient: rawInput,
+            originalRecipient: lightningRecipient,
             isToContract: false,
           },
           isInternalTransfer: true,
@@ -769,18 +791,18 @@ function SendDataInputContainer() {
       // For Lightning invoices, decode the invoice to extract embedded amount
       let invoiceAmount: string | undefined;
       let isInvoiceAmountLocked = false;
-      if (isLightning && toResolved) {
+      if (lightningRecipient) {
         try {
           const isZeroAmount =
             await backgroundApiProxy.serviceLightning.isZeroAmountInvoice({
-              paymentRequest: toResolved,
+              paymentRequest: lightningRecipient,
               networkId: currentAccount.networkId,
               accountId: currentAccount.accountId,
             });
           if (!isZeroAmount) {
             const decoded =
               await backgroundApiProxy.serviceLightning.decodedInvoice({
-                paymentRequest: toResolved,
+                paymentRequest: lightningRecipient,
                 networkId: currentAccount.networkId,
                 accountId: currentAccount.accountId,
               });
@@ -799,6 +821,8 @@ function SendDataInputContainer() {
         }
       }
 
+      if (isLightning && !getCurrentLightningRecipient()) return;
+
       // For fixed-amount Lightning invoices, skip amount page and go to confirm
       if (isInvoiceAmountLocked && invoiceAmount && account) {
         const transfersInfo: ITransferInfo[] = [
@@ -812,6 +836,7 @@ function SendDataInputContainer() {
         await signatureConfirm.navigationToTxConfirm({
           transfersInfo,
           sameModal: true,
+          isNavigationCurrent: () => Boolean(getCurrentLightningRecipient()),
           onSuccess,
           onFail,
           onCancel,

@@ -3,9 +3,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // The class name does not survive minification across the bg bridge; its key does.
 export function isInvalidQrCodeError(error: unknown): boolean {
+  const key = (error as IOneKeyError | undefined)?.key;
   return (
-    (error as IOneKeyError | undefined)?.key ===
-    ETranslations.feedback_invalid_qr_code
+    key === ETranslations.feedback_invalid_qr_code ||
+    key === ETranslations.send_the_invoice_has_expired
   );
 }
 

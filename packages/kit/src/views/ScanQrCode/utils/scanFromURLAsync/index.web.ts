@@ -1,4 +1,6 @@
 // cspell:ignore zxing
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { prepareZXingReader } from '../../components/ScanCamera/zxingReader';
 
 import type { BarcodeDetector as IBarcodeDetectorPonyfill } from 'barcode-detector/ponyfill';
@@ -6,40 +8,33 @@ import type { BarcodeDetector as IBarcodeDetectorPonyfill } from 'barcode-detect
 type IBarcodeDetectorClass = typeof IBarcodeDetectorPonyfill;
 
 async function getImageData(dataUrl: string): Promise<ImageData> {
-  return new Promise((resolve) => {
-    const img = new Image();
-
-    img.crossOrigin = 'anonymous';
-
-    img.onload = function () {
-      const width = img.width || img.naturalWidth || 150;
-      const height = img.height || img.naturalHeight || 150;
-      const actualWidth = Math.min(960, width);
-      const actualHeight = height * (actualWidth / width);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = actualWidth;
-      canvas.height = actualHeight;
-
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const context = canvas.getContext('2d')!;
-      context.drawImage(
-        img,
-        0,
-        0,
-        width,
-        height,
-        0,
-        0,
-        actualWidth,
-        actualHeight,
-      );
-
-      resolve(context.getImageData(0, 0, actualWidth, actualHeight));
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => {
+      reject(new OneKeyLocalError('Unable to load the selected QR image'));
     };
-
-    img.src = dataUrl;
+    image.src = dataUrl;
   });
+
+  const width = img.width || img.naturalWidth || 150;
+  const height = img.height || img.naturalHeight || 150;
+  const actualWidth = Math.min(960, width);
+  const actualHeight = height * (actualWidth / width);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = actualWidth;
+  canvas.height = actualHeight;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new OneKeyLocalError(
+      'Unable to read pixels from the selected QR image',
+    );
+  }
+  context.drawImage(img, 0, 0, width, height, 0, 0, actualWidth, actualHeight);
+  return context.getImageData(0, 0, actualWidth, actualHeight);
 }
 
 async function getBarcodeDetectorClass(): Promise<IBarcodeDetectorClass> {

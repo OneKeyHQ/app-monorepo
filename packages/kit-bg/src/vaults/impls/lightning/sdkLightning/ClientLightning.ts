@@ -1,11 +1,17 @@
+import { isAxiosError } from 'axios';
+
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  isRetryableLightningInvoiceDecodeFailure,
+} from '@onekeyhq/shared/src/errors';
 import type {
   OneKeyError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeLightningInput } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAuthResponse,
@@ -32,6 +38,37 @@ function isAuthError(error: unknown): boolean {
   );
 }
 
+function invoiceDecodeCooldownMs(
+  error: unknown,
+  fallbackMs: number,
+): number | undefined {
+  if (!isRetryableLightningInvoiceDecodeFailure(error)) return undefined;
+  const response = isAxiosError(error) ? error.response : undefined;
+  const serverError = error as OneKeyServerApiError | undefined;
+  const retryAfter =
+    serverError?.retryAfter ?? response?.headers['retry-after'];
+  if (typeof retryAfter !== 'string') return fallbackMs;
+  const header = retryAfter.trim();
+  const delay = /^\d+$/.test(header)
+    ? Number(header) * 1000
+    : Date.parse(header) - Date.now();
+  return Number.isFinite(delay) ? Math.max(fallbackMs, delay) : fallbackMs;
+}
+
+export function createLightningInvoiceDecodeCache() {
+  return {
+    decoded: new LRUCache<string, IInvoiceDecodedResponse>({
+      ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      max: 100,
+    }),
+    inFlight: new Map<string, Promise<IInvoiceDecodedResponse>>(),
+    failed: new LRUCache<
+      string,
+      { retryAt: number; nextDelayMs: number; error: unknown }
+    >({ max: 100 }),
+  };
+}
+
 class ClientLightning {
   private backgroundApi: IBackgroundApi;
 
@@ -43,7 +80,12 @@ class ClientLightning {
 
   readonly maxRetryCount = 3;
 
-  constructor(backgroundApi: any, client: AxiosInstance, isTestnet: boolean) {
+  constructor(
+    backgroundApi: any,
+    client: AxiosInstance,
+    isTestnet: boolean,
+    private readonly invoiceDecodeCache = createLightningInvoiceDecodeCache(),
+  ) {
     this.request = client;
     this.testnet = isTestnet;
     this.backgroundApi = backgroundApi;
@@ -297,14 +339,49 @@ class ClientLightning {
     });
   }
 
-  async decodedInvoice(invoice: string) {
-    type IInvoiceDecodedApiResponse =
-      IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>;
-    return this.request
-      .get<IInvoiceDecodedApiResponse>(
+  async decodedInvoice(input: string) {
+    const invoice = normalizeLightningInput(input);
+    const { decoded, failed, inFlight } = this.invoiceDecodeCache;
+    const previousFailure = failed.get(invoice);
+    if (previousFailure && Date.now() < previousFailure.retryAt) {
+      throw previousFailure.error;
+    }
+    const cached = decoded.get(invoice);
+    if (cached) {
+      return cached;
+    }
+    const currentRequest = inFlight.get(invoice);
+    if (currentRequest) {
+      return currentRequest;
+    }
+    const pending = this.request
+      .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
         `${this.prefix}/invoices/decode/${invoice}`,
       )
-      .then((i) => i.data.data);
+      .then(({ data }) => {
+        failed.delete(invoice);
+        decoded.set(invoice, data.data);
+        return data.data;
+      })
+      .catch((error: unknown) => {
+        const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
+        const cooldown = invoiceDecodeCooldownMs(error, fallbackMs);
+        if (cooldown !== undefined) {
+          failed.set(invoice, {
+            retryAt: Date.now() + cooldown,
+            nextDelayMs: Math.min(30_000, fallbackMs * 2),
+            error,
+          });
+        } else {
+          failed.delete(invoice);
+        }
+        throw error;
+      })
+      .finally(() => {
+        inFlight.delete(invoice);
+      });
+    inFlight.set(invoice, pending);
+    return pending;
   }
 
   specialInvoice = memoizee(

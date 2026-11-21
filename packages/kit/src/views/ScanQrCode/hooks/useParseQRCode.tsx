@@ -30,6 +30,8 @@ import type {
   IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -67,12 +69,25 @@ export type IParseQRCodeRuntimeDeps = {
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
+  canApplyScanResult?: () => boolean;
+  scanSignal?: AbortSignal;
+  holdForChildScan?: () => () => void;
+  onResultWillClose?: () => void;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
+  {
+    navigation,
+    clipboard,
+    intl,
+    scanRequestId,
+    canApplyScanResult,
+    scanSignal,
+    holdForChildScan,
+    onResultWillClose,
+  }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
@@ -100,8 +115,16 @@ export async function parseQRCodeWithDeps(
   }
   const { defaultHandler, popNavigation, ...options } = params;
 
+  const ensureScanIsActive = () => {
+    if (canApplyScanResult?.() === false) {
+      throw new OneKeyErrorScanQrCodeCancel();
+    }
+  };
+
   const closeScanPage = async () => {
+    ensureScanIsActive();
     if (popNavigation) {
+      onResultWillClose?.();
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
         // FullScreenPush, etc.) via CommonActions.reset instead of
@@ -126,15 +149,25 @@ export async function parseQRCodeWithDeps(
     }
   };
 
+  ensureScanIsActive();
   let result: Awaited<
     ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
   >;
   try {
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
   } catch (error) {
-    // A code the scan can never accept (the error toasts itself): end the scan.
-    // Any other failure leaves the page open so a scanner can retry the frame.
+    ensureScanIsActive();
     if (isInvalidQrCodeError(error)) {
+      if (
+        (error as IOneKeyError | undefined)?.key ===
+        ETranslations.send_the_invoice_has_expired
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.send_the_invoice_has_expired,
+          }),
+        });
+      }
       await closeScanPage();
     } else {
       markRetryableQrParseFailure(error);
@@ -142,6 +175,7 @@ export async function parseQRCodeWithDeps(
     throw error;
   }
 
+  ensureScanIsActive();
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
     if (
@@ -175,10 +209,17 @@ export async function parseQRCodeWithDeps(
         // ActionCenter) via reset, then switches tab and pushes
         // UrlAccountPage directly. This avoids the native
         // UITabBarController window-nil race.
-        void urlAccountNavigation.pushUrlAccountPage(navigation, {
-          networkId: urlAccountData.networkId,
-          address: urlAccountData.address,
-        });
+        await urlAccountNavigation.pushUrlAccountPage(
+          navigation,
+          {
+            networkId: urlAccountData.networkId,
+            address: urlAccountData.address,
+          },
+          () => {
+            ensureScanIsActive();
+            onResultWillClose?.();
+          },
+        );
       } else {
         void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
           networkId: urlAccountData.networkId,
@@ -192,6 +233,7 @@ export async function parseQRCodeWithDeps(
         const { coinGeckoId } = result.data as IMarketDetailValue;
         if (coinGeckoId) {
           if (popNavigation) {
+            onResultWillClose?.();
             void marketNavigation.pushDetailPageFromOverlay(navigation, {
               coinGeckoId,
             });
@@ -254,7 +296,10 @@ export async function parseQRCodeWithDeps(
       {
         const account = options?.account;
         if (!account) {
-          console.error('missing the account in the useParseQRCode.start');
+          // No account to send from: hand the code back like any other that
+          // cannot be acted on, instead of leaving the scanner open.
+          await closeScanPage();
+          showCopyDialog(value);
           break;
         }
         const chainValue = result.data as IChainValue;
@@ -269,6 +314,9 @@ export async function parseQRCodeWithDeps(
           const newAccountId = await getAccountIdOnNetwork({
             account,
             network,
+            canApplyScanResult,
+            scanSignal,
+            holdForChildScan,
           });
           if (newAccountId) {
             accountId = newAccountId;
@@ -290,6 +338,7 @@ export async function parseQRCodeWithDeps(
               accountId,
             });
 
+          const amount = await parseOnChainAmount(result, nativeToken);
           await closeScanPage();
           const newNetworkId =
             nativeToken?.networkId || network.id || params.network?.id || '';
@@ -303,7 +352,7 @@ export async function parseQRCodeWithDeps(
               isNFT: false,
               token: nativeToken,
               address: chainValue.address,
-              amount: await parseOnChainAmount(result, nativeToken),
+              amount,
             },
           });
           break;
@@ -325,6 +374,7 @@ export async function parseQRCodeWithDeps(
           });
         }
 
+        const amount = await parseOnChainAmount(result, selectedToken);
         await closeScanPage();
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -336,7 +386,7 @@ export async function parseQRCodeWithDeps(
             isNFT: false,
             token: selectedToken,
             address: chainValue.address,
-            amount: await parseOnChainAmount(result, selectedToken),
+            amount,
           },
         });
       }
@@ -460,9 +510,24 @@ const useParseQRCode = () => {
   const clipboard = useClipboard();
   const intl = useIntl();
 
-  const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
-    (value, params) =>
-      parseQRCodeWithDeps(value, params, { navigation, clipboard, intl }),
+  const parse = useCallback(
+    (
+      value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
+      params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
+      lifecycle?: Pick<
+        IParseQRCodeRuntimeDeps,
+        | 'canApplyScanResult'
+        | 'scanSignal'
+        | 'holdForChildScan'
+        | 'onResultWillClose'
+      >,
+    ) =>
+      parseQRCodeWithDeps(value, params, {
+        navigation,
+        clipboard,
+        intl,
+        ...lifecycle,
+      }),
     [navigation, clipboard, intl],
   );
   return useMemo(() => ({ parse }), [parse]);

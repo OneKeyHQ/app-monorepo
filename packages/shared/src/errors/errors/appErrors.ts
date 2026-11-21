@@ -1111,6 +1111,23 @@ export class InvalidLightningPaymentRequest extends OneKeyAppError {
   }
 }
 
+export class RetryableLightningInvoiceDecodeError extends OneKeyAppError {}
+
+export function isRetryableLightningInvoiceDecodeFailure(
+  error: unknown,
+): boolean {
+  const requestError = error as
+    | { httpStatusCode?: number; response?: { status?: number } }
+    | undefined;
+  const status = requestError?.httpStatusCode ?? requestError?.response?.status;
+  return (
+    status === undefined ||
+    status === 408 ||
+    status === 429 ||
+    (status >= 500 && status < 600)
+  );
+}
+
 export class InvoiceAlreadyPaid extends OneKeyAppError {
   constructor(props?: IOneKeyError) {
     super(

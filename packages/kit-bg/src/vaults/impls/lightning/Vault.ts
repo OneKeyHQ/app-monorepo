@@ -34,6 +34,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  getLightningInvoiceNetwork,
+  normalizeLightningInput,
+  resolveReusableLightningRecipient,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -70,7 +75,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
-import { findLnurl, isLightningAddress } from './sdkLightning/lnurl';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -156,7 +160,7 @@ export default class Vault extends VaultBase {
       );
     }
     const client = await this.getClient();
-    const invoice = await this._decodedInvoiceCache(transferInfo.to);
+    const invoice = await this.decodedInvoice(transferInfo.to);
     const lnConfig = await client.getConfig();
 
     const paymentHash = invoice.tags.find(
@@ -400,7 +404,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async validateAddress(address: string): Promise<IAddressValidation> {
+  override async validateAddress(input: string): Promise<IAddressValidation> {
+    const address = normalizeLightningInput(input);
     if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
       try {
         const { isTestnet } = await this.getNetwork();
@@ -413,30 +418,24 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // maybe it's a lnurl
-    try {
-      const lnurl = findLnurl(address);
-      if (!lnurl) {
-        if (isLightningAddress(address)) {
-          return {
-            isValid: true,
-            normalizedAddress: address,
-            displayAddress: address,
-          };
-        }
-        throw new OneKeyLocalError('not a lnurl');
-      }
+    const reusableRecipient = resolveReusableLightningRecipient(address);
+    if (reusableRecipient) {
       return {
         isValid: true,
-        normalizedAddress: lnurl,
-        displayAddress: lnurl,
+        normalizedAddress: reusableRecipient,
+        displayAddress: reusableRecipient,
       };
-    } catch (e) {
-      // ignore parsed lnurl error
     }
 
     try {
-      await this._decodedInvoiceCache(address);
+      const invoiceNetwork = getLightningInvoiceNetwork(address);
+      if (invoiceNetwork) {
+        const { isTestnet } = await this.getNetwork();
+        if ((invoiceNetwork === 'testnet') !== isTestnet) {
+          throw new InvalidLightningPaymentRequest();
+        }
+      }
+      await this.decodedInvoice(address);
       return {
         isValid: true,
         normalizedAddress: address,
@@ -482,7 +481,7 @@ export default class Vault extends VaultBase {
       return { isValid: false };
     }
     try {
-      const invoice = await this._decodedInvoiceCache(toAddress);
+      const invoice = await this.decodedInvoice(toAddress);
       const isZeroAmountInvoice = this._isZeroAmountInvoice(invoice);
       return {
         isValid: isZeroAmountInvoice,
@@ -626,7 +625,7 @@ export default class Vault extends VaultBase {
   }): Promise<boolean> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightning;
     const { invoice: paymentRequest, amount } = encodedTx;
-    const invoice = await this._decodedInvoiceCache(paymentRequest);
+    const invoice = await this.decodedInvoice(paymentRequest);
     const finalAmount = amount;
     if (this._isZeroAmountInvoice(invoice)) {
       if (new BigNumber(amount).isLessThan(1)) {
@@ -712,15 +711,12 @@ export default class Vault extends VaultBase {
     });
   }
 
-  _decodedInvoiceCache = memoizee(
-    async (invoice: string) => {
-      const client = await this.getClient();
-      return client.decodedInvoice(invoice);
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
-  );
+  async decodedInvoice(invoice: string) {
+    const { isTestnet } = await this.getNetwork();
+    const client =
+      await this.backgroundApi.serviceLightning.getLnClient(isTestnet);
+    return client.decodedInvoice(invoice);
+  }
 
   _isZeroAmountInvoice(invoice: IInvoiceDecodedResponse) {
     return (

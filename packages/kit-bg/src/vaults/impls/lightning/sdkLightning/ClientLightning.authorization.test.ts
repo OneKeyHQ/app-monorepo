@@ -1,6 +1,9 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import ServiceLightning from '@onekeyhq/kit-bg/src/services/ServiceLightning';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 
 import { vaultFactory } from '../../../factory';
 import LightningVault from '../Vault';
@@ -75,6 +78,216 @@ function harness(accountId = 'hw-restored') {
 }
 
 describe('Lightning read authorization without wallet interaction', () => {
+  test('the scanner and the vault reuse one decode per network and normalized invoice', async () => {
+    const { get } = harness();
+    const backgroundApi = {
+      serviceLightning: undefined as ServiceLightning | undefined,
+    };
+    const service = new ServiceLightning({ backgroundApi });
+    backgroundApi.serviceLightning = service;
+    jest
+      .spyOn(service, 'getClient')
+      .mockResolvedValue({ get } as unknown as AxiosInstance);
+    const vault = Object.assign(Object.create(LightningVault.prototype), {
+      backgroundApi,
+      getNetwork: async () => ({ isTestnet: false }),
+    }) as LightningVault;
+    const scannerClient = await service.getLnClient(false);
+
+    await Promise.all([
+      scannerClient.decodedInvoice('LIGHTNING:LNBC123'),
+      vault.decodedInvoice('lnbc123'),
+    ]);
+    await vault.decodedInvoice('lnbc123');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith('/lightning/v1/invoices/decode/lnbc123');
+
+    const testnetClient = await service.getLnClient(true);
+    await testnetClient.decodedInvoice('lnbc123');
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  test('permanent invoice rejections are not cached for automatic retry', async () => {
+    const { client, get } = harness();
+    const failure = new OneKeyServerApiError({ httpStatusCode: 400 });
+    get.mockRejectedValueOnce(failure);
+    await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+    await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  test('applies cooldown after the decoder reaches the 30-second request timeout', async () => {
+    const { client, get } = harness();
+    const failure = new OneKeyLocalError('Synthetic decode timeout');
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    let failRequest: (error: unknown) => void = () => {};
+    get.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        failRequest = reject;
+      }),
+    );
+    try {
+      const initial = client.decodedInvoice('lnbc123');
+      now.mockReturnValue(time + 30_000);
+      failRequest(failure);
+      await expect(initial).rejects.toBe(failure);
+      await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
+        failure,
+      );
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 31_000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  test('deduplicates the request until completion and caches the result from completion', async () => {
+    const { client, get } = harness();
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    let finishRequest: (
+      value: Awaited<ReturnType<typeof get>>,
+    ) => void = () => {};
+    get.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishRequest = resolve;
+      }),
+    );
+    try {
+      const initial = client.decodedInvoice('lnbc123');
+      now.mockReturnValue(time + 30_000);
+      const retry = client.decodedInvoice('LIGHTNING:LNBC123');
+      finishRequest({ data: { data: true } });
+      await expect(Promise.all([initial, retry])).resolves.toEqual([
+        true,
+        true,
+      ]);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 59_999);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(time + 60_000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  test('keeps Retry-After across a cached client refresh and isolates networks', async () => {
+    jest.useFakeTimers();
+    try {
+      const { get } = harness();
+      const backgroundApi = {
+        serviceLightning: undefined as ServiceLightning | undefined,
+      };
+      const service = new ServiceLightning({ backgroundApi });
+      backgroundApi.serviceLightning = service;
+      jest
+        .spyOn(service, 'getClient')
+        .mockResolvedValue({ get } as unknown as AxiosInstance);
+      const firstClient = await service.getLnClient(false);
+      await jest.advanceTimersByTimeAsync(0);
+
+      jest.advanceTimersByTime(179_000);
+      const failure = new OneKeyServerApiError({ httpStatusCode: 429 });
+      failure.retryAfter = '30';
+      get.mockRejectedValueOnce(failure);
+      await expect(firstClient.decodedInvoice('lnbc123')).rejects.toBe(failure);
+
+      jest.advanceTimersByTime(1000);
+      const refreshedClient = await service.getLnClient(false);
+      expect(refreshedClient).not.toBe(firstClient);
+      await expect(
+        refreshedClient.decodedInvoice('LIGHTNING:LNBC123'),
+      ).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      const testnetClient = await service.getLnClient(true);
+      await expect(testnetClient.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+
+      jest.advanceTimersByTime(28_999);
+      await expect(refreshedClient.decodedInvoice('lnbc123')).rejects.toBe(
+        failure,
+      );
+      expect(get).toHaveBeenCalledTimes(2);
+      jest.advanceTimersByTime(1);
+      await expect(refreshedClient.decodedInvoice('lnbc123')).resolves.toBe(
+        true,
+      );
+      expect(get).toHaveBeenCalledTimes(3);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test.each([429, 503])(
+    'repeated scans wait through Retry-After on HTTP %s',
+    async (status) => {
+      const { client, get } = harness();
+      const time = 1_900_000_000_000;
+      const serverError = new OneKeyServerApiError({ httpStatusCode: status });
+      serverError.retryAfter = new Date(time + 5000).toUTCString();
+      const failure =
+        status === 503
+          ? serverError
+          : Object.assign(new OneKeyLocalError('Synthetic rate limit'), {
+              isAxiosError: true,
+              response: { status, headers: { 'retry-after': '5' } },
+            });
+      get.mockRejectedValueOnce(failure);
+      const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+      try {
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        now.mockReturnValue(time + 4999);
+        await expect(client.decodedInvoice('LIGHTNING:LNBC123')).rejects.toBe(
+          failure,
+        );
+        expect(get).toHaveBeenCalledTimes(1);
+
+        now.mockReturnValue(time + 5000);
+        await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+        expect(get).toHaveBeenCalledTimes(2);
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
+
+  test.each([
+    ['transport failure', new OneKeyLocalError('Synthetic decode timeout')],
+    ['HTTP 408', new OneKeyServerApiError({ httpStatusCode: 408 })],
+    ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
+  ])('backs off repeated %s without Retry-After', async (_label, failure) => {
+    const { client, get } = harness();
+    get.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+    const time = 1_900_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(time);
+    try {
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(time + 1000);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      now.mockReturnValue(time + 2999);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(2);
+
+      now.mockReturnValue(time + 3000);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(3);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   test.each(['hw-restored', 'hd-restored'])(
     'a restored %s reads no token without starting an authorization flow',
     async (accountId) => {
