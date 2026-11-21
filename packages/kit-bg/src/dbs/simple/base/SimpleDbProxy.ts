@@ -33,6 +33,7 @@ import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC'
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
+import type { SimpleDbEntityDeviceWarranty } from '../entity/SimpleDbEntityDeviceWarranty';
 import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
@@ -303,6 +304,10 @@ export class SimpleDbProxy
   firmwareArtifactCache = this._createProxyService(
     'firmwareArtifactCache',
   ) as SimpleDbEntityFirmwareArtifactCache;
+
+  deviceWarranty = this._createProxyService(
+    'deviceWarranty',
+  ) as SimpleDbEntityDeviceWarranty;
 
   appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 

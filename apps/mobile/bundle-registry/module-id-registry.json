@@ -21558,6 +21558,7 @@
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityDappConnection.ts": 17380,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi.ts": 23130,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityDefaultWalletSettings.ts": 7676,
+    "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeviceWarranty.ts": 8590,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityEarn.ts": 1847,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityEarnExtra.ts": 6849,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityEarnOrders.ts": 7182,

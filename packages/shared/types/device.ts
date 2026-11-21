@@ -560,6 +560,25 @@ export interface IConnectYourDeviceItem {
   avatarImg?: IThirdPartyWalletAvatarImageNames | IHwWalletAvatarImageNames;
 }
 
+export type IDeviceWarrantyStatus = 'in_warranty' | 'expired' | 'unknown';
+
+// The server's warranty verdict, which runs from the device's first genuine
+// check. The dates are set only when such a record exists.
+export type IDeviceWarrantyInfo = {
+  status: IDeviceWarrantyStatus;
+  startAt?: number;
+  endAt?: number;
+  periodMonths?: number;
+};
+
+// What the app knows about a device's warranty. The lookup takes the device
+// certificate, which only a genuine check reads off the device: without one
+// kept, nothing can be looked up until the next check.
+export type IDeviceWarrantyState = {
+  hasCert: boolean;
+  info?: IDeviceWarrantyInfo;
+};
+
 export interface IFirmwareVerifyResult {
   verified: boolean;
   skipVerification?: boolean;

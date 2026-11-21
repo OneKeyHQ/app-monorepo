@@ -11,6 +11,7 @@ export const DeviceManagementTestIDs = {
   // --- Support Section ---
   aboutDeviceItem: 'device-mgmt-about-device-item',
   authRequestItem: 'device-mgmt-auth-request-item',
+  aboutWarrantyVerifyLink: 'device-mgmt-about-warranty-verify-link',
   checkForUpdatesItem: 'device-mgmt-check-for-updates-item',
   troubleshootingItem: 'device-mgmt-troubleshooting-item',
   firmwareUpdateLink: 'device-mgmt-firmware-update-link',

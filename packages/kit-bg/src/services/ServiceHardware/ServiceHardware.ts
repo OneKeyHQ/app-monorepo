@@ -4006,6 +4006,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDeviceWarranty(params: { serialNo: string }) {
+    return this.hardwareVerifyManager.getDeviceWarranty(params);
+  }
+
+  @backgroundMethod()
+  async refreshDeviceWarranty(params: { serialNo: string }) {
+    return this.hardwareVerifyManager.refreshDeviceWarranty(params);
+  }
+
+  @backgroundMethod()
   async shouldAuthenticateFirmwareByHash(params: {
     features: IOneKeyDeviceFeatures | undefined;
   }) {
