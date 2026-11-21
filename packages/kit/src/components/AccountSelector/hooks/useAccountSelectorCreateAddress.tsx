@@ -60,6 +60,7 @@ export function useAccountSelectorCreateAddress() {
       createAllDeriveTypes,
       customNetworks,
       addressCreationRequest,
+      canStartAddressCreation,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -75,7 +76,9 @@ export function useAccountSelectorCreateAddress() {
         deriveType: IAccountDeriveTypes;
       }[];
       addressCreationRequest?: IAddressCreationRequest;
+      canStartAddressCreation?: () => boolean;
     }) => {
+      if (canStartAddressCreation?.() === false) return;
       if (
         !account ||
         !account.walletId ||
@@ -150,6 +153,7 @@ export function useAccountSelectorCreateAddress() {
             },
           );
         }
+        if (canStartAddressCreation?.() === false) return;
 
         // TODO: cancel creating workflow by close checking device UI dialog
         // If indexedAccountId is empty, create the first account (index 0) for all networks
@@ -269,6 +273,7 @@ export function useAccountSelectorCreateAddress() {
       };
 
       const addAccounts = async () => {
+        if (canStartAddressCreation?.() === false) return;
         try {
           if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
             return await addAccountsForAllNetwork();
@@ -304,6 +309,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
+          if (canStartAddressCreation?.() === false) return;
           let indexedAccountId = account.indexedAccountId;
           if (!indexedAccountId) {
             await serviceAccount.addIndexedAccount({

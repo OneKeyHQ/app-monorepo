@@ -196,6 +196,7 @@ export function AccountSelectorCreateAddressButton({
         createAllDeriveTypes,
         customNetworks,
         addressCreationRequest,
+        canStartAddressCreation,
       });
       defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);

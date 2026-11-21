@@ -21,6 +21,13 @@ import { useAccountSelectorCreateAddress } from './useAccountSelectorCreateAddre
 
 const mockAddDefaultNetworkAccounts = jest.fn<Promise<unknown>, [unknown]>();
 const mockAddAccounts = jest.fn<Promise<unknown>, [unknown]>();
+const mockGetWalletDevice = jest.fn<
+  Promise<{ connectId: string }>,
+  [unknown]
+>();
+const mockCloseHardwareUi = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
 const mockIsThirdPartyHwByWalletId = jest.fn<Promise<boolean>, [unknown]>();
 const mockGetNetwork = jest.fn<
   Promise<{ name: string } | undefined>,
@@ -43,7 +50,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
-      getWalletDevice: jest.fn(async () => ({ connectId: 'device-1' })),
+      getWalletDevice: (params: unknown) => mockGetWalletDevice(params),
       isThirdPartyHwByWalletId: (params: unknown) =>
         mockIsThirdPartyHwByWalletId(params),
       getIndexedAccountsOfWallet: (params: unknown) =>
@@ -57,7 +64,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {
-      closeHardwareUiStateDialog: jest.fn(async () => undefined),
+      closeHardwareUiStateDialog: (params: unknown) =>
+        mockCloseHardwareUi(params),
     },
     serviceNetwork: {
       getNetwork: (params: unknown) => mockGetNetwork(params),
@@ -141,6 +149,8 @@ async function createAllNetworkAddress(selectAfterCreate = false) {
 describe('useAccountSelectorCreateAddress', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAddAccounts.mockReset();
+    mockGetWalletDevice.mockResolvedValue({ connectId: 'device-1' });
     mockGetIndexedAccounts.mockResolvedValue({ accounts: [] });
     mockVerifyPassword.mockResolvedValue(undefined);
     mockGetNetwork.mockReset().mockResolvedValue({ name: 'Bitcoin' });
@@ -152,6 +162,44 @@ describe('useAccountSelectorCreateAddress', () => {
       failedAccounts: [pathForbidden],
     });
   });
+
+  it.each([true, false])(
+    'checks the address request after a delayed device lookup (active: %s)',
+    async (stillActive) => {
+      let finishLookup: (device: { connectId: string }) => void = () => {};
+      mockGetWalletDevice.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishLookup = resolve;
+        }),
+      );
+      mockAddAccounts.mockResolvedValueOnce({
+        walletId: 'hw-wallet-1',
+        indexedAccountId: 'hw-wallet-1--0',
+        accounts: [{ id: 'created-1' }],
+      });
+      const { result } = renderHook(() => useAccountSelectorCreateAddress());
+      let active = true;
+      const creating = result.current.createAddress({
+        num: 0,
+        account: {
+          walletId: 'hw-wallet-1',
+          networkId: 'lightning--0',
+          indexedAccountId: 'hw-wallet-1--0',
+          deriveType: 'default',
+        },
+        canStartAddressCreation: () => active,
+      });
+      expect(mockGetWalletDevice).toHaveBeenCalledTimes(1);
+      expect(mockAddAccounts).not.toHaveBeenCalled();
+
+      active = stillActive;
+      finishLookup({ connectId: 'device-1' });
+      await creating;
+
+      expect(mockAddAccounts).toHaveBeenCalledTimes(stillActive ? 1 : 0);
+      expect(mockCloseHardwareUi).toHaveBeenCalledTimes(stillActive ? 1 : 0);
+    },
+  );
 
   it('closes the failed QR-address dialog before opening support', async () => {
     let finishClose: () => void = () => {};

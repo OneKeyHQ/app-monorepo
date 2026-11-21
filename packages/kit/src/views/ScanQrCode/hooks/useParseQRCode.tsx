@@ -309,23 +309,31 @@ export async function parseQRCodeWithDeps(
 
         let accountId = account.id;
         if (account.impl !== network.impl) {
-          const qrWalletUnsupported =
-            result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
-            accountUtils.isQrAccount({ accountId }) &&
-            !(
-              await backgroundApiProxy.serviceNetwork.getVaultSettings({
-                networkId,
-              })
-            ).qrAccountEnabled;
-          const newAccountId = qrWalletUnsupported
-            ? undefined
-            : await getAccountIdOnNetwork({
+          let canCreateAddress = true;
+          if (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK) {
+            const walletId = accountUtils.getWalletIdFromAccountId({
+              accountId,
+            });
+            if (accountUtils.isHwOrQrWallet({ walletId })) {
+              const { networkIdsCompatible } =
+                await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+                  {
+                    walletId,
+                    networkIds: [networkId],
+                  },
+                );
+              canCreateAddress = networkIdsCompatible.includes(networkId);
+            }
+          }
+          const newAccountId = canCreateAddress
+            ? await getAccountIdOnNetwork({
                 account,
                 network,
                 canApplyScanResult,
                 scanSignal,
                 holdForChildScan,
-              });
+              })
+            : undefined;
           if (newAccountId) {
             accountId = newAccountId;
           } else {

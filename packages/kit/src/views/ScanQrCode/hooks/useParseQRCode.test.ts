@@ -1,9 +1,13 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   Dialog,
   Toast,
   navigateFromOverlayToTab,
   resetAboveMainRoute,
 } from '@onekeyhq/components';
+import ServiceNetwork from '@onekeyhq/kit-bg/src/services/ServiceNetwork/ServiceNetwork';
+import lightningSettings from '@onekeyhq/kit-bg/src/vaults/impls/lightning/settings';
 import {
   InvoiceExpiredError,
   OneKeyErrorScanQrCodeCancel,
@@ -21,7 +25,14 @@ import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNativeToken = jest.fn<Promise<unknown>, unknown[]>();
 const mockGetNetworkSafe = jest.fn<Promise<unknown>, unknown[]>();
-const mockCreateAddressIfNotExists = jest.fn(async () => undefined);
+const mockCreateAddressIfNotExists = jest.fn<
+  Promise<{ id: string } | undefined>,
+  []
+>(async () => undefined);
+const mockGetCompatibleNetworks = jest.fn<
+  ReturnType<ServiceNetwork['getNetworkIdsCompatibleWithWalletId']>,
+  Parameters<ServiceNetwork['getNetworkIdsCompatibleWithWalletId']>
+>();
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
@@ -49,6 +60,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceNetwork: {
       getVaultSettings: async () => ({ isSingleToken: true }),
       getNetworkSafe: (...args: unknown[]) => mockGetNetworkSafe(...args),
+      getNetworkIdsCompatibleWithWalletId: (
+        ...args: Parameters<typeof mockGetCompatibleNetworks>
+      ) => mockGetCompatibleNetworks(...args),
     },
     serviceAccount: {
       getAccountsInSameIndexedAccountId: async () => ({ accounts: [] }),
@@ -88,7 +102,73 @@ function parseFrame() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetCompatibleNetworks.mockReset().mockResolvedValue({
+    networkIdsCompatible: [],
+    networkIdsIncompatible: [],
+  });
 });
+
+it.each([
+  [EDeviceType.Pro2, false],
+  [EDeviceType.Neo, false],
+  [EDeviceType.Classic, true],
+])(
+  'routes the invoice according to the connected %s compatibility',
+  async (deviceType, compatible) => {
+    const network = { id: 'lightning--0', impl: 'lightning' };
+    const service = Object.assign(Object.create(ServiceNetwork.prototype), {
+      _getNetworkVaultSettingsByNetworkIds: async () => [
+        { network, vaultSetting: lightningSettings },
+      ],
+      backgroundApi: {
+        serviceAccount: {
+          getWalletDeviceSafe: async () => ({ deviceType }),
+          getWalletSafe: async () => undefined,
+        },
+      },
+    }) as ServiceNetwork;
+    mockGetCompatibleNetworks.mockImplementationOnce((params) =>
+      service.getNetworkIdsCompatibleWithWalletId(params),
+    );
+    const pushModal = jest.fn();
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: { address: 'invoice', network },
+    });
+    if (compatible) {
+      mockCreateAddressIfNotExists.mockResolvedValueOnce({
+        id: 'hw-1--lightning',
+      });
+      mockGetNativeToken.mockResolvedValueOnce({
+        networkId: network.id,
+        decimals: 8,
+      });
+    }
+    await parseQRCodeWithDeps(
+      'lightning:invoice',
+      {
+        popNavigation: true,
+        autoExecuteParsedAction: true,
+        account: {
+          id: 'hw-1--0',
+          indexedAccountId: 'hw-1--0',
+          impl: 'btc',
+        } as NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account'],
+      },
+      { ...deps, navigation: { ...deps.navigation, pushModal } },
+    );
+
+    expect(mockCreateAddressIfNotExists).toHaveBeenCalledTimes(
+      compatible ? 1 : 0,
+    );
+    expect(Dialog.confirm).toHaveBeenCalledTimes(compatible ? 0 : 1);
+    expect(pushModal).toHaveBeenCalledTimes(compatible ? 1 : 0);
+    expect(mockGetCompatibleNetworks).toHaveBeenCalledWith({
+      walletId: 'hw-1',
+      networkIds: [network.id],
+    });
+  },
+);
 
 it.each(['lightning--0', 'tlightning--0'])(
   'copies the invoice instead of trying to create a QR-wallet address on %s',

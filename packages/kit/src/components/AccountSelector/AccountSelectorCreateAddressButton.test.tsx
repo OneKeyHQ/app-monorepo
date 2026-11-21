@@ -74,5 +74,12 @@ it.each([true, false])(
       finishEligibility(true);
     });
     expect(mockCreateAddress).toHaveBeenCalledTimes(active ? 1 : 0);
+    if (active) {
+      expect(mockCreateAddress).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canStartAddressCreation: expect.any(Function),
+        }),
+      );
+    }
   },
 );
