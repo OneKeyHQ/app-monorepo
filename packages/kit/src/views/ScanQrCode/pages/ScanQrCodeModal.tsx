@@ -240,13 +240,6 @@ export default function ScanQrCodeModal() {
   const scannerRef = useRef<IScanCameraRef>(null);
   const scanScope = useRef<AbortController | null>(null);
   const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      scanScope.current = controller;
-      return () => controller.abort();
-    }, []),
-  );
   const route =
     useRoute<
       RouteProp<
@@ -259,6 +252,17 @@ export default function ScanQrCodeModal() {
     qrWalletScene,
     showProTutorial,
   } = route.params;
+  const photoRetryToastId = `${route.key}:photo-retry`;
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      scanScope.current = controller;
+      return () => {
+        controller.abort();
+        Toast.dismiss(photoRetryToastId);
+      };
+    }, [photoRetryToastId]),
+  );
 
   const isScanOpen = useCallback(
     () => hasRouteKey(rootNavigationRef.current?.getRootState(), route.key),
@@ -271,11 +275,12 @@ export default function ScanQrCodeModal() {
     if (exitReason.current) return;
     exitReason.current = 'cancelled';
     scanScope.current?.abort();
+    Toast.dismiss(photoRetryToastId);
     void routeCallback({
       value: '',
       popNavigation: false,
     });
-  }, [routeCallback]);
+  }, [photoRetryToastId, routeCallback]);
 
   useEffect(() => {
     const unsubscribe = reactNavigation.addListener('beforeRemove', cancelScan);
@@ -333,7 +338,6 @@ export default function ScanQrCodeModal() {
   const isPickingImage = useRef(false);
   const cameraGeneration = useRef(0);
   const photoSelectionId = useRef(0);
-  const photoRetryToastId = `${route.key}:photo-retry`;
   const submitPhoto = useCallback(
     async function submitPhoto(
       data: string,

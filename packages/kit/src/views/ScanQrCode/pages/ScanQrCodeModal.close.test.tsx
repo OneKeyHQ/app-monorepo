@@ -24,6 +24,7 @@ const mockRouteCallback = jest.fn(
 let mockCurrentRouteKey = 'scan-route';
 let mockScanRouteInStack = true;
 let mockBeforeRemove: (() => void) | undefined;
+let mockBlur: (() => void) | undefined;
 const mockNavigation = {
   addListener: (_event: string, listener: () => void) => {
     mockBeforeRemove = listener;
@@ -38,7 +39,14 @@ jest.mock('@react-navigation/core', () => {
   return {
     useNavigation: () => mockNavigation,
     useFocusEffect: (effect: () => () => void) => {
-      React.useEffect(effect, [effect]);
+      React.useEffect(() => {
+        const cleanup = effect();
+        mockBlur = cleanup;
+        return () => {
+          mockBlur = undefined;
+          cleanup();
+        };
+      }, [effect]);
     },
     useRoute: () => ({
       key: 'scan-route',
@@ -198,9 +206,11 @@ beforeEach(() => {
   mockCloseOrder.length = 0;
   mockRouteCallback.mockClear();
   jest.mocked(Toast.error).mockClear();
+  jest.mocked(Toast.dismiss).mockClear();
   mockCurrentRouteKey = 'scan-route';
   mockScanRouteInStack = true;
   mockBeforeRemove = undefined;
+  mockBlur = undefined;
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -424,3 +434,38 @@ test('only the most recently selected photo can be retried', async () => {
     'second invoice',
   ]);
 });
+
+test.each(['header close', 'system Back', 'focus loss'])(
+  'dismisses the photo retry toast on %s',
+  async (exit) => {
+    jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
+      canceled: false,
+      uri: 'test://retry-photo',
+    });
+    jest
+      .mocked(PhotoLibrary.releasePickedImage)
+      .mockResolvedValueOnce(undefined);
+    jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
+    mockRouteCallback.mockResolvedValueOnce({ retry: true });
+    render(<ScanQrCodeModal />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
+    await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+    const [{ actions, toastId }] = jest.mocked(Toast.error).mock.calls[0];
+    const retry = Array.isArray(actions) ? actions[0] : actions;
+    jest.mocked(Toast.dismiss).mockClear();
+
+    if (exit === 'header close') {
+      fireEvent.click(screen.getByTestId('header-close'));
+    } else if (exit === 'system Back') {
+      mockBeforeRemove?.();
+    } else {
+      mockCurrentRouteKey = 'other-route';
+      mockBlur?.();
+    }
+
+    expect(Toast.dismiss).toHaveBeenCalledWith(toastId);
+    const callsAfterExit = mockRouteCallback.mock.calls.length;
+    await retry?.onPress?.();
+    expect(mockRouteCallback).toHaveBeenCalledTimes(callsAfterExit);
+  },
+);
