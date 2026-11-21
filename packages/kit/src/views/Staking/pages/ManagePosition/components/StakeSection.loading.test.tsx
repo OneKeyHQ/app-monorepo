@@ -2,6 +2,24 @@
 /* eslint-disable import/first */
 
 const mockGetEarnAssetsList = jest.fn<Promise<unknown>, unknown[]>();
+const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+const mockUseEarnFunding = jest.fn<unknown, [unknown]>();
+const mockReconcileDestination = jest.fn<Promise<unknown>, [unknown]>();
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFundingRegistry',
+  () => ({
+    useEarnFunding: (scope: unknown) => mockUseEarnFunding(scope),
+    refreshEarnFunding: jest.fn(),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFundingContinuation',
+  () => ({
+    reconcileEarnFundingContinuation: (params: unknown) =>
+      mockReconcileDestination(params),
+    reserveEarnFundingContinuation: jest.fn(),
+  }),
+);
 jest.mock(
   '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouterSwap',
   () => ({
@@ -154,7 +172,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => mockIntl,
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -162,6 +180,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: {
       getAccountAddressForApi: () => mockRetainedAccountAddress(),
     },
+    serviceNetwork: { getNetworkSafe: jest.fn(async () => undefined) },
     serviceStaking: {
       getEarnAssetsList: (...args: unknown[]) => mockGetEarnAssetsList(...args),
       fetchTokenAllowance: async () => ({ allowanceParsed: '0' }),
@@ -410,6 +429,8 @@ function renderStake(
 }
 
 beforeEach(() => {
+  mockUseEarnFunding.mockReset();
+  mockReconcileDestination.mockReset();
   mockRetainedAccountAddress.mockReset().mockResolvedValue('0xowner');
   mockRetainedStakeForm.mockReset();
   mockGetEarnAssetsList.mockReset();
@@ -423,6 +444,50 @@ beforeEach(() => {
   mockRemovePermitCache.mockReset();
   mockWaitForTxFinalStatus.mockReset().mockResolvedValue(undefined);
   mockConfirmStake.mockReset();
+});
+
+it('keeps the latest A reconciliation retryable when an earlier A request finishes', async () => {
+  const requests: Array<() => void> = [];
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(eth), item(weth)] });
+  mockUseEarnFunding.mockImplementation((key: unknown) =>
+    key ? { status: 'submitted', txId: 'tx' } : undefined,
+  );
+  mockReconcileDestination.mockImplementation(
+    () => new Promise<void>((resolve) => requests.push(resolve)),
+  );
+  const makeView = (address: string) => (
+    <StakeSection
+      accountId="account-1"
+      networkId="evm--1"
+      tokenInfo={tokenInfo}
+      protocolInfo={{
+        ...nativeProtocol,
+        earnAccount: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          accountAddress: address,
+          account: {} as NonNullable<IProtocolInfo['earnAccount']>['account'],
+        },
+      }}
+      payWith={{}}
+    />
+  );
+  const view = render(makeView('0xaaa'));
+  await waitFor(() => expect(requests).toHaveLength(1));
+  view.rerender(makeView('0xbbb'));
+  await waitFor(() => expect(requests).toHaveLength(2));
+  view.rerender(makeView('0xaaa'));
+  await waitFor(() => expect(requests).toHaveLength(3));
+  await act(async () => requests[0]?.());
+  fireEvent.click(screen.getByTestId('stake-assets-retry'));
+  expect(requests).toHaveLength(3);
+  await act(async () => requests[2]?.());
+  fireEvent.click(screen.getByTestId('stake-assets-retry'));
+  await waitFor(() => expect(requests).toHaveLength(4));
+  await act(async () => {
+    requests[1]?.();
+    requests[3]?.();
+  });
 });
 
 it.each([true, false])(

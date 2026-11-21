@@ -594,7 +594,7 @@ const StakeSectionContent = ({
     setHandoff((prev) => (prev ? { ...prev, autoSubmitKey: undefined } : prev));
   }, []);
   const [isCheckingDestination, setIsCheckingDestination] = useState(false);
-  const destinationCheckRef = useRef<string | undefined>(undefined);
+  const destinationCheckRef = useRef<{ key: string } | undefined>(undefined);
   const reconcileDestination = useCallback(async () => {
     if (!destinationKey || !destinationAccountAddress) return;
     const checkKey = JSON.stringify([
@@ -603,8 +603,9 @@ const StakeSectionContent = ({
       networkId,
       normalizeTaskAccountAddress(networkId, destinationAccountAddress),
     ]);
-    if (destinationCheckRef.current === checkKey) return;
-    destinationCheckRef.current = checkKey;
+    if (destinationCheckRef.current?.key === checkKey) return;
+    const request = { key: checkKey };
+    destinationCheckRef.current = request;
     const isCurrent = handoffScope.capture();
     setIsCheckingDestination(true);
     try {
@@ -621,7 +622,7 @@ const StakeSectionContent = ({
         });
       }
     } finally {
-      if (destinationCheckRef.current === checkKey) {
+      if (destinationCheckRef.current === request) {
         destinationCheckRef.current = undefined;
         if (isCurrent()) setIsCheckingDestination(false);
       }
