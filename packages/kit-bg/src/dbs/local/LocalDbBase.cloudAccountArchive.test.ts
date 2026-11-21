@@ -1045,6 +1045,86 @@ it.each([false, true])(
   },
 );
 
+it.each([false, true])(
+  'repairs only identical authenticated live pending proof after another source changes the settled row (prior tombstone=%s)',
+  async (priorDeleted) => {
+    jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
+    const db = new LocalDbIndexed();
+    const retry = new LocalDbIndexed();
+    const target = wallet(68);
+    const fixture = rows(68);
+    const originalForeign = { ...fixture.old, data: 'b2'.repeat(32) };
+    const active = { ...fixture.current, data: 'a1'.repeat(32) };
+    const changedForeign = {
+      ...originalForeign,
+      data: 'c3'.repeat(32),
+      pwdHash: 'another-foreign-space',
+      // Version timing in a different space is not comparable.
+      dataTime: 17,
+    };
+    await retainFixture(db, target, originalForeign);
+    const stage = (
+      conn: LocalDbIndexed,
+      candidate: IDBCloudSyncItem,
+      expected: IDBCloudSyncItem,
+    ) =>
+      conn.storePendingCloudAccountHandoffs({
+        candidates: [candidate],
+        expectedForeignById: new Map([[expected.id, expected]]),
+        pwdHash: cloudHash,
+        isCurrent: () => true,
+      });
+    await stage(db, { ...active, isDeleted: priorDeleted }, originalForeign);
+    expect(await db.getPendingCloudAccountHandoffs(cloudHash)).toHaveLength(1);
+    await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await db.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [originalForeign.id],
+        updater: (record) => Object.assign(record, changedForeign),
+      });
+    });
+
+    // Offline replay may not bless the changed row or modify canonical data.
+    expect(await retry.getPendingCloudAccountHandoffs(cloudHash)).toEqual([]);
+    await stage(retry, active, originalForeign);
+    await stage(retry, { ...active, data: 'd4'.repeat(32) }, changedForeign);
+    await stage(retry, { ...active, dataTime: 100 }, changedForeign);
+    expect(await retry.getPendingCloudAccountHandoffs(cloudHash)).toEqual([]);
+    expect(await retry.getSyncItem({ id: active.id })).toEqual(changedForeign);
+    expect(await readArchive(retry, active.id)).toEqual([]);
+
+    await stage(retry, active, changedForeign);
+    const replay = await retry.getPendingCloudAccountHandoffs(cloudHash);
+    if (priorDeleted) {
+      expect(replay).toEqual([]);
+      expect(await retry.getSyncItem({ id: active.id })).toEqual(
+        changedForeign,
+      );
+      return;
+    }
+    expect(replay).toMatchObject([
+      {
+        candidate: {
+          id: active.id,
+          data: active.data,
+          dataTime: active.dataTime,
+          isDeleted: false,
+        },
+        expectedForeign: changedForeign,
+      },
+    ]);
+    const [item] = replay;
+    expect(
+      await retry.importPublicCloudAccounts(
+        parameters(target, item.candidate, item.expectedForeign),
+      ),
+    ).toMatchObject({ pending: 0, added: 1 });
+    expect(await retry.getPendingCloudAccountHandoffs(cloudHash)).toEqual([]);
+    expect(await readArchive(retry, active.id)).toEqual([changedForeign]);
+  },
+);
+
 it('does not replay an earlier live candidate after a verified active-space tombstone', async () => {
   jest.replaceProperty(globalThis, 'indexedDB', new IDBFactory());
   const db = new LocalDbIndexed();

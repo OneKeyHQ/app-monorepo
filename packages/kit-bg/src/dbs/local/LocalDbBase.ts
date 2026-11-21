@@ -9450,21 +9450,38 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             const id = this.getPendingCloudAccountHandoffKey(candidate);
             const prior = await pending.read(id);
             if (!isCurrent()) return;
+            const wire = this.cloudAccountHandoffWireVersion(candidate);
+            const expectedForeign =
+              this.cloudAccountHandoffWireVersion(expected);
+            if (prior && (prior.candidate.dataTime ?? 0) > (wire.dataTime ?? 0))
+              return;
+            const equalTime = prior?.candidate.dataTime === wire.dataTime;
+            let entry: IPendingCloudAccountHandoff;
             if (
               prior &&
-              ((prior.candidate.dataTime ?? 0) > (candidate.dataTime ?? 0) ||
-                (prior.candidate.dataTime === candidate.dataTime &&
-                  (!candidate.isDeleted || prior.candidate.isDeleted)))
-            )
-              return;
-            // The foreign plaintext cache remains solely in its original
-            // row until archival. Preserve only the exact wire versions here.
-            const entry: IPendingCloudAccountHandoff = {
-              id,
-              kind: 'pending-account-handoff',
-              candidate: this.cloudAccountHandoffWireVersion(candidate),
-              expectedForeign: this.cloudAccountHandoffWireVersion(expected),
-            };
+              equalTime &&
+              (!wire.isDeleted || prior.candidate.isDeleted)
+            ) {
+              // A fresh authenticated download may repair the foreign proof
+              // for the exact same live wire version, never replay or alter it.
+              if (
+                wire.isDeleted ||
+                prior.candidate.isDeleted ||
+                !isEqual(prior.candidate, wire) ||
+                isEqual(prior.expectedForeign, expectedForeign)
+              )
+                return;
+              entry = { ...prior, expectedForeign };
+            } else {
+              // The foreign plaintext cache remains solely in its original
+              // row until archival. Preserve only the exact wire versions here.
+              entry = {
+                id,
+                kind: 'pending-account-handoff',
+                candidate: wire,
+                expectedForeign,
+              };
+            }
             await pending.write(entry);
             if (!isCurrent())
               throw new OneKeyLocalError({
