@@ -116,6 +116,54 @@ describe('Lightning read authorization without wallet interaction', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
+  test('keeps Retry-After across a cached client refresh and isolates networks', async () => {
+    jest.useFakeTimers();
+    try {
+      const { get } = harness();
+      const backgroundApi = {
+        serviceLightning: undefined as ServiceLightning | undefined,
+      };
+      const service = new ServiceLightning({ backgroundApi });
+      backgroundApi.serviceLightning = service;
+      jest
+        .spyOn(service, 'getClient')
+        .mockResolvedValue({ get } as unknown as AxiosInstance);
+      const firstClient = await service.getLnClient(false);
+      await jest.advanceTimersByTimeAsync(0);
+
+      jest.advanceTimersByTime(179_000);
+      const failure = new OneKeyServerApiError({ httpStatusCode: 429 });
+      failure.retryAfter = '30';
+      get.mockRejectedValueOnce(failure);
+      await expect(firstClient.decodedInvoice('lnbc123')).rejects.toBe(failure);
+
+      jest.advanceTimersByTime(1000);
+      const refreshedClient = await service.getLnClient(false);
+      expect(refreshedClient).not.toBe(firstClient);
+      await expect(
+        refreshedClient.decodedInvoice('LIGHTNING:LNBC123'),
+      ).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+
+      const testnetClient = await service.getLnClient(true);
+      await expect(testnetClient.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+
+      jest.advanceTimersByTime(28_999);
+      await expect(refreshedClient.decodedInvoice('lnbc123')).rejects.toBe(
+        failure,
+      );
+      expect(get).toHaveBeenCalledTimes(2);
+      jest.advanceTimersByTime(1);
+      await expect(refreshedClient.decodedInvoice('lnbc123')).resolves.toBe(
+        true,
+      );
+      expect(get).toHaveBeenCalledTimes(3);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test.each([429, 503])(
     'repeated scans wait through Retry-After on HTTP %s',
     async (status) => {

@@ -21,7 +21,9 @@ import type {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
-import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
+import ClientLightning, {
+  createLightningInvoiceDecodeCache,
+} from '../vaults/impls/lightning/sdkLightning/ClientLightning';
 import { verifyInvoice } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
@@ -40,12 +42,24 @@ class ServiceLightning extends ServiceBase {
     return this.getClientCache(isTestnet);
   }
 
+  private readonly invoiceDecodeCaches = {
+    mainnet: createLightningInvoiceDecodeCache(),
+    testnet: createLightningInvoiceDecodeCache(),
+  };
+
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
       const _client = await this.backgroundApi.serviceLightning.getClient(
         EServiceEndpointEnum.Lightning,
       );
-      return new ClientLightning(this.backgroundApi, _client, isTestnet);
+      return new ClientLightning(
+        this.backgroundApi,
+        _client,
+        isTestnet,
+        isTestnet
+          ? this.invoiceDecodeCaches.testnet
+          : this.invoiceDecodeCaches.mainnet,
+      );
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),

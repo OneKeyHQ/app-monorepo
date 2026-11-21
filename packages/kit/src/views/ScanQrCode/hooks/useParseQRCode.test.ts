@@ -1,5 +1,6 @@
-import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
+import { Dialog, Toast, resetAboveMainRoute } from '@onekeyhq/components';
 import {
+  InvoiceExpiredError,
   OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -96,6 +97,41 @@ it.each([
   expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
   expect(isRetryableQrParseFailure(invalid)).toBe(false);
 });
+
+it.each([true, false])(
+  'only shows the expired invoice toast for the active scanner (%s)',
+  async (active) => {
+    const controller = new AbortController();
+    let rejectParse: (error: unknown) => void = () => {};
+    mockParse.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectParse = reject;
+      }),
+    );
+    const parsing = parseQRCodeWithDeps(
+      'lightning:invoice',
+      { popNavigation: true, autoExecuteParsedAction: false },
+      { ...deps, canApplyScanResult: () => !controller.signal.aborted },
+    );
+    if (!active) controller.abort();
+    const error = new InvoiceExpiredError({ autoToast: false });
+    // Split-runtime bridges return an error payload without its prototype.
+    rejectParse({ key: error.key, autoToast: error.autoToast });
+
+    if (active) {
+      await expect(parsing).rejects.toMatchObject({ key: error.key });
+      expect(Toast.error).toHaveBeenCalledTimes(1);
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: ETranslations.send_the_invoice_has_expired,
+      });
+      expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
+    } else {
+      await expect(parsing).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+    }
+  },
+);
 
 it.each([
   ['a lightning invoice', EQRCodeHandlerType.LIGHTNING_NETWORK],

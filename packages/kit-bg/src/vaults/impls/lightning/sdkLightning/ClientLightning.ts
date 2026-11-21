@@ -55,6 +55,19 @@ function invoiceDecodeCooldownMs(
   return Number.isFinite(delay) ? Math.max(fallbackMs, delay) : fallbackMs;
 }
 
+export function createLightningInvoiceDecodeCache() {
+  return {
+    decoded: new LRUCache<string, Promise<IInvoiceDecodedResponse>>({
+      ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      max: 100,
+    }),
+    failed: new LRUCache<
+      string,
+      { retryAt: number; nextDelayMs: number; error: unknown }
+    >({ max: 100 }),
+  };
+}
+
 class ClientLightning {
   private backgroundApi: IBackgroundApi;
 
@@ -66,7 +79,12 @@ class ClientLightning {
 
   readonly maxRetryCount = 3;
 
-  constructor(backgroundApi: any, client: AxiosInstance, isTestnet: boolean) {
+  constructor(
+    backgroundApi: any,
+    client: AxiosInstance,
+    isTestnet: boolean,
+    private readonly invoiceDecodeCache = createLightningInvoiceDecodeCache(),
+  ) {
     this.request = client;
     this.testnet = isTestnet;
     this.backgroundApi = backgroundApi;
@@ -320,25 +338,14 @@ class ClientLightning {
     });
   }
 
-  private readonly decodedInvoiceCache = new LRUCache<
-    string,
-    Promise<IInvoiceDecodedResponse>
-  >({
-    ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    max: 100,
-  });
-  private readonly failedInvoiceDecodes = new LRUCache<
-    string,
-    { retryAt: number; nextDelayMs: number; error: unknown }
-  >({ max: 100 });
-
   async decodedInvoice(input: string) {
     const invoice = normalizeLightningInput(input);
-    const previousFailure = this.failedInvoiceDecodes.get(invoice);
+    const { decoded, failed } = this.invoiceDecodeCache;
+    const previousFailure = failed.get(invoice);
     if (previousFailure && Date.now() < previousFailure.retryAt) {
       throw previousFailure.error;
     }
-    const cached = this.decodedInvoiceCache.get(invoice);
+    const cached = decoded.get(invoice);
     if (cached) {
       return cached;
     }
@@ -347,32 +354,29 @@ class ClientLightning {
         `${this.prefix}/invoices/decode/${invoice}`,
       )
       .then(({ data }) => {
-        if (
-          previousFailure &&
-          this.failedInvoiceDecodes.get(invoice) === previousFailure
-        ) {
-          this.failedInvoiceDecodes.delete(invoice);
+        if (previousFailure && failed.get(invoice) === previousFailure) {
+          failed.delete(invoice);
         }
         return data.data;
       })
       .catch((error: unknown) => {
-        if (this.decodedInvoiceCache.get(invoice) === pending) {
+        if (decoded.get(invoice) === pending) {
           const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
           const cooldown = invoiceDecodeCooldownMs(error, fallbackMs);
           if (cooldown !== undefined) {
-            this.failedInvoiceDecodes.set(invoice, {
+            failed.set(invoice, {
               retryAt: Date.now() + cooldown,
               nextDelayMs: Math.min(30_000, fallbackMs * 2),
               error,
             });
           } else if (previousFailure) {
-            this.failedInvoiceDecodes.delete(invoice);
+            failed.delete(invoice);
           }
-          this.decodedInvoiceCache.delete(invoice);
+          decoded.delete(invoice);
         }
         throw error;
       });
-    this.decodedInvoiceCache.set(invoice, pending);
+    decoded.set(invoice, pending);
     return pending;
   }
 

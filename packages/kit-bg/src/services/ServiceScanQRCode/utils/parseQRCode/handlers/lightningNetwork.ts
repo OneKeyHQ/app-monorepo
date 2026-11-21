@@ -70,7 +70,7 @@ const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = async (
         : timestamp +
           (tagsObject?.expire_time ?? DEFAULT_INVOICE_EXPIRY_SECONDS));
     if (expiresAt !== undefined && expiresAt <= Date.now() / 1000) {
-      throw new InvoiceExpiredError({ autoToast: true });
+      throw new InvoiceExpiredError({ autoToast: false });
     }
   }
 

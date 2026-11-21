@@ -31,6 +31,7 @@ import type {
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -152,9 +153,17 @@ export async function parseQRCodeWithDeps(
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
   } catch (error) {
     ensureScanIsActive();
-    // A code the scan can never accept (the error toasts itself): end the scan.
-    // Any other failure leaves the page open so a scanner can retry the frame.
     if (isInvalidQrCodeError(error)) {
+      if (
+        (error as IOneKeyError | undefined)?.key ===
+        ETranslations.send_the_invoice_has_expired
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.send_the_invoice_has_expired,
+          }),
+        });
+      }
       await closeScanPage();
     } else {
       markRetryableQrParseFailure(error);
