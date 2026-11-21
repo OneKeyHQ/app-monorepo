@@ -106,6 +106,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
 
   override async syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: () => void;
     item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
@@ -164,6 +165,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
         return false;
     }
     if (isCurrent && !isCurrent()) return false;
+    if (deferCloudSyncWalletName) params.onWalletNameHistoryDeferred?.();
     if (
       deferCloudSyncWalletName &&
       !payload.avatar &&

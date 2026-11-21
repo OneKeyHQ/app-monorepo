@@ -75,6 +75,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: () => void;
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -82,6 +83,7 @@ export abstract class CloudSyncFlowManagerBase<
 
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: () => void;
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -705,11 +707,13 @@ export abstract class CloudSyncFlowManagerBase<
     items,
     forceSync,
     isCurrent,
+    onWalletNameHistoryDeferred,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: () => void;
   }) {
     if (!items.length) {
       return;
@@ -776,6 +780,7 @@ export abstract class CloudSyncFlowManagerBase<
                   const isSuccess = await this.syncToSceneEachItemByMutex({
                     item: source,
                     isCurrent,
+                    onWalletNameHistoryDeferred,
                     target,
                     payload: payload as any,
                   });

@@ -452,6 +452,130 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(selected).toHaveBeenLastCalledWith(expect.objectContaining(params));
   });
 
+  test.each([
+    ['software', false],
+    ['hardware', true],
+  ] as const)(
+    'manual %s reports only an attributable whole-run error',
+    async (_kind, hardware) => {
+      const h = harness();
+      jest
+        .spyOn(h.service, 'resolveInitLocalSyncItemsPassword')
+        .mockResolvedValue('fixture');
+      jest
+        .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+        .mockResolvedValue('fixture');
+      jest
+        .spyOn(h.service, 'prepareLocalSyncWallets')
+        .mockResolvedValue(undefined);
+      jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+        allWallets: [],
+        allDevices: undefined,
+        allAccounts: [],
+        allIndexedAccounts: [],
+      });
+      const invoke = () =>
+        h.service.syncNowKeylessWithResult({
+          callerName: 'Manual fixture',
+          askPasswordOnlyIfHdXfpMissing: hardware,
+          bypassRetryBackoff: true,
+        });
+      const accountIssues = (pending: number, added: number) => ({
+        needsUpdate: 0,
+        pending,
+        conflicts: 0,
+        rejected: 0,
+        added,
+        unchanged: 0,
+      });
+      h.check.mockResolvedValue(reply({ reconciliation: undefined }));
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(1, 1) });
+      });
+      await expect(invoke()).resolves.toBe('local-deferred');
+      expect(h.config().publicAccountSnapshotStatus).toMatchObject({
+        pending: 1,
+        added: 1,
+      });
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'partial',
+      });
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(1, 0) });
+      });
+      await expect(invoke()).resolves.toBe('local-deferred');
+
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({ publicAccountSnapshotStatus: accountIssues(0, 0) });
+      });
+      await expect(invoke()).resolves.toBe('completed');
+
+      const unavailable = Object.assign(
+        new OneKeyLocalError('Synthetic server error'),
+        {
+          response: { status: 502 },
+        },
+      );
+      h.check.mockRejectedValue(unavailable);
+      const failed = invoke();
+      await Promise.all([
+        expect(failed).resolves.toBe('server-unavailable'),
+        jest.advanceTimersByTimeAsync(3000),
+      ]);
+
+      h.check.mockResolvedValue(
+        reply({
+          obsoleted: ['synthetic-pending-upload'],
+          reconciliation: undefined,
+        }),
+      );
+      const uploadError = Object.assign(
+        new OneKeyLocalError('Synthetic upload interruption'),
+        {
+          code: 'ERR_NETWORK',
+        },
+      );
+      jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockRejectedValue(uploadError);
+      await expect(invoke()).resolves.toBe('network-unavailable');
+
+      const auth = Object.assign(
+        new OneKeyLocalError('Synthetic auth rejection'),
+        {
+          response: { status: 401 },
+        },
+      );
+      h.check.mockRejectedValue(auth);
+      await Promise.all([
+        expect(invoke()).resolves.toBe('session-unavailable'),
+        jest.advanceTimersByTimeAsync(3000),
+      ]);
+
+      h.check.mockImplementationOnce(async () => {
+        h.changeSource();
+        return reply({ reconciliation: undefined });
+      });
+      await expect(invoke()).resolves.toBe('cancelled');
+      const prepare = jest.spyOn(h.service, 'prepareLocalSyncWallets');
+      const checks = h.check.mock.calls.length;
+      prepare.mockImplementationOnce(async () => {
+        h.changeSource();
+      });
+      await expect(invoke()).resolves.toBe('cancelled');
+      expect(h.check.mock.calls).toHaveLength(checks);
+
+      h.patchConfig({
+        currentCloudSyncKeylessWalletId: 'selected-software-wallet',
+      });
+      const readKey = jest.spyOn(h.service, 'getSyncCredentialSafe');
+      readKey.mockResolvedValueOnce(undefined);
+      await expect(invoke()).resolves.toBe('software-key-unavailable');
+      h.patchConfig({ isCloudSyncEnabledKeyless: false });
+      await expect(invoke()).resolves.toBe('incomplete');
+    },
+  );
+
   test('manual sync uploads missing hardware snapshots without adding a selector scan', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();

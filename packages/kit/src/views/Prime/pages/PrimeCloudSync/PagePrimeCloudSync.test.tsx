@@ -12,6 +12,7 @@ import {
 
 import type { IPrimeCloudSyncPersistAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import PagePrimeCloudSync from './PagePrimeCloudSync';
 
@@ -28,6 +29,11 @@ const mockPickHardware = jest.fn(async () => undefined);
 const mockChoose = jest.fn(
   async (): Promise<'keyless' | 'hardware'> => 'keyless',
 );
+const mockSyncNow = jest.fn(
+  async (_params: unknown): Promise<string> => 'local-deferred',
+);
+const mockToast = jest.fn();
+const mockHideLoading = jest.fn(async () => undefined);
 const mockMigrateKeyless = jest.fn(async () => undefined);
 
 jest.mock('@react-navigation/core', () => ({ useFocusEffect: jest.fn() }));
@@ -84,7 +90,19 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  ListItem: ({
+    children,
+    title,
+    onPress,
+  }: PropsWithChildren<{ title?: string; onPress?: () => void }>) =>
+    onPress ? (
+      <button type="button" onClick={onPress}>
+        {title}
+        {children}
+      </button>
+    ) : (
+      <div>{children}</div>
+    ),
 }));
 jest.mock('@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar', () => ({
   WalletAvatar: () => null,
@@ -126,6 +144,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('./HardwareCloudSyncKeySection', () => ({
   chooseCloudSyncKey: () => mockChoose(),
+  getManualCloudSyncFeedback: (result: string) =>
+    result === 'network-unavailable'
+      ? { method: 'error', title: 'global.network_error' }
+      : undefined,
   useHardwareCloudSyncKey: () => ({
     supported: mockHardwareSupported,
     pending: false,
@@ -136,8 +158,18 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: { apiFetchPrimeUserInfo: jest.fn() },
-    servicePassword: { promptPasswordVerify: jest.fn(async () => undefined) },
+    servicePassword: {
+      promptPasswordVerify: jest.fn(async () => ({ password: 'fixture' })),
+    },
+    serviceApp: {
+      showDialogLoading: jest.fn(async () => undefined),
+      hideDialogLoading: () => mockHideLoading(),
+      showToast: (feedback: unknown) => {
+        mockToast(feedback);
+      },
+    },
     servicePrimeCloudSync: {
+      syncNowKeylessWithResult: (params: unknown) => mockSyncNow(params),
       toggleCloudSync: (params: { enabled: boolean }) =>
         mockLegacyToggle(params),
       showAlertDialogIfLocalPasswordNotSet: jest.fn(async () => undefined),
@@ -246,6 +278,40 @@ it('keeps active Keyless sync off available without a supported Keyless recovery
   expect(mockPendingKeyless).not.toHaveBeenCalled();
   expect(mockNavigate).not.toHaveBeenCalled();
 });
+
+it.each(['local-deferred', 'network-unavailable'])(
+  'uses this software Sync Now request outcome without showing generic pending (%s)',
+  async (outcome) => {
+    mockSettings.isCloudSyncEnabledKeyless = true;
+    mockSyncNow.mockResolvedValueOnce(outcome);
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    try {
+      render(<PagePrimeCloudSync />);
+      await act(async () =>
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: ETranslations.sync_now__action,
+          }),
+        ),
+      );
+      expect(mockSyncNow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          password: 'fixture',
+          forceSync: true,
+        }),
+      );
+      expect(mockHideLoading).toHaveBeenCalledTimes(1);
+      if (outcome === 'network-unavailable')
+        expect(mockToast).toHaveBeenCalledWith({
+          method: 'error',
+          title: 'global.network_error',
+        });
+      else expect(mockToast).not.toHaveBeenCalled();
+    } finally {
+      wait.mockRestore();
+    }
+  },
+);
 
 it('keeps supported Keyless enable and explicit migration available for a former ID user', async () => {
   render(<PagePrimeCloudSync />);

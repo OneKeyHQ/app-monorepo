@@ -53,6 +53,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   chooseCloudSyncKey,
+  getManualCloudSyncFeedback,
   useHardwareCloudSyncKey,
 } from './HardwareCloudSyncKeySection';
 
@@ -637,35 +638,32 @@ function AppDataSection({
           id: ETranslations.global_syncing,
         }),
       });
-      let syncSuccess = false;
+      let result: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult
+        >
+      >;
       try {
-        syncSuccess =
-          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
-            callerName: 'Manual Cloud Sync Keyless',
-            noDebounceUpload: true,
-            forceSync: true,
-            bypassRetryBackoff: true,
-            password,
-          });
+        result =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult(
+            {
+              callerName: 'Manual Cloud Sync Keyless',
+              noDebounceUpload: true,
+              forceSync: true,
+              bypassRetryBackoff: true,
+              password,
+            },
+          );
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      if (!syncSuccess) {
+      const feedback = getManualCloudSyncFeedback(result);
+      if (feedback)
         void backgroundApiProxy.serviceApp.showToast({
-          method: 'warning',
-          title: intl.formatMessage({
-            id: ETranslations.global_pending,
-          }),
+          method: feedback.method,
+          title: intl.formatMessage({ id: feedback.title }),
         });
-        return;
-      }
-      void backgroundApiProxy.serviceApp.showToast({
-        method: 'success',
-        title: intl.formatMessage({
-          id: ETranslations.global_sync_successfully,
-        }),
-      });
     } catch (error) {
       if (errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error)) {
         return;

@@ -178,6 +178,28 @@ type IPrimeCheckClock = {
   timeOrigin: number;
 };
 
+export type IManualCloudSyncResult =
+  | 'completed'
+  | 'network-unavailable'
+  | 'server-unavailable'
+  | 'session-unavailable'
+  | 'hardware-key-unavailable'
+  | 'software-key-unavailable'
+  | 'sync-blocked'
+  | 'local-deferred'
+  | 'cancelled'
+  | 'incomplete';
+
+type ISyncNowKeylessParams = {
+  callerName?: string;
+  noDebounceUpload?: boolean;
+  forceSync?: boolean;
+  bypassRetryBackoff?: boolean;
+  password?: string;
+  // Only the hardware Cloud key Sync now button sets this.
+  askPasswordOnlyIfHdXfpMissing?: boolean;
+};
+
 @backgroundClass()
 class ServicePrimeCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1881,8 +1903,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     isCurrent,
     offlineCredential,
+    onWalletHistoryReplayResult,
   }: {
     offlineCredential?: ICloudSyncCredential;
+    onWalletHistoryReplayResult?: (deferred: boolean) => void;
     forceSync?: boolean;
     isCurrent?: () => boolean;
   } = {}) {
@@ -1909,6 +1933,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       forceSync,
       isCurrent,
       localOnly: !!offlineCredential,
+      onWalletHistoryReplayResult,
     });
   }
 
@@ -1920,8 +1945,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     isCurrent,
     foreignAccountsByWireId,
     localOnly = false,
+    onWalletHistoryReplayResult,
   }: {
     localOnly?: boolean;
+    onWalletHistoryReplayResult?: (deferred: boolean) => void;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
     forceSync?: boolean;
@@ -1941,6 +1968,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       isCurrent,
       foreignAccountsByWireId,
       localOnly,
+      onWalletHistoryReplayResult,
     });
   }
 
@@ -1951,8 +1979,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     isCurrent,
     foreignAccountsByWireId,
     localOnly = false,
+    onWalletHistoryReplayResult,
   }: {
     localOnly?: boolean;
+    onWalletHistoryReplayResult?: (deferred: boolean) => void;
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
     forceSync?: boolean;
@@ -2029,12 +2059,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
     assertCurrent();
 
+    let walletNameHistoryDeferred = false;
     // wallet sync
     await this.syncManagers.wallet.syncToScene({
       syncCredential,
       items: walletItems,
       forceSync,
       isCurrent,
+      onWalletNameHistoryDeferred: () => {
+        walletNameHistoryDeferred = true;
+      },
     });
     assertCurrent();
     await this.syncManagers.botWallet.syncToScene({
@@ -2163,6 +2197,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         await fn();
       }
     }, 1000);
+    onWalletHistoryReplayResult?.(walletNameHistoryDeferred);
   }
 
   async saveServerSyncItemsToLocal({
@@ -2508,17 +2543,26 @@ class ServicePrimeCloudSync extends ServiceBase {
   );
 
   @backgroundMethod()
-  async startServerSyncFlowSilently({
-    localMutation,
-    isFlush,
-    encryptedSecurityPasswordR1ForServer,
-    setUndefinedTimeToNow,
-    throwError,
-    callerName,
-    noDebounceUpload,
-    forceSync,
-    bypassRetryBackoff,
-  }: IStartServerSyncFlowParams = {}): Promise<boolean | undefined> {
+  async startServerSyncFlowSilently(
+    params: IStartServerSyncFlowParams = {},
+  ): Promise<boolean | undefined> {
+    return this.startServerSyncFlowSilentlyInternal(params);
+  }
+
+  private async startServerSyncFlowSilentlyInternal(
+    {
+      localMutation,
+      isFlush,
+      encryptedSecurityPasswordR1ForServer,
+      setUndefinedTimeToNow,
+      throwError,
+      callerName,
+      noDebounceUpload,
+      forceSync,
+      bypassRetryBackoff,
+    }: IStartServerSyncFlowParams,
+    onManualResult?: (result: IManualCloudSyncResult) => void,
+  ): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
         generation: this.publicAccountSnapshotImportGeneration,
@@ -2563,16 +2607,19 @@ class ServicePrimeCloudSync extends ServiceBase {
             this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration()
         )
           return false;
-        return this.startServerSyncFlowSilently({
-          isFlush,
-          encryptedSecurityPasswordR1ForServer,
-          setUndefinedTimeToNow,
-          throwError,
-          callerName,
-          noDebounceUpload,
-          forceSync,
-          bypassRetryBackoff,
-        });
+        return this.startServerSyncFlowSilentlyInternal(
+          {
+            isFlush,
+            encryptedSecurityPasswordR1ForServer,
+            setUndefinedTimeToNow,
+            throwError,
+            callerName,
+            noDebounceUpload,
+            forceSync,
+            bypassRetryBackoff,
+          },
+          onManualResult,
+        );
       }
       this.fullSyncRequested = true;
       return this.fullSyncPromise;
@@ -2589,6 +2636,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             noDebounceUpload,
             forceSync,
             bypassRetryBackoff,
+            ...(onManualResult ? { onManualResult } : {}),
           })
         : Promise.resolve(undefined),
     );
@@ -2650,9 +2698,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   private async runFullCloudReconciliation({
     forceSync,
     bypassRetryBackoff,
+    onManualResult,
   }: {
     forceSync?: boolean;
     bypassRetryBackoff?: boolean;
+    onManualResult?: (result: IManualCloudSyncResult) => void;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -2666,6 +2716,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!credential || !spaceId) return false;
     if (await this.backgroundApi.serviceApp.isAppLocked()) return false;
     if (!entryIsCurrent()) return false;
+    if (this.cloudSyncNetworkReachable === false)
+      onManualResult?.('network-unavailable');
     if (
       this.hasPendingLocalMutation(spaceId) &&
       this.cloudSyncNetworkReachable === false
@@ -2777,6 +2829,21 @@ class ServicePrimeCloudSync extends ServiceBase {
           });
         },
       );
+      let transportFailure: IManualCloudSyncResult | undefined;
+      const recordTransportFailure = (error: unknown) => {
+        const failure = error as {
+          code?: string;
+          response?: { status?: number };
+        };
+        const status = failure?.response?.status;
+        if (failure?.code === 'ERR_NETWORK' || failure?.code === 'ETIMEDOUT')
+          transportFailure = 'network-unavailable';
+        else if (status === 401) transportFailure = 'session-unavailable';
+        else if (status === 403) transportFailure = 'sync-blocked';
+        else if (typeof status === 'number' && status >= 500)
+          transportFailure = 'server-unavailable';
+        else transportFailure = undefined;
+      };
       const { runCloudSyncReconciliation } =
         await import('./cloudSyncReconciliation');
       const result = await runCloudSyncReconciliation({
@@ -2823,6 +2890,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             checkRequestItems = latestItems.map((item) => ({ ...item }));
             const firstRequest = networkRequests === 0;
             networkRequests += 1;
+            transportFailure = undefined;
             try {
               return await this.checkServerStatusWithRequestOptions(
                 { localItems: latestItems, isFullDBChecking: true },
@@ -2842,16 +2910,23 @@ class ServicePrimeCloudSync extends ServiceBase {
                 signal.aborted ||
                 !isCurrent() ||
                 ![400, 422].includes(status ?? 0)
-              )
+              ) {
+                recordTransportFailure(error);
                 throw error;
+              }
               // A strict legacy backend may reject the optional capability field.
               // Authentication errors never enter this compatibility fallback.
               this.boundedCheckUnsupported = true;
               networkRequests += 1;
-              return this.checkServerStatusWithRequestOptions(
-                { localItems: latestItems, isFullDBChecking: true },
-                { signal, timeout: timeoutMs },
-              );
+              try {
+                return await this.checkServerStatusWithRequestOptions(
+                  { localItems: latestItems, isFullDBChecking: true },
+                  { signal, timeout: timeoutMs },
+                );
+              } catch (fallbackError) {
+                recordTransportFailure(fallbackError);
+                throw fallbackError;
+              }
             }
           },
           uploadObsoleted: ({ keys, signal }) => {
@@ -2863,15 +2938,22 @@ class ServicePrimeCloudSync extends ServiceBase {
               const localItems = latestItems.filter((item) =>
                 keySet.has(item.id),
               );
-              const uploaded = await this.uploadItemsMutex.runExclusive(() =>
-                this._callApiUploadItems({
-                  localItems,
-                  isFlush: false,
-                  lockItem: undefined,
-                  pwdHash: spaceId,
-                  setUndefinedTimeToNow: true,
-                  requestOptions: { signal, timeout: 10_000 },
-                }),
+              const uploaded = await this.uploadItemsMutex.runExclusive(
+                async () => {
+                  try {
+                    return await this._callApiUploadItems({
+                      localItems,
+                      isFlush: false,
+                      lockItem: undefined,
+                      pwdHash: spaceId,
+                      setUndefinedTimeToNow: true,
+                      requestOptions: { signal, timeout: 10_000 },
+                    });
+                  } catch (error) {
+                    recordTransportFailure(error);
+                    throw error;
+                  }
+                },
               );
               return {
                 uploaded: (uploaded?.created ?? 0) + (uploaded?.updated ?? 0),
@@ -2983,6 +3065,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
+      let deferredLocalWalletName = false;
       if (shouldReplay) {
         await this.syncPendingItemsToScene({
           forceSync:
@@ -2990,6 +3073,13 @@ class ServicePrimeCloudSync extends ServiceBase {
             !previous ||
             config.cloudSyncAccountApplyVersion !== 2,
           isCurrent,
+          ...(onManualResult
+            ? {
+                onWalletHistoryReplayResult: (deferred: boolean) => {
+                  deferredLocalWalletName = deferred;
+                },
+              }
+            : {}),
         });
         if (isCurrent())
           this.pruneReconciledIncrementalItems(checkRequestItems);
@@ -3019,7 +3109,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
       let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
       if (result.status === 'complete')
-        status = hasIssues ? 'partial' : 'complete';
+        status = hasIssues || deferredLocalWalletName ? 'partial' : 'complete';
       else if (result.status === 'waiting' || result.status === 'cancelled')
         status = 'waiting';
       const state: ICloudSyncReconciliationPersistState = {
@@ -3067,7 +3157,25 @@ class ServicePrimeCloudSync extends ServiceBase {
         result.status !== 'cancelled'
       )
         this.scheduleReconciliation(state.nextRetryAt, spaceId);
-      if (!state.unfinished) await this.updateLastSyncTime();
+      if (!state.unfinished && !deferredLocalWalletName)
+        await this.updateLastSyncTime();
+      if (onManualResult && isSourceCurrent()) {
+        if (result.status === 'cancelled') onManualResult('cancelled');
+        else if (result.status === 'complete')
+          onManualResult(
+            hasIssues || deferredLocalWalletName
+              ? 'local-deferred'
+              : 'completed',
+          );
+        else if (transportFailure) onManualResult(transportFailure);
+        else if (
+          result.reason === 'invalid-response' ||
+          result.reason === 'invalid-summary' ||
+          result.reason === 'summary-budget'
+        )
+          onManualResult('sync-blocked');
+        else onManualResult('incomplete');
+      }
       return state.status === 'complete';
     } catch (error) {
       if (isCurrent()) {
@@ -3122,7 +3230,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
     bypassRetryBackoff,
-  }: IStartServerSyncFlowParams) {
+    onManualResult,
+  }: IStartServerSyncFlowParams & {
+    onManualResult?: (result: IManualCloudSyncResult) => void;
+  }) {
     try {
       // const syncMode = await this.getActiveSyncMode();
 
@@ -3137,6 +3248,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         return await this.runFullCloudReconciliation({
           forceSync,
           bypassRetryBackoff,
+          onManualResult,
         });
 
       // when data is written, because the cached password is missing to encrypt, so data is undefined
@@ -3875,25 +3987,45 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async syncNowKeyless({
-    callerName = 'Manual Cloud Sync Keyless',
-    noDebounceUpload = true,
-    forceSync,
-    bypassRetryBackoff,
-    password,
-    askPasswordOnlyIfHdXfpMissing,
-  }: {
-    callerName?: string;
-    noDebounceUpload?: boolean;
-    forceSync?: boolean;
-    bypassRetryBackoff?: boolean;
-    password?: string;
-    // Only the hardware Cloud key Sync now button sets this.
-    askPasswordOnlyIfHdXfpMissing?: boolean;
-  } = {}): Promise<boolean> {
-    const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
+  async syncNowKeyless(params: ISyncNowKeylessParams = {}): Promise<boolean> {
+    return (await this.syncNowKeylessInternal(params)) === 'completed';
+  }
+
+  // This explicit request never borrows another caller's result. Existing
+  // consumers of syncNowKeyless retain their boolean contract.
+  @backgroundMethod()
+  @toastIfError()
+  async syncNowKeylessWithResult(
+    params: ISyncNowKeylessParams = {},
+  ): Promise<IManualCloudSyncResult> {
+    return this.syncNowKeylessInternal(params, true);
+  }
+
+  private async syncNowKeylessInternal(
+    {
+      callerName = 'Manual Cloud Sync Keyless',
+      noDebounceUpload = true,
+      forceSync,
+      bypassRetryBackoff,
+      password,
+      askPasswordOnlyIfHdXfpMissing,
+    }: ISyncNowKeylessParams,
+    withManualResult = false,
+  ): Promise<IManualCloudSyncResult> {
+    const entryGeneration = this.publicAccountSnapshotImportGeneration;
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    const entryKeyGeneration = withManualResult
+      ? keyless.getCloudAccountImportGeneration()
+      : undefined;
+    const isSelected = () =>
+      !withManualResult ||
+      (entryGeneration === this.publicAccountSnapshotImportGeneration &&
+        entryKeyGeneration === keyless.getCloudAccountImportGeneration());
+    const selection = await primeCloudSyncPersistAtom.get();
+    const { isCloudSyncEnabledKeyless } = selection;
+    if (!isSelected()) return 'cancelled';
     if (!isCloudSyncEnabledKeyless) {
-      return false;
+      return 'incomplete';
     }
     if (password) {
       await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
@@ -3904,35 +4036,70 @@ class ServicePrimeCloudSync extends ServiceBase {
       );
     }
     const syncCredential = await this.getSyncCredentialSafe();
+    if (!isSelected()) return 'cancelled';
     if (!syncCredential) {
-      return false;
+      if (
+        !withManualResult ||
+        !(
+          selection.hardwareCloudSyncKeySource ||
+          selection.currentCloudSyncKeylessWalletId
+        )
+      )
+        return 'incomplete';
+      if (await this.backgroundApi.serviceApp.isAppLocked())
+        return 'incomplete';
+      if (!isSelected()) return 'cancelled';
+      return selection.hardwareCloudSyncKeySource
+        ? 'hardware-key-unavailable'
+        : 'software-key-unavailable';
     }
     // Ask before taking the key lock; never hold it while a prompt is open.
-    const initPassword = askPasswordOnlyIfHdXfpMissing
-      ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
-      : await this.resolveInitLocalSyncItemsPassword(password);
-    await this.prepareLocalSyncWallets({
-      password: initPassword,
-      askPasswordOnlyIfHdXfpMissing,
-    });
-    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      async () => {
+    try {
+      const initPassword = askPasswordOnlyIfHdXfpMissing
+        ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
+        : await this.resolveInitLocalSyncItemsPassword(password);
+      if (!isSelected()) return 'cancelled';
+      await this.prepareLocalSyncWallets({
+        password: initPassword,
+        askPasswordOnlyIfHdXfpMissing,
+      });
+      if (!isSelected()) return 'cancelled';
+      await keyless.runWithCloudSyncKeyLock(async () => {
+        if (!isSelected()) return;
         await this.assertSyncCredentialUnchanged(syncCredential);
+        if (!isSelected()) return;
         await this.initLocalSyncItemsDB({
           skipWalletPreparation: true,
           syncCredential,
           password: initPassword,
           askPasswordOnlyIfHdXfpMissing,
         });
-      },
-    );
-    const completed = await this.startServerSyncFlow({
+      });
+    } catch (error) {
+      if (!isSelected()) return 'cancelled';
+      throw error;
+    }
+    if (!isSelected()) return 'cancelled';
+    const options = {
       callerName,
       noDebounceUpload,
       forceSync,
       bypassRetryBackoff,
-    });
-    return completed === true;
+    };
+    if (!withManualResult)
+      return (await this.startServerSyncFlow(options)) === true
+        ? 'completed'
+        : 'incomplete';
+
+    let result: IManualCloudSyncResult | undefined;
+    const completed = await this.startServerSyncFlowSilentlyInternal(
+      { ...options, forceSync: true, noDebounceUpload: true, throwError: true },
+      (outcome) => {
+        result = outcome;
+      },
+    );
+    if (!isSelected()) return 'cancelled';
+    return result ?? (completed === true ? 'completed' : 'incomplete');
   }
 
   @backgroundMethod()
