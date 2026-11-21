@@ -828,6 +828,12 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
 
   function setupBboUnsubscribeTimeout() {
     const user = '0x123' as const;
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: user,
+    });
     const oldBbo: ISubscriptionSpec<ESubscriptionType.BBO> = {
       key: 'bbo:BTC',
       type: ESubscriptionType.BBO,
@@ -964,6 +970,133 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       expect(initialFetch).toHaveBeenCalledWith(
         expect.objectContaining({ endTime: fill.time - 5050 }),
       );
+    } finally {
+      await perpsTradesHistoryDataAtom.set(previous);
+    }
+  });
+
+  it('keeps fills on both sides of the backfill cutoff during the first history load', async () => {
+    const bucketStart = new Date('2026-11-21T00:00:00.000Z').getTime();
+    jest.setSystemTime(bucketStart + 3000);
+    const { service, fillsHistory, user } = setupBboUnsubscribeTimeout();
+    const early = makeFill(1, bucketStart + 1000);
+    const gap = makeFill(2, bucketStart + 7990);
+    const duringLoad = makeFill(3, bucketStart + 8050);
+    const afterCutoff = makeFill(4, bucketStart + 8150);
+    let finishInitialLoad: (() => void) | undefined;
+    const initialFetch = jest.fn<
+      Promise<IFill[]>,
+      [IUserFillsByTimeParameters]
+    >(
+      ({ endTime }) =>
+        new Promise((resolve) => {
+          finishInitialLoad = () =>
+            resolve(
+              [early, gap, duringLoad].filter(
+                (fill) => fill.time <= Number(endTime),
+              ),
+            );
+        }),
+    );
+    const history = Object.create(
+      ServiceHyperliquid.prototype,
+    ) as ServiceHyperliquid;
+    Object.defineProperty(history, '_getUserFillsByTimeMemo', {
+      value: initialFetch,
+    });
+    fillsHistory.loadTradesHistory.mockImplementation((address) =>
+      history.loadTradesHistory(address),
+    );
+    fillsHistory.appendTradesHistory.mockImplementation((rows, address) =>
+      history.appendTradesHistory(rows, address),
+    );
+    fillsHistory.getUserFillsByTime.mockImplementation(
+      async ({ startTime, endTime }) =>
+        [early, gap, duringLoad, afterCutoff].filter(
+          (fill) =>
+            Number(startTime) <= fill.time && fill.time <= Number(endTime),
+        ),
+    );
+    const previous = await perpsTradesHistoryDataAtom.get();
+    try {
+      await history.resetTradesHistory();
+      const switching = service.updateSubscriptions();
+      await jest.advanceTimersByTimeAsync(5000);
+      await switching;
+      await service.updateSubscriptions();
+      await jest.advanceTimersByTimeAsync(50);
+      expect(finishInitialLoad).toBeDefined();
+      await history.appendTradesHistory([duringLoad], user);
+      expect((await perpsTradesHistoryDataAtom.get()).isLoaded).toBe(false);
+      await jest.advanceTimersByTimeAsync(50);
+      finishInitialLoad?.();
+      await jest.advanceTimersByTimeAsync(50);
+      await history.appendTradesHistory([afterCutoff], user);
+
+      expect(initialFetch).toHaveBeenCalledWith(
+        expect.objectContaining({ endTime: bucketStart }),
+      );
+      expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
+      await expect(history.loadTradesHistory(user)).resolves.toEqual([
+        afterCutoff,
+        duringLoad,
+        gap,
+        early,
+      ]);
+    } finally {
+      await perpsTradesHistoryDataAtom.set(previous);
+    }
+  });
+
+  it('keeps a same-account gap fill returned during a full subscription rebuild', async () => {
+    const { service, fillsHistory, user } = setupBboUnsubscribeTimeout();
+    const existing = makeFill(1, Date.now() - 5000);
+    const recovered = makeFill(2, Date.now() + 5000);
+    const history = Object.create(
+      ServiceHyperliquid.prototype,
+    ) as ServiceHyperliquid;
+    fillsHistory.loadTradesHistory.mockImplementation((address) =>
+      history.loadTradesHistory(address),
+    );
+    fillsHistory.appendTradesHistory.mockImplementation((newFills, address) =>
+      history.appendTradesHistory(newFills, address),
+    );
+    let returnRecovery: ((fills: IFill[]) => void) | undefined;
+    fillsHistory.getUserFillsByTime.mockImplementation(
+      () =>
+        new Promise<IFill[]>((resolve) => {
+          returnRecovery = resolve;
+        }),
+    );
+    const previous = await perpsTradesHistoryDataAtom.get();
+    try {
+      await perpsTradesHistoryDataAtom.set({
+        fills: [existing],
+        isLoaded: true,
+        accountAddress: user,
+        latestTime: existing.time,
+      });
+      const switching = service.updateSubscriptions();
+      await jest.advanceTimersByTimeAsync(5000);
+      await switching;
+      await service.updateSubscriptions();
+      expect(returnRecovery).toBeDefined();
+
+      const rebuilding = service.resumeSubscriptions({ forceRebuild: true });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(service.pendingSubSpecsMap).toEqual({});
+      returnRecovery?.([recovered]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(service.pendingSubSpecsMap).toEqual({});
+      await jest.advanceTimersByTimeAsync(50);
+      await rebuilding;
+      expect(Object.keys(service.pendingSubSpecsMap).length).toBeGreaterThan(0);
+      expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
+
+      await expect(history.loadTradesHistory(user)).resolves.toEqual([
+        recovered,
+        existing,
+      ]);
     } finally {
       await perpsTradesHistoryDataAtom.set(previous);
     }
@@ -1183,6 +1316,10 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
 
       if (changedAccount) {
         const user = '0x456';
+        jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+          ...(await perpsActiveAccountAtom.get()),
+          accountAddress: user,
+        });
         const nextFills = {
           ...fills,
           key: generateSubscriptionKey(fills.type, { user }),
@@ -1226,7 +1363,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
       expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledWith({
         user: fills.params.user,
-        startTime: disconnectAt - 5000,
+        startTime: disconnectAt - 10_000,
         endTime: Date.now(),
         reversed: true,
       });

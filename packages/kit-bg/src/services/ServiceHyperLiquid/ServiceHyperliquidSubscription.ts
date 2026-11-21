@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/utils/timerRegistry';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  CACHE_TIME_QUANTIZE_MS,
   HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -153,7 +154,6 @@ interface IPublicTradesBatch {
 
 const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
 const PUBLIC_TRADES_BATCH_LIMIT = 10;
-const SUBSCRIPTION_REQUEST_TIMEOUT_MS = 5000;
 
 type IHyperliquidWsClient = {
   clientId: string;
@@ -2303,7 +2303,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         // default, leaving the order book empty. Keep this at or above
         // reconnect.connectionTimeout so frames rews buffers while the socket
         // is reconnecting still get a chance to flush before aborting.
-        timeout: SUBSCRIPTION_REQUEST_TIMEOUT_MS,
+        timeout: 5000,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
@@ -2677,27 +2677,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    const { user } = spec.params;
+    const normalizedUser = user.toLowerCase();
+    const getMatchingAccount = async () => {
+      const { accountAddress } = await perpsActiveAccountAtom.get();
+      return accountAddress?.toLowerCase() === normalizedUser
+        ? accountAddress
+        : undefined;
+    };
     try {
-      const { user } = spec.params;
+      const accountAddress = await getMatchingAccount();
+      if (!accountAddress) {
+        return;
+      }
       const service = this.backgroundApi.serviceHyperliquid;
+      // Live fills can append after history loads. Take the REST cutoff then
+      // so it also covers fills that arrived during the initial load.
+      await service.loadTradesHistory(accountAddress);
+      if (!(await getMatchingAccount())) {
+        return;
+      }
       const fills = await service.getUserFillsByTime({
         user,
-        // Include fills already in flight when the old connection was closed.
-        startTime: interrupted.disconnectedAt - SUBSCRIPTION_REQUEST_TIMEOUT_MS,
+        // Overlap the cutoff of the quantized initial history request.
+        startTime: interrupted.disconnectedAt - CACHE_TIME_QUANTIZE_MS,
         endTime: Date.now(),
         reversed: true,
       });
-      const accountAddress = this._currentState.currentUser;
-      if (
-        fills.length > 0 &&
-        accountAddress?.toLowerCase() === user.toLowerCase() &&
-        this._isSubscriptionSpecPending(spec)
-      ) {
-        // An unloaded history would discard appends. Loaded histories reuse their cache.
-        await service.loadTradesHistory(accountAddress);
-        if (!this._isSubscriptionSpecPending(spec)) {
-          return;
-        }
+      // A same-account socket rebuild can briefly clear pending specs.
+      if (fills.length > 0 && (await getMatchingAccount())) {
         await service.appendTradesHistory(fills, user);
       }
     } catch (error) {
@@ -2705,7 +2713,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         type: spec.type,
         error,
       });
-      if (this._isSubscriptionSpecPending(spec)) {
+      if (await getMatchingAccount().catch(() => undefined)) {
         // Another reconnect can record a gap while this request is in flight.
         const pending = this._interruptedBboReconnectFills as
           | typeof interrupted
