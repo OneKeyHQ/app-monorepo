@@ -31,8 +31,12 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { vaultFactory } from '../vaults/factory';
 import ClientLightning, {
   createLightningInvoiceDecodeCache,
-  getLightningRequestRetryDelayMs,
 } from '../vaults/impls/lightning/sdkLightning/ClientLightning';
+import {
+  type ILightningRetryDeadline,
+  getLightningRetryDeadline,
+  isLightningRetryPending,
+} from '../vaults/impls/lightning/sdkLightning/lightningRequestRetry';
 import { verifyInvoice } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
@@ -64,7 +68,7 @@ class ServiceLightning extends ServiceBase {
   private readonly lnurlScanFailures = new LRUCache<
     string,
     {
-      retryAt: number;
+      deadline: ILightningRetryDeadline;
       nextDelayMs: number;
       error: RetryableLightningScanError;
     }
@@ -263,19 +267,22 @@ class ServiceLightning extends ServiceBase {
     }
 
     const key = `${networkId}:${address}`;
-    const previousFailure = this.lnurlScanFailures.get(key);
-    if (previousFailure && performance.now() < previousFailure.retryAt) {
-      throw previousFailure.error;
-    }
     const current = this.lnurlScanRequests.get(key);
     if (current) return current;
 
-    const pending = this.validateLnurl({ networkId, address })
-      .then((details) => {
+    const previousFailure = this.lnurlScanFailures.get(key);
+    const pending = (async () => {
+      if (
+        previousFailure &&
+        (await isLightningRetryPending(previousFailure.deadline))
+      ) {
+        throw previousFailure.error;
+      }
+      try {
+        const details = await this.validateLnurl({ networkId, address });
         this.lnurlScanFailures.delete(key);
         return details;
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         const requestError = error as IOneKeyError | undefined;
         const isRequestError =
           requestError?.httpStatusCode !== undefined ||
@@ -283,10 +290,10 @@ class ServiceLightning extends ServiceBase {
             EOneKeyErrorClassNames.AxiosNetworkError ||
           (axios.isAxiosError(error) && !axios.isCancel(error));
         const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-        const cooldown = isRequestError
-          ? getLightningRequestRetryDelayMs(error, fallbackMs)
+        const deadline = isRequestError
+          ? getLightningRetryDeadline(error, fallbackMs)
           : undefined;
-        if (cooldown === undefined) {
+        if (!deadline) {
           this.lnurlScanFailures.delete(key);
           throw error;
         }
@@ -295,15 +302,15 @@ class ServiceLightning extends ServiceBase {
           autoToast: false,
         });
         this.lnurlScanFailures.set(key, {
-          retryAt: performance.now() + cooldown,
+          deadline,
           nextDelayMs: Math.min(30_000, fallbackMs * 2),
           error: scanError,
         });
         throw scanError;
-      })
-      .finally(() => {
-        this.lnurlScanRequests.delete(key);
-      });
+      }
+    })().finally(() => {
+      this.lnurlScanRequests.delete(key);
+    });
     this.lnurlScanRequests.set(key, pending);
     return pending;
   }

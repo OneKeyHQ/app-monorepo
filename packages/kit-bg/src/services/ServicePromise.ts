@@ -14,6 +14,7 @@ export type IPromiseContainerCallbackCreate = {
   resolve: (value: unknown | any) => void;
   reject: (value: unknown | any) => void;
   data?: any;
+  assertCanContinue?: () => void;
 };
 export type IPromiseContainerCallback = IPromiseContainerCallbackCreate & {
   id: number;
@@ -55,6 +56,7 @@ class ServicePromise extends ServiceBase {
     resolve,
     reject,
     data,
+    assertCanContinue,
   }: IPromiseContainerCallbackCreate): number {
     latestId += 1;
     if (latestId <= 0) {
@@ -74,6 +76,7 @@ class ServicePromise extends ServiceBase {
       resolve,
       reject,
       data,
+      assertCanContinue,
     };
     // TODO max callbacks length check, remove first item if overflow
     return latestId;
@@ -82,6 +85,18 @@ class ServicePromise extends ServiceBase {
   hasCallback(id: number | string) {
     const callbackId = Number(id);
     return this.callbacks[callbackId]?.id === callbackId;
+  }
+
+  canContinueCallback(id: number | string) {
+    const callback = this.callbacks[Number(id)];
+    if (!callback) return false;
+    try {
+      callback.assertCanContinue?.();
+      return true;
+    } catch (error) {
+      this._processCallback({ method: 'reject', id, error });
+      throw error;
+    }
   }
 
   @backgroundMethod()

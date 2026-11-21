@@ -96,13 +96,13 @@ it.each([
   '(lnurlp://merchant.example/pay(weekly)\n?order=1234)',
   'lnurlp://merchant.example/checkout?order=12\n\n&invoice=34',
   'Pay: lnurlp://merchant.example/checkout\r\n \r\n?invoice=34',
-])(
-  'rejects an open-ended LNURL that could continue on the next line',
-  (text) => {
-    expect(isAmbiguousLnurl(text)).toBe(true);
-    expect(resolveReusableLightningRecipient(text)).toBeNull();
-  },
-);
+  'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
+  'Pay: (lnurlp://merchant.example/checkout?order=12 #payment)',
+  'Pay: lnurlp://merchant.example/checkout?order=12 &item=34',
+])('rejects an LNURL with an ambiguous continuation', (text) => {
+  expect(isAmbiguousLnurl(text)).toBe(true);
+  expect(resolveReusableLightningRecipient(text)).toBeNull();
+});
 
 it.each([
   'lnurlp://example.com/pay\n\nThanks',
@@ -135,6 +135,9 @@ it('extracts a complete link followed by prose in the same parenthetical', () =>
   expect(resolveReusableLightningRecipient(`Pay (${uri} before Friday).`)).toBe(
     uri,
   );
+  expect(
+    resolveReusableLightningRecipient(`Pay (${uri}) &check your receipt.`),
+  ).toBe(uri);
 });
 
 it('recognizes the outer parenthesis before attached punctuation and prose', () => {
@@ -168,9 +171,42 @@ it.each([
   '(lnurlp://merchant.example/pay),weekly)',
   'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
   'Pay (use this link (lnurlp://merchant.example/pay),weekly before Friday) if needed).',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\nby Friday).',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\n\nby Friday).',
+  'Please pay (use (lnurlp://merchant.example/checkout)?order=12)\nby Friday).',
 ])('rejects a wrapper with two plausible closing parentheses', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
   expect(resolveReusableLightningRecipient(text)).toBeNull();
+});
+
+it.each([
+  'lnurlp://merchant.example/checkout?order=1234',
+  'lnurlp://merchant.example/checkout)weekly?order=1234',
+])(
+  'keeps the complete recipient when unambiguous enclosing prose spans lines',
+  (uri) => {
+    expect(
+      resolveReusableLightningRecipient(
+        `Please pay (use (${uri})\nby Friday).`,
+      ),
+    ).toBe(uri);
+  },
+);
+
+it('rejects multiple distinct LNURL destinations in payment instructions', () => {
+  const orderA = 'lnurlp://merchant.example/pay?order=1';
+  const orderB = 'lnurlp://merchant.example/pay?order=2';
+  const several = `Pay (${orderA}) or (${orderB}).`;
+  expect(isAmbiguousLnurl(several)).toBe(true);
+  expect(resolveReusableLightningRecipient(several)).toBeNull();
+  expect(
+    resolveReusableLightningRecipient(`Pay (${orderA}) or <${orderA}>.`),
+  ).toBe(orderA);
+  const otherCode = bech32.encode(
+    'lnurl',
+    bech32.toWords(Buffer.from('https://merchant.example/pay?order=3')),
+  );
+  expect(isAmbiguousLnurl(`Pay (${LNURL}) or (${otherCode}).`)).toBe(true);
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(

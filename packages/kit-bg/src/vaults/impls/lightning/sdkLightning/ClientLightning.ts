@@ -1,11 +1,6 @@
-import { isAxiosError } from 'axios';
-
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import {
-  OneKeyLocalError,
-  isRetryableLightningInvoiceDecodeFailure,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   OneKeyError,
   OneKeyServerApiError,
@@ -25,6 +20,11 @@ import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/pay
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { LightningAuthorizationRequiredError } from './LightningAuthorizationRequiredError';
+import {
+  type ILightningRetryDeadline,
+  getLightningRetryDeadline,
+  isLightningRetryPending,
+} from './lightningRequestRetry';
 
 import type { IBroadcastTransactionParams } from '../../../types';
 import type { AxiosInstance } from 'axios';
@@ -38,28 +38,6 @@ function isAuthError(error: unknown): boolean {
   );
 }
 
-export function getLightningRequestRetryDelayMs(
-  error: unknown,
-  fallbackMs: number,
-): number | undefined {
-  if (!isRetryableLightningInvoiceDecodeFailure(error)) return undefined;
-  const response = isAxiosError(error) ? error.response : undefined;
-  const serverError = error as OneKeyServerApiError | undefined;
-  const retryAfter =
-    serverError?.retryAfter ?? response?.headers?.['retry-after'];
-  if (typeof retryAfter !== 'string') return fallbackMs;
-  const header = retryAfter.trim();
-  const responseDate =
-    serverError?.retryAfterResponseDate ?? response?.headers?.date;
-  const serverTime =
-    typeof responseDate === 'string' ? Date.parse(responseDate) : NaN;
-  const delay = /^\d+$/.test(header)
-    ? Number(header) * 1000
-    : Date.parse(header) -
-      (Number.isFinite(serverTime) ? serverTime : Date.now());
-  return Number.isFinite(delay) ? Math.max(fallbackMs, delay) : fallbackMs;
-}
-
 export function createLightningInvoiceDecodeCache() {
   return {
     decoded: new LRUCache<string, IInvoiceDecodedResponse>({
@@ -69,7 +47,7 @@ export function createLightningInvoiceDecodeCache() {
     inFlight: new Map<string, Promise<IInvoiceDecodedResponse>>(),
     failed: new LRUCache<
       string,
-      { retryAt: number; nextDelayMs: number; error: unknown }
+      { deadline: ILightningRetryDeadline; nextDelayMs: number; error: unknown }
     >({ max: 100 }),
   };
 }
@@ -347,10 +325,6 @@ class ClientLightning {
   async decodedInvoice(input: string) {
     const invoice = normalizeLightningInput(input);
     const { decoded, failed, inFlight } = this.invoiceDecodeCache;
-    const previousFailure = failed.get(invoice);
-    if (previousFailure && performance.now() < previousFailure.retryAt) {
-      throw previousFailure.error;
-    }
     const cached = decoded.get(invoice);
     if (cached) {
       return cached;
@@ -359,21 +333,27 @@ class ClientLightning {
     if (currentRequest) {
       return currentRequest;
     }
-    const pending = this.request
-      .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
-        `${this.prefix}/invoices/decode/${invoice}`,
-      )
-      .then(({ data }) => {
+    const previousFailure = failed.get(invoice);
+    const pending = (async () => {
+      if (
+        previousFailure &&
+        (await isLightningRetryPending(previousFailure.deadline))
+      ) {
+        throw previousFailure.error;
+      }
+      try {
+        const { data } = await this.request.get<
+          IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>
+        >(`${this.prefix}/invoices/decode/${invoice}`);
         failed.delete(invoice);
         decoded.set(invoice, data.data);
         return data.data;
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-        const cooldown = getLightningRequestRetryDelayMs(error, fallbackMs);
-        if (cooldown !== undefined) {
+        const deadline = getLightningRetryDeadline(error, fallbackMs);
+        if (deadline) {
           failed.set(invoice, {
-            retryAt: performance.now() + cooldown,
+            deadline,
             nextDelayMs: Math.min(30_000, fallbackMs * 2),
             error,
           });
@@ -381,10 +361,10 @@ class ClientLightning {
           failed.delete(invoice);
         }
         throw error;
-      })
-      .finally(() => {
-        inFlight.delete(invoice);
-      });
+      }
+    })().finally(() => {
+      inFlight.delete(invoice);
+    });
     inFlight.set(invoice, pending);
     return pending;
   }

@@ -138,6 +138,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -226,7 +227,10 @@ import {
   isPublicAccountCreationContext,
   withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
-import { assertLightningInvoiceIsCurrent } from '../ServiceScanQRCode/utils/parseQRCode/handlers/lightningNetwork';
+import {
+  assertLightningInvoiceIsCurrent,
+  assertLightningInvoiceIsCurrentAt,
+} from '../ServiceScanQRCode/utils/parseQRCode/handlers/lightningNetwork';
 
 import {
   buildAnalyticsWalletProfile,
@@ -1490,7 +1494,7 @@ class ServiceAccount extends ServiceBase {
       addressCreationPromiseId === undefined
         ? undefined
         : () =>
-            this.backgroundApi.servicePromise.hasCallback(
+            this.backgroundApi.servicePromise.canContinueCallback(
               addressCreationPromiseId,
             ),
     );
@@ -4097,7 +4101,7 @@ class ServiceAccount extends ServiceBase {
                 publicAccountCreationContext,
               }),
             () =>
-              this.backgroundApi.servicePromise.hasCallback(
+              this.backgroundApi.servicePromise.canContinueCallback(
                 addressCreationPromiseId,
               ),
           );
@@ -7343,6 +7347,14 @@ class ServiceAccount extends ServiceBase {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
             reject,
+            assertCanContinue:
+              lightningInvoiceExpiresAt === undefined
+                ? undefined
+                : () =>
+                    assertLightningInvoiceIsCurrentAt(
+                      lightningInvoiceExpiresAt,
+                      systemTimeUtils.getContinuousEstimatedServerTime(),
+                    ),
           });
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,

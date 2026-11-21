@@ -4,6 +4,7 @@ import {
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import { vaultFactory } from '../../../factory';
 import LightningVault from '../Vault';
@@ -255,6 +256,59 @@ describe('Lightning read authorization without wallet interaction', () => {
         await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
         expect(get).toHaveBeenCalledTimes(2);
       } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test.each([
+    ['system resume', 60_000, true],
+    ['manual wall-clock jump', 500, false],
+  ])(
+    'rechecks an invoice cooldown against server time after %s',
+    async (_scenario, serverElapsed, canRetry) => {
+      const { client, get } = harness();
+      const serverTime = 1_900_000_000_000;
+      const failure = Object.assign(
+        new OneKeyServerApiError({ httpStatusCode: 429 }),
+        {
+          retryAfter: '30',
+          retryAfterResponseDate: new Date(serverTime).toUTCString(),
+        },
+      );
+      get.mockRejectedValueOnce(failure);
+      jest.useFakeTimers({ now: serverTime });
+      systemTimeUtils.updateServerTime({ serverTime });
+      const refresh = jest
+        .spyOn(systemTimeUtils, 'refreshServerTime')
+        .mockImplementationOnce(async () => {
+          systemTimeUtils.updateServerTime({
+            serverTime: serverTime + serverElapsed,
+          });
+          return true;
+        });
+      try {
+        await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+        jest.setSystemTime(serverTime + 60_000);
+        const results = await Promise.allSettled([
+          client.decodedInvoice('lnbc123'),
+          client.decodedInvoice('LIGHTNING:LNBC123'),
+        ]);
+        expect(results).toEqual(
+          canRetry
+            ? [
+                { status: 'fulfilled', value: true },
+                { status: 'fulfilled', value: true },
+              ]
+            : [
+                { status: 'rejected', reason: failure },
+                { status: 'rejected', reason: failure },
+              ],
+        );
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(get).toHaveBeenCalledTimes(canRetry ? 2 : 1);
+      } finally {
+        refresh.mockRestore();
         jest.useRealTimers();
       }
     },

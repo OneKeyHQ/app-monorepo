@@ -104,8 +104,11 @@ describe('LightningVault.validateAddress', () => {
     'lnurlp://merchant.example/checkout?order=12\n\n&invoice=34',
     '(lnurlp://merchant.example/pay),weekly)',
     'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
+    'Pay (lnurlp://merchant.example/pay?order=1) or (lnurlp://merchant.example/pay?order=2).',
+    'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\nby Friday).',
+    'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
   ])(
-    'rejects an ambiguous multiline LNURL without sending it to the invoice decoder',
+    'rejects an ambiguous LNURL without sending it to the invoice decoder',
     async (text) => {
       const decode = jest.fn();
       const vault = vaultDecodingWith(decode);

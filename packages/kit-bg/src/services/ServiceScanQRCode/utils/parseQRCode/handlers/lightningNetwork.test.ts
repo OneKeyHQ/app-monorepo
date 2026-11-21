@@ -331,15 +331,11 @@ it.each(['missing Date', 'offline'])(
   'keeps the invoice retryable when the server time refresh is %s',
   async (failure) => {
     const { options, decodedInvoice, getNetwork } = setup();
-    const serverTime = 1_900_000_000_000;
-    const localNow = jest.spyOn(Date, 'now').mockReturnValue(serverTime);
-    systemTimeUtils.updateServerTime({ serverTime });
-    localNow.mockReturnValue(serverTime + 4000);
-    const refresh = jest.spyOn(systemTimeUtils, 'refreshServerTime');
+    const refresh = jest.spyOn(systemTimeUtils, 'getFreshEstimatedServerTime');
     if (failure === 'offline') {
       refresh.mockRejectedValueOnce(new OneKeyLocalError('Synthetic offline'));
     } else {
-      refresh.mockResolvedValueOnce(false);
+      refresh.mockResolvedValueOnce(undefined);
     }
     decodedInvoice.mockResolvedValueOnce({
       paymentRequest: INVOICE,
@@ -355,10 +351,47 @@ it.each(['missing Date', 'offline'])(
       expect(getNetwork).not.toHaveBeenCalled();
     } finally {
       refresh.mockRestore();
-      localNow.mockRestore();
     }
   },
 );
+
+it('keeps repeated invoice scans retryable without another failed health request', async () => {
+  const { options, decodedInvoice, getNetwork } = setup();
+  const time = 1_900_001_000_000;
+  jest.useFakeTimers({ now: time });
+  systemTimeUtils.updateServerTime({ serverTime: time });
+  jest.setSystemTime(time + 3000);
+  decodedInvoice.mockImplementation(async (paymentRequest) => ({
+    paymentRequest,
+    timeExpireDate: time / 1000 + 60,
+    tags: [],
+    tagsObject: {},
+  }));
+  const refresh = jest
+    .spyOn(systemTimeUtils, 'refreshServerTime')
+    .mockResolvedValueOnce(false)
+    .mockImplementationOnce(async () => {
+      systemTimeUtils.updateServerTime({ serverTime: time + 4000 });
+      return true;
+    });
+  try {
+    for (let frame = 0; frame < 4; frame += 1) {
+      await expect(lightningNetwork(INVOICE, options)).rejects.toBeInstanceOf(
+        RetryableLightningScanError,
+      );
+    }
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(getNetwork).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1000);
+    await expect(lightningNetwork(INVOICE, options)).resolves.toMatchObject({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
 
 it.each([
   ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
@@ -472,6 +505,42 @@ it('backs off recipient scans until Retry-After elapses despite a wall-clock cha
     });
     expect(serverValidateAddress).toHaveBeenCalledTimes(3);
   } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('lets a recipient scan retry after trusted time confirms that sleep covered the cooldown', async () => {
+  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
+  const value = 'lightning:satoshi@example.com';
+  const time = 1_900_001_000_000;
+  const failure = Object.assign(
+    new OneKeyServerApiError({ httpStatusCode: 429 }),
+    {
+      retryAfter: '30',
+      retryAfterResponseDate: new Date(time).toUTCString(),
+    },
+  );
+  serverValidateAddress.mockRejectedValueOnce(failure);
+  jest.useFakeTimers({ now: time });
+  systemTimeUtils.updateServerTime({ serverTime: time });
+  const refresh = jest
+    .spyOn(systemTimeUtils, 'refreshServerTime')
+    .mockImplementationOnce(async () => {
+      systemTimeUtils.updateServerTime({ serverTime: time + 60_000 });
+      return true;
+    });
+  try {
+    await expect(parseQRCode(value, parseOptions)).rejects.toBeInstanceOf(
+      RetryableLightningScanError,
+    );
+    jest.setSystemTime(time + 60_000);
+    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
+  } finally {
+    refresh.mockRestore();
     jest.useRealTimers();
   }
 });

@@ -3,7 +3,10 @@ import {
   OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
@@ -17,14 +20,15 @@ import {
   assertPublicAccountCreationCanContinue,
   isPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
+import ServicePromise from '../ServicePromise';
 
 import ServiceAccount from './ServiceAccount';
 
 describe('explicit account creation capability entry', () => {
   test('does not dispatch a scan-owned creation after its dialog settles', async () => {
-    const hasCallback = jest.fn(() => false);
+    const canContinueCallback = jest.fn(() => false);
     const service = Object.assign(Object.create(ServiceAccount.prototype), {
-      backgroundApi: { servicePromise: { hasCallback } },
+      backgroundApi: { servicePromise: { canContinueCallback } },
     }) as ServiceAccount;
     const inner = jest
       .spyOn(service, 'addHDOrHWAccountsFn')
@@ -38,7 +42,7 @@ describe('explicit account creation capability entry', () => {
         addressCreationPromiseId: 42,
       }),
     ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
-    expect(hasCallback).toHaveBeenCalledWith(42);
+    expect(canContinueCallback).toHaveBeenCalledWith(42);
     expect(inner).not.toHaveBeenCalled();
   });
 
@@ -69,14 +73,14 @@ describe('explicit account creation capability entry', () => {
   });
 
   test('stops QR import and skips wallet update when its callback settles during background work', async () => {
-    const hasCallback = jest.fn(() => true);
+    const canContinueCallback = jest.fn(() => true);
     const service = Object.assign(Object.create(ServiceAccount.prototype), {
-      backgroundApi: { servicePromise: { hasCallback } },
+      backgroundApi: { servicePromise: { canContinueCallback } },
     }) as ServiceAccount;
     const create = jest.spyOn(localDb, 'createQrWallet');
     create.mockImplementationOnce(async ({ publicAccountCreationContext }) => {
       await Promise.resolve();
-      hasCallback.mockReturnValue(false);
+      canContinueCallback.mockReturnValue(false);
       assertPublicAccountCreationCanContinue(publicAccountCreationContext);
       throw new OneKeyLocalError('QR import continued after cancellation');
     });
@@ -97,7 +101,7 @@ describe('explicit account creation capability entry', () => {
       }),
     ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
     expect(create).toHaveBeenCalledTimes(1);
-    expect(hasCallback).toHaveBeenCalledWith(42);
+    expect(canContinueCallback).toHaveBeenCalledWith(42);
     expect(walletUpdate).not.toHaveBeenCalled();
   });
 
@@ -147,6 +151,88 @@ describe('explicit account creation capability entry', () => {
       serverTime.mockRestore();
     }
   });
+
+  test('rejects a Lightning address callback that expires during background creation', async () => {
+    jest.useFakeTimers();
+    const servicePromise = new ServicePromise({ backgroundApi: {} });
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceAccount: {
+          getNetworkAccount: jest
+            .fn()
+            .mockRejectedValue(new OneKeyLocalError('Missing test account')),
+        },
+        serviceNetwork: { getGlobalDeriveTypeOfNetwork: async () => 'default' },
+        servicePromise,
+      },
+    });
+    const expiresAt = 1_900_000_000;
+    const clock = jest
+      .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+      .mockReturnValue((expiresAt - 1) * 1000);
+    const freshClock = jest
+      .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
+      .mockResolvedValue((expiresAt - 1) * 1000);
+    const emitted = Promise.withResolvers<number>();
+    const events = jest
+      .spyOn(appEventBus, 'emit')
+      .mockImplementation((name, data) => {
+        if (
+          name === EAppEventBusNames.CreateAddressByDialog &&
+          data &&
+          typeof data === 'object' &&
+          'promiseId' in data &&
+          typeof data.promiseId === 'number'
+        ) {
+          emitted.resolve(data.promiseId);
+        }
+        return true;
+      });
+    const writing = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const inner = jest
+      .spyOn(service, 'addHDOrHWAccountsFn')
+      .mockImplementation(async (params) => {
+        writing.resolve();
+        await release.promise;
+        assertPublicAccountCreationCanContinue(
+          params.publicAccountCreationContext,
+        );
+        return undefined;
+      });
+    try {
+      const prompt = service.createAddressIfNotExists(
+        {
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          networkId: 'lightning--0',
+        },
+        { lightningInvoiceExpiresAt: expiresAt },
+      );
+      const promptResult = prompt.catch((error: unknown) => error);
+      const promiseId = await emitted.promise;
+      const creation = service.addHDOrHWAccountsForUserCreation({
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        networkId: 'lightning--0',
+        deriveType: 'default',
+        addressCreationPromiseId: promiseId,
+      });
+      await writing.promise;
+      clock.mockReturnValue(expiresAt * 1000);
+      release.resolve();
+      await expect(creation).rejects.toBeInstanceOf(InvoiceExpiredError);
+      expect(await promptResult).toBeInstanceOf(InvoiceExpiredError);
+      expect(servicePromise.hasCallback(promiseId)).toBe(false);
+      expect(freshClock).toHaveBeenCalledTimes(1);
+    } finally {
+      inner.mockRestore();
+      events.mockRestore();
+      freshClock.mockRestore();
+      clock.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 });
 
 const mockPrepareAccounts = jest.fn(async () => []);
@@ -170,6 +256,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     AccountUpdate: 'AccountUpdate',
+    CreateAddressByDialog: 'CreateAddressByDialog',
     WalletUpdate: 'WalletUpdate',
   },
   appEventBus: {

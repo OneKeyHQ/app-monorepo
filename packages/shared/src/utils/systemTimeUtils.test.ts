@@ -145,6 +145,42 @@ describe('system time error notifications', () => {
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
+  it.each([1000, 30_000])(
+    'limits repeat health calls after a failed fresh estimate to a %sms delay',
+    async (delay) => {
+      const resumedAt = BASE_TIME + SLEEP_TIME;
+      jest.setSystemTime(resumedAt);
+      if (delay === 1000) {
+        mockGet.mockResolvedValueOnce({ headers: {} });
+      } else {
+        mockGet.mockRejectedValueOnce(
+          Object.assign(new Error('Synthetic 429'), {
+            isAxiosError: true,
+            response: { status: 429, headers: { 'retry-after': '30' } },
+          }),
+        );
+      }
+      const read = () =>
+        systemTimeUtils.getFreshEstimatedServerTime().catch(() => undefined);
+      await expect(read()).resolves.toBeUndefined();
+      mockGet.mockResolvedValue({
+        headers: { date: new Date(resumedAt + delay).toUTCString() },
+      });
+      monotonicTime += delay - 1;
+      jest.setSystemTime(resumedAt + delay - 1);
+      await expect(Promise.all([read(), read(), read()])).resolves.toEqual([
+        undefined,
+        undefined,
+        undefined,
+      ]);
+      expect(mockGet).toHaveBeenCalledTimes(1);
+      monotonicTime += 1;
+      jest.setSystemTime(resumedAt + delay);
+      await expect(read()).resolves.toBe(resumedAt + delay);
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
       monotonicTime += 1000;

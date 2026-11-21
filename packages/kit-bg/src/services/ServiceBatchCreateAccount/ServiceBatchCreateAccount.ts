@@ -846,7 +846,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       addressCreationPromiseId === undefined
         ? undefined
         : () =>
-            this.backgroundApi.servicePromise.hasCallback(
+            this.backgroundApi.servicePromise.canContinueCallback(
               addressCreationPromiseId,
             ),
     );

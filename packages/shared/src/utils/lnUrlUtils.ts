@@ -101,6 +101,7 @@ export const isReusableLightningRecipient = (input?: string): boolean => {
 
 const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
 const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
+const LNURL_QUERY_CONTINUATION = /^\s*[?&#]\S/u;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
   '"': '"',
@@ -117,14 +118,21 @@ function readParenthesizedLnurl(
   suffix: string,
   sameLine: string,
 ): string | null {
-  const text =
-    input +
-    (!sameLine.trim() && suffix.trimStart().startsWith(')') ? ')' : sameLine);
   let enclosingDepth = 0;
   for (const char of prefix) {
     if (char === '(') enclosingDepth += 1;
     if (char === ')' && enclosingDepth > 0) enclosingDepth -= 1;
   }
+  const trimmedSuffix = suffix.trimStart();
+  const directSuffixLength =
+    !sameLine.trim() && trimmedSuffix.startsWith(')')
+      ? suffix.length - trimmedSuffix.length + 1
+      : sameLine.length;
+  const directEnd = input.length + directSuffixLength;
+  // Enclosing prose can close on a later line. It can disambiguate punctuation
+  // but cannot supply the only evidence for the end of a URL token.
+  const text =
+    input + (enclosingDepth ? suffix : suffix.slice(0, directSuffixLength));
 
   const unmatchedClosers: number[] = [];
   let depth = 0;
@@ -153,12 +161,19 @@ function readParenthesizedLnurl(
       !next ||
       /[\s.,!?，。！？;；:：)>"']/u.test(next)
     ) {
+      if (index >= directEnd && wrapperEnd === undefined) return null;
       const end = Math.min(index, input.length);
       if (wrapperEnd !== undefined && wrapperEnd !== end) return null;
       wrapperEnd = end;
     }
   }
-  return wrapperEnd === undefined ? null : input.slice(0, wrapperEnd);
+  if (
+    wrapperEnd === undefined ||
+    (wrapperEnd === input.length && LNURL_QUERY_CONTINUATION.test(suffix))
+  ) {
+    return null;
+  }
+  return input.slice(0, wrapperEnd);
 }
 
 function readReusableLightningRecipient(
@@ -181,10 +196,12 @@ function readReusableLightningRecipient(
   const candidates = address.matchAll(
     /(^|[\s<("':：])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？])/gi,
   );
+  let recipient: string | undefined;
   for (const match of candidates) {
     const [matchedText, opener, input] = match;
     const suffix = address.slice(match.index + matchedText.length);
     const [sameLine, followingLine = ''] = suffix.split(LNURL_LINE_BREAK, 2);
+    let candidate: string | undefined;
     if (
       opener === '(' &&
       LNURL_URI_SCHEME.test(normalizeLightningInput(input))
@@ -192,19 +209,19 @@ function readReusableLightningRecipient(
       const prefix =
         address.slice(0, match.index).split(LNURL_LINE_BREAK).at(-1) ?? '';
       const uri = readParenthesizedLnurl(prefix, input, suffix, sameLine);
-      const candidate = uri && normalizeLightningInput(uri);
-      return candidate && findLnurl(candidate)
-        ? { kind: 'recipient', address: candidate }
-        : { kind: 'ambiguous' };
-    }
-    // Strip adjacent prose only when the end of the wrapper identifies it.
-    const closer = LNURL_WRAPPER_CLOSERS[opener];
-    const token = input.replace(/[.,!?，。！？]+$/u, '');
-    const closedInToken = closer && token.endsWith(closer);
-    const uri = closedInToken ? token.slice(0, -1) : input;
-    const candidate = normalizeLightningInput(uri);
-    if (findLnurl(candidate)) {
-      if (LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
+      if (!uri) return { kind: 'ambiguous' };
+      const normalized = normalizeLightningInput(uri);
+      if (!findLnurl(normalized)) return { kind: 'ambiguous' };
+      candidate = normalized;
+    } else {
+      // Strip adjacent prose only when the end of the wrapper identifies it.
+      const closer = LNURL_WRAPPER_CLOSERS[opener];
+      const token = input.replace(/[.,!?，。！？]+$/u, '');
+      const closedInToken = closer && token.endsWith(closer);
+      const uri = closedInToken ? token.slice(0, -1) : input;
+      const normalized = normalizeLightningInput(uri);
+      if (findLnurl(normalized)) candidate = normalized;
+      if (candidate && LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
         if (closer) {
           if (!suffix.trimStart().startsWith(closer)) {
             return { kind: 'ambiguous' };
@@ -212,21 +229,27 @@ function readReusableLightningRecipient(
         } else {
           // A blank line can separate paragraphs outside an explicit wrapper.
           if (
-            !sameLine.trim() &&
-            (followingLine.trim() || /^[?&#]\S/u.test(suffix.trimStart()))
+            (!sameLine.trim() && followingLine.trim()) ||
+            LNURL_QUERY_CONTINUATION.test(suffix)
           ) {
             return { kind: 'ambiguous' };
           }
         }
       }
-      return { kind: 'recipient', address: candidate };
+    }
+    if (candidate !== undefined) {
+      if (recipient !== undefined && recipient !== candidate) {
+        return { kind: 'ambiguous' };
+      }
+      recipient = candidate;
     }
   }
+  if (recipient !== undefined) return { kind: 'recipient', address: recipient };
 }
 
 export function isAmbiguousLnurl(input: string): boolean {
   return (
-    /lnurl[pwc]:/i.test(input) &&
+    /lnurl(?:[pwc]:|1)/i.test(input) &&
     readReusableLightningRecipient(input)?.kind === 'ambiguous'
   );
 }

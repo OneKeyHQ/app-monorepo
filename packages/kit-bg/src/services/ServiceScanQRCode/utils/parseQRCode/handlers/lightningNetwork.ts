@@ -22,6 +22,13 @@ export async function assertLightningInvoiceIsCurrent(expiresAt: number) {
   const serverTime = await systemTimeUtils
     .getFreshEstimatedServerTime()
     .catch(() => undefined);
+  assertLightningInvoiceIsCurrentAt(expiresAt, serverTime);
+}
+
+export function assertLightningInvoiceIsCurrentAt(
+  expiresAt: number,
+  serverTime: number | undefined,
+) {
   if (serverTime === undefined) {
     throw new RetryableLightningScanError({
       message: 'Lightning invoice time check temporarily unavailable',

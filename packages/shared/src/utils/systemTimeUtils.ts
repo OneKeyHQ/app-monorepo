@@ -9,6 +9,7 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
+import { getRetryAfterOnError } from '../request/retryAfterUtils';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
@@ -58,6 +59,7 @@ const intervalTimeout = timerUtils.getTimeDurationMs({
 const refreshServerTimeTimeout = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
+const freshEstimateRetryDelayMs = 1000;
 // Allow an IP-table attempt, its domain fallback, and interceptor overhead.
 const freshResponseMaxDuration = refreshServerTimeTimeout * 3;
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
@@ -166,6 +168,10 @@ class SystemTimeUtils {
   private _lastServerTimeCanBeFallback = false;
 
   private _refreshServerTimePromise: Promise<boolean> | undefined;
+
+  private _freshEstimatePromise: Promise<number | undefined> | undefined;
+
+  private _freshEstimateRetryAt = 0;
 
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
@@ -557,6 +563,10 @@ class SystemTimeUtils {
     return this.estimateServerTime(false);
   }
 
+  getContinuousEstimatedServerTime(): number | undefined {
+    return this.estimateServerTime(true);
+  }
+
   private estimateServerTime(
     requireContinuousClock: boolean,
   ): number | undefined {
@@ -598,10 +608,34 @@ class SystemTimeUtils {
   }
 
   async getFreshEstimatedServerTime(): Promise<number | undefined> {
-    const estimated = this.estimateServerTime(true);
+    const estimated = this.getContinuousEstimatedServerTime();
     if (estimated !== undefined) return estimated;
-    if (!(await this.refreshServerTimeOnce())) return undefined;
-    return this.estimateServerTime(true);
+    const now = getMonotonicTimeNow() ?? Date.now();
+    if (now < this._freshEstimateRetryAt) return undefined;
+    this._freshEstimatePromise ??= this.refreshServerTimeOnce()
+      .then((success) => {
+        const refreshed = success
+          ? this.getContinuousEstimatedServerTime()
+          : undefined;
+        this._freshEstimateRetryAt =
+          refreshed === undefined
+            ? (getMonotonicTimeNow() ?? Date.now()) + freshEstimateRetryDelayMs
+            : 0;
+        return refreshed;
+      })
+      .catch((error: unknown) => {
+        const { delayMs } = getRetryAfterOnError(
+          error,
+          freshEstimateRetryDelayMs,
+        );
+        this._freshEstimateRetryAt =
+          (getMonotonicTimeNow() ?? Date.now()) + delayMs;
+        return undefined;
+      })
+      .finally(() => {
+        this._freshEstimatePromise = undefined;
+      });
+    return this._freshEstimatePromise;
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {

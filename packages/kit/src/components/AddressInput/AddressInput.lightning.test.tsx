@@ -94,6 +94,9 @@ it.each([
   'lnurlp://merchant.example/checkout?order=12\n\n&invoice=34',
   '(lnurlp://merchant.example/pay),weekly)',
   'Pay (lnurlp://merchant.example/pay),weekly before Friday).',
+  'Pay (lnurlp://merchant.example/pay?order=1) or (lnurlp://merchant.example/pay?order=2).',
+  'Please pay (use (lnurlp://merchant.example/checkout?order=12),34)\nby Friday).',
+  'Pay: (lnurlp://merchant.example/checkout?order=12 &item=34)',
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
 ])(
