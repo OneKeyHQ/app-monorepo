@@ -16,8 +16,10 @@ import {
   readLocalWalletCacheEpoch,
   readLocalWalletForDisplay,
   removeLastLocalWalletBalances,
+  removeLastLocalWalletChainTips,
   removeNetworkLastLocalWalletBalances,
   saveLastLocalWalletBalance,
+  saveLastLocalWalletChainTip,
   saveLastLocalWalletPublicBalance,
 } from './privacyChainCacheStore';
 
@@ -33,6 +35,38 @@ function createBackgroundApi() {
 }
 
 const owner = { networkId: 'xmr--0', accountId: 'hd-1--0' };
+
+describe('saved privacy chain tip', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('retries a failed write and deduplicates a persisted height', async () => {
+    const backgroundApi = createBackgroundApi();
+    const store = backgroundApi.simpleDb.privacyChainCache;
+    const { networkId } = owner;
+    const params = { backgroundApi, networkId, height: 123 };
+    const setChainTip = jest
+      .spyOn(store, 'setChainTip')
+      .mockRejectedValueOnce(new OneKeyLocalError('write failed'));
+
+    await expect(saveLastLocalWalletChainTip(params)).rejects.toThrow(
+      'write failed',
+    );
+    await Promise.all([
+      saveLastLocalWalletChainTip(params),
+      saveLastLocalWalletChainTip(params),
+    ]);
+    expect(setChainTip).toHaveBeenCalledTimes(2);
+    expect(await store.getChainTip({ networkId })).toBe(123);
+
+    await removeLastLocalWalletChainTips({ backgroundApi, networkId });
+    expect(await store.getChainTip({ networkId })).toBeUndefined();
+    await saveLastLocalWalletChainTip(params);
+    expect(setChainTip).toHaveBeenCalledTimes(3);
+    expect(await store.getChainTip({ networkId })).toBe(123);
+  });
+});
 
 async function seed(backgroundApi: IBackgroundApi, value: string) {
   await readLocalWalletBalanceStaleFirst({
@@ -123,10 +157,9 @@ describe('saved privacy chain balance', () => {
     finish('live');
     await slow;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     await expect(
       readLocalWalletBalanceStaleFirst({
         backgroundApi,
@@ -265,10 +298,9 @@ describe('late display balance handoff', () => {
       EAppEventBusNames.LocalWalletBalanceLanded,
       owner,
     );
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     await expect(display(backgroundApi, async () => 'new')).resolves.toEqual({
       value: 'new',
       stale: false,
@@ -657,10 +689,9 @@ describe('saved balance epochs', () => {
       epoch,
       value: 'verified',
     });
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     expect(emit).toHaveBeenCalledWith(
       EAppEventBusNames.LocalWalletBalanceLanded,
       owner,

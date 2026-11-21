@@ -4,8 +4,12 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getAdvertisedHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { getEmptyTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IHomeTokenRequest } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchAccountTokensResp,
+  IHomeTokenRequest,
+} from '@onekeyhq/shared/types/token';
 
+import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceToken from './ServiceToken';
@@ -82,6 +86,9 @@ function makeApi() {
       getAccountXpub: jest.fn().mockResolvedValue(undefined),
       getAccountAddressForApi: jest.fn().mockResolvedValue('fixture-address'),
       buildAccountXpubOrAddress: jest.fn().mockResolvedValue('fixture-address'),
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest
+        .fn()
+        .mockResolvedValue({ networkAccounts: [] }),
     },
     serviceCustomToken: {
       getCustomTokens: jest.fn().mockResolvedValue([]),
@@ -106,6 +113,7 @@ function makeApi() {
       alignHomeTokenRequest: jest.fn(),
       retireHomeTokenRounds: jest.fn(),
       retainHomeTokenRound: jest.fn().mockReturnValue('fixture-ref'),
+      ingestRound: jest.fn().mockResolvedValue(undefined),
     },
     simpleDb: {
       customTokens: {
@@ -136,6 +144,7 @@ function makeApi() {
         ),
         updateAccountTokenList: jest.fn().mockResolvedValue(undefined),
         updateAccountTokenListByCache: jest.fn().mockResolvedValue(undefined),
+        updateTokens: jest.fn().mockResolvedValue(undefined),
         getAccountTokenList: jest.fn().mockResolvedValue({
           tokenList: [],
           smallBalanceTokenList: [],
@@ -155,7 +164,9 @@ describe('ServiceToken native Home request lifetime', () => {
   let api: ReturnType<typeof makeApi>;
   let service: ServiceToken;
   const fetchTokenListMock = jest.fn(
-    async (_params: { requestApiParams: unknown }) => ({
+    async (_params: {
+      requestApiParams: unknown;
+    }): Promise<{ data: { data: IFetchAccountTokensResp } }> => ({
       data: { data: getEmptyTokenData() },
     }),
   );
@@ -229,6 +240,9 @@ describe('ServiceToken native Home request lifetime', () => {
         .customTokensRawData;
     for (const [params] of api.serviceCustomToken.getCustomTokens.mock.calls) {
       expect(params.customTokensRawData).toBe(first);
+    }
+    for (const item of results) {
+      expect(item.allTokens).toBeUndefined();
     }
     await service.prepareHomeTokenRequest(token(2));
     expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
@@ -336,6 +350,28 @@ describe('ServiceToken native Home request lifetime', () => {
   it('rechecks after an awaited cache write before returning a large response', async () => {
     const write = deferred<void>();
     const started = deferred<void>();
+    const data = getEmptyTokenData();
+    Object.assign(data.tokens, {
+      data: [
+        {
+          $key: 'evm--1_native',
+          address: '',
+          decimals: 18,
+          isNative: true,
+          name: 'Ether',
+          symbol: 'ETH',
+        },
+      ],
+      map: {
+        'evm--1_native': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '1',
+          price: 1,
+        },
+      },
+    });
+    fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
     api.simpleDb.localTokens.updateAccountTokenList.mockImplementation(
       async () => {
         started.resolve();
@@ -353,6 +389,7 @@ describe('ServiceToken native Home request lifetime', () => {
     await service.invalidateHomeTokenRequests(token(2));
     write.resolve();
     await rejected;
+    expect(api.simpleDb.localTokens.updateTokens).not.toHaveBeenCalled();
   });
 
   it('tags single-network writes with their request start order', async () => {
@@ -719,5 +756,386 @@ describe('ServiceToken native Home request lifetime', () => {
       name: 'CanceledError',
     });
     expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it('ingests single-network Home rounds directly in BG and omits token arrays when omitResponseTokenLists is set', async () => {
+    const data = getEmptyTokenData();
+    Object.assign(data.tokens, {
+      data: [
+        {
+          $key: 'evm--1_native',
+          address: '',
+          decimals: 18,
+          isNative: true,
+          name: 'Ether',
+          symbol: 'ETH',
+        },
+      ],
+      keys: 'evm--1_native',
+      map: {
+        'evm--1_native': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '2500',
+          price: 2500,
+        },
+      },
+      fiatValue: '2500',
+      currency: 'usd',
+    });
+    fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+
+    const resp = await service.fetchAccountTokens({
+      ...fetchParams(),
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        omitResponseTokenLists: true,
+      },
+    });
+
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledTimes(1);
+    expect(
+      fetchTokenListMock.mock.calls[0][0].requestApiParams,
+    ).not.toHaveProperty('homeIngest');
+    expect(
+      fetchTokenListMock.mock.calls[0][0].requestApiParams,
+    ).not.toHaveProperty('mergeDeriveAddressData');
+    expect(resp.homeIngested).toBe(true);
+    expect(resp.homeCreateAtNetworkWorth).toBe('2500');
+    expect(resp.tokens.data).toEqual([]);
+  });
+
+  it('aborts an outer merge-derive Home request during account enumeration and preserves settledAccountId on ingest', async () => {
+    const enumerate = deferred<{
+      networkAccounts: { account: { id: string } }[];
+    }>();
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockReturnValueOnce(
+      enumerate.promise,
+    );
+
+    const abortedPending = service.fetchAccountTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      flag: 'home-token-list',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-active-account',
+      },
+    });
+    expect(service._fetchAccountTokensControllers).toHaveLength(1);
+    await service.abortFetchAccountTokens({
+      includedFlags: ['home-token-list'],
+    });
+    enumerate.resolve({
+      networkAccounts: [{ account: { id: 'btc-derive-1' } }],
+    });
+    await expect(abortedPending).rejects.toMatchObject({
+      name: 'CanceledError',
+    });
+    expect(api.serviceTokenViewModel.ingestRound).not.toHaveBeenCalled();
+
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [{ account: { id: 'btc-derive-1' } }],
+      },
+    );
+    await service.fetchAccountTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      flag: 'home-token-list',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-active-account',
+      },
+    });
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'btc-active-account',
+        networkId: 'btc--0',
+      }),
+    );
+  });
+
+  it('persists each derived account balance and writes the Home token catalog once', async () => {
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [
+          { account: { id: 'btc-derive-1' } },
+          { account: { id: 'btc-derive-2' } },
+        ],
+      },
+    );
+    for (const address of ['token-one', 'token-two']) {
+      const data: IFetchAccountTokensResp = getEmptyTokenData();
+      const key = `btc--0_${address}`;
+      data.tokens.data = [
+        {
+          $key: key,
+          address,
+          decimals: 8,
+          isNative: false,
+          name: address,
+          symbol: address,
+        },
+      ];
+      data.tokens.map = {
+        [key]: { balance: '1', balanceParsed: '1', fiatValue: '1', price: 1 },
+      };
+      fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+    }
+
+    await service.fetchAccountTokens({
+      ...fetchParams(),
+      networkId: 'btc--0',
+      indexedAccountId: 'indexed-1',
+      mergeDeriveAddressData: true,
+      saveToLocal: true,
+    });
+
+    expect(
+      api.simpleDb.localTokens.updateAccountTokenList,
+    ).toHaveBeenCalledTimes(2);
+    expect(api.simpleDb.localTokens.updateTokens.mock.calls).toEqual([
+      [
+        {
+          networkId: 'btc--0',
+          tokens: [
+            expect.objectContaining({ address: 'token-one' }),
+            expect.objectContaining({ address: 'token-two' }),
+          ],
+        },
+      ],
+    ]);
+  });
+
+  it.each(['usd', 'eur'])(
+    'only publishes a merged hardware portfolio total when both derived responses use the same currency (%s and usd)',
+    async (firstCurrency) => {
+      api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+        {
+          networkAccounts: [
+            { account: { id: 'btc-derive-1' } },
+            { account: { id: 'btc-derive-2' } },
+          ],
+        },
+      );
+      const settings = await settingsPersistAtom.get();
+      jest.mocked(settingsPersistAtom.get).mockResolvedValueOnce({
+        ...settings,
+        currencyInfo: { ...settings.currencyInfo, id: firstCurrency },
+      });
+      for (const [key, value] of [
+        ['token-one', '12'],
+        ['token-two', '28'],
+      ] as const) {
+        const data: IFetchAccountTokensResp = getEmptyTokenData();
+        data.tokens.data.push({
+          $key: key,
+          address: key,
+          name: key,
+          symbol: key,
+          decimals: 8,
+          isNative: false,
+        });
+        data.tokens.map[key] = {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: value,
+          price: Number(value),
+        };
+        fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+      }
+
+      const response = await service.fetchAccountTokens({
+        ...fetchParams(),
+        networkId: 'btc--0',
+        indexedAccountId: 'indexed-1',
+        mergeDeriveAddressData: true,
+      });
+      expect(response.tokens.data).toHaveLength(2);
+      expect(response.homePortfolioTotalFiat).toBe(
+        firstCurrency === 'usd' ? '40' : undefined,
+      );
+      expect(response.homePortfolioTotalFiatCurrency).toBe(
+        firstCurrency === 'usd' ? 'usd' : undefined,
+      );
+      expect(response.tokens.currency).toBe(
+        response.homePortfolioTotalFiatCurrency,
+      );
+      expect(response.smallBalanceTokens.currency).toBe(
+        response.homePortfolioTotalFiatCurrency,
+      );
+    },
+  );
+
+  it('cancels a delayed single-network cache seed after the same request publishes live data', async () => {
+    const vm = new ServiceTokenViewModel({ backgroundApi: api });
+    api.serviceTokenViewModel.ingestRound.mockImplementation(
+      (params: IIngestRoundParams) => vm.ingestRound(params),
+    );
+    const metadataStarted = deferred<void>();
+    const metadata = deferred<undefined>();
+    Object.assign(api.simpleDb.aggregateToken, {
+      getHomeDefaultTokenMap: jest.fn(() => {
+        metadataStarted.resolve();
+        return metadata.promise;
+      }),
+    });
+    const homeIngest = {
+      ownerKey: 'home-owner',
+      storeName: 'homeTokenList',
+      omitResponseTokenLists: true,
+    };
+    const localParams = {
+      homeRequest: token(1),
+      accountId: 'fixture-account',
+      networkId: 'evm--1',
+      accountAddress: 'fixture-address',
+      homeIngest,
+    };
+    const localSeed = service.getAccountLocalTokens(localParams);
+    await metadataStarted.promise;
+
+    await service.fetchAccountTokens({
+      ...fetchParams(),
+      homeIngest: { ...homeIngest, homeDefaultTokenMap: {} },
+    });
+    const settledFrames = await vm.getTokenListFrames({
+      ownerKey: 'home-owner',
+    });
+    expect(settledFrames.valuation?.provisional).toBe(false);
+
+    metadata.resolve(undefined);
+    await expect(localSeed).rejects.toMatchObject({
+      name: 'CanceledError',
+      message: 'Live Home tokens already published',
+    });
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledTimes(1);
+    await expect(
+      vm.getTokenListFrames({ ownerKey: 'home-owner' }),
+    ).resolves.toEqual(settledFrames);
+
+    await expect(
+      service.getAccountLocalTokens({ ...localParams, homeRequest: token(2) }),
+    ).resolves.toMatchObject({ homeIngested: true });
+  });
+
+  it('ingests single-network and merge-derive local cache directly in BG on getAccountLocalTokens', async () => {
+    const makeFixtureToken = (key: string) => ({
+      $key: key,
+      address: '',
+      decimals: 18,
+      isNative: true,
+      name: key.toUpperCase(),
+      symbol: key.toUpperCase(),
+    });
+    api.simpleDb.localTokens.getAccountTokenList.mockResolvedValueOnce({
+      hasCache: true,
+      currency: 'usd',
+      tokenList: [makeFixtureToken('eth')],
+      smallBalanceTokenList: [],
+      riskyTokenList: [],
+      tokenListMap: {
+        eth: {
+          balance: '2',
+          balanceParsed: '2',
+          fiatValue: '4000',
+          price: 2000,
+          currency: 'usd',
+        },
+      },
+      tokenListValue: '4000',
+    });
+
+    const singleLocal = await service.getAccountLocalTokens({
+      accountId: 'acc-1',
+      networkId: 'evm--1',
+      accountAddress: '0x1111',
+      homeIngest: {
+        ownerKey: 'acc-1__evm--1',
+        storeName: 'homeTokenList',
+        keepDefault: true,
+        omitResponseTokenLists: true,
+      },
+    });
+    expect(singleLocal.homeIngested).toBe(true);
+    expect(singleLocal.hasNonEmptyTokens).toBe(true);
+    expect(singleLocal.tokenList).toEqual([]);
+    expect(singleLocal.tokenListMap).toEqual({});
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerKey: 'acc-1__evm--1',
+        source: 'singleCacheSeed',
+        orderedTokens: [expect.objectContaining({ $key: 'eth' })],
+      }),
+    );
+
+    api.serviceTokenViewModel.ingestRound.mockClear();
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [
+          { account: { id: 'btc-derive-1', address: 'bc1q1' } },
+          { account: { id: 'btc-derive-2', address: 'bc1p2' } },
+        ],
+      },
+    );
+    api.simpleDb.localTokens.getAccountTokenList
+      .mockResolvedValueOnce({
+        hasCache: true,
+        currency: 'usd',
+        tokenList: [makeFixtureToken('btc')],
+        smallBalanceTokenList: [],
+        riskyTokenList: [],
+        tokenListMap: {
+          btc: {
+            balance: '1',
+            balanceParsed: '1',
+            fiatValue: '60000',
+            price: 60_000,
+            currency: 'usd',
+          },
+        },
+        tokenListValue: '60000',
+      })
+      .mockResolvedValueOnce({
+        hasCache: true,
+        currency: 'usd',
+        tokenList: [],
+        smallBalanceTokenList: [],
+        riskyTokenList: [],
+        tokenListMap: {},
+        tokenListValue: '0',
+      });
+
+    const mergedLocal = await service.getAccountLocalTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'indexed-1__btc--0',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-derive-1',
+        omitResponseTokenLists: true,
+      },
+    });
+    expect(mergedLocal.homeIngested).toBe(true);
+    expect(mergedLocal.hasNonEmptyTokens).toBe(true);
+    expect(mergedLocal.tokenListValue).toBe('60000');
+    expect(mergedLocal.tokenList).toEqual([]);
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerKey: 'indexed-1__btc--0',
+        accountId: 'btc-derive-1',
+        source: 'singleCacheSeed',
+      }),
+    );
   });
 });

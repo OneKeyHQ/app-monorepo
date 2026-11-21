@@ -130,3 +130,29 @@ export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   addAll(r.smallBalanceTokens?.map);
   return acc.toFixed();
 }
+
+type ITokenGroupsCurrency = {
+  tokens: {
+    currency?: string;
+  };
+  smallBalanceTokens: {
+    currency?: string;
+  };
+};
+
+export function getCommonTokenGroupsCurrency(
+  results: readonly ITokenGroupsCurrency[],
+): string | undefined {
+  const currency = results[0]?.tokens.currency;
+  if (
+    currency &&
+    results.every(
+      (item) =>
+        item.tokens.currency === currency &&
+        item.smallBalanceTokens.currency === currency,
+    )
+  ) {
+    return currency;
+  }
+  return undefined;
+}

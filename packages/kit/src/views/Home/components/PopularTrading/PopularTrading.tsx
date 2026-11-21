@@ -407,7 +407,13 @@ function RecommendCardItem({
   );
 }
 
-function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
+function PopularTrading({
+  tableLayout,
+  isActive = true,
+}: {
+  tableLayout?: boolean;
+  isActive?: boolean;
+}) {
   const intl = useIntl();
   const { md } = useMedia();
   const shouldUseTableLayout = Boolean(tableLayout && !md);
@@ -455,29 +461,27 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Always show 4 tokens in empty state
   const displayCount = 4;
+  const recommendationsInFlightRef = useRef<
+    Promise<IFavoriteTokenDisplay[]> | undefined
+  >(undefined);
   const loadRecommendations = useCallback(async () => {
+    if (recommendationsInFlightRef.current) {
+      return recommendationsInFlightRef.current;
+    }
+    const pending = loadHomeRecommendDisplayTokens(displayCount).finally(() => {
+      if (recommendationsInFlightRef.current === pending) {
+        recommendationsInFlightRef.current = undefined;
+      }
+    });
+    recommendationsInFlightRef.current = pending;
     try {
-      return await loadHomeRecommendDisplayTokens(displayCount);
+      return await pending;
     } catch (error) {
       // Optional background recommendations must not surface unrelated errors.
       errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }, [displayCount]);
-  const { result: recommendedDisplayTokens } = usePromiseResult(
-    loadRecommendations,
-    [loadRecommendations],
-    {
-      keepResultIfError: true,
-      resumeOnEffectReconnect: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      revalidateOnFocus: true,
-      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
-        seconds: 15,
-      }),
-      revalidateOnReconnect: true,
-    },
-  );
 
   const marketTab = ETabRoutes.Market;
 
@@ -549,10 +553,35 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       ? undefined
       : resolvedSelectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
 
+  const shouldPollRecommendations =
+    isActive &&
+    !selectedMarketCategoryId &&
+    (!hasUserFavorites || showRecommendCards);
+  const { result: recommendedDisplayTokens } = usePromiseResult(
+    loadRecommendations,
+    [loadRecommendations],
+    {
+      keepResultIfError: true,
+      resumeOnEffectReconnect: true,
+      pollingInterval: shouldPollRecommendations
+        ? timerUtils.getTimeDurationMs({ seconds: 30 })
+        : undefined,
+      revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
+      revalidateOnReconnect: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
+    },
+  );
+  const recommendedDisplayTokensRef = useRef(recommendedDisplayTokens);
+  recommendedDisplayTokensRef.current = recommendedDisplayTokens;
+
   const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
     minLiquidity,
     selectedMarketCategoryId,
     marketCategories: homeCategories,
+    isActive,
   });
 
   useEffect(() => {
@@ -965,7 +994,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           visibleFavoriteCount: displayTokens.length,
         });
         const nextTokens = recommendInstead
-          ? (recommendedDisplayTokens ??
+          ? (recommendedDisplayTokensRef.current ??
             (await loadRecommendations().catch(() => [])))
           : displayTokens;
         if (refreshId !== favoriteRefreshIdRef.current) return;
@@ -973,7 +1002,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         setShowRecommendCards(recommendInstead);
       } else {
         const nextTokens =
-          recommendedDisplayTokens ??
+          recommendedDisplayTokensRef.current ??
           (await loadRecommendations().catch(() => []));
         if (refreshId !== favoriteRefreshIdRef.current) return;
         setFavoriteTokens(nextTokens);
@@ -985,8 +1014,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setTotalFavoritesCount(watchList.data.length);
       initializedRef.current = true;
     },
-    [loadRecommendations, recommendedDisplayTokens],
+    [loadRecommendations],
   );
+
+  useEffect(() => {
+    if (
+      recommendedDisplayTokens &&
+      initializedRef.current &&
+      (!hasUserFavorites || showRecommendCards)
+    ) {
+      setFavoriteTokens(recommendedDisplayTokens);
+    }
+  }, [hasUserFavorites, recommendedDisplayTokens, showRecommendCards]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -997,12 +1036,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      pollingInterval:
+        isActive && !selectedMarketCategoryId
+          ? timerUtils.getTimeDurationMs({ seconds: 30 })
+          : undefined,
       revalidateOnFocus: true,
       focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
         seconds: 15,
       }),
       revalidateOnReconnect: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
   refreshDataRef.current = async () => {

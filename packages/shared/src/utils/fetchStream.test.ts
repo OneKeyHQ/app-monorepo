@@ -142,6 +142,37 @@ describe('HTTP host streams', () => {
     ).resolves.toEqual({ ok: true, chunk: { done: true, b64: '' } });
   });
 
+  it('inlines single-chunk native arrayBuffer responses on open and closes the stream', async () => {
+    const response = {
+      body: null,
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers([['content-type', 'application/octet-stream']]),
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+    } as Response;
+    const relay = createFetchStreamHandler(async () => response);
+    const opened = await relay({ ...request, inline: true });
+    expect(opened).toEqual({
+      ok: true,
+      response: {
+        id: expect.any(String),
+        status: 200,
+        statusText: 'OK',
+        headers: [['content-type', 'application/octet-stream']],
+        chunk: { done: true, b64: 'AQID' },
+      },
+    });
+    if (!opened.ok || !('response' in opened))
+      throw new OneKeyLocalError('open failed');
+    await expect(
+      relay({ action: 'read', id: opened.response.id }),
+    ).resolves.toEqual({
+      ok: false,
+      error: 'fetch stream expired or closed',
+    });
+  });
+
   it.each([false, true])(
     'bounds each bridge message without losing bytes (buffer fallback: %s)',
     async (fallback) => {

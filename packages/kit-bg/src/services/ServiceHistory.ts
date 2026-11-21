@@ -965,7 +965,7 @@ class ServiceHistory extends ServiceBase {
   private async attachPrivateSendDisplayPrices({
     txs,
     targetCurrency,
-    currencyMap,
+    currencyMap: rawCurrencyMap,
   }: {
     txs: IAccountHistoryTx[];
     targetCurrency?: string;
@@ -974,7 +974,11 @@ class ServiceHistory extends ServiceBase {
     const privateSendTxs = txs.filter((tx) =>
       isPrivateSendAccountHistoryTx(tx),
     );
-    if (!privateSendTxs.length || !targetCurrency || !currencyMap) {
+    if (!privateSendTxs.length || !targetCurrency) {
+      return txs;
+    }
+    const currencyMap = await this.resolveCurrencyMap(rawCurrencyMap);
+    if (!currencyMap) {
       return txs;
     }
 
@@ -1286,6 +1290,19 @@ class ServiceHistory extends ServiceBase {
     return JSON.stringify(cursorMap);
   }
 
+  private async resolveCurrencyMap(
+    currencyMap?: Record<string, ICurrencyItem>,
+  ): Promise<Record<string, ICurrencyItem> | undefined> {
+    if (currencyMap) {
+      return currencyMap;
+    }
+    try {
+      return (await currencyPersistAtom.get())?.currencyMap;
+    } catch {
+      return undefined;
+    }
+  }
+
   private async _fetchMoreAccountHistory(params: IFetchAccountHistoryParams) {
     const {
       accountId,
@@ -1294,7 +1311,7 @@ class ServiceHistory extends ServiceBase {
       filterLowValue,
       sourceCurrency,
       targetCurrency,
-      currencyMap,
+      currencyMap: rawCurrencyMap,
     } = params;
     let dbAccount;
     try {
@@ -1325,6 +1342,11 @@ class ServiceHistory extends ServiceBase {
       xpub,
     });
 
+    const currencyMap =
+      rawCurrencyMap ??
+      (filterLowValue && onChainResult.txs.length > 0
+        ? await this.resolveCurrencyMap()
+        : undefined);
     const filtered = filterHistoryTxs({
       txs: await this.convertTxsToDisplayCurrency({
         txs: onChainResult.txs,
@@ -1446,10 +1468,11 @@ class ServiceHistory extends ServiceBase {
       filterLowValue,
       sourceCurrency,
       targetCurrency,
-      currencyMap,
+      currencyMap: rawCurrencyMap,
       excludeTestNetwork,
       limit: _limit,
     } = resolvedParams;
+    let currencyMap = rawCurrencyMap;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
@@ -1992,6 +2015,9 @@ class ServiceHistory extends ServiceBase {
       });
     }
 
+    if (!currencyMap && filterLowValue && result.length > 0) {
+      currencyMap = await this.resolveCurrencyMap();
+    }
     result = filterHistoryTxs({
       txs: result,
       sourceCurrency,
@@ -2252,7 +2278,7 @@ class ServiceHistory extends ServiceBase {
     filterLowValue,
     sourceCurrency,
     targetCurrency,
-    currencyMap,
+    currencyMap: rawCurrencyMap,
     excludeTestNetwork,
   }: {
     accountId: string;
@@ -2264,6 +2290,7 @@ class ServiceHistory extends ServiceBase {
     targetCurrency?: string;
     currencyMap?: Record<string, ICurrencyItem>;
   }) {
+    let currencyMap = rawCurrencyMap;
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
         await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
@@ -2322,6 +2349,13 @@ class ServiceHistory extends ServiceBase {
           currencyMap,
         });
 
+      if (
+        !currencyMap &&
+        filterLowValue &&
+        resultWithPrivateSendDisplayPrices.length > 0
+      ) {
+        currencyMap = await this.resolveCurrencyMap();
+      }
       return filterHistoryTxs({
         txs: resultWithPrivateSendDisplayPrices,
         sourceCurrency,
@@ -2381,6 +2415,13 @@ class ServiceHistory extends ServiceBase {
         currencyMap,
       });
 
+    if (
+      !currencyMap &&
+      filterLowValue &&
+      resultWithPrivateSendDisplayPrices.length > 0
+    ) {
+      currencyMap = await this.resolveCurrencyMap();
+    }
     return filterHistoryTxs({
       txs: resultWithPrivateSendDisplayPrices,
       filterScam,
@@ -2389,6 +2430,62 @@ class ServiceHistory extends ServiceBase {
       targetCurrency,
       currencyMap,
     });
+  }
+
+  @backgroundMethod()
+  public async getAccountsLocalHistoryTxsForMergeDerive({
+    indexedAccountId,
+    networkId,
+    filterScam,
+    filterLowValue,
+    excludeTestNetwork,
+    sourceCurrency,
+    targetCurrency,
+    currencyMap,
+    limit,
+  }: {
+    indexedAccountId: string;
+    networkId: string;
+    filterScam?: boolean;
+    filterLowValue?: boolean;
+    excludeTestNetwork?: boolean;
+    sourceCurrency?: string;
+    targetCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+    limit?: number;
+  }) {
+    const { networkAccounts } =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+    const resp = await Promise.all(
+      networkAccounts.map((networkAccount) =>
+        this.getAccountsLocalHistoryTxs({
+          accountId: networkAccount.account?.id ?? '',
+          networkId,
+          filterScam,
+          filterLowValue,
+          excludeTestNetwork,
+          sourceCurrency,
+          targetCurrency,
+          currencyMap,
+        }),
+      ),
+    );
+    const sorted = resp
+      .flat()
+      .toSorted(
+        (b, a) =>
+          (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+          (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+      );
+    return typeof limit === 'number' && limit > 0
+      ? sorted.slice(0, limit)
+      : sorted;
   }
 
   @backgroundMethod()

@@ -22,15 +22,22 @@ describe('Privacy password verification on request', () => {
   const params = { networkId: 'xmr--0', accountId: 'account' };
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.resetAllMocks();
   });
 
   function createService(hasWork: boolean) {
     const localWalletDoPasswordWork = jest.fn(async () => true);
+    const getAccountAliases = jest.fn(async () => [
+      params.accountId,
+      'hardware-twin',
+      'hardware-twin',
+    ]);
     mockGetVault.mockResolvedValue({
       localWalletHasDeviceWork: async () => false,
       localWalletHasPasswordWork: async () => hasWork,
       localWalletDoPasswordWork,
+      getLocalWalletCapability: () => ({ getAccountAliases }),
     });
     const promptPasswordVerifyByAccount = jest.fn(async () => ({
       password: 'synthetic-test-password',
@@ -45,6 +52,7 @@ describe('Privacy password verification on request', () => {
       service,
       localWalletDoPasswordWork,
       promptPasswordVerifyByAccount,
+      getAccountAliases,
     };
   }
 
@@ -54,12 +62,29 @@ describe('Privacy password verification on request', () => {
       localWalletDoPasswordWork,
       promptPasswordVerifyByAccount,
     } = createService(true);
+    const emit = jest.spyOn(appEventBus, 'emit');
 
     await service.verifyLocalWalletWithPassword(params);
 
     expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
     expect(localWalletDoPasswordWork).toHaveBeenCalledWith({
       password: 'synthetic-test-password',
+    });
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [params, { ...params, accountId: 'hardware-twin' }],
+    });
+  });
+
+  it('still refreshes the initiating account when the alias lookup fails', async () => {
+    const { service, getAccountAliases } = createService(true);
+    getAccountAliases.mockRejectedValueOnce(new Error('alias lookup failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const emit = jest.spyOn(appEventBus, 'emit');
+
+    await service.verifyLocalWalletWithPassword(params);
+
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [params],
     });
   });
 
@@ -77,6 +102,7 @@ describe('Privacy device verification on request', () => {
   const deviceParams = { dbDevice: { connectId: 'c', deviceId: 'd' } };
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.resetAllMocks();
   });
 
@@ -86,6 +112,9 @@ describe('Privacy device verification on request', () => {
       localWalletHasDeviceWork: async () => true,
       localWalletDoDeviceWork,
       localWalletHasPasswordWork: async () => false,
+      getLocalWalletCapability: () => ({
+        getAccountAliases: async () => ['software-twin', params.accountId],
+      }),
     });
     const promptPasswordVerifyByAccount = jest.fn();
     const getWalletDeviceParams = jest.fn(async () => found);
@@ -132,9 +161,13 @@ describe('Privacy device verification on request', () => {
       getWalletDeviceParams,
       withHardwareProcessing,
     } = createService(deviceParams);
+    const emit = jest.spyOn(appEventBus, 'emit');
 
     await service.verifyLocalWalletWithPassword(params);
 
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [params, { ...params, accountId: 'software-twin' }],
+    });
     expect(getWalletDeviceParams).toHaveBeenCalledWith(
       expect.objectContaining({ walletId: 'hw-1' }),
     );
@@ -242,6 +275,9 @@ describe('Privacy password verification on entering a send', () => {
           enabled,
           paused: !enabled,
         })),
+        requireAccountCapability: async () => ({
+          getAccountAliases: async () => [params.accountId, 'other-alias'],
+        }),
       },
     );
     const toast = jest.spyOn(errorToastUtils, 'toastIfError');
@@ -286,10 +322,9 @@ describe('Privacy password verification on entering a send', () => {
     expect(localWalletDoPasswordWork).toHaveBeenCalledWith({
       password: cached,
     });
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [params, { ...params, accountId: 'other-alias' }],
+    });
   });
 
   // The send page explains and asks once the user sends.

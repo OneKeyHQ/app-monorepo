@@ -429,4 +429,45 @@ describe('ServiceAccountProfile.queryAddress address book on a privacy chain', (
       backgroundApi.serviceAddressBook.getItemsByNetwork,
     ).not.toHaveBeenCalled();
   });
+
+  it('batches labels and distinguishes failed lookups from unlabeled addresses', async () => {
+    const { service } = makeService();
+    type IPromiseUtils =
+      typeof import('@onekeyhq/shared/src/utils/promiseUtils');
+    const promiseUtilsPath = '@onekeyhq/shared/src/utils/promiseUtils';
+    const actualPromiseUtils =
+      jest.requireActual<IPromiseUtils>(promiseUtilsPath);
+    const mockedPromiseUtils =
+      jest.requireMock<IPromiseUtils>(promiseUtilsPath);
+    jest
+      .mocked(mockedPromiseUtils.promiseAllSettledEnhanced)
+      .mockImplementationOnce(actualPromiseUtils.promiseAllSettledEnhanced);
+    jest
+      .spyOn(service, 'queryAddress')
+      .mockImplementation(async ({ address }) => {
+        if (address === '0x4') throw new OneKeyLocalError('lookup failed');
+        return {
+          input: address,
+          addressBookName: address === '0x1' ? 'Book / Alice' : undefined,
+          walletAccountName:
+            address === '0x2' ? 'Wallet 1 / Account 1' : undefined,
+        };
+      });
+
+    const labels = await service.queryAddressLabelsBatch({
+      targets: [
+        { key: 'evm--1_0x1', networkId: 'evm--1', address: '0x1' },
+        { key: 'evm--1_0x2', networkId: 'evm--1', address: '0x2' },
+        { key: 'evm--1_0x3', networkId: 'evm--1', address: '0x3' },
+        { key: 'evm--1_0x4', networkId: 'evm--1', address: '0x4' },
+      ],
+    });
+
+    expect(labels).toEqual({
+      'evm--1_0x1': 'Book / Alice',
+      'evm--1_0x2': 'Wallet 1 / Account 1',
+      'evm--1_0x3': null,
+    });
+    expect(labels).not.toHaveProperty('evm--1_0x4');
+  });
 });

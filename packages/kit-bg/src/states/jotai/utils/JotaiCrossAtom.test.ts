@@ -36,12 +36,16 @@ type IValue = { hideValue: boolean };
 const HIDDEN: IValue = { hideValue: true };
 const SHOWN: IValue = { hideValue: false };
 
-function buildCrossAtom() {
+function buildCrossAtom(options?: Parameters<typeof wrapAtomPro>[2]) {
   const baseAtom = atom<IValue>(SHOWN) as unknown as Parameters<
     typeof wrapAtomPro
   >[1];
   baseAtom.initialValue = SHOWN;
-  const proAtom = wrapAtomPro(EAtomNames.settingsValuePersistAtom, baseAtom);
+  const proAtom = wrapAtomPro(
+    EAtomNames.settingsValuePersistAtom,
+    baseAtom,
+    options,
+  );
   proAtom.storageReady = Promise.resolve(true);
   const crossAtom = new JotaiCrossAtom(
     EAtomNames.settingsValuePersistAtom,
@@ -127,6 +131,28 @@ describe('JotaiCrossAtom.setOptimistic', () => {
     });
     expect(jotaiDefaultStore.get(proAtom)).toEqual(SHOWN);
   });
+
+  it.each(['native main', 'extension UI'])(
+    'hydrates a runtime-local atom in %s without proxying',
+    async (runtime) => {
+      mockPlatformEnv.isNativeMainThread = runtime === 'native main';
+      mockPlatformEnv.isExtensionUi = runtime === 'extension UI';
+      const { crossAtom, proAtom } = buildCrossAtom({
+        syncAcrossRuntimes: false,
+      });
+
+      await jotaiDefaultStore.set(proAtom, {
+        $$isForceSetAtomWithoutProxy: true,
+        name: EAtomNames.settingsValuePersistAtom,
+        payload: HIDDEN,
+      });
+
+      expect(jotaiDefaultStore.get(proAtom)).toEqual(HIDDEN);
+      await crossAtom.set(SHOWN);
+      expect(jotaiDefaultStore.get(proAtom)).toEqual(SHOWN);
+      expect(proxyStateUpdateActionFromUiToBg).not.toHaveBeenCalled();
+    },
+  );
 
   it('applies the value on the UI runtime before the bg round trip settles', async () => {
     proxyStateUpdateActionFromUiToBg.mockReturnValue(createBgWrite().promise);

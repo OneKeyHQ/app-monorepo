@@ -142,11 +142,11 @@ import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
   flattenAggregateTokensMap,
-  getEmptyTokenData,
-  getMergedDeriveTokenData,
-  getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  getCommonTokenGroupsCurrency,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -172,7 +172,6 @@ import {
   WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
   WALLET_ASSET_STATUS_THRESHOLD_USD,
   evaluateWalletAssetStatus,
-  getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
   shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
@@ -417,6 +416,9 @@ function TokenListBlock({
   const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
     undefined,
   );
+  const settledSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
+    undefined,
+  );
   const homeRequestEpochRef = useRef(-1);
   const getHomeRequest = useCallback(
     (newRound = false) => {
@@ -471,6 +473,7 @@ function TokenListBlock({
     setEnabledKeys: setPipelineEnabledKeys,
     ingestLiveRound,
     buildAuthoritativeSnapshot,
+    hasSnapshotRoundRefs,
     commitAuthoritativeIngest,
   } = pipeline;
   const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
@@ -954,171 +957,79 @@ function TokenListBlock({
         )
           return;
 
-        let r: IFetchAccountTokensResp = getEmptyTokenData();
+        const needsHardwarePortfolioSyncTokens = Boolean(
+          currencyInfo?.id &&
+          isProtocolV2ProductType(portfolioSyncDeviceType) &&
+          wallet &&
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isQrWallet({ walletId: wallet.id }),
+        );
 
-        if (mergeDeriveAddressData) {
-          const { networkAccounts } =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-              {
-                networkId: network.id,
-                indexedAccountId: indexedAccount?.id ?? '',
-                excludeEmptyAccount: true,
-              },
-            );
-          if (
-            !isAccountEpochCurrent(requestAccountEpoch) ||
-            !isHomeTokenRequestCurrent(homeRequest)
-          )
-            return;
+        const dispatchedNonZeroInputs =
+          cellsIngestInputsRef.current.nonZeroInputs;
+        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+          accountId,
+          networkId: network.id,
+          flag: 'home-token-list',
+          homeRequest,
+          saveToLocal: true,
+          indexedAccountId: indexedAccount?.id,
+          mergeDeriveAddressData,
+          homeIngest: ENABLE_BG_TOKEN_VIEW_MODEL
+            ? {
+                ownerKey: cellsIngestInputsRef.current.ownerKey,
+                storeName: EJotaiContextStoreNames.homeTokenList,
+                settledAccountId: account?.id,
+                keepDefault: dispatchedNonZeroInputs.keepDefault,
+                homeDefaultTokenMap:
+                  dispatchedNonZeroInputs.homeDefaultTokenMap,
+                customTokens: dispatchedNonZeroInputs.customTokens,
+                omitResponseTokenLists: !needsHardwarePortfolioSyncTokens,
+              }
+            : undefined,
+          ...walletTokenFilterParams,
+        });
+        if (
+          !isAccountEpochCurrent(requestAccountEpoch) ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        )
+          return;
 
-          const resp = await Promise.all(
-            networkAccounts.map((networkAccount) =>
-              backgroundApiProxy.serviceToken.fetchAccountTokens({
-                accountId: networkAccount.account?.id ?? '',
-                mergeTokens: true,
-                networkId: network.id,
-                flag: 'home-token-list',
-                homeRequest,
-                saveToLocal: true,
-                indexedAccountId: indexedAccount?.id,
-                ...walletTokenFilterParams,
-              }),
-            ),
-          );
-          if (
-            !isAccountEpochCurrent(requestAccountEpoch) ||
-            !isHomeTokenRequestCurrent(homeRequest)
-          )
-            return;
-          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);
-          portfolioTotalFiat = resp
-            .reduce(
-              (total, item) =>
-                total.plus(sumTokenGroupsFiatValueIgnoringUnavailable(item)),
-              new BigNumber(0),
-            )
-            .toFixed();
+        settledSingleLiveRequestRef.current = homeRequest;
+        portfolioTotalFiatCurrency =
+          r.homePortfolioTotalFiatCurrency ?? getCommonTokenGroupsCurrency([r]);
+        const fallbackAccountWorth =
+          sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        portfolioTotalFiat = r.homePortfolioTotalFiat ?? fallbackAccountWorth;
 
-          const {
-            tokenList,
-            smallBalanceTokenList,
-            riskyTokenList,
-            tokenListMap,
-            smallBalanceTokenListMap,
-            riskyTokenListMap,
-            allTokenList,
-            allTokenListMap,
-          } = getMergedDeriveTokenData({
-            data: resp,
-            mergeDeriveAssetsEnabled: true,
+        if (syncTokenFilterToOverview) {
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
           });
 
-          r.tokens = {
-            data: tokenList.tokens,
-            keys: tokenList.keys,
-            fiatValue: tokenList.fiatValue,
-            map: tokenListMap,
-          };
-          r.smallBalanceTokens = {
-            data: smallBalanceTokenList.smallBalanceTokens,
-            keys: smallBalanceTokenList.keys,
-            fiatValue: smallBalanceTokenList.fiatValue,
-            map: smallBalanceTokenListMap,
-          };
-          r.riskTokens = {
-            data: riskyTokenList.riskyTokens,
-            keys: riskyTokenList.keys,
-            fiatValue: riskyTokenList.fiatValue,
-            map: riskyTokenListMap,
-          };
-          r.allTokens = {
-            data: allTokenList.tokens,
-            keys: allTokenList.keys,
-            fiatValue: allTokenList.fiatValue,
-            map: allTokenListMap,
-          };
-
-          const accountWorth: Record<string, string> = {};
-
-          resp.forEach((item) => {
-            if (item.accountId && item.networkId) {
-              const key = accountUtils.buildAccountValueKey({
-                accountId: item.accountId,
-                networkId: item.networkId,
-              });
-              // Unavailable tokens are silently dropped from the per-network
-              // total — partial sum keeps the top balance trustworthy while
-              // the row-level '--' still surfaces the broken entry.
-              accountWorth[key] =
-                sumTokenGroupsFiatValueIgnoringUnavailable(item);
-            }
-          });
-
-          if (syncTokenFilterToOverview) {
-            updateAccountOverviewState({
-              isRefreshing: false,
-              initialized: true,
-            });
-
-            updateAccountWorth({
-              accountId,
-              initialized: true,
-              worth: accountWorth,
-              createAtNetworkWorth: '0',
-              merge: false,
-            });
-          }
-        } else {
-          r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+          updateAccountWorth({
             accountId,
-            mergeTokens: true,
-            networkId: network.id,
-            flag: 'home-token-list',
-            homeRequest,
-            saveToLocal: true,
-            indexedAccountId: indexedAccount?.id,
-            ...walletTokenFilterParams,
+            initialized: true,
+            worth: r.homeAccountWorth ?? {
+              [accountUtils.buildAccountValueKey({
+                accountId,
+                networkId: network.id,
+              })]: fallbackAccountWorth,
+            },
+            createAtNetworkWorth:
+              r.homeCreateAtNetworkWorth ??
+              (mergeDeriveAddressData ? '0' : fallbackAccountWorth),
+            merge: false,
           });
-          if (
-            !isAccountEpochCurrent(requestAccountEpoch) ||
-            !isHomeTokenRequestCurrent(homeRequest)
-          )
-            return;
-
-          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);
-          const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-          portfolioTotalFiat = accountWorth;
-
-          if (syncTokenFilterToOverview) {
-            updateAccountOverviewState({
-              isRefreshing: false,
-              initialized: true,
-            });
-
-            updateAccountWorth({
-              accountId,
-              initialized: true,
-              worth: {
-                [accountUtils.buildAccountValueKey({
-                  accountId,
-                  networkId: network.id,
-                })]: accountWorth,
-              },
-              createAtNetworkWorth: accountWorth,
-              merge: false,
-            });
-          }
         }
 
         if (
           isAccountEpochCurrent(requestAccountEpoch) &&
           isHomeTokenRequestCurrent(homeRequest) &&
-          currencyInfo?.id &&
+          needsHardwarePortfolioSyncTokens &&
           portfolioTotalFiatCurrency &&
-          isProtocolV2ProductType(portfolioSyncDeviceType) &&
-          wallet &&
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isQrWallet({ walletId: wallet.id })
+          wallet
         ) {
           const portfolioTokenMap = {
             ...r.tokens.map,
@@ -1163,15 +1074,11 @@ function TokenListBlock({
         )
           return;
 
-        // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
-        // SAME settled slices this single-network round just wrote to the atoms
-        // over to the BG view-model so it can build + push the BG frames the UI
-        // now consumes. Guarded by the always-on `ENABLE_BG_TOKEN_VIEW_MODEL`
-        // kill-switch. The single-network path has no aggregate tokens, so the
-        // nested aggregate map is empty. Owner key + hideZero inputs are read off
-        // a ref (assigned next to the cells consts) so this call needs no extra
-        // render deps.
-        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+        // When `ServiceToken.fetchAccountTokens` runs in BG with `homeIngest`,
+        // it directly ingests into `ServiceTokenViewModel` inside BG (`r.homeIngested === true`)
+        // so the token lists never round-trip `BG -> Main -> BG`. The fallback
+        // below only runs when `fetchAccountTokens` is stubbed in unit tests.
+        if (ENABLE_BG_TOKEN_VIEW_MODEL && !r.homeIngested) {
           void backgroundApiProxy.serviceTokenViewModel
             .ingestRound({
               homeRequest,
@@ -1202,22 +1109,36 @@ function TokenListBlock({
               // SETTLED owner identity for the `getRawTokenList` switch skeleton.
               accountId: account?.id,
               networkId: network?.id,
-              rawKeys: r.allTokens?.keys ?? '',
+              rawKeys:
+                r.allTokens?.keys ||
+                `${r.tokens.keys}_${r.smallBalanceTokens.keys}_${r.riskTokens.keys}`,
               source: 'single',
             })
             .catch((error) => {
               if (!isRequestCanceledError(error)) console.error(error);
             });
-        }
-
-        if (r.allTokens) {
-          const mergedTokens = r.allTokens.data;
-          if (mergedTokens && mergedTokens.length) {
-            void backgroundApiProxy.serviceToken.updateLocalTokens({
-              networkId: network.id,
-              tokens: mergedTokens,
+        } else if (
+          ENABLE_BG_TOKEN_VIEW_MODEL &&
+          r.homeIngested &&
+          (cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap !==
+            dispatchedNonZeroInputs.homeDefaultTokenMap ||
+            cellsIngestInputsRef.current.nonZeroInputs.customTokens !==
+              dispatchedNonZeroInputs.customTokens)
+        ) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .refreshOwnerNonZeroInputs?.({
+              homeRequest,
+              ownerKey: cellsIngestInputsRef.current.ownerKey,
+              keepDefault:
+                cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+              homeDefaultTokenMap:
+                cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+              customTokens:
+                cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+            })
+            ?.catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
             });
-          }
         }
 
         perfTokenListView.markEnd(
@@ -1485,6 +1406,39 @@ function TokenListBlock({
     [homeDefaultTokenMap, cellsCustomTokens],
   );
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
+  useEffect(() => {
+    if (
+      !ENABLE_BG_TOKEN_VIEW_MODEL ||
+      !cellsOwnerKey ||
+      network?.isAllNetworks ||
+      !tokenListState.initialized
+    ) {
+      return;
+    }
+    if (
+      !cellsNonZeroInputs.homeDefaultTokenMap &&
+      (!cellsNonZeroInputs.customTokens ||
+        cellsNonZeroInputs.customTokens.length === 0)
+    ) {
+      return;
+    }
+    void backgroundApiProxy.serviceTokenViewModel
+      .refreshOwnerNonZeroInputs?.({
+        homeRequest: homeRequestRef.current,
+        ownerKey: cellsOwnerKey,
+        keepDefault: cellsNonZeroInputs.keepDefault,
+        homeDefaultTokenMap: cellsNonZeroInputs.homeDefaultTokenMap,
+        customTokens: cellsNonZeroInputs.customTokens,
+      })
+      ?.catch((error) => {
+        if (!isRequestCanceledError(error)) console.error(error);
+      });
+  }, [
+    cellsNonZeroInputs,
+    cellsOwnerKey,
+    network?.isAllNetworks,
+    tokenListState.initialized,
+  ]);
 
   // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
   // switch, so until the new owner's local cache is read the subtitle resolved
@@ -1653,14 +1607,11 @@ function TokenListBlock({
       let aggregateTokenMap: Record<string, ITokenFiat> = {};
 
       if (!r.homeTokenRoundRef) {
-        const [tokenNetwork, tokenVaultSettings] = await Promise.all([
-          backgroundApiProxy.serviceNetwork.getNetwork({
+        const tokenNetwork = await backgroundApiProxy.serviceNetwork.getNetwork(
+          {
             networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          }),
-        ]);
+          },
+        );
 
         if (
           !isHomeRequestCurrent() ||
@@ -1723,25 +1674,6 @@ function TokenListBlock({
           r.aggregateTokenListMap = aggregateTokenListMap;
           r.aggregateTokenMap = aggregateTokenMap;
         }
-
-        const { tokens, riskTokens, smallBalanceTokens } = r;
-
-        const { allTokens } = getMergedTokenData({
-          tokens,
-          riskTokens,
-          smallBalanceTokens,
-        });
-
-        if (allTokens) {
-          allTokens.data = allTokens.data.map((token) => ({
-            ...token,
-            accountId,
-            networkId,
-            networkName: tokenNetwork?.name,
-            mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
-          }));
-        }
-        r.allTokens = allTokens;
       }
 
       if (isAccountSwitchDiagnosticsEnabled()) {
@@ -2572,24 +2504,29 @@ function TokenListBlock({
           result: allNetworksResult,
         });
       const assetStatusCurrency =
-        getWalletAssetStatusCurrency(allNetworksResult);
+        getCommonTokenGroupsCurrency(allNetworksResult);
       if (isStaleOwnerRequest()) {
         return;
       }
       setSilentPortfolioPayload(undefined);
 
+      const snapshotHasBgRoundRefs = Boolean(hasSnapshotRoundRefs?.(snapshot));
       if (shouldSyncTokenFilterToOverview) {
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenMap: snapshot.aggregateTokenMap,
-        });
+        if (!snapshotHasBgRoundRefs) {
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+            networkId: network?.id ?? '',
+            accountId: account?.id ?? '',
+            aggregateTokenMap: snapshot.aggregateTokenMap,
+          });
 
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenListMap: snapshot.aggregateTokenListMap,
-        });
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap(
+            {
+              networkId: network?.id ?? '',
+              accountId: account?.id ?? '',
+              aggregateTokenListMap: snapshot.aggregateTokenListMap,
+            },
+          );
+        }
 
         updateAccountWorth({
           accountId: mergeDeriveAddressData
@@ -2705,7 +2642,13 @@ function TokenListBlock({
               : undefined,
         });
       }
-      commitAuthoritativeIngest(snapshot, homeRequest);
+      if (snapshotHasBgRoundRefs && shouldSyncTokenFilterToOverview) {
+        commitAuthoritativeIngest(snapshot, homeRequest, {
+          persistAggregateMaps: true,
+        });
+      } else {
+        commitAuthoritativeIngest(snapshot, homeRequest);
+      }
 
       updateTokenListState({
         initialized: true,
@@ -2857,6 +2800,7 @@ function TokenListBlock({
     network?.id,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
+    hasSnapshotRoundRefs,
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
@@ -2939,137 +2883,70 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
-      let cachedWorthCurrency: string | undefined;
 
-      if (mergeDeriveAddressData) {
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId: indexedAccount?.id ?? '',
-              excludeEmptyAccount: true,
-            },
-          );
-
-        if (cancelled || !isHomeTokenRequestCurrent(homeRequest)) return;
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceToken.getAccountLocalTokens({
-              homeRequest,
-              accountId: networkAccount.account?.id ?? '',
-              networkId,
-              accountAddress: networkAccount.account?.address ?? '',
-              xpub:
-                // @ts-expect-error
-                networkAccount.account?.xpubSegwit ||
-                // @ts-expect-error
-                networkAccount.account?.xpub,
-            }),
-          ),
-        );
-        hasLocalTokenCache = resp.some((item) => item.hasCache);
-        // All `resp` entries come from the same multi-network request and
-        // share the storage currency; pick the first non-empty tag.
-        cachedWorthCurrency = resp.find((r) => r.currency)?.currency;
-
-        const params = resp.map((r) => {
-          if (r.accountId && r.networkId) {
-            tokenListWorth = {
-              ...tokenListWorth,
-              [accountUtils.buildAccountValueKey({
-                accountId: r.accountId,
-                networkId: r.networkId,
-              })]: r.tokenListValue,
-            };
-          }
-          tokenListValue = new BigNumber(tokenListValue)
-            .plus(r.tokenListValue ?? '0')
-            .toFixed();
-          return {
-            tokens: {
-              data: r.tokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.tokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-            smallBalanceTokens: {
-              data: r.smallBalanceTokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.smallBalanceTokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-            riskTokens: {
-              data: r.riskyTokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.riskyTokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-          };
+      const dispatchedNonZeroInputs =
+        cellsIngestInputsRef.current.nonZeroInputs;
+      const localTokens =
+        await backgroundApiProxy.serviceToken.getAccountLocalTokens({
+          homeRequest,
+          accountId,
+          networkId,
+          indexedAccountId: indexedAccount?.id,
+          mergeDeriveAddressData,
+          accountAddress,
+          xpub,
+          homeIngest: ENABLE_BG_TOKEN_VIEW_MODEL
+            ? {
+                ownerKey: cellsIngestInputsRef.current.ownerKey,
+                storeName: EJotaiContextStoreNames.homeTokenList,
+                settledAccountId: account?.id,
+                keepDefault: dispatchedNonZeroInputs.keepDefault,
+                homeDefaultTokenMap:
+                  dispatchedNonZeroInputs.homeDefaultTokenMap,
+                customTokens: dispatchedNonZeroInputs.customTokens,
+                omitResponseTokenLists: true,
+              }
+            : undefined,
         });
-
-        const tokenListData = getMergedDeriveTokenData({
-          data: params,
-          mergeDeriveAssetsEnabled: true,
-        });
-
-        tokenList = tokenListData.tokenList.tokens;
-        smallBalanceTokenList =
-          tokenListData.smallBalanceTokenList.smallBalanceTokens;
-        riskyTokenList = tokenListData.riskyTokenList.riskyTokens;
-        tokenListMap = tokenListData.tokenListMap;
-        smallBalanceTokenListMap = tokenListData.smallBalanceTokenListMap;
-        riskyTokenListMap = tokenListData.riskyTokenListMap;
-      } else {
-        const localTokens =
-          await backgroundApiProxy.serviceToken.getAccountLocalTokens({
-            homeRequest,
-            accountId,
-            networkId,
-            accountAddress,
-            xpub,
-          });
-        hasLocalTokenCache = localTokens.hasCache;
-        cachedWorthCurrency = localTokens.currency;
-
-        tokenList = localTokens.tokenList;
-        smallBalanceTokenList = localTokens.smallBalanceTokenList;
-        riskyTokenList = localTokens.riskyTokenList;
-        tokenListMap = pickTokenListFiatMap({
-          tokens: tokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        smallBalanceTokenListMap = pickTokenListFiatMap({
-          tokens: smallBalanceTokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        riskyTokenListMap = pickTokenListFiatMap({
-          tokens: riskyTokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        tokenListValue = localTokens.tokenListValue;
-        tokenListWorth = {
-          [accountUtils.buildAccountValueKey({
-            accountId,
-            networkId,
-          })]: localTokens.tokenListValue,
-        };
-      }
-
-      // Owner-change or unmount happened while we were awaiting the local
-      // token cache — drop the result so we don't overwrite the new owner's
-      // freshly hydrated atoms with this stale response.
       if (
         cancelled ||
         !isAccountEpochCurrent(requestAccountEpoch) ||
-        !isHomeTokenRequestCurrent(homeRequest)
-      )
+        !isHomeTokenRequestCurrent(homeRequest) ||
+        (homeRequest && settledSingleLiveRequestRef.current === homeRequest)
+      ) {
         return;
+      }
+      hasLocalTokenCache = localTokens.hasCache;
+      const cachedWorthCurrency = localTokens.currency;
+
+      tokenList = localTokens.tokenList;
+      smallBalanceTokenList = localTokens.smallBalanceTokenList;
+      riskyTokenList = localTokens.riskyTokenList;
+      tokenListMap = pickTokenListFiatMap({
+        tokens: tokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      smallBalanceTokenListMap = pickTokenListFiatMap({
+        tokens: smallBalanceTokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      riskyTokenListMap = pickTokenListFiatMap({
+        tokens: riskyTokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      tokenListValue = localTokens.tokenListValue;
+      tokenListWorth = localTokens.homeAccountWorth ?? {
+        [accountUtils.buildAccountValueKey({
+          accountId,
+          networkId,
+        })]: localTokens.tokenListValue,
+      };
+      const isLocalCacheTokensEmpty =
+        localTokens.hasNonEmptyTokens !== undefined
+          ? !localTokens.hasNonEmptyTokens
+          : isEmpty(tokenList) &&
+            isEmpty(smallBalanceTokenList) &&
+            isEmpty(riskyTokenList);
 
       if (isAccountSwitchDiagnosticsEnabled()) {
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -3091,31 +2968,54 @@ function TokenListBlock({
       }: {
         source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
       }) => {
-        void backgroundApiProxy.serviceTokenViewModel
-          .ingestRound({
-            homeRequest,
-            ...buildHomeTokenListCacheIngestRound({
+        if (!localTokens.homeIngested) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .ingestRound({
+              homeRequest,
+              ...buildHomeTokenListCacheIngestRound({
+                ownerKey: cellsIngestInputsRef.current.ownerKey,
+                accountId: account?.id,
+                networkId,
+                tokenList,
+                smallBalanceTokenList,
+                riskyTokenList,
+                tokenListMap,
+                smallBalanceTokenListMap,
+                riskyTokenListMap,
+                keepDefault:
+                  cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+                homeDefaultTokenMap:
+                  cellsIngestInputsRef.current.nonZeroInputs
+                    .homeDefaultTokenMap,
+                customTokens:
+                  cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+                source,
+              }),
+            })
+            .catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
+        } else if (
+          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap !==
+            dispatchedNonZeroInputs.homeDefaultTokenMap ||
+          cellsIngestInputsRef.current.nonZeroInputs.customTokens !==
+            dispatchedNonZeroInputs.customTokens
+        ) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .refreshOwnerNonZeroInputs?.({
+              homeRequest,
               ownerKey: cellsIngestInputsRef.current.ownerKey,
-              accountId: account?.id,
-              networkId,
-              tokenList,
-              smallBalanceTokenList,
-              riskyTokenList,
-              tokenListMap,
-              smallBalanceTokenListMap,
-              riskyTokenListMap,
               keepDefault:
                 cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
               homeDefaultTokenMap:
                 cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
               customTokens:
                 cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-              source,
-            }),
-          })
-          .catch((error) => {
-            if (!isRequestCanceledError(error)) console.error(error);
-          });
+            })
+            ?.catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
+        }
         if (isAccountSwitchDiagnosticsEnabled()) {
           defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
             {
@@ -3135,11 +3035,7 @@ function TokenListBlock({
         }
       };
 
-      if (
-        isEmpty(tokenList) &&
-        isEmpty(smallBalanceTokenList) &&
-        isEmpty(riskyTokenList)
-      ) {
+      if (isLocalCacheTokensEmpty) {
         if (hasLocalTokenCache) {
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(account?.id, networkId),
@@ -4012,7 +3908,11 @@ function TokenListBlock({
   // round, leaving the sent token's row stale until the next full fan-out.
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      await runAllNetworksAccountRequests(accounts);
+      // Hardware auto-sync needs the complete live snapshot and its payload.
+      await runAllNetworksAccountRequests(
+        accounts,
+        canRefreshPortfolioCategories ? { refreshAll: true } : undefined,
+      );
       if (showLpTokensOnly) {
         try {
           await runLpTokenList({ alwaysSetState: true });
@@ -4028,7 +3928,12 @@ function TokenListBlock({
         }
       }
     },
-    [runAllNetworksAccountRequests, runLpTokenList, showLpTokensOnly],
+    [
+      canRefreshPortfolioCategories,
+      runAllNetworksAccountRequests,
+      runLpTokenList,
+      showLpTokensOnly,
+    ],
   );
 
   usePromiseResult(
@@ -4148,7 +4053,6 @@ function TokenListBlock({
         const fetchTargetAccountTokens = (targetAccountId: string) =>
           backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId: targetAccountId,
-            mergeTokens: true,
             networkId,
             flag: 'home-token-list',
             homeRequest,
@@ -4211,18 +4115,6 @@ function TokenListBlock({
           createAtNetworkWorth,
           merge: false,
         });
-
-        // Keep the broader local token directory in sync, like `run` does;
-        // `saveToLocal` only persists the per-account token cache.
-        responses.forEach((item) => {
-          const mergedTokens = item.allTokens?.data;
-          if (mergedTokens && mergedTokens.length) {
-            void backgroundApiProxy.serviceToken.updateLocalTokens({
-              networkId,
-              tokens: mergedTokens,
-            });
-          }
-        });
         // This path only refreshes the header worth; the token rows are not
         // ingested into the owner's cells, so the list must stay uninitialized
         // (skeleton) until the focused `run` fills it. Marking it initialized
@@ -4256,10 +4148,17 @@ function TokenListBlock({
     ],
   );
 
-  useEffect(() => {
-    const refresh = (
-      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
-    ) => {
+  const isHomeRouteActive = isRouteFocused || shouldAlwaysFetch;
+  const pendingOffRouteRefreshRef = useRef<
+    | { type: 'full' }
+    | {
+        type: 'accounts';
+        accounts: Map<string, { accountId: string; networkId: string }>;
+      }
+    | undefined
+  >(undefined);
+  const executeRefresh = useCallback(
+    (params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList]) => {
       if (network?.isAllNetworks) {
         if (params?.accounts) {
           void handleRefreshAllNetworkDataByAccounts(params.accounts);
@@ -4270,11 +4169,86 @@ function TokenListBlock({
           }
         }
       } else {
+        if (
+          params?.accounts?.length &&
+          network?.id &&
+          !params.accounts.some(
+            (item) =>
+              item.networkId === network.id &&
+              (!account?.id ||
+                item.accountId === account.id ||
+                (mergeDeriveAddressData &&
+                  Boolean(wallet?.id) &&
+                  accountUtils.getWalletIdFromAccountId({
+                    accountId: item.accountId,
+                  }) === wallet?.id)),
+          )
+        ) {
+          return;
+        }
         void run({ alwaysSetState: true });
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
       }
+    },
+    [
+      account?.id,
+      handleRefreshAllNetworkData,
+      handleRefreshAllNetworkDataByAccounts,
+      mergeDeriveAddressData,
+      network?.id,
+      network?.isAllNetworks,
+      run,
+      runLpTokenList,
+      showLpTokensOnly,
+      wallet?.id,
+    ],
+  );
+
+  useEffect(() => {
+    pendingOffRouteRefreshRef.current = undefined;
+  }, [account?.id, activeAccountEpoch, indexedAccount?.id, network?.id]);
+
+  useEffect(() => {
+    if (!isHomeRouteActive || !pendingOffRouteRefreshRef.current) {
+      return;
+    }
+    const pending = pendingOffRouteRefreshRef.current;
+    pendingOffRouteRefreshRef.current = undefined;
+    executeRefresh(
+      pending.type === 'accounts'
+        ? { accounts: [...pending.accounts.values()] }
+        : undefined,
+    );
+  }, [executeRefresh, isHomeRouteActive]);
+
+  useEffect(() => {
+    const refresh = (
+      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
+    ) => {
+      if (!isHomeRouteActive) {
+        if (params?.accounts?.length) {
+          if (pendingOffRouteRefreshRef.current?.type === 'full') {
+            return;
+          }
+          const accounts =
+            pendingOffRouteRefreshRef.current?.type === 'accounts'
+              ? pendingOffRouteRefreshRef.current.accounts
+              : new Map<string, { accountId: string; networkId: string }>();
+          for (const item of params.accounts) {
+            accounts.set(`${item.networkId}:${item.accountId}`, item);
+          }
+          pendingOffRouteRefreshRef.current = {
+            type: 'accounts',
+            accounts,
+          };
+        } else {
+          pendingOffRouteRefreshRef.current = { type: 'full' };
+        }
+        return;
+      }
+      executeRefresh(params);
     };
 
     const fn = () => {
@@ -4290,16 +4264,7 @@ function TokenListBlock({
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     };
-  }, [
-    handleRefreshAllNetworkData,
-    handleRefreshAllNetworkDataByAccounts,
-    isFocused,
-    network?.isAllNetworks,
-    run,
-    runAllNetworksRequests,
-    runLpTokenList,
-    showLpTokensOnly,
-  ]);
+  }, [executeRefresh, isFocused, isHomeRouteActive]);
 
   // Single-network live fetches are focus-gated. Portfolio stays mounted and
   // observes owner changes off-tab so this path can refresh the shared header.

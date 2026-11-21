@@ -28,15 +28,6 @@ type IWalletAssetStatusAccountRef = {
   networkId?: string;
 };
 
-type IWalletAssetStatusCurrencyRef = {
-  tokens: {
-    currency?: string;
-  };
-  smallBalanceTokens: {
-    currency?: string;
-  };
-};
-
 export type IWalletAssetStatusAccountValue = {
   accountId: string;
   value?: Record<string, string>;
@@ -168,23 +159,6 @@ export function shouldDeferEmptyHardwarePortfolioSync({
   totalTokenCount: number;
 }) {
   return totalTokenCount === 0 && !aggregationComplete;
-}
-
-export function getWalletAssetStatusCurrency(
-  result: IWalletAssetStatusCurrencyRef[],
-) {
-  const currencies = result.flatMap((item) => [
-    item.tokens.currency,
-    item.smallBalanceTokens.currency,
-  ]);
-  const firstCurrency = currencies[0];
-  if (!firstCurrency) {
-    return undefined;
-  }
-
-  return currencies.every((currency) => currency === firstCurrency)
-    ? firstCurrency
-    : undefined;
 }
 
 function sumUsdValueMap(value: Record<string, string>) {

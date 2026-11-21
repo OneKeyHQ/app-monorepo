@@ -33,12 +33,17 @@ export function wrapAtomPro(
     [update: unknown],
     Promise<void> | undefined
   >,
+  options?: { syncAcrossRuntimes?: boolean },
 ) {
-  const shouldProxyStateUpdateFromUiToBg = shouldProxyAtomUpdateFromUiToBg();
+  const syncAcrossRuntimes = options?.syncAcrossRuntimes !== false;
+  const isUiProxyRuntime = Boolean(shouldProxyAtomUpdateFromUiToBg());
+  const shouldProxyStateUpdateFromUiToBg =
+    syncAcrossRuntimes && isUiProxyRuntime;
   const shouldBroadcastStateUpdateFromBgToUi =
-    platformEnv.isExtensionBackground ||
-    (platformEnv.isNativeBackgroundThread &&
-      platformEnv.enableNativeBackgroundThread);
+    syncAcrossRuntimes &&
+    (platformEnv.isExtensionBackground ||
+      (platformEnv.isNativeBackgroundThread &&
+        platformEnv.enableNativeBackgroundThread));
 
   const doSet = async ({
     payload,
@@ -92,10 +97,11 @@ export function wrapAtomPro(
       jotaiVerify.ensureNotPromise(nextValue);
 
       let proxyToBg = false;
-      if (shouldProxyStateUpdateFromUiToBg && name) {
-        proxyToBg = true;
+      if (isUiProxyRuntime && name) {
+        proxyToBg = shouldProxyStateUpdateFromUiToBg;
         const nextValueFromBg = nextValue as IGlobalStatesSyncBroadcastParams;
         if (
+          proxyToBg &&
           nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
           nextValueFromBg?.name === name
         ) {

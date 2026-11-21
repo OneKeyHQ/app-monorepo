@@ -447,7 +447,7 @@ describe('SWR cache persistence', () => {
     expect(disk().get('perpsL2Book:a')).toMatchObject({ d: 'mine' });
   });
 
-  it('lets an unchanged result ride along instead of starting a flush', () => {
+  it('refreshes in-memory timestamp for an unchanged result without rewriting it to disk', () => {
     jest.useFakeTimers();
     try {
       const cache = loadFreshRuntime();
@@ -459,16 +459,106 @@ describe('SWR cache persistence', () => {
       cache.set('marketTokenDetail:a', { value: 1 });
       jest.advanceTimersByTime(5000);
 
-      // No flush was scheduled, so the record still carries the first write.
+      expect(
+        cache.getWithTimestamp('marketTokenDetail:a')?.updatedAt,
+      ).toBeGreaterThan(firstWrite);
       expect(disk().get('marketTokenDetail:a')?.t).toBe(firstWrite);
 
       cache.set('marketTokenDetail:b', { value: 2 });
       jest.advanceTimersByTime(5000);
 
-      // The next flush carries the refreshed timestamp with it.
-      expect(disk().get('marketTokenDetail:a')?.t).toBeGreaterThan(firstWrite);
+      // Unchanged entries are not rewritten to disk on unrelated flushes.
+      expect(disk().get('marketTokenDetail:a')?.t).toBe(firstWrite);
+      expect(disk().get('marketTokenDetail:b')?.d).toEqual({ value: 2 });
     } finally {
       jest.useRealTimers();
+    }
+  });
+
+  it('shares a persisted account list across different runtime query IDs', () => {
+    const cache = loadFreshRuntime();
+    const key = 'accSelList:v1:wallet';
+    const list = { accountsForValuesQuery: [{ accountId: 'account' }] };
+    const live = { ...list, valuesQueryId: 'first-query' };
+    cache.set(key, live);
+    cache.flushNow();
+    const firstWrite = disk().get(key);
+    expect(live.valuesQueryId).toBe('first-query');
+    expect(firstWrite?.d).toEqual(list);
+
+    cache.set(key, { ...list, valuesQueryId: 'next-query' });
+    cache.flushNow();
+    expect(disk().get(key)).toBe(firstWrite);
+
+    disk().set(key, { d: live, t: 1000 });
+    expect(loadFreshRuntime().get(key)).toEqual(list);
+  });
+
+  it('keeps identical stock data fresh after a background flush and cold read', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      const key = swrKeys.marketHomeStocks('all');
+      const listings = [{ id: 'stock' }];
+      cache.set(key, listings);
+      cache.flushNow();
+      const firstWrite = disk().get(key)?.t;
+
+      jest.advanceTimersByTime(5 * 60 * 1000 + 1);
+      cache.set(key, [{ id: 'stock' }]);
+      const verifiedAt = Date.now();
+      cache.set('marketTokenDetail:other', 'changed');
+      jest.advanceTimersByTime(2000);
+      expect(disk().get(key)?.t).toBe(firstWrite);
+
+      cache.flushNow();
+      const coldCache = loadFreshRuntime();
+      expect(coldCache.getWithTimestamp(key)).toEqual({
+        data: listings,
+        updatedAt: verifiedAt,
+      });
+      expect(coldCache.isFresh(key, 5 * 60 * 1000)).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not replace a newer stock payload with a queued revalidation of an older one', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      const key = swrKeys.marketHomeStocks('all');
+      cache.set(key, 'original');
+      cache.flushNow();
+      jest.advanceTimersByTime(1000);
+      cache.set(key, 'original');
+
+      const newer = { d: 'other runtime', t: Date.now() + 1 };
+      disk().set(key, newer);
+      cache.flushNow();
+
+      expect(disk().get(key)).toBe(newer);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('adopts serializedChars from disk on cold read without calling JSON.stringify', () => {
+    disk().set('marketHomeTokenList:all', {
+      d: { text: 'cached-from-disk' },
+      t: 1000,
+      serializedChars: 42,
+    } as IStoredEntry);
+    const cache = loadFreshRuntime();
+    const stringifySpy = jest.spyOn(JSON, 'stringify');
+    try {
+      expect(cache.get('marketHomeTokenList:all')).toEqual({
+        text: 'cached-from-disk',
+      });
+      expect(stringifySpy).not.toHaveBeenCalled();
+      expect(cache.getSizeStats().entryCount).toBe(1);
+    } finally {
+      stringifySpy.mockRestore();
     }
   });
 
@@ -678,12 +768,16 @@ describe('SWR cache budgets and reload throttling', () => {
 
     otherRuntimeFlush({
       [key]: { d: oldBook, t: 1000 },
+      'marketTokenDetail:unrelated': { d: 'keep-in-memory', t: 1000 },
     });
     const swr = loadFreshRuntime();
     expect(swr.get(key)).toEqual(oldBook);
+    expect(swr.get('marketTokenDetail:unrelated')).toBe('keep-in-memory');
+    const readsBeforeReload = diskGlobal.__swrNamespaceReadCount ?? 0;
 
     otherRuntimeFlush({
       [key]: { d: freshBook, t: 35_000 },
+      'marketTokenDetail:unrelated': { d: 'keep-in-memory', t: 1000 },
     });
     setNow(40_000);
 
@@ -698,6 +792,11 @@ describe('SWR cache budgets and reload throttling', () => {
       data: freshBook,
       updatedAt: 35_000,
     });
+    const readsAfterPerpsReload = diskGlobal.__swrNamespaceReadCount ?? 0;
+    expect(readsAfterPerpsReload).toBeGreaterThan(readsBeforeReload);
+    // Unrelated UI entries remain cached in memory without hitting disk again.
+    expect(swr.get('marketTokenDetail:unrelated')).toBe('keep-in-memory');
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(readsAfterPerpsReload);
   });
 
   it('throttles automatic stale perps reloads without blocking explicit reloads', () => {

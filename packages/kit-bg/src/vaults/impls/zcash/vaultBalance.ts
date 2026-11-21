@@ -433,7 +433,9 @@ export async function zcashReadTransparentForDisplay(
       });
       const changed = !shown || !zcashTransparentDisplaySame(shown, value);
       if (changed) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: [{ accountId: account.id, networkId: vault.networkId }],
+        });
       }
       if (changed || shown?.stale) {
         appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {

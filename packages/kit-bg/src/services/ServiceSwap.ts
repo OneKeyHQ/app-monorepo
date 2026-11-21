@@ -910,6 +910,8 @@ export default class ServiceSwap extends ServiceBase {
       protocol,
       lpToken,
       currency,
+      includeStockMarketMetadata,
+      requestLocale,
     }: IFetchTokensParams,
     signal?: AbortSignal,
   ): Promise<ISwapToken[]> {
@@ -1059,10 +1061,66 @@ export default class ServiceSwap extends ServiceBase {
       if (failedResponse && tokens.length === 0) {
         throw failedResponse.reason;
       }
-      return normalizeSwapTokenListCurrency({
+      const normalizedTokens = normalizeSwapTokenListCurrency({
         tokens,
         currency: requestCurrency,
       });
+      if (
+        includeStockMarketMetadata &&
+        this.backgroundApi?.serviceMarketV2 &&
+        'fetchMarketTokenListBatch' in this.backgroundApi.serviceMarketV2
+      ) {
+        const candidateIndices: number[] = [];
+        normalizedTokens.forEach((token, idx) => {
+          const bal = new BigNumber(token.balanceParsed ?? '0');
+          if (bal.isFinite() && bal.gt(0)) {
+            candidateIndices.push(idx);
+          }
+        });
+        if (candidateIndices.length > 0) {
+          try {
+            const marketResponse =
+              await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch(
+                {
+                  requestLocale,
+                  tokenAddressList: candidateIndices.map((idx) => ({
+                    contractAddress:
+                      normalizedTokens[idx].contractAddress ?? '',
+                    chainId: normalizedTokens[idx].networkId,
+                    isNative: !!normalizedTokens[idx].isNative,
+                  })),
+                },
+              );
+            const marketItems = marketResponse?.list ?? [];
+            candidateIndices.forEach((tokenIdx, itemIdx) => {
+              const marketItem = marketItems[itemIdx];
+              const stock = marketItem?.stock;
+              const resolvedStockId = stock?.stockId || marketItem?.stockId;
+              const currentToken = normalizedTokens[tokenIdx];
+              if (stock) {
+                normalizedTokens[tokenIdx] = {
+                  ...currentToken,
+                  isStock: true,
+                  stockMarketResolved: true,
+                  stock: {
+                    ...stock,
+                    ...(resolvedStockId ? { stockId: resolvedStockId } : {}),
+                  },
+                };
+              } else {
+                normalizedTokens[tokenIdx] = {
+                  ...currentToken,
+                  stockMarketResolved: true,
+                };
+              }
+            });
+          } catch {
+            // Leave stockMarketResolved unset so the caller can handle or retry
+            // stock metadata failure independently of the swap token list.
+          }
+        }
+      }
+      return normalizedTokens;
     } catch (e) {
       if (axios.isCancel(e)) {
         throw e;

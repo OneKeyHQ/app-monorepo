@@ -41,3 +41,4 @@ export * from './useTokenListCellsProducer';
 export * from './useHomeTokenListOwnerKey';
 export * from './useHomeTokenListSnapshot';
 export * from './useAggregateSubTokenFiatMap';
+export * from './ownerFrameReplayCache';
