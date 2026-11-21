@@ -13,7 +13,7 @@ function annotate(rootDir, code = source, relative = true) {
     babelrc: false,
     configFile: false,
     filename,
-    parserOpts: { plugins: ['jsx'], sourceFileName: filename },
+    parserOpts: { plugins: ['jsx'] },
     plugins: [
       ...(relative ? [[relativeSourcePath, { rootDir }]] : []),
       '@sentry/babel-plugin-component-annotate',
