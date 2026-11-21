@@ -171,18 +171,20 @@ it('persists the final swap UUID in the claim before allowing the batch to send'
     approval: true,
     swapRecovery: recovery,
   });
-  await confirm.onBeforeSend?.([
-    {
-      encodedTx: 'approval',
-      uuid: 'approval-uuid',
-      approveInfo: prepared.approvesInfo[0],
-    },
-    {
-      encodedTx: 'swap',
-      uuid: 'swap-uuid',
-      swapInfo: prepared.execution.swapInfo,
-    },
-  ]);
+  await confirm.onBeforeSend?.({
+    unsignedTxs: [
+      {
+        encodedTx: 'approval',
+        uuid: 'approval-uuid',
+        approveInfo: prepared.approvesInfo[0],
+      },
+      {
+        encodedTx: 'swap',
+        uuid: 'swap-uuid',
+        swapInfo: prepared.execution.swapInfo,
+      },
+    ],
+  });
   expect(reservation.markUnknown).toHaveBeenCalledWith(recovery, 'swap-uuid');
   confirm.onCancel?.();
   await result;
@@ -332,18 +334,20 @@ it('keeps a late mixed batch unknown because its hash could belong to an approva
 it('records only the prepared swap from a late batch, never an approval', async () => {
   const { confirm, prepared, result, reservation, onAccepted } =
     startConfirmation({ approval: true });
-  await confirm.onBeforeSend?.([
-    {
-      encodedTx: 'approval',
-      uuid: 'approval-uuid',
-      approveInfo: prepared.approvesInfo[0],
-    },
-    {
-      encodedTx: 'swap',
-      uuid: 'swap-uuid',
-      swapInfo: prepared.execution.swapInfo,
-    },
-  ]);
+  await confirm.onBeforeSend?.({
+    unsignedTxs: [
+      {
+        encodedTx: 'approval',
+        uuid: 'approval-uuid',
+        approveInfo: prepared.approvesInfo[0],
+      },
+      {
+        encodedTx: 'swap',
+        uuid: 'swap-uuid',
+        swapInfo: prepared.execution.swapInfo,
+      },
+    ],
+  });
   confirm.onCancel?.();
   await expect(result).resolves.toBeUndefined();
   await confirm.onLateBroadcastAccepted?.({
@@ -361,18 +365,20 @@ it('retains the submitted hash if recording the accepted swap fails', async () =
   const { confirm, prepared, result, reservation, onAccepted } =
     startConfirmation({ approval: true });
   onAccepted.mockRejectedValueOnce(new Error('history unavailable'));
-  await confirm.onBeforeSend?.([
-    {
-      encodedTx: 'approval',
-      uuid: 'approval-uuid',
-      approveInfo: prepared.approvesInfo[0],
-    },
-    {
-      encodedTx: 'swap',
-      uuid: 'swap-uuid',
-      swapInfo: prepared.execution.swapInfo,
-    },
-  ]);
+  await confirm.onBeforeSend?.({
+    unsignedTxs: [
+      {
+        encodedTx: 'approval',
+        uuid: 'approval-uuid',
+        approveInfo: prepared.approvesInfo[0],
+      },
+      {
+        encodedTx: 'swap',
+        uuid: 'swap-uuid',
+        swapInfo: prepared.execution.swapInfo,
+      },
+    ],
+  });
   confirm.onCancel?.();
   await expect(result).resolves.toBeUndefined();
   await expect(
@@ -386,18 +392,20 @@ it('keeps a mixed batch unknown when transaction IDs are ambiguous', async () =>
   const { confirm, prepared, result, reservation } = startConfirmation({
     approval: true,
   });
-  await confirm.onBeforeSend?.([
-    {
-      encodedTx: 'approval',
-      uuid: 'duplicate',
-      approveInfo: prepared.approvesInfo[0],
-    },
-    {
-      encodedTx: 'swap',
-      uuid: 'duplicate',
-      swapInfo: prepared.execution.swapInfo,
-    },
-  ]);
+  await confirm.onBeforeSend?.({
+    unsignedTxs: [
+      {
+        encodedTx: 'approval',
+        uuid: 'duplicate',
+        approveInfo: prepared.approvesInfo[0],
+      },
+      {
+        encodedTx: 'swap',
+        uuid: 'duplicate',
+        swapInfo: prepared.execution.swapInfo,
+      },
+    ],
+  });
   confirm.onCancel?.();
   await expect(result).resolves.toBeUndefined();
   await confirm.onLateBroadcastAccepted?.({ ...fact, uuid: 'duplicate' });

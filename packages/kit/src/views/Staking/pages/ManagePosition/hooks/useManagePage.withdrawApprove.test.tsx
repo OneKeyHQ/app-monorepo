@@ -12,24 +12,23 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceStaking: {
       getEarnAccount: jest.fn(),
+      getStakingConfigs: jest.fn().mockResolvedValue({ enabled: true }),
       getManagePage: jest.fn(),
       getBorrowManagePage: jest.fn(),
       getProtocolList: jest.fn(),
-      getStakingConfigs: jest.fn(),
       getProtocolDetailsV2: jest.fn(),
     },
   },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isBTCNetwork: () => false },
+  default: { isBTCNetwork: () => false, isEvmNetwork: () => true },
 }));
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
   __esModule: true,
-  default: {
-    shouldSendEarnProtocolVault: () => true,
-    findEarnProtocol: () => undefined,
-  },
+  default: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/earnUtils')
+  >('@onekeyhq/shared/src/utils/earnUtils').default,
 }));
 jest.mock('../../../utils/utils', () => ({
   buildLocalTxStatusSyncId: () => 'sync-id',

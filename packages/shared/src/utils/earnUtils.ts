@@ -289,6 +289,12 @@ const shouldSendEarnProtocolVault = ({
   );
 };
 
+const providerApproveTypeOverrides: Partial<
+  Record<EEarnProviderEnum, EApproveType>
+> = {
+  [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
+};
+
 function resolveEarnApproveSpenderAddress({
   providerName,
   verifiedProtocolVault,
@@ -306,6 +312,43 @@ function resolveEarnApproveSpenderAddress({
   return shouldSendEarnProtocolVault({ providerName })
     ? (verifiedProtocolVault ?? '')
     : '';
+}
+
+function resolveEarnApproveType({
+  providerName,
+  networkId,
+  tokenIsNative,
+  approveSpenderAddress,
+  backendApproveType,
+}: {
+  providerName: string;
+  networkId: string;
+  tokenIsNative?: boolean;
+  approveSpenderAddress?: string;
+  backendApproveType?: EApproveType;
+}) {
+  if (tokenIsNative || !approveSpenderAddress) {
+    return undefined;
+  }
+  // ERC20 approve only applies to EVM networks
+  if (!networkUtils.isEvmNetwork({ networkId })) {
+    return undefined;
+  }
+  if (isEtherFiProvider({ providerName })) {
+    return EApproveType.Legacy;
+  }
+  const providerKey = getEarnProviderEnumKey(providerName);
+  if (providerKey && providerApproveTypeOverrides[providerKey]) {
+    return providerApproveTypeOverrides[providerKey];
+  }
+  return backendApproveType ?? EApproveType.Legacy;
+}
+
+function getEarnPermitSpender(networkId: string): string | undefined {
+  return resolveEarnPermitSpenderAddress({
+    providerName: EEarnProviderEnum.Morpho,
+    networkId,
+  });
 }
 
 const isValidatorProvider = ({ providerName }: { providerName: string }) => {
@@ -510,6 +553,8 @@ export default {
   resolveEarnPermitSpenderAddress,
   findEarnProtocol,
   resolveEarnApproveSpenderAddress,
+  getEarnPermitSpender,
+  resolveEarnApproveType,
   isEarnApprovalReady,
   buildEarnAccountKey,
   getEarnProviderEnumKey,

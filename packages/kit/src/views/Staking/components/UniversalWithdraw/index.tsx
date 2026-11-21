@@ -1270,6 +1270,8 @@ export function UniversalWithdraw({
       const assertWithdrawApproval = async () => {
         if (
           !isApprovalSendCurrent() ||
+          transactionConfirmationRequestKeyRef.current !==
+            transactionConfirmationRequestKey ||
           (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed())
         )
           throw new OneKeyLocalError('Earn withdrawal selection changed');
@@ -1291,6 +1293,8 @@ export function UniversalWithdraw({
           });
         if (
           !isApprovalSendCurrent() ||
+          transactionConfirmationRequestKeyRef.current !==
+            transactionConfirmationRequestKey ||
           (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed()) ||
           normalizeTaskAccountAddress(networkId, currentAccount.address) !==
             normalizeTaskAccountAddress(networkId, account.address)
@@ -1558,6 +1562,7 @@ export function UniversalWithdraw({
     retryAllowance,
     tokenSymbol,
     trackAllowance,
+    transactionConfirmationRequestKey,
     waitForAllowanceAfterApprove,
   ]);
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');

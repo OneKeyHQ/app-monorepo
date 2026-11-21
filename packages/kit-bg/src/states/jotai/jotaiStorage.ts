@@ -5,6 +5,7 @@ import { atom } from 'jotai';
 import { isEqual, isPlainObject, isString, merge } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
@@ -286,6 +287,16 @@ export async function getTravelModeSettingsControlState(
     return onekeyJotaiStorage.getSettingsControlState(initialValue);
   }
   return onekeyJotaiStorage.getItem(SETTINGS_CONTROL_STORAGE_KEY, initialValue);
+}
+
+// Standalone App Web routes share the real persisted settings record without
+// starting the wallet, loading unrelated atoms, or restarting the App.
+export async function updateWebAppLocalePreference(locale: ILocaleSymbol) {
+  const storage = storageHub.$webStorageGlobalStates;
+  if (!storage?.patchObjectItem) {
+    throw new OneKeyLocalError('Settings storage is not available.');
+  }
+  await storage.patchObjectItem(SETTINGS_CONTROL_STORAGE_KEY, { locale });
 }
 
 async function setTravelModeSettingsControlState(

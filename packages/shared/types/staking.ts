@@ -2553,7 +2553,7 @@ export interface IEarnPermit2ApproveSignData {
     value?: string;
     nonce: string;
     deadline?: string;
-    holder?: string;
+    holder?: string; // DAI permit
     allowed?: boolean;
     expiry?: string; // dai
   };

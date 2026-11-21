@@ -211,3 +211,31 @@ it('drops a queued push on identity changes and ignores hints on inactive screen
   appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {});
   expect(newLoad).toHaveBeenCalledTimes(1);
 });
+
+it('settles on the first answer, stays settled while retrying and resets for a new loader', async () => {
+  const retry = deferred<string>();
+  const load = jest
+    .fn(() => retry.promise)
+    .mockRejectedValueOnce(new OneKeyLocalError('Read failed'));
+  const { result, rerender, unmount } = renderHook(
+    ({ loader }) => useSupportResource(loader, true),
+    { initialProps: { loader: load as () => Promise<string> } },
+  );
+  expect(result.current.settled).toBe(false);
+  await act(async () => {});
+  expect(result.current).toMatchObject({ failed: true, settled: true });
+  await act(async () => {
+    void result.current.refresh();
+  });
+  // A retry is loading again, but the screen has already had its first answer.
+  expect(result.current).toMatchObject({
+    loading: true,
+    failed: false,
+    settled: true,
+  });
+  await act(async () => retry.resolve('loaded'));
+  expect(result.current).toMatchObject({ data: 'loaded', settled: true });
+  rerender({ loader: () => new Promise<string>(() => {}) });
+  expect(result.current.settled).toBe(false);
+  unmount();
+});

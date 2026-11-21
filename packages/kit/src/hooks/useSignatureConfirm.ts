@@ -63,8 +63,13 @@ type IBuildUnsignedTxParams = {
   onConfirmationFail?: (error: Error) => void;
   onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: (txs?: readonly IUnsignedTxPro[]) => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    preSendTx?: { txid: string; orderId?: string };
+    unsignedTxs?: readonly IUnsignedTxPro[];
+  }) => void | Promise<void>;
   preserveBatchTxIds?: boolean;
+  onBeforePreActions?: () => void | Promise<void>;
+  reviewQuoteValidUntil?: number;
   isNavigationCurrent?: () => boolean;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
@@ -151,6 +156,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onCancel,
         onBeforeSend,
         preserveBatchTxIds,
+        onBeforePreActions,
+        reviewQuoteValidUntil,
         isNavigationCurrent,
         broadcastDeadline,
         beforeBroadcastAction,
@@ -310,6 +317,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onCancel,
             onBeforeSend,
             preserveBatchTxIds,
+            onBeforePreActions,
+            reviewQuoteValidUntil,
             broadcastDeadline,
             beforeBroadcastAction,
             transferPayload,
@@ -332,6 +341,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onCancel,
               onBeforeSend,
               preserveBatchTxIds,
+              onBeforePreActions,
+              reviewQuoteValidUntil,
               broadcastDeadline,
               beforeBroadcastAction,
               transferPayload,

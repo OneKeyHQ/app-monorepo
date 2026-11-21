@@ -14,7 +14,6 @@ import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
@@ -503,6 +502,7 @@ type IUniversalStakeProps = {
   apr?: string;
 
   isDisabled?: boolean;
+  recoveryBlocked?: boolean;
   balanceLoading?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
@@ -588,6 +588,7 @@ export function UniversalStake({
   providerLogo,
   estimateFeeUTXO,
   isDisabled,
+  recoveryBlocked = false,
   balanceLoading,
   onConfirm,
   onFeeRateChange,
@@ -648,6 +649,7 @@ export function UniversalStake({
   const transactionConfirmationAmountRef = useRef(amountValue);
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const submitInFlight = useRef(false);
   const submissionLockRef = useRef(false);
   const recordingFinishLockRef = useRef(false);
   const [selectedValidator, setSelectedValidator] = useState<
@@ -760,7 +762,12 @@ export function UniversalStake({
     retainedTask,
     earnUtils.isEtherFiProvider({ providerName }),
   );
-  const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScopeKey);
+  const approvalScopeGuard = useCommittedEarnScopeGuard(
+    JSON.stringify([approvalScopeKey, recoveryBlocked]),
+  );
+  const recoveryActionGuard = useCommittedEarnScopeGuard(
+    String(recoveryBlocked),
+  );
   const permitWorkflowRef = useRef<
     { scope: string; cancel: () => void } | undefined
   >(undefined);
@@ -1285,16 +1292,14 @@ export function UniversalStake({
         return onNext();
       }
 
-      showEstimateGasAlert({
+      const accepted = await waitForStakeEstimateGasAlert({
+        showAlert: showEstimateGasAlert,
         daysConsumed: formatStakingDistanceToNowStrict(
           response.coverFeeSeconds,
         ),
         estFiatValue: response.feeFiatValue,
-        onConfirm: async (dialogInstance: IDialogInstance) => {
-          await dialogInstance.close();
-          if (isCurrent()) await onNext();
-        },
       });
+      if (accepted && isCurrent()) await onNext();
     },
     [
       usePermit2Approve,
@@ -1498,7 +1503,7 @@ export function UniversalStake({
   useEffect(() => {
     allowanceAbortRef.current?.abort();
     setApproving(false);
-  }, [approvalScopeKey]);
+  }, [approvalScopeKey, recoveryBlocked]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -1884,9 +1889,15 @@ export function UniversalStake({
     submitting,
   ]);
 
+  const approvalReady = earnUtils.isEarnApprovalReady({
+    networkId,
+    tokenIsNative: approveTarget.token?.isNative,
+    approveSpenderAddress: approveTarget.spenderAddress,
+  });
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
+      !approvalReady ||
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
@@ -1896,6 +1907,7 @@ export function UniversalStake({
       checkAmountLoading
     );
   }, [
+    approvalReady,
     amountValue,
     isCheckAmountMessageError,
     checkAmountAlerts.length,
@@ -1914,6 +1926,7 @@ export function UniversalStake({
     actionGuard,
     footerActionOverride,
     isDisabled,
+    recoveryBlocked,
     isStakeAssetLoading,
     isStakeAssetRefreshing,
     isInvalid: isDisable,
@@ -1925,6 +1938,7 @@ export function UniversalStake({
       actionGuard,
       footerActionOverride,
       isDisabled,
+      recoveryBlocked,
       isStakeAssetLoading,
       isStakeAssetRefreshing,
       isInvalid: isDisable,
@@ -1942,6 +1956,7 @@ export function UniversalStake({
       actionGuard,
       footerActionOverride,
       isDisabled,
+      recoveryBlocked,
       isStakeAssetLoading,
       isStakeAssetRefreshing,
       isDisable,
@@ -1958,6 +1973,7 @@ export function UniversalStake({
     if (
       !isCurrent() ||
       actionState.isDisabled ||
+      actionState.recoveryBlocked ||
       actionState.isStakeAssetLoading ||
       actionState.isStakeAssetRefreshing ||
       actionState.isInvalid ||
@@ -1975,6 +1991,7 @@ export function UniversalStake({
     return Boolean(
       isCurrent() &&
       !current.isDisabled &&
+      !current.recoveryBlocked &&
       !current.isStakeAssetLoading &&
       !current.isStakeAssetRefreshing &&
       !current.isInvalid &&
@@ -1996,6 +2013,7 @@ export function UniversalStake({
       return Boolean(
         isCurrent() &&
         !state.isDisabled &&
+        !state.recoveryBlocked &&
         !state.isStakeAssetLoading &&
         !state.isStakeAssetRefreshing &&
         !checkAmountLoadingRef.current &&
@@ -2022,6 +2040,14 @@ export function UniversalStake({
       if (!isCurrent()) throw new OneKeyLocalError('Earn selection changed');
       if (!networkUtils.isEvmNetwork({ networkId }) || target.token?.isNative)
         return;
+      if (
+        !earnUtils.isEarnApprovalReady({
+          networkId,
+          tokenIsNative: target.token?.isNative,
+          approveSpenderAddress: target.spenderAddress,
+        })
+      )
+        throw new OneKeyLocalError('Earn approval is unavailable');
       if (
         !target.token?.address ||
         !target.spenderAddress ||
@@ -2087,7 +2113,9 @@ export function UniversalStake({
         resetActionStateRef.current.actionGuard?.verifyBeforeAction;
       if (verify && !(await verify({ allowRevoke: false }))) return false;
       if (!canSendDepositTask(isCurrent, step)) return false;
-      if (step === 'approve' || step === 'resetApproval') {
+      if (step !== 'wrap') {
+        if (isWrapStake && !postWrapApproveTarget)
+          throw new OneKeyLocalError('Wrapped approval is unavailable');
         await assertStakeApproval(
           isCurrent,
           isWrapStake && postWrapApproveTarget
@@ -2246,7 +2274,7 @@ export function UniversalStake({
 
   const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
-  const onSubmit = useCallback(
+  const submitStake = useCallback(
     async (
       freshFee?: IEarnEstimateFeeResp,
       isApprovalCurrent?: () => boolean,
@@ -2258,7 +2286,9 @@ export function UniversalStake({
     ) => {
       const isCurrent = isApprovalCurrent ?? approvalScopeGuard.capture();
       if (!isCurrent()) return;
-      if (useApprove && !isWrapStake) {
+      if (!approvalReady)
+        throw new OneKeyLocalError('Earn approval is unavailable');
+      if (approveTarget.token || useApprove) {
         await assertStakeApproval(isCurrent, approveTarget);
       }
       if (usePermit2Approve && !workflowHandoff) {
@@ -2648,28 +2678,15 @@ export function UniversalStake({
           Number(confirmationFee.coverFeeSeconds || 0) / 3600 / 24;
 
         if (daySpent && daySpent > 5) {
-          if (workflowHandoff) {
-            const accepted = await waitForStakeEstimateGasAlert({
-              showAlert: showEstimateGasAlert,
-              daysConsumed: formatStakingDistanceToNowStrict(
-                confirmationFee.coverFeeSeconds,
-              ),
-              estFiatValue: confirmationFee.feeFiatValue,
-              signal: workflowHandoff.signal,
-            });
-            if (accepted && isCurrent()) await handleConfirm();
-            return;
-          }
-          showEstimateGasAlert({
+          const accepted = await waitForStakeEstimateGasAlert({
+            showAlert: showEstimateGasAlert,
             daysConsumed: formatStakingDistanceToNowStrict(
               confirmationFee.coverFeeSeconds,
             ),
             estFiatValue: confirmationFee.feeFiatValue,
-            onConfirm: async (dialogInstance: IDialogInstance) => {
-              await dialogInstance.close();
-              await handleConfirm();
-            },
+            signal: workflowHandoff?.signal,
           });
+          if (accepted && isCurrent()) await handleConfirm();
           return;
         }
       }
@@ -2688,6 +2705,7 @@ export function UniversalStake({
     [
       usePermit2Approve,
       useApprove,
+      approvalReady,
       assertStakeApproval,
       approveTarget,
       approvalScopeGuard,
@@ -2737,6 +2755,22 @@ export function UniversalStake({
       preserveSubmittedAmount,
       updateAmountValidation,
     ],
+  );
+
+  const onSubmit = useCallback(
+    async (...args: Parameters<typeof submitStake>) => {
+      // A second press can arrive before the first validation or fee dialog settles.
+      if (submitInFlight.current) return;
+      submitInFlight.current = true;
+      setSubmitting(true);
+      try {
+        await submitStake(...args);
+      } finally {
+        submitInFlight.current = false;
+        setSubmitting(false);
+      }
+    },
+    [submitStake],
   );
 
   const startDirectDepositTask = useCallback(
@@ -4329,9 +4363,10 @@ export function UniversalStake({
     transactionOutputTokenAddress,
     stakeType,
     approveType,
+    recoveryBlocked,
   ].join('|');
   const runConfirmOnPress = useCallback(() => {
-    if (!submissionLockRef.current) confirmOnPress();
+    if (!submissionLockRef.current) return confirmOnPress();
   }, [confirmOnPress]);
   let baseConfirmLoading =
     loadingAllowance || approving || submitting || checkAmountLoading;
@@ -4395,7 +4430,11 @@ export function UniversalStake({
     !depositRecordingCanFinish
       ? loadingConfirmText
       : guardedAction.text;
-  const effectiveConfirmOnPress = guardedAction.onPress;
+  const effectiveConfirmOnPress = useCallback(() => {
+    if (!recoveryBlocked && recoveryActionGuard.isCurrent()) {
+      return guardedAction.onPress();
+    }
+  }, [guardedAction, recoveryActionGuard, recoveryBlocked]);
   const effectiveConfirmLoading = Boolean(
     (isStakeAssetLoading &&
       !depositRecordingCanRetry &&
@@ -4403,6 +4442,7 @@ export function UniversalStake({
     guardedAction.loading,
   );
   const effectiveConfirmDisabled = Boolean(
+    recoveryBlocked ||
     submitting ||
     (isStakeAssetLoading &&
       !depositRecordingCanRetry &&

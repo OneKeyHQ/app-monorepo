@@ -11,7 +11,10 @@ import type {
 import localDb from '../../dbs/local/localDb';
 
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
-import { getPublicAccountSnapshotId } from './publicAccountSnapshot';
+import {
+  getPublicAccountSnapshotId,
+  getPublicAccountSnapshotIdentityHash,
+} from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
@@ -227,6 +230,100 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
+
+  test('after reload, resolves a validated deletion only in its original Cloud space', async () => {
+    const raw = rawFixture();
+    const original = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: sha512ProSync({ data: raw.rawKey }),
+      rawDataJson: JSON.parse(
+        stringUtils.stableStringify(raw),
+      ) as ICloudSyncRawDataJson,
+      dataTime: 1_750_000_000_000,
+      syncCredential: credential,
+    });
+    const deletedAt = 1_750_000_001_000;
+    const pending: IDBCloudSyncItem = {
+      ...original,
+      rawData: '',
+      serverUploaded: true,
+      pendingPublicAccountDeletionAt: deletedAt,
+      pendingPublicAccountDeletionHash: getPublicAccountSnapshotIdentityHash(
+        publicAccountTestSnapshot(),
+      ),
+    };
+    const { service, getCredential, writePool } = harness([cloneDeep(pending)]);
+    expect(
+      service.convertLocalItemToServerItem({ localItem: pending }),
+    ).toBeNull();
+
+    getCredential.mockResolvedValueOnce({
+      ...credential,
+      keylessCredential: {
+        ...credential.keylessCredential,
+        pwdHash: 'keyless-unrelated-space',
+      },
+    });
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).toHaveBeenCalledTimes(1);
+    const [{ items }] = writePool.mock.calls[0];
+    expect(items).toEqual([
+      {
+        ...pending,
+        isDeleted: true,
+        dataTime: deletedAt,
+        localSceneUpdated: true,
+        serverUploaded: false,
+        pendingPublicAccountDeletionAt: undefined,
+        pendingPublicAccountDeletionHash: undefined,
+      },
+    ]);
+  });
+
+  test('refuses a valid ciphertext whose public account does not match the deletion', async () => {
+    const raw = rawFixture();
+    const original = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: sha512ProSync({ data: raw.rawKey }),
+      rawDataJson: JSON.parse(
+        stringUtils.stableStringify(raw),
+      ) as ICloudSyncRawDataJson,
+      dataTime: 1_750_000_000_000,
+      syncCredential: credential,
+    });
+    const pending = {
+      ...original,
+      pendingPublicAccountDeletionAt: 1_750_000_001_000,
+      pendingPublicAccountDeletionHash: '0'.repeat(64),
+    };
+    const { service, writePool } = harness([pending]);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+  });
+
+  test('keeps unverified pending ciphertext when the key cannot authenticate it', async () => {
+    const pending: IDBCloudSyncItem = {
+      ...rawItem(),
+      data: 'synthetic-invalid-ciphertext',
+      rawData: '',
+      pwdHash: credential.keylessCredential.pwdHash,
+      pendingPublicAccountDeletionAt: 1_750_000_001_000,
+    };
+    const previous = cloneDeep(pending);
+    const { service, writePool } = harness([pending]);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+    expect(pending).toEqual(previous);
+  });
 
   test('encrypts a rawData-only tombstone after its account and wallet are gone', async () => {
     const original = rawItem();

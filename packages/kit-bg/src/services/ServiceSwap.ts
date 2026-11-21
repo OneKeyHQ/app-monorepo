@@ -1344,6 +1344,7 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchQuotesEvents({
     source,
+    skipSingleSwapProviderDenyList,
     denySingleSwapProvider: inputDenySingleSwapProvider,
     fromToken,
     toToken,
@@ -1376,11 +1377,12 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
-    const configuredDenySingleSwapProvider =
-      await this.getDenySingleSwapProvider(
-        fromToken.networkId,
-        toToken.networkId,
-      );
+    const configuredDenySingleSwapProvider = skipSingleSwapProviderDenyList
+      ? undefined
+      : await this.getDenySingleSwapProvider(
+          fromToken.networkId,
+          toToken.networkId,
+        );
     const denySingleSwapProvider = inputDenySingleSwapProvider
       ? mergeDenyProviderStrings(
           configuredDenySingleSwapProvider,
@@ -1410,7 +1412,7 @@ export default class ServiceSwap extends ServiceBase {
       ...(toTokenAmount ? { toTokenAmount } : {}),
       userMarketPriceRate,
       denyCrossChainProvider,
-      denySingleSwapProvider,
+      ...(skipSingleSwapProviderDenyList ? {} : { denySingleSwapProvider }),
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
@@ -1671,6 +1673,7 @@ export default class ServiceSwap extends ServiceBase {
     source,
     tradeSource,
     preparedContext,
+    reviewQuoteValidUntil,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1689,6 +1692,7 @@ export default class ServiceSwap extends ServiceBase {
     source?: ESwapQuoteSource;
     tradeSource: ESwapTradeSource;
     preparedContext?: ISwapBuildTxContext;
+    reviewQuoteValidUntil?: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const contextPromise =
       preparedContext &&
@@ -1729,6 +1733,20 @@ export default class ServiceSwap extends ServiceBase {
       tradeSource,
       ...context.referralBuildTxParams,
     };
+    if (
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil)
+    ) {
+      return {
+        reviewQuoteExpiredBeforeSubmit: true,
+        result: {
+          info: { provider, providerName: provider },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+        },
+      };
+    }
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
@@ -1736,6 +1754,11 @@ export default class ServiceSwap extends ServiceBase {
         headers: context.walletTypeHeader,
       },
     );
+    if (data?.data?.reviewQuoteExpiredBeforeSubmit) {
+      const result = { ...data.data };
+      delete result.reviewQuoteExpiredBeforeSubmit;
+      return result;
+    }
     return data?.data;
   }
 

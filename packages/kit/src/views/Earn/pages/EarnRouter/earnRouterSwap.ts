@@ -423,7 +423,8 @@ export function confirmEarnSwap({
         : undefined,
       swapInfo: prepared.execution.swapInfo,
       isNavigationCurrent: canConfirm,
-      onBeforeSend: async (txs) => {
+      onBeforeSend: async (params) => {
+        const txs = params?.unsignedTxs;
         if (mayHaveBroadcast) {
           uncertain = true;
           throw new EarnSwapError('unknown');

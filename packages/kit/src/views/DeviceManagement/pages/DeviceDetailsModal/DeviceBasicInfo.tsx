@@ -1,204 +1,173 @@
-import { useMemo } from 'react';
+import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Icon,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import {
   getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
   useDeviceMetaStateAtom,
   useDeviceMetaStaticAtom,
+  useDeviceTypeAtom,
   useRefreshSettledAtom,
   useWalletWithDeviceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import { DeviceArt } from '../DeviceArt';
+import { FadeView } from '../FadeView';
 
-function DeviceWalletAvatar({
-  badge,
-  firmwareTypeBadge,
-  size,
-}: {
-  badge: number | string | undefined;
-  firmwareTypeBadge: EFirmwareType | undefined;
-  size: number;
-}) {
-  const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet } = walletWithDevice ?? {};
+import {
+  DeviceBasicInfoSkeleton,
+  getDeviceArtHeight,
+} from './DeviceDetailsFrame';
+import { DeviceUpdateLink } from './DeviceUpdateLink';
+
+function Dot() {
   return (
-    <WalletAvatar
-      size={size}
-      wallet={wallet}
-      status="default"
-      badge={badge}
-      firmwareTypeBadge={firmwareTypeBadge}
-      firmwareTypeProps={{ badgeSize: 24, top: 0, left: 10 }}
-    />
+    <SizableText size="$bodyMd" color="$textDisabled" aria-hidden>
+      ·
+    </SizableText>
   );
 }
 
-function DeviceWalletRenameButton({
-  textSize,
+// The genuine status leads and carries the weight; the Bluetooth name and
+// firmware version follow, quieter.
+function StatusLine({
+  secondaryId,
+  version,
+  verified,
 }: {
-  textSize: '$headingXl' | '$heading2xl';
+  secondaryId: string | undefined;
+  version: string | undefined;
+  verified: boolean | undefined;
 }) {
-  const [walletWithDevice] = useWalletWithDeviceAtom();
-  const { wallet } = walletWithDevice ?? {};
-  if (!wallet) return null;
-  return <WalletRenameButton wallet={wallet} editable textSize={textSize} />;
-}
-
-function DeviceBasicInfoHeaderSkeleton({ avatarSize }: { avatarSize: number }) {
+  const intl = useIntl();
+  // The status the page opened with just sits there; once it changes (a
+  // verification finishing), the new one fades in.
+  const verifiedOnMountRef = useRef(verified);
+  const meta: { key: string; text: string }[] = [];
+  if (secondaryId) meta.push({ key: 'id', text: secondaryId });
+  if (version) meta.push({ key: 'version', text: version });
+  if (verified === undefined && !meta.length) return null;
   return (
-    <YStack gap="$4" flex={1} w="100%">
-      <XStack pt={10} h={100} gap="$4" ai="center">
-        <XStack w={80} ai="center" jc="center">
-          <Skeleton w={avatarSize} h={avatarSize} radius="round" />
-        </XStack>
-        <YStack gap="$3" pb="$1.5">
-          <Skeleton w={160} h="$7" radius={8} />
-          <Skeleton w={100} h="$4" radius={4} />
-          <XStack gap="$2">
-            <Skeleton w={72} h="$5" radius={4} />
-            <Skeleton w={80} h="$5" radius={4} />
+    <XStack ai="center" columnGap="$2" rowGap="$1" flexWrap="wrap">
+      {verified === undefined ? null : (
+        <FadeView
+          key={verified ? 'verified' : 'unverified'}
+          fadeInOnMount={verified !== verifiedOnMountRef.current}
+        >
+          <XStack ai="center" gap="$1">
+            <Icon
+              name={verified ? 'BadgeVerifiedSolid' : 'ErrorSolid'}
+              size="$4"
+              color={verified ? '$iconSuccess' : '$iconCritical'}
+              flexShrink={0}
+            />
+            <SizableText
+              size="$bodyMdMedium"
+              color={verified ? '$textSuccess' : '$textCritical'}
+            >
+              {intl.formatMessage({
+                id: verified
+                  ? ETranslations.global_verified
+                  : ETranslations.global_unverified,
+              })}
+            </SizableText>
           </XStack>
-        </YStack>
-      </XStack>
-    </YStack>
+        </FadeView>
+      )}
+      {meta.map((part, i) => (
+        <XStack key={part.key} ai="center" gap="$2">
+          {i > 0 || verified !== undefined ? <Dot /> : null}
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {part.text}
+          </SizableText>
+        </XStack>
+      ))}
+    </XStack>
   );
 }
 
+// Which device this is, and its firmware and genuine status in one line.
 function DeviceBasicInfo({
   showFirmwareVersion = true,
   showDeviceVerification = true,
+  showFirmwareUpdate = true,
 }: {
   showFirmwareVersion?: boolean;
   showDeviceVerification?: boolean;
+  showFirmwareUpdate?: boolean;
 }) {
-  const intl = useIntl();
   const { gtMd } = useMedia();
-
   const [currentWalletId] = useCurrentWalletIdAtom();
+  const [walletWithDevice] = useWalletWithDeviceAtom();
   const [deviceMetaStatic] = useDeviceMetaStaticAtom();
   const [deviceMetaState] = useDeviceMetaStateAtom();
+  const [deviceType] = useDeviceTypeAtom();
   const [refreshSettled] = useRefreshSettledAtom();
-  const deviceSecondaryIdentifier =
-    getDeviceSecondaryIdentifier(deviceMetaStatic);
-
+  const wallet = walletWithDevice?.wallet;
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
-
-  const avatarSize = gtMd ? 100 : 88;
-  const titleTextSize: '$headingXl' | '$heading2xl' = gtMd
-    ? '$heading2xl'
-    : '$headingXl';
-
-  const verificationStatus = useMemo(
-    () => ({
-      success: {
-        type: 'success' as const,
-        icon: 'BadgeVerifiedSolid' as const,
-        color: '$iconSuccess' as const,
-        textColor: '$textSuccessStrong' as const,
-        textId: ETranslations.global_verified,
-      },
-      critical: {
-        type: 'critical' as const,
-        icon: 'ErrorSolid' as const,
-        color: '$iconCritical' as const,
-        textColor: '$textCriticalStrong' as const,
-        textId: ETranslations.global_unverified,
-      },
-    }),
-    [],
-  );
+  const artHeight = getDeviceArtHeight(gtMd);
 
   // Skeleton only while the first refresh is still in flight. Once settled,
   // fall through to the real (possibly degraded) header so a missing
   // featuresInfo / build error never sticks on an exit-less skeleton.
   if (!isQrWallet && !deviceMetaState.isReady && !refreshSettled) {
-    return <DeviceBasicInfoHeaderSkeleton avatarSize={avatarSize} />;
+    return <DeviceBasicInfoSkeleton />;
   }
 
-  const status = deviceMetaState.isVerified
-    ? verificationStatus.success
-    : verificationStatus.critical;
-
-  const deviceVerifiedBadge = {
-    verifiedBadgeType: status.type,
-    verifiedBadgeIconName: status.icon,
-    verifiedBadgeIconColor: status.color,
-    verifiedBadgeText: intl.formatMessage({ id: status.textId }),
-    verifiedBadgeTextColor: status.textColor,
-  };
-
+  const showStatus = !isQrWallet;
   return (
-    <YStack gap="$4" flex={1} w="100%">
-      <XStack pt={10} h={100} gap="$4" ai="center">
-        <XStack w={80} ai="center" jc="center">
-          <DeviceWalletAvatar
-            badge={undefined}
-            firmwareTypeBadge={deviceMetaStatic.firmwareType}
-            size={avatarSize}
-          />
-        </XStack>
-        <YStack
-          h="100%"
-          pb="$1.5"
-          flex={1}
-          minWidth={0}
-          justifyContent="space-between"
-        >
-          <XStack ml={-5} pr="$5">
-            <DeviceWalletRenameButton textSize={titleTextSize} />
-          </XStack>
-          {deviceSecondaryIdentifier ? (
-            <SizableText size="$bodyMd" color="$textSubdued" pl="$0.5">
-              {deviceSecondaryIdentifier}
-            </SizableText>
-          ) : null}
-          {isQrWallet || !showFirmwareVersion ? null : (
-            <XStack mt="$4" gap="$2">
-              <Badge badgeSize="sm" badgeType="default">
-                {deviceMetaStatic.firmwareVersionDisplay}
-              </Badge>
-              {showDeviceVerification ? (
-                <Badge
-                  badgeSize="sm"
-                  badgeType={deviceVerifiedBadge.verifiedBadgeType}
-                  userSelect="none"
-                >
-                  <XStack ai="center" gap="$1.5">
-                    <Icon
-                      name={deviceVerifiedBadge.verifiedBadgeIconName}
-                      color={deviceVerifiedBadge.verifiedBadgeIconColor}
-                      size="$4"
-                    />
-                    <SizableText
-                      size="$bodySmMedium"
-                      color={deviceVerifiedBadge.verifiedBadgeTextColor}
-                    >
-                      {deviceVerifiedBadge.verifiedBadgeText}
-                    </SizableText>
-                  </XStack>
-                </Badge>
-              ) : null}
+    <XStack ai="center" gap={gtMd ? '$5' : '$4'}>
+      <DeviceArt
+        deviceType={deviceType as IHardwareDeviceType | undefined}
+        color={getHardwareDeviceColor({
+          deviceType,
+          serialNo: deviceMetaStatic.serialNo,
+        })}
+        wallet={wallet}
+        height={artHeight}
+      />
+      <YStack flex={1} minWidth={0}>
+        <YStack gap="$1.5">
+          {wallet ? (
+            // The button carries its own inset; pull it back onto the text edge.
+            <XStack ml={-6} maxWidth="100%" minWidth={0}>
+              <WalletRenameButton
+                wallet={wallet}
+                editable
+                textSize={gtMd ? '$heading3xl' : '$heading2xl'}
+              />
             </XStack>
-          )}
+          ) : null}
+          <StatusLine
+            secondaryId={getDeviceSecondaryIdentifier(deviceMetaStatic)}
+            version={
+              showStatus && showFirmwareVersion
+                ? deviceMetaStatic.firmwareVersionDisplay
+                : undefined
+            }
+            verified={
+              showStatus && showDeviceVerification
+                ? deviceMetaState.isVerified
+                : undefined
+            }
+          />
         </YStack>
-      </XStack>
-    </YStack>
+        {showStatus && showFirmwareUpdate ? <DeviceUpdateLink /> : null}
+      </YStack>
+    </XStack>
   );
 }
 
