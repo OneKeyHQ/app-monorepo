@@ -230,7 +230,10 @@ it('dashes only the text after the leading sentence on native', () => {
   const calls = jest.mocked(SizableText).mock.calls;
   // The paragraph, the leading text alone, or the leading text ending in a
   // word joiner.
-  const layoutOf = (kind: 'paragraph' | 'leading' | 'withSpace', lines: ILines) => {
+  const layoutOf = (
+    kind: 'paragraph' | 'leading' | 'withSpace',
+    lines: ILines,
+  ) => {
     const call = [...calls].toReversed().find(([props]) => {
       if (kind === 'paragraph') {
         return props.opacity !== 0;
