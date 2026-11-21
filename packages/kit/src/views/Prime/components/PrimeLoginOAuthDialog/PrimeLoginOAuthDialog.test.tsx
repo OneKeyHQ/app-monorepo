@@ -25,7 +25,16 @@ jest.mock('react-intl', () => ({
     formatMessage: (
       { id }: { id: string },
       values?: { link?: (chunks: string[]) => unknown },
-    ) => (values?.link ? [id, values.link([`${id}:link`])] : id),
+    ) => {
+      if (!values?.link) return id;
+      const React = jest.requireActual('react') as typeof import('react');
+      return React.createElement(
+        React.Fragment,
+        null,
+        id,
+        values.link([`${id}:link`]),
+      );
+    },
   }),
 }));
 
