@@ -1,6 +1,7 @@
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
@@ -88,7 +89,8 @@ export function buildRemoteHardwareAccountTombstoneProof({
   dataTime,
 }: Pick<IDBCloudSyncItem, 'id' | 'pwdHash' | 'data' | 'dataTime'>): string {
   return sha512ProSync({
-    data: JSON.stringify([
+    // Keep the v1 primitive tuple in its original wire order.
+    data: stableStringify([
       'remote-hardware-account-tombstone-v1',
       id,
       pwdHash,
