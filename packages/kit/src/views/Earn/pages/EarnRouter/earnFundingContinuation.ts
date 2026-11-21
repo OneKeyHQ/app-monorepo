@@ -131,8 +131,11 @@ export function reserveEarnFundingContinuation({
       } catch {
         // A failed claim can still leave a local reservation to release.
       }
-      await reservation.release();
-    })();
+      await reservation.release({ retrySafeCancel: true });
+    })().catch((error: unknown) => {
+      release = undefined;
+      throw error;
+    });
     return release;
   };
   return {

@@ -19,7 +19,10 @@ import type {
 
 type IEarnFunding = IEarnFundingState | { status: 'preparing' };
 
-const active = new Map<string, { id: string; claimed: boolean }>();
+const active = new Map<
+  string,
+  { id: string; claimed: boolean; retrySafeCancel?: () => Promise<void> }
+>();
 const saved = new Map<string, IEarnFundingState>();
 const reads = new Map<string, Promise<IEarnFunding | undefined>>();
 const listeners = new Set<() => void>();
@@ -56,19 +59,29 @@ function publishFunding(scope: string, state: IEarnFundingState | null) {
 export function refreshEarnFunding(scope: string) {
   const pending = reads.get(scope);
   if (pending) return pending;
-  const request = backgroundApiProxy.serviceStaking.getEarnFunding(scope).then(
-    (state) => {
-      if (reads.get(scope) === request) {
-        reads.delete(scope);
-        publishFunding(scope, state);
+  const request = Promise.resolve()
+    .then(async () => {
+      try {
+        await active.get(scope)?.retrySafeCancel?.();
+      } catch {
+        // Keep the persisted state visible when cancellation cannot be applied.
       }
-      return getEarnFunding(scope);
-    },
-    (error: unknown) => {
-      if (reads.get(scope) === request) reads.delete(scope);
-      throw error;
-    },
-  );
+      if (!reads.has(scope)) reads.set(scope, request);
+      return backgroundApiProxy.serviceStaking.getEarnFunding(scope);
+    })
+    .then(
+      (state) => {
+        if (reads.get(scope) === request) {
+          reads.delete(scope);
+          publishFunding(scope, state);
+        }
+        return getEarnFunding(scope);
+      },
+      (error: unknown) => {
+        if (reads.get(scope) === request) reads.delete(scope);
+        throw error;
+      },
+    );
   reads.set(scope, request);
   return request;
 }
@@ -213,7 +226,11 @@ export function reserveEarnFunding(
   } = {},
 ) {
   if (!scope || getEarnFunding(scope)) return undefined;
-  const attempt = { id: generateUUID(), claimed: false };
+  const attempt: {
+    id: string;
+    claimed: boolean;
+    retrySafeCancel?: () => Promise<void>;
+  } = { id: generateUUID(), claimed: false };
   const attemptId = attempt.id;
   active.set(scope, attempt);
   notifyFundingChange();
@@ -277,8 +294,40 @@ export function reserveEarnFunding(
         await settleEarnFunding(scope, phase.txId, receivedAmount);
       }
     },
-    release: async () => {
-      if (active.get(scope) !== attempt) return;
+    release: async (options?: { retrySafeCancel?: true }) => {
+      if (active.get(scope) !== attempt) {
+        if (options?.retrySafeCancel)
+          throw new OneKeyLocalError('Earn funding ownership changed');
+        return;
+      }
+      if (options?.retrySafeCancel) {
+        if (attempt.retrySafeCancel) return attempt.retrySafeCancel();
+        let flight: Promise<void> | undefined;
+        const cancel = () => {
+          if (flight) return flight;
+          flight = (async () => {
+            if (active.get(scope) !== attempt) return;
+            const result = await changeFunding(scope, {
+              type: 'cancelled',
+              attemptId,
+            });
+            if (!result.applied && result.funding) {
+              attempt.retrySafeCancel = undefined;
+              throw new OneKeyLocalError('Unable to release Earn funding');
+            }
+            if (active.get(scope) === attempt) {
+              active.delete(scope);
+              notifyFundingChange();
+            }
+          })().finally(() => {
+            flight = undefined;
+          });
+          return flight;
+        };
+        attempt.retrySafeCancel = cancel;
+        await cancel();
+        return;
+      }
       try {
         await changeFunding(scope, { type: 'cancelled', attemptId });
       } finally {

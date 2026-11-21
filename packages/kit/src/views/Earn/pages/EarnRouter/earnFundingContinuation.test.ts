@@ -196,6 +196,20 @@ it('waits for an in-flight claim before releasing a safely cancelled attempt', a
   expect(completeEarnFunding).not.toHaveBeenCalled();
 });
 
+it('allows retrying the same safe cancellation after a storage failure', async () => {
+  const reservation = makeReservation();
+  reservation.release.mockRejectedValueOnce(new Error('storage unavailable'));
+  jest.mocked(reserveEarnFunding).mockReturnValue(reservation);
+  const guard = reserveEarnFundingContinuation(scope);
+  if (!guard) throw new OneKeyLocalError('Missing reservation');
+  await guard.beforeSend(destinationTx);
+  await expect(guard.onSafeCancel()).rejects.toThrow('storage unavailable');
+  await expect(guard.onSafeCancel()).resolves.toBeUndefined();
+  expect(reservation.release).toHaveBeenCalledTimes(2);
+  expect(reservation.release).toHaveBeenCalledWith({ retrySafeCancel: true });
+  await expect(guard.onAccepted('late-tx')).rejects.toThrow('cancelled');
+});
+
 it('does not release an accepted destination while its transaction is being recorded', async () => {
   let resolveSubmitted: (() => void) | undefined;
   const reservation = makeReservation();
