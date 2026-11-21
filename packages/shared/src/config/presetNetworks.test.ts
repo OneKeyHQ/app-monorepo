@@ -72,6 +72,20 @@ describe('Monero preset network', () => {
   });
 });
 
+describe('Tron Nile preset network', () => {
+  it('stores raw hex chainId matching mainnet format', () => {
+    const nileNetwork = getPresetNetworks().find(
+      (network) => network.id === 'tron--0xcd8690dc',
+    );
+    expect(nileNetwork).toMatchObject({
+      id: 'tron--0xcd8690dc',
+      impl: 'tron',
+      chainId: '0xcd8690dc',
+      isTestnet: true,
+    });
+  });
+});
+
 describe('Web preset networks', () => {
   it('leave out Zcash and Monero on Web only', () => {
     let webNetworkIds: string[] = [];
