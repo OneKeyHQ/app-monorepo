@@ -104,6 +104,7 @@ import {
 import {
   activeTradeInstrumentAtom,
   bboAtom,
+  confirmedTradeInstrumentAtom,
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
@@ -1637,6 +1638,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       };
       const prevInstrument = get(activeTradeInstrumentAtom());
+      // Before the first switch, the instrument on screen is the confirmed one.
+      if (!get(confirmedTradeInstrumentAtom())) {
+        set(confirmedTradeInstrumentAtom(), prevInstrument);
+      }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
       if (
@@ -1653,7 +1658,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       hydrateL2BookFromSwr(coin);
       await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
-      if (activeAsset?.coin === coin && !force) {
+      // The service names the coin before its metadata has loaded, e.g. for
+      // a switch this one superseded; only a loaded asset is a done switch.
+      if (activeAsset?.coin === coin && activeAsset.universe && !force) {
         // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
         // mode already matches, otherwise the trading panel keeps the
         // previous mode's layout when switching back with an unchanged coin.
@@ -1669,6 +1676,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          set(confirmedTradeInstrumentAtom(), next);
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
           await recoverSubscriptionsWithProof({
@@ -1688,7 +1696,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
-      const previousMode = (await tradingModeAtom.get()) ?? 'perp';
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
       await tradingModeAtom.set('perp');
@@ -1711,13 +1718,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
       } catch (error) {
         // The service rolls its active asset back. The trade mode and the
-        // instrument published early go back with it, unless a newer switch
-        // owns them by now, so the page never stays on a token the switch did
-        // not reach.
+        // instrument go back to what the last switch that landed published,
+        // unless a newer switch owns them by now, so the page never stays on
+        // a token no switch reached. Without one, the service's asset stands.
         if (this.isLatestActiveInstrumentChange(requestId)) {
-          await tradingModeAtom.set(previousMode);
-          const restored = await this._buildActiveTradeInstrument(previousMode);
+          const confirmed = get(confirmedTradeInstrumentAtom());
+          const restored = confirmed?.coin
+            ? confirmed
+            : await this._buildActiveTradeInstrument('perp');
           if (this.isLatestActiveInstrumentChange(requestId)) {
+            await tradingModeAtom.set(restored.mode);
             set(activeTradeInstrumentAtom(), restored);
           }
         }
@@ -1757,6 +1767,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      set(confirmedTradeInstrumentAtom(), nextInstrument);
       void this.syncSubscriptionsAfterInstrumentChange({
         instrument: nextInstrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
@@ -1795,6 +1806,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         universe: spotUniverse,
       };
       const prevInstrument = get(activeTradeInstrumentAtom());
+      // Before the first switch, the instrument on screen is the confirmed one.
+      if (!get(confirmedTradeInstrumentAtom())) {
+        set(confirmedTradeInstrumentAtom(), prevInstrument);
+      }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'spot' || prevInstrument.coin !== coin;
       if (
@@ -1823,6 +1838,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          set(confirmedTradeInstrumentAtom(), next);
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
           await recoverSubscriptionsWithProof({
@@ -1932,6 +1948,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
+      set(confirmedTradeInstrumentAtom(), nextInstrument);
       return true;
     },
   );

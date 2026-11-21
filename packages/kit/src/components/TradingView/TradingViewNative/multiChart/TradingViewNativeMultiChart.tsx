@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, SetStateAction } from 'react';
 
-import { isEqual } from 'lodash';
 import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
@@ -73,12 +72,28 @@ function isOnPanel(panel: Element, target: EventTarget): target is Element {
   return target instanceof Element && panel.contains(target);
 }
 
-type IWrittenLayout = { current: ITradingViewNativeMultiChartLayout | null };
+interface ILayoutChannel {
+  /** The layout written last, until the saved one has reached its revision. */
+  written: ITradingViewNativeMultiChartLayout | null;
+  /** The latest selection made in any grid of the layout. */
+  selectionSeq: number;
+}
 
-// The writes of the grids of one saved layout that it has not caught up with
-// yet, by `layoutKey`. A grid gone before they came back leaves them to the
-// next write, its own late one or a newer grid's.
-const unconfirmedWrites = new Map<string, IWrittenLayout>();
+// What the grids of one saved layout share, by `layoutKey`. One unmounted and
+// the next mounted, e.g. across a breakpoint, build on each other's writes
+// still on their way, and a newer selection in either outdates the answer the
+// other is waiting for.
+const layoutChannels = new Map<string, ILayoutChannel>();
+
+function getRevision(layout: ITradingViewNativeMultiChartLayout) {
+  return layout.revision ?? 0;
+}
+
+interface IPendingSwitch {
+  answer: Promise<boolean>;
+  /** The host's source when the switch was asked for. */
+  fromKey: string;
+}
 
 // Gives the chart inside an extra panel its own indicator settings, stored in
 // the layout snapshot beside the panel's token.
@@ -261,15 +276,6 @@ interface IPanelSelection {
   fallback: IPanelSelection | null;
 }
 
-// Compared as stored: on a split runtime the way to bg and back drops fields
-// set to `undefined`, e.g. in a panel's indicator settings.
-function isSameStoredLayout(
-  a: ITradingViewNativeMultiChartLayout,
-  b: ITradingViewNativeMultiChartLayout,
-) {
-  return isEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
-}
-
 export function TradingViewNativeMultiChart({
   activeSource,
   defaultIndicatorSettings,
@@ -296,54 +302,63 @@ export function TradingViewNativeMultiChart({
     selectionRef.current = next;
     setSelectionState(next);
   }, []);
-  // The layout the grid wrote last, until the saved one has caught up with it.
-  // Grids of one layout key share it.
-  const [ownWrittenLayout] = useState<IWrittenLayout>(() => ({
-    current: null,
+  // What the grid shares with the other grids of its layout key.
+  const [ownChannel] = useState<ILayoutChannel>(() => ({
+    written: null,
+    selectionSeq: 0,
   }));
-  const writtenLayout = useMemo(() => {
-    if (!layoutKey) return ownWrittenLayout;
-    let shared = unconfirmedWrites.get(layoutKey);
+  const channel = useMemo(() => {
+    if (!layoutKey) return ownChannel;
+    let shared = layoutChannels.get(layoutKey);
     if (!shared) {
-      shared = { current: null };
-      unconfirmedWrites.set(layoutKey, shared);
+      shared = { written: null, selectionSeq: 0 };
+      layoutChannels.set(layoutKey, shared);
     }
     return shared;
-  }, [layoutKey, ownWrittenLayout]);
+  }, [layoutKey, ownChannel]);
+  // A write is on its way until the saved layout has reached its revision,
+  // whoever saved that, e.g. another window.
   useEffect(() => {
     if (
-      writtenLayout.current &&
-      isSameStoredLayout(writtenLayout.current, savedLayout)
+      channel.written &&
+      getRevision(savedLayout) >= getRevision(channel.written)
     ) {
-      writtenLayout.current = null;
+      channel.written = null;
     }
-  }, [savedLayout, writtenLayout]);
+  }, [channel, savedLayout]);
   useEffect(
     () => () => {
       // Shared writes stay for a late write of this grid or the next grid of
-      // the layout, which tells when the saved layout has caught up. Without a
-      // key nothing does, and another grid can change the layout meanwhile:
-      // a write made from here on, e.g. a selection the host answers late,
-      // starts from the latest saved layout.
-      if (!layoutKey) writtenLayout.current = null;
+      // the layout. Without a key nothing builds on them any more, and a write
+      // made from here on, e.g. a selection the host answers late, starts from
+      // the latest saved layout.
+      if (!layoutKey) channel.written = null;
     },
-    [layoutKey, writtenLayout],
+    [channel, layoutKey],
   );
   // Every write of the grid. On a split runtime `current` is the snapshot bg
   // sent last and can miss writes still on their way there; a write worked out
   // from it, e.g. a selection saved after the preset changed, would undo them.
-  // So each write starts from the layout written last.
+  // So each write starts from the layout written last while the saved one has
+  // not reached it, and carries the next revision.
   const onLayoutChange = useCallback<IOnLayoutChange>(
     (update) =>
       onSavedLayoutChange((current) => {
-        const base = writtenLayout.current ?? current;
+        const pending = channel.written;
+        const base =
+          pending && getRevision(pending) > getRevision(current)
+            ? pending
+            : current;
         const next = update(base);
         if (next === base) return current;
-        writtenLayout.current =
-          normalizeTradingViewNativeMultiChartLayout(next);
-        return next;
+        const written: ITradingViewNativeMultiChartLayout = {
+          ...normalizeTradingViewNativeMultiChartLayout(next),
+          revision: Math.max(getRevision(base), getRevision(current)) + 1,
+        };
+        channel.written = written;
+        return written;
       }),
-    [onSavedLayoutChange, writtenLayout],
+    [channel, onSavedLayoutChange],
   );
   const layout = useMemo(
     () =>
@@ -476,9 +491,8 @@ export function TradingViewNativeMultiChart({
     selection,
     shownActiveSource,
   };
-  const selectionSeq = useRef(0);
-  // Switches the host was asked for and has not answered yet.
-  const pendingSwitches = useRef(0);
+  // Switches the host was asked for and has not answered yet, by token.
+  const pendingSwitches = useRef(new Map<string, IPendingSwitch>());
   // `picked` is a token picked in the panel, which it takes on with the
   // selection; without one the panel keeps its own.
   const handleSelectPanel = useCallback(
@@ -510,16 +524,22 @@ export function TradingViewNativeMultiChart({
       else keptSources[keptPanelId] = state.activeSource;
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
-      const waitsForHost =
-        getTradingViewNativeSourceKey(source) !== state.activeSourceKey;
-      selectionSeq.current += 1;
-      const seq = selectionSeq.current;
+      const sourceKey = getTradingViewNativeSourceKey(source);
+      // A switch to this token is on its way already, e.g. from the press that
+      // opened a picker in the panel, and the host may show the token before
+      // it lands. That switch's answer decides this selection too: asking
+      // again would drop it for one that finds the host halfway there.
+      const pending = pendingSwitches.current.get(sourceKey);
+      const fromKey = pending?.fromKey ?? state.activeSourceKey;
+      const waitsForHost = sourceKey !== fromKey;
+      channel.selectionSeq += 1;
+      const seq = channel.selectionSeq;
       const next: IPanelSelection = {
         seq,
         panelId,
         keptSources,
         source,
-        activeSourceKey: state.activeSourceKey,
+        activeSourceKey: fromKey,
         hostPanelId: keptPanelId,
         waitsForHost,
         isSaved: !waitsForHost,
@@ -533,29 +553,36 @@ export function TradingViewNativeMultiChart({
         saveSelection(next);
         // The host shows this token already, but an earlier switch may still
         // land on another one: asking again makes the host drop that switch.
-        if (pendingSwitches.current > 0) {
+        if (pendingSwitches.current.size > 0) {
           void state.onSelectPanel(source).catch(() => false);
         }
         return;
       }
-      pendingSwitches.current += 1;
-      void state
-        .onSelectPanel(source)
-        .catch(() => false)
-        .then((switched) => {
-          pendingSwitches.current -= 1;
-          const current = selectionRef.current;
-          // Only while no newer selection replaced this one.
-          if (current?.seq !== seq) return;
-          // Saved from here, so it also lands once the grid is unmounted.
-          if (switched) saveSelection(current);
-          setSelection({
-            ...current,
-            ...(switched ? { isSaved: true } : { isRejected: true }),
-          });
+      let answer = pending?.answer;
+      if (!answer) {
+        const asked = state.onSelectPanel(source).catch(() => false);
+        pendingSwitches.current.set(sourceKey, { answer: asked, fromKey });
+        void asked.then(() => {
+          if (pendingSwitches.current.get(sourceKey)?.answer === asked) {
+            pendingSwitches.current.delete(sourceKey);
+          }
         });
+        answer = asked;
+      }
+      void answer.then((switched) => {
+        const current = selectionRef.current;
+        // Only while no newer selection replaced this one, in this grid or in
+        // another grid of the layout.
+        if (current?.seq !== seq || channel.selectionSeq !== seq) return;
+        // Saved from here, so it also lands once the grid is unmounted.
+        if (switched) saveSelection(current);
+        setSelection({
+          ...current,
+          ...(switched ? { isSaved: true } : { isRejected: true }),
+        });
+      });
     },
-    [saveSelection, setSelection],
+    [channel, saveSelection, setSelection],
   );
 
   const defaults = useRef({

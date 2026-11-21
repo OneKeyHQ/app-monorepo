@@ -248,6 +248,14 @@ export const {
   },
 );
 
+/**
+ * The instrument the last switch that landed published, with its trade mode;
+ * null before the first switch. A switch the background fails puts it back,
+ * as switches it superseded may have changed the mode or instrument halfway.
+ */
+export const { atom: confirmedTradeInstrumentAtom } =
+  contextAtom<IActiveTradeInstrument | null>(null);
+
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;

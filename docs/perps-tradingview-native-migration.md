@@ -211,8 +211,11 @@ keep the single chart.
   display only: the order menu and the cancel and drag of order lines wait
   until the panel's switch has landed and the trade instrument has its own
   precision. A perp switch the background fails puts the trade mode and
-  instrument back to what it holds, unless a newer switch owns them, so the
-  selection returns and the page does not stay on the failed token.
+  instrument back to what the last switch that landed published (kept per
+  context store, across switches that overlap), unless a newer switch owns
+  them, so the selection returns and the page does not stay on the failed
+  token. The perp switch's same-coin shortcut needs the asset's metadata, so
+  a coin whose loading a superseded switch cut short is loaded again.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

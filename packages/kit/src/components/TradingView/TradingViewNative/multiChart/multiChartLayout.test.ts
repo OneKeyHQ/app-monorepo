@@ -359,6 +359,18 @@ describe('sync options', () => {
       }).sync,
     ).toEqual({ symbol: true, crosshair: false });
   });
+
+  it('keeps the revision of the last write and drops one it cannot trust', () => {
+    expect(
+      normalizeTradingViewNativeMultiChartLayout({ ...layout, revision: 7 })
+        .revision,
+    ).toBe(7);
+    for (const revision of [0, -1, 1.5, Number.NaN, '3', null]) {
+      expect(
+        normalizeTradingViewNativeMultiChartLayout({ ...layout, revision }),
+      ).toEqual(layout);
+    }
+  });
 });
 
 describe('panel selection', () => {

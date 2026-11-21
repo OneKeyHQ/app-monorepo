@@ -219,6 +219,12 @@ export function normalizeTradingViewNativeMultiChartLayout(
     }
   }
   const activePanelId = PANEL_IDS.find((id) => id === input.activePanelId);
+  const revision =
+    typeof input.revision === 'number' &&
+    Number.isSafeInteger(input.revision) &&
+    input.revision > 0
+      ? input.revision
+      : undefined;
   return {
     preset: isTradingViewNativeMultiChartPreset(input.preset)
       ? input.preset
@@ -227,6 +233,7 @@ export function normalizeTradingViewNativeMultiChartLayout(
     panels,
     ...(Object.keys(sizes).length ? { sizes } : {}),
     ...(Object.keys(sync).length ? { sync } : {}),
+    ...(revision ? { revision } : {}),
   };
 }
 

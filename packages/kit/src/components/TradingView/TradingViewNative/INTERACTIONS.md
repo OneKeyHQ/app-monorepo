@@ -23,15 +23,20 @@ under separate owners:
   before and writes them all with every selection: a split runtime evaluates a
   write against the snapshot bg sent last, which can miss the selection before.
   For the same reason every write of the grid (a selection, a panel's token or
-  indicators, the preset, sync options, sizes) starts from the layout the grid
-  wrote last until the saved layout has caught up with it, so it cannot undo
-  another write that has not come back yet. Grids of one `layoutKey`, e.g.
-  one unmounted and the next mounted, share those writes: a late write of a
-  grid that is gone, e.g. a selection the host answers then, builds on the
-  writes still on their way and on those of a grid mounted since. Without a
-  key it starts from the latest saved layout.
+  indicators, the preset, sync options, sizes) carries the next `revision` and
+  starts from the layout the grid wrote last until the saved layout has
+  reached its revision, so it cannot undo another write that has not come
+  back yet; a newer layout another window saved meanwhile also reaches it.
+  Grids of one `layoutKey`, e.g. one unmounted and the next mounted, share
+  those writes and their selections: a late write of a grid that is gone,
+  e.g. a selection the host answers then, builds on the writes still on their
+  way and on those of a grid mounted since, and a newer selection in either
+  outdates the answer the other waits for. Without a key it starts from the
+  latest saved layout.
   Selecting the panel of the token the host already shows asks the host for it
-  again while an earlier switch is on its way, which drops that switch.
+  again while an earlier switch is on its way, which drops that switch. A
+  selection of a token whose switch is on its way already, which the host
+  may show before it lands, waits for that switch's answer instead.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
   not select. A token picked in a panel, e.g. from the picker Perps puts in
   each header, selects the panel with that token (`selectSource`): the host

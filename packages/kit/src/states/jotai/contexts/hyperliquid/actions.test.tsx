@@ -398,6 +398,73 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     },
   );
 
+  it('goes back to the confirmed spot market when the last of two perp switches fails', async () => {
+    const { store, result, getMode } = setup('spot');
+    mockChangeActiveAsset
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockRejectedValueOnce(new OneKeyLocalError('Network error'));
+
+    // The first switch sets perp mode while the background is still loading,
+    // and the second supersedes it.
+    await act(async () => {
+      void result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'SOL',
+        }),
+      ).rejects.toThrow('Network error');
+    });
+
+    expect(getMode()).toBe('spot');
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'spot',
+      coin: '@107',
+    });
+  });
+
+  it('loads a perp token whose loading a superseded switch left unfinished', async () => {
+    const { store, result } = setup('perp');
+    // The service names the coin before its metadata has loaded.
+    jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+      coin: 'ETH',
+      assetId: undefined,
+      universe: undefined,
+      margin: undefined,
+    });
+    const eth = {
+      assetId: 1,
+      name: 'ETH',
+      szDecimals: 4,
+      maxLeverage: 25,
+    } as IPerpsUniverse;
+    mockChangeActiveAsset.mockResolvedValue({
+      coin: 'ETH',
+      assetId: 1,
+      universe: eth,
+      margin: undefined,
+    });
+
+    await act(async () => {
+      await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+
+    expect(mockChangeActiveAsset).toHaveBeenCalledWith({ coin: 'ETH' });
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      coin: 'ETH',
+      assetId: 1,
+      universe: eth,
+    });
+  });
+
   it('leaves the trade token and mode to a newer switch when an older one fails', async () => {
     const { store, result, getMode } = setup('spot');
     let fail: (error: Error) => void = () => {};
