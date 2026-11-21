@@ -27,7 +27,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
-  isAmbiguousMultilineLnurl,
+  isAmbiguousLnurl,
   resolveReusableLightningRecipient,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -410,8 +410,7 @@ export function AddressInput(props: IAddressInputProps) {
       const normalizedText =
         singleLineText !== text &&
         networkUtils.isLightningNetworkByNetworkId(networkId) &&
-        (isAmbiguousMultilineLnurl(text) ||
-          resolveReusableLightningRecipient(text))
+        (isAmbiguousLnurl(text) || resolveReusableLightningRecipient(text))
           ? text
           : singleLineText;
       inputTypeRef.current = inputType;

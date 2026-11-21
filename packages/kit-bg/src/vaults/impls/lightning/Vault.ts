@@ -36,7 +36,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   getLightningInvoiceNetwork,
-  isAmbiguousMultilineLnurl,
+  isAmbiguousLnurl,
   normalizeLightningInput,
   resolveReusableLightningRecipient,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
@@ -406,7 +406,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(input: string): Promise<IAddressValidation> {
-    if (isAmbiguousMultilineLnurl(input)) {
+    if (isAmbiguousLnurl(input)) {
       return { isValid: false, normalizedAddress: '', displayAddress: '' };
     }
     const address = normalizeLightningInput(input);

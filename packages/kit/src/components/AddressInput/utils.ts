@@ -1,6 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { isAmbiguousMultilineLnurl } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import { isAmbiguousLnurl } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAddressValidateStatus,
@@ -62,7 +62,7 @@ export async function queryAddressWithFallback(
 ): Promise<IAddressQueryResult> {
   if (
     networkUtils.isLightningNetworkByNetworkId(params.networkId) &&
-    isAmbiguousMultilineLnurl(params.address)
+    isAmbiguousLnurl(params.address)
   ) {
     return { input: params.address, validStatus: 'invalid' };
   }

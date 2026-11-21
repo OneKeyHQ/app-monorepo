@@ -2,7 +2,7 @@ import { bech32 } from 'bech32';
 
 import {
   findLnurl,
-  isAmbiguousMultilineLnurl,
+  isAmbiguousLnurl,
   isReusableLightningRecipient,
   normalizeLightningInput,
   resolveReusableLightningRecipient,
@@ -99,7 +99,7 @@ it.each([
 ])(
   'rejects an open-ended LNURL that could continue on the next line',
   (text) => {
-    expect(isAmbiguousMultilineLnurl(text)).toBe(true);
+    expect(isAmbiguousLnurl(text)).toBe(true);
     expect(resolveReusableLightningRecipient(text)).toBeNull();
   },
 );
@@ -108,7 +108,7 @@ it.each([
   'lnurlp://example.com/pay\n\nThanks',
   '请支付：lnurlp://example.com/pay  \r\n\t\r\nThanks for your order.',
 ])('keeps a complete LNURL before a blank line', (input) => {
-  expect(isAmbiguousMultilineLnurl(input)).toBe(false);
+  expect(isAmbiguousLnurl(input)).toBe(false);
   expect(resolveReusableLightningRecipient(input)).toBe(
     'lnurlp://example.com/pay',
   );
@@ -118,7 +118,7 @@ it('uses explicit wrappers and checksum validation as recipient boundaries', () 
   const uri = 'lnurlp://merchant.example/checkout?order=12';
   for (const token of [`(${uri})`, `<${uri}>`, `"${uri}"`, `'${uri}'`, LNURL]) {
     const text = `Pay:\n${token}\n34`;
-    expect(isAmbiguousMultilineLnurl(text)).toBe(false);
+    expect(isAmbiguousLnurl(text)).toBe(false);
     expect(resolveReusableLightningRecipient(text)).toBe(
       token === LNURL ? LNURL : uri,
     );
@@ -143,6 +143,17 @@ it('recognizes the outer parenthesis before attached punctuation and prose', () 
     resolveReusableLightningRecipient(`Pay (${uri}),then retry (if needed).`),
   ).toBe(uri);
   expect(resolveReusableLightningRecipient(`Pay (${uri})\nThanks`)).toBe(uri);
+});
+
+it('keeps literal closing parentheses inside a clearly wrapped URI', () => {
+  const uri = 'lnurlp://merchant.example/pay)weekly?order=1234';
+  expect(resolveReusableLightningRecipient(`Pay (${uri}).`)).toBe(uri);
+});
+
+it('rejects a wrapper with two plausible closing parentheses', () => {
+  const text = '(lnurlp://merchant.example/pay),weekly)';
+  expect(isAmbiguousLnurl(text)).toBe(true);
+  expect(resolveReusableLightningRecipient(text)).toBeNull();
 });
 
 it.each(['lnurlp://example.com/pay.', 'lnurlp://example.com/pay?note=thanks!'])(

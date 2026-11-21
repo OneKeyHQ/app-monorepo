@@ -119,26 +119,29 @@ function readParenthesizedLnurl(
   const text =
     input +
     (!sameLine.trim() && suffix.trimStart().startsWith(')') ? ')' : sameLine);
-  let depth = 1;
+  let depth = 0;
+  let wrapperEnd: number | undefined;
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
-    if (char === '(') depth += 1;
-    if (char === ')') {
-      depth -= 1;
-      if (depth === 0) {
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      if (depth > 0) {
+        depth -= 1;
+      } else if (index >= input.length) {
+        return input.slice(0, wrapperEnd ?? input.length);
+      } else {
         const next = text[index + 1];
-        if (
-          index < input.length &&
-          next &&
-          !/[\s.,!?，。！？;；:：)>"']/u.test(next)
-        ) {
-          return null;
+        // A literal ')' can be followed by more URI characters. If two
+        // different boundaries are plausible, do not select either path.
+        if (!next || /[\s.,!?，。！？;；:：)>"']/u.test(next)) {
+          if (wrapperEnd !== undefined) return null;
+          wrapperEnd = index;
         }
-        return input.slice(0, index);
       }
     }
   }
-  return null;
+  return wrapperEnd === undefined ? null : input.slice(0, wrapperEnd);
 }
 
 function readReusableLightningRecipient(
@@ -202,9 +205,9 @@ function readReusableLightningRecipient(
   }
 }
 
-export function isAmbiguousMultilineLnurl(input: string): boolean {
+export function isAmbiguousLnurl(input: string): boolean {
   return (
-    LNURL_LINE_BREAK.test(input.trim()) &&
+    /lnurl[pwc]:/i.test(input) &&
     readReusableLightningRecipient(input)?.kind === 'ambiguous'
   );
 }
