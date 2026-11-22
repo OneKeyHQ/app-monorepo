@@ -279,6 +279,8 @@ function matchesRetainedWalletPreimage({
   payload: ICloudSyncPayloadWallet;
   device?: IDBDevice;
 }) {
+  // Realm materializes an unset optional hash as null; IndexedDB omits it.
+  const walletHash = payload.walletHash ?? undefined;
   if (
     wallet.isTemp ||
     wallet.isMocked ||
@@ -287,7 +289,7 @@ function matchesRetainedWalletPreimage({
     payload.walletType !== wallet.type ||
     (payload.passphraseState ?? '') !== (wallet.passphraseState ?? '') ||
     payload.hwDeviceId !== device?.deviceId ||
-    payload.walletHash !== (wallet.hash ?? undefined) ||
+    walletHash !== (wallet.hash ?? undefined) ||
     payload.firstEvmAddress !== (wallet.firstEvmAddress ?? undefined) ||
     !previous.rawData ||
     previous.rawData.length > 16_384 ||
@@ -309,7 +311,7 @@ function matchesRetainedWalletPreimage({
       isPlainObject(avatar) &&
       old.rawKey === previous.rawKey &&
       old.payload.walletType === payload.walletType &&
-      old.payload.walletHash === payload.walletHash &&
+      (old.payload.walletHash ?? undefined) === walletHash &&
       old.payload.hwDeviceId === payload.hwDeviceId &&
       old.payload.passphraseState === payload.passphraseState &&
       old.payload.firstEvmAddress === payload.firstEvmAddress &&

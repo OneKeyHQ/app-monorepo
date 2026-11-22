@@ -18,6 +18,7 @@ import type {
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { RealmSchemaAccount } from '../../dbs/local/realm/schemas/RealmSchemaAccount';
+import { RealmSchemaWallet } from '../../dbs/local/realm/schemas/RealmSchemaWallet';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { SimpleDbEntityChangeHistory } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import { CloudSyncFlowManagerAccount } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
@@ -79,7 +80,7 @@ const credential: ICloudSyncCredential = {
 
 let count = 0;
 
-async function fixture(type: 'hd' | 'hw' = 'hd') {
+async function fixture(type: 'hd' | 'hw' = 'hd', realmNullHash = false) {
   count += 1;
   mockDb = new LocalDbIndexed();
   const device: IDBDevice | undefined =
@@ -103,7 +104,7 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
           updatedAt: 1,
         }
       : undefined;
-  const wallet: IDBWallet = {
+  let wallet: IDBWallet = {
     id: `${type}-verified-cache-${count}`,
     type,
     ...(device ? { associatedDevice: device.id } : {}),
@@ -114,6 +115,18 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
     nextIds: {},
     name: 'Canonical metadata',
   };
+  if (realmNullHash) {
+    const realmWallet = Object.create(
+      RealmSchemaWallet.prototype,
+    ) as RealmSchemaWallet;
+    const { nextIds: _nextIds, ...fields } = wallet;
+    Object.assign(realmWallet, fields, { hash: null });
+    // Realm native engine is not loaded; use the production schema's raw
+    // record projection with exactly the value native stores for string?.
+    expect(RealmSchemaWallet.schema.properties.hash).toBe('string?');
+    wallet = realmWallet.record;
+    expect(wallet.hash).toBeNull();
+  }
   const changeHistory = new SimpleDbEntityChangeHistory();
   let historyValue: string | null = null;
   changeHistory.appStorage = {
@@ -188,6 +201,11 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
 
 test.each([
   'valid',
+  'realm-null-hash',
+  'realm-omitted-wire-hash',
+  'realm-concrete-wire-hash',
+  'realm-empty-wire-hash',
+  'realm-concrete-old-hash',
   'name-race',
   'avatar-race',
   'device-race',
@@ -203,11 +221,27 @@ test.each([
   'stale-old-cache',
   'malformed-avatar',
 ] as const)('strict newer authenticated Wallet scene: %s', async (scenario) => {
-  const { previous, wallet, walletManager, changeHistory, row } =
-    await fixture('hw');
+  const { previous, wallet, walletManager, changeHistory, row } = await fixture(
+    'hw',
+    scenario.startsWith('realm-'),
+  );
   const old = JSON.parse(previous.rawData ?? '') as ICloudSyncRawDataJson;
   if (old.dataType !== EPrimeCloudSyncDataType.Wallet)
     throw new OneKeyLocalError('Missing synthetic Wallet payload');
+  if (scenario.startsWith('realm-')) expect(old.payload.walletHash).toBeNull();
+  if (scenario === 'realm-concrete-old-hash') {
+    previous.rawData = cloudSyncItemBuilder.buildRawDataString({
+      ...old,
+      payload: { ...old.payload, walletHash: 'other-retained-wallet-hash' },
+    });
+    await mockDb.updateSyncItem({
+      ids: [row.key],
+      updater: (item) => {
+        item.rawData = previous.rawData;
+        return item;
+      },
+    });
+  }
   const avatar = { img: 'bear' } as const;
   const name = 'Renamed after hardware re-sign';
   if (scenario === 'equal-version') row.dataTimestamp = previous.dataTime;
@@ -233,12 +267,18 @@ test.each([
     jest
       .spyOn(changeHistory.appStorage, 'setItem')
       .mockRejectedValueOnce(new Error('Synthetic storage write rejected'));
+  let incomingHash = old.payload.walletHash;
+  if (scenario === 'realm-omitted-wire-hash') incomingHash = undefined;
+  if (scenario === 'realm-concrete-wire-hash')
+    incomingHash = 'other-wallet-hash';
+  if (scenario === 'realm-empty-wire-hash') incomingHash = '';
   const replacement = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
     key: row.key,
     rawDataJson: {
       ...old,
       payload: {
         ...old.payload,
+        walletHash: incomingHash,
         name,
         avatar:
           scenario === 'malformed-avatar'
@@ -378,7 +418,11 @@ test.each([
     historyRelease.resolve();
     await changeHistory.mutex.runExclusive(() => true);
   }
-  if (scenario !== 'valid') {
+  if (
+    scenario !== 'valid' &&
+    scenario !== 'realm-null-hash' &&
+    scenario !== 'realm-omitted-wire-hash'
+  ) {
     const expected = { ...wallet };
     if (scenario === 'name-race') expected.name = 'Just edited locally';
     if (scenario === 'avatar-race')
