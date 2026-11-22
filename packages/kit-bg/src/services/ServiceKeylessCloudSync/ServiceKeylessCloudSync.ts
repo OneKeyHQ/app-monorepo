@@ -2377,11 +2377,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
           dekId: session.dekId,
           pwdHash: credential.pwdHash,
         },
-        // Preflight opaque local ciphertext before replacing the server key.
+        // Preflight every local ciphertext the old key must re-encrypt.
         // Commit re-reads local data so edits during the reset are preserved.
-        localItems: items.filter(
-          (item) => !isSupportedCloudSyncDataType(item.dataType),
-        ),
+        localItems: items,
         isCurrent: isRotationCurrent,
         flushSignal: endpointAbort.signal,
         beforeFlush,

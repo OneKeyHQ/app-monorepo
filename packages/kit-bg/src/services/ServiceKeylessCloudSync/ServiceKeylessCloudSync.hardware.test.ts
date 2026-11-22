@@ -31,6 +31,7 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 import ServicePassword from '../ServicePassword';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 import ServicePrimeCloudSync from '../ServicePrimeCloudSync/ServicePrimeCloudSync';
 
 import * as hardwareMigration from './hardwareCloudSyncMigration';
@@ -5165,6 +5166,140 @@ describe('hardware reset session and local data races', () => {
     expect(mockStored.pwdHash).toBe(next.pwdHash);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
+
+  test.each(['healthy', 'unreadable-local'] as const)(
+    'own reset preflights the required local ciphertext even with a valid server copy: %s',
+    async (scenario) => {
+      const { service, backgroundApi, getClient } = setup();
+      const actual = jest.requireActual<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      const origin = 'https://prime.example.invalid';
+      const original = {
+        ...current,
+        encryptionKey: 'a1'.repeat(32),
+        hardwareSession: {
+          ...session,
+          dekId: '12'.repeat(16),
+          boundBaseURL: origin,
+          deviceKeyJwk: actual.createHardwareCloudSyncDeviceKey(),
+        },
+      };
+      const id = 'ordinary-wallet';
+      const dataType = EPrimeCloudSyncDataType.Wallet;
+      const validData = await keylessCloudSyncUtils.encryptWithKeylessKey({
+        rawData: '{"dataType":"Wallet","name":"Fixture"}',
+        encryptionKey: original.encryptionKey,
+        itemId: id,
+        dataType,
+      });
+      const wallet = {
+        ...unknownItem,
+        id,
+        dataType,
+        data:
+          scenario === 'healthy'
+            ? validData
+            : await keylessCloudSyncUtils.encryptWithKeylessKey({
+                rawData: '{"dataType":"Wallet","name":"Fixture"}',
+                encryptionKey: 'b2'.repeat(32),
+                itemId: id,
+                dataType,
+              }),
+      };
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockResolvedValue(
+        {
+          items: [
+            wallet,
+            { ...wallet, id: 'foreign-wallet', pwdHash: 'other' },
+          ],
+        },
+      );
+      const lock = {
+        data: JSON.stringify({
+          dekId: original.hardwareSession.dekId,
+          generation: 1,
+          kekVersion: 1,
+          kekSalt: 'cd'.repeat(16),
+          wrappedDek: 'fixture-envelope',
+        }),
+      };
+      const serverData = [
+        { key: id, dataType, data: validData, dataTimestamp: 100 },
+      ];
+      const adapter = jest.fn(async (config: InternalAxiosRequestConfig) => ({
+        data: {
+          code: 0,
+          message: 'success',
+          data: { lock, nonce: 8, serverData },
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+        request: { responseURL: origin + config.url },
+      }));
+      getClient.mockResolvedValue(axios.create({ baseURL: origin, adapter }));
+      jest
+        .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+        .mockResolvedValue(true);
+      mockStored = original;
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(async ({ unlock }) => {
+          await unlock({
+            credentialId: original.keylessWalletId,
+            signAuth: async () => 'fixture-signature',
+            deriveKek: async () => 'c3'.repeat(32),
+          });
+          return { credential: original, source };
+        });
+      jest
+        .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
+        .mockImplementationOnce(actual.rotateHardwareCloudSyncDataKey);
+      if (scenario === 'healthy') {
+        jest
+          .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+          .mockImplementationOnce(actual.reencryptHardwareCloudSyncItems);
+      }
+      const pool = jest
+        .spyOn(localDb, 'updateSyncItem')
+        .mockImplementationOnce(async ({ updater }) => {
+          expect(mockStored?.pendingDataKey).toBeDefined();
+          await updater(wallet);
+        });
+
+      const reset = service.resetHardwareCloudSyncKey({ connectId });
+      if (scenario === 'unreadable-local') {
+        await expect(reset).rejects.toThrow();
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+        expect(pool).not.toHaveBeenCalled();
+        expect(adapter.mock.calls.map(([config]) => config.url)).toEqual([
+          '/prime/v1/sync/lock',
+          '/prime/v1/sync/check',
+        ]);
+        return;
+      }
+      await expect(reset).resolves.toBeUndefined();
+      expect(adapter.mock.calls.map(([config]) => config.url)).toEqual([
+        '/prime/v1/sync/lock',
+        '/prime/v1/sync/check',
+        '/prime/v1/sync/download',
+        '/prime/v1/sync/flush',
+      ]);
+      const sent = JSON.parse(adapter.mock.calls[3][0].data as string) as {
+        localData: Array<{ key: string }>;
+      };
+      expect(sent.localData.map(({ key }) => key)).toEqual([
+        id,
+        expect.stringMatching(/^dek:/),
+      ]);
+      expect(pool).toHaveBeenCalledTimes(1);
+      expect(mockStored?.pwdHash).not.toBe(original.pwdHash);
+    },
+  );
 
   test.each([
     'success',
