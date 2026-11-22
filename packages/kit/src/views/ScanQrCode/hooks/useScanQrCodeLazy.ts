@@ -82,15 +82,24 @@ export default function useScanQrCodeLazy() {
                         tokens,
                         popNavigation,
                       },
-                      { navigation, clipboard, intl, scanRequestId },
+                      {
+                        navigation,
+                        clipboard,
+                        intl,
+                        scanRequestId,
+                        scanRouteKey: routeKey,
+                      },
                     );
                   } catch (error) {
                     // A transient parse failure retries the frame; an action error stays
                     // a dropped frame, as before. The page stays open for both.
                     if (isRetryableQrParseFailure(error))
                       return { retry: true };
-                    if (!isInvalidQrCodeError(error)) throw error;
-                    // The parse closed the scan page; end the scan with its error.
+                    if (
+                      !(error instanceof OneKeyErrorScanQrCodeCancel) &&
+                      !isInvalidQrCodeError(error)
+                    )
+                      throw error;
                     reject(error);
                     return {};
                   }

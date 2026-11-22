@@ -1,5 +1,8 @@
 import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorScanQrCodeCancel,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ERootRoutes,
@@ -95,6 +98,25 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetCurrentRoute.mockReset();
   mockGetRootState.mockReset();
+});
+
+it('cancels the old Lightning recipient scan without closing its replacement', async () => {
+  mockGetCurrentRoute.mockReturnValue({
+    key: 'new',
+    name: EScanQrCodeModalPages.ScanQrCodeStack,
+  });
+  mockParse.mockResolvedValueOnce({
+    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+    data: {},
+  });
+  await expect(
+    parseQRCodeWithDeps(
+      'lightning:alice@example.com',
+      { popNavigation: true, autoExecuteParsedAction: false },
+      { ...deps, scanRouteKey: 'old' },
+    ),
+  ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  expect(mockResetScanModalRoute).not.toHaveBeenCalled();
 });
 
 it('leaves a later screen alone when the no-account scan has already closed', async () => {

@@ -32,6 +32,7 @@ import type {
   IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -71,12 +72,19 @@ export type IParseQRCodeRuntimeDeps = {
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
+  scanRouteKey?: string;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
+  {
+    navigation,
+    clipboard,
+    intl,
+    scanRequestId,
+    scanRouteKey,
+  }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
@@ -106,9 +114,14 @@ export async function parseQRCodeWithDeps(
   const scanRoute = popNavigation
     ? rootNavigationRef.current?.getCurrentRoute()
     : undefined;
+  const scannerKey =
+    scanRouteKey ??
+    (scanRoute?.name === EScanQrCodeModalPages.ScanQrCodeStack
+      ? scanRoute.key
+      : undefined);
   const isScannerCurrent = () =>
-    scanRoute?.name !== EScanQrCodeModalPages.ScanQrCodeStack ||
-    rootNavigationRef.current?.getCurrentRoute()?.key === scanRoute.key;
+    !scannerKey ||
+    rootNavigationRef.current?.getCurrentRoute()?.key === scannerKey;
 
   const closeScanPage = async () => {
     if (popNavigation) {
@@ -154,6 +167,12 @@ export async function parseQRCodeWithDeps(
 
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
+    if (
+      result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
+      !isScannerCurrent()
+    ) {
+      throw new OneKeyErrorScanQrCodeCancel();
+    }
     if (
       result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
       (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
