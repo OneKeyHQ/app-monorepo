@@ -235,10 +235,16 @@ keep the single chart.
   the tick size changes; the background takes it from the page whose switch
   holds the market, or for the token the market is on, so a page another one
   took the market from cannot stop that page's subscriptions with a token of
-  its own. The order begun for the failed token is reset along with the
-  page, with the prices typed for it (a perp limit price starts from the
-  restored token's mid again), and its market data is cleared only while no
-  newer switch has started. A spot token the loaded spot markets do not list
+  its own. Such a page shows its own token while the price, sizes and
+  leverage in the shared atoms are the market's, so its order form is held
+  back until the market is on its token again
+  (`usePerpsOrderFormMarketDataFreshness`), and `submitOrder` takes an order
+  only while the asset, the quote and the size data are that token's
+  (`isPerpsOrderFormDataOfInstrument`). The order begun for the failed token
+  is reset along with the page, with the prices typed for it (a perp limit
+  price starts from the restored token's mid again), and its market data is
+  cleared only while no newer switch has started. A spot token the loaded
+  spot markets do not list
   is no switch at all: the page stays where it is, and a switch on its way
   still lands, as the spot token is looked up before its switch begins. The
   same-token shortcuts need the asset's metadata, so a coin whose loading a

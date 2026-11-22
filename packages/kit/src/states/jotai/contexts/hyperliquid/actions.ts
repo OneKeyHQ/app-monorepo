@@ -7,6 +7,7 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { isPerpsOrderFormDataOfInstrument } from '@onekeyhq/kit/src/views/Perp/utils/perpsMarketDataFreshness';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
@@ -145,6 +146,7 @@ import {
   getPerpsActiveAccountChangedMessage,
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
+  getPerpsTargetMarketDataChangedMessage,
   getPerpsTokenInfoNotFoundMessage,
   getPerpsTradingNotEnabledMessage,
 } from './utils/config';
@@ -3558,6 +3560,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         throw new OneKeyLocalError(
           'Trading market changed. Please review and submit again.',
         );
+      }
+      // The order takes this token's asset with the price and sizes of the
+      // market the background holds, which another page can have moved to
+      // another token, e.g. an extension tab that took the market: the asset,
+      // the quote and the size data must all be this token's.
+      if (!(await isPerpsOrderFormDataOfInstrument(submitInstrument))) {
+        throw new OneKeyLocalError(getPerpsTargetMarketDataChangedMessage());
       }
       const tradingMode = submitInstrument.mode;
 

@@ -1649,6 +1649,63 @@ describe('useHyperliquidActions.loadTwapData', () => {
     },
   );
 
+  it.each([
+    ['its own token', 'BTC', true],
+    ['another token', 'SOL', false],
+  ] as const)(
+    'submits an order only while the market the background holds is on %s',
+    async (_label, marketCoin, isSubmitted) => {
+      // As after another extension tab took the market: the page still shows
+      // BTC, while the price and sizes in the shared atoms are SOL's.
+      jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
+      jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+        coin: marketCoin,
+        assetId: marketCoin === 'BTC' ? 0 : 5,
+        universe: undefined,
+        margin: undefined,
+      });
+      jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+      jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+      jest.spyOn(spotActiveAssetAtom, 'get').mockResolvedValue({
+        coin: '',
+        assetId: undefined,
+        universe: undefined,
+      });
+      jest.spyOn(spotActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+      mockGetTwapStates.mockResolvedValue(undefined);
+      const { store, result } = setup();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+      });
+      store.set(tradingFormEnvAtom(), { markPrice: '100', szDecimals: 3 });
+      mockPlaceTwapOrder.mockClear().mockResolvedValue({ status: 'ok' });
+
+      let failure: unknown;
+      await act(async () => {
+        try {
+          await result.current.current.submitOrder({
+            assetId: 0,
+            price: '100',
+            formData: {
+              ...store.get(tradingFormAtom()),
+              orderMode: 'twap',
+              size: '1',
+              twapDurationMinutes: '5',
+            },
+          });
+        } catch (error) {
+          failure = error;
+        }
+      });
+
+      expect(mockPlaceTwapOrder).toHaveBeenCalledTimes(isSubmitted ? 1 : 0);
+      expect(failure === undefined).toBe(isSubmitted);
+    },
+  );
+
   it.each(['102', undefined])(
     'keeps spot sizing at mid and forwards the current mark: %s',
     async (markPrice) => {
