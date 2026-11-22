@@ -429,8 +429,11 @@ describe('PrimeLoginOAuthDialog', () => {
       .mockImplementation((params) => params);
     const view = render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
     const lateEmailChange = mockFirstEmailChange.current;
+    expect(lateEmailChange).toBeDefined();
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
     view.unmount();
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    // The email dialog's late callback does not log this close again.
     act(() => lateEmailChange?.('a@example.com'));
     expect(popoverClose).toHaveBeenCalledTimes(1);
     popoverClose.mockRestore();
