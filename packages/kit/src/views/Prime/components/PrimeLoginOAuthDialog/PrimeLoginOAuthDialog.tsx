@@ -123,6 +123,8 @@ function PrimeLoginOAuthDialog(props: {
   useEffect(
     () => () => {
       if (usagePanelRef.current !== 'closed') {
+        // A late email callback must not log this close again.
+        usagePanelRef.current = 'closed';
         defaultLogger.ui.popover.popoverClose({
           trackId: ONEKEY_ID_USAGE_TRACK_ID,
         });

@@ -428,8 +428,10 @@ describe('PrimeLoginOAuthDialog', () => {
       .spyOn(defaultLogger.ui.popover, 'popoverClose')
       .mockImplementation((params) => params);
     const view = render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const lateEmailChange = mockFirstEmailChange.current;
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
     view.unmount();
+    act(() => lateEmailChange?.('a@example.com'));
     expect(popoverClose).toHaveBeenCalledTimes(1);
     popoverClose.mockRestore();
   });
