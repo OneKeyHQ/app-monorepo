@@ -27,6 +27,7 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -106,7 +107,6 @@ import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
-import { getPerpTabRoute } from '../utils/perpTabRoute';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
 import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
@@ -145,6 +145,20 @@ const LazyExtPrimeSubscriptionHandoffOnMount =
         return { default: ExtPrimeSubscriptionHandoffOnMount };
       })
     : null;
+
+// The Perps tab the sidebar shows for the current config, read when the
+// shortcut acts; undefined when Perps is disabled. Same rule as
+// usePerpTabConfig and the Perps app link.
+async function getPerpTabRoute() {
+  const { perpConfigCommon, perpConfigLoaded } =
+    await perpsCommonConfigPersistAtom.get();
+  if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
+    return undefined;
+  }
+  return perpConfigCommon?.usePerpWeb
+    ? ETabRoutes.WebviewPerpTrade
+    : ETabRoutes.Perp;
+}
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {

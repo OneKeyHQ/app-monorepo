@@ -67,7 +67,6 @@ const unrelatedModules = [
   '../hooks/useOnLock',
   '../hooks/useRunAfterTokensDone',
   '../hooks/useTrayDataProvider',
-  '../utils/perpTabRoute',
   './preloadComponents',
   './showAboutDialog',
   './useIPadMainMenu',

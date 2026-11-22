@@ -23719,7 +23719,6 @@
     "packages/kit/src/utils/onboardingEntryGate.ts": 21338,
     "packages/kit/src/utils/passphraseUtils.ts": 4864,
     "packages/kit/src/utils/passwordUtils.ts": 4082,
-    "packages/kit/src/utils/perpTabRoute.ts": 17613,
     "packages/kit/src/utils/privacyChainEndpointLabel.ts": 16749,
     "packages/kit/src/utils/privacyChainSlotsFullDialog.tsx": 17151,
     "packages/kit/src/utils/privacyChainSyncDisplay.ts": 23025,
