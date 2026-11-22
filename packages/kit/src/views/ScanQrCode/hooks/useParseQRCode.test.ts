@@ -100,24 +100,33 @@ beforeEach(() => {
   mockGetRootState.mockReset();
 });
 
-it('cancels the old Lightning recipient scan without closing its replacement', async () => {
-  mockGetCurrentRoute.mockReturnValue({
-    key: 'new',
-    name: EScanQrCodeModalPages.ScanQrCodeStack,
-  });
-  mockParse.mockResolvedValueOnce({
-    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-    data: {},
-  });
-  await expect(
-    parseQRCodeWithDeps(
-      'lightning:alice@example.com',
-      { popNavigation: true, autoExecuteParsedAction: false },
-      { ...deps, scanRouteKey: 'old' },
-    ),
-  ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
-  expect(mockResetScanModalRoute).not.toHaveBeenCalled();
-});
+it.each([
+  [false, EQRCodeHandlerType.LIGHTNING_NETWORK],
+  [false, EQRCodeHandlerType.UNKNOWN],
+  [true, EQRCodeHandlerType.UNKNOWN],
+])(
+  'cancels a replaced Lightning scan in automatic mode %s with result %s',
+  async (autoExecuteParsedAction, type) => {
+    mockGetCurrentRoute.mockReturnValue({
+      key: 'new',
+      name: EScanQrCodeModalPages.ScanQrCodeStack,
+    });
+    mockParse.mockResolvedValueOnce({
+      type,
+      data: {},
+    });
+    await expect(
+      parseQRCodeWithDeps(
+        'lightning:alice@example.com',
+        { popNavigation: true, autoExecuteParsedAction },
+        { ...deps, scanRouteKey: 'old' },
+      ),
+    ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+    expect(resetAboveMainRoute).not.toHaveBeenCalled();
+    expect(Dialog.confirm).not.toHaveBeenCalled();
+  },
+);
 
 it('leaves a later screen alone when the no-account scan has already closed', async () => {
   mockGetCurrentRoute.mockReturnValueOnce({
@@ -129,11 +138,13 @@ it('leaves a later screen alone when the no-account scan has already closed', as
     type: EQRCodeHandlerType.LIGHTNING_NETWORK,
     data: {},
   });
-  await parseQRCodeWithDeps(
-    'scanned payment code',
-    { popNavigation: true, autoExecuteParsedAction: true },
-    deps,
-  );
+  await expect(
+    parseQRCodeWithDeps(
+      'scanned payment code',
+      { popNavigation: true, autoExecuteParsedAction: true },
+      deps,
+    ),
+  ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
   expect(resetAboveMainRoute).not.toHaveBeenCalled();
   expect(Dialog.confirm).not.toHaveBeenCalled();
 });

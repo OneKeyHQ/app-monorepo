@@ -48,6 +48,7 @@ import {
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { hasLightningUriScheme } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -165,14 +166,16 @@ export async function parseQRCodeWithDeps(
     throw error;
   }
 
+  if (
+    (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK ||
+      hasLightningUriScheme(value)) &&
+    !isScannerCurrent()
+  ) {
+    throw new OneKeyErrorScanQrCodeCancel();
+  }
+
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
-    if (
-      result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
-      !isScannerCurrent()
-    ) {
-      throw new OneKeyErrorScanQrCodeCancel();
-    }
     if (
       result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
       (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
