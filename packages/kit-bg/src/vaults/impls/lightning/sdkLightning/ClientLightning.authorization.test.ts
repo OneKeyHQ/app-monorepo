@@ -422,6 +422,43 @@ describe('Lightning read authorization without wallet interaction', () => {
     }
   });
 
+  test('keeps a date-only Retry-After deadline when a fast server estimate is corrected', async () => {
+    const { client, get } = harness();
+    const time = 1_900_000_000_000;
+    const failure = Object.assign(
+      new OneKeyServerApiError({ httpStatusCode: 429 }),
+      { retryAfter: new Date(time + 60_000).toUTCString() },
+    );
+    get.mockRejectedValueOnce(failure);
+    jest.useFakeTimers({ now: time });
+    const clock = jest
+      .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+      .mockReturnValue(time + 30_000);
+    try {
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      jest.advanceTimersByTime(30_000);
+      clock.mockReturnValue(time + 30_000);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(29_999);
+      clock.mockReturnValue(time + 59_999);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(1);
+      clock.mockReturnValue(time + 60_000);
+      await expect(
+        Promise.all([
+          client.decodedInvoice('lnbc123'),
+          client.decodedInvoice('LIGHTNING:LNBC123'),
+        ]),
+      ).resolves.toEqual([true, true]);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   test('keeps an absolute Retry-After deadline without trusting a fast local clock', async () => {
     const { client, get } = harness();
     const serverTime = 1_900_000_000_000;

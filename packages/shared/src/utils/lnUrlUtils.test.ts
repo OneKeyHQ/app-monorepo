@@ -375,6 +375,23 @@ it('preserves a complete Bech32 recipient when a wrapped duplicate or corrupt co
   }
 });
 
+it.each(['\n  ', '\r\n\t', ' \u2028\t', '\n \n  '])(
+  'checks the checksum of a folded Bech32 LNURL with horizontal indentation',
+  (fold) => {
+    const wrapped = `${LNURL.slice(0, 32)}${fold}${LNURL.slice(32)}`;
+    const uri = 'lnurlp://merchant.example/checkout?order=12';
+    expect(parseReusableLightningRecipient(`<${uri}>; <${wrapped}>`)).toEqual({
+      kind: 'ambiguous',
+    });
+    expect(parseReusableLightningRecipient(`<${LNURL}>; <${wrapped}>`)).toEqual(
+      { kind: 'recipient', address: LNURL },
+    );
+    expect(
+      parseReusableLightningRecipient(`<${uri}>; <${wrapped.slice(0, -1)}q>`),
+    ).toEqual({ kind: 'recipient', address: uri });
+  },
+);
+
 it('recognizes equivalent protocol URLs and Bech32 links without merging distinct LNURL actions', () => {
   const pay = 'lnurlp://merchant.example/Pay?order=12';
   const withdraw = 'lnurlw://merchant.example/Pay?order=12';

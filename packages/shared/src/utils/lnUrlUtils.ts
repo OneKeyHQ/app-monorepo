@@ -108,9 +108,9 @@ const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_SCHEME_WITH_LINE_BREAKS =
   /l[\r\n\u2028\u2029]*n[\r\n\u2028\u2029]*u[\r\n\u2028\u2029]*r[\r\n\u2028\u2029]*l[\r\n\u2028\u2029]*[pwc][\r\n\u2028\u2029]*:/gi;
 const LNURL_BECH32_WRAP_START =
-  /(?:^|[\s<("':：;；])(?:lightning:(?:\/\/)?)?(lnurl1[02-9ac-hj-np-z]*)(?=[\r\n\u2028\u2029])/gi;
+  /(?:^|[\s<("':：;；])(?:lightning:(?:\/\/)?)?(lnurl1[02-9ac-hj-np-z]*)(?=[ \t]*[\r\n\u2028\u2029])/gi;
 const LNURL_BECH32_WRAP_CONTINUATION =
-  /(?:\r\n?|[\n\u2028\u2029])([02-9ac-hj-np-z]+)(?=$|[\s>)"'.,!?，。！？;；])/iy;
+  /(?:[ \t]*[\r\n\u2028\u2029])+[ \t]*([02-9ac-hj-np-z]+)(?=$|[\s>)"'.,!?，。！？;；])/iy;
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(\d+)\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;

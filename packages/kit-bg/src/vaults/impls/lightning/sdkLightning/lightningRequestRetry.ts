@@ -12,10 +12,10 @@ const maxUnanchoredRetryMs = timerUtils.getTimeDurationMs({ minute: 5 });
 export type ILightningRetryDeadline = {
   monotonicAt: number;
   wallAt: number;
-  serverAt?: number;
-  uptimeAt?: number;
-  unanchoredUntil?: number;
-};
+} & (
+  | { absoluteAt?: undefined; uptimeAt?: number }
+  | { absoluteAt: number; serverAt: number; unanchoredUntil?: number }
+);
 
 export async function getLightningRetryDeadline(
   error: unknown,
@@ -53,6 +53,7 @@ export async function getLightningRetryDeadline(
   }
   return {
     ...deadline,
+    absoluteAt,
     // A corrected server estimate must still honor the absolute header.
     serverAt:
       serverTime === undefined
@@ -67,7 +68,7 @@ export async function isLightningRetryPending(
 ) {
   const monotonicNow = performance.now();
   const elapsed = monotonicNow >= deadline.monotonicAt;
-  if (deadline.serverAt === undefined) {
+  if (deadline.absoluteAt === undefined) {
     if (elapsed) return false;
     if (deadline.uptimeAt === undefined || Date.now() < deadline.wallAt) {
       return true;
@@ -79,10 +80,12 @@ export async function isLightningRetryPending(
     );
   }
   const { unanchoredUntil } = deadline;
-  if (unanchoredUntil !== undefined) {
-    if (!elapsed) return true;
-  } else if (elapsed) return false;
+  if (unanchoredUntil !== undefined && !elapsed) return true;
   let serverTime = systemTimeUtils.getContinuousEstimatedServerTime();
+  if (elapsed && unanchoredUntil === undefined) {
+    // The monotonic timer can expire first if its estimate was corrected back.
+    return serverTime !== undefined && serverTime < deadline.absoluteAt;
+  }
   // Only a trusted clock can shorten the monotonic backoff after suspend.
   const shouldRefreshTime =
     unanchoredUntil === undefined
