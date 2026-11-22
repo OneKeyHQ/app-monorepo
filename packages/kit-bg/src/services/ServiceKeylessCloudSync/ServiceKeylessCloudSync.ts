@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
-  HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -63,11 +62,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
-import {
-  isRetainedHardwareCloudCopy,
-  isSupportedCloudSyncDataType,
-  isUnverifiedPendingHardwareWalletCopy,
-} from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -838,10 +833,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const { source, credential } = derived;
     const {
       commitHardwareCloudSyncLocalRecovery,
-      hasPendingDeletionFromPreviousHardwareKey,
-      prepareHardwareCloudSyncLocalRecovery,
+      prepareHardwareResign,
       recoverVerifiedWalletCaches,
-      logRestoreKeyCompatibility,
       makeWalletRecoveryEpoch,
     } = await import('./hardwareCloudSyncRecovery');
     assertCurrent();
@@ -897,109 +890,29 @@ class ServiceKeylessCloudSync extends ServiceBase {
                   source.credentialId,
                 )
               : null;
-          // Records under an earlier data key of this wallet (another device
-          // reset it) are rebuilt with the current one.
-          const knownPwdHashes = new Set([
-            credential.pwdHash,
-            ...previousPwdHashes,
-          ]);
-          const previousPwdHashesForSource = new Set(previousPwdHashes);
-          if (existing?.pwdHash) {
-            previousPwdHashesForSource.add(existing.pwdHash);
-          }
-
-          // A pending removal cannot use the new key to authenticate its old
-          // ciphertext. Keep the original credential and snapshot intact.
-          if (
-            hasPendingDeletionFromPreviousHardwareKey({
+          const { recoveredItems, restoresRotatedHardwareKey } =
+            await prepareHardwareResign({
               items,
-              currentPwdHash: credential.pwdHash,
-              previousPwdHashes: previousPwdHashesForSource,
-            })
-          ) {
-            throw new HardwareCloudSyncError(
-              ETranslations.cloud_sync_data_changed_during_key_change__msg,
-              'Sync pending account deletions with the original Cloud key before changing the encryption key.',
-            );
-          }
-          const restoresRotatedHardwareKey =
-            !rebuildsLocalItemsNow &&
-            current.hardwareCloudSyncKeySource?.credentialId ===
-              source.credentialId &&
-            credential.pwdHash.startsWith(
-              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
-            );
-          const recoveredItems = restoresRotatedHardwareKey
-            ? await prepareHardwareCloudSyncLocalRecovery({
-                items,
-                knownPwdHashes,
-                syncCredential: this.buildSyncCredentialWithKeylessCredential({
+              previousPwdHashes,
+              existing,
+              credential,
+              rebuildsLocalItemsNow,
+              sameSelectedSource:
+                current.hardwareCloudSyncKeySource?.credentialId ===
+                source.credentialId,
+              sameSelectedWallet:
+                current.currentCloudSyncKeylessWalletId === source.credentialId,
+              makeCredential: () =>
+                this.buildSyncCredentialWithKeylessCredential({
                   ...credential,
                   source,
                 }),
-                loadAuthoritativeItems: (opaqueCopies) =>
-                  this.backgroundApi.servicePrimeCloudSync.buildHardwareRestoreWalletAccountItems(
-                    this.buildSyncCredentialWithKeylessCredential({
-                      ...credential,
-                      source,
-                    }),
-                    opaqueCopies,
-                  ),
-              })
-            : [];
-          const recoveredIds = new Set(
-            recoveredItems.map((item) => item.original.id),
-          );
-          const canSkipUnverifiedPendingWallet =
-            restoresRotatedHardwareKey &&
-            current.currentCloudSyncKeylessWalletId === source.credentialId;
-          const localItemKeyMismatch = (item: IDBCloudSyncItem) =>
-            !!item.pwdHash &&
-            !(
-              item.dataType === EPrimeCloudSyncDataType.Lock &&
-              keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
-            ) &&
-            !knownPwdHashes.has(item.pwdHash) &&
-            !recoveredIds.has(item.id) &&
-            !(
-              restoresRotatedHardwareKey &&
-              isRetainedHardwareCloudCopy(item, credential.pwdHash)
-            ) &&
-            !(
-              canSkipUnverifiedPendingWallet &&
-              isUnverifiedPendingHardwareWalletCopy(item)
-            );
-          const existingHashRecoverable =
-            restoresRotatedHardwareKey &&
-            existing?.pwdHash.startsWith(
-              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
-            ) &&
-            !existing.signingPublicKey;
-          logRestoreKeyCompatibility(
-            items,
-            knownPwdHashes,
-            recoveredItems.length,
-            rebuildsLocalItemsNow,
-            existing,
-            credential,
-            localItemKeyMismatch,
-            existingHashRecoverable,
-          );
-          // Same-source recovery can rebuild readable hardware business rows
-          // without complete server key history. Opaque and foreign records
-          // still require their original key checks.
-          if (
-            (!rebuildsLocalItemsNow && items.some(localItemKeyMismatch)) ||
-            (existing &&
-              ((!knownPwdHashes.has(existing.pwdHash) &&
-                !existingHashRecoverable) ||
-                existing.signingPublicKey !== credential.signingPublicKey))
-          ) {
-            throw new HardwareCloudSyncError(
-              ETranslations.cloud_sync_hardware_different_key__msg,
-              "This hardware wallet can't unlock your synced data. Your existing data has been kept.",
-            );
-          }
+              loadAuthoritativeItems: (syncCredential, opaqueCopies) =>
+                prime.buildHardwareRestoreWalletAccountItems(
+                  syncCredential,
+                  opaqueCopies,
+                ),
+            });
           assertCurrent();
           this.hardwareCloudKeyCommitting = true;
           await keylessSyncCredentialStorage.saveCredential({
