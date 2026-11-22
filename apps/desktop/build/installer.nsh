@@ -149,6 +149,12 @@ Var OneKeyModernIsInner
   !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
     !insertmacro OneKeyRecoveryReadJournal 0x80000001 "${ONEKEY_RECOVERY_JOURNAL_KEY}" $2
     !insertmacro OneKeyRecoveryReadJournal 0x80000002 "${ONEKEY_RECOVERY_JOURNAL_KEY}" $3
+    ${If} $2 == "0"
+      !insertmacro OneKeyRecoveryReadJournalValue 0x80000001 "${ONEKEY_RECOVERY_JOURNAL_KEY}" UninstallTransactionV1 $2
+    ${EndIf}
+    ${If} $3 == "0"
+      !insertmacro OneKeyRecoveryReadJournalValue 0x80000002 "${ONEKEY_RECOVERY_JOURNAL_KEY}" UninstallTransactionV1 $3
+    ${EndIf}
   !endif
 
   ${If} $OneKeyModernPerUserDirectory != ""
@@ -621,7 +627,6 @@ FunctionEnd
     !macroend
 
     !macro customValidateUninstallTarget
-      !insertmacro OneKeyRecoveryLockUninstall
       ${If} $installMode == "all"
         !insertmacro OneKeyRecoveryGuardInitiatingUser
       ${EndIf}
@@ -672,17 +677,6 @@ FunctionEnd
       !insertmacro UAC_AsUser_Call Function un.OneKeyUnregisterUserProtocols 0
     ${EndIf}
   !macroend
-
-  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
-    !macro customUninstallDone
-      # A successfully removed enrolled directory can remain delete-pending.
-      ${If} $oneKeyEnrolledUninstall == 1
-      ${OrIfNot} ${FileExists} "$INSTDIR"
-        DeleteRegValue SHELL_CONTEXT "${ONEKEY_RECOVERY_JOURNAL_KEY}" InventoryEnrolledV1
-        ClearErrors
-      ${EndIf}
-    !macroend
-  !endif
 
   !macro customHeader
     !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
@@ -1140,13 +1134,14 @@ FunctionEnd
   # Embedded 7z extraction is cancellable because it only writes temporary
   # files. Lock cancellation before old-version removal and the final copy.
   !macro customInstallBeforeRemoveOldVersion
-    ${If} $OneKeyModernUiActive == "1"
-      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
-        ${AndIf} $OneKeyRecoveryState != "published"
-      !endif
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${If} $OneKeyRecoveryState != "published"
+    !endif
+      # Web, directory, and ZIP packages follow the builder extraction paths.
       !ifndef APP_BUILD_DIR
         !ifndef APP_PACKAGE_URL
           !ifndef ZIP_COMPRESSION
+            ClearErrors
             !ifdef COMPRESS
               SetCompress off
             !endif
@@ -1182,37 +1177,34 @@ FunctionEnd
               SetCompress "${COMPRESS}"
             !endif
 
-            Push $OUTDIR
-            ClearErrors
             CreateDirectory "$PLUGINSDIR\7z-out"
-            ${If} ${Errors}
+            ${IfNot} ${Errors}
+              # Nsis7z ignores extraction failures. The 7za exit code catches
+              # archive and write failures before old-version removal.
+              nsExec::ExecToStack '"$PLUGINSDIR\onekey-7za.exe" x -y -o"$PLUGINSDIR\7z-out" "$PLUGINSDIR\app-$OneKeyModernPackageArch.7z"'
+              Pop $OneKeyModernResult
               Pop $0
-              SetOutPath $0
-              !insertmacro OneKeyModernRendererCall Shutdown ''
-              Pop $0
-              StrCpy $OneKeyModernUiActive "0"
-              ShowWindow $HWNDPARENT ${SW_SHOW}
+              ${If} $OneKeyModernResult == "0"
+                StrCpy $OneKeyModernPackagePrepared "1"
+              ${EndIf}
+            ${EndIf}
+            ${If} $OneKeyModernPackagePrepared != "1"
+              DetailPrint "OneKey Setup could not prepare the embedded application package."
+              ${If} $OneKeyModernUiActive == "1"
+                !insertmacro OneKeyModernRendererCall Shutdown ''
+                Pop $0
+                StrCpy $OneKeyModernUiActive "0"
+                ShowWindow $HWNDPARENT ${SW_SHOW}
+              ${EndIf}
+              SetErrorLevel 1
               Abort
             ${EndIf}
-            # Nsis7z ignores extraction failures; the existing 7za helper reports
-            # CRC and write errors before any old-version files are removed.
-            nsExec::ExecToStack '"$PLUGINSDIR\onekey-7za.exe" x -y -o"$PLUGINSDIR\7z-out" "$PLUGINSDIR\app-$OneKeyModernPackageArch.7z"'
-            Pop $OneKeyModernResult
-            Pop $0
-            Pop $0
-            SetOutPath $0
-            ${If} $OneKeyModernResult != "0"
-              !insertmacro OneKeyModernRendererCall Shutdown ''
-              Pop $0
-              StrCpy $OneKeyModernUiActive "0"
-              ShowWindow $HWNDPARENT ${SW_SHOW}
-              Abort
-            ${EndIf}
-            StrCpy $OneKeyModernPackagePrepared "1"
           !endif
         !endif
       !endif
-    ${EndIf}
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${EndIf}
+    !endif
 
     ${If} $OneKeyModernUiActive == "1"
     OneKeyModernPrepareCommit:
@@ -1234,6 +1226,12 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_SHOW}
         Abort
       ${EndIf}
+    ${EndIf}
+  !macroend
+
+  !macro customEmbedAppPackage
+    ${If} $OneKeyModernPackagePrepared != "1"
+      !insertmacro compute_files_for_current_arch
     ${EndIf}
   !macroend
 

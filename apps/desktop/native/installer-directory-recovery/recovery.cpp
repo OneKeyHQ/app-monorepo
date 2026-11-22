@@ -42,12 +42,14 @@ constexpr wchar_t kExecutable[] = L"OneKey.exe";
 constexpr wchar_t kInventory[] = L"OneKeyInstallerInventory.dll";
 constexpr wchar_t kEnrollment[] = L"InventoryEnrolledV1";
 constexpr wchar_t kRecord[] = L"TransactionV1";
+constexpr wchar_t kUninstallRecord[] = L"UninstallTransactionV1";
+constexpr wchar_t kPendingCleanup[] = L"PendingCleanupV1";
 constexpr size_t kPathCapacity = 1024;
 constexpr size_t kDigestLength = 64;
 constexpr size_t kInventoryLimit = 8 * 1024 * 1024;
 constexpr size_t kCarrierLimit = kInventoryLimit + 256 * 1024;
 
-enum Result { Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13 };
+enum Result { Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14 };
 enum class Phase : DWORD { Creating = 1, Staging, Swapping, Restoring, Promoted };
 
 struct Error {
@@ -256,6 +258,8 @@ struct Options {
   std::wstring oldInventory;
 #endif
   std::wstring newInventory;
+  std::wstring token;
+  std::wstring worker;
   DWORD ownerPid = 0;
   bool machine = false;
 #if defined(ONEKEY_RECOVERY_TEST)
@@ -290,6 +294,17 @@ Options parse(int argc, wchar_t** argv) {
   options.oldInventory = take(L"--old-inventory");
 #endif
   options.newInventory = take(L"--new-inventory");
+  options.token = take(L"--token");
+  options.worker = take(L"--worker");
+  const bool checkingWorker = options.command == L"verify-uninstall-worker";
+  if (checkingWorker && (options.worker.empty() || options.token.empty())) {
+    fail("uninstall worker path and token are required");
+  }
+  if (!checkingWorker && !options.worker.empty()) fail("unexpected uninstall worker path");
+  if (!options.token.empty() &&
+      ((!checkingWorker && options.command != L"uninstall-prepare") || !hex(options.token, 32))) {
+    fail("invalid uninstall recovery token");
+  }
   const auto pid = take(L"--owner-pid");
   if (!pid.empty()) {
     if (pid.find_first_not_of(L"0123456789") != std::wstring::npos) fail("invalid installer PID");
@@ -353,13 +368,17 @@ bool supportedTarget(const Options& options) {
 }
 
 std::wstring resolvedRegistration(const std::wstring& path) {
-  if (GetDriveTypeW(path.substr(0, 3).c_str()) != DRIVE_FIXED) {
-    fail("another scope's installation is not on a fixed local volume");
+  const auto drive = path.substr(0, 3);
+  wchar_t fs[16]{};
+  if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED ||
+      !GetVolumeInformationW(drive.c_str(), nullptr, 0, nullptr, nullptr, nullptr,
+                             fs, static_cast<DWORD>(std::size(fs))) ||
+      !equal(fs, L"NTFS")) {
+    fail("installation path must be on a fixed NTFS volume");
   }
   std::vector<Handle> directories;
   auto resolved = path;
-  for (size_t start = 3; start < path.size();) {
-    const auto end = std::min(path.size(), path.find(L'\\', start));
+  for (size_t end = 3;;) {
     const auto prefix = path.substr(0, end);
     auto directory = openPath(prefix, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
     if (directory.value == INVALID_HANDLE_VALUE) {
@@ -374,25 +393,78 @@ std::wstring resolvedRegistration(const std::wstring& path) {
     if (length < 7 || length >= std::size(actual) || std::wstring(actual, 4) != L"\\\\?\\") {
       fail("resolve another scope's installation path");
     }
-    resolved = canonical(std::wstring(actual + 4) + path.substr(end));
+    auto expanded = std::wstring(actual + 4);
+    if (end == 3 && expanded.back() != L'\\') expanded += L'\\';
+    resolved = canonical(expanded + path.substr(end));
     directories.push_back(std::move(directory));
-    start = end + 1;
+    if (end == path.size()) break;
+    end = std::min(path.size(), path.find(L'\\', end == 3 ? 3 : end + 1));
   }
   return resolved;
 }
 
+std::wstring registeredUninstallerPath(const std::wstring& command) {
+  if (command.empty() || command.front() != L'"') fail("expected a quoted registered uninstaller");
+  const auto close = command.find(L'"', 1);
+  if (close == std::wstring::npos ||
+      (close + 1 < command.size() && command[close + 1] != L' ')) {
+    fail("invalid registered uninstaller");
+  }
+  const auto executable = canonical(command.substr(1, close - 1));
+  const auto slash = executable.find_last_of(L'\\');
+  if (!equal(executable.substr(slash + 1), kUninstaller)) fail("unexpected registered uninstaller");
+  return canonical(executable.substr(0, slash));
+}
+
+struct Registration {
+  std::optional<std::wstring> path;
+  bool hasLocation = false;
+};
+
+Registration resolveRegistration(const Scope& scope) {
+  Registration registration;
+  auto add = [&](const std::wstring& path) {
+    const auto resolved = resolvedRegistration(path);
+    if (registration.path && !equal(*registration.path, resolved)) {
+      fail("inconsistent installation registration");
+    }
+    registration.path = resolved;
+  };
+  for (const auto view : {RRF_SUBKEY_WOW6464KEY, RRF_SUBKEY_WOW6432KEY}) {
+    const auto location = readString(scope.root, scope.install, L"InstallLocation", view);
+    if (location) {
+      add(canonical(*location));
+      registration.hasLocation = true;
+    }
+    for (const auto* name : {L"UninstallString", L"QuietUninstallString"}) {
+      const auto command = readString(scope.root, scope.uninstall, name, view);
+      if (command) add(registeredUninstallerPath(*command));
+    }
+  }
+  return registration;
+}
+
+bool hasRegistrationKeys(const Scope& scope) {
+  for (const auto view : {KEY_WOW64_64KEY, KEY_WOW64_32KEY}) {
+    for (const auto* name : {&scope.install, &scope.uninstall}) {
+      RegKey key;
+      const auto status = RegOpenKeyExW(scope.root, name->c_str(), 0,
+                                        KEY_QUERY_VALUE | view, &key.value);
+      if (status == ERROR_SUCCESS) return true;
+      if (!missing(static_cast<DWORD>(status))) checkReg(status, "verify registration removal");
+    }
+  }
+  return false;
+}
+
 void checkOtherScope(const Options& options, const std::wstring& staging = L"",
                      const std::wstring& backup = L"") {
-  const auto other = scopeFor(options, !options.machine);
-  for (const auto view : {RRF_SUBKEY_WOW6464KEY, RRF_SUBKEY_WOW6432KEY}) {
-    const auto location = readString(other.root, other.install, L"InstallLocation", view);
-    if (!location) continue;
-    const auto path = canonical(*location);
-    const auto resolved = resolvedRegistration(path);
-    for (const auto* candidate : {&options.target, &staging, &backup}) {
-      if (!candidate->empty() && (overlap(path, *candidate) || overlap(resolved, *candidate))) {
-        fail("other scope overlaps an installer directory");
-      }
+  const auto other = resolveRegistration(scopeFor(options, !options.machine));
+  if (!other.path) return;
+  for (const auto* candidate : {&options.target, &staging, &backup}) {
+    if (!candidate->empty() && (overlap(*other.path, *candidate) ||
+        overlap(*other.path, resolvedRegistration(*candidate)))) {
+      fail("other scope overlaps an installer directory");
     }
   }
 }
@@ -804,6 +876,28 @@ struct Record {
 
 constexpr DWORD kRecordMagic = 0x31524b4f;
 
+enum class CleanupKind : DWORD { Backup = 1, Uninstall };
+enum class UninstallPhase : DWORD { Intent = 1, Tombstoned };
+constexpr DWORD kCleanupMagic = 0x31434b4f;
+constexpr DWORD kUninstallMagic = 0x31554b4f;
+
+struct CleanupRecord {
+  DWORD magic;
+  CleanupKind kind;
+  Identity directory;
+  wchar_t target[kPathCapacity];
+  wchar_t token[33];
+  wchar_t release[64];
+  wchar_t inventory[kDigestLength + 1];
+};
+
+struct UninstallRecord {
+  DWORD magic;
+  UninstallPhase phase;
+  Owner owner;
+  CleanupRecord cleanup;
+};
+
 RegKey journalKey(const Scope& scope, bool create, REGSAM access) {
   RegKey key;
   if (create) {
@@ -832,39 +926,78 @@ void assign(wchar_t (&value)[N], const std::wstring& text) {
   value[text.size()] = L'\0';
 }
 
-std::optional<Record> load(const Scope& scope) {
+template <typename Entry>
+std::optional<Entry> loadEntry(const Scope& scope, const wchar_t* name) {
   auto key = journalKey(scope, false, KEY_QUERY_VALUE);
   if (!key.value) return std::nullopt;
-  Record record{};
-  DWORD type{};
-  DWORD bytes = sizeof(record);
-  const auto status = RegQueryValueExW(key.value, kRecord, nullptr, &type,
-                                       reinterpret_cast<BYTE*>(&record), &bytes);
+  Entry entry{};
+  DWORD type{}, bytes = sizeof(entry);
+  const auto status = RegQueryValueExW(key.value, name, nullptr, &type,
+                                       reinterpret_cast<BYTE*>(&entry), &bytes);
   if (missing(static_cast<DWORD>(status))) return std::nullopt;
-  checkReg(status, "read transaction record");
-  if (type != REG_BINARY || bytes != sizeof(record) || record.magic != kRecordMagic ||
-      record.phase < Phase::Creating || record.phase > Phase::Promoted ||
-      !hex(field(record.token), 32) || !safeRelease(field(record.oldRelease)) ||
-      !safeRelease(field(record.release)) || !hex(field(record.oldInventory), kDigestLength) ||
+  checkReg(status, "read recovery record");
+  if (type != REG_BINARY || bytes != sizeof(entry)) fail("invalid recovery record size");
+  return entry;
+}
+
+template <typename Entry>
+void saveEntry(const Scope& scope, const wchar_t* name, const Entry& entry) {
+  auto key = journalKey(scope, true, KEY_SET_VALUE);
+  checkReg(RegSetValueExW(key.value, name, 0, REG_BINARY,
+                          reinterpret_cast<const BYTE*>(&entry), sizeof(entry)),
+           "write recovery record");
+  checkReg(RegFlushKey(key.value), "flush recovery record");
+}
+
+void clearEntry(const Scope& scope, const wchar_t* name) {
+  auto key = journalKey(scope, false, KEY_SET_VALUE);
+  if (!key.value) return;
+  const auto status = RegDeleteValueW(key.value, name);
+  if (!missing(static_cast<DWORD>(status))) checkReg(status, "clear recovery record");
+  checkReg(RegFlushKey(key.value), "flush recovery record removal");
+}
+
+std::optional<Record> load(const Scope& scope) {
+  const auto entry = loadEntry<Record>(scope, kRecord);
+  if (!entry) return std::nullopt;
+  const auto& record = *entry;
+  if (record.magic != kRecordMagic || record.phase < Phase::Creating ||
+      record.phase > Phase::Promoted || !hex(field(record.token), 32) ||
+      !safeRelease(field(record.oldRelease)) || !safeRelease(field(record.release)) ||
+      !hex(field(record.oldInventory), kDigestLength) ||
       !hex(field(record.newInventory), kDigestLength)) {
     fail("invalid transaction record");
   }
-  return record;
+  return entry;
 }
 
 void save(const Scope& scope, const Record& record) {
-  auto key = journalKey(scope, true, KEY_SET_VALUE | KEY_QUERY_VALUE);
-  checkReg(RegSetValueExW(key.value, kRecord, 0, REG_BINARY,
-                          reinterpret_cast<const BYTE*>(&record), sizeof(record)),
-           "write transaction intent");
-  checkReg(RegFlushKey(key.value), "flush transaction intent");
+  saveEntry(scope, kRecord, record);
 }
 
 void clear(const Scope& scope) {
-  auto key = journalKey(scope, false, KEY_SET_VALUE | KEY_QUERY_VALUE);
-  if (!key.value) return;
-  checkReg(RegDeleteValueW(key.value, kRecord), "clear transaction record");
-  checkReg(RegFlushKey(key.value), "flush transaction completion");
+  clearEntry(scope, kRecord);
+}
+
+void checkCleanup(const CleanupRecord& entry) {
+  if (entry.magic != kCleanupMagic ||
+      (entry.kind != CleanupKind::Backup && entry.kind != CleanupKind::Uninstall) ||
+      !hex(field(entry.token), 32) || !safeRelease(field(entry.release)) ||
+      !hex(field(entry.inventory), kDigestLength) ||
+      !equal(field(entry.target), canonical(field(entry.target)))) {
+    fail("invalid pending cleanup record");
+  }
+}
+
+std::optional<UninstallRecord> loadUninstall(const Scope& scope) {
+  const auto record = loadEntry<UninstallRecord>(scope, kUninstallRecord);
+  if (record) {
+    checkCleanup(record->cleanup);
+    if (record->magic != kUninstallMagic || record->cleanup.kind != CleanupKind::Uninstall ||
+        (record->phase != UninstallPhase::Intent &&
+         record->phase != UninstallPhase::Tombstoned)) fail("invalid uninstall transaction");
+  }
+  return record;
 }
 
 bool enrolled(const Scope& scope) {
@@ -939,9 +1072,9 @@ bool sameOwner(const Owner& a, const Owner& b) {
   return a.pid == b.pid && CompareFileTime(&a.created, &b.created) == 0;
 }
 
-void lockTransaction(const Record& record, const Owner& caller) {
-  const auto previous = liveOwner(record.owner.pid);
-  if (previous && sameOwner(*previous, record.owner) && !sameOwner(*previous, caller)) {
+void lockTransaction(const Owner& recorded, const Owner& caller) {
+  const auto previous = liveOwner(recorded.pid);
+  if (previous && sameOwner(*previous, recorded) && !sameOwner(*previous, caller)) {
     fail("another installer is processing this transaction", ERROR_BUSY);
   }
 }
@@ -1007,6 +1140,204 @@ bool matches(const std::optional<Identity>& actual, const Identity& expected) {
   return actual && sameId(*actual, expected);
 }
 
+void printToken(const std::wstring& token) {
+  for (const auto ch : token) std::putchar(static_cast<char>(ch));
+  std::putchar('\n');
+}
+
+std::wstring cleanupPath(const CleanupRecord& entry) {
+  const auto suffix = entry.kind == CleanupKind::Backup ? L".old-" : L".uninstall-";
+  return field(entry.target) + suffix + field(entry.token);
+}
+
+void checkPendingCleanupTarget(const Options& options) {
+  for (const bool machine : {false, true}) {
+    const auto cleanup = loadEntry<CleanupRecord>(scopeFor(options, machine), kPendingCleanup);
+    if (!cleanup) continue;
+    checkCleanup(*cleanup);
+    auto recorded = options;
+    recorded.machine = machine;
+    recorded.target = field(cleanup->target);
+    if (!supportedTarget(recorded)) fail("unsupported pending cleanup target");
+    const auto path = cleanupPath(*cleanup);
+    // Resolve parent aliases without opening a replacement at the reserved sibling.
+    const auto slash = path.find_last_of(L'\\');
+    const auto reserved = resolvedRegistration(path.substr(0, slash)) + path.substr(slash);
+    if (overlap(options.target, path) ||
+        overlap(resolvedRegistration(options.target), reserved)) {
+      fail("selected directory overlaps pending installer cleanup");
+    }
+  }
+}
+
+CleanupRecord cleanupRecord(CleanupKind kind, const Identity& id, const std::wstring& target,
+                            const std::wstring& token, const std::wstring& release,
+                            const std::wstring& inventoryDigest) {
+  CleanupRecord result{};
+  result.magic = kCleanupMagic;
+  result.kind = kind;
+  result.directory = id;
+  assign(result.target, target);
+  assign(result.token, token);
+  assign(result.release, release);
+  assign(result.inventory, inventoryDigest);
+  return result;
+}
+
+void trackCleanup(const Scope& scope, const CleanupRecord& entry) {
+  if (const auto existing = loadEntry<CleanupRecord>(scope, kPendingCleanup)) {
+    checkCleanup(*existing);
+    if (existing->kind != entry.kind || !equal(field(existing->target), field(entry.target)) ||
+        field(existing->token) != field(entry.token) ||
+        field(existing->release) != field(entry.release) ||
+        field(existing->inventory) != field(entry.inventory) ||
+        !sameId(existing->directory, entry.directory)) {
+      fail("another installer cleanup is pending");
+    }
+  } else {
+    saveEntry(scope, kPendingCleanup, entry);
+  }
+}
+
+void eraseInventoryEntry(const std::wstring& path, const std::wstring& digest,
+                         const Sha256& sha, const Identity* expectedId = nullptr) {
+  const bool directory = digest == L"d";
+  auto entry = openPath(path, DELETE | FILE_READ_ATTRIBUTES | (directory ? 0 : GENERIC_READ),
+                        FILE_SHARE_READ);
+  if (entry.value == INVALID_HANDLE_VALUE) {
+    const auto error = GetLastError();
+    if (missing(error)) return;
+    fail("open verified cleanup entry", error);
+  }
+  if (directory) {
+    const auto id = directoryId(entry.value);
+    if (expectedId && !sameId(id, *expectedId)) fail("cleanup directory identity changed");
+  } else {
+    checkLooseFile(entry.value);
+    if (sha.read(entry.value) != digest) fail("cleanup file differs from signed inventory");
+  }
+  checkStreams(path);
+  FILE_DISPOSITION_INFO disposition{TRUE};
+  check(SetFileInformationByHandle(entry.value, FileDispositionInfo, &disposition,
+                                   sizeof(disposition)), "dispose verified cleanup entry");
+}
+
+void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha) {
+  const auto record = loadEntry<CleanupRecord>(scope, kPendingCleanup);
+  if (!record) return;
+  checkCleanup(*record);
+  auto targetOptions = options;
+  targetOptions.target = field(record->target);
+  if (!supportedTarget(targetOptions)) fail("unsupported cleanup target");
+  const auto path = cleanupPath(*record);
+  checkOtherScope(targetOptions, L"", path);
+  const auto parents = lockParents(path);
+  if (const auto id = directoryAt(path)) {
+    if (!sameId(*id, record->directory)) fail("cleanup directory identity changed");
+    const auto source = oldInventorySource(options, path);
+    {
+      const auto root = openPath(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
+      check(root.value != INVALID_HANDLE_VALUE, "lock cleanup directory");
+      if (!sameId(directoryId(root.value), *id)) fail("cleanup directory identity changed");
+      if (const auto files = loadInventory(source, field(record->release), sha)) {
+        if (files->digest != field(record->inventory)) fail("cleanup inventory changed");
+        // A previous attempt can have removed a verified subset.
+        std::set<std::wstring, CaseInsensitive> seen;
+        verifyContents(path, L"", *files, sha, seen);
+        for (auto it = files->entries.rbegin(); it != files->entries.rend(); ++it) {
+          if (equal(it->first, kInventory)) continue;
+          const auto child = path + L"\\" + it->first;
+          if (!seen.count(it->first)) continue;
+          const auto childParents = lockParents(child);
+          eraseInventoryEntry(child, it->second, sha);
+          interruptAt(options, L"during-cleanup");
+        }
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+        seen.clear();
+        verifyContents(path, L"", *files, sha, seen);
+        if (seen.size() != 1 || !seen.count(kInventory)) fail("cleanup directory is not empty");
+        eraseInventoryEntry(source, files->digest, sha);
+        interruptAt(options, L"after-cleanup-carrier");
+#endif
+      }
+    }
+    // The OS refuses to dispose a directory that still contains entries.
+    eraseInventoryEntry(path, L"d", sha, &record->directory);
+  }
+  clearEntry(scope, kPendingCleanup);
+}
+
+Inventory validateTombstone(const Options& options, const CleanupRecord& cleanup, const Sha256& sha) {
+  const auto path = cleanupPath(cleanup);
+  if (directoryAt(options.target) || !matches(directoryAt(path), cleanup.directory)) {
+    fail("uninstall tombstone identity could not be confirmed");
+  }
+  auto files = inspectBound(oldInventorySource(options, path), field(cleanup.release),
+                            field(cleanup.inventory), sha);
+  verify(path, files, sha);
+  return files;
+}
+
+void restoreUninstall(const Options& options, const Scope& scope,
+                      const UninstallRecord& record, const Sha256& sha) {
+  const auto& cleanup = record.cleanup;
+  const auto path = cleanupPath(cleanup);
+  const auto original = directoryAt(options.target);
+  const auto moved = directoryAt(path);
+  if (!checkRegistration(options, scope) || displayVersion(scope) != field(cleanup.release)) {
+    fail("uninstall registration changed during rollback");
+  }
+  checkUninstallerRegistration(options, scope);
+  if (!original && matches(moved, cleanup.directory)) {
+    validateTombstone(options, cleanup, sha);
+    renameOwned(path, cleanup.directory, options.target);
+    interruptAt(options, L"after-uninstall-restore");
+  } else if (!matches(original, cleanup.directory) || moved) {
+    fail("unrecognized uninstall state; directories retained");
+  }
+  verify(options.target, inspectBound(oldInventorySource(options, options.target),
+                                       field(cleanup.release), field(cleanup.inventory), sha), sha);
+  clearEntry(scope, kUninstallRecord);
+}
+
+Result startUninstall(const Options& options, const Scope& scope, const Owner& owner,
+                      const Sha256& sha) {
+  if (!options.token.empty()) fail("uninstall recovery transaction is missing");
+  if (!enrolled(scope)) return Ineligible;
+  if (!supportedTarget(options) || !checkRegistration(options, scope)) {
+    fail("enrolled uninstall target differs from registration");
+  }
+  const auto parents = lockParents(options.target);
+  checkUninstallerRegistration(options, scope);
+  const auto id = directoryAt(options.target);
+  if (!id) fail("enrolled application directory is missing");
+  const auto release = displayVersion(scope);
+  const auto files = inventory(oldInventorySource(options, options.target), release, sha);
+  verify(options.target, files, sha);
+  drainCleanup(options, scope, sha);
+  UninstallRecord record{kUninstallMagic, UninstallPhase::Intent, owner,
+    cleanupRecord(CleanupKind::Uninstall, *id, options.target, makeToken(), release, files.digest)};
+  const auto path = cleanupPath(record.cleanup);
+  checkOtherScope(options, L"", path);
+  saveEntry(scope, kUninstallRecord, record);
+  interruptAt(options, L"before-uninstall-rename");
+  try {
+    renameOwned(options.target, *id, path);
+    interruptAt(options, L"after-uninstall-rename");
+    validateTombstone(options, record.cleanup, sha);
+    auto committed = record;
+    committed.phase = UninstallPhase::Tombstoned;
+    saveEntry(scope, kUninstallRecord, committed);
+  } catch (const Error&) {
+    saveEntry(scope, kUninstallRecord, record);
+    restoreUninstall(options, scope, record, sha);
+    throw;
+  }
+  interruptAt(options, L"after-uninstall-commit");
+  printToken(field(record.cleanup.token));
+  return Ok;
+}
+
 void checkOldRegistration(const Options& options, const Scope& scope, const Record& record) {
   checkUninstallerRegistration(options, scope);
   if (displayVersion(scope) != field(record.oldRelease)) {
@@ -1059,6 +1390,9 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
       checkUninstallerRegistration(options, scope);
       if (displayVersion(scope) != options.release) fail("new release registration is incomplete");
       markEnrolled(scope);
+      trackCleanup(scope, cleanupRecord(CleanupKind::Backup, record.original, paths.final,
+                                        field(record.token), field(record.oldRelease),
+                                        field(record.oldInventory)));
       clear(scope);
       return Ok;
     }
@@ -1123,8 +1457,7 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
   save(scope, record);
   interruptAt(options, L"after-stage-intent");
   // Return ASCII so the caller can construct the Unicode staging path itself.
-  for (const auto ch : field(record.token)) std::putchar(static_cast<char>(ch));
-  std::putchar('\n');
+  printToken(field(record.token));
   return Ok;
 }
 
@@ -1175,15 +1508,89 @@ Result enroll(const Options& options, const Scope& scope, const Inventory& files
   return Ok;
 }
 
+Result resumeUninstall(const Options& options, const Scope& scope, UninstallRecord& record,
+                       const Owner& owner, const Sha256& sha) {
+  const auto& cleanup = record.cleanup;
+  const auto token = field(cleanup.token);
+  if (!options.token.empty() && options.token != token) fail("uninstall recovery token differs");
+  const auto files = validateTombstone(options, cleanup, sha);
+  if (options.command == L"verify-uninstall-worker") {
+    const auto path = canonical(options.worker);
+    const auto parents = lockParents(path, AncestorSpelling::AllowShortNames);
+    const auto worker = openPath(path, GENERIC_READ, FILE_SHARE_READ);
+    check(worker.value != INVALID_HANDLE_VALUE, "open copied uninstall worker");
+    checkLooseFile(worker.value);
+    checkStreams(path);
+    if (sha.read(worker.value) != files.entries.at(kUninstaller)) {
+      fail("copied uninstall worker differs from the signed inventory");
+    }
+    return Ok;
+  }
+  if (options.command == L"uninstall-finish") {
+    if (!sameOwner(record.owner, owner)) fail("uninstall worker must claim recovery before finishing");
+    if (hasRegistrationKeys(scope)) fail("uninstall registration teardown is incomplete");
+    trackCleanup(scope, cleanup);
+    interruptAt(options, L"after-uninstall-cleanup-intent");
+    clearEntry(scope, kEnrollment);
+    clearEntry(scope, kUninstallRecord);
+    try {
+      drainCleanup(options, scope, sha);
+    } catch (const Error& error) {
+      // Metadata teardown is durable. A later installer can retry disposal.
+      std::fprintf(stderr, "%s (Windows error %lu)\n", error.operation, error.code);
+    }
+    return Ok;
+  }
+  if (options.command == L"uninstall-prepare") {
+    record.owner = owner;
+    saveEntry(scope, kUninstallRecord, record);
+    printToken(token);
+    return Ok;
+  }
+  if (options.command == L"recover" || options.command == L"check-process-target") {
+    printToken(token);
+    return ResumeUninstall;
+  }
+  fail("complete the pending uninstall before updating this scope");
+}
+
+Result checkLegacyUninstall(Options options) {
+  // The legacy NSIS worker holds the global mutex through recursive removal.
+  // This child only reads state and must not try to acquire the worker's lock.
+  if (!liveOwner(options.ownerPid)) fail("legacy uninstall worker is unavailable");
+  options.target = canonical(std::move(options.target));
+  const auto scope = scopeFor(options, options.machine);
+  const auto other = scopeFor(options, !options.machine);
+  if (load(scope) || load(other) || loadUninstall(scope) || loadUninstall(other) ||
+      enrolled(scope)) fail("legacy uninstall cannot use a pending or enrolled installation");
+  const auto parents = lockParents(options.target, AncestorSpelling::AllowShortNames);
+  checkPendingCleanupTarget(options);
+  checkOtherScope(options);
+  const auto registration = resolveRegistration(scope);
+  if (!registration.hasLocation || !registration.path ||
+      !equal(*registration.path, resolvedRegistration(options.target)) ||
+      !checkRegistration(options, scope) || !directoryAt(options.target)) {
+    fail("legacy uninstall target differs from its installation registration");
+  }
+  checkUninstallerRegistration(options, scope);
+  return Ok;
+}
+
 Result run(Options options) {
+  if (options.command == L"check-legacy-uninstall") return checkLegacyUninstall(std::move(options));
   const bool checkingProcessTarget = options.command == L"check-process-target";
   const bool preparing = options.command == L"prepare";
   const bool promoting = options.command == L"promote";
   const bool recovering = options.command == L"recover";
   const bool committing = options.command == L"commit";
   const bool enrolling = options.command == L"enroll";
+  const bool uninstallPreparing = options.command == L"uninstall-prepare";
+  const bool uninstallFinishing = options.command == L"uninstall-finish";
+  const bool checkingWorker = options.command == L"verify-uninstall-worker";
   if (!checkingProcessTarget && !preparing && !promoting && !recovering && !committing &&
-      !enrolling) fail("unknown command");
+      !enrolling && !uninstallPreparing && !uninstallFinishing && !checkingWorker) {
+    fail("unknown command");
+  }
 
 #if defined(ONEKEY_RECOVERY_TEST)
   const auto mutexName = L"Local\\OneKeyInstallerRecoveryTest-" + options.fixture;
@@ -1200,14 +1607,23 @@ Result run(Options options) {
   } unlock{mutex.value};
 
   const auto scope = scopeFor(options, options.machine);
-  if (load(scopeFor(options, !options.machine))) {
+  const auto otherScope = scopeFor(options, !options.machine);
+  if (load(otherScope) || loadUninstall(otherScope)) {
     fail("another scope has a pending installation transaction");
   }
   auto record = load(scope);
-  if (!record && !checkingProcessTarget && !preparing && !enrolling) return Ineligible;
+  auto uninstall = loadUninstall(scope);
+  if (!record && !uninstall && !checkingProcessTarget && !preparing && !enrolling &&
+      !uninstallPreparing && !uninstallFinishing && !checkingWorker) return Ineligible;
   const bool hasEnrollment = (preparing || enrolling) && enrolled(scope);
-  options.target = canonical(std::move(options.target), (record || hasEnrollment) ? Blocked : Ineligible);
-  if (record && (checkingProcessTarget || preparing || enrolling ||
+  const auto invalidTarget = record || uninstall || hasEnrollment || checkingProcessTarget ||
+      uninstallPreparing || uninstallFinishing || checkingWorker ? Blocked : Ineligible;
+  options.target = canonical(std::move(options.target), invalidTarget);
+  if (checkingProcessTarget || preparing || enrolling || uninstallPreparing) {
+    checkPendingCleanupTarget(options);
+  }
+  if (record && (checkingProcessTarget || preparing || enrolling || uninstallPreparing ||
+                 uninstallFinishing || checkingWorker ||
                  !equal(field(record->target), options.target))) {
     fail("an installation transaction is already active in this scope");
   }
@@ -1215,21 +1631,59 @@ Result run(Options options) {
   if (options.ownerPid && !caller) fail("installer process is unavailable");
   Owner owner = caller.value_or(Owner{});
   if (record) {
-    lockTransaction(*record, owner);
+    lockTransaction(record->owner, owner);
     if ((promoting || committing) && !sameOwner(record->owner, owner)) {
       fail("recover the interrupted transaction before proceeding");
     }
   }
+  if (uninstall) {
+    if (record || !supportedTarget(options) ||
+        !equal(field(uninstall->cleanup.target), options.target)) {
+      fail("an uninstall transaction is already active in this scope");
+    }
+    lockTransaction(uninstall->owner, owner);
+    const auto parents = lockParents(options.target);
+    checkOtherScope(options, L"", cleanupPath(uninstall->cleanup));
+    const auto registration = resolveRegistration(scope);
+    if (registration.path && !equal(*registration.path, options.target)) {
+      fail("uninstall target differs from current registration");
+    }
+    const Sha256 sha;
+    if (uninstall->phase == UninstallPhase::Tombstoned) {
+      return resumeUninstall(options, scope, *uninstall, owner, sha);
+    }
+    if (!options.token.empty() || !(checkingProcessTarget || recovering || uninstallPreparing)) {
+      fail("recover the uncommitted uninstall before proceeding");
+    }
+    restoreUninstall(options, scope, *uninstall, sha);
+    if (recovering) return Restored;
+  }
   // Legacy custom locations can still be updated. Only authorize stopping a
   // process when the scope owns an existing directory without another scope's overlap.
   if (checkingProcessTarget) {
-    if (!checkRegistration(options, scope)) return Ineligible;
-    const auto parents = lockParents(options.target, AncestorSpelling::AllowShortNames);
-    if (!directoryAt(options.target)) return Ineligible;
     options.target = resolvedRegistration(options.target);
     checkOtherScope(options);
+    const auto registration = resolveRegistration(scope);
+    if (registration.path && !equal(*registration.path, options.target)) {
+      fail("target does not match scope registration");
+    }
+    if (!registration.hasLocation || !directoryAt(options.target)) {
+      if (enrolled(scope)) fail("enrolled installation is incomplete");
+      return Ineligible;
+    }
     return Ok;
   }
+  if (uninstallPreparing) {
+    options.target = resolvedRegistration(options.target);
+    checkOtherScope(options);
+    const auto registration = resolveRegistration(scope);
+    if (registration.path && !equal(*registration.path, options.target)) {
+      fail("uninstall target differs from current registration");
+    }
+    const Sha256 sha;
+    return startUninstall(options, scope, owner, sha);
+  }
+  if (uninstallFinishing || checkingWorker) fail("uninstall recovery transaction is missing");
 
   if (!supportedTarget(options)) {
     if (!record && !hasEnrollment) return Ineligible;
@@ -1247,7 +1701,10 @@ Result run(Options options) {
   }
   const auto parents = lockParents(options.target);
   if (enrolling) return enroll(options, scope, *newFiles, sha);
-  if (preparing) return prepare(options, scope, owner, *newFiles, hasEnrollment, sha);
+  if (preparing) {
+    drainCleanup(options, scope, sha);
+    return prepare(options, scope, owner, *newFiles, hasEnrollment, sha);
+  }
   if (promoting) return promote(options, scope, *record, sha);
   return recover(options, scope, *record, owner, sha, committing);
 }

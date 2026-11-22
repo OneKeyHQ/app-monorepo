@@ -2,6 +2,7 @@
 
 #include <commctrl.h>
 #include <dwmapi.h>
+#include <oleacc.h>
 #include <shellapi.h>
 #include <windowsx.h>
 
@@ -264,6 +265,7 @@ bool Window::SetPage(std::wstring_view page) {
 }
 
 void Window::SetProgress(int progress, bool reset) {
+  const auto previous = state_.progress;
   if (reset) {
     state_.progress = progress;
     state_.display_progress = static_cast<float>(progress);
@@ -273,6 +275,7 @@ void Window::SetProgress(int progress, bool reset) {
   }
   manual_progress_ = !reset;
   RedrawProgress(true);
+  if (state_.progress != previous) NotifyAccessibleChange(EVENT_OBJECT_VALUECHANGE, L"progress");
 }
 
 void Window::SetDirectory(std::wstring directory, std::wstring_view scope) {
@@ -293,8 +296,10 @@ void Window::SetDirectory(std::wstring directory, std::wstring_view scope) {
 }
 
 void Window::SetStatus(std::wstring status) {
+  if (state_.status == status) return;
   state_.status = std::move(status);
   Redraw();
+  NotifyAccessibleChange(EVENT_OBJECT_NAMECHANGE, L"status");
 }
 
 void Window::SetVersion(std::wstring version) {
@@ -336,11 +341,17 @@ std::wstring_view Window::PrepareCommit() {
   if (page_name_ == L"confirmExit") {
     return L"pending";
   }
+  const bool newly_locked = !state_.cancellation_locked;
   state_.cancellation_locked = true;
   if (!Enabled(input_.focused)) {
     input_.focused = {};
   }
   Redraw();
+  if (newly_locked) {
+    NotifyAccessibleChange(EVENT_OBJECT_STATECHANGE, L"cancel");
+    NotifyAccessibleChange(EVENT_OBJECT_STATECHANGE, L"closebtn");
+    NotifyAccessibleFocus();
+  }
   return L"ok";
 }
 
@@ -375,6 +386,7 @@ void Window::PlaceOnMonitor(HMONITOR monitor, UINT dpi) {
 }
 
 void Window::Rebuild() {
+  ResetAccessibility();
   elements_ = Layout(*page_, state_);
   legal_bounds_ = {};
   tab_order_.clear();
@@ -386,6 +398,11 @@ void Window::Rebuild() {
     }
   }
   Redraw();
+  if (const auto hwnd = hwnd_.load(); hwnd && IsWindowVisible(hwnd)) {
+    NotifyWinEvent(EVENT_OBJECT_REORDER, hwnd, OBJID_CLIENT, CHILDID_SELF);
+    NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, hwnd, OBJID_CLIENT, CHILDID_SELF);
+    NotifyAccessibleFocus();
+  }
 }
 
 void Window::Redraw() {
@@ -485,6 +502,7 @@ void Window::OnAnimation() {
           if (percent > state_.progress) {
             state_.progress = percent;
             RedrawProgress(true);
+            NotifyAccessibleChange(EVENT_OBJECT_VALUECHANGE, L"progress");
           }
         }
       }
@@ -575,6 +593,9 @@ void Window::Activate(std::wstring_view target) {
       state_.machine_scope = target == L"scope-all";
       state_.install_directory = state_.machine_scope ? state_.per_machine_directory : state_.per_user_directory;
       Redraw();
+      NotifyAccessibleChange(EVENT_OBJECT_STATECHANGE, L"scope-current");
+      NotifyAccessibleChange(EVENT_OBJECT_STATECHANGE, L"scope-all");
+      NotifyAccessibleChange(EVENT_OBJECT_NAMECHANGE, L"install-directory");
     } else {
       event_ = target;
     }
@@ -606,6 +627,7 @@ void Window::FocusNext(bool reverse) {
   }
   keyboard_focus_ = true;
   Redraw();
+  NotifyAccessibleFocus();
 }
 
 LRESULT CALLBACK Window::WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -640,12 +662,18 @@ LRESULT Window::Handle(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
     }
     case WM_NCCALCSIZE:
       return 0;
+    case WM_GETOBJECT:
+      if (static_cast<LONG>(lparam) == OBJID_CLIENT) {
+        return GetAccessibility(wparam);
+      }
+      break;
     case WM_NCDESTROY:
-      KillTimer(hwnd, kAnimation);
-      background_.Reset();
-      frame_.Reset();
       SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
       hwnd_.store(nullptr);
+      KillTimer(hwnd, kAnimation);
+      CloseAccessibility();
+      background_.Reset();
+      frame_.Reset();
       break;
     case WM_NCHITTEST: {
       POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
@@ -732,6 +760,7 @@ LRESULT Window::Handle(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
         input_.hovered = input_.pressed;
         SetCapture(hwnd);
         Redraw();
+        NotifyAccessibleFocus();
       }
       return 0;
     case WM_CAPTURECHANGED:
@@ -749,8 +778,11 @@ LRESULT Window::Handle(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
       Redraw();
       return 0;
     }
-    case WM_KILLFOCUS:
     case WM_SETFOCUS:
+      NotifyAccessibleFocus();
+      Redraw();
+      return 0;
+    case WM_KILLFOCUS:
       Redraw();
       return 0;
     case WM_KEYDOWN:

@@ -58,7 +58,8 @@ function Invoke-Recovery(
     [string]$Location = $target,
     [string]$OldManifest = $oldInventory,
     [string]$NewManifest = $newInventory,
-    [int]$OwnerPid = 0
+    [int]$OwnerPid = 0,
+    [string]$UninstallToken = ''
 ) {
     $arguments = @(
         $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
@@ -66,13 +67,14 @@ function Invoke-Recovery(
     )
     if ($Fault) { $arguments += @('--fault', $Fault) }
     if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
+    if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
     $ErrorActionPreference = 'Continue'
     $PSNativeCommandUseErrorActionPreference = $false
     $output = @(& $Helper @arguments 2>&1)
     if ($LASTEXITCODE -ne $Expected) {
         throw "$Command $Fault returned $LASTEXITCODE instead of $Expected. $output. Arguments: [$($arguments -join ' | ')]"
     }
-    if ($Command -eq 'prepare' -and $Expected -eq 0) {
+    if (($Command -in 'prepare', 'uninstall-prepare' -and $Expected -eq 0) -or $Expected -eq 14) {
         $newToken = [string]$output[0]
         Assert-Condition ($newToken -cmatch '\A[0-9a-f]{32}\z') "Invalid stage token: $output"
         return $newToken
@@ -187,6 +189,38 @@ Invoke-Fixture 'process target authorization is scoped and read-only' {
     Assert-Original
 }
 
+Invoke-Fixture 'opposite scope cannot claim a pending cleanup tree' {
+    Start-MockStage
+    Invoke-Recovery promote 0
+    Set-MockRegistration User $target '2.0.0'
+    Invoke-Recovery commit 0
+    Invoke-Recovery check-process-target 13 -Scope machine -Location $backup
+    Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'resources')
+    Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'missing\OneKey')
+    $separate = "$target.old-$('4' * 32)"
+    Write-Payload $separate 'separate'
+    Invoke-Recovery check-process-target 10 -Scope machine -Location $separate
+    Set-MockRegistration Machine $separate '1.0.0'
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $separate
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $separate -OwnerPid $PID
+    [IO.Directory]::Move($backup, "$backup-held")
+    try {
+        New-Item -ItemType Junction -Path $backup -Target $payload | Out-Null
+        try {
+            Invoke-Recovery check-process-target 0 -Scope machine -Location $separate
+        } finally {
+            [IO.Directory]::Delete($backup)
+        }
+    } finally {
+        [IO.Directory]::Move("$backup-held", $backup)
+    }
+    foreach ($scope in 'User', 'Machine') {
+        Remove-Item -LiteralPath (Join-Path $registry "$scope\Install"),(Join-Path $registry "$scope\Uninstall")
+    }
+    Invoke-Recovery check-process-target 13 -Scope machine -Location $root
+    Assert-Promoted
+}
+
 Invoke-Fixture 'isolated machine scope' {
     $userTarget = Join-Path $root 'OtherOneKey'
     Write-Payload $userTarget 'user'
@@ -199,6 +233,79 @@ Invoke-Fixture 'isolated machine scope' {
     Assert-Promoted
     $userExe = Join-Path $userTarget 'OneKey.exe'
     Assert-Condition ((Get-Content -LiteralPath $userExe -Raw) -eq 'user/OneKey.exe') 'Machine upgrade changed user files'
+}
+
+Invoke-Fixture 'fresh and missing ancestor candidates honor other-scope uninstaller registration' {
+    $missingTarget = Join-Path $root 'Missing\OneKey'
+    Set-MockRegistration Machine $missingTarget '1.0.0'
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'Machine\Install') -Name InstallLocation
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Install') -Name InstallLocation
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Uninstall') -Name UninstallString,QuietUninstallString
+    Invoke-Recovery check-process-target 13 -Location $missingTarget
+    Invoke-Recovery check-process-target 13 -Location (Join-Path $missingTarget 'Missing\Child')
+    Invoke-Recovery check-process-target 10 -Location (Join-Path $root 'Elsewhere\Missing\OneKey')
+    Set-MockRegistration User $missingTarget '1.0.0'
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Install') -Name InstallLocation
+    Invoke-Recovery check-process-target 13 -Scope machine -Location $missingTarget
+    $mismatchedQuiet = '"' + (Join-Path $root 'conflict\Uninstall OneKey.exe') + '" /currentuser /S'
+    Set-ItemProperty -LiteralPath (Join-Path $registry 'User\Uninstall') -Name QuietUninstallString -Value $mismatchedQuiet
+    Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $root 'Elsewhere\Missing\OneKey')
+    Assert-Original
+}
+
+Invoke-Fixture 'legacy uninstall guard rejects opposite-scope ARP-only overlap' {
+    Invoke-Recovery check-legacy-uninstall 13
+    Invoke-Recovery check-legacy-uninstall 0 -OwnerPid $PID
+    Set-MockRegistration Machine $target '1.0.0'
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'Machine\Install') -Name InstallLocation
+    Invoke-Recovery check-legacy-uninstall 13 -OwnerPid $PID
+    Set-MockRegistration Machine $target '1.0.0'
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Install') -Name InstallLocation
+    Invoke-Recovery check-legacy-uninstall 13 -OwnerPid $PID -Scope machine
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Uninstall') -Name UninstallString,QuietUninstallString
+    Invoke-Recovery check-legacy-uninstall 0 -OwnerPid $PID -Scope machine
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'Machine\Uninstall') -Name QuietUninstallString
+    Invoke-Recovery check-legacy-uninstall 13 -OwnerPid $PID -Scope machine
+    Assert-Original
+}
+
+foreach ($point in 'before-uninstall-rename', 'after-uninstall-rename') {
+    Invoke-Fixture "uninstall rollback after $point" {
+        Invoke-Recovery enroll 0 -Release '1.0.0' -NewManifest $oldInventory
+        Invoke-Recovery uninstall-prepare 99 -Fault $point
+        Invoke-Recovery recover 11
+        Invoke-Recovery check-process-target 0
+        Assert-Condition (!(Get-ChildItem -LiteralPath $root -Filter 'OneKey.uninstall-*')) 'Rollback retained a tombstone'
+        Assert-Original
+    }
+}
+
+Invoke-Fixture 'committed uninstall recovery authenticates worker and drains partial cleanup' {
+    Invoke-Recovery uninstall-prepare 10
+    Invoke-Recovery enroll 0 -Release '1.0.0' -NewManifest $oldInventory
+    Invoke-Recovery uninstall-prepare 99 -Fault after-uninstall-commit
+    $uninstallToken = Invoke-Recovery check-process-target 14
+    $tombstone = "$target.uninstall-$uninstallToken"
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $tombstone 'OneKey.exe') -Raw) -eq 'old/OneKey.exe') 'Committed uninstall lost original payload'
+    Assert-Condition (!(Test-Path -LiteralPath $target)) 'Original target still exists after tombstone commit'
+    Invoke-Recovery uninstall-prepare 13 -UninstallToken ('0' * 32)
+    $claimedToken = Invoke-Recovery uninstall-prepare 0 -UninstallToken $uninstallToken -OwnerPid $PID
+    Assert-Condition ($claimedToken -eq $uninstallToken) 'Claim changed tombstone identity'
+    Invoke-Recovery uninstall-finish 13 -OwnerPid $PID
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Install') -Name InstallLocation
+    Remove-ItemProperty -LiteralPath (Join-Path $registry 'User\Uninstall') -Name UninstallString,QuietUninstallString
+    Invoke-Recovery uninstall-finish 13 -OwnerPid $PID
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+    Invoke-Recovery uninstall-finish 99 -OwnerPid $PID -Fault during-cleanup
+    Assert-Condition (Test-Path -LiteralPath $tombstone) 'Interrupted cleanup removed the tombstone'
+    Assert-Condition ((Get-Content -LiteralPath $walletData -Raw) -eq 'fixture wallet data') 'External data was modified'
+    Write-Payload $target 'old'
+    Set-MockRegistration User $target '1.0.0'
+    $untrackedBackup = "$target.old-$('7' * 32)"
+    Write-Payload $untrackedBackup 'unknown'
+    Start-MockStage
+    Assert-Condition (!(Test-Path -LiteralPath $tombstone)) 'Next signed swap retained interrupted cleanup'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $untrackedBackup 'OneKey.exe') -Raw) -eq 'unknown/OneKey.exe') 'Cleanup modified an unrelated backup'
 }
 
 foreach ($point in 'before-create-stage', 'after-create-stage', 'after-stage-intent') {
@@ -357,6 +464,7 @@ Invoke-Fixture 'registered path alias and stage overlap block replacement' {
 Invoke-Fixture 'another scope cannot ignore a pending transaction' {
     Start-MockStage
     Invoke-Recovery recover 13 -Scope machine
+    Invoke-Recovery uninstall-prepare 13
     Invoke-Recovery recover 11
     Assert-Original
 }
@@ -425,17 +533,21 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
 
         function Invoke-SignedRecovery([string]$Command, [int]$Expected, [string]$Scope = 'user',
                                        [string]$Release = '2.0.0', [string]$Inventory = $nextCarrier,
-                                       [string]$Fault = '', [string]$Location = $target) {
+                                       [string]$Fault = '', [string]$Location = $target,
+                                       [string]$UninstallToken = '', [string]$Worker = '', [int]$OwnerPid = 0) {
             $arguments = @(
                 $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
                 '--fixture', $token, '--new-inventory', $Inventory
             )
             if ($Fault) { $arguments += @('--fault', $Fault) }
+            if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
+            if ($Worker) { $arguments += @('--worker', $Worker) }
+            if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
             $ErrorActionPreference = 'Continue'
             $PSNativeCommandUseErrorActionPreference = $false
             $output = @(& $signedHelper @arguments 2>&1)
             Assert-Condition ($LASTEXITCODE -eq $Expected) "$Command returned $LASTEXITCODE instead of $Expected. $output"
-            if ($Command -eq 'prepare' -and $Expected -eq 0) {
+            if (($Command -in 'prepare', 'uninstall-prepare' -and $Expected -eq 0) -or $Expected -eq 14) {
                 $stageToken = [string]$output[0]
                 Assert-Condition ($stageToken -cmatch '\A[0-9a-f]{32}\z') "Invalid stage token: $output"
                 return $stageToken
@@ -513,15 +625,68 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery commit 0
             Assert-Promoted
 
-            # Reinstalling the same signed bytes still has two distinct directory IDs.
+            $otherBackup = "$target.old-$('3' * 32)"
+            Write-Payload $otherBackup 'untracked'
+            $unknown = Join-Path $backup 'unknown.txt'
+            [IO.File]::WriteAllText($unknown, 'preserve me')
+            Invoke-SignedRecovery prepare 13
+            Assert-Condition ((Get-Content -LiteralPath $unknown -Raw) -eq 'preserve me') 'Unknown backup file was modified'
+            Remove-Item -LiteralPath $unknown
+            $junction = Join-Path $backup 'unknown-junction'
+            New-Item -ItemType Junction -Path $junction -Target $payload | Out-Null
+            try {
+                Invoke-SignedRecovery prepare 13
+                Assert-Condition ((Get-Item -LiteralPath $junction -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) 'Cleanup changed an unknown reparse point'
+                Assert-Condition ((Get-Content -LiteralPath (Join-Path $payload 'OneKey.exe') -Raw) -eq 'new/OneKey.exe') 'Cleanup followed a junction outside the backup'
+            } finally {
+                [IO.Directory]::Delete($junction)
+            }
+            Invoke-SignedRecovery prepare 99 -Fault during-cleanup
+            $backupCarrier = Join-Path $backup $carrierName
+            Assert-Condition (Test-Path -LiteralPath $backupCarrier) 'Partial cleanup removed its authenticated carrier too early'
+            Invoke-SignedRecovery prepare 99 -Fault after-cleanup-carrier
+            Assert-Condition (Test-Path -LiteralPath $backup) 'Carrier interruption unexpectedly removed backup directory'
+            Assert-Condition (!(Get-ChildItem -LiteralPath $backup -Force)) 'Carrier was not the last entry removed'
             $null = Invoke-SignedRecovery prepare 0
+            Assert-Condition (!(Test-Path -LiteralPath $backup)) 'Next swap failed to clear empty tracked backup'
+            Assert-Condition ((Get-Content -LiteralPath (Join-Path $otherBackup 'OneKey.exe') -Raw) -eq 'untracked/OneKey.exe') 'Unrelated backup was modified'
             Invoke-SignedRecovery recover 11
-            Assert-Promoted
+            Assert-Condition ((Get-Content -LiteralPath (Join-Path $target 'OneKey.exe') -Raw) -eq 'new/OneKey.exe') 'Cleanup changed the current release'
 
             Remove-Item -LiteralPath $installedCarrier
             Remove-Item -LiteralPath (Join-Path $registry 'User\Install'), (Join-Path $registry 'User\Uninstall') -Recurse
             Set-MockRegistration Machine $target '2.0.0'
             Invoke-SignedRecovery prepare 10 -Scope machine
+        }
+
+        Invoke-Fixture 'signed uninstall verifies tombstone before returning recovery token' {
+            $oldCarrier = Join-Path $root 'old.dll'
+            $nextCarrier = $oldCarrier
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            New-SignedInventory $target $oldCarrier '1.0.0'
+            Copy-Item -LiteralPath $oldCarrier -Destination (Join-Path $target $carrierName)
+            Invoke-SignedRecovery enroll 0 -Release '1.0.0'
+            $uninstallToken = Invoke-SignedRecovery uninstall-prepare 0
+            $tombstone = "$target.uninstall-$uninstallToken"
+            $executable = Join-Path $tombstone 'Uninstall OneKey.exe'
+            $originalExecutable = [IO.File]::ReadAllBytes($executable)
+            [IO.File]::WriteAllText($executable, 'changed')
+            Invoke-SignedRecovery recover 13
+            [IO.File]::WriteAllBytes($executable, $originalExecutable)
+            $resumeToken = Invoke-SignedRecovery check-process-target 14
+            Assert-Condition ($resumeToken -eq $uninstallToken) 'Authenticated recovery returned different tombstone'
+            $worker = Join-Path $root 'copied-uninstaller.exe'
+            Copy-Item -LiteralPath $executable -Destination $worker
+            Invoke-SignedRecovery verify-uninstall-worker 0 -UninstallToken $uninstallToken -Worker $worker -OwnerPid $PID
+            [IO.File]::WriteAllText($worker, 'changed copy')
+            Invoke-SignedRecovery verify-uninstall-worker 13 -UninstallToken $uninstallToken -Worker $worker -OwnerPid $PID
+            Assert-Condition ((Get-FileHash -LiteralPath $executable).Hash -ne (Get-FileHash -LiteralPath $worker).Hash) 'Worker fixture modified the actual tombstone'
+            $resumeToken = Invoke-SignedRecovery recover 14
+            Assert-Condition ($resumeToken -eq $uninstallToken) 'Worker verification changed the transaction owner'
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+            Invoke-SignedRecovery uninstall-finish 0
+            Assert-Condition (!(Test-Path -LiteralPath $tombstone)) 'Successful uninstall retained verified payload'
+            Assert-Condition ((Get-Content -LiteralPath $walletData -Raw) -eq 'fixture wallet data') 'External data was modified'
         }
     } finally {
         foreach ($certificate in $certificates) {

@@ -10,6 +10,8 @@ $log = Join-Path (Split-Path -Parent $Fixture) 'fixture-events.txt'
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -Path (Join-Path $PSScriptRoot 'fixture-window.cs')
+Add-Type -AssemblyName Accessibility
+Add-Type -Path (Join-Path $PSScriptRoot 'fixture-accessibility.cs') -ReferencedAssemblies 'Accessibility'
 
 function Wait-For($Condition, [string]$Label) {
     $end = [DateTime]::UtcNow.AddSeconds(15)
@@ -36,8 +38,10 @@ function Click($Window, [int]$X, [int]$Y) {
 }
 
 function Press-Key($Window, [int]$Key) {
-    [FixtureWindow]::Send($Window, 0x0100, [IntPtr]$Key, [IntPtr]::Zero)
-    [FixtureWindow]::Send($Window, 0x0101, [IntPtr]$Key, [IntPtr]::Zero)
+    # Space activates on key-up. The other tested keys activate on key-down
+    # and may close the window before a second message can be sent.
+    $message = if ($Key -eq 0x20) { 0x0101 } else { 0x0100 }
+    [FixtureWindow]::Send($Window, $message, [IntPtr]$Key, [IntPtr]::Zero)
 }
 
 function Save-Capture($Window, [string]$Name) {
@@ -86,6 +90,51 @@ function Run-Fixture([string]$Name, [string[]]$Options, $Test) {
 function Close-Fixture($Window) {
     [FixtureWindow]::Send($Window, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
     Wait-Log 'event=closed'
+}
+
+Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=commit') {
+    param($window)
+    Save-Capture $window 'accessible-welcome'
+    $root = [FixtureAccessibility]::Root($window)
+    [FixtureAccessibility]::CheckRoot($root, 'Install OneKey')
+    $terms = [FixtureAccessibility]::Find($root, 'Terms', 30)
+    [FixtureAccessibility]::CheckLocation($root, $terms)
+    $null = [FixtureAccessibility]::Find($root, 'Privacy Policy', 30)
+    $more = [FixtureAccessibility]::Find($root, 'More options', 43)
+    [FixtureAccessibility]::CheckState($root, $more, 0x400, $true)
+    [FixtureAccessibility]::TakeFocus($root, $more)
+    [FixtureAccessibility]::Invoke($root, $more)
+    [FixtureAccessibility]::CheckRejectedInvocation($root, $more, -2147220995)
+    $root = [FixtureAccessibility]::Root($window)
+    Save-Capture $window 'accessible-welcome-expanded'
+    $fewer = [FixtureAccessibility]::Find($root, 'Fewer options', 43)
+    [FixtureAccessibility]::CheckState($root, $fewer, 0x200, $true)
+    $current = [FixtureAccessibility]::Find($root, "Only for me  $([char]0xB7)  Recommended", 45)
+    $all = [FixtureAccessibility]::Find($root, 'Anyone who uses this PC', 45)
+    [FixtureAccessibility]::CheckState($root, $current, 16, $true)
+    [FixtureAccessibility]::CheckState($root, $all, 16, $false)
+    [FixtureAccessibility]::Invoke($root, $all)
+    [FixtureAccessibility]::CheckState($root, $current, 16, $false)
+    [FixtureAccessibility]::CheckState($root, $all, 16, $true)
+    $change = [FixtureAccessibility]::Find($root, 'Change', 43)
+    [FixtureAccessibility]::Invoke($root, $change)
+    Wait-Log 'event=browse-all'
+    $primary = [FixtureAccessibility]::Find($root, 'Install', 43)
+    [FixtureAccessibility]::Invoke($root, $primary)
+    Wait-Log 'event=primary-all'
+    Wait-Log 'worker-progress=ok'
+    $root = [FixtureAccessibility]::Root($window)
+    [FixtureAccessibility]::CheckRoot($root, 'Installing OneKey')
+    $progress = [FixtureAccessibility]::Find($root, 'Installing OneKey', 48)
+    [FixtureAccessibility]::CheckValue($root, $progress, '43%')
+    $null = [FixtureAccessibility]::Find($root, ([string][FixtureAccessibility]::Status($root, $progress)), 41)
+    Wait-Log 'prepare=ok'
+    $cancel = [FixtureAccessibility]::Find($root, 'Cancel', 43)
+    [FixtureAccessibility]::CheckState($root, $cancel, 1, $true)
+    [FixtureAccessibility]::CheckRejectedInvocation($root, $cancel, -2147024891)
+    Wait-Log 'finish-page=ok'
+    Press-Key $window 0x0D
+    Wait-Log 'finish-event=primary'
 }
 
 Run-Fixture 'fresh-install' @('/PAGE=welcome', '/MODE=replay') {

@@ -21,13 +21,13 @@ add_custom_command(
 
 configure_file(licenses.rc.in licenses.rc @ONLY)
 add_library(onekey-installer-ui SHARED
-  plugin.cpp window.cpp theme.cpp paint.cpp onekey-installer-ui.def "${THEME_HEADER}"
+  plugin.cpp window.cpp accessibility.cpp theme.cpp paint.cpp onekey-installer-ui.def "${THEME_HEADER}"
   "${CMAKE_CURRENT_BINARY_DIR}/licenses.rc")
 target_include_directories(onekey-installer-ui PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_features(onekey-installer-ui PRIVATE cxx_std_17)
 target_compile_definitions(onekey-installer-ui PRIVATE
   UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0A00 _WIN32_WINNT=0x0A00)
 target_compile_options(onekey-installer-ui PRIVATE /W4 /permissive- /utf-8)
-target_link_libraries(onekey-installer-ui PRIVATE comctl32 dwmapi gdiplus gdi32 shell32 user32)
+target_link_libraries(onekey-installer-ui PRIVATE comctl32 dwmapi gdiplus gdi32 shell32 user32 ole32 oleacc oleaut32 uuid)
 set_target_properties(onekey-installer-ui PROPERTIES
   MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

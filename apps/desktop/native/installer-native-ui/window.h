@@ -30,6 +30,13 @@ class Window {
   std::wstring_view PrepareCommit();
 
  private:
+  class Accessible;
+  void ResetAccessibility();
+  void CloseAccessibility();
+  LRESULT GetAccessibility(WPARAM wparam);
+  void NotifyAccessibleFocus();
+  void NotifyAccessibleChange(DWORD event, std::wstring_view node);
+
   struct Surface {
     ~Surface();
     bool Ensure(HDC reference, LONG width, LONG height);
@@ -57,6 +64,9 @@ class Window {
   bool Enabled(std::wstring_view target) const;
   std::wstring_view HitTest(LPARAM coordinates) const;
 
+  Accessible* accessible_ = nullptr;
+  Accessible* accessible_providers_ = nullptr;
+  bool accessibility_com_initialized_ = false;
   HINSTANCE module_;
   DWORD owner_thread_;
   ULONG_PTR graphics_token_ = 0;

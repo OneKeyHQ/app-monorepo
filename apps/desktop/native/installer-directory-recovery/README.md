@@ -1,6 +1,6 @@
 # Windows installer directory recovery
 
-The NSIS installer uses this helper to replace an enrolled OneKey installation at the default path on a fixed NTFS volume. The user and machine scopes select separate registration and journal keys. The machine scope uses the native Program Files directory and the 64-bit HKLM registry.
+The NSIS installer and uninstaller use this helper to replace and remove an enrolled OneKey installation at the default path on a fixed NTFS volume. The user and machine scopes select separate registration and journal keys. The machine scope uses the native Program Files directory and the 64-bit HKLM registry.
 
 ## Signed inventories
 
@@ -10,7 +10,7 @@ The carrier has no entry point. The helper reads the inventory from an Authentic
 
 Production builds pin `apps/desktop/resources/windows/code-signing/onekey-limited.cer`. The current certificate expires on September 17, 2027. Preserve approved pins when rotating signing certificates so that signed, timestamped installations can still authenticate their original inventory. Pass the older approved leaf files with `build.ps1 -PublisherCertificate <paths>` during the rotation. The active certificate stays in the checked-in signing path. Recovery uses Windows' local trust cache and can run offline once the signing chain is trusted. Missing or untrusted certificates block enrollment and recovery until Windows can validate the chain. [Windows trust verification](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_data)
 
-After successful registration of a fresh or legacy installation, `enroll` verifies the complete installed tree and records the enrollment in the selected scope. Later upgrades read the original signed inventory from that tree. An enrolled installation with a missing or changed inventory blocks replacement. The signed uninstaller clears the enrollment marker on normal removal.
+After successful registration of a fresh or legacy installation, `enroll` verifies the complete installed tree and records the enrollment in the selected scope. Later upgrades and uninstalls read the original signed inventory from that tree. A missing or changed inventory blocks either operation for an enrolled installation.
 
 ## Installer interface
 
@@ -23,15 +23,22 @@ Commands take `--scope user|machine`, `--target <absolute registered path>`, `--
 | 11 | The previous release is back at its registered path after an interrupted replacement. |
 | 12 | The new directory is published. The matching installer must finish registration and commit. |
 | 13 | The operation is blocked. Retain the journal and directories for recovery or diagnosis. |
+| 14 | An enrolled uninstall committed its directory rename. Setup receives the tombstone token and runs the verified uninstaller to finish teardown. |
 
-1. Call `recover` before invoking the old uninstaller. A pending transaction owns the replacement flow. After the cancellable setup work finishes, `check-process-target` verifies the registered directory for the selected scope and checks for an overlapping installation. It also supports verified legacy custom paths. Close only the matching app executable when the check returns 0, and keep the installer process alive for the transaction.
+1. Call `recover` before invoking the old uninstaller. A pending transaction owns the replacement flow. After the cancellable setup work finishes, `check-process-target` verifies the registered directory for the selected scope and checks both scope registrations for overlap. It also supports verified legacy custom paths. Result 0 authorizes closing the matching app and running the existing legacy uninstaller if legacy replacement is required. Result 10 permits a fresh install when the target is unowned. Result 14 directs Setup to finish removal and exit. Any other result blocks the install.
 2. Call `prepare` for an eligible upgrade. It verifies the scope, registration and complete original tree, then records the transaction and creates the sibling staging directory. `prepare` prints a 32-character ASCII token. Extract the signed payload, signed uninstaller, uninstall icon when configured, and carrier into `<target>.new-<token>`.
 3. Release installer file handles and call `promote`. It rechecks the original and staged inventories, moves the original directory to `<target>.old-<token>`, and publishes the staged directory at the registered path. If publication fails, it attempts to restore the original directory.
 4. After publication or result 12, write and check registration, shortcuts and app integrations. Call `commit` once these succeed. It checks the selected scope, registered path, uninstaller commands, release, directory identity and complete installed inventory before clearing the transaction. Launch is allowed after commit.
 
-Windows directory IDs determine which rename completed during an interruption. Before publication, the helper can restore the previous directory. After publication, it requires the matching installer to finish registration because the new application may already have migrated data. Each successful replacement retains one additional full backup, and interrupted staging directories are retained for diagnosis.
+Windows directory IDs determine which rename completed during an interruption. Before publication, the helper can restore the previous directory. After publication, it requires the matching installer to finish registration because the new application may already have migrated data. A single durable cleanup slot per scope tracks a retired directory by identity. The helper retries pending disposal before admitting another transaction that needs the slot. A failed or interrupted cleanup leaves its record available for retry.
 
-A signed installation at the default path verifies the incoming inventory before allowing the legacy installer flow, then enrolls after checking the installed files and registration. An older release without an inventory gets directory recovery from its next eligible upgrade. Custom paths can continue through the legacy flow outside an enrolled or pending scope. An enrolled installation requires its original registered path. An enrolled installation can be repaired or switched to a different installer variant at the same version.
+A signed installation at the default path verifies the incoming inventory before allowing the legacy installer flow, then enrolls after checking the installed files and registration. Embedded 7z packages are extracted and checked before legacy removal in silent, standard NSIS and Win32 UI flows. Web, ZIP and unpacked directory builds use their corresponding builder paths. Legacy replacement can still fail during removal, final copy or registration, after the successful pre-extraction. An older release without an inventory gets directory recovery from its next eligible upgrade. Custom paths can continue through the legacy flow outside an enrolled or pending scope. An enrolled installation requires its original registered path and can be repaired or switched to a different installer variant at the same version.
+
+## Enrolled uninstall
+
+`uninstall-prepare` validates the registered path, uninstaller and complete signed inventory. It saves a durable intent before renaming the entire directory to `<target>.uninstall-<token>`, then verifies the detached tree and commits the rename. If interrupted before commit, Setup or the uninstaller can restore the complete tree and exact registered uninstaller. The uninstaller removes registrations, shortcuts and integrations after commit. An explicitly requested app-data deletion remains part of the original uninstall run.
+
+If Setup receives result 14, it copies the uninstaller from the detached tree into its private temporary directory. `verify-uninstall-worker` checks the copied bytes against the signed inventory while Setup holds the directory and executable in place. The worker runs with the original target and the returned 32-character token. `uninstall-prepare --token <token>` resumes the matching committed transaction, then `uninstall-finish` verifies registration removal, transfers the detached tree to pending cleanup and clears enrollment. Cleanup can be retried without rerunning the uninstaller. Resumed removal preserves app data. Run Setup again to install after a completed recovery.
 
 ## Build and test
 

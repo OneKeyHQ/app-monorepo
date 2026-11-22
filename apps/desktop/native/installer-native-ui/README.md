@@ -24,7 +24,7 @@ Build and exercise the fixture with the desktop project's pinned Unicode NSIS co
 powershell.exe -NoProfile -File "$source/test/verify.ps1" -Fixture "$build/native-ui-fixture.exe" -EvidenceDirectory "$build/captures"
 ```
 
-The fixture checks browsing and scope events, keyboard minimize and system restore, returning from declined elevation, progress and commit on the NSIS worker, exit confirmation, a repeated uninstall page transition, and re-showing finish after a failed launch. It captures all 13 pages, all 19 welcome locales, and simulated DPI changes at 100%, 125%, 150%, and 200%. Run on Windows with a desktop session.
+The fixture checks browsing and scope events, keyboard minimize and system restore, returning from declined elevation, progress and commit on the NSIS worker, exit confirmation, a repeated uninstall page transition, and re-showing finish after a failed launch. It captures all 13 pages, all 19 welcome locales, and simulated DPI changes at 100%, 125%, 150%, and 200%. Its cross-process MSAA client also checks names, roles, focus, options, progress and status, disabled actions, and the NSIS events produced when assistive technology invokes the controls. Run on Windows with a desktop session.
 
 For visual acceptance, compare the Win32 captures against the archived baseline using the same page, locale, DPI, window size, and fixture inputs. Keep the captures and interaction logs outside disposable build directories.
 
