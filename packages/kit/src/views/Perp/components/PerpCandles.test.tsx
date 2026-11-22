@@ -45,6 +45,9 @@ const mockSetCustomSettings = jest.fn(
 const mockNativeChart = jest.fn<null, [ITradingViewNativeProps]>(() => null);
 let mockMultiChartLayout: ITradingViewNativeMultiChartLayout;
 let mockMultiChartProps: ITradingViewNativeMultiChartProps | undefined;
+// The panel selected on this page, which the host keeps for the grid.
+let mockSelectedPanelId: string | undefined;
+const mockSetSelectedPanelId = jest.fn<void, [string]>();
 // What the grid shows in the selected panel while the host is still switching.
 let mockPendingActiveSource: ITradingViewNativeSource | undefined;
 const mockReferenceLineAction = jest.fn();
@@ -110,6 +113,10 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
       setTradeRouteViewState: mockSetTradeRouteViewState,
     },
   }),
+  useChartSelectedPanelIdAtom: () => [
+    mockSelectedPanelId,
+    mockSetSelectedPanelId,
+  ],
   useActiveTradeInstrumentAtom: () => [
     {
       mode: mockInstrumentMode,
@@ -192,7 +199,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   // every visible panel to the host.
   TradingViewNativeMultiChart: (props: ITradingViewNativeMultiChartProps) => {
     mockMultiChartProps = props;
-    const { activeSource, layout, renderPanel } = props;
+    const { activeSource, layout, renderPanel, selectedPanelId } = props;
     const { Fragment } = jest.requireActual<typeof import('react')>('react');
     const {
       getTradingViewNativeMultiChartActivePanelId,
@@ -204,7 +211,9 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
     );
     const ids = getTradingViewNativeMultiChartPanelIds(layout.preset);
     const isSymbolSynced = ids.length > 1 && layout.sync?.symbol === true;
-    const activeId = getTradingViewNativeMultiChartActivePanelId(layout);
+    const activeId = getTradingViewNativeMultiChartActivePanelId(
+      selectedPanelId ? { ...layout, activePanelId: selectedPanelId } : layout,
+    );
     return ids.map((id, index) => {
       const isActive = id === activeId;
       const source =
@@ -307,6 +316,7 @@ beforeEach(() => {
   mockCustomSettings = { showChartLines: false };
   mockMultiChartLayout = { preset: '1', panels: {} };
   mockMultiChartProps = undefined;
+  mockSelectedPanelId = undefined;
   mockPendingActiveSource = undefined;
 });
 
@@ -640,6 +650,30 @@ describe('split view', () => {
     renderTradingViewCandles();
 
     expect(mockSetTradeRouteViewState).not.toHaveBeenCalled();
+  });
+
+  it('goes by the panel selected on this page, not the one another page saved', () => {
+    // Another page, e.g. an extension tab, selected the spot chart last.
+    mockMultiChartLayout = {
+      preset: '2h',
+      activePanelId: 'panel-2',
+      panels: {
+        main: { source: ethSource },
+        'panel-2': { source: { ...ethSource, coin: '@107' } },
+      },
+    };
+    mockSelectedPanelId = 'main';
+    renderTradingViewCandles();
+
+    expect(mockMultiChartProps?.selectedPanelId).toBe('main');
+    expect(mockMultiChartProps?.onSelectedPanelIdChange).toBe(
+      mockSetSelectedPanelId,
+    );
+    // The spot chart is not this page's trading chart, so its quote streams.
+    expect(getChartProps('@107')).toBeDefined();
+    expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
+      chartPanelsSpotActive: true,
+    });
   });
 
   it('keeps a selected panel read-only until the trade instrument follows', () => {

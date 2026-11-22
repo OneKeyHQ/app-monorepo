@@ -1438,6 +1438,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       : '';
   }
 
+  /**
+   * Refuses an order whose sizes would come from another token's market.
+   * The asset, the quote and the size data passed in are the ones the order
+   * is built from, read after any earlier check: another page can have moved
+   * the shared market on in between, e.g. an extension tab.
+   */
+  private static _assertOrderMarketOfAsset({
+    assetId,
+    activeAsset,
+    activeAssetCtx,
+    activeAssetData,
+  }: {
+    assetId: number;
+    activeAsset: { coin: string; assetId: number | undefined } | undefined;
+    activeAssetCtx: { coin: string } | undefined;
+    activeAssetData: { coin: string } | undefined;
+  }): void {
+    if (
+      activeAsset?.assetId !== assetId ||
+      (activeAssetCtx && activeAssetCtx.coin !== activeAsset.coin) ||
+      (activeAssetData && activeAssetData.coin !== activeAsset.coin)
+    ) {
+      throw new OneKeyLocalError(getPerpsTargetMarketDataChangedMessage());
+    }
+  }
+
   /** The same token in the same mode, loaded or not. */
   private static _isSameToken(
     a: IActiveTradeInstrument | null,
@@ -1754,10 +1780,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(bboAtom(), null);
       }
       hydrateL2BookFromSwr(coin);
+      // A call of the switch to the service. When one fails the page never
+      // stays on a token no switch reached: it goes back, through the service
+      // once the switch has its request id there, before the failure is
+      // passed on.
+      const orGoBack = async <T>(
+        call: Promise<T>,
+        knownAssetChangeRequestId?: number,
+      ): Promise<T> => {
+        try {
+          return await call;
+        } catch (error) {
+          await this.restoreTradeInstrumentAfterFailedCall.call(set, {
+            requestId,
+            assetChangeRequestId: knownAssetChangeRequestId,
+            subscriptionRecoveryProof,
+          });
+          throw error;
+        }
+      };
       // Shared with the switches of other pages, e.g. extension tabs: only
       // while this switch holds it does the service take what it writes to
       // the market, or put the market back after a failure.
-      const assetChangeRequestId = await this.beginAssetChangeRequest();
+      const assetChangeRequestId = await orGoBack(
+        this.beginAssetChangeRequest(),
+      );
       const activeAsset = await perpsActiveAssetAtom.get();
       // The service names the coin before its metadata has loaded, e.g. for
       // a switch this one superseded; only a loaded asset is a done switch.
@@ -1810,17 +1857,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
       // The service sets the mode only while this switch holds the market.
-      let holdsMarket =
-        await backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
+      let holdsMarket = await orGoBack(
+        backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
           { requestId: assetChangeRequestId },
-        );
+        ),
+        assetChangeRequestId,
+      );
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
       if (holdsMarket) {
-        holdsMarket = await this.clearActiveAssetData.call(set, {
+        holdsMarket = await orGoBack(
+          this.clearActiveAssetData.call(set, { assetChangeRequestId }),
           assetChangeRequestId,
-        });
+        );
         if (!this.isLatestActiveInstrumentChange(requestId)) {
           return false;
         }
@@ -1832,34 +1882,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         });
         return false;
       }
-      let nextActiveAsset: Awaited<
-        ReturnType<
-          typeof backgroundApiProxy.serviceHyperliquid.changeActiveAsset
-        >
-      >;
-      try {
-        nextActiveAsset =
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin,
-            requestId: assetChangeRequestId,
-          });
-      } catch (error) {
-        // The page never stays on a token no switch reached.
-        await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
-          requestId,
-          assetChangeRequestId,
-          subscriptionRecoveryProof,
-        });
-        throw error;
-      }
+      const nextActiveAsset = await orGoBack(
+        backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin,
+          requestId: assetChangeRequestId,
+        }),
+        assetChangeRequestId,
+      );
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
 
+      // The prices typed for the token before are not this token's.
       const nextFormUpdates: Partial<ITradingFormData> = {
         triggerPrice: '',
         executionPrice: '',
         triggerReduceOnly: true,
+        scaleLowerPrice: '',
+        scaleUpperPrice: '',
         twapTriggerPrice: '',
         twapStopPrice: '',
       };
@@ -2041,6 +2081,43 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  // After a call of a switch to the service failed: the market goes back
+  // through the service, where the switch got its request id. A service that
+  // cannot be reached for that either leaves the page to go back alone.
+  restoreTradeInstrumentAfterFailedCall = contextAtomMethod(
+    async (
+      _get,
+      set,
+      {
+        requestId,
+        assetChangeRequestId,
+        subscriptionRecoveryProof,
+      }: {
+        requestId: number;
+        /** None when the service gave the switch no request id. */
+        assetChangeRequestId: number | undefined;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+      },
+    ) => {
+      if (assetChangeRequestId !== undefined) {
+        try {
+          await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
+            requestId,
+            assetChangeRequestId,
+            subscriptionRecoveryProof,
+          });
+          return;
+        } catch {
+          // The page still goes back below.
+        }
+      }
+      await this.restoreTradeInstrumentWithoutMarket.call(set, {
+        requestId,
+        subscriptionRecoveryProof,
+      });
+    },
+  );
+
   changeActiveSpotAsset = contextAtomMethod(
     async (
       get,
@@ -2090,10 +2167,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(l2BookAtom(), null);
         set(bboAtom(), null);
       }
+      // As for a perp switch: a failed call of the switch to the service
+      // never leaves the page on a token no switch reached.
+      const orGoBack = async <T>(
+        call: Promise<T>,
+        knownAssetChangeRequestId?: number,
+      ): Promise<T> => {
+        try {
+          return await call;
+        } catch (error) {
+          await this.restoreTradeInstrumentAfterFailedCall.call(set, {
+            requestId,
+            assetChangeRequestId: knownAssetChangeRequestId,
+            subscriptionRecoveryProof,
+          });
+          throw error;
+        }
+      };
       // Shared with the switches of other pages, e.g. extension tabs: only
       // while this switch holds it does the service take what it writes to
       // the market.
-      const assetChangeRequestId = await this.beginAssetChangeRequest();
+      const assetChangeRequestId = await orGoBack(
+        this.beginAssetChangeRequest(),
+      );
       const currentSpotAsset = await spotActiveAssetAtom.get();
       // A token named before the spot markets had loaded has no metadata yet;
       // only a loaded one is a done switch, so picking it again loads it.
@@ -2142,8 +2238,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
       // The service sets them only while this switch holds the market.
-      let holdsMarket =
-        await backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
+      let holdsMarket = await orGoBack(
+        backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
           {
             requestId: assetChangeRequestId,
             spotAsset: {
@@ -2152,7 +2248,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               universe: spotUniverse,
             },
           },
-        );
+        ),
+        assetChangeRequestId,
+      );
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -2170,26 +2268,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         if (!this.isLatestActiveInstrumentChange(requestId)) {
           return false;
         }
-        holdsMarket = await this.clearActiveAssetData.call(set, {
-          assetChangeRequestId,
-          spotAssetCtx: cached
-            ? {
-                coin,
-                assetId: spotUniverse?.assetId,
-                baseName: spotUniverse?.baseName,
-                ctx: formatSpotAssetCtx({
-                  markPx: cached.markPx,
-                  midPx: null,
-                  prevDayPx: cached.prevDayPx ?? '0',
-                  dayNtlVlm: cached.dayNtlVlm ?? '0',
-                  circulatingSupply: cached.circulatingSupply ?? '0',
-                  totalSupply: cached.totalSupply ?? '0',
-                  dayBaseVlm: '0',
+        holdsMarket = await orGoBack(
+          this.clearActiveAssetData.call(set, {
+            assetChangeRequestId,
+            spotAssetCtx: cached
+              ? {
                   coin,
-                }),
-              }
-            : undefined,
-        });
+                  assetId: spotUniverse?.assetId,
+                  baseName: spotUniverse?.baseName,
+                  ctx: formatSpotAssetCtx({
+                    markPx: cached.markPx,
+                    midPx: null,
+                    prevDayPx: cached.prevDayPx ?? '0',
+                    dayNtlVlm: cached.dayNtlVlm ?? '0',
+                    circulatingSupply: cached.circulatingSupply ?? '0',
+                    totalSupply: cached.totalSupply ?? '0',
+                    dayBaseVlm: '0',
+                    coin,
+                  }),
+                }
+              : undefined,
+          }),
+          assetChangeRequestId,
+        );
         if (!this.isLatestActiveInstrumentChange(requestId)) {
           return false;
         }
@@ -2213,6 +2314,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         sizePercent: 0,
         triggerPrice: '',
         executionPrice: '',
+        scaleLowerPrice: '',
+        scaleUpperPrice: '',
         twapTriggerPrice: '',
         twapStopPrice: '',
       };
@@ -2950,6 +3053,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               perpsActiveAssetCtxAtom.get(),
               perpsActiveAssetDataAtom.get(),
             ]);
+            ContextJotaiActionsHyperliquid._assertOrderMarketOfAsset({
+              assetId: params.assetId,
+              activeAsset: activeAssetValue,
+              activeAssetCtx: activeAssetCtxValue,
+              activeAssetData: activeAssetDataValue,
+            });
 
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
@@ -3013,6 +3122,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               perpsActiveAssetCtxAtom.get(),
               perpsActiveAssetDataAtom.get(),
             ]);
+            ContextJotaiActionsHyperliquid._assertOrderMarketOfAsset({
+              assetId: params.assetId,
+              activeAsset: activeAssetValue,
+              activeAssetCtx: activeAssetCtxValue,
+              activeAssetData: activeAssetDataValue,
+            });
 
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
@@ -3097,6 +3212,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               perpsActiveAssetCtxAtom.get(),
               perpsActiveAssetDataAtom.get(),
             ]);
+            ContextJotaiActionsHyperliquid._assertOrderMarketOfAsset({
+              assetId: params.assetId,
+              activeAsset: activeAssetValue,
+              activeAssetCtx: activeAssetCtxValue,
+              activeAssetData: activeAssetDataValue,
+            });
 
             // Use trigger effective price for size resolution
             const effectivePrice = getTriggerEffectivePrice({
@@ -3242,6 +3363,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 'Spot asset metadata not loaded. Please try again.',
               );
             }
+            if (!isSpot) {
+              ContextJotaiActionsHyperliquid._assertOrderMarketOfAsset({
+                assetId: params.assetId,
+                activeAsset: activeAssetValue,
+                activeAssetCtx: activeAssetCtxValue,
+                activeAssetData: activeAssetDataValue,
+              });
+            }
             const szDecimals = isSpot
               ? (activeTradeInstrument.universe?.baseSzDecimals ??
                 env.szDecimals ??
@@ -3379,6 +3508,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             const spotActiveAssetCtxValue = isSpot
               ? await spotActiveAssetCtxAtom.get()
               : undefined;
+            if (isSpot) {
+              // The quote read here is the order's as well.
+              if (
+                spotActiveAssetCtxValue &&
+                spotActiveAssetCtxValue.coin !== activeTradeInstrument.coin
+              ) {
+                throw new OneKeyLocalError(
+                  getPerpsTargetMarketDataChangedMessage(),
+                );
+              }
+            } else {
+              ContextJotaiActionsHyperliquid._assertOrderMarketOfAsset({
+                assetId: params.assetId,
+                activeAsset: activeAssetValue,
+                activeAssetCtx: activeAssetCtxValue,
+                activeAssetData: activeAssetDataValue,
+              });
+            }
             if (
               isSpot &&
               (typeof params.assetId !== 'number' ||

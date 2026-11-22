@@ -175,9 +175,13 @@ function renderGrid({
   onSelectPanel,
   deferLayoutWrites = false,
   activeSource: initialActiveSource = coin('BTC'),
+  keepsSelectedPanel = false,
   layoutKey,
 }: {
   activeSource?: ITradingViewNativeSource;
+  // The host keeps the panel selected on its page, as one whose saved layout
+  // other pages share.
+  keepsSelectedPanel?: boolean;
   layout?: ITradingViewNativeMultiChartLayout;
   layoutKey?: string;
   onSelectPanel: (
@@ -209,12 +213,19 @@ function renderGrid({
       harness.flushLayout();
     }
   };
-  // The saved layout and the host's source outlive a mounted grid.
+  // The saved layout, the host's source and its selected panel outlive a
+  // mounted grid.
   let hostSource = initialActiveSource;
+  let hostPanelId: string | undefined;
   let setHostLayout:
     | ((layout: ITradingViewNativeMultiChartLayout) => void)
     | undefined;
   let setHostSource: ((source: ITradingViewNativeSource) => void) | undefined;
+  let setHostPanelId: ((panelId: string) => void) | undefined;
+  const handleSelectedPanelIdChange = (panelId: string) => {
+    hostPanelId = panelId;
+    setHostPanelId?.(panelId);
+  };
   harness.replaceLayout = (next) => {
     harness.layout = next;
     setHostLayout?.(next);
@@ -233,14 +244,22 @@ function renderGrid({
   function Host() {
     const [layout, setLayout] = useState(() => harness.layout);
     const [activeSource, setActiveSource] = useState(() => hostSource);
+    const [selectedPanelId, setSelectedPanelId] = useState(() => hostPanelId);
     setHostLayout = setLayout;
     setHostSource = setActiveSource;
+    setHostPanelId = setSelectedPanelId;
     return (
       <TradingViewNativeMultiChart
         layout={layout}
         layoutKey={layoutKey}
         onLayoutChange={onLayoutChange}
         activeSource={activeSource}
+        {...(keepsSelectedPanel
+          ? {
+              selectedPanelId,
+              onSelectedPanelIdChange: handleSelectedPanelIdChange,
+            }
+          : {})}
         onSelectPanel={(source) => onSelectPanel(source, harness)}
         defaultIndicatorSettings={indicatorSettings}
         getDefaultPanelSource={() => coin('SOL')}
@@ -253,6 +272,7 @@ function renderGrid({
     harness.unmount = () => {
       setHostLayout = undefined;
       setHostSource = undefined;
+      setHostPanelId = undefined;
       unmount();
     };
   };
@@ -1920,5 +1940,229 @@ it('saves the host token with its own panel when the tokens are synced mid-switc
   expect(harness.layout.panels).toMatchObject({
     main: { source: coin('BTC') },
     'panel-4': { source: coin('HYPE') },
+  });
+});
+
+it('asks the host for a token picked in the panel that shows it already', async () => {
+  const onSelectPanel = jest.fn(
+    async (_source: ITradingViewNativeSource, _harness: IHarness) => true,
+  );
+  const harness = renderGrid({ onSelectPanel });
+
+  // The page can show a token without holding its market, e.g. after another
+  // page took that; picking the token again is how the user asks for it.
+  await act(async () => mockPanels.get('main')?.selectSource(coin('BTC')));
+
+  expect(onSelectPanel).toHaveBeenCalledTimes(1);
+  expect(onSelectPanel).toHaveBeenCalledWith(coin('BTC'), harness);
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+});
+
+it('keeps the panel selected on its page when another page saves a selection', async () => {
+  const harness = renderGrid({
+    keepsSelectedPanel: true,
+    layout: {
+      preset: '2h',
+      panels: {
+        main: { source: coin('SOL') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+      },
+    },
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  // Another page, e.g. an extension tab on its own token, selects the ETH
+  // chart and saves the token its first chart showed.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      activePanelId: 'panel-2',
+      panels: { ...harness.layout.panels, main: { source: coin('DOGE') } },
+      revision: 1,
+      writeId: 'other-page',
+    }),
+  );
+  // This page still trades BTC in its first chart.
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+  // Also in a grid mounted since.
+  harness.unmount();
+  harness.remount();
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  // Selecting here saves this page's own tokens, not BTC over the ETH chart.
+  await act(async () => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+  await act(async () => press('main'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'main',
+    panels: { 'panel-2': { source: coin('ETH') } },
+  });
+});
+
+function renderSpotGrid(
+  onSelectPanel: Parameters<typeof renderGrid>[0]['onSelectPanel'],
+) {
+  return renderGrid({
+    layout: {
+      preset: '3',
+      panels: {
+        main: { source: coin('SOL') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('@107'), indicatorSettings },
+      },
+    },
+    onSelectPanel,
+  });
+}
+
+it.each([
+  ['lands', true],
+  ['fails', false],
+])(
+  'leaves a selection on its way to its switch when the host turns the next one down before starting, and it %s',
+  async (_, switched) => {
+    let finish: (result: boolean) => void = () => {};
+    const harness = renderSpotGrid((source, { setActiveSource }) => {
+      // A spot token whose markets have not loaded is no switch: the host
+      // turns it down at once and the switch on its way goes on.
+      if (source.kind === 'hyperliquid' && source.coin === '@107') {
+        return Promise.resolve(false);
+      }
+      setActiveSource(source);
+      return new Promise<boolean>((resolve) => {
+        finish = (result) => {
+          if (!result) setActiveSource(coin('BTC'));
+          resolve(result);
+        };
+      });
+    });
+    const saved = harness.layout;
+    const charts = { main: 'BTC', 'panel-2': 'ETH', 'panel-3': '@107' };
+
+    // The spot chart is pressed once the host shows ETH, before it got there.
+    act(() => press('panel-2'));
+    await act(async () => press('panel-3'));
+
+    // The ETH chart is the selected one again, and nothing is saved yet.
+    expectScreen(charts, 'panel-2');
+    expect(harness.layout).toBe(saved);
+
+    await act(async () => finish(switched));
+    if (switched) {
+      expectScreen(charts, 'panel-2');
+      expect(harness.layout).toMatchObject({
+        activePanelId: 'panel-2',
+        panels: {
+          main: { source: coin('BTC') },
+          'panel-3': { source: coin('@107') },
+        },
+      });
+    } else {
+      expectScreen(charts, 'main');
+      expect(harness.layout).toBe(saved);
+    }
+  },
+);
+
+it.each([
+  ['lands', true],
+  ['is turned down', false],
+])(
+  'keeps a token picked in a panel whose switch lands while the next selection is on its way, which then %s',
+  async (_, switched) => {
+    const answers = new Map<string, (result: boolean) => void>();
+    const harness = renderSpotGrid((source, { setActiveSource }) => {
+      const name = source.kind === 'hyperliquid' ? source.coin : '';
+      // The host looks a spot token up before its switch begins, and shows
+      // a perp token at once.
+      if (name !== '@107') setActiveSource(source);
+      return new Promise<boolean>((resolve) => {
+        answers.set(name, resolve);
+      });
+    });
+
+    // DOGE is picked in the first chart, and the spot chart is selected
+    // before the host got to DOGE.
+    act(() => mockPanels.get('main')?.selectSource(coin('DOGE')));
+    act(() => press('panel-3'));
+    expectScreen(
+      { main: 'BTC', 'panel-2': 'ETH', 'panel-3': '@107' },
+      'panel-3',
+    );
+
+    // The switch to DOGE lands while the host still looks the spot token up.
+    await act(async () => answers.get('DOGE')?.(true));
+    expectScreen(
+      { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': '@107' },
+      'panel-3',
+    );
+
+    await act(async () => {
+      if (switched) harness.setActiveSource(coin('@107'));
+      answers.get('@107')?.(switched);
+    });
+    // The first chart keeps the token it landed on either way.
+    expectScreen(
+      { main: 'DOGE', 'panel-2': 'ETH', 'panel-3': '@107' },
+      switched ? 'panel-3' : 'main',
+    );
+    if (switched) {
+      expect(harness.layout).toMatchObject({
+        activePanelId: 'panel-3',
+        panels: { main: { source: coin('DOGE') } },
+      });
+    } else {
+      expect(harness.layout.activePanelId ?? 'main').toBe('main');
+    }
+  },
+);
+
+it('leaves a token that never landed out of the layout when two more panels are selected', async () => {
+  const answers = new Map<string, (result: boolean) => void>();
+  const harness = renderGrid({
+    layout: {
+      preset: '4',
+      panels: {
+        main: { source: coin('SOL') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('@107'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: (source, { setActiveSource }) => {
+      const name = source.kind === 'hyperliquid' ? source.coin : '';
+      if (name !== '@107') setActiveSource(source);
+      return new Promise<boolean>((resolve) => {
+        answers.set(name, resolve);
+      });
+    },
+  });
+
+  // DOGE is picked in the ETH chart; then the spot chart is selected, which
+  // the host still looks up, and the HYPE chart, which it switches to.
+  act(() => mockPanels.get('panel-2')?.selectSource(coin('DOGE')));
+  act(() => press('panel-3'));
+  act(() => press('panel-4'));
+  await act(async () => {
+    answers.get('DOGE')?.(false);
+    answers.get('@107')?.(false);
+    answers.get('HYPE')?.(true);
+  });
+
+  expectScreen(
+    { main: 'BTC', 'panel-2': 'ETH', 'panel-3': '@107', 'panel-4': 'HYPE' },
+    'panel-4',
+  );
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-4',
+    panels: {
+      main: { source: coin('BTC') },
+      'panel-2': { source: coin('ETH') },
+    },
   });
 });

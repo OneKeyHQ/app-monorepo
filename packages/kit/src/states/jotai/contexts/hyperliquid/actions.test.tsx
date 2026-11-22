@@ -108,6 +108,9 @@ const mockChangeActiveAsset = jest.fn<
 >();
 // The service's request ids, shared by the switches of every page.
 let mockAssetChangeRequestId = 0;
+// Rejects to make a request for one fail, as when the service cannot be
+// reached.
+const mockReachAssetChangeService = jest.fn<Promise<void> | undefined, []>();
 // The perp asset the service holds once it is back on the last one loaded.
 const mockLoadedPerpAsset = jest.fn<
   Promise<IPerpsActiveAssetAtom | undefined>,
@@ -246,6 +249,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceHyperliquid: {
       cancelPendingActiveAssetChange: async () => {
+        await mockReachAssetChangeService();
         mockAssetChangeRequestId += 1;
         return mockAssetChangeRequestId;
       },
@@ -1459,12 +1463,14 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     store.set(perpsAllMidsAtom(), {
       mids: { ETH: '1700' },
     } as unknown as HL.IWsAllMids);
-    // A limit order begun on BTC.
+    // A limit order begun on BTC, and the price range of a scale order.
     store.set(tradingFormAtom(), {
       ...store.get(tradingFormAtom()),
       type: 'limit',
       price: '59000',
       size: '2',
+      scaleLowerPrice: '58000',
+      scaleUpperPrice: '60000',
     });
     // Another extension tab has switched the background to ETH.
     jest.mocked(perpsActiveAssetAtom.get).mockResolvedValue(eth);
@@ -1487,10 +1493,12 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       coin: 'ETH',
       assetId: 1,
     });
-    // BTC's size and price are not ETH's.
+    // BTC's size and prices are not ETH's.
     expect(store.get(tradingFormAtom())).toMatchObject({
       size: '',
       price: formatPriceToSignificantDigits('1700'),
+      scaleLowerPrice: '',
+      scaleUpperPrice: '',
     });
   });
 
@@ -1503,12 +1511,14 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         ReturnType<typeof perpsTradingPreferencesAtom.get>
       >);
     const universe = { name: '@150', assetId: 10_150 } as HL.ISpotUniverse;
-    // A limit order begun on @107.
+    // A limit order begun on @107, and a price range left from a scale order.
     store.set(tradingFormAtom(), {
       ...store.get(tradingFormAtom()),
       type: 'limit',
       price: '62',
       size: '2',
+      scaleLowerPrice: '60',
+      scaleUpperPrice: '64',
     });
     // Another extension tab has switched the background to @150.
     await spotActiveAssetAtom.set({
@@ -1535,6 +1545,8 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       size: '',
       price: '',
       type: 'market',
+      scaleLowerPrice: '',
+      scaleUpperPrice: '',
     });
   });
 
@@ -1619,6 +1631,78 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
 
     expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
     expect(store.get(tradingFormAtom()).size).toBe('2');
+  });
+
+  it.each([
+    ['its request for the market', 'request'],
+    ['setting the mode', 'mode'],
+    ['clearing the contexts', 'contexts'],
+    ['setting the mode, and then putting the market back', 'mode and restore'],
+  ] as const)(
+    'goes back to the token it showed when the service fails a perp switch at %s',
+    async (_label, failing) => {
+      const { store, result, getMode } = setup('spot');
+      const error = new OneKeyLocalError('Bridge error');
+      if (failing === 'request') {
+        mockReachAssetChangeService.mockRejectedValueOnce(error);
+      } else if (failing === 'contexts') {
+        mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
+          error,
+        );
+      } else {
+        mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(error);
+      }
+      if (failing === 'mode and restore') {
+        mockRestoreActiveAssetAfterFailedChange.mockRejectedValueOnce(error);
+      }
+
+      await act(async () => {
+        await expect(
+          result.current.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: 'ETH',
+          }),
+        ).rejects.toThrow('Bridge error');
+      });
+
+      // The page showed ETH at once; it must not stay there.
+      expect(mockChangeActiveAsset).not.toHaveBeenCalled();
+      expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+        mode: 'spot',
+        coin: '@107',
+        assetId: 10_107,
+      });
+      // The market goes back through the service once the switch has its
+      // request id there, and while the service can be reached.
+      if (failing === 'contexts') expect(getMode()).toBe('spot');
+      expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledTimes(
+        failing === 'request' ? 0 : 1,
+      );
+    },
+  );
+
+  it('goes back to the token it showed when the service fails a spot switch at setting the mode', async () => {
+    const { store, result, getMode } = setup('perp');
+    mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(
+      new OneKeyLocalError('Bridge error'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'spot',
+          coin: '@150',
+          spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    expect(getMode()).toBe('perp');
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+    });
   });
 
   it('leaves the page where it is for a spot token whose markets have not loaded when its caller needs the metadata', async () => {
@@ -1905,6 +1989,61 @@ describe('useHyperliquidActions.loadTwapData', () => {
       expect(failure === undefined).toBe(isSubmitted);
     },
   );
+
+  it('turns an order down when the market moves on before its sizes are read', async () => {
+    const asset = (coin: string, assetId: number) => ({
+      coin,
+      assetId,
+      universe: undefined,
+      margin: undefined,
+    });
+    jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
+    // BTC when the order is confirmed; another extension tab has the market
+    // on SOL by the time the order reads what its size is computed from.
+    jest
+      .spyOn(perpsActiveAssetAtom, 'get')
+      .mockResolvedValueOnce(asset('BTC', 0))
+      .mockResolvedValue(asset('SOL', 5));
+    jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+    jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+    jest.spyOn(spotActiveAssetAtom, 'get').mockResolvedValue({
+      coin: '',
+      assetId: undefined,
+      universe: undefined,
+    });
+    jest.spyOn(spotActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+    mockGetTwapStates.mockResolvedValue(undefined);
+    const { store, result } = setup();
+    store.set(activeTradeInstrumentAtom(), {
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+      universe: undefined,
+    });
+    store.set(tradingFormEnvAtom(), { markPrice: '100', szDecimals: 3 });
+    mockPlaceTwapOrder.mockClear().mockResolvedValue({ status: 'ok' });
+
+    let failure: unknown;
+    await act(async () => {
+      try {
+        await result.current.current.submitOrder({
+          assetId: 0,
+          price: '100',
+          formData: {
+            ...store.get(tradingFormAtom()),
+            orderMode: 'twap',
+            size: '1',
+            twapDurationMinutes: '5',
+          },
+        });
+      } catch (error) {
+        failure = error;
+      }
+    });
+
+    expect(failure).toBeDefined();
+    expect(mockPlaceTwapOrder).not.toHaveBeenCalled();
+  });
 
   it.each(['102', undefined])(
     'keeps spot sizing at mid and forwards the current mark: %s',

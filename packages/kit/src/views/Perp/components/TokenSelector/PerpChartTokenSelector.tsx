@@ -48,7 +48,8 @@ function fitBodyHeight(height: number) {
   );
 }
 
-// The list sized so the whole popover fits `space`.
+// The list sized so the whole popover fits `space`, also as that changes
+// under the open popover.
 function PerpChartTokenSelectorContent({
   onSelectToken,
   space,
@@ -56,17 +57,17 @@ function PerpChartTokenSelectorContent({
   onSelectToken: (selection: IPerpTokenSelection) => void;
   space: number;
 }) {
-  const [bodyHeight, setBodyHeight] = useState(() =>
-    fitBodyHeight(space - ESTIMATED_CHROME_HEIGHT),
-  );
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      // Only the list changes height, so one correction lands on the size.
-      const overflow = event.nativeEvent.layout.height - space;
-      setBodyHeight((current) => fitBodyHeight(current - overflow));
-    },
-    [space],
-  );
+  // What the popover holds besides the list. Only the list changes height,
+  // so the first layout gives it.
+  const [chromeHeight, setChromeHeight] = useState(ESTIMATED_CHROME_HEIGHT);
+  const bodyHeight = fitBodyHeight(space - chromeHeight);
+  const laidOutBodyHeight = useRef(bodyHeight);
+  laidOutBodyHeight.current = bodyHeight;
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setChromeHeight(
+      Math.round(event.nativeEvent.layout.height - laidOutBodyHeight.current),
+    );
+  }, []);
   return (
     <YStack onLayout={handleLayout}>
       <PerpTokenSelectorContent
@@ -102,6 +103,24 @@ export const PerpChartTokenSelector = memo(
     const [isOpen, setIsOpen] = useState(false);
     const [contentGeneration, setContentGeneration] = useState(0);
     const [space, setSpace] = useState(0);
+    // The roomier side of the trigger, which the popover opens to.
+    const measureSpace = useCallback(() => {
+      // The split view is web only, where the trigger is an element.
+      const trigger = triggerRef.current as unknown as Element | null;
+      const rect = trigger?.getBoundingClientRect();
+      return rect
+        ? Math.max(rect.top, window.innerHeight - rect.bottom) -
+            POPOVER_CLEARANCE
+        : Number.POSITIVE_INFINITY;
+    }, []);
+    // The window can change under the open popover, e.g. one dragged
+    // shorter: the list then fits the room there is now.
+    useEffect(() => {
+      if (!isOpen) return;
+      const handleResize = () => setSpace(measureSpace());
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, [isOpen, measureSpace]);
     // The list's live prices depend on the selector subscriptions.
     const selectorOwner = useId();
     useEffect(() => {
@@ -116,20 +135,12 @@ export const PerpChartTokenSelector = memo(
       (open: boolean) => {
         if (open) {
           void Promise.resolve().then(() => prewarmTokenSelectorImages());
-          // The split view is web only, where the trigger is an element.
-          const trigger = triggerRef.current as unknown as Element | null;
-          const rect = trigger?.getBoundingClientRect();
-          setSpace(
-            rect
-              ? Math.max(rect.top, window.innerHeight - rect.bottom) -
-                  POPOVER_CLEARANCE
-              : Number.POSITIVE_INFINITY,
-          );
+          setSpace(measureSpace());
           setContentGeneration((generation) => generation + 1);
         }
         setIsOpen(open);
       },
-      [prewarmTokenSelectorImages],
+      [measureSpace, prewarmTokenSelectorImages],
     );
     const close = useCallback(() => setIsOpen(false), []);
     const pageFocused = useIsFocused();

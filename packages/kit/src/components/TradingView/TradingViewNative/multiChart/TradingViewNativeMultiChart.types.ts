@@ -53,6 +53,16 @@ export interface ITradingViewNativeMultiChartProps {
   /** The host's source, shown by the selected panel. */
   activeSource: ITradingViewNativeSource;
   /**
+   * The panel selected on this page, which the host keeps beside its source.
+   * For a saved layout other pages share, e.g. extension tabs, each with a
+   * source of its own: the panel another page selects is not the one this
+   * page's source is in. The grid sets it from the saved layout once, e.g.
+   * after a reload, and from then on with each selection it saves. Without
+   * it, the selection is the saved layout's.
+   */
+  selectedPanelId?: string;
+  onSelectedPanelIdChange?: (panelId: string) => void;
+  /**
    * The user selected a panel showing `source`; the host switches to it.
    * Resolves whether it did. A selection the host turns down returns to the
    * panel selected before, and is saved only once the host has followed.

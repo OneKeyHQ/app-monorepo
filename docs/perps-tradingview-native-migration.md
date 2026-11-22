@@ -195,8 +195,14 @@ and, at its end, the layout picker. Likewise one drawing tools column sits at
 the left of the grid and works on the selected chart. The layout, the selected
 panel, panel sizes
 and each panel's token and indicators are saved in
-`perpsTradingViewMultiChartPersistAtom`. Mobile layouts and the native apps
-keep the single chart.
+`perpsTradingViewMultiChartPersistAtom`. That layout is shared with other
+pages, e.g. extension tabs, each on a trade instrument of its own, so the
+panel selected on a page is kept beside its trade instrument
+(`chartSelectedPanelIdAtom`, the grid's `selectedPanelId`): taken from the
+saved layout once, e.g. after a reload, and from then on moved by that page's
+selections only. A selection another page saves never puts this page's token
+in that page's panel. Mobile layouts and the native apps keep the single
+chart.
 
 - One panel is selected and outlined. It shows the active trade instrument and
   has every trading integration: lines with cancel/drag, the order menu and
@@ -217,7 +223,11 @@ keep the single chart.
   switch that landed (kept per context store, across switches that overlap),
   or else to the perp asset the background holds once it is back on the last
   one it loaded, also from a coin a superseded switch named without its
-  metadata. That asset comes from the background itself
+  metadata. So does a call of the switch to the background that fails before
+  the asset changes (taking the request id, setting the mode, clearing the
+  contexts): the page goes back before the failure is passed on, never
+  staying on a token no switch reached. That asset comes from the background
+  itself
   (`restoreActiveAssetAfterFailedChange`), not from the UI's copy of the atom,
   which follows a broadcast that can still be on its way. The subscriptions
   follow the background's mode and assets, so those go back with the page,
@@ -240,7 +250,10 @@ keep the single chart.
   back until the market is on its token again
   (`usePerpsOrderFormMarketDataFreshness`), and `submitOrder` takes an order
   only while the asset, the quote and the size data are that token's
-  (`isPerpsOrderFormDataOfInstrument`). The order begun for the failed token
+  (`isPerpsOrderFormDataOfInstrument`). Each order path then sizes the order
+  from one read of the market and refuses it when that read is another
+  token's (`_assertOrderMarketOfAsset`), as the market can move on between
+  the check and the read. The order begun for the failed token
   is reset along with the page, with the prices typed for it (a perp limit
   price starts from the restored token's mid again), and its market data is
   cleared only while no newer switch has started. A spot token the loaded
@@ -253,7 +266,9 @@ keep the single chart.
   switch cut short, or a spot token named before the spot markets had
   loaded, is loaded again. They are for a page already on the token: a page
   that takes up a market another page moved the background to switches like
-  any other, so the order begun for its own token is reset.
+  any other, so the order begun for its own token is reset. Every switch
+  that lands clears the prices typed for the token before, the range of a
+  scale order among them.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
@@ -263,6 +278,15 @@ keep the single chart.
   the last saved panel if it fails. A token the host shows before it has
   switched to it, e.g. one picked in the selected panel, is no panel's yet:
   a selection made meanwhile leaves that panel the token it showed before.
+  A newer selection does not always cut that switch short, as a spot token
+  is looked up before its switch begins. If the switch lands meanwhile, the
+  token is its panel's after all, saved as such and left there by the newer
+  selection. If the host turns the newer selection down before starting,
+  e.g. for a spot token whose markets have not loaded, the selection goes
+  back to the one whose switch is still on its way, which that switch then
+  decides. A token picked in a panel is always asked of the host, also the
+  one it shows: a page another one took the market from gets it back that
+  way.
   Enter or Space on a panel's focused chart selects it like a press, so the
   controls row can be moved from the keyboard; the keys of the panel's own
   controls, e.g. a drawing tool's style list, do not select.
@@ -285,7 +309,8 @@ keep the single chart.
   gets a shorter list instead of a cut-off one (OK-67552); the list takes
   what the search, tabs and key hints leave and scrolls, down to its header
   rows and one result. In a window too short for that the popover scrolls
-  as a whole. Each header holds one quote, subscribed to its own token
+  as a whole. The list is fitted again as the window changes under the open
+  popover. Each header holds one quote, subscribed to its own token
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
   (`chartPanelsSpotActive`). Both are let go while the workspace shows another

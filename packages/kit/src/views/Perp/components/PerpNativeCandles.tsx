@@ -19,7 +19,10 @@ import {
   normalizeTradingViewNativeMultiChartLayout,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/multiChartLayout';
 import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useChartSelectedPanelIdAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsTradingViewIndicatorSettingsPersistAtom,
   usePerpsTradingViewMultiChartPersistAtom,
@@ -288,6 +291,10 @@ export function PerpNativeSplitCandles({
 }: IPerpNativeCandlesProps) {
   const actions = useHyperliquidActions();
   const [layout, setLayout] = usePerpsTradingViewMultiChartPersistAtom();
+  // The saved layout is shared with other pages, e.g. extension tabs, each
+  // on a trade instrument of its own; the panel selected here stays with
+  // this page's.
+  const [selectedPanelId, setSelectedPanelId] = useChartSelectedPanelIdAtom();
   const [indicatorSettings] = usePerpsTradingViewIndicatorSettingsPersistAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const activeDisplay = useMemo<IPerpsChartInstrumentDisplay>(
@@ -331,7 +338,9 @@ export function PerpNativeSplitCandles({
   // panel's token is covered by the trade instrument itself.
   const hasSpotQuote = useMemo(() => {
     const saved = normalizeTradingViewNativeMultiChartLayout(layout);
-    const activeId = getTradingViewNativeMultiChartActivePanelId(saved);
+    const activeId = getTradingViewNativeMultiChartActivePanelId(
+      selectedPanelId ? { ...saved, activePanelId: selectedPanelId } : saved,
+    );
     const panelIds = getTradingViewNativeMultiChartPanelIds(saved.preset);
     return (
       panelIds.length > 1 &&
@@ -346,7 +355,7 @@ export function PerpNativeSplitCandles({
         );
       })
     );
-  }, [layout]);
+  }, [layout, selectedPanelId]);
   // Hidden charts stay mounted with their layout, without the quotes.
   const streamsSpotQuote = hasSpotQuote && isVisible;
   useEffect(() => {
@@ -373,6 +382,8 @@ export function PerpNativeSplitCandles({
       layoutKey="perps"
       onLayoutChange={setLayout}
       activeSource={source}
+      selectedPanelId={selectedPanelId}
+      onSelectedPanelIdChange={setSelectedPanelId}
       onSelectPanel={handleSelectPanel}
       defaultIndicatorSettings={indicatorSettings}
       getDefaultPanelSource={getDefaultPanelSource}

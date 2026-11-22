@@ -143,6 +143,34 @@ function openAt(rect: { top: number; bottom: number }, windowHeight: number) {
   return view;
 }
 
+function resizeWindow(windowHeight: number) {
+  Object.defineProperty(globalThis, 'innerHeight', {
+    configurable: true,
+    value: windowHeight,
+  });
+  act(() => {
+    globalThis.dispatchEvent(new Event('resize'));
+  });
+}
+
+const sharedAddEventListener = globalThis.addEventListener;
+
+// The shared Jest setup replaces window listeners; the picker listens for
+// the window's resizes.
+beforeAll(() => {
+  Object.defineProperty(globalThis, 'addEventListener', {
+    configurable: true,
+    value: EventTarget.prototype.addEventListener.bind(globalThis),
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(globalThis, 'addEventListener', {
+    configurable: true,
+    value: sharedAddEventListener,
+  });
+});
+
 beforeEach(() => {
   mockPopover = undefined;
   mockLayout = undefined;
@@ -178,3 +206,26 @@ it.each([
     );
   },
 );
+
+it('fits the token list again as the window changes under the open popover', () => {
+  openAt({ top: 100, bottom: 128 }, 1000);
+  layOut();
+  expect(getBodyHeight()).toBe(440);
+
+  // Dragged shorter: the list gives way, so the search and the key hints
+  // stay in reach.
+  resizeWindow(480);
+  expect(getBodyHeight()).toBe(480 - 128 - 20 - 170);
+  layOut();
+  expect(getBodyHeight()).toBe(162);
+
+  // And taller again.
+  resizeWindow(1000);
+  layOut();
+  expect(getBodyHeight()).toBe(440);
+
+  // A closed popover no longer listens.
+  act(() => mockPopover?.onOpenChange(false));
+  resizeWindow(480);
+  expect(mockPopover?.open).toBe(false);
+});

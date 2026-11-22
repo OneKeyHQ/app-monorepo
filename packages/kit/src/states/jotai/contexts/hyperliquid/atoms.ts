@@ -256,6 +256,17 @@ export const {
 export const { atom: confirmedTradeInstrumentAtom } =
   contextAtom<IActiveTradeInstrument | null>(null);
 
+/**
+ * The split-view chart panel selected on this page, kept beside the page's
+ * trade instrument: the saved chart layout is shared with other pages, e.g.
+ * extension tabs, and the panel one of them selects goes with its own
+ * instrument. Undefined until the chart has taken it from the saved layout.
+ */
+export const {
+  atom: chartSelectedPanelIdAtom,
+  use: useChartSelectedPanelIdAtom,
+} = contextAtom<string | undefined>(undefined);
+
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
