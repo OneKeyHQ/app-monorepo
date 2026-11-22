@@ -39,6 +39,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => {
