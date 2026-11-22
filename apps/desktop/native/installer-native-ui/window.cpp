@@ -279,6 +279,7 @@ void Window::SetProgress(int progress, bool reset) {
 }
 
 void Window::SetDirectory(std::wstring directory, std::wstring_view scope) {
+  const auto previous = state_.install_directory;
   if (scope == L"current") {
     state_.per_user_directory = std::move(directory);
     if (page_name_ == L"welcome" && !state_.machine_scope) {
@@ -293,6 +294,9 @@ void Window::SetDirectory(std::wstring directory, std::wstring_view scope) {
     state_.install_directory = std::move(directory);
   }
   Redraw();
+  if (previous != state_.install_directory) {
+    NotifyAccessibleChange(EVENT_OBJECT_NAMECHANGE, L"install-directory");
+  }
 }
 
 void Window::SetStatus(std::wstring status) {

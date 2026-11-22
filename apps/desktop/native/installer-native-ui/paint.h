@@ -14,8 +14,7 @@ struct Interaction {
 };
 
 using Fonts = std::vector<std::unique_ptr<Gdiplus::Font>>;
-using LegalBounds = std::array<Gdiplus::RectF, 2>;
-constexpr std::array<std::wstring_view, 2> kLegalLinks{L"terms", L"privacy"};
+using LegalBounds = std::array<Gdiplus::RectF, kLegalLinks.size()>;
 
 Fonts CreateFonts(const Page& page, std::wstring_view locale);
 void Paint(Gdiplus::Graphics& canvas, const std::vector<Element>& elements,

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Accessibility;
 
@@ -10,6 +11,61 @@ public static class FixtureAccessibility {
     [DllImport("oleacc.dll")]
     static extern int AccessibleChildren(IAccessible root, int start, int count,
         [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] object[] children, out int found);
+
+    private delegate void WinEventProc(IntPtr hook, uint eventId, IntPtr window,
+                                      int objectId, int childId, uint thread, uint time);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Message {
+        public IntPtr Window;
+        public uint Id;
+        public UIntPtr WParam;
+        public IntPtr LParam;
+        public uint Time;
+        public int X, Y;
+        public uint Private;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module,
+                                                 WinEventProc callback, uint process, uint thread, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnhookWinEvent(IntPtr hook);
+
+    [DllImport("user32.dll", EntryPoint = "PeekMessageW")]
+    private static extern bool PeekMessage(out Message message, IntPtr window, uint min, uint max, uint flags);
+
+    [DllImport("user32.dll", EntryPoint = "DispatchMessageW")]
+    private static extern IntPtr DispatchMessage(ref Message message);
+
+    public sealed class NameChanges : IDisposable {
+        private readonly WinEventProc callback;
+        private readonly IntPtr hook;
+        private int count;
+
+        public NameChanges(IntPtr window, uint process, int child) {
+            const uint nameChange = 0x800C;
+            callback = (handle, eventId, target, objectId, childId, thread, time) => {
+                if (target == window && objectId == -4 && childId == child) ++count;
+            };
+            hook = SetWinEventHook(nameChange, nameChange, IntPtr.Zero, callback, process, 0, 0);
+            if (hook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        public int Count() {
+            Message message;
+            while (PeekMessage(out message, IntPtr.Zero, 0, 0, 1)) {
+                DispatchMessage(ref message);
+            }
+            return count;
+        }
+
+        public void Dispose() {
+            UnhookWinEvent(hook);
+            GC.KeepAlive(callback);
+        }
+    }
 
     public sealed class Session {
         internal readonly IAccessible Accessible;

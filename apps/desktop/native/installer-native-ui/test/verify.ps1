@@ -92,14 +92,16 @@ function Close-Fixture($Window) {
     Wait-Log 'event=closed'
 }
 
-Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=commit') {
-    param($window)
+Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=accessibility') {
+    param($window, $process)
     Save-Capture $window 'accessible-welcome'
     $root = [FixtureAccessibility]::Root($window)
     [FixtureAccessibility]::CheckRoot($root, 'Install OneKey')
+    $null = [FixtureAccessibility]::Find($root, 'By continuing, you agree to the Terms and Privacy Policy', 41)
     $terms = [FixtureAccessibility]::Find($root, 'Terms', 30)
     [FixtureAccessibility]::CheckLocation($root, $terms)
-    $null = [FixtureAccessibility]::Find($root, 'Privacy Policy', 30)
+    $privacy = [FixtureAccessibility]::Find($root, 'Privacy Policy', 30)
+    [FixtureAccessibility]::CheckLocation($root, $privacy)
     $more = [FixtureAccessibility]::Find($root, 'More options', 43)
     [FixtureAccessibility]::CheckState($root, $more, 0x400, $true)
     [FixtureAccessibility]::TakeFocus($root, $more)
@@ -117,8 +119,23 @@ Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=commit') {
     [FixtureAccessibility]::CheckState($root, $current, 16, $false)
     [FixtureAccessibility]::CheckState($root, $all, 16, $true)
     $change = [FixtureAccessibility]::Find($root, 'Change', 43)
-    [FixtureAccessibility]::Invoke($root, $change)
-    Wait-Log 'event=browse-all'
+    $directory = [FixtureAccessibility]::Find($root, 'C:\Fixture\All', 41)
+    $changes = [FixtureAccessibility+NameChanges]::new($window, $process.Id, $directory)
+    try {
+        [FixtureAccessibility]::Invoke($root, $change)
+        Wait-Log 'directory=ok'
+        $null = Wait-For { $changes.Count() } 'accessible directory name change'
+        if ([FixtureAccessibility]::Find($root, 'C:\Fixture\Changed', 41) -ne $directory) {
+            throw 'The updated directory replaced its accessible child'
+        }
+        [FixtureAccessibility]::Invoke($root, $change)
+        $null = Wait-For {
+            @(Get-Content -LiteralPath $log | Where-Object { $_ -ceq 'directory=ok' }).Count -eq 2
+        } 'same directory selection'
+        if ($changes.Count() -ne 1) { throw 'Unexpected repeated directory name change' }
+    } finally {
+        $changes.Dispose()
+    }
     $primary = [FixtureAccessibility]::Find($root, 'Install', 43)
     [FixtureAccessibility]::Invoke($root, $primary)
     Wait-Log 'event=primary-all'

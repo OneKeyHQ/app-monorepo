@@ -80,6 +80,11 @@ Function ShowFixture
   ${Do}
     !insertmacro Call WaitForEvent ""
     !insertmacro Record event
+    ${If} $Mode == "accessibility"
+    ${AndIf} $Result == "browse-all"
+      !insertmacro Call SetPerMachineInstallDirectory '"C:\Fixture\Changed"'
+      !insertmacro Record directory
+    ${EndIf}
     ${If} $Mode == "replay"
     ${AndIf} $Result == "primary-all"
     ${AndIf} $Retry == ""
@@ -121,6 +126,7 @@ Section
     !insertmacro Record uninstalling-repeat
   ${EndIf}
   ${If} $Mode == "commit"
+  ${OrIf} $Mode == "accessibility"
     Sleep 4000
   ${EndIf}
   ${Do}

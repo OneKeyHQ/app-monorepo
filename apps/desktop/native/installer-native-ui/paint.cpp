@@ -174,29 +174,13 @@ void DrawProgress(Graphics& canvas, const Element& element, const State& state) 
 
 void DrawLegal(Graphics& canvas, const Element& element, const Gdiplus::Font& font,
                const State& state, const Interaction& input, LegalBounds& link_bounds) {
-  const auto raw = ElementText(*element.node, state, true);
-  std::array<CharacterRange, 2> ranges{};
-  std::wstring text;
-  std::wstring_view remainder(raw);
-  for (std::size_t i = 0; i < kLegalLinks.size(); ++i) {
-    const std::wstring marker = L"{a " + std::wstring(kLegalLinks[i]) + L"}";
-    const auto begin = remainder.find(marker);
-    const auto end = begin == std::wstring_view::npos ? begin : remainder.find(L"{/a}", begin);
-    if (end == std::wstring_view::npos) {
-      text = raw;
-      ranges = {};
-      remainder = {};
-      break;
-    }
-    text.append(remainder.substr(0, begin));
-    ranges[i] = CharacterRange(static_cast<int>(text.size()), static_cast<int>(end - begin - marker.size()));
-    text.append(remainder.substr(begin + marker.size(), ranges[i].Length));
-    remainder.remove_prefix(end + 4);
-    if (!remainder.empty() && remainder.front() == L' ') {
-      remainder.remove_prefix(1);
-    }
+  const auto legal = ParseLegalText(ElementText(*element.node, state, true));
+  const auto& text = legal.text;
+  std::array<CharacterRange, kLegalLinks.size()> ranges{};
+  for (std::size_t i = 0; i < ranges.size(); ++i) {
+    ranges[i] = CharacterRange(static_cast<int>(legal.links[i].start),
+                               static_cast<int>(legal.links[i].length));
   }
-  text.append(remainder);
   StringFormat format(StringFormat::GenericTypographic());
   format.SetAlignment(StringAlignmentCenter);
   format.SetLineAlignment(StringAlignmentCenter);
@@ -205,7 +189,7 @@ void DrawLegal(Graphics& canvas, const Element& element, const Gdiplus::Font& fo
   SolidBrush brush{Color(normal)};
   canvas.DrawString(text.c_str(), static_cast<int>(text.size()), &font, element.bounds, &format, &brush);
   format.SetMeasurableCharacterRanges(static_cast<int>(ranges.size()), ranges.data());
-  std::array<Region, 2> regions;
+  std::array<Region, kLegalLinks.size()> regions;
   if (canvas.MeasureCharacterRanges(text.c_str(), static_cast<int>(text.size()), &font,
                                     element.bounds, &format, static_cast<int>(regions.size()),
                                     regions.data()) != Ok) {

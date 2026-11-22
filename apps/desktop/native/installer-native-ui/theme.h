@@ -4,6 +4,7 @@
 #include <objidl.h>
 #include <gdiplus.h>
 
+#include <array>
 #include <map>
 #include <string>
 #include <string_view>
@@ -67,6 +68,19 @@ struct Element {
   Gdiplus::RectF bounds;
 };
 
+constexpr std::array<std::wstring_view, 2> kLegalLinks{L"terms", L"privacy"};
+
+struct LegalText {
+  struct Range {
+    std::size_t start;
+    std::size_t length;
+  };
+
+  std::wstring text;
+  std::array<Range, kLegalLinks.size()> links{};
+};
+
+LegalText ParseLegalText(std::wstring_view raw);
 const Geometry& WindowGeometry();
 const Page* FindPage(std::wstring_view name);
 std::wstring_view Text(std::wstring_view locale, std::wstring_view key);

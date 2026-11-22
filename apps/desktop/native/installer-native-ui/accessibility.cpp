@@ -71,8 +71,9 @@ class Window::Accessible final : public IAccessible {
           children_.push_back({&element, {}, ROLE_SYSTEM_PROGRESSBAR});
           break;
         case Kind::legal:
-          for (const auto link : kLegalLinks) {
-            children_.push_back({&element, link, ROLE_SYSTEM_LINK});
+          children_.push_back({&element, {}, ROLE_SYSTEM_STATICTEXT});
+          for (std::size_t i = 0; i < kLegalLinks.size(); ++i) {
+            children_.push_back({&element, kLegalLinks[i], ROLE_SYSTEM_LINK, i});
           }
           break;
         default:
@@ -184,15 +185,12 @@ class Window::Accessible final : public IAccessible {
         return CopyString(CaptionName(window_->hwnd_.load(), minimize ? SC_MINIMIZE : SC_CLOSE,
                                       minimize ? L"Minimize" : L"Close"), result);
       }
-      if (item->role == ROLE_SYSTEM_LINK) {
-        const auto text = Name(*item->element->node);
-        const auto marker = L"{a " + std::wstring(item->target) + L"}";
-        const auto begin = text.find(marker);
-        if (begin == std::wstring::npos) return S_FALSE;
-        const auto first = begin + marker.size();
-        const auto end = text.find(L"{/a}", first);
-        if (end == std::wstring::npos) return S_FALSE;
-        return CopyString(std::wstring_view(text).substr(first, end - first), result);
+      if (item->element->node->kind == Kind::legal) {
+        const auto legal = ParseLegalText(Name(*item->element->node));
+        if (item->role != ROLE_SYSTEM_LINK) return CopyString(legal.text, result);
+
+        const auto& range = legal.links[item->link_index];
+        return CopyString(std::wstring_view(legal.text).substr(range.start, range.length), result);
       }
       if (item->role == ROLE_SYSTEM_PROGRESSBAR) {
         return CopyString(title_ ? Name(*title_) : L"OneKey Setup", result);
@@ -427,6 +425,7 @@ class Window::Accessible final : public IAccessible {
     const Element* element;
     std::wstring_view target;
     LONG role;
+    std::size_t link_index = 0;
   };
 
   HRESULT Validate(VARIANT child) const {
@@ -445,7 +444,7 @@ class Window::Accessible final : public IAccessible {
 
   Gdiplus::RectF Bounds(const Item& item) const {
     if (item.role == ROLE_SYSTEM_LINK) {
-      return window_->legal_bounds_[item.target == kLegalLinks[0] ? 0 : 1];
+      return window_->legal_bounds_[item.link_index];
     }
     return item.element->bounds;
   }

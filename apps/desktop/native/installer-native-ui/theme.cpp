@@ -213,6 +213,26 @@ std::wstring ElementText(const Node& node, const State& state, bool welcome) {
   return result;
 }
 
+LegalText ParseLegalText(std::wstring_view raw) {
+  LegalText result;
+  auto remainder = raw;
+  for (std::size_t i = 0; i < kLegalLinks.size(); ++i) {
+    const auto marker = L"{a " + std::wstring(kLegalLinks[i]) + L"}";
+    const auto begin = remainder.find(marker);
+    const auto end = begin == std::wstring_view::npos ? begin : remainder.find(L"{/a}", begin);
+    if (end == std::wstring_view::npos) return {std::wstring(raw), {}};
+
+    result.text.append(remainder.substr(0, begin));
+    const auto label = begin + marker.size();
+    result.links[i] = {result.text.size(), end - label};
+    result.text.append(remainder.substr(label, result.links[i].length));
+    remainder.remove_prefix(end + 4);
+    if (!remainder.empty() && remainder.front() == L' ') remainder.remove_prefix(1);
+  }
+  result.text.append(remainder);
+  return result;
+}
+
 std::wstring SelectFontFamily(std::wstring_view families, std::wstring_view locale) {
   if (families.substr(0, families.find(L',')) == L"Segoe UI") {
     const auto preferred = LocalizedFamily(locale);
