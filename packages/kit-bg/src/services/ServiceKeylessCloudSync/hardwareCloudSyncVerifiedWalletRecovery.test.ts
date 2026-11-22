@@ -4,13 +4,22 @@ import 'fake-indexeddb/auto';
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
+import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
-import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  ICloudSyncCredential,
+  ICloudSyncRawDataJson,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { RealmSchemaAccount } from '../../dbs/local/realm/schemas/RealmSchemaAccount';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
+import { SimpleDbEntityChangeHistory } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 import { CloudSyncFlowManagerAccount } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerWallet } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
@@ -105,8 +114,20 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
     nextIds: {},
     name: 'Canonical metadata',
   };
+  const changeHistory = new SimpleDbEntityChangeHistory();
+  let historyValue: string | null = null;
+  changeHistory.appStorage = {
+    ...changeHistory.appStorage,
+    getItem: async () => historyValue,
+    setItem: async (_key, value) => {
+      historyValue = value;
+    },
+  };
   const walletManager = new CloudSyncFlowManagerWallet({
-    backgroundApi: { localDb: mockDb } as unknown as IBackgroundApi,
+    backgroundApi: {
+      localDb: mockDb,
+      simpleDb: { changeHistory },
+    } as unknown as IBackgroundApi,
   });
   if (device) {
     await mockDb.withTransaction(
@@ -162,8 +183,234 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
     dataTimestamp: current.dataTime,
     isDeleted: false,
   };
-  return { wallet, walletManager, previous, row, device };
+  return { wallet, walletManager, previous, row, device, changeHistory };
 }
+
+test.each([
+  'valid',
+  'name-race',
+  'avatar-race',
+  'device-race',
+  'pool-race',
+  'rejected-session',
+  'scope-switch',
+  'history-failure',
+  'history-timeout',
+  'wrong-origin',
+  'pending-before-recovery',
+  'equal-version',
+  'unknown-lineage',
+  'stale-old-cache',
+  'malformed-avatar',
+] as const)('strict newer authenticated Wallet scene: %s', async (scenario) => {
+  const { previous, wallet, walletManager, changeHistory, row } =
+    await fixture('hw');
+  const old = JSON.parse(previous.rawData ?? '') as ICloudSyncRawDataJson;
+  if (old.dataType !== EPrimeCloudSyncDataType.Wallet)
+    throw new OneKeyLocalError('Missing synthetic Wallet payload');
+  const avatar = { img: 'bear' } as const;
+  const name = 'Renamed after hardware re-sign';
+  if (scenario === 'equal-version') row.dataTimestamp = previous.dataTime;
+  if (scenario === 'stale-old-cache') {
+    previous.rawData = cloudSyncItemBuilder.buildRawDataString({
+      ...old,
+      payload: { ...old.payload, name: 'Not the current displayed name' },
+    });
+  }
+  const historyRelease = Promise.withResolvers<void>();
+  const historyEntered = Promise.withResolvers<void>();
+  if (scenario === 'history-timeout') {
+    const write = changeHistory.appStorage.setItem;
+    jest
+      .spyOn(changeHistory.appStorage, 'setItem')
+      .mockImplementationOnce(async (...args) => {
+        historyEntered.resolve();
+        await historyRelease.promise;
+        return write(...args);
+      });
+  }
+  if (scenario === 'history-failure')
+    jest
+      .spyOn(changeHistory.appStorage, 'setItem')
+      .mockRejectedValueOnce(new Error('Synthetic storage write rejected'));
+  const replacement = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+    key: row.key,
+    rawDataJson: {
+      ...old,
+      payload: {
+        ...old.payload,
+        name,
+        avatar:
+          scenario === 'malformed-avatar'
+            ? (JSON.parse('{"img":42}') as typeof avatar)
+            : avatar,
+      },
+    },
+    syncCredential: credential,
+    dataTime: row.dataTimestamp,
+  });
+  const origin = 'https://wallet-repair.example.test';
+  const baseKey = credential.keylessCredential;
+  if (!baseKey) throw new OneKeyLocalError('Missing synthetic key');
+  const key: IKeylessCloudSyncCredential = {
+    ...baseKey,
+    hardwareSession: {
+      deviceKeyJwk: {
+        kty: 'EC',
+        crv: 'P-256',
+        x: 'fixture',
+        y: 'fixture',
+        d: 'fixture',
+      },
+      accessToken: 'synthetic',
+      refreshToken: 'synthetic',
+      accessTokenExpiresAt: 9_000_000_000_000,
+      dekId: 'fixture-dek',
+      sessionId: 'fixture-session',
+      boundBaseURL: origin,
+      boundBaseURLVerified: true,
+    },
+  };
+  let isCurrent = true;
+  if (scenario === 'pending-before-recovery') {
+    await mockDb.updateSyncItem({
+      ids: [row.key],
+      updater: (item) => {
+        item.serverUploaded = false;
+        return item;
+      },
+    });
+    previous.serverUploaded = false;
+  }
+  const originalPool = await mockDb.getSyncItem({ id: row.key });
+  const newerPending = { ...originalPool, serverUploaded: false };
+  const editBeforeCommit = async () => {
+    await mockDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        if (scenario === 'name-race' || scenario === 'avatar-race') {
+          await mockDb.txUpdateWallet({
+            tx,
+            walletId: wallet.id,
+            updater: (current) => {
+              if (scenario === 'name-race')
+                current.name = 'Just edited locally';
+              else current.avatar = JSON.stringify({ img: 'dog' });
+              return current;
+            },
+          });
+        } else if (scenario === 'device-race' && wallet.associatedDevice) {
+          await mockDb.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [wallet.associatedDevice],
+            updater: (current) => {
+              current.updatedAt += 1;
+              return current;
+            },
+          });
+        } else if (scenario === 'pool-race') {
+          await mockDb.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [row.key],
+            updater: (current) => {
+              current.serverUploaded = false;
+              return current;
+            },
+          });
+        }
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+  };
+  const recovery = recoverVerifiedWalletCaches({
+    service: {
+      backgroundApi: {
+        serviceApp: { isAppLocked: async () => false },
+        servicePrimeCloudSync: { syncManagers: { wallet: walletManager } },
+      } as unknown as IBackgroundApi,
+      buildSyncCredentialWithKeylessCredential: () => credential,
+      getHardwareUploadGeneration: () => 55,
+      getHardwareWalletRetryOrigin: async () => origin,
+      runWithCloudAccountImportLock: async (run) => run(),
+      runWithVerifiedHardwareAccountArchiveSession: async (_key, run) => {
+        if (scenario === 'rejected-session') return undefined;
+        if (scenario === 'scope-switch') isCurrent = false;
+        if (scenario.endsWith('-race')) await editBeforeCommit();
+        return run();
+      },
+    },
+    history: {
+      data: { data: { serverData: [{ ...row, data: replacement.data }] } },
+      request: {
+        responseURL: `${scenario === 'wrong-origin' ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
+      },
+    } as Parameters<typeof recoverVerifiedWalletCaches>[0]['history'],
+    items: [previous],
+    previousPwdHashes: scenario === 'unknown-lineage' ? [] : [oldHash],
+    key,
+    isCurrent: () => isCurrent,
+  });
+  if (scenario === 'history-timeout') {
+    const entered = await resolveBeforeTimeout(
+      historyEntered.promise.then(() => true),
+      500,
+    );
+    expect(entered).toBe(true);
+    const lockWasFree = await resolveBeforeTimeout(
+      walletManager
+        .syncToSceneEachItemByMutex({
+          item: { ...previous },
+          target: await walletManager.buildSyncTargetByDBQuery({
+            dbRecord: wallet,
+          }),
+          payload: old.payload,
+          isCurrent: () => false,
+        })
+        .then(() => true),
+      100,
+    );
+    expect(lockWasFree).toBe(true);
+  }
+  await recovery;
+  if (scenario === 'history-timeout') {
+    historyRelease.resolve();
+    await changeHistory.mutex.runExclusive(() => true);
+  }
+  if (scenario !== 'valid') {
+    const expected = { ...wallet };
+    if (scenario === 'name-race') expected.name = 'Just edited locally';
+    if (scenario === 'avatar-race')
+      expected.avatar = JSON.stringify({ img: 'dog' });
+    await expect(
+      mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
+    ).resolves.toEqual(expected);
+    await expect(mockDb.getSyncItem({ id: row.key })).resolves.toEqual(
+      scenario === 'pool-race' ? newerPending : originalPool,
+    );
+    return;
+  }
+  await expect(
+    mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
+  ).resolves.toMatchObject({ name, avatar: JSON.stringify(avatar) });
+  await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
+    data: replacement.data,
+    dataTime: row.dataTimestamp,
+    pwdHash,
+    serverUploaded: true,
+    localSceneUpdated: true,
+  });
+  const reopened = new SimpleDbEntityChangeHistory();
+  reopened.appStorage = changeHistory.appStorage;
+  await expect(
+    reopened.getChangeHistory({
+      entityId: wallet.id,
+      entityType: EChangeHistoryEntityType.Wallet,
+      contentType: EChangeHistoryContentType.Name,
+    }),
+  ).resolves.toMatchObject([{ value: wallet.name }]);
+});
 
 test.each(['equal', 'newer'] as const)(
   'adopts the %s authenticated Wallet in the actual account transaction',

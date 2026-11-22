@@ -1,8 +1,12 @@
-import { isEqual, omit } from 'lodash';
+import { isEqual, isPlainObject, omit } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   HardwareCloudSyncCancelledError,
   HardwareCloudSyncError,
@@ -18,7 +22,9 @@ import type {
 } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
+  ICloudSyncPayloadWallet,
   ICloudSyncRawDataJson,
+  ICloudSyncTargetWallet,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
@@ -53,6 +59,7 @@ import type ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 import type {
   IDBCloudSyncItem,
   IDBDevice,
+  IDBSetWalletNameAndAvatarParams,
   IDBWallet,
 } from '../../dbs/local/types';
 import type { CloudSyncFlowManagerWallet } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerWallet';
@@ -241,10 +248,83 @@ type IVerifiedWalletCache = {
   incoming: IDBCloudSyncItem;
   wallet: IDBWallet;
   device?: IDBDevice;
+  scene?: {
+    payload: ICloudSyncPayloadWallet;
+    target: ICloudSyncTargetWallet;
+  };
 };
 
 const isVersion = (time: number | undefined): time is number =>
   typeof time === 'number' && Number.isSafeInteger(time) && time > 0;
+
+function validRecoveryAvatar(avatar: ICloudSyncPayloadWallet['avatar']) {
+  return (
+    avatar === undefined ||
+    (isPlainObject(avatar) &&
+      typeof avatar.img === 'string' &&
+      !!avatar.img &&
+      (avatar.emoji === undefined || typeof avatar.emoji === 'string') &&
+      (avatar.bgColor === undefined || typeof avatar.bgColor === 'string'))
+  );
+}
+
+function matchesRetainedWalletPreimage({
+  previous,
+  wallet,
+  payload,
+  device,
+}: {
+  previous: IDBCloudSyncItem;
+  wallet: IDBWallet;
+  payload: ICloudSyncPayloadWallet;
+  device?: IDBDevice;
+}) {
+  if (
+    wallet.isTemp ||
+    wallet.isMocked ||
+    !payload.name.trim() ||
+    !validRecoveryAvatar(payload.avatar) ||
+    payload.walletType !== wallet.type ||
+    (payload.passphraseState ?? '') !== (wallet.passphraseState ?? '') ||
+    payload.hwDeviceId !== device?.deviceId ||
+    payload.walletHash !== (wallet.hash ?? undefined) ||
+    payload.firstEvmAddress !== (wallet.firstEvmAddress ?? undefined) ||
+    !previous.rawData ||
+    previous.rawData.length > 16_384 ||
+    !/^(?:[a-f0-9]{2}){28,}$/i.test(previous.data ?? '')
+  )
+    return false;
+  try {
+    // An old plaintext cache can only veto a change. It never supplies a
+    // value, timestamp or scope for the authenticated incoming scene.
+    const old = JSON.parse(previous.rawData) as ICloudSyncRawDataJson;
+    if (old?.dataType !== EPrimeCloudSyncDataType.Wallet || !old.payload)
+      return false;
+    const avatar: unknown = wallet.avatar ? JSON.parse(wallet.avatar) : {};
+    const canonicalAvatar =
+      isPlainObject(avatar) && Object.keys(avatar as object).length
+        ? avatar
+        : undefined;
+    return (
+      isPlainObject(avatar) &&
+      old.rawKey === previous.rawKey &&
+      old.payload.walletType === payload.walletType &&
+      old.payload.walletHash === payload.walletHash &&
+      old.payload.hwDeviceId === payload.hwDeviceId &&
+      old.payload.passphraseState === payload.passphraseState &&
+      old.payload.firstEvmAddress === payload.firstEvmAddress &&
+      old.payload.name === wallet.name &&
+      validRecoveryAvatar(old.payload.avatar) &&
+      isEqual(old.payload.avatar, canonicalAvatar) &&
+      // The ordinary scene does not clear an omitted avatar.
+      (payload.avatar !== undefined || canonicalAvatar === undefined) &&
+      (payload.name !== wallet.name ||
+        !isEqual(payload.avatar, canonicalAvatar))
+    );
+  } catch {
+    return false;
+  }
+}
 
 // Only adopt data already authenticated by the current key and displayed by
 // the business Wallet. A verified equal live server version wins the cache
@@ -261,7 +341,12 @@ export async function prepareVerifiedWalletCaches({
   records: readonly IServerSyncRecord[];
   knownPwdHashes: ReadonlySet<string>;
   syncCredential: ICloudSyncCredential;
-  walletManager: Pick<CloudSyncFlowManagerWallet, 'canUploadPendingWalletName'>;
+  walletManager: Pick<
+    CloudSyncFlowManagerWallet,
+    | 'canUploadPendingWalletName'
+    | 'findWalletSyncTargetReadOnly'
+    | 'buildSyncKeyInfo'
+  >;
   isCurrent: () => boolean;
 }): Promise<IVerifiedWalletCache[]> {
   const currentHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
@@ -318,16 +403,72 @@ export async function prepareVerifiedWalletCaches({
       localSceneUpdated: true,
       serverUploaded: true,
     };
-    // Use the existing exact AEAD, wire identity and canonical field
-    // verification. Only its observed Wallet/Device may authorize adoption.
+    // Keep the existing equal/business-identical path unchanged.
+    let canonicalWasEqual = false;
     await walletManager.canUploadPendingWalletName({
       item: { ...incoming, serverUploaded: false },
       syncCredential,
       onVerifiedWallet: (wallet, device) => {
+        canonicalWasEqual = true;
         if (isCurrent() && !wallet.isTemp && !wallet.isMocked)
           result.push({ previous, incoming, wallet, device });
       },
     });
+    if (
+      canonicalWasEqual ||
+      !isCurrent() ||
+      (incoming.dataTime ?? 0) <= (previous.dataTime ?? 0)
+    )
+      return;
+
+    // A differing scene needs a separate exact current AEAD and identity
+    // check. The normal upload verifier continues to reject divergent data.
+    try {
+      const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+        item: { ...incoming },
+        syncCredential,
+      });
+      if (
+        !isCurrent() ||
+        rawDataJson?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+        rawDataJson.rawKey !== previous.rawKey ||
+        !rawDataJson.payload ||
+        typeof rawDataJson.payload.name !== 'string'
+      )
+        return;
+      const { payload } = rawDataJson;
+      const matched = await walletManager.findWalletSyncTargetReadOnly({
+        payload,
+        isCurrent,
+      });
+      if (!matched || !isCurrent()) return;
+      const { target, device } = matched;
+      const syncKey = await walletManager.buildSyncKeyInfo({ target });
+      if (
+        !isCurrent() ||
+        syncKey?.key !== id ||
+        syncKey.rawKey !== previous.rawKey
+      )
+        return;
+      const wallet = await localDb.getRecordById({
+        name: ELocalDBStoreNames.Wallet,
+        id: target.wallet.id,
+      });
+      if (
+        wallet &&
+        isCurrent() &&
+        matchesRetainedWalletPreimage({ previous, wallet, payload, device })
+      )
+        result.push({
+          previous,
+          incoming: { ...incoming, localSceneUpdated: false },
+          wallet,
+          device,
+          scene: { target, payload },
+        });
+    } catch {
+      // Unreadable or unauthenticated records stay in the original pool slot.
+    }
   };
   for (const [id, row] of remote) {
     if (!isCurrent()) return [];
@@ -340,22 +481,36 @@ export async function prepareVerifiedWalletCaches({
 export async function commitVerifiedWalletCaches(
   candidates: readonly IVerifiedWalletCache[],
   isCurrent: () => boolean,
+  verifiedEdit?: IDBSetWalletNameAndAvatarParams,
 ) {
-  if (!candidates.length || !isCurrent()) return;
-  await localDb.withTransaction(
+  if (!candidates.length || !isCurrent()) return false;
+  return localDb.withTransaction(
     EIndexedDBBucketNames.account,
     async (tx) => {
       const { records: wallets } = await localDb.txGetAllRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
       });
+      let applied = false;
       const commit = async ({
         previous,
         incoming,
         wallet,
         device,
+        scene,
       }: IVerifiedWalletCache) => {
         if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
+        if (
+          scene &&
+          (!verifiedEdit ||
+            verifiedEdit.walletId !== wallet.id ||
+            verifiedEdit.expectedCloudSyncWalletName !== wallet.name ||
+            verifiedEdit.cloudSyncSource !== incoming ||
+            verifiedEdit.name !== scene.payload.name ||
+            verifiedEdit.avatar !== scene.payload.avatar ||
+            verifiedEdit.deferCloudSyncWalletName)
+        )
+          return;
         const matching = wallets.filter(
           (entry) =>
             entry?.type === wallet.type &&
@@ -393,11 +548,25 @@ export async function commitVerifiedWalletCaches(
         });
         if (!isEqual(records[0], previous)) return;
         if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
+        if (scene && verifiedEdit) {
+          await localDb.txUpdateWallet({
+            tx,
+            walletId: wallet.id,
+            updater: (record) => {
+              if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
+              if (verifiedEdit.name) record.name = verifiedEdit.name;
+              if (verifiedEdit.avatar)
+                record.avatar = JSON.stringify(verifiedEdit.avatar);
+              return record;
+            },
+          });
+        }
         await localDb.txUpdateRecords({
           tx,
           name: ELocalDBStoreNames.CloudSyncItem,
           ids: [previous.id],
           updater: (record) => {
+            if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
             record.data = incoming.data;
             record.dataTime = incoming.dataTime;
             record.pwdHash = incoming.pwdHash;
@@ -406,8 +575,10 @@ export async function commitVerifiedWalletCaches(
           },
         });
         if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
+        applied = true;
       };
       for (const candidate of candidates) await commit(candidate);
+      return applied;
     },
     { skipCloudCredentialWarmup: true, confirmRollbackOnError: true },
   );
@@ -711,7 +882,7 @@ export async function recoverVerifiedWalletCaches({
           syncCredential: service.buildSyncCredentialWithKeylessCredential(key),
           isCurrent: stillSelected,
         };
-        const commit = async (apply: () => Promise<void>) => {
+        const commit = async <T>(apply: () => Promise<T>) => {
           if (
             !stillSelected() ||
             (await service.getHardwareWalletRetryOrigin()) !==
@@ -720,28 +891,60 @@ export async function recoverVerifiedWalletCaches({
             !stillSelected()
           )
             return;
-          await service.runWithCloudAccountImportLock(async () => {
+          return service.runWithCloudAccountImportLock(async () => {
             if (!stillSelected()) return;
             // Import -> repair -> prepared DB write excludes source changes
             // and session revocation; no account scene or vault work here.
-            await service.runWithVerifiedHardwareAccountArchiveSession(
+            return service.runWithVerifiedHardwareAccountArchiveSession(
               key,
               apply,
             );
           });
         };
+        const walletManager =
+          service.backgroundApi.servicePrimeCloudSync.syncManagers.wallet;
         // An optional Account read/decode must not gate Wallet cache repair.
         await Promise.allSettled([
-          prepareVerifiedWalletCaches({
-            ...recovery,
-            walletManager:
-              service.backgroundApi.servicePrimeCloudSync.syncManagers.wallet,
-          }).then((candidates) =>
-            candidates.length
-              ? commit(() =>
-                  commitVerifiedWalletCaches(candidates, stillSelected),
-                )
-              : undefined,
+          prepareVerifiedWalletCaches({ ...recovery, walletManager }).then(
+            async (candidates) => {
+              const safe = candidates.filter((candidate) => !candidate.scene);
+              if (safe.length)
+                await commit(() =>
+                  commitVerifiedWalletCaches(safe, stillSelected),
+                ).catch(() => undefined);
+              const scenes = candidates.flatMap((candidate) =>
+                candidate.scene ? [{ candidate, scene: candidate.scene }] : [],
+              );
+              for (const { candidate, scene } of scenes) {
+                if (!stillSelected()) return;
+                const prepared = {
+                  ...scene,
+                  item: candidate.incoming,
+                  isCurrent: stillSelected,
+                  applyVerifiedRecovery: async (
+                    update: IDBSetWalletNameAndAvatarParams,
+                  ) =>
+                    !update.deferCloudSyncWalletName &&
+                    update.expectedCloudSyncWalletName ===
+                      candidate.wallet.name &&
+                    (await commit(() =>
+                      commitVerifiedWalletCaches(
+                        [candidate],
+                        stillSelected,
+                        update,
+                      ),
+                    )) === true,
+                };
+                try {
+                  // Optional history can stall. Do not hold the Wallet scene
+                  // mutex; the final exact transaction is the concurrency gate.
+                  if (await walletManager.syncToSceneEachItem(prepared))
+                    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+                } catch {
+                  // Leave the exact old cache and newer local business data.
+                }
+              }
+            },
           ),
           (async () => {
             for await (const accounts of prepareVerifiedAccountRotations(

@@ -302,6 +302,9 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
+    applyVerifiedRecovery?: (
+      update: IDBSetWalletNameAndAvatarParams,
+    ) => Promise<boolean>;
   }): Promise<boolean> {
     const { target, payload, item, isCurrent } = params;
     const walletId = target.wallet.id;
@@ -447,6 +450,8 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,
     };
+    if (params.applyVerifiedRecovery)
+      return params.applyVerifiedRecovery(update);
     const { serviceAccount } = this.backgroundApi;
     if (isCurrent && item) {
       const observer = params.onWalletNameHistoryDeferred;
