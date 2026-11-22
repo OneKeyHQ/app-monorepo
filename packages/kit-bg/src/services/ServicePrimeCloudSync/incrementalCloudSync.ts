@@ -24,7 +24,11 @@ import type { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyn
 import type ServicePrimeCloudSync from './ServicePrimeCloudSync';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { LocalDbBase as ILocalDb } from '../../dbs/local/LocalDbBase';
-import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 
 type IUploadRequestOptions = { signal: AbortSignal; timeout: number };
 
@@ -334,11 +338,13 @@ export async function replaceSettledWalletCacheAfterEdit(
     candidate,
     previous,
     wallet,
+    refillAvatarDevice,
     isCurrent: scopeIsCurrent,
   }: {
     candidate: IDBCloudSyncItem;
     previous: IDBCloudSyncItem;
     wallet: IWalletEditVersion;
+    refillAvatarDevice?: IDBDevice;
     isCurrent: () => boolean;
   },
 ) {
@@ -405,7 +411,17 @@ export async function replaceSettledWalletCacheAfterEdit(
         });
         if (match?.target.wallet.id !== wallet.id || !isCurrent())
           return undefined;
-        if (match.device && wallet.associatedDevice !== match.device.id)
+        if (
+          (match.device && wallet.associatedDevice !== match.device.id) ||
+          (refillAvatarDevice &&
+            (!match.device ||
+              match.device.id !== refillAvatarDevice.id ||
+              match.device.deviceId !== refillAvatarDevice.deviceId ||
+              match.device.deviceType !== refillAvatarDevice.deviceType ||
+              match.device.features !== refillAvatarDevice.features ||
+              match.device.deviceState !== refillAvatarDevice.deviceState ||
+              match.device.settingsRaw !== refillAvatarDevice.settingsRaw))
+        )
           return undefined;
         const key = await manager.buildSyncKeyInfo({ target: match.target });
         if (key?.key !== candidate.id || key.rawKey !== candidate.rawKey)
@@ -444,7 +460,10 @@ export async function replaceSettledWalletCacheAfterEdit(
                     !currentDevice ||
                     currentDevice.deviceId !== device.deviceId ||
                     currentDevice.deviceType !== device.deviceType ||
-                    currentDevice.settingsRaw !== device.settingsRaw
+                    currentDevice.settingsRaw !== device.settingsRaw ||
+                    (refillAvatarDevice &&
+                      (currentDevice.features !== device.features ||
+                        currentDevice.deviceState !== device.deviceState))
                   )
                     return false;
                 }

@@ -9084,6 +9084,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       | { candidate: IDBCloudSyncItem; previous: IDBCloudSyncItem }
       | undefined;
     let detachedWallet: IWalletEditVersion | undefined;
+    let refillAvatarDevice: IDBDevice | undefined;
     let isHardwareEditCurrent: (() => boolean) | undefined;
     let retryWalletUploadRead:
       | ((item: IDBCloudSyncItem, error: unknown) => void)
@@ -9430,11 +9431,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               w.hash !== wallet.hash ||
               w.xfp !== wallet.xfp ||
               w.passphraseState !== wallet.passphraseState ||
-              wallet.hasDesktopLocalMetadata ||
-              (!params.avatar &&
-                !isEqual(avatarInfo, this.readCanonicalWalletAvatar(w))))
+              wallet.hasDesktopLocalMetadata)
           )
             removedWalletCache = undefined;
+          if (
+            removedWalletCache &&
+            !params.avatar &&
+            !isEqual(avatarInfo, this.readCanonicalWalletAvatar(w))
+          ) {
+            const device = wallet.associatedDeviceInfo;
+            // The normal rename transaction commits the derived catalog
+            // avatar. It may not use a stale presentation over a local edit.
+            if (
+              w.avatar === wallet.avatar &&
+              device &&
+              this.verifyPassiveDeviceWalletFields(wallet, device, {
+                walletId,
+                avatar: avatarInfo,
+              })
+            )
+              refillAvatarDevice = device;
+            else removedWalletCache = undefined;
+          }
           if (firstEvmAddress && !w.firstEvmAddress) {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
@@ -9577,6 +9595,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const replacement = {
         ...removedWalletCache,
         wallet: detachedWallet,
+        refillAvatarDevice,
         isCurrent: isHardwareEditCurrent,
       };
       void import('../../services/ServicePrimeCloudSync/incrementalCloudSync')

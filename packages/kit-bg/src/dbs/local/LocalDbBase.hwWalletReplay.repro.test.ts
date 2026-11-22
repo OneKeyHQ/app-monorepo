@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import 'fake-indexeddb/auto';
 
@@ -8,6 +8,7 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
@@ -424,11 +425,42 @@ it.each([
   'local-advanced',
   'revoked',
   'late-repair',
+  'serial-refill',
+  'serial-avatar-race',
+  'serial-device-race',
+  'serial-device-race-after-admission',
+  'serial-state-refill',
+  'serial-state-race',
+  'serial-state-race-after-admission',
 ] as const)(
   'fresh Wallet metadata edit only replaces a recognized older settled cache: %s',
   async (scenario) => {
     const db = new LocalDbIndexed();
     const id = `fixture-current-edit-lww-${scenario}`;
+    const usesRealRefill = scenario.startsWith('serial-');
+    const serialNo = 'PRO-REPLAY-FIXTURE-1';
+    const usesDeviceState = scenario.startsWith('serial-state-');
+    const buildDeviceState = (serial: string) =>
+      JSON.stringify({
+        schemaVersion: 1,
+        revision: 1,
+        updatedAt: 1,
+        protocol: 'V2',
+        identity: {
+          deviceType: EDeviceType.Pro,
+          firmwareType: EFirmwareType.Universal,
+          serialNo: serial,
+          deviceId: id,
+          vendor: EHardwareVendor.onekey,
+          model: 'pro',
+          label: null,
+          bleName: null,
+        },
+        status: { mode: 'normal' },
+        settings: {},
+        versions: { firmware: '1.0.0' },
+        capabilities: [],
+      });
     const wallet: IDBWallet = {
       id: `hw-${id}`,
       name: 'Active local wallet',
@@ -447,7 +479,10 @@ it.each([
       uuid: id,
       deviceType: EDeviceType.Pro,
       vendor: EHardwareVendor.onekey,
-      features: '{}',
+      features: JSON.stringify(
+        usesRealRefill && !usesDeviceState ? { serialNo } : {},
+      ),
+      deviceState: usesDeviceState ? buildDeviceState(serialNo) : undefined,
       settingsRaw: '{}',
       createdAt: 1,
       updatedAt: 1,
@@ -499,6 +534,24 @@ it.each([
     const releaseRepair = Promise.withResolvers<void>();
     const lateRepairFinished = Promise.withResolvers<void>();
     let gen = 1;
+    const changeSerial = () =>
+      db.withTransaction(
+        EIndexedDBBucketNames.account,
+        (tx) =>
+          db.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [device.id],
+            updater: (row) => {
+              const nextSerialNo = 'PRO-REPLAY-FIXTURE-2';
+              if (usesDeviceState)
+                row.deviceState = buildDeviceState(nextSerialNo);
+              else row.features = JSON.stringify({ serialNo: nextSerialNo });
+              return row;
+            },
+          }),
+        { skipCloudCredentialWarmup: true },
+      );
     const api = {
       localDb: db,
       servicePrimeCloudSync: {
@@ -517,7 +570,15 @@ it.each([
         getCloudAccountImportGeneration: () => gen,
         getLocalMutationSyncCredential: async () => {
           if (scenario === 'source-changed') gen += 1;
-          if (scenario === 'local-advanced')
+          if (
+            scenario === 'serial-device-race' ||
+            scenario === 'serial-state-race'
+          )
+            await changeSerial();
+          if (
+            scenario === 'local-advanced' ||
+            scenario === 'serial-avatar-race'
+          )
             await db.withTransaction(
               EIndexedDBBucketNames.account,
               (tx) =>
@@ -525,7 +586,9 @@ it.each([
                   tx,
                   walletId: wallet.id,
                   updater: (row) => {
-                    row.name = 'Later canonical edit';
+                    if (scenario === 'serial-avatar-race')
+                      row.avatar = '{"img":"bear"}';
+                    else row.name = 'Later canonical edit';
                     return row;
                   },
                 }),
@@ -540,6 +603,11 @@ it.each([
           fn: () => Promise<T>,
         ) => {
           if (scenario === 'revoked') return undefined;
+          if (
+            scenario === 'serial-device-race-after-admission' ||
+            scenario === 'serial-state-race-after-admission'
+          )
+            await changeSerial();
           if (scenario !== 'late-repair') return fn();
           repairEntered.resolve();
           await releaseRepair.promise;
@@ -598,9 +666,18 @@ it.each([
       },
       { skipCloudCredentialWarmup: true },
     );
-    jest
-      .spyOn(db, 'refillWalletInfo')
-      .mockImplementation(async ({ wallet: record }) => record);
+    if (!usesRealRefill)
+      jest
+        .spyOn(db, 'refillWalletInfo')
+        .mockImplementation(async ({ wallet: record }) => record);
+    const derivedAvatar = {
+      img: getDeviceAvatarImage(device.deviceType, serialNo),
+    };
+    if (usesRealRefill) {
+      const initial = await db.getWallet({ walletId: wallet.id });
+      expect(initial.avatar).toBeUndefined();
+      expect(initial.avatarInfo).toEqual(derivedAvatar);
+    }
     const actualReplace =
       incrementalCloudSync.replaceSettledWalletCacheAfterEdit;
     const detachedComplete = Promise.withResolvers<void>();
@@ -636,9 +713,19 @@ it.each([
         await lateRepairFinished.promise;
       }
       await detachedComplete.promise;
+      if (scenario === 'serial-avatar-race')
+        expect(
+          (await db.getWallet({ walletId: wallet.id, withoutRefill: true }))
+            .avatar,
+        ).toBe('{"img":"bear"}');
       expect(direct).not.toHaveBeenCalled();
       const stored = await db.getSyncItem({ id: old.id });
-      if (scenario === 'name' || scenario === 'avatar') {
+      if (
+        scenario === 'name' ||
+        scenario === 'avatar' ||
+        scenario === 'serial-refill' ||
+        scenario === 'serial-state-refill'
+      ) {
         const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
           item: { ...stored },
           syncCredential: selected,
@@ -653,6 +740,19 @@ it.each([
             ? { name: wallet.name, avatar }
             : { name: 'New actual local name' },
         );
+        if (
+          scenario === 'serial-refill' ||
+          scenario === 'serial-state-refill'
+        ) {
+          expect(decrypted.rawDataJson?.payload).toMatchObject({
+            avatar: derivedAvatar,
+          });
+          expect(JSON.stringify(decrypted.rawDataJson)).not.toContain(serialNo);
+          expect(
+            (await db.getWallet({ walletId: wallet.id, withoutRefill: true }))
+              .avatar,
+          ).toBe(JSON.stringify(derivedAvatar));
+        }
         expect(reconciles).toHaveBeenCalledTimes(1);
       } else {
         expect(stored).toMatchObject({
