@@ -39,6 +39,8 @@ import type { IProDeviceAnimation } from './animation';
 
 const DEVICE_W = 350;
 const DEVICE_H = 569;
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const PRO_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /** Touchscreen size; scene screen content is laid out on this canvas. */
 export const PRO_SCREEN_W = 288;

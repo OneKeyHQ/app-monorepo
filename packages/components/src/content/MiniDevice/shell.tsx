@@ -38,6 +38,8 @@ import type { IDeviceScreenAnimation } from '../deviceSceneHost';
 
 const DEVICE_W = 657;
 const DEVICE_H = 1417;
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const MINI_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /** The glass, which is also the content canvas: scenes author against
  * its full box (no inset slot like the Classic's). */

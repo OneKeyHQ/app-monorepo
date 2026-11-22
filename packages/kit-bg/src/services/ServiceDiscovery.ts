@@ -71,22 +71,24 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchHistoryData(page = 1, pageSize = 15) {
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
+  async fetchHistoryData(
+    page = 1,
+    pageSize = 15,
+  ): Promise<{ data: IBrowserHistory[]; hasMore: boolean }> {
+    const end = page * pageSize;
     const result =
       await this.backgroundApi.simpleDb.browserHistory.getRawData();
     const history = result?.data;
     if (!Array.isArray(history)) {
-      return [];
+      return { data: [], hasMore: false };
     }
-    const data = history.slice(0, Math.min(history.length, end));
-    return Promise.all(
-      data.map(async (i) => ({
+    const data = await Promise.all(
+      history.slice(0, end).map(async (i) => ({
         ...i,
         logo: i.logo || (await this.buildWebsiteIconUrl(i.url)),
       })),
     );
+    return { data, hasMore: end < history.length };
   }
 
   @backgroundMethod()
