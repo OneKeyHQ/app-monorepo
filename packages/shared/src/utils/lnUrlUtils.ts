@@ -5,11 +5,13 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import stringUtils from './stringUtils';
 
+const LNURL_BECH32_LIMIT = 2000;
+
 export function bech32Decode(
   input: string,
   encoding: BufferEncoding = 'utf-8',
 ) {
-  const { words: data } = bech32.decode(input, 2000);
+  const { words: data } = bech32.decode(input, LNURL_BECH32_LIMIT);
   const byteData = bech32.fromWords(data);
   return Buffer.from(byteData).toString(encoding);
 }
@@ -60,7 +62,7 @@ export const findLnurl = memoizee(
       return url;
     }
     const decoded = /^lnurl1/i.test(input)
-      ? bech32.decodeUnsafe(input, 2000)
+      ? bech32.decodeUnsafe(input, LNURL_BECH32_LIMIT)
       : undefined;
     return decoded?.prefix === 'lnurl' && decoded.words.length ? input : null;
   },
@@ -105,6 +107,10 @@ const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
 const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
 const LNURL_SCHEME_WITH_LINE_BREAKS =
   /l[\r\n\u2028\u2029]*n[\r\n\u2028\u2029]*u[\r\n\u2028\u2029]*r[\r\n\u2028\u2029]*l[\r\n\u2028\u2029]*[pwc][\r\n\u2028\u2029]*:/gi;
+const LNURL_BECH32_WRAP_START =
+  /(?:^|[\s<("':：;；])(?:lightning:(?:\/\/)?)?(lnurl1[02-9ac-hj-np-z]*)(?=[\r\n\u2028\u2029])/gi;
+const LNURL_BECH32_WRAP_CONTINUATION =
+  /(?:\r\n?|[\n\u2028\u2029])([02-9ac-hj-np-z]+)(?=$|[\s>)"'.,!?，。！？;；])/iy;
 const LNURL_NUMBERED_LIST_MARKER =
   /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(\d+)\)(?=\s|$)/gu;
 const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
@@ -165,6 +171,25 @@ function lightningRecipientKey(address: string) {
   return normalizeLightningInput(address).replace(LNURL_URI_SCHEME, (scheme) =>
     scheme.toLowerCase(),
   );
+}
+
+function hasCompetingWrappedLnurl(address: string, recipientKey: string) {
+  for (const start of address.matchAll(LNURL_BECH32_WRAP_START)) {
+    let code = start[1];
+    LNURL_BECH32_WRAP_CONTINUATION.lastIndex = start.index + start[0].length;
+    for (
+      let next = LNURL_BECH32_WRAP_CONTINUATION.exec(address);
+      next && code.length + next[1].length <= LNURL_BECH32_LIMIT;
+      next = LNURL_BECH32_WRAP_CONTINUATION.exec(address)
+    ) {
+      code += next[1];
+      // A valid code can end at a line break before unrelated text.
+      if (findLnurl(code) && lightningRecipientKey(code) !== recipientKey) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function indexClosingParentheses(text: string, ignoredClosers?: Set<number>) {
@@ -429,7 +454,14 @@ export const parseReusableLightningRecipient = memoizee(
         return { kind: 'ambiguous' };
       }
     }
-    if (recipient) return recipient;
+    if (recipient) {
+      return hasCompetingWrappedLnurl(
+        address,
+        lightningRecipientKey(recipient.address),
+      )
+        ? { kind: 'ambiguous' }
+        : recipient;
+    }
 
     const singleLine = stringUtils.stripLineBreaks(address);
     if (singleLine === address) return undefined;

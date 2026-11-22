@@ -112,6 +112,7 @@ it.each([
   'Pay here: <LIGHTNING:LNURL\nP://merchant.example/pay>',
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
   `Pay ${LNURL}; or <${LNURL_URI}>.`,
+  `Pay <${LNURL.slice(0, 32)}\n${LNURL.slice(32)}> or <${LNURL_URI}>.`,
 ])(
   'uses the existing invalid-address error without sending an ambiguous LNURL to validation',
   async (text) => {

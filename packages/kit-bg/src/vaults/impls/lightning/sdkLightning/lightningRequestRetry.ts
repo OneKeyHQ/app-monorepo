@@ -41,7 +41,11 @@ export function getLightningRetryDeadline(
   return {
     monotonicAt: monotonicNow + delayMs,
     wallAt: Date.now() + delayMs,
-    serverAt: serverTime === undefined ? absoluteAt : serverTime + delayMs,
+    // A corrected server estimate must still honor the absolute header.
+    serverAt:
+      serverTime === undefined
+        ? absoluteAt
+        : Math.max(serverTime + delayMs, absoluteAt ?? serverTime),
     unanchoredUntil,
   };
 }

@@ -348,6 +348,33 @@ it('keeps the original complete link when a split duplicate has the same destina
   });
 });
 
+it.each(['\n', '\r\n', '\u2028', '\u2029'])(
+  'rejects a different checksum-valid LNURL wrapped beside a complete recipient',
+  (lineBreak) => {
+    const uri = 'lnurlp://merchant.example/checkout?order=12';
+    const wrapped = `${LNURL.slice(0, 32)}${lineBreak}${LNURL.slice(32, 75)}${lineBreak}${LNURL.slice(75)}`;
+    for (const text of [
+      `Pay <${wrapped}> or <${uri}>.`,
+      `Pay <lightning://${wrapped}> or <${uri}>.`,
+      `<${uri}>; ${wrapped.toUpperCase()}\nThanks.`,
+    ]) {
+      expect(parseReusableLightningRecipient(text)).toEqual({
+        kind: 'ambiguous',
+      });
+    }
+  },
+);
+
+it('preserves a complete Bech32 recipient when a wrapped duplicate or corrupt code also appears', () => {
+  const wrapped = `${LNURL.slice(0, 32)}\n${LNURL.slice(32)}`;
+  for (const second of [wrapped.toUpperCase(), `${wrapped.slice(0, -1)}q`]) {
+    expect(parseReusableLightningRecipient(`<${LNURL}>; <${second}>`)).toEqual({
+      kind: 'recipient',
+      address: LNURL,
+    });
+  }
+});
+
 it('compares LNURL scheme casing without folding the path or query', () => {
   const uri = 'lnurlp://merchant.example/Pay?ref=ABC';
   const equivalent = 'LNURLP://merchant.example/Pay?ref=ABC';
