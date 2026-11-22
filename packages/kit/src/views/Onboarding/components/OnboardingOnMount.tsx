@@ -7,6 +7,7 @@ import {
   Checkbox,
   Dialog,
   YStack,
+  resetAboveMainRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import {
@@ -30,6 +31,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { isColdStartIntoOnboarding } from '../../../routes/config/coldStartOnboardingState';
 import { EModalMarketRoutes } from '../../Market/router/types';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
@@ -37,6 +39,14 @@ let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
 let isAutoStartV4MigrationShown = false;
+let isColdStartOnboardingVerified = false;
+
+function isOnboardingRouteOnTop() {
+  const rootState = rootNavigationRef.current?.getRootState();
+  return (
+    rootState?.routes[rootState.index ?? 0]?.name === ERootRoutes.Onboarding
+  );
+}
 const publicMarketRoutes = new Set<string>([
   EModalMarketRoutes.MarketWidgetEditor,
   EModalMarketRoutes.MarketWidgetList,
@@ -175,6 +185,22 @@ function OnboardingOnMountCmp() {
       }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+      // The cold start opened GetStarted from a stale hint: the user does have
+      // wallets, so drop back to Main. Only the first check may do this, so a
+      // user who later opens onboarding on purpose is never pulled out.
+      const isFirstColdStartCheck =
+        isColdStartIntoOnboarding() && !isColdStartOnboardingVerified;
+      if (isFirstColdStartCheck) {
+        isColdStartOnboardingVerified = true;
+      }
+      if (
+        isOnboardingDone &&
+        isFirstColdStartCheck &&
+        isOnboardingRouteOnTop()
+      ) {
+        resetAboveMainRoute();
+        return;
+      }
       // dapp mode auto onboarding is conflict with url account landing page
       if (
         !isOnboardingDone &&
@@ -212,18 +238,15 @@ function OnboardingOnMountCmp() {
             return;
           }
         }
-        if (platformEnv.isWeb) {
-          // Read the active route after the check: the browser may restore
-          // onboarding, while wallet clear may leave an inactive entry.
-          const rootState = rootNavigationRef.current?.getRootState();
-          if (
-            rootState?.routes[rootState.index ?? 0]?.name ===
-            ERootRoutes.Onboarding
-          ) {
-            return;
-          }
+        // Read the active route after the check: native may have cold-started
+        // on GetStarted and the browser may restore onboarding, while wallet
+        // clear may leave an inactive entry.
+        if (isOnboardingRouteOnTop()) {
+          return;
         }
-        void toOnBoardingPage();
+        // Automatic entry replaces Main without the slide-in, so the Wallet
+        // page is not shown sliding away (OK-46368).
+        void toOnBoardingPage({ disableAnimation: true });
       }
     },
     [

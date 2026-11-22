@@ -21,6 +21,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { notifyColdStartOnboardingMounted } from '../../../routes/config/coldStartOnboardingState';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
@@ -388,6 +389,10 @@ function GetStarted() {
     !gtMd && windowHeight < HERO_COMPACT_WINDOW_HEIGHT
       ? '$heading4xl'
       : '$heading5xl';
+
+  useEffect(() => {
+    notifyColdStartOnboardingMounted();
+  }, []);
 
   // The notice sits right above these options, so choosing any of them is the
   // new user's acceptance of the current terms.

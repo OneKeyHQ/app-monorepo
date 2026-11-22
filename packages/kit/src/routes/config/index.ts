@@ -28,6 +28,7 @@ import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
+import { getColdStartOnboardingInitialState } from './coldStartOnboardingState';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
@@ -366,6 +367,7 @@ export const useRouterConfig = () => {
           routerRef.current.forEach((cb) => cb?.(state));
         },
         linking,
+        initialState: getColdStartOnboardingInitialState(),
       } as INavigationContainerProps,
     };
   }, [linking, routerRef, intl]);

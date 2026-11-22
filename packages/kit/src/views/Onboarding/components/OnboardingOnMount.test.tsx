@@ -33,7 +33,17 @@ let mockCurrentRouteParams:
   | { screen?: string; params?: { screen?: string } }
   | undefined;
 
+const mockResetAboveMainRoute = jest.fn();
+let mockIsColdStartIntoOnboarding = false;
+
+jest.mock('../../../routes/config/coldStartOnboardingState', () => ({
+  isColdStartIntoOnboarding: () => mockIsColdStartIntoOnboarding,
+}));
+
 jest.mock('@onekeyhq/components', () => ({
+  resetAboveMainRoute: () => {
+    mockResetAboveMainRoute();
+  },
   rootNavigationRef: {
     current: {
       getRootState: () => mockRootState,
@@ -122,6 +132,10 @@ describe('OnboardingOnMount Web startup', () => {
     render(<OnboardingOnMount />);
 
     await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
+    // Automatic entry skips the slide-in (OK-46368).
+    expect(mockToOnBoardingPage).toHaveBeenCalledWith({
+      disableAnimation: true,
+    });
   });
 
   it('preserves an onboarding route restored from the browser URL', async () => {
@@ -341,5 +355,51 @@ describe('OnboardingOnMount native widget startup', () => {
     mockCurrentRouteName = ETabMarketRoutes.TabMarket;
     render(<OnboardingOnMount />);
     await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('OnboardingOnMount native cold start into onboarding (OK-46368)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.assign(platformEnv, { isWeb: false, isNative: true });
+    mockCurrentRouteName = undefined;
+    mockCurrentRouteParams = undefined;
+    restoreOnboardingRoute();
+  });
+
+  afterEach(() => {
+    mockIsColdStartIntoOnboarding = false;
+  });
+
+  // Runs first: the stale-hint recovery is a once-per-process latch.
+  it('returns to Main once when a stale hint opened onboarding for a user with wallets', async () => {
+    mockIsColdStartIntoOnboarding = true;
+    mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: true });
+
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+    await waitFor(() =>
+      expect(mockResetAboveMainRoute).toHaveBeenCalledTimes(1),
+    );
+
+    // Later checks (e.g. wallet clear) never pull the user out again.
+    await act(async () => {
+      mockWalletClear?.();
+    });
+    expect(mockResetAboveMainRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the cold-start GetStarted without resetting it again', async () => {
+    mockIsColdStartIntoOnboarding = true;
+    mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: false });
+
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+
+    expect(mockIsOnboardingDone).toHaveBeenCalledTimes(1);
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+    expect(mockResetAboveMainRoute).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   const EAppEventBusNames = {
     PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
     HomePageReady: 'HomePageReady',
+    ColdStartOnboardingMounted: 'ColdStartOnboardingMounted',
   };
   type IMockAppEventBus = {
     on: jest.Mock<IMockAppEventBus, [string, (payload: unknown) => void]>;
@@ -70,6 +71,16 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   };
 
   return { __esModule: true, appEventBus, EAppEventBusNames };
+});
+
+jest.mock('../routes/config/coldStartOnboardingState', () => {
+  const state = { coldStart: false, mounted: false };
+  (globalThis as any).__mockColdStartOnboarding = state;
+  return {
+    __esModule: true,
+    isColdStartIntoOnboarding: () => state.coldStart,
+    isColdStartOnboardingMounted: () => state.mounted,
+  };
 });
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -137,6 +148,10 @@ beforeEach(() => {
   delete g.__onekeyBalanceDisplayed;
   delete g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT;
   g.__mockHasPendingInstallTask?.mockReturnValue(false);
+  if (g.__mockColdStartOnboarding) {
+    g.__mockColdStartOnboarding.coldStart = false;
+    g.__mockColdStartOnboarding.mounted = false;
+  }
   const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
   platformEnvMock.version = '1.0.0';
   platformEnvMock.bundleVersion = '1';
@@ -524,5 +539,52 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
       g.__mockAppEventBusNames.HomePageReady,
       expect.any(Function),
     );
+  });
+});
+
+describe('useCanDismissSplash — cold start into onboarding (OK-46368)', () => {
+  test('holds the splash until GetStarted mounts, even with dismiss-on-mount', async () => {
+    const { useCanDismissSplash } = freshSplash();
+    g.__mockColdStartOnboarding.coldStart = true;
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+    expect(result.current).toBe(false);
+
+    act(() => {
+      g.__mockAppEventBus.emit(
+        g.__mockAppEventBusNames.ColdStartOnboardingMounted,
+        undefined,
+      );
+    });
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+  });
+
+  test('dismisses at once when GetStarted mounted before the listener', async () => {
+    const { useCanDismissSplash } = freshSplash();
+    g.__mockColdStartOnboarding.coldStart = true;
+    g.__mockColdStartOnboarding.mounted = true;
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+  });
+
+  test('safety timer still hides the splash if GetStarted never mounts', async () => {
+    jest.useFakeTimers();
+    const { useCanDismissSplash } = freshSplash();
+    g.__mockColdStartOnboarding.coldStart = true;
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    expect(result.current).toBe(false);
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(result.current).toBe(true);
+    jest.useRealTimers();
   });
 });

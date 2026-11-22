@@ -12,6 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import {
+  isColdStartIntoOnboarding,
+  isColdStartOnboardingMounted,
+} from '../routes/config/coldStartOnboardingState';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
@@ -177,6 +181,10 @@ export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
         const hasCachedStates = hasBalanceCacheInSnapshot();
+        // Fresh-install cold start renders GetStarted from the first frame;
+        // keep the splash until that lazy page has mounted so Main never
+        // shows through. Purely main-side, never waits on bg.
+        const waitsForColdStartOnboarding = isColdStartIntoOnboarding();
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
@@ -187,9 +195,10 @@ export const useCanDismissSplash =
         // in React's scheduler directly and avoids the starvation tax.
         useEffect(() => {
           if (!EXPERIMENT_DISMISS_SPLASH_ON_MOUNT) return;
+          if (waitsForColdStartOnboarding) return;
           logSplashProvider('experiment: immediate dismiss on mount');
           setCanDismissSplash(true);
-        }, []);
+        }, [waitsForColdStartOnboarding]);
 
         // Unconditional safety timer: mounts once and guarantees dismissal
         // regardless of which path (cached/pending/none) is taken, or whether
@@ -224,6 +233,11 @@ export const useCanDismissSplash =
             dismiss();
           };
 
+          const handleColdStartOnboardingMounted = () => {
+            logSplashProvider('cold start onboarding mounted');
+            dismiss();
+          };
+
           const handlePendingInstallTaskFinished = () => {
             logSplashProvider('pending install task finished event received');
             dismiss();
@@ -238,7 +252,16 @@ export const useCanDismissSplash =
             `hasCachedStates=${hasCachedStates}, hasPendingTask=${hasPendingTask}`,
           );
 
-          if (hasCachedStates) {
+          if (waitsForColdStartOnboarding) {
+            if (isColdStartOnboardingMounted()) {
+              dismiss();
+            } else {
+              appEventBus.on(
+                EAppEventBusNames.ColdStartOnboardingMounted,
+                handleColdStartOnboardingMounted,
+              );
+            }
+          } else if (hasCachedStates) {
             // SSR hydration path: cached balance renders instantly,
             // HomePageReady fires on first render frame.
             if ((globalThis as any).__onekeyBalanceDisplayed) {
@@ -289,8 +312,12 @@ export const useCanDismissSplash =
               EAppEventBusNames.PendingInstallTaskProcessFinished,
               handlePendingInstallTaskFinished,
             );
+            appEventBus.off(
+              EAppEventBusNames.ColdStartOnboardingMounted,
+              handleColdStartOnboardingMounted,
+            );
           };
-        }, [hasCachedStates]);
+        }, [hasCachedStates, waitsForColdStartOnboarding]);
 
         useEffect(() => {
           logSplashProvider(`canDismissSplash=${canDismissSplash}`);
