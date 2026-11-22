@@ -6,6 +6,7 @@ import {
   EScanQrCodeModalPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
@@ -21,6 +22,8 @@ const mockGetCurrentRoute = jest.fn<
 >();
 const mockGetRootState = jest.fn<unknown, []>();
 const mockPushModal = jest.fn<void, unknown[]>();
+const mockGetAccounts = jest.fn(async () => ({ accounts: [] }));
+const mockCreateAddress = jest.fn(async () => undefined);
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
@@ -51,6 +54,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceToken: {
       getNativeToken: async () => null,
+    },
+    serviceAccount: {
+      getAccountsInSameIndexedAccountId: () => mockGetAccounts(),
+      createAddressIfNotExists: () => mockCreateAddress(),
     },
   },
 }));
@@ -176,25 +183,46 @@ it('closes the scan page for a code that can never be accepted', async () => {
 });
 
 it.each([
-  ['a lightning invoice', EQRCodeHandlerType.LIGHTNING_NETWORK],
-  ['a bitcoin address', EQRCodeHandlerType.BITCOIN],
-])(
-  'hands %s back when there is no account to send from',
-  async (_label, type) => {
+  [
+    'a lightning invoice without an active account',
+    EQRCodeHandlerType.LIGHTNING_NETWORK,
+    undefined,
+  ],
+  [
+    'a bitcoin address without an active account',
+    EQRCodeHandlerType.BITCOIN,
+    undefined,
+  ],
+  [
+    'a lightning invoice on a QR wallet',
+    EQRCodeHandlerType.LIGHTNING_NETWORK,
+    {
+      id: 'qr-test--evm',
+      impl: 'evm',
+      indexedAccountId: 'qr-test--0',
+    } as INetworkAccount,
+  ],
+] as const)(
+  'copies %s without starting account creation',
+  async (_label, type, account) => {
     const value = 'scanned payment code';
     mockParse.mockResolvedValueOnce({
       type,
-      data: { address: 'recipient', network: { id: 'network--0' } },
+      data: {
+        address: 'recipient',
+        network: { id: 'network--0', impl: 'lightning' },
+      },
       raw: value,
     });
 
     await parseQRCodeWithDeps(
       value,
-      { popNavigation: true, autoExecuteParsedAction: true },
+      { popNavigation: true, autoExecuteParsedAction: true, account },
       deps,
     );
 
     expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+    expect(mockCreateAddress).not.toHaveBeenCalled();
     expect(Dialog.confirm).toHaveBeenCalledWith(
       expect.objectContaining({ description: value }),
     );

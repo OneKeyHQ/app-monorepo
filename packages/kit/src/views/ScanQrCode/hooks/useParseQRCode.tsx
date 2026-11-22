@@ -46,6 +46,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -262,6 +263,8 @@ export async function parseQRCodeWithDeps(
     case EQRCodeHandlerType.LIGHTNING_NETWORK:
       {
         if (!isScannerCurrent()) break;
+        const isLightning =
+          result.type === EQRCodeHandlerType.LIGHTNING_NETWORK;
         const account = options?.account;
         if (!account) {
           // No account to send from: hand the code back like any other that
@@ -279,10 +282,10 @@ export async function parseQRCodeWithDeps(
 
         let accountId = account.id;
         if (account.impl !== network.impl) {
-          const newAccountId = await getAccountIdOnNetwork({
-            account,
-            network,
-          });
+          const newAccountId =
+            isLightning && accountUtils.isQrAccount({ accountId })
+              ? undefined
+              : await getAccountIdOnNetwork({ account, network });
           if (!isScannerCurrent()) break;
           if (newAccountId) {
             accountId = newAccountId;
@@ -306,8 +309,7 @@ export async function parseQRCodeWithDeps(
 
           if (!isScannerCurrent()) break;
           const mainState =
-            popNavigation &&
-            result.type === EQRCodeHandlerType.LIGHTNING_NETWORK
+            popNavigation && isLightning
               ? rootNavigationRef.current
                   ?.getRootState()
                   ?.routes.find((route) => route.name === ERootRoutes.Main)
