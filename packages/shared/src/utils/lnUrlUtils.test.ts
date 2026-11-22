@@ -375,6 +375,53 @@ it('preserves a complete Bech32 recipient when a wrapped duplicate or corrupt co
   }
 });
 
+it('recognizes equivalent protocol URLs and Bech32 links without merging distinct LNURL actions', () => {
+  const pay = 'lnurlp://merchant.example/Pay?order=12';
+  const withdraw = 'lnurlw://merchant.example/Pay?order=12';
+  const code = bech32.encode(
+    'lnurl',
+    bech32.toWords(Buffer.from('https://merchant.example/Pay?order=12')),
+  );
+  const wrapped = `${code.slice(0, 32)}\n${code.slice(32)}`;
+  expect(parseReusableLightningRecipient(`<${pay}>; <${wrapped}>`)).toEqual({
+    kind: 'recipient',
+    address: pay,
+  });
+  expect(parseReusableLightningRecipient(`<${code}>; <${pay}>`)).toEqual({
+    kind: 'recipient',
+    address: code,
+  });
+  expect(
+    parseReusableLightningRecipient(`<${code}>; <${pay}>; <${withdraw}>`),
+  ).toEqual({ kind: 'ambiguous' });
+  expect(
+    parseReusableLightningRecipient(
+      `<${pay.replace('Pay', 'pay')}>; <${wrapped}>`,
+    ),
+  ).toEqual({ kind: 'ambiguous' });
+});
+
+it.each([';', '；'])(
+  'rejects adjacent unwrapped checkout URLs separated by %s',
+  (separator) => {
+    const first = 'lnurlp://merchant.example/checkout?order=12';
+    const second = 'lnurlp://merchant.example/checkout?order=34';
+    for (const text of [
+      `${first}${separator}${second}`,
+      `Pay: ${first}${separator}${second}`,
+    ]) {
+      expect(parseReusableLightningRecipient(text)).toEqual({
+        kind: 'ambiguous',
+      });
+    }
+    const literal = `${first}${separator}campaign=JULY`;
+    expect(parseReusableLightningRecipient(literal)).toEqual({
+      kind: 'recipient',
+      address: literal,
+    });
+  },
+);
+
 it('compares LNURL scheme casing without folding the path or query', () => {
   const uri = 'lnurlp://merchant.example/Pay?ref=ABC';
   const equivalent = 'LNURLP://merchant.example/Pay?ref=ABC';

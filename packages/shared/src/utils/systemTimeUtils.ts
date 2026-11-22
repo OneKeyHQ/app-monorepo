@@ -66,6 +66,7 @@ const freshEstimateRetryDelayMs = 1000;
 const healthRetryWithoutTimeMs = timerUtils.getTimeDurationMs({ seconds: 30 });
 // Allow an IP-table attempt, its domain fallback, and interceptor overhead.
 const freshResponseMaxDuration = refreshServerTimeTimeout * 3;
+const clockContinuityToleranceMs = 1000;
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
   // OK-55438: tightened 30m -> 10m. Cross-device LWW ordering for cloud sync
   // needs a tighter local-clock trust window than display/expiry logic: within
@@ -101,6 +102,19 @@ function getMonotonicTimeNow(): number | undefined {
 async function getDesktopSystemUptimeMs() {
   if (platformEnv.isDesktop) {
     return globalThis.desktopApi?.getSystemUptimeMs?.().catch(() => undefined);
+  }
+}
+
+function isManagedHealthCheckUrl(url: string) {
+  const [path, query] = url.split('?', 2);
+  if (!query || !path.endsWith(ONEKEY_HEALTH_CHECK_URL)) return false;
+  const marker = new URLSearchParams(query).get('_');
+  return marker === 'system_time_utils' || marker === 'hardware_verification';
+}
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    $oneKeySkipServerTimeUpdate?: boolean;
   }
 }
 
@@ -466,6 +480,7 @@ class SystemTimeUtils {
         name: EServiceEndpointEnum.Wallet,
       });
       requestStartedAt = Date.now();
+      const monotonicRequestStartedAt = getMonotonicTimeNow();
       const response = await client.get<unknown, IAxiosResponse<unknown>>(
         ONEKEY_HEALTH_CHECK_URL,
         {
@@ -474,6 +489,7 @@ class SystemTimeUtils {
             timestamp: Date.now(),
           },
           timeout: refreshServerTimeTimeout,
+          $oneKeySkipServerTimeUpdate: true,
         },
       );
       httpStatus = response.status;
@@ -503,6 +519,24 @@ class SystemTimeUtils {
         return false;
       }
       const localTimestamp = Date.now();
+      const requestDuration = localTimestamp - requestStartedAt;
+      const monotonicCompletedAt = getMonotonicTimeNow();
+      const monotonicDuration =
+        monotonicCompletedAt === undefined ||
+        monotonicRequestStartedAt === undefined
+          ? undefined
+          : monotonicCompletedAt - monotonicRequestStartedAt;
+      if (
+        requestDuration < 0 ||
+        requestDuration > freshResponseMaxDuration ||
+        (monotonicDuration !== undefined &&
+          (monotonicDuration < 0 ||
+            Math.abs(requestDuration - monotonicDuration) >
+              clockContinuityToleranceMs))
+      ) {
+        logResult('stale-response');
+        return false;
+      }
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -510,20 +544,9 @@ class SystemTimeUtils {
         requestId,
       });
 
-      // Only a fresh health response can justify asking users to fix their clock.
-      // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
-      const requestDuration = localTimestamp - requestStartedAt;
       if (this.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
-        if (
-          requestDuration >= 0 &&
-          requestDuration <= freshResponseMaxDuration
-        ) {
-          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, true);
-          appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
-        } else {
-          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, false);
-          logResult('stale-response');
-        }
+        this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, true);
+        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
       }
       return true;
     } catch (error) {
@@ -604,7 +627,7 @@ class SystemTimeUtils {
       // Detect sleep or wall-clock changes without trusting the wall clock as UTC.
       if (
         isNil(localBase) ||
-        Math.abs(Date.now() - localBase - elapsed) > 1000
+        Math.abs(Date.now() - localBase - elapsed) > clockContinuityToleranceMs
       ) {
         return undefined;
       }
@@ -914,6 +937,7 @@ class SystemTimeUtils {
       headers: { 'Cache-Control': 'no-cache, no-store' },
       timeout: refreshServerTimeTimeout,
       maxRedirects: 0,
+      $oneKeySkipServerTimeUpdate: true,
     });
     const end = getMonotonicTimeNow();
     const wallElapsed = Date.now() - wallStart;
@@ -1036,14 +1060,16 @@ class SystemTimeUtils {
     source,
     headerDate,
     url,
+    requestUrl,
     requestId,
   }: {
     source: 'axios' | 'fetch';
     headerDate: string;
     url: string;
+    requestUrl?: string;
     requestId?: string;
   }) {
-    if (!headerDate || !url) {
+    if (!headerDate || !url || isManagedHealthCheckUrl(requestUrl ?? url)) {
       return;
     }
     try {

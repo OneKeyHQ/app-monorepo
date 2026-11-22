@@ -147,6 +147,7 @@ export function createFetchInterceptor(
             source: 'fetch',
             headerDate: res?.headers?.get?.('date') || '',
             url: res?.url || url || '',
+            requestUrl: url,
             requestId,
           });
 

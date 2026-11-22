@@ -173,6 +173,36 @@ function lightningRecipientKey(address: string) {
   );
 }
 
+function areSameLightningRecipients(first: string, second: string) {
+  if (first === second) return true;
+  const firstIsBech32 = first.startsWith('lnurl1');
+  if (firstIsBech32 === second.startsWith('lnurl1')) return false;
+  const [encoded, raw] = firstIsBech32 ? [first, second] : [second, first];
+  const destination = /^lnurl[pwc]:\/\/(\S+)$/u.exec(raw)?.[1];
+  if (!destination) return false;
+  try {
+    // LUD-17 replaces HTTPS for clearnet and HTTP for onion endpoints.
+    const { hostname } = new URL(`https://${destination}`);
+    const protocol = hostname.endsWith('.onion') ? 'http' : 'https';
+    const endpoint = Buffer.from(`${protocol}://${destination}`).toString(
+      'hex',
+    );
+    return bech32Decode(encoded, 'hex') === endpoint;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function hasAdjacentLnurl(address: string) {
+  return (
+    /[;；]/u.test(address) &&
+    address
+      .split(/[;；]/u)
+      .slice(1)
+      .some((part) => findLnurl(normalizeLightningInput(part)))
+  );
+}
+
 function hasCompetingWrappedLnurl(address: string, recipientKey: string) {
   for (const start of address.matchAll(LNURL_BECH32_WRAP_START)) {
     let code = start[1];
@@ -184,7 +214,10 @@ function hasCompetingWrappedLnurl(address: string, recipientKey: string) {
     ) {
       code += next[1];
       // A valid code can end at a line break before unrelated text.
-      if (findLnurl(code) && lightningRecipientKey(code) !== recipientKey) {
+      if (
+        findLnurl(code) &&
+        !areSameLightningRecipients(lightningRecipientKey(code), recipientKey)
+      ) {
         return true;
       }
     }
@@ -289,6 +322,9 @@ function readReusableLightningRecipient(
   address: string,
 ): IReusableLightningRecipient | undefined {
   if (isReusableLightningRecipient(address)) {
+    if (LNURL_URI_SCHEME.test(address.trim()) && hasAdjacentLnurl(address)) {
+      return { kind: 'ambiguous' };
+    }
     return { kind: 'recipient', address };
   }
   const standaloneLines = normalizeLightningInput(address)
@@ -410,6 +446,7 @@ function readReusableLightningRecipient(
           if (
             (noSameLineSuffix &&
               firstAfter < (followingBreak?.index ?? address.length)) ||
+            hasAdjacentLnurl(candidate) ||
             hasUriContinuation
           ) {
             return { kind: 'ambiguous' };
@@ -419,10 +456,16 @@ function readReusableLightningRecipient(
     }
     if (candidate !== undefined) {
       const key = lightningRecipientKey(candidate);
-      if (recipientKey !== undefined && recipientKey !== key) {
+      if (
+        recipientKey !== undefined &&
+        !areSameLightningRecipients(recipientKey, key)
+      ) {
         return { kind: 'ambiguous' };
       }
-      recipientKey = key;
+      // Keep a specific action for comparing subsequent formats.
+      if (recipientKey === undefined || recipientKey.startsWith('lnurl1')) {
+        recipientKey = key;
+      }
       recipient ??= candidate;
     }
   }
@@ -448,8 +491,10 @@ export const parseReusableLightningRecipient = memoizee(
         restored?.kind === 'ambiguous' ||
         (restored?.kind === 'recipient' &&
           (recipient === undefined ||
-            lightningRecipientKey(restored.address) !==
-              lightningRecipientKey(recipient.address)))
+            !areSameLightningRecipients(
+              lightningRecipientKey(restored.address),
+              lightningRecipientKey(recipient.address),
+            )))
       ) {
         return { kind: 'ambiguous' };
       }

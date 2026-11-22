@@ -145,6 +145,30 @@ describe('system time error notifications', () => {
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
+  it.each([4000, 60_000])(
+    'discards a health sample received after %ims of suspended wall time',
+    async (elapsed) => {
+      mockGet.mockImplementationOnce(async () => {
+        jest.setSystemTime(BASE_TIME + elapsed);
+        monotonicTime += 100;
+        return { headers: { date: new Date(BASE_TIME).toUTCString() } };
+      });
+
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
+      expect(
+        systemTimeUtils.getContinuousEstimatedServerTime(),
+      ).toBeUndefined();
+      expectNoTimeError();
+      mockGet.mockResolvedValueOnce({
+        headers: { date: new Date(BASE_TIME + elapsed).toUTCString() },
+      });
+      await expect(systemTimeUtils.getFreshEstimatedServerTime()).resolves.toBe(
+        BASE_TIME + elapsed,
+      );
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it.each([1000, 30_000])(
     'limits repeat health calls after a failed fresh estimate to a %sms delay',
     async (delay) => {
@@ -447,12 +471,15 @@ describe('system time error notifications', () => {
         return { headers: { date: new Date(BASE_TIME).toUTCString() } };
       });
 
-      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
 
       expectNoTimeError();
-      expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
+      expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
       expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
       expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
+      expect(
+        systemTimeUtils.getContinuousEstimatedServerTime(),
+      ).toBeUndefined();
       expect(mockTimeRefreshLog).toHaveBeenCalledWith(
         expect.objectContaining({
           result: 'stale-response',
@@ -483,7 +510,7 @@ describe('system time error notifications', () => {
       await systemTimeUtils.handleServerResponseDate({
         source: 'axios',
         headerDate: date,
-        url: 'https://wallet.onekeycn.com/wallet/v1/health',
+        url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
       });
       return { headers: { date } };
     });
@@ -493,6 +520,27 @@ describe('system time error notifications', () => {
     expect(
       mockEmit.mock.calls.filter(([name]) => name === 'LocalSystemTimeInvalid'),
     ).toHaveLength(1);
+  });
+
+  it('does not seed the estimator from a managed health probe in the fetch transport', async () => {
+    const resumedAt = BASE_TIME + MINUTE;
+    jest.setSystemTime(resumedAt);
+
+    await systemTimeUtils.handleServerResponseDate({
+      source: 'fetch',
+      headerDate: new Date(BASE_TIME).toUTCString(),
+      url: 'https://wallet.onekeycn.com/wallet/v1/health',
+      requestUrl:
+        'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
+    });
+
+    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBeUndefined();
+    await systemTimeUtils.handleServerResponseDate({
+      source: 'fetch',
+      headerDate: new Date(resumedAt).toUTCString(),
+      url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
+    });
+    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBe(resumedAt);
   });
 
   it('confirms a real clock error despite slow client setup and a network retry', async () => {
@@ -569,7 +617,7 @@ describe('system time error notifications', () => {
       return { headers: { date: new Date(BASE_TIME).toUTCString() } };
     });
 
-    await systemTimeUtils.refreshServerTime();
+    await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
 
     expectNoTimeError();
     expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);

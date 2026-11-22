@@ -103,6 +103,7 @@ it.each([
   'lnurlp://example.com/rece\nive?mode=once',
   'lightning:lnurlp://example.com/receive?ref=abc\ndef',
   'Pay lnu\nrlp://merchant.example/pay',
+  'Pay: lnurlp://merchant.example/checkout?order=12;lnurlp://merchant.example/checkout?order=34',
   '<lnu\nrlp://merchant.example/checkout?order=1>;lnurlp://merchant.example/checkout?order=2',
   'Please pay (use (lnurlp://merchant.example/checkout?order=12))\n123) before Friday.',
   'Pay: lnurlp://merchant.example/checkout?order=12\t34',

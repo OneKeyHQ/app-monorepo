@@ -12,6 +12,7 @@ import type {
 } from 'axios';
 
 const mockOutcomes: IAvailabilityOutcome[] = [];
+const mockServerTimeUpdate = jest.fn(async (_request: unknown) => undefined);
 
 jest.mock('./availabilityAggregator', () => ({
   recordAvailabilityOutcome: (outcome: IAvailabilityOutcome) => {
@@ -52,7 +53,7 @@ jest.mock('../locale/appLocale', () => ({
 
 jest.mock('../utils/systemTimeUtils', () => ({
   __esModule: true,
-  default: { handleServerResponseDate: async () => undefined },
+  default: { handleServerResponseDate: mockServerTimeUpdate },
 }));
 
 jest.mock('../modules/NetworkThrottle', () => ({
@@ -117,6 +118,7 @@ describe('API availability counting in request interceptors', () => {
 
   beforeEach(() => {
     mockOutcomes.length = 0;
+    mockServerTimeUpdate.mockClear();
     stubFetch.mockReset();
     stubFetch.mockImplementation(
       async () =>
@@ -168,6 +170,27 @@ describe('API availability counting in request interceptors', () => {
       retryAfter,
       retryAfterResponseDate: date,
     });
+  });
+
+  it('lets a managed health check validate its own server date', async () => {
+    const date = 'Sun, 17 Mar 2030 12:00:00 GMT';
+    const client = axios.create({
+      adapter: adapterOf((config) => ({
+        config,
+        data: { code: 0 },
+        headers: { date },
+        status: 200,
+        statusText: 'OK',
+      })),
+    });
+    await client.get('/wallet/v1/health', {
+      $oneKeySkipServerTimeUpdate: true,
+    });
+    expect(mockServerTimeUpdate).not.toHaveBeenCalled();
+    await client.get(WALLET_URL);
+    expect(mockServerTimeUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ headerDate: date, url: WALLET_URL }),
+    );
   });
 
   it('leaves event streams to their owner and counts HTTP errors at headers', async () => {
