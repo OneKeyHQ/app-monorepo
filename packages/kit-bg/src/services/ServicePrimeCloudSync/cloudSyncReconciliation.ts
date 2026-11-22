@@ -8,6 +8,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils, {
   resolveBeforeTimeout,
 } from '@onekeyhq/shared/src/utils/timerUtils';
+import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncReconciliationAdapter,
   ICloudSyncReconciliationContract,
@@ -28,6 +29,7 @@ import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
 
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
+import type ServicePrimeCloudSync from './ServicePrimeCloudSync';
 import type { IManualCloudSyncResult } from './ServicePrimeCloudSync';
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
@@ -1032,4 +1034,167 @@ export async function runCloudSyncReconciliation({
     signal?.removeEventListener('abort', abort);
     controller.abort();
   }
+}
+
+export function getReconciliationStampScope(
+  initial: IPrimeCloudSyncPersistAtomData,
+  spaceId: string,
+  isCurrent: () => boolean,
+) {
+  const {
+    isCloudSyncEnabled,
+    isCloudSyncEnabledKeyless,
+    currentCloudSyncKeylessWalletId,
+    hardwareCloudSyncKeySource,
+  } = initial;
+  if (!isCloudSyncEnabled && !isCloudSyncEnabledKeyless) return undefined;
+  return {
+    syncMode: isCloudSyncEnabled
+      ? ECloudSyncMode.OnekeyId
+      : ECloudSyncMode.Keyless,
+    isCurrent: (value: IPrimeCloudSyncPersistAtomData) =>
+      isCurrent() &&
+      value.cloudSyncReconciliation?.spaceId === spaceId &&
+      (isCloudSyncEnabled
+        ? value.isCloudSyncEnabled
+        : !value.isCloudSyncEnabled &&
+          value.isCloudSyncEnabledKeyless === true &&
+          value.currentCloudSyncKeylessWalletId ===
+            currentCloudSyncKeylessWalletId &&
+          value.hardwareCloudSyncKeySource?.credentialId ===
+            hardwareCloudSyncKeySource?.credentialId &&
+          value.hardwareCloudSyncKeySource?.derivationVersion ===
+            hardwareCloudSyncKeySource?.derivationVersion),
+  };
+}
+
+export async function runReconciliationApply({
+  response,
+  signal,
+  isCurrent,
+  latestItems,
+  checkRequestItems,
+  endpointChanged,
+  credential,
+  holds,
+  spaceId,
+  onWalletNameHistoryDeferred,
+  service,
+  walletCheckOrigin,
+  readIssues,
+  read,
+  onReceipt,
+}: {
+  response: ICloudSyncCheckServerStatusResult;
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  latestItems: IDBCloudSyncItem[];
+  checkRequestItems: IDBCloudSyncItem[];
+  endpointChanged: () => boolean;
+  credential: ICloudSyncCredential;
+  holds: Map<string, number>;
+  spaceId: string;
+  onWalletNameHistoryDeferred: NonNullable<
+    Parameters<
+      ServicePrimeCloudSync['saveServerSyncItemsToLocal']
+    >[0]['onWalletNameHistoryDeferred']
+  >;
+  service: Pick<
+    ServicePrimeCloudSync,
+    | 'saveServerSyncItemsToLocal'
+    | 'saveServerDeletedItemsToLocal'
+    | 'getSyncManager'
+  >;
+  walletCheckOrigin: () => string | undefined;
+  readIssues: () => Promise<
+    | { spaceId: string; issues: Readonly<Record<string, string>> }
+    | null
+    | undefined
+  >;
+  read: (ids: string[]) => Promise<(IDBCloudSyncItem | null | undefined)[]>;
+  onReceipt: (
+    receipt: Awaited<ReturnType<typeof readReconciliationApplyProgress>>,
+  ) => void;
+}) {
+  const operationIsCurrent = () => isCurrent() && !signal.aborted;
+  if (!isCurrent() || signal.aborted)
+    throw new OneKeyLocalError('Cloud sync was cancelled');
+  const { diff, updated, deleted } = response;
+  const ids = Array.from(
+    new Set([
+      ...diff.map((item) => item.key),
+      ...updated.map((item) => item.key),
+      ...deleted,
+    ]),
+  );
+  const before = new Map(latestItems.map((item) => [item.id, item]));
+  const wire = [...diff, ...updated];
+  const acknowledgedDeletes = new Set([
+    ...deleted,
+    ...wire.filter((item) => item.isDeleted).map((item) => item.key),
+  ]);
+  const tieState = prepareWalletTieState(
+    wire,
+    checkRequestItems,
+    () => !endpointChanged() && operationIsCurrent(),
+  );
+  for (const serverItems of [diff, updated]) {
+    if (!isCurrent() || signal.aborted)
+      throw new OneKeyLocalError('Cloud sync was cancelled');
+    if (serverItems.length)
+      await service.saveServerSyncItemsToLocal({
+        serverItems,
+        shouldSyncToScene: true,
+        syncCredential: credential,
+        serverPwdHash: response.pwdHash,
+        isCurrent: operationIsCurrent,
+        onWalletNameHistoryDeferred,
+        tieState,
+        tieOrigin: walletCheckOrigin(),
+      });
+  }
+  if (!isCurrent() || signal.aborted)
+    throw new OneKeyLocalError('Cloud sync was cancelled');
+  addWalletHolds(holds, tieState.held);
+  const bareDeletes = deleted.filter(
+    (id) =>
+      !tieState.checked.has(id) &&
+      !tieState.held.has(id) &&
+      !tieState.accepted.has(id),
+  );
+  if (bareDeletes.length)
+    await service.saveServerDeletedItemsToLocal({
+      deletedItemIds: bareDeletes,
+      requestItems: checkRequestItems,
+      shouldSyncToScene: true,
+      syncCredential: credential,
+      serverPwdHash: response.pwdHash,
+      isCurrent: operationIsCurrent,
+      tieState,
+    });
+  const accountIssues = await readIssues();
+  const issues =
+    accountIssues?.spaceId === spaceId ? accountIssues.issues : undefined;
+  const receipt = await readReconciliationApplyProgress({
+    ids,
+    before,
+    response,
+    acknowledgedDeletes,
+    operationIsCurrent,
+    tieState,
+    holds,
+    spaceId,
+    issues,
+    opaqueAccountCredential:
+      !endpointChanged() &&
+      credential.keylessCredential?.source?.type === 'hardware' &&
+      credential.keylessCredential.hardwareSession
+        ? credential
+        : undefined,
+    removeOnDelete: (type) =>
+      service.getSyncManager(type).removeSyncItemIfServerDeleted,
+    read,
+  });
+  onReceipt(receipt);
+  return receipt;
 }

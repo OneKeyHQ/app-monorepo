@@ -3646,6 +3646,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       entryGeneration === this.publicAccountSnapshotImportGeneration &&
       entryKeyGeneration ===
         this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+    const initialConfig = await primeCloudSyncPersistAtom.get();
     const credential = await this.getSyncCredentialSafe();
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     if (!credential || !spaceId) return false;
@@ -3786,11 +3787,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       const holds = new Map<string, number>();
       const {
         runCloudSyncReconciliation,
-        addWalletHolds,
-        prepareWalletTieState,
         classifyManualReconciliationTransport,
         summarizeReconciliationRound,
-        readReconciliationApplyProgress,
+        runReconciliationApply,
+        getReconciliationStampScope,
         pauseReconciliation,
         runReconciliationCheckWithLegacyFallback,
       } = await import('./cloudSyncReconciliation');
@@ -3921,102 +3921,31 @@ class ServicePrimeCloudSync extends ServiceBase {
             return work;
           },
           apply: ({ response, signal }) => {
-            const work = (async () => {
-              const operationIsCurrent = () => isCurrent() && !signal.aborted;
-              if (!isCurrent() || signal.aborted)
-                throw new OneKeyLocalError('Cloud sync was cancelled');
-              const { diff, updated, deleted } = response;
-              const ids = Array.from(
-                new Set([
-                  ...diff.map((item) => item.key),
-                  ...updated.map((item) => item.key),
-                  ...deleted,
-                ]),
-              );
-              const before = new Map(
-                latestItems.map((item) => [item.id, item]),
-              );
-              const wire = [...diff, ...updated];
-              const acknowledgedDeletes = new Set([
-                ...deleted,
-                ...wire
-                  .filter((item) => item.isDeleted)
-                  .map((item) => item.key),
-              ]);
-              const tieState = prepareWalletTieState(
-                wire,
-                checkRequestItems,
-                () => !endpointChanged && operationIsCurrent(),
-              );
-              for (const serverItems of [diff, updated]) {
-                if (!isCurrent() || signal.aborted)
-                  throw new OneKeyLocalError('Cloud sync was cancelled');
-                if (serverItems.length)
-                  await this.saveServerSyncItemsToLocal({
-                    serverItems,
-                    shouldSyncToScene: true,
-                    syncCredential: credential,
-                    serverPwdHash: response.pwdHash,
-                    isCurrent: operationIsCurrent,
-                    onWalletNameHistoryDeferred,
-                    tieState,
-                    tieOrigin: this.walletCheckOrigins.get(response),
-                  });
-              }
-              if (!isCurrent() || signal.aborted)
-                throw new OneKeyLocalError('Cloud sync was cancelled');
-              addWalletHolds(holds, tieState.held);
-              const bareDeletes = deleted.filter(
-                (id) =>
-                  !tieState.checked.has(id) &&
-                  !tieState.held.has(id) &&
-                  !tieState.accepted.has(id),
-              );
-              if (bareDeletes.length)
-                await this.saveServerDeletedItemsToLocal({
-                  deletedItemIds: bareDeletes,
-                  requestItems: checkRequestItems,
-                  shouldSyncToScene: true,
-                  syncCredential: credential,
-                  serverPwdHash: response.pwdHash,
-                  isCurrent: operationIsCurrent,
-                  tieState,
-                });
-              const accountIssues =
-                await simpleDb.cloudSyncAccountIssues.getRawData();
-              const issues =
-                accountIssues?.spaceId === spaceId
-                  ? accountIssues.issues
-                  : undefined;
-              const receipt = await readReconciliationApplyProgress({
-                ids,
-                before,
-                response,
-                acknowledgedDeletes,
-                operationIsCurrent,
-                tieState,
-                holds,
-                spaceId,
-                issues,
-                opaqueAccountCredential:
-                  !endpointChanged &&
-                  credential.keylessCredential?.source?.type === 'hardware' &&
-                  credential.keylessCredential.hardwareSession
-                    ? credential
-                    : undefined,
-                removeOnDelete: (type) =>
-                  this.getSyncManager(type).removeSyncItemIfServerDeleted,
-                read: async (chunk) =>
-                  (
-                    await localDb.getRecordsByIds({
-                      name: ELocalDBStoreNames.CloudSyncItem,
-                      ids: chunk,
-                    })
-                  ).records,
-              });
-              opaqueAccountBlocked ||= receipt.opaqueAccountBlocked;
-              return receipt;
-            })();
+            const work = runReconciliationApply({
+              response,
+              signal,
+              isCurrent,
+              latestItems,
+              checkRequestItems,
+              endpointChanged: () => endpointChanged,
+              credential,
+              holds,
+              spaceId,
+              onWalletNameHistoryDeferred,
+              service: this,
+              walletCheckOrigin: () => this.walletCheckOrigins.get(response),
+              readIssues: () => simpleDb.cloudSyncAccountIssues.getRawData(),
+              read: async (ids) =>
+                (
+                  await localDb.getRecordsByIds({
+                    name: ELocalDBStoreNames.CloudSyncItem,
+                    ids,
+                  })
+                ).records,
+              onReceipt: (receipt) => {
+                opaqueAccountBlocked ||= receipt.opaqueAccountBlocked;
+              },
+            });
             activeApply = work;
             return work;
           },
@@ -4117,8 +4046,14 @@ class ServicePrimeCloudSync extends ServiceBase {
         result.status !== 'cancelled'
       )
         this.scheduleReconciliation(state.nextRetryAt, spaceId);
-      if (!state.unfinished && !deferredLocalWalletName && !blockedOnly)
-        await this.updateLastSyncTime();
+      if (!state.unfinished && !deferredLocalWalletName && !blockedOnly) {
+        const stamp = getReconciliationStampScope(
+          initialConfig,
+          spaceId,
+          isCurrent,
+        );
+        if (stamp) await this.updateLastSyncTimeInternal(stamp);
+      }
       if (onManualResult && isSourceCurrent()) {
         if (result.status === 'cancelled') onManualResult('cancelled');
         else if (result.status === 'complete')
@@ -5153,7 +5088,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     isCurrent,
   }: {
     syncMode?: ECloudSyncMode;
-    isCurrent?: () => boolean;
+    isCurrent?: (value: IPrimeCloudSyncPersistAtomData) => boolean;
   }) {
     if (
       (await primeCloudSyncPersistAtom.get()).cloudSyncReconciliation
@@ -5163,7 +5098,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const activeSyncMode = syncMode ?? (await this.getActiveSyncMode());
     const now = Date.now();
     await primeCloudSyncPersistAtom.set((v): IPrimeCloudSyncPersistAtomData => {
-      if (isCurrent && (!isCurrent() || v.cloudSyncReconciliation?.unfinished))
+      if (isCurrent && (!isCurrent(v) || v.cloudSyncReconciliation?.unfinished))
         return v;
       return {
         ...v,

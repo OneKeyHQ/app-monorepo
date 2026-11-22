@@ -691,7 +691,7 @@ export async function retrySoftwareWalletUpload({
     !check ||
     !isCurrent() ||
     check.reconciliation ||
-    check.pwdHash !== credential.pwdHash ||
+    (check.pwdHash !== undefined && check.pwdHash !== credential.pwdHash) ||
     !Array.isArray(check.obsoleted) ||
     !Array.isArray(check.deleted) ||
     !Array.isArray(check.diff) ||

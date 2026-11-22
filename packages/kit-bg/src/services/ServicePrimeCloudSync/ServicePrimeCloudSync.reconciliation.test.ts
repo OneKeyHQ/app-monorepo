@@ -323,7 +323,7 @@ function harness(
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       localDb,
-      serviceApp: { isAppLocked: isLocked },
+      serviceApp: { isAppLocked: isLocked, showToast: jest.fn() },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
         getLocalMutationSyncCredential: readLocalCredential,
@@ -365,9 +365,9 @@ function harness(
     .mockImplementation(async ({ counts }) => {
       config = { ...config, publicAccountSnapshotStatus: { ...counts } };
     });
-  const updateLastSyncTime = jest
-    .spyOn(service, 'updateLastSyncTime')
-    .mockResolvedValue(undefined);
+  const stamp = service['updateLastSyncTimeInternal'].bind(service);
+  const updateLastSyncTime = jest.fn(stamp).mockResolvedValue(undefined);
+  service['updateLastSyncTimeInternal'] = updateLastSyncTime;
   const getPool = jest
     .spyOn(localDb, 'getAllSyncItems')
     .mockImplementation(async () => ({
@@ -457,6 +457,7 @@ function harness(
     publishStatus,
     isLocked,
     updateLastSyncTime,
+    stamp,
     getConfig,
     setConfig,
     committedBatches,
@@ -503,6 +504,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
 
   test.each([
     'exact',
+    'legacy-no-hash',
+    'blank-server-hash',
+    'null-server-hash',
+    'wrong-server-hash',
     'scope-switched',
     'updated-row',
     'new-local-name-at-dispatch',
@@ -661,6 +666,12 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       });
       // Actual production Axios adapter and its final Fetch policy; only the
       // terminal browser primitive is synthetic.
+      const checkHashes: Partial<Record<typeof scenario, string | null>> = {
+        'legacy-no-hash': undefined,
+        'blank-server-hash': '',
+        'null-server-hash': null,
+        'wrong-server-hash': 'different-synthetic-hash',
+      };
       jest.mocked(fetchOrigin).mockImplementation(async (input, init) => {
         expect(input).toBeInstanceOf(Request);
         expect(init?.redirect).toBe('error');
@@ -683,13 +694,18 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             code: 0,
             data: upload
               ? { created: 1, updated: 0, nonce: 0 }
-              : reply({
-                  reconciliation: undefined,
-                  pwdHash: credential.pwdHash,
-                  obsoleted: [row.id, 'unrequested-account'],
-                  deleted:
-                    scenario === 'conflicting-server-result' ? [row.id] : [],
-                }),
+              : {
+                  ...reply({
+                    reconciliation: undefined,
+                    obsoleted: [row.id, 'unrequested-account'],
+                    deleted:
+                      scenario === 'conflicting-server-result' ? [row.id] : [],
+                  }),
+                  pwdHash:
+                    scenario in checkHashes
+                      ? checkHashes[scenario]
+                      : credential.pwdHash,
+                },
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         );
@@ -782,7 +798,11 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           }),
         );
       }
-      if (scenario === 'exact' || scenario === 'ordinary-batch-independent') {
+      if (
+        ['exact', 'legacy-no-hash', 'ordinary-batch-independent'].includes(
+          scenario,
+        )
+      ) {
         expect(sent).toHaveBeenCalledTimes(2);
         expect(sent).toHaveBeenNthCalledWith(
           2,
@@ -1219,9 +1239,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         .spyOn(h.service, 'apiUploadItemsKeyless')
         .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
 
-      const updateTime =
-        ServicePrimeCloudSync.prototype.updateLastSyncTime.bind(h.service);
-      h.updateLastSyncTime.mockImplementation(updateTime);
+      h.updateLastSyncTime.mockImplementation(h.stamp);
       const manual = scenario === 'manual';
       if (manual) {
         jest
@@ -3845,6 +3863,42 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           status: 'complete',
           rounds: 2,
         });
+      }
+    },
+  );
+
+  test.each(['same-source', 'mode', 'wallet', 'generation'] as const)(
+    'final timestamp requires the originating persisted selection (%s)',
+    async (change) => {
+      const h = harness(0, {
+        initialConfig: {
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: true,
+          currentCloudSyncKeylessWalletId: 'initial-fixture-wallet',
+          cloudSyncAccountApplyVersion: 2,
+        },
+      });
+      h.check.mockResolvedValueOnce(reply({ diff: [serverItem(1199)] }));
+      h.updateLastSyncTime.mockImplementation(async (request) => {
+        const originalSet = h.setConfig.getMockImplementation();
+        h.setConfig.mockImplementationOnce(async (update) => {
+          if (change === 'mode') h.patchConfig({ isCloudSyncEnabled: true });
+          if (change === 'wallet')
+            h.patchConfig({ currentCloudSyncKeylessWalletId: 'other-wallet' });
+          if (change === 'generation') h.changeSource();
+          await originalSet?.(update);
+        });
+        await h.stamp(request);
+      });
+      await h.run();
+      expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
+      expect(h.config().lastSyncTimeOneKeyId).toBeUndefined();
+      if (change === 'same-source') {
+        expect(h.config().lastSyncTimeKeyless).toEqual(expect.any(Number));
+        expect(h.config().lastSyncTime).toBe(h.config().lastSyncTimeKeyless);
+      } else {
+        expect(h.config().lastSyncTimeKeyless).toBeUndefined();
+        expect(h.config().lastSyncTime).toBeUndefined();
       }
     },
   );
