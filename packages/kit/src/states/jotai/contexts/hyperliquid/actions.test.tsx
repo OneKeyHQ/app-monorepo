@@ -119,6 +119,10 @@ const mockRestoreActiveAssetAfterFailedChange = jest.fn<
   }>,
   [IMockRestoreParams]
 >();
+const mockSetTradingModeForActiveAssetChange = jest.fn<
+  Promise<boolean>,
+  [IMockRestoreParams]
+>();
 const mockGetSpotMeta = jest.fn<
   Promise<{ tokens: unknown[]; universes: HL.ISpotUniverse[] }>,
   []
@@ -229,6 +233,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getSpotMeta: () => mockGetSpotMeta(),
       restoreActiveAssetAfterFailedChange: (params: IMockRestoreParams) =>
         mockRestoreActiveAssetAfterFailedChange(params),
+      setTradingModeForActiveAssetChange: (params: IMockRestoreParams) =>
+        mockSetTradingModeForActiveAssetChange(params),
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
       enableTrading: () => mockEnableTrading(),
       getTwapStates: (params: HL.IEventWebData2Parameters) =>
@@ -365,20 +371,37 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     mockChangeActiveAsset.mockReset();
     // The service is back on its last loaded perp asset after a failure.
     mockLoadedPerpAsset.mockReset().mockResolvedValue(btc);
+    // Sets the mode, with the spot token for spot, only while the switch
+    // holds the market.
+    const setModeWhileCurrent = async ({
+      requestId,
+      spotAsset,
+    }: IMockRestoreParams) => {
+      const isCurrent = () => requestId === mockAssetChangeRequestId;
+      if (spotAsset) {
+        await spotActiveAssetAtom.set(spotAsset);
+        if (!isCurrent()) return false;
+      }
+      await tradingModeAtom.set(spotAsset ? 'spot' : 'perp');
+      return isCurrent();
+    };
+    mockSetTradingModeForActiveAssetChange
+      .mockReset()
+      .mockImplementation(async (params) =>
+        params.requestId === mockAssetChangeRequestId
+          ? setModeWhileCurrent(params)
+          : false,
+      );
     // Puts the market back only while the failed switch holds it.
     mockRestoreActiveAssetAfterFailedChange
       .mockReset()
-      .mockImplementation(async ({ requestId, spotAsset }) => {
+      .mockImplementation(async (params) => {
         const notRestored = { restored: false, perpAsset: undefined };
-        const isCurrent = () => requestId === mockAssetChangeRequestId;
+        const isCurrent = () => params.requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return notRestored;
         const perpAsset = await mockLoadedPerpAsset();
-        if (spotAsset) {
-          await spotActiveAssetAtom.set(spotAsset);
-          if (!isCurrent()) return notRestored;
-        }
-        await tradingModeAtom.set(spotAsset ? 'spot' : 'perp');
         if (!isCurrent()) return notRestored;
+        if (!(await setModeWhileCurrent(params))) return notRestored;
         return { restored: true, perpAsset };
       });
     mockGetSpotMeta
@@ -1055,13 +1078,103 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       expect(getMode()).toBe('perp');
       expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
       expect(getOrderBookCoin()).toBeUndefined();
-      // This page does not claim the spot token over it either.
+      // The page alone goes back to the spot token, and publishes no target.
       expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
-        mode: 'perp',
-        coin: 'XYZ',
+        mode: 'spot',
+        coin: '@107',
+        assetId: 10_107,
       });
+      expect(result.current.current.hasLostMarketToOtherPage()).toBe(true);
     },
   );
+
+  it('leaves the mode to a switch begun on another page before a perp switch sets it', async () => {
+    const { store, result, getMode, getOrderBookCoin } = setup('perp');
+    jest.mocked(perpsActiveAssetAtom.get).mockImplementationOnce(async () => {
+      // Another extension tab begins a spot switch meanwhile.
+      mockAssetChangeRequestId += 1;
+      await tradingModeAtom.set('spot');
+      return btc;
+    });
+
+    let switched: boolean | undefined;
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+
+    expect(switched).toBe(false);
+    // The spot mode stays with the order book target the other tab sets.
+    expect(getMode()).toBe('spot');
+    expect(mockChangeActiveAsset).not.toHaveBeenCalled();
+    expect(getOrderBookCoin()).toBeUndefined();
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+    });
+    expect(result.current.current.hasLostMarketToOtherPage()).toBe(true);
+
+    // The next switch takes the market back, target and all.
+    const sol: IPerpsActiveAssetAtom = {
+      coin: 'SOL',
+      assetId: 5,
+      universe: {
+        assetId: 5,
+        name: 'SOL',
+        szDecimals: 2,
+        maxLeverage: 20,
+      } as IPerpsUniverse,
+      margin: undefined,
+    };
+    mockChangeActiveAsset.mockResolvedValueOnce(sol);
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'SOL',
+      });
+    });
+    expect(switched).toBe(true);
+    expect(getMode()).toBe('perp');
+    expect(result.current.current.hasLostMarketToOtherPage()).toBe(false);
+    await waitFor(() => expect(getOrderBookCoin()).toBe('SOL'));
+  });
+
+  it('leaves the mode and spot token to a switch begun on another page before a spot switch sets them', async () => {
+    const { store, result, getMode, getSpotAsset, getOrderBookCoin } =
+      setup('perp');
+    jest
+      .mocked(spotActiveAssetAtom.get)
+      .mockImplementationOnce(async () => {
+        // Another extension tab begins a perp switch meanwhile.
+        mockAssetChangeRequestId += 1;
+        await tradingModeAtom.set('perp');
+        return spot;
+      });
+
+    let switched: boolean | undefined;
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@150',
+        spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+      });
+    });
+
+    expect(switched).toBe(false);
+    expect(getMode()).toBe('perp');
+    expect(getSpotAsset()).toEqual(spot);
+    expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+    expect(getOrderBookCoin()).toBeUndefined();
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+    });
+    expect(result.current.current.hasLostMarketToOtherPage()).toBe(true);
+  });
 });
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {

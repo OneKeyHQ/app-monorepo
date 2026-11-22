@@ -197,3 +197,51 @@ it('leaves the loaded asset to a switch begun on another page while the markets 
   expect(getActiveAsset()).toEqual(btc);
   expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
 });
+
+it('sets the spot token and spot mode for the switch holding the market', async () => {
+  const { service, getMode, getSpotAsset } = createService(btc);
+  const spot: ISpotActiveAssetAtom = {
+    coin: '@107',
+    assetId: 10_107,
+    universe: undefined,
+  };
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.setTradingModeForActiveAssetChange({ requestId, spotAsset: spot }),
+  ).resolves.toBe(true);
+  expect(getSpotAsset()).toEqual(spot);
+  expect(getMode()).toBe('spot');
+});
+
+it('leaves the mode to a switch begun since on another page', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  // Another extension tab begins a switch.
+  await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.setTradingModeForActiveAssetChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+    }),
+  ).resolves.toBe(false);
+  expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+  expect(tradingModeAtom.set).not.toHaveBeenCalled();
+});
+
+it('stops at the spot token once another page begins a switch', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  jest.mocked(spotActiveAssetAtom.set).mockImplementationOnce(async () => {
+    await service.cancelPendingActiveAssetChange();
+  });
+
+  await expect(
+    service.setTradingModeForActiveAssetChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+    }),
+  ).resolves.toBe(false);
+  expect(tradingModeAtom.set).not.toHaveBeenCalled();
+});

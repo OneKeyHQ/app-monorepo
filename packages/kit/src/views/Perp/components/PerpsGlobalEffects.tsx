@@ -163,6 +163,7 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
+  const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
 
@@ -181,6 +182,11 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return;
       }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
+      // The order book target belongs to the switch that took the market,
+      // e.g. on another extension tab, not to the token this page went back to.
+      if (actions.current.hasLostMarketToOtherPage()) {
+        return;
+      }
       const _activeInstrument = activeTradeInstrumentRef.current;
       const effectiveOrderBookTickOptions =
         getPerpsOrderBookTickOptionsWithCache(_orderBookTickOptions);
@@ -209,7 +215,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
         (): IPerpsActiveOrderBookOptionsAtom => next,
       );
     },
-    [],
+    [actions],
   );
 
   useEffect(() => {

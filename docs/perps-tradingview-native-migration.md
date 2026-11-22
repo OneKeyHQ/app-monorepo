@@ -223,10 +223,13 @@ keep the single chart.
   follow the background's mode and assets, so those go back with the page,
   also a spot asset that a switch cut short had moved on. Every page's switch
   takes a request id from the background (`cancelPendingActiveAssetChange`),
-  and the background puts the asset and mode back only while the failed switch
-  still holds it: a switch begun since on another page, e.g. an extension tab,
-  owns the market, so the page leaves the mode, assets and order book target
-  to it, and its own page as it is. The order begun for the failed token is
+  and the background sets the mode, with the spot token for spot
+  (`setTradingModeForActiveAssetChange`), and puts the asset and mode back
+  only while that switch still holds the market: a switch begun since on
+  another page, e.g. an extension tab, owns it, so the page leaves the mode,
+  assets, their contexts and order book target to that switch and goes back
+  alone to the token of its last switch that landed, publishing no order book
+  target until it switches again. The order begun for the failed token is
   reset along with the page, and its market data is cleared only while no
   newer switch has started. A spot token the loaded spot markets do not list
   is no switch at all: the page stays where it is, and a switch on its way

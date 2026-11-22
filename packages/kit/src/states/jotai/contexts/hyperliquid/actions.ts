@@ -411,6 +411,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // one turned down on lookup never cuts short the switch on its way.
   private activeInstrumentSwitchAskId = 0;
 
+  // The switch that lost the market to one begun on another page, e.g. an
+  // extension tab, and put the page back alone. Until the page switches again
+  // the market the background holds is not the page's.
+  private marketLostRequestId: number | undefined;
+
   private loadTwapDataRequestId = 0;
 
   private loadTwapDataInFlightByAccount = new Map<
@@ -432,6 +437,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private isLatestActiveInstrumentChange(requestId: number): boolean {
     return requestId === this.activeInstrumentChangeRequestId;
   }
+
+  /**
+   * Another page took the market from this page's last switch: the token on
+   * the page is not the one the background holds, so the page publishes no
+   * order book target of its own until it switches again.
+   */
+  hasLostMarketToOtherPage = contextAtomMethod(
+    (_get, _set): boolean =>
+      this.marketLostRequestId === this.activeInstrumentChangeRequestId,
+  );
 
   private filterCanceledTwapOrders(
     orders: IPerpsActiveTwapOrder[],
@@ -1729,8 +1744,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
-      await tradingModeAtom.set('perp');
+      // The service sets the mode only while this switch holds the market.
+      const holdsMarket =
+        await backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
+          { requestId: assetChangeRequestId },
+        );
       if (!this.isLatestActiveInstrumentChange(requestId)) {
+        return false;
+      }
+      if (!holdsMarket) {
+        await this.restoreTradeInstrumentWithoutMarket.call(set, {
+          requestId,
+          subscriptionRecoveryProof,
+        });
         return false;
       }
       await this.clearActiveAssetData.call(set);
@@ -1825,9 +1851,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // the background's mode and assets, which a switch cut short can have moved
   // on, so they go back with the page. The service puts the mode and assets
   // back only while this switch holds the market: one begun since on another
-  // page, e.g. an extension tab, owns them and the order book target, which
-  // this page then leaves alone, its own page too. None of them is read from
-  // the UI's copies, which follow broadcasts that can still be on their way.
+  // page, e.g. an extension tab, owns them, and the page goes back alone.
+  // None of them is read from the UI's copies, which follow broadcasts that
+  // can still be on their way.
   restoreTradeInstrumentAfterFailedSwitch = contextAtomMethod(
     async (
       get,
@@ -1863,14 +1889,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         );
       if (!isLatest()) return;
       if (!isRestored) {
-        // The subscriptions follow the switch that owns the market now, but
-        // this one still consumes its proof, or the stale disable survives.
-        await recoverSubscriptionsWithProof({
-          recoveryProof: subscriptionRecoveryProof,
-          recover: (disabledCount) =>
-            backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
-              { disabledCount },
-            ),
+        await this.restoreTradeInstrumentWithoutMarket.call(set, {
+          requestId,
+          subscriptionRecoveryProof,
         });
         return;
       }
@@ -1899,6 +1920,52 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
         subscriptionRecoveryProof,
+      });
+    },
+  );
+
+  // Puts the page alone back on the token of the last switch that landed,
+  // after a switch lost the market to one begun on another page, e.g. an
+  // extension tab. That switch owns the mode, the assets, their contexts and
+  // the order book target, so none of them is written, and the page publishes
+  // no order book target until it switches again.
+  restoreTradeInstrumentWithoutMarket = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        requestId,
+        subscriptionRecoveryProof,
+      }: {
+        requestId: number;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+      },
+    ) => {
+      if (!this.isLatestActiveInstrumentChange(requestId)) return;
+      // Ahead of the page, which the order book target follows otherwise.
+      this.marketLostRequestId = requestId;
+      const confirmed = get(confirmedTradeInstrumentAtom());
+      if (
+        confirmed &&
+        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+          get(activeTradeInstrumentAtom()),
+          confirmed,
+        )
+      ) {
+        set(activeTradeInstrumentAtom(), confirmed);
+      }
+      // Along with the page: the market data loaded for the failed token, and
+      // the order begun for it while it showed.
+      this.clearOtherTokenMarketData.call(set);
+      this.resetOrderDraft.call(set);
+      // The subscriptions follow the switch that owns the market now, but
+      // this one still consumes its proof, or the stale disable survives.
+      await recoverSubscriptionsWithProof({
+        recoveryProof: subscriptionRecoveryProof,
+        recover: (disabledCount) =>
+          backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+            { disabledCount },
+          ),
       });
     },
   );
@@ -1946,7 +2013,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(l2BookAtom(), null);
         set(bboAtom(), null);
       }
-      await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
+      // Shared with the switches of other pages, e.g. extension tabs: only
+      // while this switch holds it may it set the mode and spot token.
+      const assetChangeRequestId =
+        await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const currentSpotAsset = await spotActiveAssetAtom.get();
       if (!force && currentSpotAsset?.coin === coin) {
         const currentMode = await tradingModeAtom.get();
@@ -1986,16 +2056,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       // Keep the BG subscription target ahead of slower UI cleanup/work; after
       // the native UI/BG split, the subscription service only reads BG atoms.
-      await tradingModeAtom.set('spot');
+      // The service sets them only while this switch holds the market.
+      const holdsMarket =
+        await backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
+          {
+            requestId: assetChangeRequestId,
+            spotAsset: {
+              coin,
+              assetId: spotUniverse?.assetId,
+              universe: spotUniverse,
+            },
+          },
+        );
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
-      await spotActiveAssetAtom.set({
-        coin,
-        assetId: spotUniverse?.assetId,
-        universe: spotUniverse,
-      });
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
+      if (!holdsMarket) {
+        await this.restoreTradeInstrumentWithoutMarket.call(set, {
+          requestId,
+          subscriptionRecoveryProof,
+        });
         return false;
       }
       void this.syncSubscriptionsAfterInstrumentChange({
@@ -4194,6 +4274,7 @@ export function useHyperliquidActions() {
   const changeActiveAsset = actions.changeActiveAsset.use();
   const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
   const switchTradeInstrument = actions.switchTradeInstrument.use();
+  const hasLostMarketToOtherPage = actions.hasLostMarketToOtherPage.use();
   const captureInstrumentSwitchSubscriptionProof =
     actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
@@ -4273,6 +4354,7 @@ export function useHyperliquidActions() {
     getTokenSzDecimals,
     getMidPrice,
     switchTradeInstrument,
+    hasLostMarketToOtherPage,
     captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
     setTokenSelectorOpen,

@@ -453,13 +453,35 @@ export default class ServiceHyperliquid extends ServiceBase {
       perpAsset = loaded;
       if (!isCurrent()) return notRestored;
     }
+    if (!(await this.setTradingModeWhileCurrent(params))) return notRestored;
+    return { restored: true, perpAsset };
+  }
+
+  // Sets the trading mode a UI switch goes to, perp or else the spot token
+  // given, while that switch holds the market: one begun since on another
+  // page, e.g. an extension tab, owns them, so this one writes nothing more
+  // and learns it lost the market.
+  @backgroundMethod()
+  async setTradingModeForActiveAssetChange(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+  }): Promise<boolean> {
+    if (!this.isActiveAssetChangeCurrent(params.requestId)) return false;
+    return this.setTradingModeWhileCurrent(params);
+  }
+
+  // Resolves to whether the request still holds the market after the writes.
+  private async setTradingModeWhileCurrent(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+  }): Promise<boolean> {
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
     if (params.spotAsset) {
       await spotActiveAssetAtom.set(params.spotAsset);
-      if (!isCurrent()) return notRestored;
+      if (!isCurrent()) return false;
     }
     await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
-    if (!isCurrent()) return notRestored;
-    return { restored: true, perpAsset };
+    return isCurrent();
   }
 
   private beginActivePerpsAccountChange(): number {

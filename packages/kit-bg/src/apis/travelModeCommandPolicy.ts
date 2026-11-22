@@ -64,6 +64,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'refreshSpotMeta',
     'refreshTradingMeta',
     'restoreActiveAssetAfterFailedChange',
+    'setTradingModeForActiveAssetChange',
     'updatePerpsConfigByServer',
     'updatePerpsConfigByServerSilently',
     'updatePerpsConfigByServerWithCache',
