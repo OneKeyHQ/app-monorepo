@@ -289,6 +289,7 @@ it.each([
   'same-key-fractional-time',
   'verification-read-unavailable',
   'hardware-verification-read-unavailable',
+  'hardware-verification-read-timeout',
   'hardware-verification-row-deleted',
   'hardware-verification-row-replaced',
   'verification-read-delayed',
@@ -399,10 +400,21 @@ it.each([
           new OneKeyLocalError('Synthetic verification read error'),
         );
     }
+    const blockedHardwareRead =
+      scenario === 'hardware-verification-read-timeout'
+        ? Promise.withResolvers<void>()
+        : undefined;
+    const settledHardwareRead = Promise.withResolvers<void>();
     if (isHardwareRetryFixture) {
       const read = db.getRecordById.bind(db);
       jest.spyOn(db, 'getRecordById').mockImplementation(async (params) => {
         if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+          if (blockedHardwareRead) {
+            await blockedHardwareRead.promise;
+            const record = await read(params);
+            settledHardwareRead.resolve();
+            return record;
+          }
           if (scenario === 'hardware-verification-read-unavailable')
             throw new OneKeyLocalError('Synthetic pool read error');
           if (scenario === 'hardware-verification-row-deleted')
@@ -452,7 +464,17 @@ it.each([
           candidate,
           expect.any(OneKeyLocalError),
         );
-      else expect(schedule).not.toHaveBeenCalled();
+      else if (blockedHardwareRead) {
+        expect(apiUploadItems).not.toHaveBeenCalled();
+        // Let the original read finish after its deadline. The only possible
+        // second attempt belongs to the already scoped background queue.
+        await new Promise<void>((resolve) => setTimeout(resolve, 1600));
+        blockedHardwareRead.resolve();
+        await settledHardwareRead.promise;
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        expect(schedule).toHaveBeenCalledTimes(1);
+        expect(schedule).toHaveBeenCalledWith(candidate, undefined);
+      } else expect(schedule).not.toHaveBeenCalled();
       expect(apiUploadItems).not.toHaveBeenCalled();
       // An independent handle still sees the committed business and pool rows.
       await expect(

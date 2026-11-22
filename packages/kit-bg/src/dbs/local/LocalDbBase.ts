@@ -139,7 +139,9 @@ import systemTimeUtils, {
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   INetworkAccount,
@@ -9596,18 +9598,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       void (async () => {
         // A normal upsert may preserve a newer pool row. This optional
         // read must not abort or delay an already-committed Wallet write.
-        const accepted =
-          acceptedUploadItem ??
-          (await (retryWalletUploadRead
-            ? this.getRecordById({
-                name: ELocalDBStoreNames.CloudSyncItem,
-                id: candidate.id,
-              }).catch((error: unknown) => {
-                // Missing or superseded rows are not read failures.
-                retryWalletUploadRead?.(candidate, error);
-                throw error;
-              })
-            : this.getSyncItem({ id: candidate.id })));
+        let accepted = acceptedUploadItem;
+        const retry = retryWalletUploadRead;
+        if (!accepted && retry) {
+          const result = await resolveBeforeTimeout(
+            this.getRecordById({
+              name: ELocalDBStoreNames.CloudSyncItem,
+              id: candidate.id,
+            }).then((record) => ({ record })),
+            1500,
+          ).catch((error: unknown) => {
+            retry(candidate, error);
+            throw error;
+          });
+          // Only a timeout, not a successful missing-row result, hands off
+          // to the scoped retry. A late original read cannot dispatch.
+          if (!result) retry(candidate, undefined);
+          accepted = result?.record ?? undefined;
+        } else if (!accepted) {
+          accepted = await this.getSyncItem({ id: candidate.id });
+        }
         if (!accepted || !matchesUploadCandidate(accepted, candidate)) return;
         await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
           localItems: [accepted],

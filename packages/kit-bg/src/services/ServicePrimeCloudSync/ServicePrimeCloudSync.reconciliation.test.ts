@@ -1152,6 +1152,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     'clock-corrected-contested-timeout',
     'second-timeout',
     'committed-read-recovery',
+    'committed-retry-timeout',
+    'committed-timeout-recovery',
     'committed-permanent-read-failure',
     'committed-row-deleted',
     'committed-row-replaced',
@@ -1313,6 +1315,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         expect(retry).toBeDefined();
         verify.mockReset();
         verify.mockImplementation(async ({ onVerifiedWallet }) => {
+          if (scenario === 'committed-retry-timeout') await retryRead.promise;
           onVerifiedWallet?.(canonical, physical);
           return true;
         });
@@ -1320,12 +1323,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           .spyOn(h.service, 'getCloudSyncDataTime')
           .mockResolvedValue(Date.now());
         if (scenario === 'committed-read-failed-after-switch') h.changeSource();
-        retry?.(
-          { ...wallet, dataTime: 100.5 },
-          scenario === 'committed-permanent-read-failure'
-            ? new DOMException('Invalid fixture', 'DataError')
-            : new OneKeyLocalError('Transient pool read unavailable'),
-        );
+        let readError: Error | undefined;
+        if (scenario === 'committed-permanent-read-failure')
+          readError = new DOMException('Invalid fixture', 'DataError');
+        else if (
+          scenario !== 'committed-retry-timeout' &&
+          scenario !== 'committed-timeout-recovery'
+        )
+          readError = new OneKeyLocalError('Transient pool read unavailable');
+        retry?.({ ...wallet, dataTime: 100.5 }, readError);
         if (scenario === 'committed-row-deleted') h.pool.delete(wallet.id);
         if (scenario === 'committed-row-replaced')
           h.pool.set(wallet.id, { ...wallet, data: 'newer-committed-box' });
@@ -1413,13 +1419,18 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       if (
         scenario === 'available' ||
         scenario === 'committed-read-recovery' ||
+        scenario === 'committed-timeout-recovery' ||
         scenario === 'clock-corrected' ||
         scenario === 'clock-corrected-out-of-order' ||
         contestedReadFails
       ) {
         let expected: IDBCloudSyncItem = corrected;
         if (contestedReadFails) expected = sibling;
-        if (scenario === 'available' || scenario === 'committed-read-recovery')
+        if (
+          scenario === 'available' ||
+          scenario === 'committed-read-recovery' ||
+          scenario === 'committed-timeout-recovery'
+        )
           expected = wallet;
         expect(wire).toHaveBeenCalledWith(
           expect.objectContaining({
