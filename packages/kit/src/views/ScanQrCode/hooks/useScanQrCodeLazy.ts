@@ -63,6 +63,7 @@ export default function useScanQrCodeLazy() {
                   const { parseQRCodeWithDeps } =
                     await parseQRCodeModulePromise;
                   if (
+                    autoExecuteParsedAction &&
                     popNavigation &&
                     rootNavigationRef.current?.getCurrentRoute()?.key !==
                       routeKey
