@@ -53,6 +53,13 @@ import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/pr
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 let mockUseTestEndpoint = false;
+const mockDevSettingsListeners = new Set<() => void>();
+
+function changeMockTestEndpoint() {
+  mockUseTestEndpoint = true;
+  for (const listener of mockDevSettingsListeners) listener();
+}
+
 let mockConfig: IPrimeCloudSyncPersistAtomData;
 let mockStored: IKeylessCloudSyncCredential | undefined;
 
@@ -95,6 +102,12 @@ jest.mock('../../states/jotai/atoms', () => ({
       enabled: true,
       settings: { enableTestEndpoint: mockUseTestEndpoint },
     })),
+    sub: jest.fn((listener: () => void) => {
+      mockDevSettingsListeners.add(listener);
+      return () => {
+        mockDevSettingsListeners.delete(listener);
+      };
+    }),
   },
   primeCloudSyncPersistAtom: {
     get: jest.fn(async () => mockConfig),
@@ -259,6 +272,7 @@ const servicesToClear = new Set<ServiceKeylessCloudSync>();
 beforeEach(() => {
   jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
   mockUseTestEndpoint = false;
+  mockDevSettingsListeners.clear();
 });
 
 function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
@@ -724,7 +738,7 @@ describe('hardware Cloud key source lifecycle', () => {
     async (phase) => {
       const { service } = setup();
       const signAuth = jest.fn(async () => {
-        if (phase === 'hardware signature') mockUseTestEndpoint = true;
+        if (phase === 'hardware signature') changeMockTestEndpoint();
         return 'public-test-signature';
       });
       jest
@@ -746,7 +760,7 @@ describe('hardware Cloud key source lifecycle', () => {
           .mocked(requestHardwareCloudSyncChallenge)
           .mockImplementationOnce(async (params) => {
             const result = await request(params);
-            mockUseTestEndpoint = true;
+            changeMockTestEndpoint();
             return result;
           });
       }
@@ -759,7 +773,7 @@ describe('hardware Cloud key source lifecycle', () => {
           .mocked(verifyHardwareCloudSyncChallenge)
           .mockImplementationOnce(async (params) => {
             const result = await verify(params);
-            mockUseTestEndpoint = true;
+            changeMockTestEndpoint();
             return result;
           });
       }
