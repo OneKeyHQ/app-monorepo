@@ -38,7 +38,9 @@ export function useModifierKeyHold({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== modifierKey) {
-        otherKeysDown.add(event.key);
+        // `code` is the physical key: `key` can change between down and up
+        // (Shift+A released as "a").
+        otherKeysDown.add(event.code);
         reset();
         return;
       }
@@ -67,7 +69,7 @@ export function useModifierKeyHold({
         resetAll();
         return;
       }
-      otherKeysDown.delete(event.key);
+      otherKeysDown.delete(event.code);
     };
     globalThis.addEventListener('keydown', onKeyDown, true);
     globalThis.addEventListener('keyup', onKeyUp, true);

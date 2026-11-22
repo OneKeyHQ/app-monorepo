@@ -18,7 +18,6 @@ import {
   LazyPopover,
   LazyTooltip,
   Shortcut,
-  preloadLazyTooltip,
 } from '@onekeyhq/components/src/actions';
 import type {
   IActionListSection,
@@ -268,6 +267,12 @@ function BasicTabItemView({
     },
     [closeTooltip, onPress, onPressOut, options],
   );
+  // Pressing the current tab (e.g. Market back to its home) navigates too.
+  const onPressWhenSelected = options.onPressWhenSelected;
+  const handlePressWhenSelected = useCallback(() => {
+    closeTooltip();
+    onPressWhenSelected?.();
+  }, [closeTooltip, onPressWhenSelected]);
 
   const tabBarStyleMemo = useMemo(
     () =>
@@ -291,27 +296,28 @@ function BasicTabItemView({
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
-          <Stack>
-            <DesktopTabItem
-              isContainerHovered={isContainerHovered}
-              onPress={handlePress}
-              onPressWhenSelected={options.onPressWhenSelected}
-              trackId={options.trackId}
-              aria-current={isActive ? 'page' : undefined}
-              selected={isActive}
-              tabBarStyle={tabBarStyleMemo}
-              // @ts-expect-error
-              icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-              label=""
-              tooltipLabel={iconsOnly ? title : undefined}
-              tooltipOpen={iconsOnly ? tooltip.open : undefined}
-              shortcutKey={iconsOnly ? shortcutKey : undefined}
-              aria-label={title}
-              actionList={options.actionList}
-              testID={route.name.toLowerCase()}
-            />
-            <SidebarShortcutBadge shortcutKey={shortcutKey} />
-          </Stack>
+          <DesktopTabItem
+            isContainerHovered={isContainerHovered}
+            onPress={handlePress}
+            onPressWhenSelected={handlePressWhenSelected}
+            trackId={options.trackId}
+            aria-current={isActive ? 'page' : undefined}
+            selected={isActive}
+            tabBarStyle={tabBarStyleMemo}
+            // @ts-expect-error
+            icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+            label=""
+            tooltipLabel={iconsOnly ? title : undefined}
+            tooltipOpen={iconsOnly ? tooltip.open : undefined}
+            shortcutKey={iconsOnly ? shortcutKey : undefined}
+            aria-label={title}
+            actionList={options.actionList}
+            testID={route.name.toLowerCase()}
+          >
+            {shortcutKey ? (
+              <SidebarShortcutBadge shortcutKey={shortcutKey} />
+            ) : null}
+          </DesktopTabItem>
           {iconsOnly ? null : (
             <SizableText
               size="$bodyXsMedium"
@@ -329,6 +335,7 @@ function BasicTabItemView({
       ),
     [
       handlePress,
+      handlePressWhenSelected,
       handleHoverIn,
       handleHoverOut,
       iconsOnly,
@@ -763,16 +770,6 @@ export function DesktopLeftSideBar({
   const intl = useIntl();
   const appearance = useContext(SidebarAppearanceContext);
   const iconsOnly = appearance?.showLabels === false;
-  useEffect(() => {
-    // The first hover must find the tooltip loaded, or it waits for the next.
-    if (iconsOnly) {
-      preloadLazyTooltip().catch((error: unknown) => {
-        defaultLogger.app.error.log(
-          `[DesktopLeftSideBar] tooltip preload failed: ${String(error)}`,
-        );
-      });
-    }
-  }, [iconsOnly]);
 
   // Right click anywhere on the sidebar toggles the labels. Bubble phase:
   // items with their own menu (DesktopTabItem actionList) stop it first.

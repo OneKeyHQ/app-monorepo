@@ -17,9 +17,9 @@ jest.mock('@onekeyhq/components/src/hooks/useShortcuts', () => ({
   },
 }));
 
-function press(type: 'keydown' | 'keyup', key: string) {
+function press(type: 'keydown' | 'keyup', key: string, code = key) {
   act(() => {
-    globalThis.dispatchEvent(new KeyboardEvent(type, { key }));
+    globalThis.dispatchEvent(new KeyboardEvent(type, { key, code }));
   });
 }
 
@@ -75,10 +75,19 @@ describe('useModifierKeyHold', () => {
 
   it('does not show while another key is still held', () => {
     const { result } = renderHold();
-    press('keydown', 'a');
+    press('keydown', 'a', 'KeyA');
     press('keydown', 'Meta');
     wait(MODIFIER_HOLD_DELAY_MS);
     expect(result.current).toBe(false);
+  });
+
+  it('a key released under another name (Shift+A) no longer blocks it', () => {
+    const { result } = renderHold();
+    press('keydown', 'A', 'KeyA');
+    press('keyup', 'a', 'KeyA');
+    press('keydown', 'Meta');
+    wait(MODIFIER_HOLD_DELAY_MS);
+    expect(result.current).toBe(true);
   });
 
   it('hides when the window loses focus while held', () => {
