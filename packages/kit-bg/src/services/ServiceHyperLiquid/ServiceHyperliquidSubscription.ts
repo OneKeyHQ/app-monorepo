@@ -127,6 +127,7 @@ interface IActiveSubscription {
   lastActivity: number;
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
+  unsubscribeUnconfirmed?: true;
 }
 
 const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
@@ -154,6 +155,13 @@ interface IPublicTradesBatch {
 
 const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
 const PUBLIC_TRADES_BATCH_LIMIT = 10;
+const BBO_FILLS_BACKFILL_RETRY_DELAYS_MS = [0, 500, 1500];
+
+type ITransportReconnectRequest = {
+  canReconnect?: () => boolean;
+  captureUserFills?: boolean;
+  onReconnect?: () => void;
+};
 
 type IHyperliquidWsClient = {
   clientId: string;
@@ -250,7 +258,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _socketOpenedAt: number | null = null;
 
-  private _resumeReconnectPromise: Promise<boolean> | null = null;
+  private _resumeReconnectTask: {
+    requests: ITransportReconnectRequest[];
+    promise: Promise<boolean>;
+  } | null = null;
 
   private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -682,6 +693,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (!spec) {
       return;
     }
+    const client = this._client;
+    const openedAt = this._socketOpenedAt;
+    const lifecycleVersion = this._subscriptionLifecycleVersion;
+    const disabledCount = this.subscriptionsHandlerDisabledCount;
     const startedGeneration = this._fastL2RecoveryGeneration;
     const isRecoveryCurrent = () =>
       isFastL2RecoveryCurrent({
@@ -691,6 +706,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         currentTargetKey: this._fastL2TargetKey,
         isTargetPending: Boolean(this.pendingSubSpecsMap[targetKey]),
       });
+    const canReconnect = () =>
+      isRecoveryCurrent() &&
+      this._canRecoverSubscriptionTransport({
+        client,
+        openedAt,
+        lifecycleVersion,
+        disabledCount,
+      });
+    const reconnect = async () => {
+      if (this._fastL2ReconnectAttempted || !canReconnect()) {
+        return;
+      }
+      await this._reconnectTransportSingleFlight({
+        canReconnect,
+        onReconnect: () => {
+          this._fastL2ReconnectAttempted = true;
+        },
+      });
+    };
 
     const recoveryPromise = (async () => {
       const delay =
@@ -724,19 +758,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return true;
           },
         );
-        if (!resetSucceeded && !this._fastL2ReconnectAttempted) {
-          this._fastL2ReconnectAttempted = true;
-          await this._forceReconnectTransport();
+        if (!resetSucceeded) {
+          await reconnect();
         }
         return;
       }
 
       if (!this._fastL2ReconnectAttempted) {
-        this._fastL2ReconnectAttempted = true;
         console.warn(
           `[HyperLiquid WebSocket] Reconnect after Fast L2 recovery exhausted: ${reason}`,
         );
-        await this._forceReconnectTransport();
+        await reconnect();
         return;
       }
 
@@ -1333,7 +1365,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (this._bboNeedsResubscribe) {
         const canRecoverBbo = () =>
-          this._canRecoverBbo({
+          this._canRecoverSubscriptionTransport({
             client,
             openedAt,
             lifecycleVersion,
@@ -1350,7 +1382,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
               return lifecycleVersion !== this._subscriptionLifecycleVersion;
             }
             if (!removed) {
-              await this._reconnectTransportSingleFlight(canRecoverBbo);
+              await this._reconnectTransportSingleFlight({
+                canReconnect: canRecoverBbo,
+                captureUserFills: true,
+              });
               return lifecycleVersion !== this._subscriptionLifecycleVersion;
             }
           }
@@ -1548,10 +1583,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _bboNeedsResubscribe = false;
 
-  private _interruptedBboReconnectFills?: {
-    key: string;
-    disconnectedAt: number;
-  };
+  private _interruptedBboReconnectFills = new Map<
+    string,
+    { disconnectedAt: number }
+  >();
 
   @backgroundMethod()
   async disableSubscriptionsHandler(): Promise<void> {
@@ -1725,7 +1760,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._cleanupAllSubscriptions();
   }
 
-  private _canRecoverBbo(params: {
+  private _canRecoverSubscriptionTransport(params: {
     client: IHyperliquidWsClient | null;
     openedAt: number | null;
     lifecycleVersion: number;
@@ -1742,33 +1777,47 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _reconnectTransportSingleFlight(
-    canRecoverBbo?: () => boolean,
+    request?: ITransportReconnectRequest,
   ): Promise<void> {
-    if (!this._resumeReconnectPromise) {
-      this._resumeReconnectPromise = this._forceReconnectTransport(
-        canRecoverBbo,
-      ).finally(() => {
-        this._resumeReconnectPromise = null;
-      });
+    let task = this._resumeReconnectTask;
+    if (task) {
+      if (request) {
+        task.requests.push(request);
+      }
+    } else {
+      const requests = [request ?? {}];
+      task = {
+        requests,
+        promise: this._forceReconnectTransport(requests).finally(() => {
+          this._resumeReconnectTask = null;
+        }),
+      };
+      this._resumeReconnectTask = task;
     }
-    const rebuilt = await this._resumeReconnectPromise;
-    if (rebuilt === false && (!canRecoverBbo || canRecoverBbo())) {
-      // A later resume can still be valid after the original task is cancelled.
-      await this._reconnectTransportSingleFlight(canRecoverBbo);
+    const rebuilt = await task.promise;
+    if (
+      rebuilt === false &&
+      (!request?.canReconnect || request.canReconnect())
+    ) {
+      // A later resume can still be valid after the guarded task is cancelled.
+      await this._reconnectTransportSingleFlight(request);
     }
   }
 
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(
-    canRecoverBbo?: () => boolean,
+    requests?: ITransportReconnectRequest[],
   ): Promise<boolean> {
     await invalidatePerpsLiquidationRiskInputs();
-    // A blur can land while invalidation waits. Keep the live fills stream
-    // until the next focus retries BBO recovery.
-    if (canRecoverBbo && !canRecoverBbo()) {
+    // A blur or a new transport can invalidate requests while risk state clears.
+    const currentRequests = requests?.filter(
+      ({ canReconnect }) => !canReconnect || canReconnect(),
+    );
+    if (currentRequests?.length === 0) {
       return false;
     }
+    currentRequests?.forEach(({ onReconnect }) => onReconnect?.());
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1778,17 +1827,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clearCriticalSubscriptionHealthCheck();
     this._clearNetworkTimeout();
     this._stopPingLoop();
-    if (canRecoverBbo) {
+    if (currentRequests?.some(({ captureUserFills }) => captureUserFills)) {
       const fills = Array.from(this._activeSubscriptions.values()).find(
         (sub) =>
           sub.type === ESubscriptionType.USER_FILLS &&
           this._isSubscriptionSpecPending(sub.spec),
       );
-      if (fills && this._interruptedBboReconnectFills?.key !== fills.key) {
-        this._interruptedBboReconnectFills = {
-          key: fills.key,
-          disconnectedAt: Date.now(),
-        };
+      if (fills) {
+        const spec =
+          fills.spec as ISubscriptionSpec<ESubscriptionType.USER_FILLS>;
+        const account = spec.params.user.toLowerCase();
+        const previous = this._interruptedBboReconnectFills.get(account);
+        const disconnectedAt = Date.now();
+        this._interruptedBboReconnectFills.set(account, {
+          disconnectedAt: Math.min(
+            previous?.disconnectedAt ?? disconnectedAt,
+            disconnectedAt,
+          ),
+        });
       }
     }
     this._forgetTransportSubscriptions();
@@ -2586,12 +2642,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
     });
 
+    let unsubscribeNeedsReconnect = false;
     const toCreateSubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.pendingSubSpecsMap).forEach((spec) => {
-      if (
-        !this._activeSubscriptions.has(spec.key) ||
-        this._destroyingSubscriptionKeys.has(spec.key)
-      ) {
+      const active = this._activeSubscriptions.get(spec.key);
+      if (active?.unsubscribeUnconfirmed) {
+        unsubscribeNeedsReconnect = true;
+      } else if (!active || this._destroyingSubscriptionKeys.has(spec.key)) {
         toCreateSubscriptions.push(spec);
       }
     });
@@ -2605,14 +2662,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const openedAt = this._socketOpenedAt;
     const lifecycleVersion = this._subscriptionLifecycleVersion;
     const disabledCount = this.subscriptionsHandlerDisabledCount;
-    let bboUnsubscribeFailed = false;
     const otherTasks = [
       ...toDestroySubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
         .map((spec) => async () => {
           const removed = await this._destroySubscription(spec);
-          if (!removed && spec.type === ESubscriptionType.BBO) {
-            bboUnsubscribeFailed = true;
+          if (
+            !removed &&
+            (spec.type === ESubscriptionType.BBO ||
+              spec.type === ESubscriptionType.ACTIVE_ASSET_DATA)
+          ) {
+            unsubscribeNeedsReconnect = true;
           }
         }),
       ...toCreateSubscriptions
@@ -2644,17 +2704,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       orderBookTask,
       otherTasks,
     });
-    // A lost ACK leaves BBO state untrusted. If focus changed in the meantime,
-    // the pending BBO refresh now belongs to the latest resume.
-    const canRecoverBbo = () =>
-      this._canRecoverBbo({
+    // The socket may have applied an unsubscribe whose ACK we missed.
+    const canRecoverUnsubscribe = () =>
+      this._canRecoverSubscriptionTransport({
         client,
         openedAt,
         lifecycleVersion,
         disabledCount,
       });
-    if (bboUnsubscribeFailed && canRecoverBbo()) {
-      await this._reconnectTransportSingleFlight(canRecoverBbo);
+    if (unsubscribeNeedsReconnect && canRecoverUnsubscribe()) {
+      await this._reconnectTransportSingleFlight({
+        canReconnect: canRecoverUnsubscribe,
+        captureUserFills: true,
+      });
     }
   }
 
@@ -2671,63 +2733,94 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _backfillInterruptedBboReconnectFills(
     spec: ISubscriptionSpec<ESubscriptionType.USER_FILLS>,
   ): Promise<void> {
-    const interrupted = this._interruptedBboReconnectFills;
-    this._interruptedBboReconnectFills = undefined;
-    if (interrupted?.key !== spec.key) {
+    const { user } = spec.params;
+    const normalizedUser = user.toLowerCase();
+    if (!this._interruptedBboReconnectFills.has(normalizedUser)) {
       return;
     }
 
-    const { user } = spec.params;
-    const normalizedUser = user.toLowerCase();
-    const getMatchingAccount = async () => {
-      const { accountAddress } = await perpsActiveAccountAtom.get();
-      return accountAddress?.toLowerCase() === normalizedUser
-        ? accountAddress
-        : undefined;
-    };
-    try {
-      const accountAddress = await getMatchingAccount();
-      if (!accountAddress) {
-        return;
-      }
-      const service = this.backgroundApi.serviceHyperliquid;
-      // Live fills can append after history loads. Take the REST cutoff then
-      // so it also covers fills that arrived during the initial load.
-      await service.loadTradesHistory(accountAddress);
-      if (!(await getMatchingAccount())) {
-        return;
-      }
-      const fills = await service.getUserFillsByTime({
-        user,
-        // Overlap the cutoff of the quantized initial history request.
-        startTime: interrupted.disconnectedAt - CACHE_TIME_QUANTIZE_MS,
-        endTime: Date.now(),
-        reversed: true,
-      });
-      // A same-account socket rebuild can briefly clear pending specs.
-      if (fills.length > 0 && (await getMatchingAccount())) {
-        await service.appendTradesHistory(fills, user);
-      }
-    } catch (error) {
-      defaultLogger.perp.hyperliquid.subscriptionHandlerError({
-        type: spec.type,
-        error,
-      });
-      if (await getMatchingAccount().catch(() => undefined)) {
-        // Another reconnect can record a gap while this request is in flight.
-        const pending = this._interruptedBboReconnectFills as
-          | typeof interrupted
-          | undefined;
-        if (
-          !pending ||
-          (pending.key === spec.key &&
-            pending.disconnectedAt > interrupted.disconnectedAt)
-        ) {
-          this._interruptedBboReconnectFills = interrupted;
+    await this._subscriptionMutationQueue.enqueue(
+      `bbo-fills-recovery:${normalizedUser}`,
+      async () => {
+        const interrupted =
+          this._interruptedBboReconnectFills.get(normalizedUser);
+        if (!interrupted) {
+          return;
         }
-        this.hasNewUserFills = true;
-      }
-    }
+        const isCurrentGap = () =>
+          this._interruptedBboReconnectFills.get(normalizedUser) ===
+          interrupted;
+        const getMatchingAccount = async () => {
+          const { accountAddress } = await perpsActiveAccountAtom.get();
+          return accountAddress?.toLowerCase() === normalizedUser
+            ? accountAddress
+            : undefined;
+        };
+        const getConfirmedAccount = async () => {
+          const account = await getMatchingAccount();
+          if (
+            isCurrentGap() &&
+            !this.subscriptionsHandlerDisabled &&
+            isAppVisible() &&
+            this._client?.transport.socket.readyState === WebSocket.OPEN &&
+            this._activeSubscriptions.has(spec.key)
+          ) {
+            return account;
+          }
+          return undefined;
+        };
+
+        const service = this.backgroundApi.serviceHyperliquid;
+        for (const delay of BBO_FILLS_BACKFILL_RETRY_DELAYS_MS) {
+          if (delay > 0) {
+            await timerUtils.wait(delay);
+          }
+          try {
+            const accountAddress = await getConfirmedAccount();
+            if (!accountAddress) {
+              break;
+            }
+            // Live fills can append after history loads. Take the REST cutoff then
+            // so it also covers fills that arrived during the initial load.
+            await service.loadTradesHistory(accountAddress);
+            if (!(await getConfirmedAccount())) {
+              break;
+            }
+            const fills = await service.getUserFillsByTime({
+              user,
+              // Overlap the cutoff of the quantized initial history request.
+              startTime: interrupted.disconnectedAt - CACHE_TIME_QUANTIZE_MS,
+              endTime: Date.now(),
+              reversed: true,
+            });
+            // An in-flight response can still merge during a same-account rebuild.
+            if (!(await getMatchingAccount())) {
+              return;
+            }
+            const merged =
+              fills.length === 0 ||
+              (await service.mergeRecoveredTradesHistory(fills, user));
+            if (merged) {
+              if (isCurrentGap()) {
+                this._interruptedBboReconnectFills.delete(normalizedUser);
+              }
+              return;
+            }
+          } catch (error) {
+            defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+              type: spec.type,
+              error,
+            });
+          }
+        }
+        if (
+          isCurrentGap() &&
+          (await getMatchingAccount().catch(() => undefined))
+        ) {
+          this.hasNewUserFills = true;
+        }
+      },
+    );
   }
 
   private async _createSubscriptionLocked<T extends ESubscriptionType>(
@@ -2851,6 +2944,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           delete this.allSubSpecsMap[spec.key];
           this._activeSubscriptions.delete(spec.key);
         };
+        const active = targetClient
+          ? undefined
+          : this._activeSubscriptions.get(spec.key);
         try {
           this._destroyingSubscriptionKeys.add(spec.key);
           if (
@@ -2883,6 +2979,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             clearActiveL2BookSpec();
             removeSubCache();
             return true;
+          }
+          if (active && spec.type === ESubscriptionType.ACTIVE_ASSET_DATA) {
+            // Focus can cancel the reconnect. Keep this entry untrusted until
+            // the unsubscribe is confirmed or the transport is replaced.
+            active.unsubscribeUnconfirmed = true;
           }
           console.log(
             `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,

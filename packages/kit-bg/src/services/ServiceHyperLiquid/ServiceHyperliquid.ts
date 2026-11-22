@@ -164,6 +164,7 @@ import {
   spotTokenFavoritesPersistAtom,
   tradingModeAtom,
 } from '../../states/jotai/atoms';
+import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 import ServiceBase from '../ServiceBase';
 import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/depositTokenListUtils';
 
@@ -1461,38 +1462,26 @@ export default class ServiceHyperliquid extends ServiceBase {
       : await this._getUserFillsByTimeMemo(params);
     const fills = filterSupportedTradeHistoryFills(fillsRaw);
 
-    const activeAccount = await perpsActiveAccountAtom.get();
-    if (
-      activeAccount?.accountAddress?.toLowerCase() !== normalizedAccountAddress
-    ) {
-      return this._sortAndDedupeFills(fills);
-    }
-
-    // Merge with the latest atom after the request returns so WS appends or
-    // concurrent refreshes that landed during the REST call are preserved.
-    const latestCurrent = await perpsTradesHistoryDataAtom.get();
-    const shouldMergeLatest =
-      latestCurrent.accountAddress?.toLowerCase() === normalizedAccountAddress;
-    const sorted = this._sortAndDedupeFills(
-      shouldMergeLatest ? [...latestCurrent.fills, ...fills] : fills,
-    );
-
-    const latestActiveAccount = await perpsActiveAccountAtom.get();
-    if (
-      latestActiveAccount?.accountAddress?.toLowerCase() !==
-      normalizedAccountAddress
-    ) {
-      return sorted;
-    }
-
-    await perpsTradesHistoryDataAtom.set({
-      fills: sorted,
-      isLoaded: true,
-      latestTime: sorted[0]?.time ?? 0,
-      accountAddress: normalizedAccountAddress,
+    let sorted: IFill[] | undefined;
+    await perpsTradesHistoryDataAtom.set((latest) => {
+      // Check the account and merge at commit time, after intervening WS writes.
+      const active = jotaiDefaultStore.get(perpsActiveAccountAtom.atom());
+      if (active.accountAddress?.toLowerCase() !== normalizedAccountAddress) {
+        return latest;
+      }
+      sorted = this._sortAndDedupeFills(
+        latest.accountAddress?.toLowerCase() === normalizedAccountAddress
+          ? [...latest.fills, ...fills]
+          : fills,
+      );
+      return {
+        fills: sorted,
+        isLoaded: true,
+        latestTime: sorted[0]?.time ?? 0,
+        accountAddress: normalizedAccountAddress,
+      };
     });
-
-    return sorted;
+    return sorted ?? this._sortAndDedupeFills(fills);
   }
 
   @backgroundMethod()
@@ -1500,21 +1489,43 @@ export default class ServiceHyperliquid extends ServiceBase {
     newFills: IFill[],
     userAddress?: string,
   ): Promise<void> {
+    await this._mergeTradesHistory(newFills, userAddress, false);
+  }
+
+  mergeRecoveredTradesHistory(
+    newFills: IFill[],
+    userAddress: string,
+  ): Promise<boolean> {
+    return this._mergeTradesHistory(newFills, userAddress, true);
+  }
+
+  private async _mergeTradesHistory(
+    newFills: IFill[],
+    userAddress: string | undefined,
+    requireActiveAccount: boolean,
+  ): Promise<boolean> {
     if (newFills.length === 0) {
-      return;
+      return false;
     }
 
-    // REST recovery and live fills can append at the same time.
+    const user = userAddress?.toLowerCase();
+    let accepted = false;
     await perpsTradesHistoryDataAtom.set((current) => {
+      const owner = current.accountAddress?.toLowerCase();
+      if (!current.isLoaded || (user && owner && user !== owner)) {
+        return current;
+      }
+      // Retire a recovery gap only when its account's loaded history accepted it.
       if (
-        !current.isLoaded ||
-        (userAddress &&
-          current.accountAddress &&
-          userAddress.toLowerCase() !== current.accountAddress.toLowerCase())
+        requireActiveAccount &&
+        (owner !== user ||
+          jotaiDefaultStore
+            .get(perpsActiveAccountAtom.atom())
+            .accountAddress?.toLowerCase() !== user)
       ) {
         return current;
       }
-
+      accepted = true;
       const currentFillKeys = new Set(
         current.fills.map((fill) => this._getFillKey(fill)),
       );
@@ -1535,6 +1546,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         latestTime: fills[0]?.time ?? current.latestTime,
       };
     });
+    return accepted;
   }
 
   @backgroundMethod()
