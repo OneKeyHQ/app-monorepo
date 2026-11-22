@@ -1,8 +1,10 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ICloudSyncReconciliationAdapter,
   ICloudSyncReconciliationContract,
@@ -10,13 +12,18 @@ import type {
   ICloudSyncReconciliationResult,
   ICloudSyncReconciliationSummary,
 } from '@onekeyhq/shared/types/prime/cloudSyncReconciliation';
+import type { ICloudSyncReconciliationPersistState } from '@onekeyhq/shared/types/prime/cloudSyncReconciliationState';
 import type {
+  ICloudSyncCheckServerStatusPostData,
   ICloudSyncCheckServerStatusResult,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
+import type { IManualCloudSyncResult } from './ServicePrimeCloudSync';
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
+import type { IManualHardwareWalletRecovery } from '../ServiceKeylessCloudSync/hardwareCloudSyncRecovery';
 
 // A missing tied version only means progress when this checked apply itself
 // committed the matching tombstone cleanup transaction.
@@ -147,6 +154,244 @@ export function prepareWalletTieState(
     held: new Map(),
     isCurrent,
   };
+}
+
+export function classifyManualReconciliationTransport(
+  error: unknown,
+): IManualCloudSyncResult | undefined {
+  const failure = error as {
+    code?: string;
+    className?: string;
+    httpStatusCode?: number;
+    response?: { status?: number };
+  };
+  // Axios may normalize the original response before this layer.
+  const status = failure?.httpStatusCode ?? failure?.response?.status;
+  if (
+    failure?.className === EOneKeyErrorClassNames.AxiosNetworkError ||
+    failure?.code === 'ERR_NETWORK' ||
+    failure?.code === 'ETIMEDOUT'
+  )
+    return 'network-unavailable';
+  if (status === 401) return 'session-unavailable';
+  if (status === 403) return 'sync-blocked';
+  if (typeof status === 'number' && status >= 500 && status < 600)
+    return 'server-unavailable';
+  return undefined;
+}
+
+export async function runReconciliationCheckWithLegacyFallback({
+  firstRequest,
+  selectedCapability,
+  signal,
+  isCurrent,
+  recovery,
+  send,
+  onFallback,
+  onFailure,
+}: {
+  firstRequest: boolean;
+  selectedCapability: ICloudSyncCheckServerStatusPostData['reconciliation'];
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  recovery?: IManualHardwareWalletRecovery;
+  send: (
+    capability: ICloudSyncCheckServerStatusPostData['reconciliation'],
+    recovery?: IManualHardwareWalletRecovery,
+  ) => Promise<ICloudSyncCheckServerStatusResult>;
+  onFallback: () => void;
+  onFailure: (failure: IManualCloudSyncResult | undefined) => void;
+}) {
+  try {
+    return await send(selectedCapability, firstRequest ? recovery : undefined);
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response
+      ?.status;
+    if (
+      !firstRequest ||
+      signal.aborted ||
+      !isCurrent() ||
+      ![400, 422].includes(status ?? 0)
+    ) {
+      onFailure(classifyManualReconciliationTransport(error));
+      throw error;
+    }
+    // A strict legacy backend may reject the optional capability field.
+    // Authentication errors never enter this compatibility fallback.
+    onFallback();
+    try {
+      return await send(undefined, recovery);
+    } catch (fallbackError) {
+      onFailure(classifyManualReconciliationTransport(fallbackError));
+      throw fallbackError;
+    }
+  }
+}
+
+export function pauseReconciliation({
+  delayMs,
+  signal,
+}: {
+  delayMs: number;
+  signal: AbortSignal;
+}) {
+  return new Promise<void>((resolve, reject) => {
+    const timer: { handle?: ReturnType<typeof setTimeout> } = {};
+    const abort = () => {
+      clearTimeout(timer.handle);
+      reject(new OneKeyLocalError('Cloud sync was cancelled'));
+    };
+    timer.handle = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, delayMs);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
+export function summarizeReconciliationRound({
+  baseline,
+  issues,
+  result,
+  onlyWalletVerificationDeferred,
+  unknownTie,
+  reportOriginalPartial,
+  forceSceneReplay,
+  networkRequests,
+}: {
+  baseline: ICloudSyncReconciliationPersistState;
+  issues?: IPrimeCloudSyncPersistAtomData['publicAccountSnapshotStatus'];
+  result: ICloudSyncReconciliationResult;
+  onlyWalletVerificationDeferred: boolean;
+  unknownTie: boolean;
+  reportOriginalPartial: boolean;
+  forceSceneReplay: true | undefined;
+  networkRequests: number;
+}) {
+  const hasIssues =
+    !!issues &&
+    issues.needsUpdate + issues.pending + issues.conflicts + issues.rejected >
+      0;
+  const quietWalletRetry =
+    onlyWalletVerificationDeferred &&
+    result.status === 'waiting' &&
+    result.reason === 'upload-incomplete';
+  // Reuse the durable backoff even when the only missing work was an
+  // unverified Wallet: repeatedly slow local reads must not spin.
+  const shouldBackOff =
+    result.status === 'blocked' || (quietWalletRetry && !result.progress);
+  let failures = baseline.failures;
+  if (shouldBackOff) failures += 1;
+  else if (result.progress) failures = 0;
+  let nextRetryAt = result.nextRetryAt;
+  if (shouldBackOff)
+    nextRetryAt =
+      Date.now() +
+      Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
+  let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
+  if (result.status === 'complete')
+    status =
+      hasIssues || unknownTie || reportOriginalPartial ? 'partial' : 'complete';
+  else if (result.status === 'waiting' || result.status === 'cancelled')
+    status = 'waiting';
+  const state: ICloudSyncReconciliationPersistState = {
+    ...baseline,
+    status,
+    reason: result.reason,
+    unfinished: result.unfinished,
+    forceSceneReplay: result.unfinished ? forceSceneReplay : undefined,
+    nextRetryAt,
+    failures,
+    requests: baseline.requests + networkRequests,
+    rounds: baseline.rounds + result.rounds,
+    received: baseline.received + result.received,
+    applied: baseline.applied + result.applied,
+    uploaded: baseline.uploaded + result.uploaded,
+    updatedAt: Date.now(),
+  };
+
+  return { state, hasIssues, quietWalletRetry };
+}
+
+export async function readReconciliationApplyProgress({
+  ids,
+  before,
+  response,
+  acknowledgedDeletes,
+  operationIsCurrent,
+  tieState,
+  holds,
+  spaceId,
+  issues,
+  removeOnDelete,
+  read,
+}: {
+  ids: string[];
+  before: Map<string, IDBCloudSyncItem>;
+  response: ICloudSyncCheckServerStatusResult;
+  acknowledgedDeletes: Set<string>;
+  operationIsCurrent: () => boolean;
+  tieState: IWalletTieState;
+  holds: Map<string, number>;
+  spaceId: string;
+  issues?: Readonly<Record<string, string>>;
+  removeOnDelete: (dataType: EPrimeCloudSyncDataType) => boolean;
+  read: (ids: string[]) => Promise<(IDBCloudSyncItem | null | undefined)[]>;
+}) {
+  let applied = 0;
+  for (let offset = 0; offset < ids.length; offset += 50) {
+    if (!operationIsCurrent())
+      throw new OneKeyLocalError('Cloud sync was cancelled');
+    const records = await read(ids.slice(offset, offset + 50));
+    const after = new Map(
+      records
+        .filter((item): item is IDBCloudSyncItem => !!item)
+        .map((item) => [item.id, item]),
+    );
+    for (const id of ids.slice(offset, offset + 50)) {
+      const item = after.get(id);
+      const old = before.get(id);
+      const receipt = walletReceipt(
+        id,
+        item,
+        old,
+        tieState,
+        holds,
+        spaceId,
+        response.pwdHash,
+      );
+      if (receipt !== undefined) {
+        if (receipt) applied += 1;
+        // eslint-disable-next-line no-continue -- A tie needs an exact receipt.
+        continue;
+      }
+      if (
+        !item &&
+        old &&
+        acknowledgedDeletes.has(id) &&
+        removeOnDelete(old.dataType)
+      ) {
+        applied += 1;
+        // eslint-disable-next-line no-continue -- A confirmed deletion is already counted.
+        continue;
+      }
+      if (
+        item &&
+        item.pwdHash === spaceId &&
+        issues?.[item.id] !== 'rejected' &&
+        issues?.[item.id] !== 'conflicts' &&
+        (!old ||
+          item.dataTime !== old.dataTime ||
+          item.dataType !== old.dataType ||
+          (item.isDeleted && !old.isDeleted) ||
+          item.pwdHash !== old.pwdHash)
+      )
+        applied += 1;
+    }
+    if (offset + 50 < ids.length) await timerUtils.wait(0);
+  }
+  return { applied };
 }
 
 export const CLOUD_SYNC_RECONCILIATION_DEFAULT_LIMITS: ICloudSyncReconciliationLimits =

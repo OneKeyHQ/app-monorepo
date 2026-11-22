@@ -1,16 +1,26 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import axios from 'axios';
 import 'fake-indexeddb/auto';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import {
+  HARDWARE_CLOUD_SYNC_KEK_VERSION,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
-import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  ICloudSyncCheckServerStatusPostData,
+  ICloudSyncCredential,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
@@ -22,6 +32,10 @@ import {
   primeCloudSyncPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceAccount from '../ServiceAccount/ServiceAccount';
+import {
+  computeHardwareCloudSyncPwdHash,
+  createHardwareCloudSyncDeviceKey,
+} from '../ServiceKeylessCloudSync/hardwareCloudSyncSession';
 import ServiceKeylessCloudSync from '../ServiceKeylessCloudSync/ServiceKeylessCloudSync';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
@@ -29,7 +43,11 @@ import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -42,6 +60,36 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
     backgroundMethod: passthrough,
     backgroundMethodForDev: passthrough,
     toastIfError: passthrough,
+  };
+});
+
+let mockManualSniCapability: boolean | undefined;
+jest.mock('@onekeyhq/shared/src/request/helpers/sniRequest', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/request/helpers/sniRequest')
+  >('@onekeyhq/shared/src/request/helpers/sniRequest');
+  return {
+    ...actual,
+    isSniSupported: () => mockManualSniCapability ?? actual.isSniSupported(),
+  };
+});
+
+jest.mock('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery', () => {
+  const actual = jest.requireActual<
+    typeof import('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery')
+  >('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery');
+  return {
+    ...actual,
+    supportsManualHardwareWalletRecoveryTransport: () => {
+      if (mockManualSniCapability === undefined)
+        return actual.supportsManualHardwareWalletRecoveryTransport();
+      const platform = jest.replaceProperty(platformEnv, 'isNative', true);
+      try {
+        return actual.supportsManualHardwareWalletRecoveryTransport();
+      } finally {
+        platform.restore();
+      }
+    },
   };
 });
 
@@ -58,9 +106,38 @@ const walletFixture: IDBWallet = {
   walletNo: 771,
 };
 let runningPrime: ServicePrimeCloudSync | undefined;
+const manualRecoveryFixtures: {
+  key: string;
+  wallet: string;
+  device: string;
+}[] = [];
 afterEach(async () => {
   await runningPrime?.cancelPublicAccountSnapshotImport();
   runningPrime = undefined;
+  for (const { key, wallet, device } of manualRecoveryFixtures.splice(0)) {
+    await localDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [key],
+        });
+        await localDb.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [wallet],
+        });
+        await localDb.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [device],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+  }
+  mockManualSniCapability = undefined;
   jest.restoreAllMocks();
 });
 
@@ -1483,6 +1560,631 @@ it.each([
       data: newestLocal.data,
       dataTime: newestLocal.dataTime,
     });
+  },
+  12_000,
+);
+
+it.each([
+  'newer',
+  'mixed-late-preflight',
+  'older',
+  'equal',
+  'absent',
+  'no-lineage',
+  'lineage-missing-in-supplement',
+  'future-remote-time',
+  'unavailable-supplement',
+  'unproven-ordinary-origin',
+  'ordinary-missing-final-url',
+  'unverified-session-baseline-newer',
+  'native-sni-baseline-newer',
+  'native-without-sni-recovers',
+  'known-bounded-capability',
+  'history-unavailable',
+  'late-pool-write',
+  'wrong-origin',
+  'local-diverged',
+  'late-local-edit',
+  'scope-changed',
+  'duplicate',
+] as const)(
+  'Hardware settings Sync now keeps the old Wallet until a newer authenticated match (%s)',
+  async (scenario) => {
+    const device: IDBDevice = {
+      id: `manual-hw-device-${scenario}`,
+      deviceId: `manual-hw-physical-${scenario}`,
+      deviceType: EDeviceType.Pro,
+      connectId: '',
+      uuid: `synthetic-${scenario}`,
+      name: 'Synthetic device',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const wallet: IDBWallet = {
+      ...walletFixture,
+      id: `hw-manual-wallet-${scenario}`,
+      type: 'hw',
+      hash: undefined,
+      isKeyless: false,
+      associatedDevice: device.id,
+      name: 'Local canonical name',
+    };
+    const credentialId = 'synthetic-manual-hardware-source';
+    const source = {
+      type: 'hardware',
+      credentialId,
+      derivationVersion: 1,
+      deviceName: 'Synthetic hardware',
+      deviceType: EDeviceType.Pro,
+    } as const;
+    const dekId = 'a'.repeat(32);
+    const oldDekId = 'b'.repeat(32);
+    const currentHash = computeHardwareCloudSyncPwdHash(dekId);
+    const oldHash = computeHardwareCloudSyncPwdHash(oldDekId);
+    const baseURL = 'https://manual-cloud-fixture.example.test';
+    const unverifiedSession = scenario === 'unverified-session-baseline-newer';
+    const nativeSni = scenario === 'native-sni-baseline-newer';
+    const baselineOnly = unverifiedSession || nativeSni;
+    if (nativeSni || scenario === 'native-without-sni-recovers') {
+      mockManualSniCapability = nativeSni;
+    }
+    const hardware = {
+      keylessWalletId: credentialId,
+      signingPrivateKey: '',
+      signingPublicKey: '',
+      source,
+      encryptionKey: 'aa'.repeat(32),
+      pwdHash: currentHash,
+      hardwareSession: {
+        deviceKeyJwk: createHardwareCloudSyncDeviceKey(),
+        accessToken: 'synthetic',
+        refreshToken: 'synthetic',
+        accessTokenExpiresAt: Date.now() + 360_000,
+        dekId,
+        sessionId: 'fixture-session',
+        boundBaseURL: baseURL,
+        boundBaseURLVerified: !unverifiedSession,
+      },
+    };
+    const credential: ICloudSyncCredential = {
+      primeAccountSalt: '',
+      securityPasswordR1: '',
+      masterPasswordUUID: '',
+      keylessCredential: hardware,
+    };
+    const oldCredential: ICloudSyncCredential = {
+      ...credential,
+      keylessCredential: {
+        ...hardware,
+        encryptionKey: 'bb'.repeat(32),
+        pwdHash: oldHash,
+      },
+    };
+    let config: IPrimeCloudSyncPersistAtomData = {
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hardwareCloudSyncKeySource: source,
+      currentCloudSyncKeylessWalletId: credentialId,
+      cloudSyncAccountApplyVersion: 2,
+    };
+    jest.replaceProperty(appLocale, 'isReady', Promise.resolve(true));
+    jest
+      .spyOn(primeCloudSyncPersistAtom, 'get')
+      .mockImplementation(async () => config);
+    jest
+      .spyOn(primeCloudSyncPersistAtom, 'set')
+      .mockImplementation(async (update) => {
+        config = typeof update === 'function' ? update(config) : update;
+      });
+    jest
+      .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+      .mockResolvedValue(true);
+    jest
+      .spyOn(keylessSyncCredentialStorage, 'getCredential')
+      .mockResolvedValue(hardware);
+    const backgroundApi = {
+      localDb,
+      simpleDb,
+      serviceApp: { isAppLocked: async () => false },
+      serviceDiscovery: {
+        getBrowserBookmarksWithFillingSortIndex: async () => [],
+      },
+      serviceMarketV2: {
+        getMarketWatchListWithFillingSortIndexV2: async () => ({ data: [] }),
+      },
+      serviceCustomRpc: {
+        getAllCustomRpc: async () => [],
+        getAllCustomNetworks: async () => [],
+      },
+      serviceAddressBook: { getItemsByNetwork: async () => [] },
+      serviceCustomToken: {
+        getAllCustomTokens: async () => [],
+        getAllHiddenTokens: async () => [],
+      },
+    } as unknown as IBackgroundApi;
+    const keyless = new ServiceKeylessCloudSync({ backgroundApi });
+    const prime = new ServicePrimeCloudSync({ backgroundApi });
+    const account = new ServiceAccount({ backgroundApi });
+    runningPrime = prime;
+    backgroundApi.serviceKeylessCloudSync = keyless;
+    backgroundApi.servicePrimeCloudSync = prime;
+    backgroundApi.serviceAccount = account;
+    localDb.setBackgroundApi(backgroundApi);
+    jest.replaceProperty(
+      appGlobals,
+      '$backgroundApiProxy',
+      backgroundApi as unknown as typeof appGlobals.$backgroundApiProxy,
+    );
+    jest.spyOn(prime, 'getSyncCredentialSafe').mockResolvedValue(credential);
+    jest.spyOn(prime, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+    jest
+      .spyOn(prime, 'ensureCloudSyncIsAvailable')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(prime, 'resolvePasswordOnlyIfHdXfpMissing')
+      .mockResolvedValue('');
+    jest
+      .spyOn(account, 'getAllWallets')
+      .mockResolvedValue({ wallets: [wallet], allDevices: [device] });
+    jest.spyOn(account, 'getAllAccounts').mockResolvedValue({
+      accounts: [],
+      accountsRemoved: undefined,
+      allWallets: undefined,
+      allDevices: undefined,
+      allIndexedAccounts: [],
+      indexedAccountsRemoved: [],
+    });
+    jest
+      .spyOn(account, 'getAllIndexedAccounts')
+      .mockResolvedValue({ indexedAccounts: [], indexedAccountsRemoved: [] });
+
+    const manager = prime.syncManagers.wallet;
+    const target = await manager.buildSyncTargetByDBQuery({
+      dbRecord: wallet,
+      allDevices: [device],
+    });
+    const { key, rawKey, dataType, payload } =
+      await manager.buildSyncKeyAndPayload({ target });
+    const baseTime = Date.now() - 3000;
+    const make = (
+      name: string,
+      avatar: 'bear' | 'cat',
+      dataTime: number,
+      syncCredential: ICloudSyncCredential,
+    ) =>
+      cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+        key,
+        dataTime,
+        syncCredential,
+        rawDataJson: {
+          rawKey,
+          dataType,
+          payload: { ...payload, name, avatar: { img: avatar } },
+        },
+      });
+    const previous = {
+      ...(await make(
+        scenario === 'local-diverged' ? 'Stale old cloud name' : wallet.name,
+        'bear',
+        baseTime,
+        oldCredential,
+      )),
+      serverUploaded: true,
+      localSceneUpdated: true,
+    };
+    await localDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await localDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        await localDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [device],
+        });
+        await localDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [previous],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+
+    manualRecoveryFixtures.push({ key, wallet: wallet.id, device: device.id });
+    const strictlyNewer = scenario !== 'equal' && scenario !== 'older';
+    let remoteTime = baseTime;
+    if (scenario === 'future-remote-time') remoteTime += 60_000;
+    else if (strictlyNewer) remoteTime += 1000;
+    else if (scenario === 'older') remoteTime -= 1000;
+    const remote = await make(
+      'Cloud canonical name',
+      'cat',
+      remoteTime,
+      credential,
+    );
+    const incoming = prime.convertLocalItemToServerItem({ localItem: remote });
+    if (!incoming)
+      throw new OneKeyLocalError('Expected synthetic server record');
+    const sibling = await (async () => {
+      if (scenario !== 'mixed-late-preflight') return undefined;
+      const otherDevice: IDBDevice = {
+        ...device,
+        id: 'manual-sibling-device',
+        deviceId: 'manual-sibling-physical',
+        uuid: 'manual-sibling-uuid',
+      };
+      const otherWallet: IDBWallet = {
+        ...wallet,
+        id: 'hw-manual-sibling-wallet',
+        associatedDevice: otherDevice.id,
+      };
+      const otherTarget = await manager.buildSyncTargetByDBQuery({
+        dbRecord: otherWallet,
+        allDevices: [otherDevice],
+      });
+      const other = await manager.buildSyncKeyAndPayload({
+        target: otherTarget,
+      });
+      expect(other.key).not.toBe(key);
+      const makeOther = (
+        name: string,
+        dataTime: number,
+        syncCredential: ICloudSyncCredential,
+      ) =>
+        cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+          key: other.key,
+          dataTime,
+          syncCredential,
+          rawDataJson: {
+            dataType: other.dataType,
+            rawKey: other.rawKey,
+            payload: { ...other.payload, name, avatar: { img: 'bear' } },
+          },
+        });
+      const old = {
+        ...(await makeOther(otherWallet.name, baseTime, oldCredential)),
+        serverUploaded: true,
+        localSceneUpdated: true,
+      };
+      const current = await makeOther(
+        'Eligible sibling cloud name',
+        remoteTime,
+        credential,
+      );
+      const server = prime.convertLocalItemToServerItem({ localItem: current });
+      if (!server) throw new OneKeyLocalError('Expected sibling wire record');
+      await localDb.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [otherWallet],
+          });
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            records: [otherDevice],
+          });
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.CloudSyncItem,
+            records: [old],
+          });
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+      manualRecoveryFixtures.push({
+        key: other.key,
+        wallet: otherWallet.id,
+        device: otherDevice.id,
+      });
+      return { key: other.key, wallet: otherWallet, server, current };
+    })();
+    const envelope = (id: string, generation: number) => ({
+      key: `dek:${id}`,
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      isDeleted: false,
+      data: JSON.stringify({
+        dekId: id,
+        generation,
+        kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
+        kekSalt: 'c'.repeat(32),
+        wrappedDek: 'synthetic-envelope-do-not-unwrap',
+      }),
+    });
+    const checked = jest.fn(
+      async (request: {
+        url?: string;
+        method?: string;
+        data?: string;
+        baseURL?: string;
+      }) => {
+        expect(request.url).toBe('/prime/v1/sync/check');
+        expect(request.method).toBe('post');
+        const postData = JSON.parse(
+          request.data ?? '{}',
+        ) as ICloudSyncCheckServerStatusPostData;
+        expect(postData.pwdHash).toBe(currentHash);
+        const hint = postData.localData.find((entry) => entry.key === key);
+        const supplemental = postData.reconciliation === undefined;
+        if (!supplemental) {
+          const persisted = await localDb.getSyncItem({ id: key });
+          if (baselineOnly) {
+            expect(hint).toEqual({ key, dataType, dataTimestamp: baseTime });
+            expect(persisted).toMatchObject({
+              pwdHash: currentHash,
+              dataTime: baseTime,
+              serverUploaded: false,
+            });
+            expect(persisted.data).not.toBe(previous.data);
+          } else {
+            expect(hint).toBeUndefined();
+            expect(persisted).toEqual(previous);
+          }
+          if (sibling) {
+            await localDb.withTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                await localDb.txUpdateRecords({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [key],
+                  updater: (row) => {
+                    row.dataTime = baseTime + 1;
+                    return row;
+                  },
+                });
+              },
+              { skipCloudCredentialWarmup: true },
+            );
+          }
+        } else {
+          if (sibling) {
+            expect(hint).toBeUndefined();
+            expect(postData.localData).toEqual([
+              { key: sibling.key, dataType, dataTimestamp: baseTime },
+            ]);
+          } else {
+            expect(hint).toEqual({ key, dataType, dataTimestamp: baseTime });
+            expect(await localDb.getSyncItem({ id: key })).toEqual(previous);
+          }
+          expect(postData.reconciliation).toBeUndefined();
+          expect(postData.onlyCheckLocalDataType).toContain(
+            EPrimeCloudSyncDataType.Wallet,
+          );
+          expect(postData.localData).toHaveLength(1);
+          if (scenario === 'unavailable-supplement')
+            throw Object.assign(new Error('Synthetic supplemental rejection'), {
+              response: { status: 401 },
+            });
+        }
+        if (supplemental && scenario === 'late-local-edit') {
+          await localDb.withTransaction(
+            EIndexedDBBucketNames.account,
+            async (tx) =>
+              localDb.txUpdateWallet({
+                tx,
+                walletId: wallet.id,
+                updater: (row) => {
+                  row.name = 'Newer local edit';
+                  return row;
+                },
+              }),
+            { skipCloudCredentialWarmup: true },
+          );
+        }
+        if (supplemental && scenario === 'scope-changed')
+          await prime.cancelPublicAccountSnapshotImport();
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: request,
+          request:
+            baselineOnly || scenario === 'ordinary-missing-final-url'
+              ? {}
+              : {
+                  responseURL: `${(supplemental && scenario === 'wrong-origin') || (!supplemental && scenario === 'unproven-ordinary-origin') ? 'https://wrong.example.test' : baseURL}/prime/v1/sync/check`,
+                },
+          data: {
+            code: 0,
+            data: {
+              pwdHash: currentHash,
+              serverTime: Date.now(),
+              updated: [
+                ...((supplemental || baselineOnly) &&
+                strictlyNewer &&
+                scenario !== 'absent'
+                  ? [incoming, ...(sibling ? [sibling.server] : [])]
+                  : []),
+                envelope(dekId, 2),
+                ...(scenario === 'no-lineage' ||
+                (supplemental && scenario === 'lineage-missing-in-supplement')
+                  ? []
+                  : [envelope(oldDekId, 1)]),
+              ],
+              diff: [],
+              deleted: [],
+              obsoleted:
+                hint && (scenario === 'older' || scenario === 'absent')
+                  ? [key]
+                  : [],
+              ...(scenario === 'known-bounded-capability'
+                ? {
+                    reconciliation: {
+                      version: 1,
+                      hasMore: false,
+                      maxItems: 100,
+                      maxBytes: 50_000,
+                    },
+                  }
+                : {}),
+            },
+          },
+        };
+      },
+    );
+    const client = axios.create({
+      baseURL,
+      adapter: async (request) => ({
+        ...(await checked(request)),
+        config: request,
+      }),
+    });
+    jest.spyOn(keyless, 'getClient').mockResolvedValue(client);
+    Object.assign(keyless, { hardwareCloudMigrationRecovered: true });
+    let latePending = previous;
+    if (scenario === 'history-unavailable') {
+      jest
+        .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+        .mockResolvedValue(false);
+    }
+    if (scenario === 'late-pool-write') {
+      const pending = await make(
+        'Fresh durable local edit',
+        'bear',
+        remoteTime + 1000,
+        credential,
+      );
+      latePending = {
+        ...pending,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      };
+      // oxlint-disable-next-line typescript/unbound-method -- called with original entity
+      const retain = SimpleDbEntityChangeHistory.prototype.retainWalletName;
+      jest
+        .spyOn(SimpleDbEntityChangeHistory.prototype, 'retainWalletName')
+        .mockImplementation(
+          async function replaceDuringHistory(
+            this: SimpleDbEntityChangeHistory,
+            options,
+          ) {
+            await localDb.withTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                await localDb.txUpdateRecords({
+                  tx,
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids: [key],
+                  updater: (row) => Object.assign(row, latePending),
+                });
+                await localDb.txUpdateWallet({
+                  tx,
+                  walletId: wallet.id,
+                  updater: (record) => {
+                    record.name = 'Fresh durable local edit';
+                    return record;
+                  },
+                });
+              },
+              { skipCloudCredentialWarmup: true },
+            );
+            return retain.call(this, options);
+          },
+        );
+    }
+    const sent = jest
+      .spyOn(prime, 'apiUploadItemsKeyless')
+      .mockResolvedValue({ created: 0, updated: 0, nonce: 0 });
+    const run = () =>
+      prime.syncNowKeylessWithResult({
+        callerName: 'Manual hardware Cloud sync',
+        noDebounceUpload: true,
+        forceSync: true,
+        bypassRetryBackoff: true,
+        askPasswordOnlyIfHdXfpMissing: true,
+      });
+    const result =
+      scenario === 'duplicate'
+        ? (await Promise.all([run(), run()]))[0]
+        : await run();
+    const oneNormalOnly = [
+      'local-diverged',
+      'no-lineage',
+      'known-bounded-capability',
+      'unproven-ordinary-origin',
+      'ordinary-missing-final-url',
+      'unverified-session-baseline-newer',
+      'native-sni-baseline-newer',
+    ].includes(scenario);
+    expect(checked).toHaveBeenCalledTimes(oneNormalOnly ? 1 : 2);
+    const canonical = await localDb.getWallet({
+      walletId: wallet.id,
+      withoutRefill: true,
+    });
+    const retained = await localDb.getSyncItem({ id: key });
+    if (sibling) {
+      expect(canonical.name).toBe(wallet.name);
+      expect(retained).toEqual({ ...previous, dataTime: baseTime + 1 });
+      const other = await localDb.getWallet({
+        walletId: sibling.wallet.id,
+        withoutRefill: true,
+      });
+      expect(other.name).toBe('Eligible sibling cloud name');
+      expect(await localDb.getSyncItem({ id: sibling.key })).toMatchObject({
+        data: sibling.current.data,
+        dataTime: remoteTime,
+        serverUploaded: true,
+        localSceneUpdated: true,
+      });
+      expect(sent).not.toHaveBeenCalled();
+      return;
+    }
+    if (
+      scenario === 'newer' ||
+      scenario === 'duplicate' ||
+      scenario === 'native-without-sni-recovers' ||
+      baselineOnly
+    ) {
+      expect(result).toBe('completed');
+      expect(canonical).toMatchObject({
+        name: 'Cloud canonical name',
+        avatar: '{"img":"cat"}',
+      });
+      expect(retained).toMatchObject({
+        data: remote.data,
+        dataTime: remoteTime,
+        localSceneUpdated: true,
+        serverUploaded: true,
+      });
+      await expect(
+        simpleDb.changeHistory.getChangeHistory({
+          entityType: EChangeHistoryEntityType.Wallet,
+          entityId: wallet.id,
+          contentType: EChangeHistoryContentType.Name,
+        }),
+      ).resolves.toMatchObject([{ value: wallet.name }]);
+      expect(sent).not.toHaveBeenCalled();
+    } else {
+      const expected = new Map<string, string>([
+        ['late-local-edit', 'Newer local edit'],
+        ['late-pool-write', 'Fresh durable local edit'],
+      ]);
+      expect(canonical.name).toBe(expected.get(scenario) ?? wallet.name);
+      expect(retained).toEqual(
+        scenario === 'late-pool-write' ? latePending : previous,
+      );
+      if (
+        [
+          'history-unavailable',
+          'late-pool-write',
+          'late-local-edit',
+          'wrong-origin',
+          'lineage-missing-in-supplement',
+          'future-remote-time',
+        ].includes(scenario)
+      )
+        expect(result).toBe('local-deferred');
+    }
+    expect(sent).not.toHaveBeenCalled();
   },
   12_000,
 );

@@ -173,6 +173,7 @@ async function requestRaw<T>({
   prepareUpload,
   prepareWalletRetry,
   assertCanSend,
+  oneShotCheck,
   boundBaseURL,
   jwk,
   accessToken,
@@ -183,6 +184,7 @@ async function requestRaw<T>({
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
   assertCanSend?: () => void;
+  oneShotCheck?: true;
   boundBaseURL?: string;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
@@ -274,7 +276,9 @@ async function requestRaw<T>({
   }
   assertCanSend?.();
   assertEndpoint();
-  const clockOffsetMs = await measureServerClockOffsetMs();
+  const clockOffsetMs = oneShotCheck
+    ? getServerClockOffsetMs()
+    : await measureServerClockOffsetMs();
   try {
     return await send(clockOffsetMs);
   } catch (error) {
@@ -287,7 +291,11 @@ async function requestRaw<T>({
       ...getHardwareCloudSyncErrorDiagnostics(error),
       unauthorized: isHardwareCloudSyncUnauthorizedError(error),
     });
-    if (prepareWalletRetry || !isHardwareCloudSyncUnauthorizedError(error))
+    if (
+      oneShotCheck ||
+      prepareWalletRetry ||
+      !isHardwareCloudSyncUnauthorizedError(error)
+    )
       throw error;
     assertCanSend?.();
     assertEndpoint();
@@ -580,6 +588,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   prepareUpload,
   prepareWalletRetry,
   assertCanSend,
+  oneShotCheck,
   boundBaseURL,
 }: {
   client: AxiosInstance;
@@ -589,6 +598,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   data?: unknown;
   requestOptions?: { signal?: AbortSignal; timeout?: number };
   assertCanSend?: () => void;
+  oneShotCheck?: true;
   boundBaseURL?: string;
   prepareUpload?: (baseURL: string | undefined) => unknown;
   prepareWalletRetry?: (
@@ -604,6 +614,7 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
     prepareUpload,
     prepareWalletRetry,
     assertCanSend,
+    oneShotCheck,
     boundBaseURL: getBoundSessionEndpoint(session, client, boundBaseURL),
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
@@ -712,7 +723,7 @@ export function computeHardwareCloudSyncPwdHash(dekId: string): string {
 // device, so the server must not choose arbitrary text there.
 // Null for a malformed or legacy envelope, so callers that skip those do not
 // log them as data check failures.
-function readEnvelope(
+export function readEnvelope(
   data: string | undefined,
   onInvalid?: (
     reason:

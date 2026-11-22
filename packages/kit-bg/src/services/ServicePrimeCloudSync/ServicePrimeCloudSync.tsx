@@ -143,6 +143,7 @@ import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSy
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
+import type { IManualHardwareWalletRecovery } from '../ServiceKeylessCloudSync/hardwareCloudSyncRecovery';
 import type { AxiosResponse } from 'axios';
 
 const nonceZero = 0;
@@ -599,7 +600,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     requestOptions,
   }: {
     postData: ICloudSyncCheckServerStatusPostData;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: {
+      signal?: AbortSignal;
+      timeout?: number;
+      hardwareRecovery?: IManualHardwareWalletRecovery;
+    };
   }) {
     return this.backgroundApi.serviceKeylessCloudSync.apiCheckServerStatusKeyless(
       {
@@ -1346,6 +1351,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       signal?: AbortSignal;
       timeout?: number;
       reconciliation?: ICloudSyncCheckServerStatusPostData['reconciliation'];
+      hardwareRecovery?: IManualHardwareWalletRecovery;
     } = {},
   ): Promise<ICloudSyncCheckServerStatusResult> {
     const items = (localItems ?? []).filter(
@@ -1389,6 +1395,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         requestOptions: {
           signal: requestOptions.signal,
           timeout: requestOptions.timeout,
+          hardwareRecovery: requestOptions.hardwareRecovery,
         },
       });
       response = checkResult.response;
@@ -3446,6 +3453,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       bypassRetryBackoff,
     }: IStartServerSyncFlowParams,
     onManualResult?: (result: IManualCloudSyncResult) => void,
+    hardwareRecovery?: IManualHardwareWalletRecovery,
   ): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
@@ -3503,6 +3511,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             bypassRetryBackoff,
           },
           onManualResult,
+          hardwareRecovery,
         );
       }
       this.fullSyncRequested = true;
@@ -3521,6 +3530,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             forceSync,
             bypassRetryBackoff,
             ...(onManualResult ? { onManualResult } : {}),
+            hardwareRecovery,
           })
         : Promise.resolve(undefined),
     );
@@ -3699,10 +3709,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     bypassRetryBackoff,
     onManualResult,
+    hardwareRecovery,
   }: {
     forceSync?: boolean;
     bypassRetryBackoff?: boolean;
     onManualResult?: (result: IManualCloudSyncResult) => void;
+    hardwareRecovery?: IManualHardwareWalletRecovery;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -3847,33 +3859,16 @@ class ServicePrimeCloudSync extends ServiceBase {
         )
           deferredWalletNames.set(item.id, item);
       };
-      const recordTransportFailure = (error: unknown) => {
-        const failure = error as {
-          code?: string;
-          className?: string;
-          httpStatusCode?: number;
-          response?: { status?: number };
-        };
-        // The app Axios interceptor can replace the raw transport error.
-        const status = failure?.httpStatusCode ?? failure?.response?.status;
-        if (
-          failure?.className === EOneKeyErrorClassNames.AxiosNetworkError ||
-          failure?.code === 'ERR_NETWORK' ||
-          failure?.code === 'ETIMEDOUT'
-        )
-          transportFailure = 'network-unavailable';
-        else if (status === 401) transportFailure = 'session-unavailable';
-        else if (status === 403) transportFailure = 'sync-blocked';
-        else if (typeof status === 'number' && status >= 500 && status < 600)
-          transportFailure = 'server-unavailable';
-        else transportFailure = undefined;
-      };
       const holds = new Map<string, number>();
       const {
         runCloudSyncReconciliation,
-        walletReceipt,
         addWalletHolds,
         prepareWalletTieState,
+        classifyManualReconciliationTransport,
+        summarizeReconciliationRound,
+        readReconciliationApplyProgress,
+        pauseReconciliation,
+        runReconciliationCheckWithLegacyFallback,
       } = await import('./cloudSyncReconciliation');
       const result = await runCloudSyncReconciliation({
         signal: controller.signal,
@@ -3881,20 +3876,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           isCurrent,
           now: () => Date.now(),
           isBoundedCheckVerified: (contract) => contract.version === 1,
-          pause: ({ delayMs, signal }) =>
-            new Promise<void>((resolve, reject) => {
-              const timer: { handle?: ReturnType<typeof setTimeout> } = {};
-              const abort = () => {
-                clearTimeout(timer.handle);
-                reject(new OneKeyLocalError('Cloud sync was cancelled'));
-              };
-              timer.handle = setTimeout(() => {
-                signal.removeEventListener('abort', abort);
-                resolve();
-              }, delayMs);
-              if (signal.aborted) abort();
-              else signal.addEventListener('abort', abort, { once: true });
-            }),
+          pause: pauseReconciliation,
           getFullSummary: async ({ signal }) => {
             if (!isCurrent() || signal.aborted)
               throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -3918,45 +3900,34 @@ class ServicePrimeCloudSync extends ServiceBase {
             await this.assertSyncCredentialUnchanged(credential);
             checkRequestItems = latestItems.map((item) => ({ ...item }));
             const firstRequest = networkRequests === 0;
-            networkRequests += 1;
             transportFailure = undefined;
-            try {
-              return await this.checkServerStatusWithRequestOptions(
-                { localItems: latestItems, isFullDBChecking: true },
-                {
-                  signal,
-                  timeout: timeoutMs,
-                  reconciliation: this.boundedCheckUnsupported
-                    ? undefined
-                    : reconciliation,
-                },
-              );
-            } catch (error) {
-              const status = (error as { response?: { status?: number } })
-                ?.response?.status;
-              if (
-                !firstRequest ||
-                signal.aborted ||
-                !isCurrent() ||
-                ![400, 422].includes(status ?? 0)
-              ) {
-                recordTransportFailure(error);
-                throw error;
-              }
-              // A strict legacy backend may reject the optional capability field.
-              // Authentication errors never enter this compatibility fallback.
-              this.boundedCheckUnsupported = true;
-              networkRequests += 1;
-              try {
-                return await this.checkServerStatusWithRequestOptions(
+            return runReconciliationCheckWithLegacyFallback({
+              firstRequest,
+              selectedCapability: this.boundedCheckUnsupported
+                ? undefined
+                : reconciliation,
+              signal,
+              isCurrent,
+              recovery: hardwareRecovery,
+              send: (capability, recovery) => {
+                networkRequests += 1;
+                return this.checkServerStatusWithRequestOptions(
                   { localItems: latestItems, isFullDBChecking: true },
-                  { signal, timeout: timeoutMs },
+                  {
+                    signal,
+                    timeout: timeoutMs,
+                    hardwareRecovery: recovery,
+                    reconciliation: capability,
+                  },
                 );
-              } catch (fallbackError) {
-                recordTransportFailure(fallbackError);
-                throw fallbackError;
-              }
-            }
+              },
+              onFallback: () => {
+                this.boundedCheckUnsupported = true;
+              },
+              onFailure: (failure) => {
+                transportFailure = failure;
+              },
+            });
           },
           uploadObsoleted: ({ keys, response, signal }) => {
             const work = (async () => {
@@ -4004,7 +3975,8 @@ class ServicePrimeCloudSync extends ServiceBase {
                       requestOptions: { signal, timeout: 10_000 },
                     });
                   } catch (error) {
-                    recordTransportFailure(error);
+                    transportFailure =
+                      classifyManualReconciliationTransport(error);
                     throw error;
                   }
                 },
@@ -4029,19 +4001,20 @@ class ServicePrimeCloudSync extends ServiceBase {
               const operationIsCurrent = () => isCurrent() && !signal.aborted;
               if (!isCurrent() || signal.aborted)
                 throw new OneKeyLocalError('Cloud sync was cancelled');
+              const { diff, updated, deleted } = response;
               const ids = Array.from(
                 new Set([
-                  ...response.diff.map((item) => item.key),
-                  ...response.updated.map((item) => item.key),
-                  ...response.deleted,
+                  ...diff.map((item) => item.key),
+                  ...updated.map((item) => item.key),
+                  ...deleted,
                 ]),
               );
               const before = new Map(
                 latestItems.map((item) => [item.id, item]),
               );
-              const wire = [...response.diff, ...response.updated];
+              const wire = [...diff, ...updated];
               const acknowledgedDeletes = new Set([
-                ...response.deleted,
+                ...deleted,
                 ...wire
                   .filter((item) => item.isDeleted)
                   .map((item) => item.key),
@@ -4051,7 +4024,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                 checkRequestItems,
                 () => !endpointChanged && operationIsCurrent(),
               );
-              for (const serverItems of [response.diff, response.updated]) {
+              for (const serverItems of [diff, updated]) {
                 if (!isCurrent() || signal.aborted)
                   throw new OneKeyLocalError('Cloud sync was cancelled');
                 if (serverItems.length)
@@ -4069,7 +4042,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               if (!isCurrent() || signal.aborted)
                 throw new OneKeyLocalError('Cloud sync was cancelled');
               addWalletHolds(holds, tieState.held);
-              const bareDeletes = response.deleted.filter(
+              const bareDeletes = deleted.filter(
                 (id) =>
                   !tieState.checked.has(id) &&
                   !tieState.held.has(id) &&
@@ -4091,62 +4064,26 @@ class ServicePrimeCloudSync extends ServiceBase {
                 accountIssues?.spaceId === spaceId
                   ? accountIssues.issues
                   : undefined;
-              let applied = 0;
-              for (let offset = 0; offset < ids.length; offset += 50) {
-                if (!isCurrent() || signal.aborted)
-                  throw new OneKeyLocalError('Cloud sync was cancelled');
-                const { records } = await localDb.getRecordsByIds({
-                  name: ELocalDBStoreNames.CloudSyncItem,
-                  ids: ids.slice(offset, offset + 50),
-                });
-                const after = new Map(
-                  records
-                    .filter((item): item is IDBCloudSyncItem => !!item)
-                    .map((item) => [item.id, item]),
-                );
-                for (const id of ids.slice(offset, offset + 50)) {
-                  const item = after.get(id);
-                  const old = before.get(id);
-                  const receipt = walletReceipt(
-                    id,
-                    item,
-                    old,
-                    tieState,
-                    holds,
-                    spaceId,
-                    response.pwdHash,
-                  );
-                  if (receipt !== undefined) {
-                    if (receipt) applied += 1;
-                    // eslint-disable-next-line no-continue -- A tie needs an exact receipt.
-                    continue;
-                  }
-                  if (
-                    !item &&
-                    old &&
-                    acknowledgedDeletes.has(id) &&
-                    this.getSyncManager(old.dataType)
-                      .removeSyncItemIfServerDeleted
-                  ) {
-                    applied += 1;
-                    continue;
-                  }
-                  if (
-                    item &&
-                    item.pwdHash === spaceId &&
-                    issues?.[item.id] !== 'rejected' &&
-                    issues?.[item.id] !== 'conflicts' &&
-                    (!old ||
-                      item.dataTime !== old.dataTime ||
-                      item.dataType !== old.dataType ||
-                      (item.isDeleted && !old.isDeleted) ||
-                      item.pwdHash !== old.pwdHash)
-                  )
-                    applied += 1;
-                }
-                if (offset + 50 < ids.length) await timerUtils.wait(0);
-              }
-              return { applied };
+              return readReconciliationApplyProgress({
+                ids,
+                before,
+                response,
+                acknowledgedDeletes,
+                operationIsCurrent,
+                tieState,
+                holds,
+                spaceId,
+                issues,
+                removeOnDelete: (type) =>
+                  this.getSyncManager(type).removeSyncItemIfServerDeleted,
+                read: async (chunk) =>
+                  (
+                    await localDb.getRecordsByIds({
+                      name: ELocalDBStoreNames.CloudSyncItem,
+                      ids: chunk,
+                    })
+                  ).records,
+              });
             })();
             activeApply = work;
             return work;
@@ -4160,7 +4097,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       const shouldReplay = isCurrent() && result.status === 'complete';
       const unknownTie = !!holds.size;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
-      if (shouldReplay) {
+      if (shouldReplay && hardwareRecovery) {
+        const recovered = await hardwareRecovery
+          .apply(controller.signal)
+          .catch(() => false);
+        deferredLocalWalletName ||= !recovered;
+      }
+      if (shouldReplay && isCurrent()) {
         await this.syncPendingItemsToScene({
           forceSync:
             forceSceneReplay ||
@@ -4180,6 +4123,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       const reportOriginalPartial = deferredLocalWalletName;
       if (
         shouldReplay &&
+        isCurrent() &&
         !deferredLocalWalletName &&
         deferredWalletNames.size
       ) {
@@ -4193,53 +4137,17 @@ class ServicePrimeCloudSync extends ServiceBase {
         currentConfig.cloudSyncReconciliation?.spaceId !== spaceId
       )
         return false;
-      const issues = currentConfig.publicAccountSnapshotStatus;
-      const hasIssues =
-        !!issues &&
-        issues.needsUpdate +
-          issues.pending +
-          issues.conflicts +
-          issues.rejected >
-          0;
-      const quietWalletRetry =
-        onlyWalletVerificationDeferred &&
-        result.status === 'waiting' &&
-        result.reason === 'upload-incomplete';
-      // Reuse the durable backoff even when the only missing work was an
-      // unverified Wallet: repeatedly slow local reads must not spin.
-      const shouldBackOff =
-        result.status === 'blocked' || (quietWalletRetry && !result.progress);
-      let failures = baseline.failures;
-      if (shouldBackOff) failures += 1;
-      else if (result.progress) failures = 0;
-      let nextRetryAt = result.nextRetryAt;
-      if (shouldBackOff)
-        nextRetryAt =
-          Date.now() +
-          Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
-      let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
-      if (result.status === 'complete')
-        status =
-          hasIssues || unknownTie || (onManualResult && reportOriginalPartial)
-            ? 'partial'
-            : 'complete';
-      else if (result.status === 'waiting' || result.status === 'cancelled')
-        status = 'waiting';
-      const state: ICloudSyncReconciliationPersistState = {
-        ...baseline,
-        status,
-        reason: result.reason,
-        unfinished: result.unfinished,
-        forceSceneReplay: result.unfinished ? forceSceneReplay : undefined,
-        nextRetryAt,
-        failures,
-        requests: baseline.requests + networkRequests,
-        rounds: baseline.rounds + result.rounds,
-        received: baseline.received + result.received,
-        applied: baseline.applied + result.applied,
-        uploaded: baseline.uploaded + result.uploaded,
-        updatedAt: Date.now(),
-      };
+      const { state, hasIssues, quietWalletRetry } =
+        summarizeReconciliationRound({
+          baseline,
+          issues: currentConfig.publicAccountSnapshotStatus,
+          result,
+          onlyWalletVerificationDeferred,
+          unknownTie,
+          reportOriginalPartial: !!onManualResult && reportOriginalPartial,
+          forceSceneReplay,
+          networkRequests,
+        });
       let resultSaved = false;
       await primeCloudSyncPersistAtom.set((value) => {
         if (
@@ -4346,8 +4254,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     bypassRetryBackoff,
     onManualResult,
+    hardwareRecovery,
   }: IStartServerSyncFlowParams & {
     onManualResult?: (result: IManualCloudSyncResult) => void;
+    hardwareRecovery?: IManualHardwareWalletRecovery;
   }) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -4364,6 +4274,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           forceSync,
           bypassRetryBackoff,
           onManualResult,
+          hardwareRecovery,
         });
 
       // Resolve the shared runner before the legacy flush fills or prunes
@@ -5098,12 +5009,36 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   // This explicit request never borrows another caller's result. Existing
   // consumers of syncNowKeyless retain their boolean contract.
+  private explicitHardwareSyncNow?: {
+    generation: number;
+    keyGeneration: number;
+    promise: Promise<IManualCloudSyncResult>;
+  };
+
   @backgroundMethod()
   @toastIfError()
   async syncNowKeylessWithResult(
     params: ISyncNowKeylessParams = {},
   ): Promise<IManualCloudSyncResult> {
-    return this.syncNowKeylessInternal(params, true);
+    if (!params.askPasswordOnlyIfHdXfpMissing)
+      return this.syncNowKeylessInternal(params, true);
+    const generation = this.publicAccountSnapshotImportGeneration;
+    const keyGeneration =
+      this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+    const pending = this.explicitHardwareSyncNow;
+    if (
+      pending?.generation === generation &&
+      pending.keyGeneration === keyGeneration
+    )
+      return pending.promise;
+    const promise = this.syncNowKeylessInternal(params, true);
+    this.explicitHardwareSyncNow = { generation, keyGeneration, promise };
+    try {
+      return await promise;
+    } finally {
+      if (this.explicitHardwareSyncNow?.promise === promise)
+        this.explicitHardwareSyncNow = undefined;
+    }
   }
 
   private async syncNowKeylessInternal(
@@ -5163,53 +5098,103 @@ class ServicePrimeCloudSync extends ServiceBase {
         ? 'hardware-key-unavailable'
         : 'software-key-unavailable';
     }
-    // Ask before taking the key lock; never hold it while a prompt is open.
+    const hardware = syncCredential.keylessCredential;
+    const manualHardwareRecovery =
+      withManualResult &&
+      askPasswordOnlyIfHdXfpMissing &&
+      hardware?.source?.type === 'hardware' &&
+      hardware.hardwareSession?.boundBaseURLVerified === true &&
+      !!hardware.hardwareSession.boundBaseURL?.startsWith('https://') &&
+      selection.hardwareCloudSyncKeySource?.credentialId ===
+        hardware.keylessWalletId;
+    let hardwareRecovery: IManualHardwareWalletRecovery | undefined;
+    let preserveInactiveWallets = false;
     try {
-      const initPassword = askPasswordOnlyIfHdXfpMissing
-        ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
-        : await this.resolveInitLocalSyncItemsPassword(password);
-      if (!isSelected()) return 'cancelled';
-      await this.prepareLocalSyncWallets({
-        password: initPassword,
-        askPasswordOnlyIfHdXfpMissing,
-      });
-      if (!isSelected()) return 'cancelled';
-      await keyless.runWithCloudSyncKeyLock(async () => {
-        if (!isSelected()) return;
-        await this.assertSyncCredentialUnchanged(syncCredential);
-        if (!isSelected()) return;
-        await this.initLocalSyncItemsDB({
-          skipWalletPreparation: true,
-          syncCredential,
+      // Ask before taking the key lock; never hold it while a prompt is open.
+      try {
+        const initPassword = askPasswordOnlyIfHdXfpMissing
+          ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
+          : await this.resolveInitLocalSyncItemsPassword(password);
+        if (!isSelected()) return 'cancelled';
+        await this.prepareLocalSyncWallets({
           password: initPassword,
           askPasswordOnlyIfHdXfpMissing,
         });
-      });
-    } catch (error) {
+        if (!isSelected()) return 'cancelled';
+        if (manualHardwareRecovery) {
+          let preparing = true;
+          const work = (async () => {
+            const helper =
+              await import('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery');
+            if (
+              !preparing ||
+              !isSelected() ||
+              !helper.supportsManualHardwareWalletRecoveryTransport()
+            )
+              return undefined;
+            preserveInactiveWallets = true;
+            const plan = await helper.prepareManualHardwareWalletRecovery(
+              keyless,
+              hardware,
+              () => preparing && isSelected(),
+            );
+            if (!preparing) {
+              plan?.dispose();
+              return undefined;
+            }
+            return plan;
+          })();
+          hardwareRecovery = await resolveBeforeTimeout(work, 550).catch(
+            () => undefined,
+          );
+          if (!hardwareRecovery) preparing = false;
+        }
+        await keyless.runWithCloudSyncKeyLock(async () => {
+          if (!isSelected()) return;
+          await this.assertSyncCredentialUnchanged(syncCredential);
+          if (!isSelected()) return;
+          await this.initLocalSyncItemsDB({
+            skipWalletPreparation: true,
+            syncCredential,
+            password: initPassword,
+            askPasswordOnlyIfHdXfpMissing,
+            preserveInactiveWallets,
+          });
+        });
+      } catch (error) {
+        if (!isSelected()) return 'cancelled';
+        throw error;
+      }
       if (!isSelected()) return 'cancelled';
-      throw error;
-    }
-    if (!isSelected()) return 'cancelled';
-    const options = {
-      callerName,
-      noDebounceUpload,
-      forceSync,
-      bypassRetryBackoff,
-    };
-    if (!withManualResult)
-      return (await this.startServerSyncFlow(options)) === true
-        ? 'completed'
-        : 'incomplete';
+      const options = {
+        callerName,
+        noDebounceUpload,
+        forceSync,
+        bypassRetryBackoff,
+      };
+      if (!withManualResult)
+        return (await this.startServerSyncFlow(options)) === true
+          ? 'completed'
+          : 'incomplete';
 
-    let result: IManualCloudSyncResult | undefined;
-    const completed = await this.startServerSyncFlowSilentlyInternal(
-      { ...options, forceSync: true, noDebounceUpload: true, throwError: true },
-      (outcome) => {
-        result = outcome;
-      },
-    );
-    if (!isSelected()) return 'cancelled';
-    return result ?? (completed === true ? 'completed' : 'incomplete');
+      let result: IManualCloudSyncResult | undefined;
+      const completed = await this.startServerSyncFlowSilentlyInternal(
+        {
+          ...options,
+          forceSync: true,
+          noDebounceUpload: true,
+          throwError: true,
+        },
+        (outcome) => {
+          result = outcome;
+        },
+        hardwareRecovery,
+      );
+      if (!isSelected()) return 'cancelled';
+      return result ?? (completed === true ? 'completed' : 'incomplete');
+    } finally {
+      hardwareRecovery?.dispose();
+    }
   }
 
   @backgroundMethod()
@@ -5507,6 +5492,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     askPasswordOnlyIfHdXfpMissing,
     onlyAddMissing,
     skipWalletPreparation,
+    preserveInactiveWallets,
   }: {
     syncCredential: ICloudSyncCredential;
     password?: string;
@@ -5514,6 +5500,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     // a missing one is never prompted here.
     askPasswordOnlyIfHdXfpMissing?: boolean;
     onlyAddMissing?: boolean;
+    preserveInactiveWallets?: boolean;
     // Only for callers that completed prepareLocalSyncWallets before locking.
     skipWalletPreparation?: boolean;
   }) {
@@ -5697,6 +5684,16 @@ class ServicePrimeCloudSync extends ServiceBase {
       // Recovery already retained existing business versions and tombstones.
       // Check existence in the write transaction, including concurrent inserts.
       skipUpdate: onlyAddMissing,
+      ...(preserveInactiveWallets
+        ? {
+            preserveExisting: (row) =>
+              row.dataType === EPrimeCloudSyncDataType.Wallet &&
+              isInactiveHardwareWalletAccount(
+                row,
+                cloudSyncItemBuilder.getPwdHash(syncCredential),
+              ),
+          }
+        : {}),
       // as init item dataTime is undefined, server will reject the upload
       skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
