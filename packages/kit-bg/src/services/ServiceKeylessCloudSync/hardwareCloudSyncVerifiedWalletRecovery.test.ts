@@ -151,30 +151,34 @@ async function fixture(type: 'hd' | 'hw' = 'hd') {
   return { wallet, walletManager, previous, row, device };
 }
 
-test('adopts the strictly newer authenticated Wallet in the actual account transaction', async () => {
-  const { previous, row, wallet, walletManager } = await fixture();
-  const expected = await prepareVerifiedWalletCaches({
-    items: [previous],
-    records: [row],
-    knownPwdHashes: new Set([oldHash]),
-    syncCredential: credential,
-    walletManager,
-    isCurrent: () => true,
-  });
-  expect(expected).toHaveLength(1);
-  await commitVerifiedWalletCaches(expected, () => true);
-  await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
-    pwdHash,
-    data: row.data,
-    dataTime: row.dataTimestamp,
-    rawData: '',
-    localSceneUpdated: true,
-    serverUploaded: true,
-  });
-  await expect(
-    mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
-  ).resolves.toEqual(wallet);
-});
+test.each(['equal', 'newer'] as const)(
+  'adopts the %s authenticated Wallet in the actual account transaction',
+  async (version) => {
+    const { previous, row, wallet, walletManager } = await fixture();
+    if (version === 'equal') row.dataTimestamp = previous.dataTime;
+    const expected = await prepareVerifiedWalletCaches({
+      items: [previous],
+      records: [row],
+      knownPwdHashes: new Set([oldHash]),
+      syncCredential: credential,
+      walletManager,
+      isCurrent: () => true,
+    });
+    expect(expected).toHaveLength(1);
+    await commitVerifiedWalletCaches(expected, () => true);
+    await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
+      pwdHash,
+      data: row.data,
+      dataTime: row.dataTimestamp,
+      rawData: '',
+      localSceneUpdated: true,
+      serverUploaded: true,
+    });
+    await expect(
+      mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
+    ).resolves.toEqual(wallet);
+  },
+);
 
 test.each([
   undefined,
@@ -238,10 +242,11 @@ test.each([
 );
 
 test.each([
-  'equal',
   'older',
+  'equal-tombstone',
+  'equal-bad-cipher',
   'tombstone',
-  'unknown-lineage',
+  'equal-unknown-lineage',
   'pending',
   'missing',
   'bad-cipher',
@@ -251,7 +256,7 @@ test.each([
   async (reason) => {
     const { previous, row, walletManager } = await fixture();
     let dataTimestamp = row.dataTimestamp;
-    if (reason === 'equal') dataTimestamp = previous.dataTime;
+    if (reason.startsWith('equal-')) dataTimestamp = previous.dataTime;
     if (reason === 'older') dataTimestamp = 1_749_999_999_999;
     const records =
       reason === 'missing'
@@ -260,15 +265,17 @@ test.each([
             {
               ...row,
               dataTimestamp,
-              isDeleted: reason === 'tombstone',
-              data: reason === 'bad-cipher' ? 'ab'.repeat(70) : row.data,
+              isDeleted: reason === 'tombstone' || reason === 'equal-tombstone',
+              data: reason.endsWith('bad-cipher') ? 'ab'.repeat(70) : row.data,
             },
           ];
     if (reason === 'duplicate') records.push(row);
     const expected = await prepareVerifiedWalletCaches({
       items: [{ ...previous, serverUploaded: reason !== 'pending' }],
       records,
-      knownPwdHashes: new Set(reason === 'unknown-lineage' ? [] : [oldHash]),
+      knownPwdHashes: new Set(
+        reason === 'equal-unknown-lineage' ? [] : [oldHash],
+      ),
       syncCredential: credential,
       walletManager,
       isCurrent: () => true,
@@ -280,8 +287,9 @@ test.each([
   },
 );
 
-test('a concurrent local-only rename stops adoption even though the old pool bytes remain', async () => {
+test('a concurrent local-only rename stops equal-version adoption even though the old pool bytes remain', async () => {
   const { previous, row, wallet, walletManager } = await fixture();
+  row.dataTimestamp = previous.dataTime;
   const expected = await prepareVerifiedWalletCaches({
     items: [previous],
     records: [row],
@@ -314,12 +322,14 @@ test.each([
   'removed',
   'expired',
   'current',
+  'equal-current',
   'locked-before',
   'locked-before-commit',
 ] as const)(
   '%s persisted repair decision only permits authoritative cache adoption',
   async (outcome) => {
     const { previous, row, walletManager } = await fixture();
+    if (outcome === 'equal-current') row.dataTimestamp = previous.dataTime;
     const origin = 'https://wallet-repair.example.test';
     const candidateKey = credential.keylessCredential;
     if (!candidateKey) throw new OneKeyLocalError('Missing synthetic key');
@@ -396,7 +406,8 @@ test.each([
         outcome === 'locked-before' ? 0 : 1,
       );
     } else {
-      await admitted.promise;
+      await Promise.race([admitted.promise, run]);
+      expect(repair).toHaveBeenCalled();
       if (outcome === 'removed') allowed = false;
       if (outcome === 'expired') await run;
       release.resolve();
@@ -407,8 +418,10 @@ test.each([
       setTimeout(resolve, 0);
     });
     await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
-      pwdHash: outcome === 'current' ? pwdHash : oldHash,
-      dataTime: outcome === 'current' ? row.dataTimestamp : previous.dataTime,
+      pwdHash: outcome.endsWith('current') ? pwdHash : oldHash,
+      dataTime: outcome.endsWith('current')
+        ? row.dataTimestamp
+        : previous.dataTime,
     });
   },
 );

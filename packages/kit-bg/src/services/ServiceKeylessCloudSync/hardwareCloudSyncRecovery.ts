@@ -239,7 +239,8 @@ const isVersion = (time: number | undefined): time is number =>
   typeof time === 'number' && Number.isSafeInteger(time) && time > 0;
 
 // Only adopt data already authenticated by the current key and displayed by
-// the business Wallet. Equal versions and intentional local edits stay out.
+// the business Wallet. A verified equal live server version wins the cache
+// tie without changing the business Wallet or creating an outbound edit.
 export async function prepareVerifiedWalletCaches({
   items,
   records,
@@ -293,7 +294,7 @@ export async function prepareVerifiedWalletCaches({
       row.data.length > 16_384 ||
       !isVersion(row.dataTimestamp) ||
       !isVersion(previous.dataTime) ||
-      row.dataTimestamp <= previous.dataTime ||
+      row.dataTimestamp < previous.dataTime ||
       sha512ProSync({ data: previous.rawKey }) !== id
     )
       return;
