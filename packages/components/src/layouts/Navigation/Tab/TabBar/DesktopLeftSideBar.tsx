@@ -1,7 +1,6 @@
 /* cspell:ignore hoverable */
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import {
-  createContext,
   memo,
   useCallback,
   useContext,
@@ -17,7 +16,6 @@ import {
   ActionList,
   LazyPopover,
   LazyTooltip,
-  Shortcut,
   closeAllTooltips,
 } from '@onekeyhq/components/src/actions';
 import type {
@@ -29,7 +27,6 @@ import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Icon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
@@ -47,10 +44,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import {
-  EShortcutEvents,
-  shortcutsMap,
-} from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { switchTab } from '../../Navigator/NavigationContainer';
@@ -66,7 +60,6 @@ import {
   SidebarTooltipGroup,
   useSidebarTooltipOpen,
 } from './sidebarTooltipGroup';
-import { useModifierKeyHold } from './useModifierKeyHold';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
@@ -96,52 +89,6 @@ const TAB_SHORTCUTS: Partial<Record<string, EShortcutEvents>> = {
 
 function getTabShortcut(routeName: string) {
   return platformEnv.isDesktop ? TAB_SHORTCUTS[routeName] : undefined;
-}
-
-// True while the user holds Cmd (Ctrl on Windows/Linux) to see the shortcuts.
-const SidebarShortcutHintContext = createContext(false);
-
-// Kept apart so holding the key re-renders only the badges, not the sidebar.
-function SidebarShortcutHintProvider({ children }: { children: ReactNode }) {
-  const isHeld = useModifierKeyHold({
-    enabled: Boolean(platformEnv.isDesktop),
-    modifierKey: platformEnv.isDesktopMac ? 'Meta' : 'Control',
-  });
-  return (
-    <SidebarShortcutHintContext.Provider value={isHeld}>
-      {children}
-    </SidebarShortcutHintContext.Provider>
-  );
-}
-
-const SHORTCUT_BADGE_STYLE = {
-  position: 'absolute',
-  right: -2,
-  bottom: -2,
-} as const;
-
-function SidebarShortcutBadge({
-  shortcutKey,
-}: {
-  shortcutKey?: EShortcutEvents;
-}) {
-  const isVisible = useContext(SidebarShortcutHintContext);
-  if (!isVisible || !shortcutKey) {
-    return null;
-  }
-  const keys = shortcutsMap[shortcutKey].keys;
-  return (
-    <Stack
-      {...SHORTCUT_BADGE_STYLE}
-      pointerEvents="none"
-      borderRadius="$1"
-      outlineWidth="$px"
-      outlineStyle="solid"
-      outlineColor="$bgSidebar"
-    >
-      <Shortcut.Key>{keys[keys.length - 1]}</Shortcut.Key>
-    </Stack>
-  );
 }
 
 function getTabTitle(
@@ -314,11 +261,7 @@ function BasicTabItemView({
             aria-label={title}
             actionList={options.actionList}
             testID={route.name.toLowerCase()}
-          >
-            {shortcutKey ? (
-              <SidebarShortcutBadge shortcutKey={shortcutKey} />
-            ) : null}
-          </DesktopTabItem>
+          />
           {iconsOnly ? null : (
             <SizableText
               size="$bodyXsMedium"
@@ -471,7 +414,6 @@ function SidebarBottomItem({
           size="$6"
           color={isActive ? '$iconActive' : '$iconSubdued'}
         />
-        <SidebarShortcutBadge shortcutKey={shortcutKey} />
       </YStack>
     ),
     [
@@ -481,7 +423,6 @@ function SidebarBottomItem({
       handleHoverOut,
       iconName,
       route.name,
-      shortcutKey,
     ],
   );
 
@@ -948,70 +889,68 @@ export function DesktopLeftSideBar({
           <MenuHamburger />
         )}
         {/* eslint-enable no-nested-ternary */}
-        <SidebarShortcutHintProvider>
-          <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
-            <YStack flex={1}>
-              {!platformEnv.isDesktopWithCustomTitleBar &&
-              !platformEnv.isNativeIOSPad ? (
-                <XStack ai="center" jc="center" px="$4" py="$3">
-                  <Icon
-                    name="OnekeyLogoIllus"
-                    width={28}
-                    height={28}
-                    color="$text"
+        <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
+          <YStack flex={1}>
+            {!platformEnv.isDesktopWithCustomTitleBar &&
+            !platformEnv.isNativeIOSPad ? (
+              <XStack ai="center" jc="center" px="$4" py="$3">
+                <Icon
+                  name="OnekeyLogoIllus"
+                  width={28}
+                  height={28}
+                  color="$text"
+                />
+              </XStack>
+            ) : null}
+            {/* Icons-only tooltips follow the pointer across the icons. */}
+            <SidebarTooltipGroup>
+              <YStack
+                flex={1}
+                px="$3"
+                alignItems="center"
+                onLayout={handleTabsContainerLayout}
+              >
+                {visibleRoutes.map((route) => {
+                  const isActive = isRouteActive(
+                    route,
+                    focusedRouteName,
+                    extraConfig?.name,
+                  );
+                  return (
+                    <VisibleTabItemView
+                      key={route.key}
+                      route={route}
+                      isActive={isActive}
+                      options={descriptors[route.key].options}
+                      handleTabPress={handleTabPress}
+                    />
+                  );
+                })}
+                {overflowRoutes.length > 0 ? (
+                  <OverflowMoreButton
+                    overflowRoutes={overflowRoutes}
+                    isAnyOverflowActive={isAnyOverflowActive}
+                    state={state}
+                    descriptors={descriptors}
+                    navigation={navigation}
+                    extraConfig={extraConfig}
                   />
-                </XStack>
-              ) : null}
-              {/* Icons-only tooltips follow the pointer across the icons. */}
-              <SidebarTooltipGroup>
-                <YStack
-                  flex={1}
-                  px="$3"
-                  alignItems="center"
-                  onLayout={handleTabsContainerLayout}
-                >
-                  {visibleRoutes.map((route) => {
-                    const isActive = isRouteActive(
-                      route,
-                      focusedRouteName,
-                      extraConfig?.name,
-                    );
-                    return (
-                      <VisibleTabItemView
-                        key={route.key}
-                        route={route}
-                        isActive={isActive}
-                        options={descriptors[route.key].options}
-                        handleTabPress={handleTabPress}
-                      />
-                    );
-                  })}
-                  {overflowRoutes.length > 0 ? (
-                    <OverflowMoreButton
-                      overflowRoutes={overflowRoutes}
-                      isAnyOverflowActive={isAnyOverflowActive}
-                      state={state}
-                      descriptors={descriptors}
-                      navigation={navigation}
-                      extraConfig={extraConfig}
-                    />
-                  ) : null}
-                </YStack>
-                {deviceRoute ? (
-                  <YStack px="$3" pb="$2" alignItems="center">
-                    <SidebarBottomItem
-                      route={deviceRoute}
-                      isActive={isDeviceActive}
-                      options={descriptors[deviceRoute.key].options}
-                      onPress={handleDevicePress}
-                    />
-                  </YStack>
                 ) : null}
-              </SidebarTooltipGroup>
-              {bottomMenu}
-            </YStack>
+              </YStack>
+              {deviceRoute ? (
+                <YStack px="$3" pb="$2" alignItems="center">
+                  <SidebarBottomItem
+                    route={deviceRoute}
+                    isActive={isDeviceActive}
+                    options={descriptors[deviceRoute.key].options}
+                    onPress={handleDevicePress}
+                  />
+                </YStack>
+              ) : null}
+            </SidebarTooltipGroup>
+            {bottomMenu}
           </YStack>
-        </SidebarShortcutHintProvider>
+        </YStack>
       </YStack>
       <BrowserSubmenuColumn
         webPageTabBar={webPageTabBar}
