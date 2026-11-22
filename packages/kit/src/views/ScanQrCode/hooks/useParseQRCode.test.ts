@@ -1,7 +1,11 @@
 import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  EScanQrCodeModalPages,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
@@ -15,6 +19,8 @@ const mockGetCurrentRoute = jest.fn<
   { key: string; name: string } | undefined,
   []
 >();
+const mockGetRootState = jest.fn<unknown, []>();
+const mockPushModal = jest.fn<void, unknown[]>();
 const mockResetScanModalRoute = jest.fn<
   void,
   [options?: { scanRequestId: string }]
@@ -24,7 +30,10 @@ jest.mock('@onekeyhq/components', () => ({
   Dialog: { confirm: jest.fn() },
   Toast: { error: jest.fn(), success: jest.fn() },
   rootNavigationRef: {
-    current: { getCurrentRoute: () => mockGetCurrentRoute() },
+    current: {
+      getCurrentRoute: () => mockGetCurrentRoute(),
+      getRootState: () => mockGetRootState(),
+    },
   },
   useClipboard: jest.fn(),
   resetAboveMainRoute: jest.fn(),
@@ -36,6 +45,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceScanQRCode: {
       parse: (...args: unknown[]) => mockParse(...args),
+    },
+    serviceNetwork: {
+      getVaultSettings: async () => ({ isSingleToken: true }),
+    },
+    serviceToken: {
+      getNativeToken: async () => null,
     },
   },
 }));
@@ -72,6 +87,7 @@ function parseFrame() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetCurrentRoute.mockReset();
+  mockGetRootState.mockReset();
 });
 
 it('leaves a later screen alone when the no-account scan has already closed', async () => {
@@ -92,6 +108,54 @@ it('leaves a later screen alone when the no-account scan has already closed', as
   expect(resetAboveMainRoute).not.toHaveBeenCalled();
   expect(Dialog.confirm).not.toHaveBeenCalled();
 });
+
+it.each([
+  ['the home tab stays active', { key: 'home', name: 'TabHome' }, 1],
+  ['another tab takes focus', { key: 'market', name: 'TabMarket' }, 0],
+])(
+  'handles a Lightning scan when %s during dismissal',
+  async (_, route, count) => {
+    const home = { key: 'home', name: 'TabHome' };
+    const scan = { key: 'scan', name: EScanQrCodeModalPages.ScanQrCodeStack };
+    mockGetCurrentRoute.mockReturnValue(scan);
+    mockGetRootState.mockReturnValue({
+      index: 1,
+      routes: [
+        { name: ERootRoutes.Main, state: { routes: [home], index: 0 } },
+        scan,
+      ],
+    });
+    mockParse.mockResolvedValueOnce({
+      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
+      data: { address: 'recipient', network: { id: 'lightning--0' } },
+    });
+    const wait = jest
+      .spyOn(timerUtils, 'wait')
+      .mockImplementationOnce(async () => {
+        mockGetCurrentRoute.mockReturnValue(route);
+      });
+    try {
+      await parseQRCodeWithDeps(
+        'scanned payment code',
+        {
+          popNavigation: true,
+          autoExecuteParsedAction: true,
+          account: { id: 'lightning-account' } as NonNullable<
+            NonNullable<Parameters<typeof parseQRCodeWithDeps>[1]>['account']
+          >,
+        },
+        {
+          ...deps,
+          navigation: { ...deps.navigation, pushModal: mockPushModal },
+        },
+      );
+      expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+      expect(mockPushModal).toHaveBeenCalledTimes(count);
+    } finally {
+      wait.mockRestore();
+    }
+  },
+);
 
 it('keeps the scan page open after a transient parse failure', async () => {
   const transient = new OneKeyLocalError('bridge hiccup');

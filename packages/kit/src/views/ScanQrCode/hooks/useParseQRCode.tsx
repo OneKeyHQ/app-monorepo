@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { findFocusedRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -304,7 +305,23 @@ export async function parseQRCodeWithDeps(
             });
 
           if (!isScannerCurrent()) break;
+          const mainState =
+            popNavigation &&
+            result.type === EQRCodeHandlerType.LIGHTNING_NETWORK
+              ? rootNavigationRef.current
+                  ?.getRootState()
+                  ?.routes.find((route) => route.name === ERootRoutes.Main)
+                  ?.state
+              : undefined;
+          const destinationKey = mainState && findFocusedRoute(mainState)?.key;
           await closeScanPage();
+          const amount = await parseOnChainAmount(result, nativeToken);
+          if (
+            destinationKey &&
+            rootNavigationRef.current?.getCurrentRoute()?.key !== destinationKey
+          ) {
+            break;
+          }
           const newNetworkId =
             nativeToken?.networkId || network.id || params.network?.id || '';
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -317,7 +334,7 @@ export async function parseQRCodeWithDeps(
               isNFT: false,
               token: nativeToken,
               address: chainValue.address,
-              amount: await parseOnChainAmount(result, nativeToken),
+              amount,
             },
           });
           break;
