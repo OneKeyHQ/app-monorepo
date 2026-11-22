@@ -5170,12 +5170,17 @@ describe('hardware reset session and local data races', () => {
     'success',
     'missing proof',
     'pool failure',
+    'no-marker pool failure',
     'secure failure',
     'node changed',
   ] as const)(
-    'only an attested own reset commits the pool before key activation: %s',
+    'an already authorized own reset commits the pool before key activation: %s',
     async (failure) => {
       const origin = 'https://prime.example.invalid';
+      const poolFailure =
+        failure === 'pool failure' || failure === 'no-marker pool failure';
+      const noMarker =
+        failure === 'missing proof' || failure === 'no-marker pool failure';
       const actualSession = jest.requireActual<
         typeof import('./hardwareCloudSyncSession')
       >('./hardwareCloudSyncSession');
@@ -5183,21 +5188,42 @@ describe('hardware reset session and local data races', () => {
         ...current,
         hardwareSession: {
           ...session,
+          dekId: '12'.repeat(16),
           boundBaseURL: origin,
           deviceKeyJwk: actualSession.createHardwareCloudSyncDeviceKey(),
         },
       };
       const recoveryKey = { ...next, dekId: 'ab'.repeat(16) };
       const pending = { ...recoveryKey, generation: 2 };
-      const { service, getClient } = setup();
+      const { service, getClient, backgroundApi } = setup();
+      let record = { ...unknownItem };
+      const readPool = async () => ({ items: [record] });
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
+        readPool,
+      );
+      const mockRekey = jest.mocked(sessionApi.reencryptHardwareCloudSyncItems);
+      const rekey: Parameters<
+        typeof mockRekey.mockImplementationOnce
+      >[0] = async ({ items, from, to }) =>
+        items
+          .filter((item) => item.pwdHash === from.pwdHash)
+          .map((item) => ({
+            ...item,
+            data: `rekeyed:${item.data}`,
+            pwdHash: to.pwdHash,
+          }));
+      mockRekey.mockImplementationOnce(rekey);
+      if (poolFailure || failure === 'secure failure')
+        mockRekey.mockImplementationOnce(rekey).mockImplementationOnce(rekey);
+      let serverDekId: string | undefined = pending.dekId;
       const adapter = jest.fn(async (config: InternalAxiosRequestConfig) => ({
         data: {
           code: 0,
           message: 'success',
           data: {
-            lock: {
+            lock: serverDekId && {
               data: JSON.stringify({
-                dekId: pending.dekId,
+                dekId: serverDekId,
                 generation: 2,
                 kekVersion: 1,
                 kekSalt: 'cd'.repeat(16),
@@ -5210,7 +5236,8 @@ describe('hardware reset session and local data races', () => {
         statusText: 'OK',
         headers: {},
         config,
-        request: { responseURL: new URL('/prime/v1/sync/lock', origin).href },
+        // Native pinned-IP transport does not supply a final URL marker.
+        request: {},
       }));
       getClient.mockResolvedValue(axios.create({ baseURL: origin, adapter }));
       mockStored = original;
@@ -5230,22 +5257,17 @@ describe('hardware reset session and local data races', () => {
             next: recoveryKey,
             generation: 2,
             items: [],
-            verifiedFlushOrigin:
-              failure === 'missing proof' ? undefined : origin,
+            verifiedFlushOrigin: noMarker ? undefined : origin,
           };
         });
       const interrupted = new Error('interrupted local rotation');
       const pool = jest
         .spyOn(localDb, 'updateSyncItem')
-        .mockImplementationOnce(async () => {
-          if (failure === 'missing proof') {
-            expect(mockStored?.pendingDataKey).toBeUndefined();
-            expect(mockStored?.pwdHash).toBe(recoveryKey.pwdHash);
-          } else {
-            expect(mockStored?.pendingDataKey).toEqual(pending);
-            expect(mockStored?.pwdHash).toBe(original.pwdHash);
-          }
-          if (failure === 'pool failure') throw interrupted;
+        .mockImplementationOnce(async ({ updater }) => {
+          expect(mockStored?.pendingDataKey).toEqual(pending);
+          expect(mockStored?.pwdHash).toBe(original.pwdHash);
+          if (poolFailure) throw interrupted;
+          record = await updater(record);
           if (failure === 'secure failure') {
             jest
               .mocked(keylessSyncCredentialStorage.saveCredential)
@@ -5269,27 +5291,111 @@ describe('hardware reset session and local data races', () => {
         expect(pool).not.toHaveBeenCalled();
         return;
       }
-      // Existing Lock recovery remains reachable; its later successful commit
-      // does not depend on the direct response still being in memory.
-      jest
-        .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
-        .mockImplementationOnce(
-          actualSession.getCurrentHardwareCloudSyncDataKeyId,
-        );
-      pool.mockResolvedValueOnce(undefined);
-      await service['handleHardwareDataKeyRefused'](original);
+      // An independently interrupted recovery must leave the same journal
+      // available to a newly constructed service, even without a URL marker.
+      const readLock = jest.mocked(
+        sessionApi.getCurrentHardwareCloudSyncDataKeyId,
+      );
+      if (failure === 'secure failure') {
+        for (const lock of [original.hardwareSession.dekId, undefined]) {
+          serverDekId = lock;
+          readLock.mockImplementationOnce(
+            actualSession.getCurrentHardwareCloudSyncDataKeyId,
+          );
+          await expect(
+            service['handleHardwareDataKeyRefused']({
+              ...original,
+              pendingDataKey: pending,
+            }),
+          ).resolves.toBeUndefined();
+          expect(mockStored?.pendingDataKey).toEqual(pending);
+          expect(record.pwdHash).toBe(pending.pwdHash);
+          expect(record.dataTime).toBe(unknownItem.dataTime);
+        }
+        serverDekId = pending.dekId;
+      }
+      readLock.mockImplementationOnce(
+        actualSession.getCurrentHardwareCloudSyncDataKeyId,
+      );
+      pool.mockImplementationOnce(async () => {
+        expect(mockStored?.pendingDataKey).toEqual(pending);
+        throw interrupted;
+      });
+      await expect(
+        service['handleHardwareDataKeyRefused'](original),
+      ).rejects.toThrow(interrupted.message);
+      expect(mockStored?.pendingDataKey).toEqual(pending);
+      expect(mockStored?.pwdHash).toBe(original.pwdHash);
+
+      const restarted = setup();
+      restarted.getClient.mockResolvedValue(
+        axios.create({ baseURL: origin, adapter }),
+      );
+      restarted.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
+        readPool,
+      );
+      readLock.mockImplementationOnce(
+        actualSession.getCurrentHardwareCloudSyncDataKeyId,
+      );
+      pool.mockImplementationOnce(async ({ ids, updater }) => {
+        if (ids.includes(record.id)) record = await updater(record);
+      });
+      await restarted.service['handleHardwareDataKeyRefused'](original);
+      expect(record.data).toBe(`rekeyed:${unknownItem.data}`);
+      expect(record.dataTime).toBe(unknownItem.dataTime);
+      expect(record.pwdHash).toBe(recoveryKey.pwdHash);
       expect(adapter).toHaveBeenCalledWith(
         expect.objectContaining({
           url: '/prime/v1/sync/lock',
           method: 'get',
         }),
       );
-      expect(pool).toHaveBeenCalledTimes(2);
+      expect(pool).toHaveBeenCalledTimes(3);
       expect(mockStored?.hardwareSession?.dekId).toBe(recoveryKey.dekId);
       expect(mockStored?.pwdHash).toBe(recoveryKey.pwdHash);
       expect(mockStored?.pendingDataKey).toBeUndefined();
     },
   );
+
+  test.each(['old', 'missing'] as const)(
+    'a pre-flush interrupted reset still clears a %s Lock journal without rekeying',
+    async (lock) => {
+      const { service } = setup();
+      const before = { ...current, pendingDataKey: { ...next, generation: 2 } };
+      mockStored = before;
+      const pool = jest.spyOn(localDb, 'updateSyncItem');
+      jest
+        .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
+        .mockResolvedValueOnce(lock === 'old' ? session.dekId : undefined);
+      await expect(
+        service['handleHardwareDataKeyRefused'](before),
+      ).resolves.toBeUndefined();
+      expect(pool).not.toHaveBeenCalled();
+      expect(mockStored?.pwdHash).toBe(current.pwdHash);
+      expect(mockStored?.pendingDataKey).toBeUndefined();
+      expect(sessionApi.revokeHardwareCloudSyncSession).not.toHaveBeenCalled();
+    },
+  );
+
+  test('a stalled stale-Lock pool read releases the lock and keeps the pending key', async () => {
+    const { service, backgroundApi } = setup();
+    const before = { ...current, pendingDataKey: { ...next, generation: 2 } };
+    mockStored = before;
+    jest
+      .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
+      .mockResolvedValueOnce(session.dekId);
+    backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementationOnce(
+      async () => new Promise(() => undefined),
+    );
+    await expect(
+      service['handleHardwareDataKeyRefused'](before),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.runWithCloudSyncKeyLock(async () => 'available'),
+    ).resolves.toBe('available');
+    expect(mockStored).toEqual(before);
+    expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
+  });
 
   test('finishes key reset when persisting the optional device name fails', async () => {
     const { service, backgroundApi } = setup();

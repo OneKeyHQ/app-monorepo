@@ -5,6 +5,8 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { logHardwareCloudSyncDiagnostic } from './hardwareCloudSyncLog';
 
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
+import type { LocalDbBase } from '../../dbs/local/LocalDbBase';
+import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
 const RESET_PROCESSING_BATCH_SIZE = 500;
 
@@ -173,6 +175,45 @@ export async function prepareHardwareCloudSyncResetRecords({
         dataTimestamp: envelope.createdAt,
       },
       localData: [...serverItems, ...envelopeItems],
+    },
+  };
+}
+
+export function preparePoolRekey(
+  originalItems: IDBCloudSyncItem[],
+  items: IDBCloudSyncItem[],
+  oldHash: string,
+  isCurrent: (() => boolean) | undefined,
+  conflict: () => Error,
+): Parameters<LocalDbBase['updateSyncItem']>[0] {
+  const originalsById = new Map(originalItems.map((item) => [item.id, item]));
+  const replacementsById = new Map(items.map((item) => [item.id, item]));
+  return {
+    ids: items.map((item) => item.id),
+    isCurrent,
+    updater: (record) => {
+      const original = originalsById.get(record.id);
+      const replacement = replacementsById.get(record.id);
+      // A later edit must keep its raw data; the following full sync rebuilds
+      // it with the selected key. Compare inside the database transaction.
+      if (
+        original &&
+        replacement &&
+        record.pwdHash === original.pwdHash &&
+        record.data === original.data &&
+        (!isCurrent ||
+          (record.dataType === original.dataType &&
+            record.rawKey === original.rawKey)) &&
+        record.rawData === original.rawData &&
+        record.dataTime === original.dataTime &&
+        record.isDeleted === original.isDeleted
+      ) {
+        record.data = replacement.data;
+        record.pwdHash = replacement.pwdHash;
+      } else if (isCurrent && record.pwdHash === oldHash) {
+        throw conflict();
+      }
+      return record;
     },
   };
 }

@@ -36,7 +36,9 @@ import systemTimeUtils, {
   ECloudSyncDataTimeSource,
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHardwareCloudSyncKeySource,
@@ -1755,7 +1757,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }: {
       expected?: IKeylessCloudSyncCredential;
       refreshedSession?: boolean;
-      beforeSave?: (stored: IKeylessCloudSyncCredential) => Promise<void>;
+      beforeSave?: (
+        stored: IKeylessCloudSyncCredential,
+      ) => Promise<boolean | void>;
       refreshAdmission?: {
         canPersist: () => boolean;
         canPublish: () => boolean;
@@ -1840,7 +1844,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
           (!sameSession && !refreshAdmission.canPublish()))
       )
         return undefined;
-      if (beforeSave) await beforeSave(stored);
+      if (beforeSave && (await beforeSave(stored)) === false)
+        return { credential: stored, preservesScope: true };
       await keylessSyncCredentialStorage.saveCredential(updated);
       if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
@@ -1900,8 +1905,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async commitHardwareDataKey(
     credential: IKeylessCloudSyncCredential,
     next: IHardwareCloudSyncDataKey,
-    verifiedCommit?: { origin: string; isCurrent: () => boolean },
+    guard?: {
+      origin?: string;
+      isCurrent: () => boolean;
+      generation?: number;
+    },
   ): Promise<IKeylessCloudSyncCredential> {
+    const { preparePoolRekey } =
+      await import('./hardwareCloudSyncResetDownload');
     return this.runWithCloudSyncSourceLock(async () => {
       const session = credential.hardwareSession;
       if (!session) {
@@ -1933,43 +1944,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
         hardwareSession: { ...session, dekId: next.dekId },
         pendingDataKey: undefined,
       };
-      const originalsById = new Map(
-        originalItems.map((item) => [item.id, item]),
-      );
-      const replacementsById = new Map(items.map((item) => [item.id, item]));
       const rekeyPool = () =>
-        localDb.updateSyncItem({
-          ids: items.map((item) => item.id),
-          isCurrent: verifiedCommit?.isCurrent,
-          updater: (record) => {
-            const original = originalsById.get(record.id);
-            const replacement = replacementsById.get(record.id);
-            // A later edit must keep its raw data; the following full sync rebuilds
-            // it with the selected key. Compare inside the database transaction.
-            if (
-              original &&
-              replacement &&
-              record.pwdHash === original.pwdHash &&
-              record.data === original.data &&
-              record.rawData === original.rawData &&
-              record.dataTime === original.dataTime &&
-              record.isDeleted === original.isDeleted
-            ) {
-              record.data = replacement.data;
-              record.pwdHash = replacement.pwdHash;
-            } else if (
-              verifiedCommit &&
-              record.pwdHash === credential.pwdHash
-            ) {
-              throw settingsChangedError();
-            }
-            return record;
-          },
-        });
-      // Retire the journal only after the pool committed, on the directly
-      // attested flush. Legacy recovery keeps its existing admission path.
-      if (verifiedCommit) {
-        const { origin, isCurrent } = verifiedCommit;
+        localDb.updateSyncItem(
+          preparePoolRekey(
+            originalItems,
+            items,
+            credential.pwdHash,
+            guard?.isCurrent,
+            settingsChangedError,
+          ),
+        );
+      // The recognized rotation remains resumable until its pool commits.
+      if (guard) {
+        const { origin, generation, isCurrent } = guard;
         return this.saveHardwareCredential(updated, {
           expected: credential,
           refreshAdmission: { canPersist: () => true, canPublish: isCurrent },
@@ -1977,7 +1964,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
             const pending = stored.pendingDataKey;
             if (
               !isCurrent() ||
-              stored.hardwareSession?.boundBaseURL !== origin ||
+              (origin && stored.hardwareSession?.boundBaseURL !== origin) ||
+              (generation !== undefined &&
+                pending?.generation !== generation) ||
               stored.encryptionKey !== credential.encryptionKey ||
               stored.source?.type !== 'hardware' ||
               stored.source.credentialId !== credential.source?.credentialId ||
@@ -2008,6 +1997,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ): Promise<IKeylessCloudSyncCredential | undefined> {
     const session = credential.hardwareSession;
     if (!session) return undefined;
+    const generation = this.getHardwareUploadGeneration();
     const client = await this.getHardwareSyncClient();
     const serverDekId = await getCurrentHardwareCloudSyncDataKeyId({
       client,
@@ -2037,6 +2027,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
       const updated = await this.commitHardwareDataKey(
         recoveryCredential,
         pending,
+        {
+          origin: session.boundBaseURL,
+          generation: pending.generation,
+          isCurrent: () =>
+            generation !== undefined &&
+            generation === this.getHardwareUploadGeneration() &&
+            (!session.boundBaseURL ||
+              session.boundBaseURL === client.defaults?.baseURL),
+        },
       );
       // The generation was computed here before the flush, not read back
       // from the server.
@@ -2061,10 +2060,34 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.requireHardwareCloudSyncSignIn(credential);
     }
     if (pending) {
-      await this.saveHardwareCredential({
-        ...credential,
-        pendingDataKey: undefined,
-      });
+      await this.runWithCloudSyncSourceLock(() =>
+        this.saveHardwareCredential(
+          { ...credential, pendingDataKey: undefined },
+          {
+            beforeSave: async (durable) => {
+              const current = durable.pendingDataKey;
+              if (
+                current?.dekId !== pending.dekId ||
+                current?.dek !== pending.dek ||
+                current?.pwdHash !== pending.pwdHash ||
+                current?.generation !== pending.generation
+              )
+                return false;
+              const pool = await resolveBeforeTimeout(
+                this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+                  includeUnsupportedDataTypes: true,
+                }),
+                1000,
+              );
+              // A stalled read or an old Lock cannot retire a key still in use.
+              return (
+                !!pool &&
+                !pool.items.some((item) => item.pwdHash === pending.pwdHash)
+              );
+            },
+          },
+        ),
+      );
     }
     return undefined;
   }
@@ -2434,19 +2457,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!rotated) {
         throw new HardwareCloudSyncCancelledError();
       }
-      const origin = rotated.verifiedFlushOrigin;
+      const origin = rotated.verifiedFlushOrigin ?? session.boundBaseURL;
       const updated = await this.commitHardwareDataKey(
         credential,
         rotated.next,
-        origin
-          ? {
-              origin,
-              isCurrent: () =>
-                isCurrent() &&
-                !endpointChanged &&
-                client.defaults?.baseURL === origin,
-            }
-          : undefined,
+        {
+          origin,
+          generation: rotated.generation,
+          isCurrent: () =>
+            isCurrent() &&
+            !endpointChanged &&
+            (!origin || client.defaults?.baseURL === origin),
+        },
       );
       committedSource = derived.source;
       await this.recordHardwareKeyGeneration(
