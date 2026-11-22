@@ -1145,14 +1145,12 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
   it('leaves the mode and spot token to a switch begun on another page before a spot switch sets them', async () => {
     const { store, result, getMode, getSpotAsset, getOrderBookCoin } =
       setup('perp');
-    jest
-      .mocked(spotActiveAssetAtom.get)
-      .mockImplementationOnce(async () => {
-        // Another extension tab begins a perp switch meanwhile.
-        mockAssetChangeRequestId += 1;
-        await tradingModeAtom.set('perp');
-        return spot;
-      });
+    jest.mocked(spotActiveAssetAtom.get).mockImplementationOnce(async () => {
+      // Another extension tab begins a perp switch meanwhile.
+      mockAssetChangeRequestId += 1;
+      await tradingModeAtom.set('perp');
+      return spot;
+    });
 
     let switched: boolean | undefined;
     await act(async () => {
