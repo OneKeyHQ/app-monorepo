@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash';
+import { isEqual, omit } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -362,7 +362,20 @@ export async function commitVerifiedWalletCaches(
             name: ELocalDBStoreNames.Device,
             ids: [device.id],
           });
-          if (!isEqual(records[0], device)) return;
+          // Query reads refill these fields, while Realm returns the raw
+          // Device inside the transaction. Compare every persisted field.
+          const projections = [
+            'deviceStateInfo',
+            'settings',
+            'vendor',
+            'featuresInfo',
+          ];
+          const current = records[0];
+          if (
+            !current ||
+            !isEqual(omit(current, projections), omit(device, projections))
+          )
+            return;
         }
         const { records } = await localDb.txGetRecordsByIds({
           tx,

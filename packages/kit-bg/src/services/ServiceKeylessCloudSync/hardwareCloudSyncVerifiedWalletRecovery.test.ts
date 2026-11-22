@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -18,7 +19,11 @@ import {
 } from './hardwareCloudSyncRecovery';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 
 let mockDb: LocalDbIndexed;
 jest.mock('../../dbs/local/localDb', () => ({
@@ -51,12 +56,34 @@ const credential: ICloudSyncCredential = {
 
 let count = 0;
 
-async function fixture() {
+async function fixture(type: 'hd' | 'hw' = 'hd') {
   count += 1;
   mockDb = new LocalDbIndexed();
+  const device: IDBDevice | undefined =
+    type === 'hw'
+      ? {
+          id: `verified-stored-device-${count}`,
+          deviceId: `verified-physical-id-${count}`,
+          deviceType: EDeviceType.Pro,
+          connectId: `fixture-connect-${count}`,
+          uuid: `fixture-serial-${count}`,
+          name: 'Canonical device',
+          features: '{"$app_fixture":true}',
+          deviceState: JSON.stringify({
+            identity: { serialNo: `fixture-serial-${count}` },
+            status: {},
+            settings: {},
+            versions: {},
+          }),
+          settingsRaw: '{}',
+          createdAt: 1,
+          updatedAt: 1,
+        }
+      : undefined;
   const wallet: IDBWallet = {
-    id: `hd-verified-cache-${count}`,
-    type: 'hd',
+    id: `${type}-verified-cache-${count}`,
+    type,
+    ...(device ? { associatedDevice: device.id } : {}),
     hash: `fixture-wallet-hash-${count}`,
     walletNo: 1300 + count,
     backuped: true,
@@ -67,6 +94,18 @@ async function fixture() {
   const walletManager = new CloudSyncFlowManagerWallet({
     backgroundApi: { localDb: mockDb } as unknown as IBackgroundApi,
   });
+  if (device) {
+    await mockDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      (tx) =>
+        mockDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [device],
+        }),
+      { skipCloudCredentialWarmup: true },
+    );
+  }
   const target = await walletManager.buildSyncTargetByDBQuery({
     dbRecord: wallet,
   });
@@ -109,7 +148,7 @@ async function fixture() {
     dataTimestamp: current.dataTime,
     isDeleted: false,
   };
-  return { wallet, walletManager, previous, row };
+  return { wallet, walletManager, previous, row, device };
 }
 
 test('adopts the strictly newer authenticated Wallet in the actual account transaction', async () => {
@@ -136,6 +175,67 @@ test('adopts the strictly newer authenticated Wallet in the actual account trans
     mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
   ).resolves.toEqual(wallet);
 });
+
+test.each([
+  undefined,
+  'deviceId',
+  'features',
+  'deviceState',
+  'settingsRaw',
+] as const)(
+  'adopts an authenticated hardware Wallet only while the stored Device is unchanged (%s)',
+  async (changedField) => {
+    const { previous, row, walletManager, device } = await fixture('hw');
+    if (!device) throw new OneKeyLocalError('Missing synthetic device');
+    const prepared = await prepareVerifiedWalletCaches({
+      items: [previous],
+      records: [row],
+      knownPwdHashes: new Set([oldHash]),
+      syncCredential: credential,
+      walletManager,
+      isCurrent: () => true,
+    });
+    expect(prepared).toHaveLength(1);
+    expect(prepared[0].device).toMatchObject({
+      id: device.id,
+      featuresInfo: expect.any(Object),
+      deviceStateInfo: expect.any(Object),
+      settings: expect.any(Object),
+      vendor: expect.any(String),
+    });
+    if (changedField) {
+      await mockDb.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await mockDb.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [device.id],
+            updater: (current) => {
+              current[changedField] = `${current[changedField]}-changed`;
+              return current;
+            },
+          });
+        },
+        { skipCloudCredentialWarmup: true },
+      );
+    }
+    await commitVerifiedWalletCaches(prepared, () => true);
+    if (changedField)
+      await expect(mockDb.getSyncItem({ id: row.key })).resolves.toEqual(
+        previous,
+      );
+    else
+      await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
+        pwdHash,
+        data: row.data,
+        dataTime: row.dataTimestamp,
+        rawData: '',
+        localSceneUpdated: true,
+        serverUploaded: true,
+      });
+  },
+);
 
 test.each([
   'equal',
