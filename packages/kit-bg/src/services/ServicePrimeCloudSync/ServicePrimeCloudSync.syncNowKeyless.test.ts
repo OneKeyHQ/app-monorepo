@@ -466,6 +466,7 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
         primeAccountSalt: 'prime-account-salt',
       }),
       password: 'prompted-pwd',
+      preserveInactiveWallets: false,
     });
     // A password prompt must never be open while the key lock is held.
     expect(promptPasswordVerify.mock.invocationCallOrder[0]).toBeLessThan(
@@ -1404,6 +1405,7 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
       syncCredential: hardwareKey,
       password: undefined,
       askPasswordOnlyIfHdXfpMissing: true,
+      preserveInactiveWallets: false,
     });
   });
 
