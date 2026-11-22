@@ -243,12 +243,17 @@ function BasicTabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
+  // The item, not the lazily loaded tooltip trigger, reports the hover, so the
+  // first hover counts even before the tooltip module has loaded.
+  const onTooltipOpenChange = iconsOnly ? tooltip.onOpenChange : undefined;
   const handleHoverIn = useCallback(() => {
     setIsContainerHovered(true);
-  }, []);
+    onTooltipOpenChange?.(true);
+  }, [onTooltipOpenChange]);
   const handleHoverOut = useCallback(() => {
     setIsContainerHovered(false);
-  }, []);
+    onTooltipOpenChange?.(false);
+  }, [onTooltipOpenChange]);
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
       setIsContainerHovered(false);
@@ -297,7 +302,7 @@ function BasicTabItemView({
               label=""
               tooltipLabel={iconsOnly ? title : undefined}
               tooltipOpen={iconsOnly ? tooltip.open : undefined}
-              onTooltipOpenChange={iconsOnly ? tooltip.onOpenChange : undefined}
+              onTooltipOpenChange={onTooltipOpenChange}
               shortcutKey={iconsOnly ? shortcutKey : undefined}
               aria-label={title}
               actionList={options.actionList}
@@ -333,7 +338,7 @@ function BasicTabItemView({
       tabBarStyleMemo,
       title,
       tooltip.open,
-      tooltip.onOpenChange,
+      onTooltipOpenChange,
     ],
   );
 
@@ -428,6 +433,15 @@ function SidebarBottomItem({
     closeTooltip();
     onPress();
   }, [closeTooltip, onPress]);
+  const onTooltipOpenChange = iconsOnly ? tooltip.onOpenChange : undefined;
+  const handleHoverIn = useCallback(
+    () => onTooltipOpenChange?.(true),
+    [onTooltipOpenChange],
+  );
+  const handleHoverOut = useCallback(
+    () => onTooltipOpenChange?.(false),
+    [onTooltipOpenChange],
+  );
 
   const renderTriggerMemo = useMemo(
     () => (
@@ -440,6 +454,8 @@ function SidebarBottomItem({
         pressStyle={PRESS_STYLE_BG_ACTIVE}
         cursor="default"
         onPress={handlePress}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
       >
         <Icon
           name={iconName}
@@ -449,7 +465,15 @@ function SidebarBottomItem({
         <SidebarShortcutBadge shortcutKey={shortcutKey} />
       </YStack>
     ),
-    [isActive, handlePress, iconName, route.name, shortcutKey],
+    [
+      isActive,
+      handlePress,
+      handleHoverIn,
+      handleHoverOut,
+      iconName,
+      route.name,
+      shortcutKey,
+    ],
   );
 
   // With labels shown it keeps its own name-only tooltip.
@@ -460,7 +484,7 @@ function SidebarBottomItem({
       renderContent={label}
       shortcutKey={iconsOnly ? shortcutKey : undefined}
       open={iconsOnly ? tooltip.open : undefined}
-      onOpenChange={iconsOnly ? tooltip.onOpenChange : undefined}
+      onOpenChange={onTooltipOpenChange}
     />
   );
 }

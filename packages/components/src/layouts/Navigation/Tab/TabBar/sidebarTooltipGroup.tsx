@@ -9,6 +9,8 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { registerOpenTooltip } from '@onekeyhq/components/src/actions/Tooltip/tooltipRegistry';
+
 // The first sidebar tooltip waits a moment; while one is open, or right after
 // it closed, the next icon's tooltip opens at once so the pointer can scan the
 // icons without waiting on each.
@@ -52,12 +54,14 @@ export function SidebarTooltipGroup({ children }: { children: ReactNode }) {
 }
 
 // Controlled `open` / `onOpenChange` for one sidebar tooltip. Turning it off
-// (labels shown again) closes the tooltip and drops a pending open.
+// (labels shown again) closes the tooltip and drops a pending open, and so does
+// closeAllTooltips() (a modal opening under a still pointer).
 export function useSidebarTooltipOpen(enabled: boolean) {
   const group = useContext(SidebarTooltipGroupContext);
   const [open, setOpen] = useState(false);
   const isOpenRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const unregisterRef = useRef<(() => void) | undefined>(undefined);
 
   const show = useCallback(() => {
     timerRef.current = undefined;
@@ -71,6 +75,8 @@ export function useSidebarTooltipOpen(enabled: boolean) {
   const hide = useCallback(() => {
     clearTimeout(timerRef.current);
     timerRef.current = undefined;
+    unregisterRef.current?.();
+    unregisterRef.current = undefined;
     if (isOpenRef.current) {
       isOpenRef.current = false;
       group?.closed();
@@ -87,6 +93,7 @@ export function useSidebarTooltipOpen(enabled: boolean) {
       if (isOpenRef.current || timerRef.current) {
         return;
       }
+      unregisterRef.current = registerOpenTooltip(hide);
       if (!group || group.isWarm()) {
         show();
         return;

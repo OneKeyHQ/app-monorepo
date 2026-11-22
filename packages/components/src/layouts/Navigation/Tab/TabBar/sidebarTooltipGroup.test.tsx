@@ -13,6 +13,18 @@ import {
   useSidebarTooltipOpen,
 } from './sidebarTooltipGroup';
 
+// The app-wide registry modal navigation uses to close every tooltip.
+const mockClosers = new Set<() => void>();
+jest.mock('@onekeyhq/components/src/actions/Tooltip/tooltipRegistry', () => ({
+  registerOpenTooltip: (close: () => void) => {
+    mockClosers.add(close);
+    return () => mockClosers.delete(close);
+  },
+}));
+function closeAllTooltips() {
+  Array.from(mockClosers).forEach((close) => close());
+}
+
 function wait(ms: number) {
   act(() => {
     jest.advanceTimersByTime(ms);
@@ -104,5 +116,21 @@ describe('useSidebarTooltipOpen', () => {
 
     setEnabled(false);
     expect(first().open).toBe(false);
+  });
+
+  it('closeAllTooltips closes an open tooltip and drops a pending one', () => {
+    const { first, second } = renderGroup();
+    act(() => first().onOpenChange(true));
+    wait(SIDEBAR_TOOLTIP_OPEN_DELAY_MS);
+    expect(first().open).toBe(true);
+
+    act(() => closeAllTooltips());
+    expect(first().open).toBe(false);
+
+    wait(SIDEBAR_TOOLTIP_SKIP_DELAY_MS);
+    act(() => second().onOpenChange(true));
+    act(() => closeAllTooltips());
+    wait(SIDEBAR_TOOLTIP_OPEN_DELAY_MS);
+    expect(second().open).toBe(false);
   });
 });
