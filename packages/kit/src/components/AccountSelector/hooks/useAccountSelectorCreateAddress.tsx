@@ -28,7 +28,6 @@ import {
   filterThirdPartyHwCreateFailureToasts,
   isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
-import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -36,7 +35,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
-import { waitForAddressCreationRequestFocus } from '../../../views/ScanQrCode/utils/getAccountIdOnNetwork';
 import { TutorialsList } from '../../TutorialsList';
 import { AccountSelectorTestIDs } from '../testIDs';
 
@@ -60,8 +58,6 @@ export function useAccountSelectorCreateAddress() {
       account,
       createAllDeriveTypes,
       customNetworks,
-      addressCreationRequest,
-      canStartAddressCreation,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -76,10 +72,7 @@ export function useAccountSelectorCreateAddress() {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }[];
-      addressCreationRequest?: IAddressCreationRequest;
-      canStartAddressCreation?: () => boolean;
     }) => {
-      if (canStartAddressCreation?.() === false) return;
       if (
         !account ||
         !account.walletId ||
@@ -123,16 +116,16 @@ export function useAccountSelectorCreateAddress() {
             }
           | undefined,
       ) => {
+        // await refreshCurrentAccount();
         await callAccountSelectorAction('refresh', { num });
 
-        if (selectAfterCreate && canStartAddressCreation?.() !== false) {
+        if (selectAfterCreate) {
           await callAccountSelectorAction(
             'updateSelectedAccountForHdOrHwAccount',
             {
               num,
               walletId: result?.walletId,
               indexedAccountId: result?.indexedAccountId,
-              shouldCommit: canStartAddressCreation,
             },
           );
         }
@@ -154,7 +147,6 @@ export function useAccountSelectorCreateAddress() {
             },
           );
         }
-        if (canStartAddressCreation?.() === false) return;
 
         // TODO: cancel creating workflow by close checking device UI dialog
         // If indexedAccountId is empty, create the first account (index 0) for all networks
@@ -166,7 +158,6 @@ export function useAccountSelectorCreateAddress() {
               indexedAccountId: account?.indexedAccountId,
               indexes,
               customNetworks,
-              addressCreationPromiseId: addressCreationRequest?.promiseId,
               ...hwUiControlParams,
             },
           );
@@ -275,7 +266,6 @@ export function useAccountSelectorCreateAddress() {
       };
 
       const addAccounts = async () => {
-        if (canStartAddressCreation?.() === false) return;
         try {
           if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
             return await addAccountsForAllNetwork();
@@ -289,7 +279,6 @@ export function useAccountSelectorCreateAddress() {
             deriveType: account?.deriveType,
             indexes,
             createAllDeriveTypes,
-            addressCreationPromiseId: addressCreationRequest?.promiseId,
             ...hwUiControlParams,
           });
           return await handleAddAccounts(result);
@@ -312,7 +301,6 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          if (canStartAddressCreation?.() === false) return;
           let indexedAccountId = account.indexedAccountId;
           if (!indexedAccountId) {
             await serviceAccount.addIndexedAccount({
@@ -329,11 +317,9 @@ export function useAccountSelectorCreateAddress() {
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId,
-            addressCreationRequest,
           });
 
           try {
-            await waitForAddressCreationRequestFocus(addressCreationRequest);
             return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {

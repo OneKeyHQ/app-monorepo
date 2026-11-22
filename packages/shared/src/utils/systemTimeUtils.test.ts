@@ -125,171 +125,6 @@ describe('system time error notifications', () => {
     expect(mockTimeRefreshLog).not.toHaveBeenCalled();
   });
 
-  it('refreshes a pre-suspend estimate once for concurrent callers', async () => {
-    jest.setSystemTime(BASE_TIME + SLEEP_TIME);
-    mockGet.mockResolvedValue({
-      headers: { date: new Date(BASE_TIME + SLEEP_TIME).toUTCString() },
-    });
-    expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
-    const sample = BASE_TIME + SLEEP_TIME;
-    await expect(
-      Promise.all([
-        systemTimeUtils.getFreshEstimatedServerTime(),
-        systemTimeUtils.getFreshEstimatedServerTime(),
-      ]),
-    ).resolves.toEqual([sample, sample]);
-    expect(mockGet).toHaveBeenCalledTimes(1);
-    await expect(systemTimeUtils.getFreshEstimatedServerTime()).resolves.toBe(
-      sample,
-    );
-    expect(mockGet).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([4000, 60_000])(
-    'discards a health sample received after %ims of suspended wall time',
-    async (elapsed) => {
-      mockGet.mockImplementationOnce(async () => {
-        jest.setSystemTime(BASE_TIME + elapsed);
-        monotonicTime += 100;
-        return { headers: { date: new Date(BASE_TIME).toUTCString() } };
-      });
-
-      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
-      expect(
-        systemTimeUtils.getContinuousEstimatedServerTime(),
-      ).toBeUndefined();
-      expectNoTimeError();
-      mockGet.mockResolvedValueOnce({
-        headers: { date: new Date(BASE_TIME + elapsed).toUTCString() },
-      });
-      await expect(systemTimeUtils.getFreshEstimatedServerTime()).resolves.toBe(
-        BASE_TIME + elapsed,
-      );
-      expect(mockGet).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it.each([1000, 30_000])(
-    'limits repeat health calls after a failed fresh estimate to a %sms delay',
-    async (delay) => {
-      const resumedAt = BASE_TIME + SLEEP_TIME;
-      jest.setSystemTime(resumedAt);
-      if (delay === 1000) {
-        mockGet.mockResolvedValueOnce({ headers: {} });
-      } else {
-        mockGet.mockRejectedValueOnce(
-          Object.assign(new Error('Synthetic 429'), {
-            isAxiosError: true,
-            response: { status: 429, headers: { 'retry-after': '30' } },
-          }),
-        );
-      }
-      const read = () =>
-        systemTimeUtils.getFreshEstimatedServerTime().catch(() => undefined);
-      await expect(read()).resolves.toBeUndefined();
-      mockGet.mockResolvedValue({
-        headers: { date: new Date(resumedAt + delay).toUTCString() },
-      });
-      monotonicTime += delay - 1;
-      jest.setSystemTime(resumedAt + delay - 1);
-      await expect(Promise.all([read(), read(), read()])).resolves.toEqual([
-        undefined,
-        undefined,
-        undefined,
-      ]);
-      expect(mockGet).toHaveBeenCalledTimes(1);
-      monotonicTime += 1;
-      jest.setSystemTime(resumedAt + delay);
-      await expect(read()).resolves.toBe(resumedAt + delay);
-      expect(mockGet).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it('opens a desktop health retry after system uptime advances through sleep', async () => {
-    const api = Object.getOwnPropertyDescriptor(globalThis, 'desktopApi');
-    let uptimeMs = 40_000;
-    Object.defineProperty(globalThis, 'desktopApi', {
-      configurable: true,
-      value: { getSystemUptimeMs: async () => uptimeMs },
-    });
-    try {
-      const initial = BASE_TIME + SLEEP_TIME;
-      jest.setSystemTime(initial);
-      mockGet.mockRejectedValueOnce(
-        Object.assign(new Error('Synthetic 429'), {
-          isAxiosError: true,
-          response: { status: 429, headers: { 'retry-after': '10' } },
-        }),
-      );
-      const read = () => systemTimeUtils.getFreshEstimatedServerTime();
-      await expect(read()).resolves.toBeUndefined();
-
-      jest.setSystemTime(initial + 60_000);
-      await expect(read()).resolves.toBeUndefined();
-      uptimeMs += 10_000;
-      await expect(read()).resolves.toBeUndefined();
-      expect(mockGet).toHaveBeenCalledTimes(1);
-
-      uptimeMs += 5000;
-      jest.setSystemTime(initial - 60_000);
-      const sample = initial + 15_000;
-      mockGet.mockResolvedValue({
-        headers: { date: new Date(sample).toUTCString() },
-      });
-      await expect(Promise.all([read(), read()])).resolves.toEqual([
-        sample,
-        sample,
-      ]);
-      expect(mockGet).toHaveBeenCalledTimes(2);
-    } finally {
-      if (api) Object.defineProperty(globalThis, 'desktopApi', api);
-      else Reflect.deleteProperty(globalThis, 'desktopApi');
-    }
-  });
-
-  it.each([
-    ['accurate', 0, 300_000],
-    ['one hour fast', 3_600_000, 30_000],
-    ['one hour slow', -3_600_000, 300_000],
-  ])(
-    'bounds a health retry with an absolute header and a local clock that is %s',
-    async (_label, offset, delay) => {
-      const initial = BASE_TIME + SLEEP_TIME;
-      jest.setSystemTime(initial + offset);
-      mockGet.mockRejectedValueOnce(
-        Object.assign(new Error('Synthetic 503'), {
-          isAxiosError: true,
-          response: {
-            status: 503,
-            headers: {
-              'retry-after': new Date(initial + 300_000).toUTCString(),
-            },
-          },
-        }),
-      );
-      const read = () => systemTimeUtils.getFreshEstimatedServerTime();
-      await expect(read()).resolves.toBeUndefined();
-      monotonicTime += delay - 1;
-      jest.setSystemTime(initial + SLEEP_TIME);
-      await expect(Promise.all([read(), read()])).resolves.toEqual([
-        undefined,
-        undefined,
-      ]);
-      expect(mockGet).toHaveBeenCalledTimes(1);
-
-      monotonicTime += 1;
-      const sample = initial + 300_000;
-      mockGet.mockResolvedValue({
-        headers: { date: new Date(sample).toUTCString() },
-      });
-      await expect(Promise.all([read(), read()])).resolves.toEqual([
-        sample,
-        sample,
-      ]);
-      expect(mockGet).toHaveBeenCalledTimes(2);
-    },
-  );
-
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
       monotonicTime += 1000;
@@ -471,15 +306,12 @@ describe('system time error notifications', () => {
         return { headers: { date: new Date(BASE_TIME).toUTCString() } };
       });
 
-      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
 
       expectNoTimeError();
-      expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
+      expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
       expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
       expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
-      expect(
-        systemTimeUtils.getContinuousEstimatedServerTime(),
-      ).toBeUndefined();
       expect(mockTimeRefreshLog).toHaveBeenCalledWith(
         expect.objectContaining({
           result: 'stale-response',
@@ -489,35 +321,18 @@ describe('system time error notifications', () => {
     },
   );
 
-  it('does not notify when a fresh business response reveals clock skew', async () => {
+  it('does not notify for an old business response while preserving its time update', async () => {
     jest.setSystemTime(BASE_TIME + SLEEP_TIME);
 
     await systemTimeUtils.handleServerResponseDate({
       source: 'axios',
       headerDate: new Date(BASE_TIME).toUTCString(),
       url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
-      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
     });
 
     expectNoTimeError();
     expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
     expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
-  });
-
-  it('does not install a business date after the clock diverges during domain verification', async () => {
-    mockTrustedDomain.mockImplementationOnce(async () => {
-      jest.setSystemTime(BASE_TIME + 4000);
-      monotonicTime += 100;
-      return true;
-    });
-    await systemTimeUtils.handleServerResponseDate({
-      source: 'axios',
-      headerDate: new Date(BASE_TIME).toUTCString(),
-      url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
-      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
-    });
-    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBeUndefined();
-    expectNoTimeError();
   });
 
   it('notifies once when the health response also passes through the interceptor', async () => {
@@ -527,8 +342,7 @@ describe('system time error notifications', () => {
       await systemTimeUtils.handleServerResponseDate({
         source: 'axios',
         headerDate: date,
-        url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
-        requestStart: systemTimeUtils.captureServerTimeRequestStart(),
+        url: 'https://wallet.onekeycn.com/wallet/v1/health',
       });
       return { headers: { date } };
     });
@@ -538,29 +352,6 @@ describe('system time error notifications', () => {
     expect(
       mockEmit.mock.calls.filter(([name]) => name === 'LocalSystemTimeInvalid'),
     ).toHaveLength(1);
-  });
-
-  it('does not seed the estimator from a managed health probe in the fetch transport', async () => {
-    const resumedAt = BASE_TIME + MINUTE;
-    jest.setSystemTime(resumedAt);
-
-    await systemTimeUtils.handleServerResponseDate({
-      source: 'fetch',
-      headerDate: new Date(BASE_TIME).toUTCString(),
-      url: 'https://wallet.onekeycn.com/wallet/v1/health',
-      requestUrl:
-        'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
-      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
-    });
-
-    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBeUndefined();
-    await systemTimeUtils.handleServerResponseDate({
-      source: 'fetch',
-      headerDate: new Date(resumedAt).toUTCString(),
-      url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
-      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
-    });
-    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBe(resumedAt);
   });
 
   it('confirms a real clock error despite slow client setup and a network retry', async () => {
@@ -637,7 +428,7 @@ describe('system time error notifications', () => {
       return { headers: { date: new Date(BASE_TIME).toUTCString() } };
     });
 
-    await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(false);
+    await systemTimeUtils.refreshServerTime();
 
     expectNoTimeError();
     expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);

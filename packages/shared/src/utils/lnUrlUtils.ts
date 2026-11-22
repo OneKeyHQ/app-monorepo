@@ -3,15 +3,11 @@ import { bech32 } from 'bech32';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import stringUtils from './stringUtils';
-
-const LNURL_BECH32_LIMIT = 2000;
-
 export function bech32Decode(
   input: string,
   encoding: BufferEncoding = 'utf-8',
 ) {
-  const { words: data } = bech32.decode(input, LNURL_BECH32_LIMIT);
+  const { words: data } = bech32.decode(input, 2000);
   const byteData = bech32.fromWords(data);
   return Buffer.from(byteData).toString(encoding);
 }
@@ -56,15 +52,22 @@ export const isLightningAddress = (address?: string) => {
 
 export const findLnurl = memoizee(
   (text: string) => {
-    const input = text.trim();
-    const url = /^lnurl[pwc]:(\S+)$/i.exec(input)?.[1];
-    if (url) {
-      return url;
+    const trimmedText = text.trim();
+    let match;
+
+    // protocol scheme
+    match = trimmedText.match(/lnurl[pwc]:(\S+)/i);
+    if (match) {
+      return match[1];
     }
-    const decoded = /^lnurl1/i.test(input)
-      ? bech32.decodeUnsafe(input, LNURL_BECH32_LIMIT)
-      : undefined;
-    return decoded?.prefix === 'lnurl' && decoded.words.length ? input : null;
+
+    // bech32
+    match = trimmedText.match(/(lnurl[a-zA-HJ-NP-Z0-9]+)/i);
+    if (match) {
+      return match[1];
+    }
+
+    return null;
   },
   {
     maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
@@ -81,453 +84,33 @@ const UPPER_CASE_BECH32 = /^LN[0-9A-Z]+$/;
 export const hasLightningUriScheme = (input: string) =>
   LIGHTNING_URI_SCHEME.test(input.trim());
 
+// Reduces what a user scans or pastes to the bare invoice, LNURL or lightning
+// address it carries.
 export const normalizeLightningInput = (input: string): string => {
   const payload = input.trim().replace(LIGHTNING_URI_SCHEME, '');
   return UPPER_CASE_BECH32.test(payload) ? payload.toLowerCase() : payload;
 };
 
-const SUPPORTED_INVOICE_PREFIX = /^ln(bc|tb)(\d+[munp]?)?$/;
-
 export function getLightningInvoiceNetwork(
   address: string,
 ): 'mainnet' | 'testnet' | undefined {
+  if (!/^ln(?:bc|tb)[0-9a-z]+$/i.test(address)) return;
   const invoice = bech32.decodeUnsafe(address, address.length);
-  const prefix = SUPPORTED_INVOICE_PREFIX.exec(invoice?.prefix ?? '')?.[1];
-  if (prefix) {
-    return prefix === 'tb' ? 'testnet' : 'mainnet';
+  const network = /^ln(bc|tb)(\d+[munp]?)?$/.exec(invoice?.prefix ?? '')?.[1];
+  // BOLT 11 requires a seven-word timestamp and a 104-word signature.
+  if (network && invoice && invoice.words.length >= 111) {
+    return network === 'tb' ? 'testnet' : 'mainnet';
   }
+}
+
+export function isLnurlCode(address: string): boolean {
+  if (/^lnurl[pwc]:\S+$/i.test(address)) return true;
+  if (!/^lnurl1[0-9a-z]+$/i.test(address)) return false;
+  const decoded = bech32.decodeUnsafe(address, 2000);
+  return decoded?.prefix === 'lnurl' && decoded.words.length > 0;
 }
 
 export const isReusableLightningRecipient = (input?: string): boolean => {
   if (!input) return false;
   return isLightningAddress(input) || !!findLnurl(input);
 };
-
-const LNURL_URI_SCHEME = /^lnurl[pwc]:/i;
-const LNURL_LINE_BREAK = /\r\n?|[\n\u2028\u2029]/;
-const LNURL_SCHEME_WITH_LINE_BREAKS =
-  /l[\r\n\u2028\u2029]*n[\r\n\u2028\u2029]*u[\r\n\u2028\u2029]*r[\r\n\u2028\u2029]*l[\r\n\u2028\u2029]*[pwc][\r\n\u2028\u2029]*:/gi;
-const LNURL_BECH32_WRAP_START =
-  /(?:^|[\s<("':：;；])(?:lightning:(?:\/\/)?)?(lnurl1[02-9ac-hj-np-z]*)(?=[ \t]*[\r\n\u2028\u2029])/gi;
-const LNURL_BECH32_WRAP_CONTINUATION =
-  /(?:[ \t]*[\r\n\u2028\u2029])+[ \t]*([02-9ac-hj-np-z]+)(?=$|[\s>)"'.,!?，。！？;；])/iy;
-const LNURL_NUMBERED_LIST_MARKER =
-  /(?:^|\r\n?|[\n\u2028\u2029])[^\S\r\n\u2028\u2029]*(\d+)\)(?=\s|$)/gu;
-const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
-// A compact label such as Order:AB34 can be part of a URL query value.
-const LNURL_TAB_ORDER_LABEL =
-  /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] +)(?=\S)/iy;
-const LNURL_WRAPPER_BOUNDARY = /[\s.,!?，。！？;；:：)>"']/u;
-// An em dash introduces prose only within the same line and spreadsheet cell.
-const LNURL_CLOSER_END =
-  /[)>"'.,!?，。！？;；:：]*(?:—(?=[^\S\t\r\n\u2028\u2029]+\S))?(?=\s|$)/uy;
-const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
-  '<': '>',
-  '"': '"',
-  "'": "'",
-};
-
-type IReusableLightningRecipient =
-  | { kind: 'recipient'; address: string }
-  | { kind: 'ambiguous' };
-
-type IClosingParenthesis = {
-  index: number;
-  outer: IClosingParenthesis | undefined;
-  count: number;
-  sameLineCount: number;
-};
-
-function getNumberedListClosers(text: string) {
-  const closers = new Set<number>();
-  const nextLineBreak = new RegExp(LNURL_LINE_BREAK.source, 'g');
-  let nextItemLine = -1;
-  let nextItemNumber = 0;
-  for (const match of text.matchAll(LNURL_NUMBERED_LIST_MARKER)) {
-    const [marker, ordinal] = match;
-    let previousEnd = match.index;
-    while (
-      previousEnd > 0 &&
-      /[^\S\r\n\u2028\u2029]/u.test(text[previousEnd - 1])
-    ) {
-      previousEnd -= 1;
-    }
-    const beginsList =
-      ordinal === '1' && /[.!?。！？]/u.test(text[previousEnd - 1] ?? '');
-    const continuesList =
-      match.index === nextItemLine && ordinal === String(nextItemNumber);
-    if (beginsList || continuesList) {
-      const markerEnd = match.index + marker.length;
-      closers.add(markerEnd - 1);
-      nextLineBreak.lastIndex = markerEnd;
-      nextItemLine = nextLineBreak.exec(text)?.index ?? -1;
-      nextItemNumber = Number(ordinal) + 1;
-    }
-  }
-  return closers;
-}
-
-function lightningRecipientKey(address: string) {
-  return normalizeLightningInput(address).replace(LNURL_URI_SCHEME, (scheme) =>
-    scheme.toLowerCase(),
-  );
-}
-
-function areSameLightningRecipients(first: string, second: string) {
-  if (first === second) return true;
-  const firstIsBech32 = first.startsWith('lnurl1');
-  if (firstIsBech32 === second.startsWith('lnurl1')) return false;
-  const [encoded, raw] = firstIsBech32 ? [first, second] : [second, first];
-  const destination = /^lnurl[pwc]:\/\/(\S+)$/u.exec(raw)?.[1];
-  if (!destination) return false;
-  try {
-    // LUD-17 replaces HTTPS for clearnet and HTTP for onion endpoints.
-    const { hostname } = new URL(`https://${destination}`);
-    const protocol = hostname.endsWith('.onion') ? 'http' : 'https';
-    const endpoint = Buffer.from(`${protocol}://${destination}`).toString(
-      'hex',
-    );
-    return bech32Decode(encoded, 'hex') === endpoint;
-  } catch (_error) {
-    return false;
-  }
-}
-
-function hasAdjacentLnurl(address: string) {
-  return (
-    /[;；]/u.test(address) &&
-    address
-      .split(/[;；]/u)
-      .slice(1)
-      .some((part) => findLnurl(normalizeLightningInput(part)))
-  );
-}
-
-function hasCompetingWrappedLnurl(address: string, recipientKey: string) {
-  for (const start of address.matchAll(LNURL_BECH32_WRAP_START)) {
-    let code = start[1];
-    LNURL_BECH32_WRAP_CONTINUATION.lastIndex = start.index + start[0].length;
-    for (
-      let next = LNURL_BECH32_WRAP_CONTINUATION.exec(address);
-      next && code.length + next[1].length <= LNURL_BECH32_LIMIT;
-      next = LNURL_BECH32_WRAP_CONTINUATION.exec(address)
-    ) {
-      code += next[1];
-      // A valid code can end at a line break before unrelated text.
-      if (
-        findLnurl(code) &&
-        !areSameLightningRecipients(lightningRecipientKey(code), recipientKey)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function indexClosingParentheses(text: string, ignoredClosers?: Set<number>) {
-  const closers: IClosingParenthesis[] = [];
-  const matching = new Map<number, IClosingParenthesis>();
-  let lineEnd = text.length;
-  for (let index = text.length - 1; index >= 0; index -= 1) {
-    const char = text[index];
-    if (char === ')' && !ignoredClosers?.has(index)) {
-      const outer = closers.at(-1);
-      closers.push({
-        index,
-        outer,
-        count: (outer?.count ?? 0) + 1,
-        sameLineCount:
-          outer && outer.index < lineEnd ? outer.sameLineCount + 1 : 1,
-      });
-    } else if (char === '(') {
-      const closer = closers.pop();
-      if (closer) matching.set(index, closer);
-    } else if (LNURL_LINE_BREAK.test(char)) {
-      lineEnd = index;
-    }
-  }
-  return matching;
-}
-
-function hasUnbrokenClosingSuffix(
-  address: string,
-  tokenEnd: number,
-  firstCloser: IClosingParenthesis,
-) {
-  for (
-    let closer: IClosingParenthesis | undefined = firstCloser;
-    closer && closer.index < tokenEnd;
-    closer = closer.outer
-  ) {
-    const next = address[closer.index + 1];
-    if (!next || LNURL_WRAPPER_BOUNDARY.test(next)) {
-      return /^\)+[.,!?，。！？]*$/u.test(
-        address.slice(closer.index, tokenEnd),
-      );
-    }
-  }
-  return false;
-}
-
-function readParenthesizedLnurl({
-  address,
-  tokenStart,
-  tokenEnd,
-  directEnd,
-  enclosingDepth,
-  firstCloser,
-  hasUriContinuation,
-}: {
-  address: string;
-  tokenStart: number;
-  tokenEnd: number;
-  directEnd: number;
-  enclosingDepth: number;
-  firstCloser: IClosingParenthesis | undefined;
-  hasUriContinuation: boolean;
-}): string | null {
-  if (!firstCloser) return null;
-  // Reserve closers for enclosing prose only when all openers can be paired.
-  const reserved = firstCloser.count > enclosingDepth ? enclosingDepth : 0;
-  let wrapperEnd: number | undefined;
-  for (
-    let closer: IClosingParenthesis | undefined = firstCloser;
-    closer && closer.count > reserved;
-    closer = closer.outer
-  ) {
-    const { index } = closer;
-    if (!enclosingDepth && index >= directEnd) break;
-    const next = address[index + 1];
-    if (index >= tokenEnd || !next || LNURL_WRAPPER_BOUNDARY.test(next)) {
-      // Prose on later lines can close enclosing parentheses but does not
-      // supply the only evidence for the end of this URL.
-      if (index >= directEnd && wrapperEnd === undefined) return null;
-      const end = Math.min(index, tokenEnd);
-      if (wrapperEnd !== undefined && wrapperEnd !== end) return null;
-      wrapperEnd = end;
-      if (end === tokenEnd) break;
-    }
-  }
-  if (
-    wrapperEnd === undefined ||
-    (wrapperEnd === tokenEnd && hasUriContinuation)
-  ) {
-    return null;
-  }
-  return address.slice(tokenStart, wrapperEnd);
-}
-
-function readReusableLightningRecipient(
-  address: string,
-): IReusableLightningRecipient | undefined {
-  if (isReusableLightningRecipient(address)) {
-    if (LNURL_URI_SCHEME.test(address.trim()) && hasAdjacentLnurl(address)) {
-      return { kind: 'ambiguous' };
-    }
-    return { kind: 'recipient', address };
-  }
-  const standaloneLines = normalizeLightningInput(address)
-    .trim()
-    .split(LNURL_LINE_BREAK);
-  if (
-    standaloneLines[1]?.trim() &&
-    /^lnurl[pwc]:\S+$/i.test(standaloneLines.join(''))
-  ) {
-    return { kind: 'ambiguous' };
-  }
-  // Payment text can contain an LNURL as a separate token. Keep QR detection
-  // strict so a scan cannot interpret arbitrary text as a payment.
-  const candidates = address.matchAll(
-    /(^|[\s<("':：;；])((?:lightning:(?:\/\/)?)?(?:lnurl1[0-9a-z]+|lnurl[pwc]:[^\s<>"]+))(?=$|[\s>)"'.,!?，。！？;；])/gi,
-  );
-  const lineBreaks = address.matchAll(new RegExp(LNURL_LINE_BREAK.source, 'g'));
-  let lineBreak = lineBreaks.next().value;
-  let followingBreak = lineBreaks.next().value;
-  let firstAfter = 0;
-  let prefixCursor = 0;
-  let enclosingDepth = 0;
-  let closingParentheses: Map<number, IClosingParenthesis> | undefined;
-  let closingWithoutListMarkers: Map<number, IClosingParenthesis> | undefined;
-  let recipient: string | undefined;
-  let recipientKey: string | undefined;
-  for (const match of candidates) {
-    const [, opener, input] = match;
-    const tokenStart = match.index + opener.length;
-    const tokenEnd = tokenStart + input.length;
-    while (lineBreak && lineBreak.index < tokenEnd) {
-      lineBreak = followingBreak;
-      followingBreak = lineBreaks.next().value;
-    }
-    const lineEnd = lineBreak?.index ?? address.length;
-    firstAfter = Math.max(firstAfter, tokenEnd);
-    while (firstAfter < address.length && /\s/u.test(address[firstAfter])) {
-      firstAfter += 1;
-    }
-    const noSameLineSuffix = firstAfter >= lineEnd;
-    LNURL_CLOSER_END.lastIndex = firstAfter;
-    LNURL_TAB_ORDER_LABEL.lastIndex = firstAfter;
-    const hasUriContinuation =
-      LNURL_QUERY_CONTINUATION.test(
-        address.slice(firstAfter, firstAfter + 2),
-      ) ||
-      (!noSameLineSuffix &&
-        address.slice(tokenEnd, firstAfter).includes('\t') &&
-        !LNURL_CLOSER_END.test(address) &&
-        !LNURL_TAB_ORDER_LABEL.test(address));
-    let candidate: string | undefined;
-    if (
-      opener === '(' &&
-      LNURL_URI_SCHEME.test(normalizeLightningInput(input))
-    ) {
-      closingParentheses ??= indexClosingParentheses(address);
-      while (prefixCursor < match.index) {
-        const char = address[prefixCursor];
-        if (LNURL_LINE_BREAK.test(char)) enclosingDepth = 0;
-        else if (char === '(') enclosingDepth += 1;
-        else if (char === ')' && enclosingDepth > 0) enclosingDepth -= 1;
-        prefixCursor += 1;
-      }
-      LNURL_CLOSER_END.lastIndex = firstAfter + 1;
-      const closesOnNextLine =
-        noSameLineSuffix &&
-        address[firstAfter] === ')' &&
-        LNURL_CLOSER_END.test(address);
-      const wrapper = {
-        address,
-        tokenStart,
-        tokenEnd,
-        directEnd: closesOnNextLine ? firstAfter + 1 : lineEnd,
-        enclosingDepth,
-        hasUriContinuation,
-      };
-      const firstCloser = closingParentheses.get(match.index);
-      let uri = readParenthesizedLnurl({ ...wrapper, firstCloser });
-      if (
-        !uri &&
-        lineBreak &&
-        enclosingDepth > 0 &&
-        firstCloser &&
-        firstCloser.sameLineCount > enclosingDepth &&
-        hasUnbrokenClosingSuffix(address, tokenEnd, firstCloser)
-      ) {
-        // The link and enclosing prose can both close on this line. If any
-        // plausible closer splits the link token, a later line can still matter.
-        if (!closingWithoutListMarkers) {
-          const listClosers = getNumberedListClosers(address);
-          closingWithoutListMarkers = listClosers.size
-            ? indexClosingParentheses(address, listClosers)
-            : closingParentheses;
-        }
-        uri = readParenthesizedLnurl({
-          ...wrapper,
-          firstCloser: closingWithoutListMarkers.get(match.index),
-        });
-      }
-      if (!uri) return { kind: 'ambiguous' };
-      const normalized = normalizeLightningInput(uri);
-      if (!findLnurl(normalized)) return { kind: 'ambiguous' };
-      candidate = normalized;
-    } else {
-      // Strip adjacent prose only when the end of the wrapper identifies it.
-      const closer = LNURL_WRAPPER_CLOSERS[opener];
-      const token = input.replace(/[.,!?，。！？]+$/u, '');
-      const closedInToken = closer && token.endsWith(closer);
-      const uri = closedInToken ? token.slice(0, -1) : input;
-      const normalized = normalizeLightningInput(uri);
-      if (findLnurl(normalized)) candidate = normalized;
-      if (candidate && LNURL_URI_SCHEME.test(candidate) && !closedInToken) {
-        if (closer) {
-          if (address[firstAfter] !== closer) {
-            return { kind: 'ambiguous' };
-          }
-        } else {
-          // A blank line can separate paragraphs outside an explicit wrapper.
-          if (
-            (noSameLineSuffix &&
-              firstAfter < (followingBreak?.index ?? address.length)) ||
-            hasUriContinuation
-          ) {
-            return { kind: 'ambiguous' };
-          }
-        }
-      }
-    }
-    if (candidate !== undefined) {
-      if (LNURL_URI_SCHEME.test(candidate) && hasAdjacentLnurl(candidate)) {
-        return { kind: 'ambiguous' };
-      }
-      const key = lightningRecipientKey(candidate);
-      if (
-        recipientKey !== undefined &&
-        !areSameLightningRecipients(recipientKey, key)
-      ) {
-        return { kind: 'ambiguous' };
-      }
-      // Keep a specific action for comparing subsequent formats.
-      if (recipientKey === undefined || recipientKey.startsWith('lnurl1')) {
-        recipientKey = key;
-      }
-      recipient ??= candidate;
-    }
-  }
-  if (recipient !== undefined) return { kind: 'recipient', address: recipient };
-}
-
-export const parseReusableLightningRecipient = memoizee(
-  (address: string): IReusableLightningRecipient | undefined => {
-    const recipient = readReusableLightningRecipient(address);
-    if (recipient?.kind === 'ambiguous' || !LNURL_LINE_BREAK.test(address)) {
-      return recipient;
-    }
-
-    // Check a split scheme for a competing destination before using any
-    // intact address. This check never uses the repaired address as a recipient.
-    const restoredSchemes = address.replace(
-      LNURL_SCHEME_WITH_LINE_BREAKS,
-      (scheme) => scheme.replace(/[\r\n\u2028\u2029]+/g, ''),
-    );
-    if (restoredSchemes !== address) {
-      const restored = readReusableLightningRecipient(restoredSchemes);
-      if (
-        restored?.kind === 'ambiguous' ||
-        (restored?.kind === 'recipient' &&
-          (recipient === undefined ||
-            !areSameLightningRecipients(
-              lightningRecipientKey(restored.address),
-              lightningRecipientKey(recipient.address),
-            )))
-      ) {
-        return { kind: 'ambiguous' };
-      }
-    }
-    if (recipient) {
-      return hasCompetingWrappedLnurl(
-        address,
-        lightningRecipientKey(recipient.address),
-      )
-        ? { kind: 'ambiguous' }
-        : recipient;
-    }
-
-    const singleLine = stringUtils.stripLineBreaks(address);
-    if (singleLine === address) return undefined;
-    const joined = readReusableLightningRecipient(singleLine);
-    // Clipboard cleanup can rejoin a verified Bech32 code, but a URI has no
-    // checksum to confirm that joining its lines preserves the destination.
-    if (
-      joined?.kind === 'recipient' &&
-      LNURL_URI_SCHEME.test(normalizeLightningInput(joined.address))
-    ) {
-      return { kind: 'ambiguous' };
-    }
-  },
-  { max: 4, maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }) },
-);
-
-export function isAmbiguousLnurl(input: string): boolean {
-  return (
-    (LNURL_LINE_BREAK.test(input) || /lnurl(?:[pwc]:|1)/i.test(input)) &&
-    parseReusableLightningRecipient(input)?.kind === 'ambiguous'
-  );
-}

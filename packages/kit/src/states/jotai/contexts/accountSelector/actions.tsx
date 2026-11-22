@@ -2105,14 +2105,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         walletId: string | undefined;
         indexedAccountId: string | undefined;
-        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, walletId, indexedAccountId, shouldCommit } = payload;
+      const { num, walletId, indexedAccountId } = payload;
       await this.updateSelectedAccount.call(set, {
         num,
         reason: 'updateSelectedAccountForHdOrHwAccount',
-        shouldCommit,
         builder: (v) => ({
           ...v,
           walletId,
@@ -4129,8 +4127,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       params: IDBCreateQRWalletParams & {
         isOnboarding?: boolean;
-        assertCanCreate?: () => void;
-        addressCreationPromiseId?: number;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -4140,11 +4136,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (!qrDevice) {
             throw new OneKeyLocalError('qrDevice is required');
           }
-          params.assertCanCreate?.();
           const result = await serviceAccount.createQrWallet({
             qrDevice,
             airGapAccounts,
-            addressCreationPromiseId: params.addressCreationPromiseId,
           });
           if (params?.isOnboarding) {
             await this.autoSelectToCreatedWallet.call(set, result);

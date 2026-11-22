@@ -18,7 +18,6 @@ import {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import type { IAddressCreationRequest } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -36,8 +35,6 @@ export function AccountSelectorCreateAddressButton({
   account,
   buttonRender,
   onCreateDone,
-  canStartAddressCreation,
-  addressCreationRequest,
   onPressLog,
   createAllDeriveTypes,
   createAllEnabledNetworks,
@@ -62,8 +59,6 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined,
   ) => void;
-  canStartAddressCreation?: () => boolean;
-  addressCreationRequest?: IAddressCreationRequest;
   onPressLog?: () => void;
   createAllDeriveTypes?: boolean;
   createAllEnabledNetworks?: boolean;
@@ -145,7 +140,7 @@ export function AccountSelectorCreateAddressButton({
 
   const doCreate = useCallback(async () => {
     defaultLogger.account.accountCreatePerf.createAddressRunStart();
-    if (isLoadingRef.current || canStartAddressCreation?.() === false) {
+    if (isLoadingRef.current) {
       return;
     }
     if (!accountRef.current?.deriveType) {
@@ -188,15 +183,12 @@ export function AccountSelectorCreateAddressButton({
         );
       }
 
-      if (canStartAddressCreation?.() === false) return;
       resp = await createAddress({
         num,
         selectAfterCreate,
         account: accountToCreate,
         createAllDeriveTypes,
         customNetworks,
-        addressCreationRequest,
-        canStartAddressCreation,
       });
       defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
@@ -218,8 +210,6 @@ export function AccountSelectorCreateAddressButton({
     num,
     selectAfterCreate,
     createAllDeriveTypes,
-    canStartAddressCreation,
-    addressCreationRequest,
     onCreateDone,
   ]);
 

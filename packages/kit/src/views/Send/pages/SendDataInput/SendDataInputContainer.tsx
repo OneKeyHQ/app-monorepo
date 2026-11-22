@@ -28,7 +28,6 @@ import {
   Toast,
   XStack,
   YStack,
-  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -83,7 +82,10 @@ import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IZcashMemoEncoding } from '@onekeyhq/shared/src/utils/zcashMemo';
@@ -631,22 +633,26 @@ function SendDataInputContainer() {
 
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
-      const scanNetwork = result.data?.network;
       if (
         result.type === EQRCodeHandlerType.UNKNOWN ||
-        !scanNetwork ||
-        scanNetwork.id !== form.getValues('networkId')
+        !result?.data?.network
       ) {
         return;
       }
-
-      const tokenAddress = result.data?.tokenAddress;
-      const scanNetworkId = scanNetwork.id;
+      const tokenAddress = result?.data?.tokenAddress;
+      const scanNetworkId =
+        result?.data?.network?.id || currentAccount.networkId;
+      if (
+        result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
+        scanNetworkId !== form.getValues('networkId')
+      ) {
+        return;
+      }
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
-          network: scanNetwork,
-        })) || currentAccount.accountId;
+          network: result.data.network,
+        })) || currentAccount?.accountId;
 
       if (scanAccountId) {
         let scanToken: IToken | null = null;
@@ -665,50 +671,30 @@ function SendDataInputContainer() {
         }
         if (scanToken) {
           const amountFromScan = await parseOnChainAmount(result, scanToken);
-          if (form.getValues('networkId') !== scanNetworkId) {
-            return;
-          }
           if (amountFromScan) {
             setScannedAmount(amountFromScan);
           }
-          if (currentAccount.accountId) {
-            setCurrentAccount({
-              accountId: currentAccount.accountId,
-              networkId: scanNetworkId,
-            });
-            setTokenInfo(scanToken);
+          const formNetworkId = form.getValues('networkId');
+          if (formNetworkId === scanNetworkId) {
+            if (currentAccount.accountId && scanNetworkId) {
+              setCurrentAccount({
+                accountId: currentAccount.accountId,
+                networkId: scanNetworkId,
+              });
+              setTokenInfo(scanToken);
+            }
           }
         }
       }
     },
-    [account, currentAccount.accountId, form],
+    [account, currentAccount.accountId, currentAccount.networkId, form],
   );
 
   const navigateToAmountInputCore = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      const isLightning = networkUtils.isLightningNetworkByNetworkId(
-        currentAccount.networkId,
-      );
+      // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
-      const submittedRaw = form.getValues('to')?.raw;
-      const getCurrentLightningRecipient = () => {
-        if (
-          isUnmountedRef.current ||
-          rootNavigationRef.current?.getCurrentRoute()?.key !== route.key
-        )
-          return undefined;
-        const recipient = form.getValues('to');
-        if (
-          !recipient?.pending &&
-          recipient?.raw === submittedRaw &&
-          recipient?.resolved === toResolved
-        ) {
-          return recipient.resolved;
-        }
-        return undefined;
-      };
-      if (isLightning && !getCurrentLightningRecipient()) return;
 
       // Reject sending to a deactivated Bot Wallet account. The helper covers
       // the BTC fresh-address fallback so the regular index miss does not
@@ -718,7 +704,6 @@ function SendDataInputContainer() {
           networkId: currentAccount.networkId,
           address: toResolved,
         });
-      if (isLightning && !getCurrentLightningRecipient()) return;
       if (isDeactivatedBotReceiver) {
         Toast.error({
           title: '该 Bot 钱包已停用，无法作为接收地址',
@@ -731,7 +716,6 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
-      if (isLightning && !getCurrentLightningRecipient()) return;
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -754,23 +738,21 @@ function SendDataInputContainer() {
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
-      const lightningRecipient = isLightning
-        ? getCurrentLightningRecipient()
-        : undefined;
-      if (isLightning && !lightningRecipient) return;
+      // Reuse the matching amount-input route for the active modal stack.
+
+      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+        currentAccount.networkId,
+      );
 
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
-      if (
-        lightningRecipient &&
-        account &&
-        isReusableLightningRecipient(lightningRecipient)
-      ) {
+      const rawInput = normalizeLightningInput(toVal?.raw ?? '');
+      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
         const transfersInfo: ITransferInfo[] = [
           {
             from: account.address,
-            to: lightningRecipient,
+            to: rawInput,
             amount: '0',
             tokenInfo: tokenInfo ?? undefined,
           },
@@ -778,7 +760,6 @@ function SendDataInputContainer() {
         await signatureConfirm.navigationToTxConfirm({
           transfersInfo,
           sameModal: true,
-          isNavigationCurrent: () => Boolean(getCurrentLightningRecipient()),
           onSuccess,
           onFail,
           onCancel,
@@ -786,7 +767,7 @@ function SendDataInputContainer() {
             amountToSend: '0',
             isMaxSend: false,
             isNFT: false,
-            originalRecipient: lightningRecipient,
+            originalRecipient: rawInput,
             isToContract: false,
           },
           isInternalTransfer: true,
@@ -797,19 +778,18 @@ function SendDataInputContainer() {
       // For Lightning invoices, decode the invoice to extract embedded amount
       let invoiceAmount: string | undefined;
       let isInvoiceAmountLocked = false;
-      if (lightningRecipient) {
+      if (isLightning && toResolved) {
         try {
           const isZeroAmount =
             await backgroundApiProxy.serviceLightning.isZeroAmountInvoice({
-              paymentRequest: lightningRecipient,
+              paymentRequest: toResolved,
               networkId: currentAccount.networkId,
               accountId: currentAccount.accountId,
             });
-          if (!getCurrentLightningRecipient()) return;
           if (!isZeroAmount) {
             const decoded =
               await backgroundApiProxy.serviceLightning.decodedInvoice({
-                paymentRequest: lightningRecipient,
+                paymentRequest: toResolved,
                 networkId: currentAccount.networkId,
                 accountId: currentAccount.accountId,
               });
@@ -828,8 +808,6 @@ function SendDataInputContainer() {
         }
       }
 
-      if (isLightning && !getCurrentLightningRecipient()) return;
-
       // For fixed-amount Lightning invoices, skip amount page and go to confirm
       if (isInvoiceAmountLocked && invoiceAmount && account) {
         const transfersInfo: ITransferInfo[] = [
@@ -843,7 +821,6 @@ function SendDataInputContainer() {
         await signatureConfirm.navigationToTxConfirm({
           transfersInfo,
           sameModal: true,
-          isNavigationCurrent: () => Boolean(getCurrentLightningRecipient()),
           onSuccess,
           onFail,
           onCancel,
@@ -961,7 +938,6 @@ function SendDataInputContainer() {
     intl,
     network?.name,
     isZcashMemo,
-    route.key,
   ]);
 
   const handleNavigateToAmountInput = useCallback(async () => {

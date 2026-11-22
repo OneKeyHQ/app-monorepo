@@ -159,12 +159,6 @@ export type IEventBusPayloadAccountUpdate = {
 // shared never depends on kit types or its search-results presentation.
 export type ISettingsSearchResultItem = FuseResult<unknown>;
 
-export type IAddressCreationRequest = {
-  nodeId: string;
-  id: string;
-  promiseId?: number;
-};
-
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -301,7 +295,6 @@ export interface IAppEventBusPayload {
     title?: string;
     promiseId?: number;
     valueUr: IAirGapUrJson;
-    addressCreationRequest?: IAddressCreationRequest;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
@@ -578,12 +571,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RefreshNetInfo]: undefined;
   [EAppEventBusNames.ShowSwitchAccountSelector]: {
     networkId: string;
-    addressCreationRequest?: IAddressCreationRequest;
   };
   [EAppEventBusNames.CreateAddressByDialog]: {
     networkId: string;
-    walletId?: string;
-    addressCreationRequest?: IAddressCreationRequest;
     indexedAccountId: string;
     promiseId: number;
     autoCreateAddress: boolean;

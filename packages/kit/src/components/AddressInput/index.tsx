@@ -26,7 +26,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { parseReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -403,13 +402,7 @@ export function AddressInput(props: IAddressInputProps) {
       text: string;
       inputType: EInputAddressChangeType;
     }) => {
-      const singleLineText = stringUtils.stripLineBreaks(text);
-      const normalizedText =
-        singleLineText !== text &&
-        networkUtils.isLightningNetworkByNetworkId(networkId) &&
-        parseReusableLightningRecipient(text)
-          ? text
-          : singleLineText;
+      const normalizedText = stringUtils.stripLineBreaks(text);
       inputTypeRef.current = inputType;
       if (textRef.current !== normalizedText) {
         selectedResolveAddressRef.current = undefined;
@@ -423,7 +416,7 @@ export function AddressInput(props: IAddressInputProps) {
         });
       }
     },
-    [networkId, onChange, onInputTypeChange],
+    [onChange, onInputTypeChange],
   );
 
   const onRefresh = useCallback(() => setRefreshNum((prev) => prev + 1), []);

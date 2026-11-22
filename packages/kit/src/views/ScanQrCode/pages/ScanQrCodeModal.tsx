@@ -1,10 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import {
-  useFocusEffect,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -18,7 +14,6 @@ import {
   Toast,
   XStack,
   YStack,
-  rootNavigationRef,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -27,7 +22,6 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
@@ -54,33 +48,12 @@ appGlobals.$$scanNavigation = undefined;
 // Width kept for the hints beside the camera in the landscape layout.
 const LANDSCAPE_HINTS_MIN_WIDTH = 260;
 
-type IScanNavigationState = {
-  routes: readonly { key?: string; state?: IScanNavigationState }[];
-};
-
-type IPhotoValidation = {
-  signal: AbortSignal | undefined;
-  generation: number;
-  applying: boolean;
-};
-
-function hasRouteKey(
-  state: IScanNavigationState | undefined,
-  key: string,
-): boolean {
-  return (
-    state?.routes.some(
-      (route) => route.key === key || hasRouteKey(route.state, key),
-    ) ?? false
-  );
-}
-
 function DebugInput({
   onText,
   onClose,
 }: {
   onText: (text: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
@@ -98,7 +71,7 @@ function DebugInput({
       <YStack pb={bottom}>
         <XStack>
           <IconButton
-            onPress={onClose}
+            onPress={onClose ?? (() => navigation.popStack())}
             icon="CrossedLargeOutline"
             variant="destructive"
             testID={ScanQrCodeTestIDs.debugCloseBtn}
@@ -131,7 +104,6 @@ function DebugInput({
       <MultipleClickStack
         triggerAt={process.env.NODE_ENV === 'production' ? 10 : 3}
         showDevBgColor
-        testID={ScanQrCodeTestIDs.debugTrigger}
         w="$8"
         h="$8"
         onPress={() => setVisible(true)}
@@ -243,20 +215,11 @@ function ScanQrCodeModalFooter({
 export default function ScanQrCodeModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const reactNavigation = useNavigation();
   const scannerRef = useRef<IScanCameraRef>(null);
-  const scanScope = useRef<AbortController | null>(null);
-  const childScanScope = useRef<{
-    controller: AbortController;
-    released: boolean;
-  } | null>(null);
-  const isFocused = useRef(false);
-  const scanGeneration = useRef(0);
-  const photoAttemptId = useRef(0);
-  const photoPickerDone = useRef<Promise<void> | undefined>(undefined);
-  const photoValidation = useRef<IPhotoValidation | null>(null);
-  const handoffOwner = useRef<symbol | undefined>(undefined);
-  const exitReason = useRef<'result' | 'cancelled' | undefined>(undefined);
+  const closeScanner = useCallback(() => {
+    scannerRef.current?.dispose();
+    navigation.popStack();
+  }, [navigation]);
   const route =
     useRoute<
       RouteProp<
@@ -269,75 +232,9 @@ export default function ScanQrCodeModal() {
     qrWalletScene,
     showProTutorial,
   } = route.params;
-  const photoRetryToastId = `${route.key}:photo-retry`;
-  useFocusEffect(
-    useCallback(() => {
-      const retained = childScanScope.current;
-      const controller = retained?.controller ?? new AbortController();
-      scanScope.current = controller;
-      isFocused.current = true;
-      if (retained?.released) childScanScope.current = null;
-      return () => {
-        isFocused.current = false;
-        if (childScanScope.current?.controller !== controller) {
-          controller.abort();
-        }
-        Toast.dismiss(photoRetryToastId);
-      };
-    }, [photoRetryToastId]),
-  );
 
-  const isScanOpen = useCallback(
-    () => hasRouteKey(rootNavigationRef.current?.getRootState(), route.key),
-    [route.key],
-  );
-  const onResultWillClose = useCallback(() => {
-    exitReason.current = 'result';
-  }, []);
-  const cancelScan = useCallback(() => {
-    if (exitReason.current) return;
-    exitReason.current = 'cancelled';
-    scanScope.current?.abort();
-    childScanScope.current = null;
-    Toast.dismiss(photoRetryToastId);
-    void routeCallback({
-      value: '',
-      popNavigation: false,
-    });
-  }, [photoRetryToastId, routeCallback]);
-
-  useEffect(() => {
-    const unsubscribe = reactNavigation.addListener('beforeRemove', cancelScan);
-    return () => {
-      unsubscribe();
-      if (!isScanOpen()) cancelScan();
-    };
-  }, [cancelScan, isScanOpen, reactNavigation]);
-
-  const isScanActive = useCallback(
-    (signal: AbortSignal | undefined) =>
-      !exitReason.current &&
-      signal?.aborted === false &&
-      scanScope.current?.signal === signal &&
-      rootNavigationRef.current?.getCurrentRoute()?.key === route.key,
-    [route.key],
-  );
   const callback = useCallback(
-    async (
-      value: string,
-      signal = scanScope.current?.signal,
-      generation = scanGeneration.current,
-      validation?: IPhotoValidation,
-    ) => {
-      const resultOwner = Symbol('scan result');
-      let resultGeneration = generation;
-      const canApplyScanResult = () =>
-        isScanActive(signal) &&
-        resultGeneration === scanGeneration.current &&
-        (!handoffOwner.current || handoffOwner.current === resultOwner);
-      if (value && !canApplyScanResult()) {
-        return { retry: true };
-      }
+    async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
           await appStorage.syncStorage.set(
@@ -347,146 +244,19 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      const holdForChildScan = () => {
-        const controller = scanScope.current;
-        if (!controller || childScanScope.current || !canApplyScanResult()) {
-          throw new OneKeyErrorScanQrCodeCancel();
-        }
-        const retained = { controller, released: false };
-        childScanScope.current = retained;
-        handoffOwner.current = resultOwner;
-        scanGeneration.current += 1;
-        photoAttemptId.current += 1;
-        resultGeneration = scanGeneration.current;
-        return () => {
-          if (childScanScope.current !== retained) return;
-          if (isFocused.current) {
-            childScanScope.current = null;
-          } else {
-            // A child can finish before the navigator restores parent focus.
-            retained.released = true;
-          }
-        };
-      };
-      const waitForPhotoPicker = validation
-        ? () => {
-            validation.applying = true;
-            return photoPickerDone.current;
-          }
-        : undefined;
-      try {
-        return await routeCallback({
-          value,
-          popNavigation: true,
-          canApplyScanResult,
-          waitForPhotoPicker,
-          scanSignal: signal,
-          holdForChildScan,
-          isScanOpen,
-          onResultWillClose,
-        });
-      } finally {
-        if (handoffOwner.current === resultOwner) {
-          handoffOwner.current = undefined;
-        }
-      }
+      return routeCallback({ value, popNavigation: true });
     },
-    [isScanActive, isScanOpen, onResultWillClose, routeCallback],
+    [routeCallback],
   );
 
-  const closeScanner = useCallback(() => {
-    if (exitReason.current === 'cancelled' || !isScanOpen()) return;
-    scannerRef.current?.dispose();
-    cancelScan();
-    navigation.popStack();
-  }, [cancelScan, isScanOpen, navigation]);
-
-  const submitPhoto = useCallback(
-    async function submitPhoto(
-      data: string,
-      signal: AbortSignal | undefined,
-      attemptId: number,
-      generation: number,
-    ) {
-      const canRetry = () =>
-        photoAttemptId.current === attemptId &&
-        !handoffOwner.current &&
-        isScanActive(signal);
-      if (scanGeneration.current !== generation || !canRetry()) return;
-
-      const validation = { signal, generation, applying: false };
-      photoValidation.current = validation;
-      let retry: boolean | undefined;
-      try {
-        ({ retry } = await callback(data, signal, generation, validation));
-      } finally {
-        if (photoValidation.current === validation) {
-          photoValidation.current = null;
-        }
-      }
-      if (!retry || scanGeneration.current !== generation || !canRetry()) {
-        return;
-      }
-
-      Toast.error({
-        toastId: photoRetryToastId,
-        title: intl.formatMessage({ id: ETranslations.global_server_error }),
-        actions: {
-          label: intl.formatMessage({ id: ETranslations.global_try_again }),
-          onPress: async () => {
-            if (photoPickerDone.current || !canRetry()) return;
-            scanGeneration.current += 1;
-            photoAttemptId.current += 1;
-            Toast.dismiss(photoRetryToastId);
-            await submitPhoto(
-              data,
-              signal,
-              photoAttemptId.current,
-              scanGeneration.current,
-            );
-          },
-        },
-      });
-    },
-    [callback, intl, isScanActive, photoRetryToastId],
-  );
+  const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const signal = scanScope.current?.signal;
-    const validation = photoValidation.current;
-    const hasPendingPhoto =
-      validation?.generation === scanGeneration.current &&
-      validation.signal === signal;
-    if (
-      photoPickerDone.current ||
-      handoffOwner.current ||
-      (hasPendingPhoto && validation.applying) ||
-      !isScanActive(signal)
-    ) {
-      return;
-    }
-    // Opening the picker invalidates a camera frame. A pending photo only
-    // loses ownership once the user chooses a replacement.
-    if (!hasPendingPhoto) scanGeneration.current += 1;
-    let generation = scanGeneration.current;
-    let finishPicker: () => void = () => {};
-    photoPickerDone.current = new Promise<void>((resolve) => {
-      finishPicker = resolve;
-    });
-    let data: string | null = null;
-    let attemptId: number;
-    try {
-      const result = await PhotoLibrary.pickImage();
-      if (result.canceled) return;
+    const result = await PhotoLibrary.pickImage();
 
-      if (hasPendingPhoto) {
-        scanGeneration.current += 1;
-        generation = scanGeneration.current;
-      }
-      photoAttemptId.current += 1;
-      attemptId = photoAttemptId.current;
-      Toast.dismiss(photoRetryToastId);
-      const { uri } = result;
+    if (!result.canceled) {
+      const uri = result.uri;
+      let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
       } catch {
@@ -494,36 +264,27 @@ export default function ScanQrCodeModal() {
       } finally {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
-    } finally {
-      photoPickerDone.current = undefined;
-      finishPicker();
+      if (data && data.length > 0) {
+        isPickedImage.current = true;
+        await callback(data);
+      } else {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.scan_no_recognizable_qr_code_found,
+          }),
+        });
+      }
     }
-    if (data) {
-      await submitPhoto(data, signal, attemptId, generation);
-    } else if (generation === scanGeneration.current && isScanActive(signal)) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.scan_no_recognizable_qr_code_found,
-        }),
-      });
-    }
-  }, [intl, isScanActive, photoRetryToastId, submitPhoto]);
+  }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      // Camera teardown is independent of the result and modal lifecycle.
-      if (!value) return {};
-      const validation = photoValidation.current;
-      if (
-        photoPickerDone.current ||
-        handoffOwner.current ||
-        (validation?.generation === scanGeneration.current &&
-          validation.signal === scanScope.current?.signal)
-      ) {
-        return { retry: true };
+      if (isPickedImage.current) {
+        return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      return callback(value);
+      const result = await callback(value);
+      return result;
     },
     [callback],
   );
@@ -632,7 +393,7 @@ export default function ScanQrCodeModal() {
       <Page.Footer safeAreaBottomMode="content">
         <DebugInput
           onText={(value) => callback(value)}
-          onClose={closeScanner}
+          onClose={platformEnv.isNative ? closeScanner : undefined}
         />
       </Page.Footer>
     </Page>

@@ -96,13 +96,7 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
   __esModule: true,
-  default: {
-    captureServerTimeRequestStart: () => ({
-      wallTime: Date.now(),
-      monotonicTime: performance.now(),
-    }),
-    handleServerResponseDate: async () => undefined,
-  },
+  default: { handleServerResponseDate: async () => undefined },
 }));
 
 describe('OneKey ID client through global and service interceptors', () => {

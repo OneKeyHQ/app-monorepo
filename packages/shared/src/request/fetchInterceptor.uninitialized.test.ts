@@ -24,13 +24,7 @@ jest.mock('../logger/scopes/app/scenes/networkFilter', () => ({
 
 jest.mock('../utils/systemTimeUtils', () => ({
   __esModule: true,
-  default: {
-    captureServerTimeRequestStart: () => ({
-      wallTime: Date.now(),
-      monotonicTime: performance.now(),
-    }),
-    handleServerResponseDate: async () => undefined,
-  },
+  default: { handleServerResponseDate: async () => undefined },
 }));
 
 const LEDGER_URL =

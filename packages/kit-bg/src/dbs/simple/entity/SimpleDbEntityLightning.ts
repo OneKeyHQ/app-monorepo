@@ -12,13 +12,11 @@ export class SimpleDbEntityLightning extends SimpleDbEntityBase<ILightningDB> {
   async updateCredential({
     address,
     credential,
-    assertCanCommit,
   }: {
     address: string;
     credential: string;
-    assertCanCommit?: () => void;
   }) {
-    await this.setRawDataWithCommitGuard((rawData) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.tokens) {
         return {
           tokens: {
@@ -33,7 +31,7 @@ export class SimpleDbEntityLightning extends SimpleDbEntityBase<ILightningDB> {
           [address]: credential,
         },
       };
-    }, assertCanCommit);
+    });
   }
 
   async getCredential({ address }: { address: string }) {

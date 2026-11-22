@@ -98,7 +98,6 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
-  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -138,7 +137,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -224,14 +222,9 @@ import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycle
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 import {
-  assertPublicAccountCreationCanContinue,
   isPublicAccountCreationContext,
   withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
-import {
-  assertLightningInvoiceIsCurrent,
-  assertLightningInvoiceIsCurrentAt,
-} from '../ServiceScanQRCode/utils/parseQRCode/handlers/lightningNetwork';
 
 import {
   buildAnalyticsWalletProfile,
@@ -1310,7 +1303,6 @@ class ServiceAccount extends ServiceBase {
       hideCheckingDeviceLoading,
       skipWaitingAnimationAtFirst,
       oneKeyOperationLease,
-      publicAccountCreationContext,
     } = params;
 
     const { prepareParams, deviceParams, networkId, walletId } =
@@ -1326,23 +1318,11 @@ class ServiceAccount extends ServiceBase {
         walletId,
       });
 
-      const assertCanContinueAccountCreation = isPublicAccountCreationContext(
-        publicAccountCreationContext,
-      )
-        ? () =>
-            assertPublicAccountCreationCanContinue(publicAccountCreationContext)
-        : undefined;
       const r =
         await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
           async () => {
             // addHDOrHWAccounts
-            assertCanContinueAccountCreation?.();
-            const accounts = await vault.keyring.prepareAccounts(
-              assertCanContinueAccountCreation &&
-                networkUtils.isLightningNetworkByNetworkId(networkId)
-                ? { ...prepareParams, assertCanContinueAccountCreation }
-                : prepareParams,
-            );
+            const accounts = await vault.keyring.prepareAccounts(prepareParams);
             return {
               vault,
               accounts,
@@ -1498,19 +1478,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addHDOrHWAccountsForUserCreation({
-    addressCreationPromiseId,
-    ...params
-  }: IAddHDOrHWAccountsParams & { addressCreationPromiseId?: number }) {
-    return withPublicAccountCreationContext(
-      (publicAccountCreationContext) =>
-        this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
-      addressCreationPromiseId === undefined
-        ? undefined
-        : () =>
-            this.backgroundApi.servicePromise.canContinueCallback(
-              addressCreationPromiseId,
-            ),
+  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
     );
   }
 
@@ -4095,30 +4065,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async createQrWallet({
-    addressCreationPromiseId,
-    ...params
-  }: IDBCreateQRWalletParams & { addressCreationPromiseId?: number }) {
+  async createQrWallet(params: IDBCreateQRWalletParams) {
     const fullXfp = this.buildQrWalletFullXfp({
       shortXfp: params.qrDevice.xfp,
       airGapAccounts: params.airGapAccounts,
     });
     // const { name, deviceId, xfp, version } = qrDevice;
-    const result =
-      addressCreationPromiseId === undefined
-        ? await localDb.createQrWallet({ ...params, fullXfp })
-        : await withPublicAccountCreationContext(
-            (publicAccountCreationContext) =>
-              localDb.createQrWallet({
-                ...params,
-                fullXfp,
-                publicAccountCreationContext,
-              }),
-            () =>
-              this.backgroundApi.servicePromise.canContinueCallback(
-                addressCreationPromiseId,
-              ),
-          );
+    const result = await localDb.createQrWallet({ ...params, fullXfp });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -7305,15 +7258,7 @@ class ServiceAccount extends ServiceBase {
       accountId?: string;
       indexedAccountId?: string;
     },
-    {
-      allowWatchAccount,
-      addressCreationRequest,
-      lightningInvoiceExpiresAt,
-    }: {
-      allowWatchAccount?: boolean;
-      addressCreationRequest?: IAddressCreationRequest;
-      lightningInvoiceExpiresAt?: number;
-    },
+    { allowWatchAccount }: { allowWatchAccount?: boolean },
   ) {
     if (!accountId && !indexedAccountId) {
       throw new OneKeyLocalError('accountId or indexedAccountId is required');
@@ -7324,13 +7269,9 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
 
-    const showSwitchAccountSelector = async () => {
-      if (lightningInvoiceExpiresAt !== undefined) {
-        await assertLightningInvoiceIsCurrent(lightningInvoiceExpiresAt);
-      }
+    const showSwitchAccountSelector = () => {
       appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
         networkId,
-        addressCreationRequest,
       });
     };
 
@@ -7340,7 +7281,7 @@ class ServiceAccount extends ServiceBase {
         accountId: accountId ?? '',
       })
     ) {
-      await showSwitchAccountSelector();
+      showSwitchAccountSelector();
       return undefined;
     }
 
@@ -7354,26 +7295,13 @@ class ServiceAccount extends ServiceBase {
         });
         return result;
       } catch (_error) {
-        if (lightningInvoiceExpiresAt !== undefined) {
-          await assertLightningInvoiceIsCurrent(lightningInvoiceExpiresAt);
-        }
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
             reject,
-            assertCanContinue:
-              lightningInvoiceExpiresAt === undefined
-                ? undefined
-                : () =>
-                    assertLightningInvoiceIsCurrentAt(
-                      lightningInvoiceExpiresAt,
-                      systemTimeUtils.getContinuousEstimatedServerTime(),
-                    ),
           });
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,
-            walletId,
-            addressCreationRequest,
             indexedAccountId,
             deriveType,
             promiseId,
@@ -7403,7 +7331,7 @@ class ServiceAccount extends ServiceBase {
         });
         return result;
       } catch (_error) {
-        await showSwitchAccountSelector();
+        showSwitchAccountSelector();
       }
     }
     return undefined;

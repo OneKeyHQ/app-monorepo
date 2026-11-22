@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import { StackActions, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 
 import {
   Page,
@@ -28,7 +28,6 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
-  getScanModalRequestId,
 } from '@onekeyhq/shared/src/routes';
 
 import { enterOnboardingOrTravelMode } from '../utils/onboardingEntryGate';
@@ -98,7 +97,6 @@ type IPendingModalTarget = {
   route: string;
   screen?: string;
   paramsKey?: string;
-  scanRequestId?: string;
 };
 
 type INavigationRouteWithNestedState = {
@@ -106,7 +104,16 @@ type INavigationRouteWithNestedState = {
   params?: unknown;
   state?: {
     index?: number;
-    routes?: readonly INavigationRouteWithNestedState[];
+    routes?: Array<{
+      name?: string;
+      params?: unknown;
+      state?: {
+        index?: number;
+        routes?: Array<{
+          name?: string;
+        }>;
+      };
+    }>;
   };
 };
 
@@ -169,10 +176,6 @@ const getRootRouteModalTarget = (
     route: modalRoute,
     screen:
       params?.params?.screen ?? getNestedRouteScreenName(activeChildRoute),
-    scanRequestId:
-      modalRoute === EModalRoutes.ScanQrCodeModal
-        ? getScanModalRequestId(route)
-        : undefined,
   };
 };
 
@@ -182,8 +185,7 @@ const isSamePendingModalTarget = (
 ) =>
   routeTarget?.modalType === target.modalType &&
   routeTarget.route === target.route &&
-  routeTarget.screen === target.screen &&
-  routeTarget.scanRequestId === target.scanRequestId;
+  routeTarget.screen === target.screen;
 
 const clearPendingModalTarget = () => {
   if (pendingModalTargetTimer) {
@@ -270,11 +272,6 @@ function useAppNavigation<
         route,
         screen: typeof params?.screen === 'string' ? params.screen : undefined,
         paramsKey: params?.params ? JSON.stringify(params.params) : undefined,
-        scanRequestId:
-          route === EModalRoutes.ScanQrCodeModal
-            ? (params?.params as { scanRequestId?: string } | undefined)
-                ?.scanRequestId
-            : undefined,
       };
 
       let rootNavigation = navigationInstance;
@@ -297,18 +294,6 @@ function useAppNavigation<
       }
 
       trackPendingModalTarget(target);
-
-      const rootNavigator = rootNavigationRef.current;
-      if (target.scanRequestId && rootNavigator?.isReady()) {
-        // Providers outside the stack also need a separate root for the child scanner.
-        rootNavigator.dispatch(
-          StackActions.push(modalType, {
-            screen: route,
-            params,
-          }),
-        );
-        return;
-      }
 
       // TODO:
       // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,

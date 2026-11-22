@@ -2,74 +2,15 @@
 
 import type { ReactNode } from 'react';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
-
-import { Toast } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
-
-import { scanFromURLAsync } from '../utils/scanFromURLAsync';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import ScanQrCodeModal from './ScanQrCodeModal';
 
 const mockCloseOrder: string[] = [];
-const mockRouteCallback = jest.fn(
-  async (_params: {
-    value: string;
-    canApplyScanResult: () => boolean;
-    waitForPhotoPicker?: () => Promise<void> | undefined;
-    isScanOpen: () => boolean;
-    scanSignal?: AbortSignal;
-    holdForChildScan?: () => () => void;
-    onResultWillClose?: () => void;
-  }): Promise<{ retry?: boolean }> => ({}),
-);
-let mockCurrentRouteKey = 'scan-route';
-let mockScanRouteInStack = true;
-let mockBeforeRemove: (() => void) | undefined;
-let mockBlur: (() => void) | undefined;
-let mockRefocus: (() => void) | undefined;
-const mockNavigation = {
-  addListener: (_event: string, listener: () => void) => {
-    mockBeforeRemove = listener;
-    return () => {
-      mockBeforeRemove = undefined;
-    };
-  },
-};
 
-jest.mock('@react-navigation/core', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return {
-    useNavigation: () => mockNavigation,
-    useFocusEffect: (effect: () => () => void) => {
-      React.useEffect(() => {
-        let cleanup = effect();
-        mockBlur = cleanup;
-        mockRefocus = () => {
-          cleanup = effect();
-          mockBlur = cleanup;
-        };
-        return () => {
-          mockBlur = undefined;
-          mockRefocus = undefined;
-          cleanup();
-        };
-      }, [effect]);
-    },
-    useRoute: () => ({
-      key: 'scan-route',
-      params: { callback: mockRouteCallback },
-    }),
-  };
-});
+jest.mock('@react-navigation/core', () => ({
+  useRoute: () => ({ params: { callback: jest.fn(async () => ({})) } }),
+}));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -79,21 +20,13 @@ jest.mock('@onekeyhq/components', () => {
   const Page = Object.assign(Box, {
     Header: ({
       unstable_headerLeftItems,
-      headerRight,
     }: {
       unstable_headerLeftItems: () => { element: ReactNode }[];
-      headerRight: () => ReactNode;
-    }) => (
-      <>
-        {unstable_headerLeftItems?.()[0]?.element}
-        {headerRight()}
-      </>
-    ),
+    }) => <>{unstable_headerLeftItems?.()[0]?.element}</>,
     Body: Box,
     Footer: Box,
   });
   return {
-    __esModule: true,
     Page,
     Icon: Box,
     IconButton: ({
@@ -115,24 +48,7 @@ jest.mock('@onekeyhq/components', () => {
     TextAreaInput: Box,
     XStack: Box,
     YStack: Box,
-    Toast: { error: jest.fn(), dismiss: jest.fn() },
-    rootNavigationRef: {
-      current: {
-        getCurrentRoute: () => ({ key: mockCurrentRouteKey }),
-        getRootState: () => ({
-          routes: [
-            { key: 'home' },
-            {
-              key: 'overlay',
-              state: {
-                routes: mockScanRouteInStack ? [{ key: 'scan-route' }] : [],
-              },
-            },
-            { key: 'other-route' },
-          ],
-        }),
-      },
-    },
+    Toast: { error: jest.fn() },
     useMedia: () => ({ md: false }),
     useSafeAreaInsets: () => ({ bottom: 0 }),
     NavCloseButton: ({ onPress }: { onPress: () => void }) => (
@@ -144,9 +60,7 @@ jest.mock('@onekeyhq/components', () => {
       />
     ),
     glassBarItem: (element: ReactNode) => ({ type: 'custom', element }),
-    default: ({ onPress }: { onPress: () => void }) => (
-      <button type="button" aria-label="Pick image" onClick={onPress} />
-    ),
+    default: () => null,
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -166,7 +80,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/photo-library', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
-  default: { syncStorage: { getString: () => '', set: jest.fn() } },
+  default: { syncStorage: { getString: () => '' } },
 }));
 jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -185,53 +99,18 @@ jest.mock('../../../components/MultipleClickStack', () => ({
 jest.mock('../components', () => {
   const React = require('react') as typeof import('react');
   return {
-    ScanQrCode: React.forwardRef(
-      (
-        {
-          handleBarCodeScanned,
-        }: { handleBarCodeScanned: (value: string) => void },
-        ref,
-      ) => {
-        const frameCount = React.useRef(0);
-        React.useImperativeHandle(ref, () => ({
-          dispose: () => mockCloseOrder.push('dispose'),
-        }));
-        React.useEffect(
-          () => () => {
-            if (!frameCount.current) handleBarCodeScanned('');
-          },
-          [handleBarCodeScanned],
-        );
-        return (
-          <button
-            type="button"
-            aria-label="Scan frame"
-            onClick={() => {
-              frameCount.current += 1;
-              handleBarCodeScanned(
-                frameCount.current === 1
-                  ? 'lightning:example'
-                  : 'lightning:another-example',
-              );
-            }}
-          />
-        );
-      },
-    ),
+    ScanQrCode: React.forwardRef((_props, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        dispose: () => mockCloseOrder.push('dispose'),
+      }));
+      return null;
+    }),
   };
 });
 jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 
 beforeEach(() => {
   mockCloseOrder.length = 0;
-  mockRouteCallback.mockClear();
-  jest.mocked(Toast.error).mockClear();
-  jest.mocked(Toast.dismiss).mockClear();
-  mockCurrentRouteKey = 'scan-route';
-  mockScanRouteInStack = true;
-  mockBeforeRemove = undefined;
-  mockBlur = undefined;
-  mockRefocus = undefined;
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -246,494 +125,3 @@ test('header and debug close dispose the camera before popping the scan route', 
   fireEvent.click(screen.getByTestId('scan-qr-code-debug-close-btn'));
   expect(mockCloseOrder).toEqual(['dispose', 'pop']);
 });
-
-test('a parsed frame stops belonging to the scanner when another route opens or the scanner closes', async () => {
-  render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  const [{ canApplyScanResult, isScanOpen }] = mockRouteCallback.mock.calls[0];
-  expect(canApplyScanResult()).toBe(true);
-
-  mockCurrentRouteKey = 'other-route';
-  expect(canApplyScanResult()).toBe(false);
-  expect(isScanOpen()).toBe(true);
-
-  mockCurrentRouteKey = 'scan-route';
-  fireEvent.click(screen.getByTestId('header-close'));
-  expect(canApplyScanResult()).toBe(false);
-  mockScanRouteInStack = false;
-  expect(isScanOpen()).toBe(false);
-});
-
-test.each([false, true])(
-  'a linked child scanner can return to the parent scan session (released before focus: %s)',
-  async (releasedBeforeFocus) => {
-    render(<ScanQrCodeModal />);
-    fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-    await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-    const [{ scanSignal, canApplyScanResult, holdForChildScan }] =
-      mockRouteCallback.mock.calls[0];
-    const release = holdForChildScan?.();
-    mockCurrentRouteKey = 'child-scan-route';
-    mockBlur?.();
-    expect(scanSignal?.aborted).toBe(false);
-    expect(canApplyScanResult()).toBe(false);
-
-    mockCurrentRouteKey = 'scan-route';
-    if (releasedBeforeFocus) release?.();
-    mockRefocus?.();
-    if (!releasedBeforeFocus) release?.();
-    expect(canApplyScanResult()).toBe(true);
-    fireEvent.click(screen.getByTestId('header-close'));
-    expect(scanSignal?.aborted).toBe(true);
-  },
-);
-
-test('only the frame that starts the linked child can apply after it returns', async () => {
-  let finishFrames: () => void = () => {};
-  const frames = new Promise<{ retry?: boolean }>((resolve) => {
-    finishFrames = () => resolve({});
-  });
-  mockRouteCallback.mockReturnValueOnce(frames).mockReturnValueOnce(frames);
-  render(<ScanQrCodeModal />);
-  const scan = screen.getByRole('button', { name: 'Scan frame' });
-  fireEvent.click(scan);
-  fireEvent.click(scan);
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
-
-  const [[unrelated], [owner]] = mockRouteCallback.mock.calls;
-  expect(unrelated.value).not.toBe(owner.value);
-  expect(unrelated.canApplyScanResult()).toBe(true);
-  expect(owner.canApplyScanResult()).toBe(true);
-  const release = owner.holdForChildScan?.();
-  mockCurrentRouteKey = 'child-scan-route';
-  mockBlur?.();
-  mockCurrentRouteKey = 'scan-route';
-  release?.();
-  mockRefocus?.();
-
-  expect(owner.canApplyScanResult()).toBe(true);
-  expect(unrelated.canApplyScanResult()).toBe(false);
-  fireEvent.click(scan);
-  await Promise.resolve();
-  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
-  finishFrames();
-  await frames;
-  expect(unrelated.canApplyScanResult()).toBe(false);
-  fireEvent.click(scan);
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(3));
-});
-
-test('resumes the camera and cancels on close after a photo result is discarded', async () => {
-  let completeImageScan: (value: string) => void = () => {};
-  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
-    canceled: false,
-    uri: 'test://image',
-  });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
-  jest.mocked(scanFromURLAsync).mockReturnValueOnce(
-    new Promise<string>((resolve) => {
-      completeImageScan = resolve;
-    }),
-  );
-
-  render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-  await waitFor(() =>
-    expect(scanFromURLAsync).toHaveBeenCalledWith('test://image'),
-  );
-  mockCurrentRouteKey = 'other-route';
-  completeImageScan('from photo');
-  await waitFor(() =>
-    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
-      'test://image',
-    ),
-  );
-  expect(mockRouteCallback).not.toHaveBeenCalled();
-  expect(Toast.error).not.toHaveBeenCalled();
-
-  mockCurrentRouteKey = 'scan-route';
-  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-  await waitFor(() =>
-    expect(mockRouteCallback).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 'lightning:example' }),
-    ),
-  );
-
-  fireEvent.click(screen.getByTestId('header-close'));
-  expect(mockRouteCallback).toHaveBeenCalledWith(
-    expect.objectContaining({ value: '' }),
-  );
-});
-
-test('opening the photo picker permanently discards a camera frame already being parsed', async () => {
-  let finishPicking: (
-    result: Awaited<ReturnType<typeof PhotoLibrary.pickImage>>,
-  ) => void = () => {};
-  jest.mocked(PhotoLibrary.pickImage).mockReturnValueOnce(
-    new Promise((resolve) => {
-      finishPicking = resolve;
-    }),
-  );
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
-  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('selected photo');
-  render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  const [{ canApplyScanResult: canApplyCameraFrame }] =
-    mockRouteCallback.mock.calls[0];
-  expect(canApplyCameraFrame()).toBe(true);
-
-  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-  const cameraOwnsResultWhilePicking = canApplyCameraFrame();
-  finishPicking({ canceled: false, uri: 'test://pending-photo' });
-
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
-  const [{ canApplyScanResult: canApplyPhoto, value }] =
-    mockRouteCallback.mock.calls[1];
-  expect(value).toBe('selected photo');
-  expect(canApplyPhoto()).toBe(true);
-  expect(cameraOwnsResultWhilePicking).toBe(false);
-  expect(canApplyCameraFrame()).toBe(false);
-});
-
-test('a photo picked after focus changes does not apply to the new scanner session', async () => {
-  let finishPicking: (
-    result: Awaited<ReturnType<typeof PhotoLibrary.pickImage>>,
-  ) => void = () => {};
-  jest.mocked(PhotoLibrary.pickImage).mockReturnValueOnce(
-    new Promise((resolve) => {
-      finishPicking = resolve;
-    }),
-  );
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
-  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('a photo from old focus');
-  render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-  mockCurrentRouteKey = 'other-route';
-  mockBlur?.();
-  mockCurrentRouteKey = 'scan-route';
-  mockRefocus?.();
-  finishPicking({ canceled: false, uri: 'test://picker-before-blur' });
-
-  await waitFor(() =>
-    expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
-      'test://picker-before-blur',
-    ),
-  );
-  expect(mockRouteCallback).not.toHaveBeenCalled();
-  expect(Toast.error).not.toHaveBeenCalled();
-});
-
-test('a broken photo shows the QR error and leaves photo and camera scanning usable', async () => {
-  const picker = jest.mocked(PhotoLibrary.pickImage);
-  picker.mockClear();
-  picker
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://broken-image' })
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://valid-image' });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
-  jest
-    .mocked(scanFromURLAsync)
-    .mockRejectedValueOnce(new OneKeyLocalError('Synthetic image load failure'))
-    .mockResolvedValueOnce('invoice from good photo');
-
-  render(<ScanQrCodeModal />);
-  const pickImage = screen.getByRole('button', { name: 'Pick image' });
-  fireEvent.click(pickImage);
-  await waitFor(() =>
-    expect(Toast.error).toHaveBeenCalledWith({
-      title: ETranslations.scan_no_recognizable_qr_code_found,
-    }),
-  );
-  expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith(
-    'test://broken-image',
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  fireEvent.click(pickImage);
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'lightning:example',
-    'invoice from good photo',
-  ]);
-  expect(picker).toHaveBeenCalledTimes(2);
-});
-
-test('a successful photo keeps its result when the camera unmounts during navigation', async () => {
-  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
-    canceled: false,
-    uri: 'test://photo',
-  });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
-  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
-  let finishClosing: () => void = () => {};
-  let startClosing: () => void = () => {};
-  const closing = new Promise<void>((resolve) => {
-    startClosing = resolve;
-  });
-  mockRouteCallback.mockImplementationOnce(async ({ onResultWillClose }) => {
-    onResultWillClose?.();
-    startClosing();
-    await new Promise<void>((resolve) => {
-      finishClosing = resolve;
-    });
-    return {};
-  });
-  const { unmount } = render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-
-  await closing;
-  mockBeforeRemove?.();
-  mockScanRouteInStack = false;
-  unmount();
-  finishClosing();
-
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'invoice from photo',
-  ]);
-});
-
-test('Android Back cancels a scan after the camera delivered a frame', async () => {
-  const { unmount } = render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Scan frame' }));
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-
-  mockBeforeRemove?.();
-  mockScanRouteInStack = false;
-  unmount();
-
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'lightning:example',
-    '',
-  ]);
-});
-
-test('a retryable photo result can be submitted again without reopening the photo picker', async () => {
-  jest.mocked(PhotoLibrary.pickImage).mockClear();
-  jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
-    canceled: false,
-    uri: 'test://retry-photo',
-  });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValueOnce(undefined);
-  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
-  mockRouteCallback.mockResolvedValueOnce({ retry: true });
-
-  render(<ScanQrCodeModal />);
-  fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-
-  await waitFor(() =>
-    expect(Toast.error).toHaveBeenCalledWith({
-      toastId: 'scan-route:photo-retry',
-      title: ETranslations.global_server_error,
-      actions: expect.objectContaining({
-        label: ETranslations.global_try_again,
-      }),
-    }),
-  );
-  expect(mockCloseOrder).toEqual([]);
-
-  const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
-  const retry = Array.isArray(actions) ? actions[0] : actions;
-  await retry?.onPress?.();
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'invoice from photo',
-    'invoice from photo',
-  ]);
-  expect(PhotoLibrary.pickImage).toHaveBeenCalledTimes(1);
-});
-
-test('only the most recently selected photo can be retried', async () => {
-  jest
-    .mocked(PhotoLibrary.pickImage)
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://first-photo' })
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://second-photo' });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
-  jest
-    .mocked(scanFromURLAsync)
-    .mockResolvedValueOnce('first invoice')
-    .mockResolvedValueOnce('second invoice');
-  mockRouteCallback
-    .mockResolvedValueOnce({ retry: true })
-    .mockResolvedValueOnce({ retry: true });
-  render(<ScanQrCodeModal />);
-
-  const picker = screen.getByRole('button', { name: 'Pick image' });
-  fireEvent.click(picker);
-  await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
-  fireEvent.click(picker);
-  await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(2));
-
-  const [first, second] = jest.mocked(Toast.error).mock.calls.map(([toast]) => {
-    return Array.isArray(toast.actions) ? toast.actions[0] : toast.actions;
-  });
-  await first?.onPress?.();
-  expect(mockRouteCallback).toHaveBeenCalledTimes(2);
-
-  await second?.onPress?.();
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'first invoice',
-    'second invoice',
-    'second invoice',
-  ]);
-});
-
-test('a photo can replace a photo whose validation is still pending', async () => {
-  const picker = jest.mocked(PhotoLibrary.pickImage).mockClear();
-  picker
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://slow-photo' })
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://new-photo' });
-  const scanImage = jest.mocked(scanFromURLAsync);
-  scanImage
-    .mockResolvedValueOnce('slow invoice')
-    .mockResolvedValueOnce('replacement invoice');
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
-  let finishPending: (result: { retry: boolean }) => void = () => {};
-  const pending = new Promise<{ retry: boolean }>((resolve) => {
-    finishPending = resolve;
-  });
-  mockRouteCallback.mockReturnValueOnce(pending);
-  render(<ScanQrCodeModal />);
-
-  const pickerButton = screen.getByRole('button', { name: 'Pick image' });
-  fireEvent.click(pickerButton);
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  const [[first]] = mockRouteCallback.mock.calls;
-  expect(first.canApplyScanResult()).toBe(true);
-
-  try {
-    fireEvent.click(pickerButton);
-    expect(picker).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(2));
-    const [, [second]] = mockRouteCallback.mock.calls;
-    expect(second.value).toBe('replacement invoice');
-    expect(second.canApplyScanResult()).toBe(true);
-    expect(first.canApplyScanResult()).toBe(false);
-  } finally {
-    await act(async () => {
-      finishPending({ retry: true });
-      await pending;
-    });
-    picker.mockReset();
-    scanImage.mockReset();
-  }
-  expect(Toast.error).not.toHaveBeenCalled();
-});
-
-test('cancelling the picker preserves the previous photo retry once', async () => {
-  const picker = jest.mocked(PhotoLibrary.pickImage);
-  picker
-    .mockReset()
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://retry-photo' })
-    .mockResolvedValueOnce({ canceled: true });
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
-  jest
-    .mocked(scanFromURLAsync)
-    .mockReset()
-    .mockResolvedValueOnce('invoice from photo');
-  mockRouteCallback.mockResolvedValueOnce({ retry: true });
-  render(<ScanQrCodeModal />);
-  const pickerButton = screen.getByRole('button', { name: 'Pick image' });
-  fireEvent.click(pickerButton);
-  await waitFor(() =>
-    expect(Toast.error).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.objectContaining({ onPress: expect.any(Function) }),
-      }),
-    ),
-  );
-  const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
-  const retry = Array.isArray(actions) ? actions[0] : actions;
-  await act(async () => {
-    fireEvent.click(pickerButton);
-  });
-  expect(picker).toHaveBeenCalledTimes(2);
-  expect(retry?.onPress).toEqual(expect.any(Function));
-
-  await retry?.onPress?.();
-  await retry?.onPress?.();
-  expect(mockRouteCallback.mock.calls.map(([params]) => params.value)).toEqual([
-    'invoice from photo',
-    'invoice from photo',
-  ]);
-});
-
-test('cancelling a replacement picker resumes the original photo validation', async () => {
-  let cancelPicker: () => void = () => {};
-  const picker = jest
-    .mocked(PhotoLibrary.pickImage)
-    .mockClear()
-    .mockResolvedValueOnce({ canceled: false, uri: 'test://pending-photo' })
-    .mockReturnValueOnce(
-      new Promise((resolve) => {
-        cancelPicker = () => resolve({ canceled: true });
-      }),
-    );
-  jest.mocked(scanFromURLAsync).mockResolvedValueOnce('pending invoice');
-  jest.mocked(PhotoLibrary.releasePickedImage).mockResolvedValue(undefined);
-  let finishValidation: () => void = () => {};
-  const validating = new Promise<void>((resolve) => {
-    finishValidation = resolve;
-  });
-  let applied: boolean | undefined;
-  mockRouteCallback.mockImplementationOnce(async (params) => {
-    await validating;
-    const pickerDone = params.waitForPhotoPicker?.();
-    if (pickerDone) await pickerDone;
-    applied = params.canApplyScanResult();
-    return {};
-  });
-  render(<ScanQrCodeModal />);
-
-  const button = screen.getByRole('button', { name: 'Pick image' });
-  fireEvent.click(button);
-  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
-  fireEvent.click(button);
-  expect(picker).toHaveBeenCalledTimes(2);
-  await act(async () => {
-    finishValidation();
-    await validating;
-  });
-  const appliedBeforePickerClosed = applied;
-  await act(async () => {
-    cancelPicker();
-  });
-
-  expect(appliedBeforePickerClosed).toBeUndefined();
-  expect(applied).toBe(true);
-  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
-});
-
-test.each(['header close', 'system Back', 'focus loss'])(
-  'dismisses the photo retry toast on %s',
-  async (exit) => {
-    jest.mocked(PhotoLibrary.pickImage).mockResolvedValueOnce({
-      canceled: false,
-      uri: 'test://retry-photo',
-    });
-    jest
-      .mocked(PhotoLibrary.releasePickedImage)
-      .mockResolvedValueOnce(undefined);
-    jest.mocked(scanFromURLAsync).mockResolvedValueOnce('invoice from photo');
-    mockRouteCallback.mockResolvedValueOnce({ retry: true });
-    render(<ScanQrCodeModal />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick image' }));
-    await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
-    const [{ actions, toastId }] = jest.mocked(Toast.error).mock.calls[0];
-    const retry = Array.isArray(actions) ? actions[0] : actions;
-    jest.mocked(Toast.dismiss).mockClear();
-
-    if (exit === 'header close') {
-      fireEvent.click(screen.getByTestId('header-close'));
-    } else if (exit === 'system Back') {
-      mockBeforeRemove?.();
-    } else {
-      mockCurrentRouteKey = 'other-route';
-      mockBlur?.();
-    }
-
-    expect(Toast.dismiss).toHaveBeenCalledWith(toastId);
-    const callsAfterExit = mockRouteCallback.mock.calls.length;
-    await retry?.onPress?.();
-    expect(mockRouteCallback).toHaveBeenCalledTimes(callsAfterExit);
-  },
-);

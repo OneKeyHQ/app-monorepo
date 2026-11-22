@@ -1,8 +1,3 @@
-import {
-  OneKeyErrorScanQrCodeCancel,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
-
 import localDb from '../../dbs/local/localDb';
 import {
   HardwareProcessingManager,
@@ -201,53 +196,6 @@ function raceWithTimeout<T>(promise: Promise<T>, label: string) {
 describe('ServiceBatchCreateAccount overlapping flows', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('drops a cancelled scan-owned batch after the hardware lease becomes available', async () => {
-    const {
-      service,
-      withHardwareProcessing,
-      firstBuildStarted,
-      firstBuildGate,
-      batchBuildAccounts,
-    } = buildService();
-    const payload = {
-      mode: 'normal' as const,
-      params: {
-        walletId: HD_WALLET_ID,
-        networkId: 'evm--1',
-        deriveType: 'default' as const,
-        indexes: [0],
-        saveToDb: true,
-      },
-    };
-    const running = service.startBatchCreateAccountsFlow(payload);
-    await raceWithTimeout(firstBuildStarted.promise, 'active flow');
-    const queued = createDeferred();
-    const withLease = withHardwareProcessing.getMockImplementation();
-    if (!withLease)
-      throw new OneKeyLocalError('Missing hardware lease implementation');
-    withHardwareProcessing.mockImplementationOnce((operation, options) => {
-      queued.resolve();
-      return withLease(operation, options);
-    });
-    let scanIsCurrent = true;
-    const cancelled = withPublicAccountCreationContext(
-      (publicAccountCreationContext) =>
-        service.startBatchCreateAccountsFlow({
-          ...payload,
-          params: { ...payload.params, publicAccountCreationContext },
-        }),
-      () => scanIsCurrent,
-    );
-    await raceWithTimeout(queued.promise, 'queued scan flow');
-    scanIsCurrent = false;
-    firstBuildGate.resolve();
-    await expect(
-      raceWithTimeout(cancelled, 'cancelled scan flow'),
-    ).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
-    await running;
-    expect(batchBuildAccounts).toHaveBeenCalledTimes(2);
   });
 
   it('第二个 all-network 流程排队时不能抹掉正在运行流程的 progressInfo', async () => {

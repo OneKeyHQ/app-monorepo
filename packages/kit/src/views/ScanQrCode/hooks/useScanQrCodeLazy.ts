@@ -57,16 +57,7 @@ export default function useScanQrCodeLazy() {
               qrWalletScene,
               showProTutorial,
               scanRequestId,
-              callback: async ({
-                value,
-                popNavigation,
-                canApplyScanResult,
-                waitForPhotoPicker,
-                scanSignal,
-                holdForChildScan,
-                isScanOpen,
-                onResultWillClose,
-              }) => {
+              callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
                     await parseQRCodeModulePromise;
@@ -82,22 +73,9 @@ export default function useScanQrCodeLazy() {
                         tokens,
                         popNavigation,
                       },
-                      {
-                        navigation,
-                        clipboard,
-                        intl,
-                        scanRequestId,
-                        canApplyScanResult,
-                        waitForPhotoPicker,
-                        scanSignal,
-                        holdForChildScan,
-                        onResultWillClose,
-                      },
+                      { navigation, clipboard, intl, scanRequestId },
                     );
                   } catch (error) {
-                    if (error instanceof OneKeyErrorScanQrCodeCancel) {
-                      return isScanOpen?.() ? { retry: true } : {};
-                    }
                     // A transient parse failure retries the frame; an action error stays
                     // a dropped frame, as before. The page stays open for both.
                     if (isRetryableQrParseFailure(error))

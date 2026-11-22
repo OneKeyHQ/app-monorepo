@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
-  type IAddressCreationRequest,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -105,8 +104,6 @@ class ServiceQrWallet extends ServiceBase {
 
   /** Each cancellation is consumed by its delayed start, independently of other callers. */
   private cancelledStageAirGapOwners = new Set<string>();
-
-  private pendingAddressCreationOwners = new Set<string>();
 
   /** True once for the owner that cancelled early: its session must not open. */
   private takeCancelledStageAirGapOwner(owner: string | undefined) {
@@ -247,7 +244,6 @@ class ServiceQrWallet extends ServiceBase {
     notice,
     owner,
     allowLegacyScan,
-    addressCreationRequest,
   }: {
     requestUr?: AirGapUR;
     appQrCodeModalTitle?: string;
@@ -258,7 +254,6 @@ class ServiceQrWallet extends ServiceBase {
     /** See cancelStageAirGapScan: lets the caller end its own stage session. */
     owner?: string;
     allowLegacyScan?: boolean;
-    addressCreationRequest?: IAddressCreationRequest;
   }): Promise<{
     raw?: string;
     responseUr?: AirGapUR;
@@ -403,7 +398,6 @@ class ServiceQrWallet extends ServiceBase {
             valueUr,
             promiseId,
             title: appQrCodeModalTitle,
-            addressCreationRequest,
           });
         } else {
           appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId });
@@ -596,41 +590,20 @@ class ServiceQrWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelQrWalletAddressCreate({ owner }: { owner: string }) {
-    if (this.pendingAddressCreationOwners.has(owner)) {
-      await this.cancelStageAirGapScan({ owner, scanning: true });
-    }
-  }
-
-  @backgroundMethod()
   @toastIfError()
-  async prepareQrcodeWalletAddressCreate(params: {
-    walletId: IDBWalletId;
-    networkId: string;
-    indexedAccountId: string;
-    appQrCodeModalTitle?: string;
-    addressCreationRequest?: IAddressCreationRequest;
-  }): Promise<IAirGapUrJson> {
-    const owner = params.addressCreationRequest?.id;
-    if (!owner) return this.prepareQrcodeWalletAddressCreateCore(params);
-    this.pendingAddressCreationOwners.add(owner);
-    try {
-      return await this.prepareQrcodeWalletAddressCreateCore(params);
-    } finally {
-      this.pendingAddressCreationOwners.delete(owner);
-      this.cancelledStageAirGapOwners.delete(owner);
-    }
-  }
-
-  private async prepareQrcodeWalletAddressCreateCore({
+  async prepareQrcodeWalletAddressCreate({
     walletId,
     networkId,
     indexedAccountId,
     appQrCodeModalTitle,
-    addressCreationRequest,
-  }: Parameters<
-    ServiceQrWallet['prepareQrcodeWalletAddressCreate']
-  >[0]): Promise<IAirGapUrJson> {
+  }: // deriveType,
+  {
+    walletId: IDBWalletId;
+    networkId: string;
+    indexedAccountId: string;
+    appQrCodeModalTitle?: string;
+    // deriveType: IAccountDeriveTypes;
+  }): Promise<IAirGapUrJson> {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
@@ -707,8 +680,6 @@ class ServiceQrWallet extends ServiceBase {
     const { responseUr } = await this.startTwoWayAirGapScanUr({
       requestUr: request.toUR(),
       appQrCodeModalTitle,
-      addressCreationRequest,
-      owner: addressCreationRequest?.id,
     });
 
     const jsonData = airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });

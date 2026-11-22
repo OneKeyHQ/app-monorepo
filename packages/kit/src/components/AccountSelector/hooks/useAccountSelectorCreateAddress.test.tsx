@@ -14,7 +14,6 @@ import {
 import { Dialog, Toast } from '@onekeyhq/components';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -22,13 +21,6 @@ import { useAccountSelectorCreateAddress } from './useAccountSelectorCreateAddre
 
 const mockAddDefaultNetworkAccounts = jest.fn<Promise<unknown>, [unknown]>();
 const mockAddAccounts = jest.fn<Promise<unknown>, [unknown]>();
-const mockGetWalletDevice = jest.fn<
-  Promise<{ connectId: string }>,
-  [unknown]
->();
-const mockCloseHardwareUi = jest.fn<Promise<void>, [unknown]>(
-  async () => undefined,
-);
 const mockIsThirdPartyHwByWalletId = jest.fn<Promise<boolean>, [unknown]>();
 const mockGetNetwork = jest.fn<
   Promise<{ name: string } | undefined>,
@@ -46,14 +38,12 @@ const mockGetIndexedAccounts = jest.fn<
   [unknown]
 >();
 const mockVerifyPassword = jest.fn<Promise<void>, [unknown]>();
-const mockImportQrAccount = jest.fn<Promise<void>, [unknown]>();
-const mockWaitForAddressCreationFocus = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
-      getWalletDevice: (params: unknown) => mockGetWalletDevice(params),
+      getWalletDevice: jest.fn(async () => ({ connectId: 'device-1' })),
       isThirdPartyHwByWalletId: (params: unknown) =>
         mockIsThirdPartyHwByWalletId(params),
       getIndexedAccountsOfWallet: (params: unknown) =>
@@ -67,8 +57,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {
-      closeHardwareUiStateDialog: (params: unknown) =>
-        mockCloseHardwareUi(params),
+      closeHardwareUiStateDialog: jest.fn(async () => undefined),
     },
     serviceNetwork: {
       getNetwork: (params: unknown) => mockGetNetwork(params),
@@ -115,12 +104,7 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actionsLazy', () => ({
 }));
 
 jest.mock('./useCreateQrWallet', () => ({
-  useCreateQrWallet: () => ({ createQrWalletAccount: mockImportQrAccount }),
-}));
-
-jest.mock('../../../views/ScanQrCode/utils/getAccountIdOnNetwork', () => ({
-  waitForAddressCreationRequestFocus: (request: unknown) =>
-    mockWaitForAddressCreationFocus(request),
+  useCreateQrWallet: () => ({ createQrWalletAccount: jest.fn() }),
 }));
 
 jest.mock('../../TutorialsList', () => ({ TutorialsList: () => null }));
@@ -157,8 +141,6 @@ async function createAllNetworkAddress(selectAfterCreate = false) {
 describe('useAccountSelectorCreateAddress', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAddAccounts.mockReset();
-    mockGetWalletDevice.mockResolvedValue({ connectId: 'device-1' });
     mockGetIndexedAccounts.mockResolvedValue({ accounts: [] });
     mockVerifyPassword.mockResolvedValue(undefined);
     mockGetNetwork.mockReset().mockResolvedValue({ name: 'Bitcoin' });
@@ -170,155 +152,6 @@ describe('useAccountSelectorCreateAddress', () => {
       failedAccounts: [pathForbidden],
     });
   });
-
-  it('retries the missing address after the legacy scanner owner regains focus', async () => {
-    const imported = Promise.withResolvers<void>();
-    const waiting = Promise.withResolvers<void>();
-    const refocused = Promise.withResolvers<void>();
-    const request = { id: 'qr-parent', nodeId: 'node', promiseId: 42 };
-    let active = true;
-    mockAddAccounts
-      .mockRejectedValueOnce(new OneKeyErrorAirGapAccountNotFound())
-      .mockResolvedValueOnce({
-        walletId: 'qr-1',
-        indexedAccountId: 'qr-1--0',
-        accounts: [{ id: 'created-address' }],
-      });
-    mockImportQrAccount.mockImplementationOnce(async () => {
-      active = false;
-      imported.resolve();
-    });
-    mockWaitForAddressCreationFocus.mockImplementationOnce(async () => {
-      waiting.resolve();
-      await refocused.promise;
-    });
-    const { result } = renderHook(() => useAccountSelectorCreateAddress());
-    const creation = result.current.createAddress({
-      num: 0,
-      selectAfterCreate: false,
-      account: {
-        walletId: 'qr-1',
-        networkId: 'btc--0',
-        indexedAccountId: 'qr-1--0',
-        deriveType: 'default',
-      },
-      addressCreationRequest: request,
-      canStartAddressCreation: () => active,
-    });
-    await imported.promise;
-    await Promise.race([waiting.promise, creation]);
-    expect(mockWaitForAddressCreationFocus).toHaveBeenCalledWith(request);
-    expect(mockAddAccounts).toHaveBeenCalledTimes(1);
-    active = true;
-    refocused.resolve();
-    await expect(creation).resolves.toMatchObject({
-      accounts: [{ id: 'created-address' }],
-    });
-    expect(mockAddAccounts).toHaveBeenCalledTimes(2);
-  });
-
-  it.each([true, false])(
-    'checks the address request after a delayed device lookup (active: %s)',
-    async (stillActive) => {
-      let finishLookup: (device: { connectId: string }) => void = () => {};
-      mockGetWalletDevice.mockReturnValueOnce(
-        new Promise((resolve) => {
-          finishLookup = resolve;
-        }),
-      );
-      mockAddAccounts.mockResolvedValueOnce({
-        walletId: 'hw-wallet-1',
-        indexedAccountId: 'hw-wallet-1--0',
-        accounts: [{ id: 'created-1' }],
-      });
-      const { result } = renderHook(() => useAccountSelectorCreateAddress());
-      let active = true;
-      const creating = result.current.createAddress({
-        num: 0,
-        account: {
-          walletId: 'hw-wallet-1',
-          networkId: 'lightning--0',
-          indexedAccountId: 'hw-wallet-1--0',
-          deriveType: 'default',
-        },
-        canStartAddressCreation: () => active,
-        addressCreationRequest: {
-          nodeId: 'scanner',
-          id: 'scan-1',
-          promiseId: 42,
-        },
-      });
-      expect(mockGetWalletDevice).toHaveBeenCalledTimes(1);
-      expect(mockAddAccounts).not.toHaveBeenCalled();
-
-      active = stillActive;
-      finishLookup({ connectId: 'device-1' });
-      await creating;
-
-      expect(mockAddAccounts).toHaveBeenCalledTimes(stillActive ? 1 : 0);
-      expect(mockCloseHardwareUi).toHaveBeenCalledTimes(stillActive ? 1 : 0);
-      if (stillActive) {
-        expect(mockAddAccounts).toHaveBeenCalledWith(
-          expect.objectContaining({ addressCreationPromiseId: 42 }),
-        );
-      }
-    },
-  );
-
-  it.each([true, false])(
-    'refreshes the created address and only selects it for the current request (active: %s)',
-    async (stillActive) => {
-      const created = {
-        walletId: 'hd-wallet-1',
-        indexedAccountId: 'hd-wallet-1--0',
-        accounts: [{ id: 'created-1' }],
-      };
-      let finishCreation: (result: typeof created) => void = () => {};
-      mockAddAccounts.mockReturnValueOnce(
-        new Promise((resolve) => {
-          finishCreation = resolve;
-        }),
-      );
-      const { result } = renderHook(() => useAccountSelectorCreateAddress());
-      let active = true;
-      const canStartAddressCreation = () => active;
-      const creating = result.current.createAddress({
-        num: 0,
-        selectAfterCreate: true,
-        account: {
-          walletId: created.walletId,
-          networkId: 'lightning--0',
-          indexedAccountId: created.indexedAccountId,
-          deriveType: 'default',
-        },
-        canStartAddressCreation,
-      });
-      expect(mockAddAccounts).toHaveBeenCalledTimes(1);
-      expect(mockCallAccountSelectorAction).not.toHaveBeenCalled();
-
-      active = stillActive;
-      finishCreation(created);
-      await expect(creating).resolves.toEqual(created);
-
-      expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
-        1,
-        'refresh',
-        {
-          num: 0,
-        },
-      );
-      expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(
-        stillActive ? 2 : 1,
-      );
-      if (stillActive) {
-        expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
-          2,
-          'updateSelectedAccountForHdOrHwAccount',
-          expect.objectContaining({ shouldCommit: canStartAddressCreation }),
-        );
-      }
-    },
-  );
 
   it('closes the failed QR-address dialog before opening support', async () => {
     let finishClose: () => void = () => {};

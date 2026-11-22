@@ -50,41 +50,19 @@ export default function useScanQrCode() {
             params: {
               qrWalletScene,
               showProTutorial,
-              callback: async ({
-                value,
-                popNavigation,
-                canApplyScanResult,
-                waitForPhotoPicker,
-                scanSignal,
-                holdForChildScan,
-                isScanOpen,
-                onResultWillClose,
-              }) => {
+              callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
                   let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
                   try {
-                    parseValue = await parseQRCode.parse(
-                      value,
-                      {
-                        autoExecuteParsedAction,
-                        handlers,
-                        account,
-                        network,
-                        tokens,
-                        popNavigation,
-                      },
-                      {
-                        canApplyScanResult,
-                        waitForPhotoPicker,
-                        scanSignal,
-                        holdForChildScan,
-                        onResultWillClose,
-                      },
-                    );
+                    parseValue = await parseQRCode.parse(value, {
+                      autoExecuteParsedAction,
+                      handlers,
+                      account,
+                      network,
+                      tokens,
+                      popNavigation,
+                    });
                   } catch (error) {
-                    if (error instanceof OneKeyErrorScanQrCodeCancel) {
-                      return isScanOpen?.() ? { retry: true } : {};
-                    }
                     // A transient parse failure retries the frame; an action error stays
                     // a dropped frame, as before. The page stays open for both.
                     if (isRetryableQrParseFailure(error))

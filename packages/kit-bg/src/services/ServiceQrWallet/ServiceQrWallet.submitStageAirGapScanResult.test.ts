@@ -7,8 +7,6 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 
-import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';
-
 import ServiceQrWallet from './ServiceQrWallet';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -40,14 +38,6 @@ jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
     urToJson: jest.fn(() => ({ type: 'bytes', cbor: 'mock' })),
     jsonToUr: jest.fn(() => ({ type: 'bytes' })),
     qrcodeToUr: jest.fn(async () => ({ type: 'bytes' })),
-  },
-}));
-
-jest.mock('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR', () => ({
-  OneKeyRequestDeviceQR: class {
-    toUR() {
-      return { type: 'bytes' };
-    }
   },
 }));
 
@@ -243,12 +233,10 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
       isEnabled: true,
       begin,
     });
-    const addressCreationRequest = { nodeId: 'scan-viewport', id: 'request' };
 
     await service.startTwoWayAirGapScanUr({
       requestUr: {} as never,
       allowPlainTextResponse: true,
-      addressCreationRequest,
     });
 
     expect(begin).toHaveBeenCalledTimes(1);
@@ -257,7 +245,7 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
     expect(sessions.stageAirGapSession).toBeUndefined();
     expect(appEventBus.emit).toHaveBeenCalledWith(
       'ShowAirGapQrcode',
-      expect.objectContaining({ promiseId: 42, addressCreationRequest }),
+      expect.objectContaining({ promiseId: 42 }),
     );
   });
 
@@ -367,7 +355,6 @@ describe('ServiceQrWallet stage session owner', () => {
     };
     const service = new ServiceQrWallet({
       backgroundApi: {
-        serviceAccount: { getWallet: async () => ({ id: 'qr-1' }) },
         serviceHardwareUI: { deviceStageBurst },
         servicePromise: {
           createCallback: (handlers: {
@@ -417,53 +404,6 @@ describe('ServiceQrWallet stage session owner', () => {
         setTimeout(() => resolve('pending'), 0);
       }),
     ]);
-
-  it.each(['preparing', 'showing'])(
-    'binds scanner-owned address creation to its DeviceStage session while %s',
-    async (phase) => {
-      const { service, deviceStageBurst, codeShown } =
-        createStageSessionService();
-      jest
-        .mocked(buildDefaultAddAccountNetworksForQrWallet)
-        .mockResolvedValue([]);
-      jest.spyOn(service, 'buildGetMultiAccountsParams').mockResolvedValue({
-        chain: 'BTC',
-        paths: [],
-      });
-      const shown = codeShown();
-      const owner = 'scanner-address-creation';
-      const exchange = service.prepareQrcodeWalletAddressCreate({
-        walletId: 'qr-1',
-        networkId: 'btc--0',
-        indexedAccountId: 'qr-1--0',
-        addressCreationRequest: { id: owner, nodeId: 'scanner' },
-      });
-      const state = exchange.catch((error: unknown) => error);
-
-      if (phase === 'showing') await shown;
-      await service.cancelQrWalletAddressCreate({ owner });
-
-      try {
-        await expect(settledState(exchange)).resolves.toBe('rejected');
-        expect(await state).toBeInstanceOf(
-          phase === 'preparing'
-            ? SecureQRCodeDialogCancel
-            : OneKeyErrorScanQrCodeCancel,
-        );
-        if (phase === 'preparing') {
-          expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
-        } else {
-          await service.submitStageAirGapScanResult({
-            result: scanResult,
-            sessionId: await shown,
-          });
-          expect(deviceStageBurst.qrNoteScanCompleted).not.toHaveBeenCalled();
-        }
-      } finally {
-        await service.cancelStageAirGapScan();
-      }
-    },
-  );
 
   it('still lets a stage close end a session that names no owner', async () => {
     // The OneKey QR wallet passes no owner; the stage's own close is unchanged.

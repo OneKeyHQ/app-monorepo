@@ -334,13 +334,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
 
   const lightningSignatureConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const {
-        onSuccess,
-        onFail,
-        onConfirmationFail,
-        onCancel,
-        isNavigationCurrent,
-      } = params;
+      const { onSuccess, onFail, onConfirmationFail, onCancel } = params;
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {
@@ -358,7 +352,6 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             networkId,
           });
 
-        if (isNavigationCurrent && !isNavigationCurrent()) return;
         if (lnurlDetails) {
           switch (lnurlDetails.tag) {
             case 'login':
@@ -398,7 +391,6 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           return;
         }
       } catch (e: any) {
-        if (isNavigationCurrent && !isNavigationCurrent()) return;
         console.log('lightningSendConfirm error: ', e);
         if (onFail) {
           onFail(e);

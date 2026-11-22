@@ -9,10 +9,6 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
-import {
-  getRetryAfterOnError,
-  getUnanchoredRetryDelayMs,
-} from '../request/retryAfterUtils';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
@@ -62,11 +58,8 @@ const intervalTimeout = timerUtils.getTimeDurationMs({
 const refreshServerTimeTimeout = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
-const freshEstimateRetryDelayMs = 1000;
-const healthRetryWithoutTimeMs = timerUtils.getTimeDurationMs({ seconds: 30 });
 // Allow an IP-table attempt, its domain fallback, and interceptor overhead.
 const freshResponseMaxDuration = refreshServerTimeTimeout * 3;
-const clockContinuityToleranceMs = 1000;
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
   // OK-55438: tightened 30m -> 10m. Cross-device LWW ordering for cloud sync
   // needs a tighter local-clock trust window than display/expiry logic: within
@@ -99,42 +92,6 @@ function getMonotonicTimeNow(): number | undefined {
   return time;
 }
 
-type IServerTimeRequestStart = {
-  wallTime: number;
-  monotonicTime: number | undefined;
-};
-
-function isFreshServerTimeRequest(
-  start: IServerTimeRequestStart,
-  localTime = Date.now(),
-) {
-  const wallElapsed = localTime - start.wallTime;
-  if (wallElapsed < 0 || wallElapsed > freshResponseMaxDuration) return false;
-  const monotonicTime = getMonotonicTimeNow();
-  if (monotonicTime === undefined || start.monotonicTime === undefined) {
-    return true;
-  }
-  const monotonicElapsed = monotonicTime - start.monotonicTime;
-  return (
-    monotonicElapsed >= 0 &&
-    Math.abs(wallElapsed - monotonicElapsed) <= clockContinuityToleranceMs
-  );
-}
-
-function isManagedHealthCheckUrl(url: string) {
-  const [path, query] = url.split('?', 2);
-  if (!query || !path.endsWith(ONEKEY_HEALTH_CHECK_URL)) return false;
-  const marker = new URLSearchParams(query).get('_');
-  return marker === 'system_time_utils' || marker === 'hardware_verification';
-}
-
-declare module 'axios' {
-  interface AxiosRequestConfig {
-    $oneKeySkipServerTimeUpdate?: boolean;
-    $oneKeyServerTimeRequestStart?: IServerTimeRequestStart;
-  }
-}
-
 function normalizeTimestamp(time: number | undefined): number | undefined {
   if (!isNumber(time) || isNaN(time) || isNil(time)) {
     return undefined;
@@ -159,18 +116,6 @@ function getPersistedTimeValue(key: EAppSyncStorageKeys): number | undefined {
 }
 
 class SystemTimeUtils {
-  captureServerTimeRequestStart(): IServerTimeRequestStart {
-    return { wallTime: Date.now(), monotonicTime: getMonotonicTimeNow() };
-  }
-
-  async getDesktopSystemUptimeMs() {
-    if (platformEnv.isDesktop) {
-      return globalThis.desktopApi
-        ?.getSystemUptimeMs?.()
-        .catch(() => undefined);
-    }
-  }
-
   constructor() {
     const lastServerTimeInStorage = getPersistedTimeValue(
       lastValidServerTimeStorageKey,
@@ -221,12 +166,6 @@ class SystemTimeUtils {
   private _lastServerTimeCanBeFallback = false;
 
   private _refreshServerTimePromise: Promise<boolean> | undefined;
-
-  private _freshEstimatePromise: Promise<number | undefined> | undefined;
-
-  private _freshEstimateRetry:
-    | { monotonicAt: number; uptimeAt?: number }
-    | undefined;
 
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
@@ -508,8 +447,7 @@ class SystemTimeUtils {
         endpoint,
         name: EServiceEndpointEnum.Wallet,
       });
-      const requestStart = this.captureServerTimeRequestStart();
-      requestStartedAt = requestStart.wallTime;
+      requestStartedAt = Date.now();
       const response = await client.get<unknown, IAxiosResponse<unknown>>(
         ONEKEY_HEALTH_CHECK_URL,
         {
@@ -518,7 +456,6 @@ class SystemTimeUtils {
             timestamp: Date.now(),
           },
           timeout: refreshServerTimeTimeout,
-          $oneKeySkipServerTimeUpdate: true,
         },
       );
       httpStatus = response.status;
@@ -548,10 +485,6 @@ class SystemTimeUtils {
         return false;
       }
       const localTimestamp = Date.now();
-      if (!isFreshServerTimeRequest(requestStart, localTimestamp)) {
-        logResult('stale-response');
-        return false;
-      }
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -559,9 +492,20 @@ class SystemTimeUtils {
         requestId,
       });
 
+      // Only a fresh health response can justify asking users to fix their clock.
+      // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
+      const requestDuration = localTimestamp - requestStartedAt;
       if (this.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
-        this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, true);
-        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+        if (
+          requestDuration >= 0 &&
+          requestDuration <= freshResponseMaxDuration
+        ) {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, true);
+          appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+        } else {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, false);
+          logResult('stale-response');
+        }
       }
       return true;
     } catch (error) {
@@ -610,16 +554,6 @@ class SystemTimeUtils {
   }
 
   getEstimatedServerTime(): number | undefined {
-    return this.estimateServerTime(false);
-  }
-
-  getContinuousEstimatedServerTime(): number | undefined {
-    return this.estimateServerTime(true);
-  }
-
-  private estimateServerTime(
-    requireContinuousClock: boolean,
-  ): number | undefined {
     if (
       !this._lastServerTimeIsReal ||
       !this.isTimeValid({ time: this._serverTimeEstimateBase }) ||
@@ -637,16 +571,6 @@ class SystemTimeUtils {
     if (!isNumber(elapsed) || isNaN(elapsed) || isNil(elapsed) || elapsed < 0) {
       return undefined;
     }
-    if (requireContinuousClock) {
-      const localBase = this._lastServerTimeLocalBase;
-      // Detect sleep or wall-clock changes without trusting the wall clock as UTC.
-      if (
-        isNil(localBase) ||
-        Math.abs(Date.now() - localBase - elapsed) > clockContinuityToleranceMs
-      ) {
-        return undefined;
-      }
-    }
 
     const estimated = normalizeTimestamp(
       (this._serverTimeEstimateBase ?? 0) + elapsed,
@@ -655,64 +579,6 @@ class SystemTimeUtils {
       return undefined;
     }
     return estimated;
-  }
-
-  async getFreshEstimatedServerTime(): Promise<number | undefined> {
-    const estimated = this.getContinuousEstimatedServerTime();
-    if (estimated !== undefined) return estimated;
-    this._freshEstimatePromise ??=
-      this.refreshMissingContinuousEstimate().finally(() => {
-        this._freshEstimatePromise = undefined;
-      });
-    return this._freshEstimatePromise;
-  }
-
-  private async refreshMissingContinuousEstimate(): Promise<
-    number | undefined
-  > {
-    const retry = this._freshEstimateRetry;
-    if (retry && (getMonotonicTimeNow() ?? Date.now()) < retry.monotonicAt) {
-      if (retry.uptimeAt === undefined) return undefined;
-      const uptime = await this.getDesktopSystemUptimeMs();
-      if (uptime === undefined || uptime < retry.uptimeAt) return undefined;
-    }
-    let delayMs = freshEstimateRetryDelayMs;
-    try {
-      const success = await this.refreshServerTimeOnce();
-      const refreshed = success
-        ? this.getContinuousEstimatedServerTime()
-        : undefined;
-      if (refreshed !== undefined) {
-        this._freshEstimateRetry = undefined;
-        return refreshed;
-      }
-    } catch (error) {
-      const estimated = this.getContinuousEstimatedServerTime();
-      const retryAfter = getRetryAfterOnError(
-        error,
-        freshEstimateRetryDelayMs,
-        estimated,
-      );
-      delayMs = retryAfter.delayMs;
-      if (
-        retryAfter.absoluteAt !== undefined &&
-        retryAfter.responseTime === undefined &&
-        estimated === undefined
-      ) {
-        delayMs = getUnanchoredRetryDelayMs({
-          absoluteAt: retryAfter.absoluteAt,
-          minimumDelayMs: healthRetryWithoutTimeMs,
-          maximumDelayMs: intervalTimeout,
-        });
-      }
-    }
-    const monotonicAt = (getMonotonicTimeNow() ?? Date.now()) + delayMs;
-    const uptime = await this.getDesktopSystemUptimeMs();
-    this._freshEstimateRetry = {
-      monotonicAt,
-      // System uptime counts suspend and can be rounded to whole seconds.
-      uptimeAt: uptime === undefined ? undefined : uptime + delayMs + 1000,
-    };
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {
@@ -952,7 +818,6 @@ class SystemTimeUtils {
       headers: { 'Cache-Control': 'no-cache, no-store' },
       timeout: refreshServerTimeTimeout,
       maxRedirects: 0,
-      $oneKeySkipServerTimeUpdate: true,
     });
     const end = getMonotonicTimeNow();
     const wallElapsed = Date.now() - wallStart;
@@ -1075,23 +940,14 @@ class SystemTimeUtils {
     source,
     headerDate,
     url,
-    requestStart,
-    requestUrl,
     requestId,
   }: {
     source: 'axios' | 'fetch';
     headerDate: string;
     url: string;
-    requestStart: IServerTimeRequestStart;
-    requestUrl?: string;
     requestId?: string;
   }) {
-    if (
-      !headerDate ||
-      !url ||
-      isManagedHealthCheckUrl(requestUrl ?? url) ||
-      !isFreshServerTimeRequest(requestStart)
-    ) {
+    if (!headerDate || !url) {
       return;
     }
     try {
@@ -1099,7 +955,6 @@ class SystemTimeUtils {
         source,
         headerDate,
         url,
-        requestStart,
         requestId,
       });
     } catch (error) {
@@ -1112,13 +967,11 @@ class SystemTimeUtils {
       source,
       headerDate,
       url,
-      requestStart,
       requestId,
     }: {
       source: 'axios' | 'fetch';
       headerDate: string;
       url: string;
-      requestStart: IServerTimeRequestStart;
       requestId?: string;
     }) => {
       if (!headerDate || !url) {
@@ -1144,7 +997,7 @@ class SystemTimeUtils {
         return;
       }
       const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
-      if (!isOneKeyDomain || !isFreshServerTimeRequest(requestStart)) {
+      if (!isOneKeyDomain) {
         return;
       }
       let localTimestamp: number = Date.now();

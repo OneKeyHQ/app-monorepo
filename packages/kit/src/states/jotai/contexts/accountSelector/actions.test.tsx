@@ -1044,31 +1044,6 @@ describe('useAccountSelectorActions', () => {
     expect(store.get(selectedAccountsAtom())[0]).toBe(previous);
   });
 
-  it('keeps the selected wallet when a pending address-creation selection is cancelled', async () => {
-    const { store, Wrapper } = createWrapper();
-    const currentSelection = {
-      ...createHdSelectedAccount('hd-2--0'),
-      walletId: 'hd-2',
-      focusedWallet: 'hd-2',
-    };
-    store.set(selectedAccountsAtom(), { 0: currentSelection });
-    const { result } = renderHook(() => useAccountSelectorActions().current, {
-      wrapper: Wrapper,
-    });
-    let ownsSelection = true;
-    await act(async () => {
-      const updating = result.current.updateSelectedAccountForHdOrHwAccount({
-        num: 0,
-        walletId: 'hd-1',
-        indexedAccountId: 'hd-1--0',
-        shouldCommit: () => ownsSelection,
-      });
-      ownsSelection = false;
-      await updating;
-    });
-    expect(store.get(selectedAccountsAtom())[0]).toBe(currentSelection);
-  });
-
   it('drops a selection update when its final commit guard is stale', async () => {
     const { store, Wrapper } = createWrapper();
     const previous = store.get(selectedAccountsAtom())[0];
@@ -3733,41 +3708,6 @@ describe('useAccountSelectorActions', () => {
     const qrDevice = {
       deviceId: 'qr-device-1',
     } as unknown as IDBCreateQRWalletParams['qrDevice'];
-
-    it('checks the scanner request immediately before persisting QR accounts', async () => {
-      const { Wrapper } = createWrapper();
-      const { result } = renderHook(() => useAccountSelectorActions().current, {
-        wrapper: Wrapper,
-      });
-      const error = new Error('The scan was cancelled while the action loaded');
-      const assertCanCreate = jest.fn(() => {
-        throw error;
-      });
-
-      await expect(
-        result.current.createQrWallet({
-          qrDevice,
-          airGapAccounts: [],
-          assertCanCreate,
-        }),
-      ).rejects.toBe(error);
-      expect(assertCanCreate).toHaveBeenCalledTimes(1);
-      expect(mockCreateQrWalletService).not.toHaveBeenCalled();
-    });
-
-    it('carries the scanner promise to background QR import', async () => {
-      const { Wrapper } = createWrapper();
-      const { result } = renderHook(() => useAccountSelectorActions().current, {
-        wrapper: Wrapper,
-      });
-      const params = {
-        qrDevice,
-        airGapAccounts: [],
-        addressCreationPromiseId: 42,
-      };
-      await result.current.createQrWallet(params);
-      expect(mockCreateQrWalletService).toHaveBeenCalledWith(params);
-    });
 
     function seedAllNetworksSelection(
       store: ReturnType<typeof createWrapper>['store'],

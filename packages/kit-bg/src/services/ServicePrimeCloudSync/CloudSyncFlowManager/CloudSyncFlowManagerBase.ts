@@ -639,14 +639,12 @@ export abstract class CloudSyncFlowManagerBase<
     newSyncItems,
     existingSyncItems,
     skipServerSyncFlow,
-    deferredServerSyncItems,
   }: {
     tx: ILocalDBTransaction;
     runDbTxFn: (options: { tx: ILocalDBTransaction }) => Promise<TResult>;
     newSyncItems: IDBCloudSyncItem[];
     existingSyncItems: IDBCloudSyncItem[];
     skipServerSyncFlow?: boolean;
-    deferredServerSyncItems?: IDBCloudSyncItem[];
   }) {
     // abstract the db sync flow of the create process
     // - get existing sync item
@@ -684,9 +682,7 @@ export abstract class CloudSyncFlowManagerBase<
       const localItems = [...newSyncItems, ...existingSyncItems].filter(
         Boolean,
       );
-      if (deferredServerSyncItems) {
-        deferredServerSyncItems.push(...localItems);
-      } else if (localItems.length) {
+      if (localItems.length) {
         void this.backgroundApi?.servicePrimeCloudSync.startServerSyncFlowForItems(
           {
             localItems,

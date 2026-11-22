@@ -161,10 +161,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
-import {
-  assertPublicAccountCreationCanContinue,
-  isPublicAccountCreationContext,
-} from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
+import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
@@ -4852,7 +4849,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     names,
     skipIfExists,
     skipServerSyncFlow,
-    deferredServerSyncItems,
     applyRestoreSyncPolicy,
     prepared,
   }: {
@@ -4864,7 +4860,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
     skipServerSyncFlow?: boolean;
-    deferredServerSyncItems?: IDBCloudSyncItem[];
     applyRestoreSyncPolicy?: boolean;
     prepared?: IIndexedAccountsCreationPreparedData;
   }) {
@@ -4924,7 +4919,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         },
         skipServerSyncFlow,
-        deferredServerSyncItems,
       });
       return indexedAccounts;
     }
@@ -5087,7 +5081,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         console.log('txAddIndexedAccount txGetWallet');
       },
       skipServerSyncFlow,
-      deferredServerSyncItems,
     });
 
     return indexedAccounts;
@@ -5211,7 +5204,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     onlyAddFirst,
     skipServerSyncFlow,
-    deferredServerSyncItems,
     expectedIndex,
     prepared,
   }: {
@@ -5219,7 +5211,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     onlyAddFirst?: boolean;
     skipServerSyncFlow: boolean;
-    deferredServerSyncItems?: IDBCloudSyncItem[];
     expectedIndex?: number;
     prepared?: IIndexedAccountsCreationPreparedData;
   }) {
@@ -5286,7 +5277,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       indexes: [nextIndex],
       skipIfExists: true,
       skipServerSyncFlow,
-      deferredServerSyncItems,
       prepared,
     });
 
@@ -6821,11 +6811,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     fullXfp = '',
     isMockedStandardHwWallet,
     existingDeviceId,
-    publicAccountCreationContext,
-  }: IDBCreateQRWalletParams & {
-    publicAccountCreationContext?: IPublicAccountCreationContext;
-  }) {
-    assertPublicAccountCreationCanContinue(publicAccountCreationContext);
+  }: IDBCreateQRWalletParams) {
     const { deviceId: rawDeviceId } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
@@ -6940,7 +6926,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           isMockedStandardHwWallet: true,
           existingDeviceId: dbDeviceId,
           firmwareTypeAtCreated: firmwareType,
-          publicAccountCreationContext,
         });
         parentWalletId = createStandardWalletResult.wallet?.id;
         if (!parentWalletId) {
@@ -7066,15 +7051,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
 
-    const deferredServerSyncItems: IDBCloudSyncItem[] | undefined =
-      publicAccountCreationContext ? [] : undefined;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      assertPublicAccountCreationCanContinue(publicAccountCreationContext);
       await syncManager.txWithSyncFlowOfDBRecordCreating({
         tx,
         newSyncItems,
         existingSyncItems,
-        deferredServerSyncItems,
         runDbTxFn: async () => {
           if (existingDevice) {
             await this.txUpdateRecords({
@@ -7172,7 +7153,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               walletId: dbWalletId,
               onlyAddFirst: true,
               skipServerSyncFlow: false,
-              deferredServerSyncItems,
             });
             addedHdAccountIndex = nextIndex;
           }
@@ -7188,15 +7168,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         },
       });
-      assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     });
-    if (deferredServerSyncItems?.length) {
-      void this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowForItems(
-        {
-          localItems: deferredServerSyncItems,
-        },
-      );
-    }
 
     // if (passphraseState) {
     // this.tempWallets[dbWalletId] = true;
@@ -9316,7 +9288,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     publicAccountCreationContext?: IPublicAccountCreationContext;
     publicAccountIndexedNames?: Record<number, string>;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
-    assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     if (
       publicAccountCreationContext &&
       !isPublicAccountCreationContext(publicAccountCreationContext)
@@ -9539,8 +9510,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // db transaction: add accounts to wallet
 
-    const deferredServerSyncItems: IDBCloudSyncItem[] | undefined =
-      publicAccountCreationContext ? [] : undefined;
     let repairedAvatarSeed: string | undefined;
     let addResults: {
       isOverrideAccounts: boolean;
@@ -9553,15 +9522,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const addResults0 =
             await syncManager.txWithSyncFlowOfDBRecordCreating({
               tx,
-              deferredServerSyncItems,
               existingSyncItems:
                 existingSyncItemsInfoResult000025394378263443374653.existingSyncItems,
               newSyncItems:
                 existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
               runDbTxFn: async () => {
-                assertPublicAccountCreationCanContinue(
-                  publicAccountCreationContext,
-                );
                 if (publicAccountCreationContext) {
                   if (
                     !isPublicAccountCreationContext(
@@ -9766,9 +9731,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 }
 
                 // add account record
-                assertPublicAccountCreationCanContinue(
-                  publicAccountCreationContext,
-                );
                 // eslint-disable-next-line prefer-const
                 let { added, addedIds } = await this.txAddRecords({
                   tx,
@@ -9908,7 +9870,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
               },
             });
-          assertPublicAccountCreationCanContinue(publicAccountCreationContext);
           return addResults0;
         },
       );
@@ -9926,14 +9887,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
       throw error;
-    }
-
-    if (deferredServerSyncItems?.length) {
-      void this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowForItems(
-        {
-          localItems: deferredServerSyncItems,
-        },
-      );
     }
 
     if (

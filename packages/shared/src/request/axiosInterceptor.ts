@@ -370,10 +370,6 @@ axios.interceptors.request.use(async (config) => {
   }
   await markNetworkThrottleRequestTiming(config);
   config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
-  if (!config.$oneKeySkipServerTimeUpdate) {
-    config.$oneKeyServerTimeRequestStart =
-      systemTimeUtils.captureServerTimeRequestStart();
-  }
   return config;
 });
 
@@ -386,19 +382,14 @@ axios.interceptors.response.use(
     const { config } = response;
     const url =
       response?.request?.responseURL || config?.baseURL || config?.url || '';
-    if (config.$oneKeyServerTimeRequestStart) {
-      const timeCheckRequestId: unknown = config.headers[HEADER_REQUEST_ID_KEY];
-      void systemTimeUtils.handleServerResponseDate({
-        source: 'axios',
-        headerDate: response?.headers?.date || '',
-        url,
-        requestStart: config.$oneKeyServerTimeRequestStart,
-        requestId:
-          typeof timeCheckRequestId === 'string'
-            ? timeCheckRequestId
-            : undefined,
-      });
-    }
+    const timeCheckRequestId: unknown = config.headers[HEADER_REQUEST_ID_KEY];
+    void systemTimeUtils.handleServerResponseDate({
+      source: 'axios',
+      headerDate: response?.headers?.date || '',
+      url,
+      requestId:
+        typeof timeCheckRequestId === 'string' ? timeCheckRequestId : undefined,
+    });
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
@@ -549,22 +540,13 @@ axios.interceptors.response.use(
         const title = appLocale.intl.formatMessage({
           id: ETranslations.global_server_error,
         });
-        const serverError = new OneKeyServerApiError({
+        throw new OneKeyServerApiError({
           autoToast: false,
           message: title,
           code: Number(response.status),
           httpStatusCode: Number(response.status),
           requestId: config.headers[HEADER_REQUEST_ID_KEY],
         });
-        const retryAfter = response.headers?.['retry-after'];
-        if (typeof retryAfter === 'string') {
-          serverError.retryAfter = retryAfter;
-          const responseDate = response.headers?.date;
-          if (typeof responseDate === 'string') {
-            serverError.retryAfterResponseDate = responseDate;
-          }
-        }
-        throw serverError;
       }
     }
 

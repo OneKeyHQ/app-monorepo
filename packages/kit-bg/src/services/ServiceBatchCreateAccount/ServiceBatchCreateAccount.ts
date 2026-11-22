@@ -69,7 +69,6 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 import {
-  assertPublicAccountCreationCanContinue,
   isPublicAccountCreationContext,
   withPublicAccountCreationContext,
 } from '../ServicePrimeCloudSync/publicAccountCreationContext';
@@ -504,9 +503,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let flowStarted = false;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
-        assertPublicAccountCreationCanContinue(
-          payload.params.publicAccountCreationContext,
-        );
         // Reset the singleton flow state only once this flow owns the
         // hardware operation lease. Resetting before acquiring it would wipe
         // the progressInfo of a flow that is still running (OK-62413).
@@ -831,24 +827,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addDefaultNetworkAccountsForUserCreation({
-    addressCreationPromiseId,
-    ...params
-  }: Parameters<ServiceBatchCreateAccount['addDefaultNetworkAccounts']>[0] & {
-    addressCreationPromiseId?: number;
-  }) {
-    return withPublicAccountCreationContext(
-      (publicAccountCreationContext) =>
-        this.addDefaultNetworkAccounts({
-          ...params,
-          publicAccountCreationContext,
-        }),
-      addressCreationPromiseId === undefined
-        ? undefined
-        : () =>
-            this.backgroundApi.servicePromise.canContinueCallback(
-              addressCreationPromiseId,
-            ),
+  async addDefaultNetworkAccountsForUserCreation(
+    params: Parameters<
+      ServiceBatchCreateAccount['addDefaultNetworkAccounts']
+    >[0],
+  ) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addDefaultNetworkAccounts({
+        ...params,
+        publicAccountCreationContext,
+      }),
     );
   }
 
@@ -1555,9 +1543,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
-        assertPublicAccountCreationCanContinue(
-          params.publicAccountCreationContext,
-        );
         // See startBatchCreateAccountsFlow: reset only while owning the lease
         // and honour a cancel received while queued for it.
         this.beforeStartFlow({ flowRequestId });
@@ -1927,7 +1912,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
-    assertPublicAccountCreationCanContinue(publicAccountCreationContext);
     defaultLogger.account.batchCreatePerf.batchBuildAccountsStart({
       walletId,
       networkId,
@@ -2020,7 +2004,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
         if (!accountForCreate.existsInDb) {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
-          assertPublicAccountCreationCanContinue(publicAccountCreationContext);
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             publicAccountCreationContext,
             walletId,
@@ -2126,7 +2109,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
           });
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
-              publicAccountCreationContext,
               walletId,
               networkId,
               deriveType,

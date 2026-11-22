@@ -5,8 +5,7 @@ import type {
   OneKeyError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
-import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { normalizeLightningInput } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAuthResponse,
@@ -20,11 +19,6 @@ import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/pay
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { LightningAuthorizationRequiredError } from './LightningAuthorizationRequiredError';
-import {
-  type ILightningRetryDeadline,
-  getLightningRetryDeadline,
-  isLightningRetryPending,
-} from './lightningRequestRetry';
 
 import type { IBroadcastTransactionParams } from '../../../types';
 import type { AxiosInstance } from 'axios';
@@ -38,20 +32,6 @@ function isAuthError(error: unknown): boolean {
   );
 }
 
-export function createLightningInvoiceDecodeCache() {
-  return {
-    decoded: new LRUCache<string, IInvoiceDecodedResponse>({
-      ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      max: 100,
-    }),
-    inFlight: new Map<string, Promise<IInvoiceDecodedResponse>>(),
-    failed: new LRUCache<
-      string,
-      { deadline: ILightningRetryDeadline; nextDelayMs: number; error: unknown }
-    >({ max: 100 }),
-  };
-}
-
 class ClientLightning {
   private backgroundApi: IBackgroundApi;
 
@@ -63,12 +43,7 @@ class ClientLightning {
 
   readonly maxRetryCount = 3;
 
-  constructor(
-    backgroundApi: any,
-    client: AxiosInstance,
-    isTestnet: boolean,
-    private readonly invoiceDecodeCache = createLightningInvoiceDecodeCache(),
-  ) {
+  constructor(backgroundApi: any, client: AxiosInstance, isTestnet: boolean) {
     this.request = client;
     this.testnet = isTestnet;
     this.backgroundApi = backgroundApi;
@@ -322,51 +297,14 @@ class ClientLightning {
     });
   }
 
-  async decodedInvoice(input: string) {
-    const invoice = normalizeLightningInput(input);
-    const { decoded, failed, inFlight } = this.invoiceDecodeCache;
-    const cached = decoded.get(invoice);
-    if (cached) {
-      return cached;
-    }
-    const currentRequest = inFlight.get(invoice);
-    if (currentRequest) {
-      return currentRequest;
-    }
-    const previousFailure = failed.get(invoice);
-    const pending = (async () => {
-      if (
-        previousFailure &&
-        (await isLightningRetryPending(previousFailure.deadline))
-      ) {
-        throw previousFailure.error;
-      }
-      try {
-        const { data } = await this.request.get<
-          IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>
-        >(`${this.prefix}/invoices/decode/${invoice}`);
-        failed.delete(invoice);
-        decoded.set(invoice, data.data);
-        return data.data;
-      } catch (error) {
-        const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-        const deadline = await getLightningRetryDeadline(error, fallbackMs);
-        if (deadline) {
-          failed.set(invoice, {
-            deadline,
-            nextDelayMs: Math.min(30_000, fallbackMs * 2),
-            error,
-          });
-        } else {
-          failed.delete(invoice);
-        }
-        throw error;
-      }
-    })().finally(() => {
-      inFlight.delete(invoice);
-    });
-    inFlight.set(invoice, pending);
-    return pending;
+  async decodedInvoice(invoice: string) {
+    type IInvoiceDecodedApiResponse =
+      IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>;
+    return this.request
+      .get<IInvoiceDecodedApiResponse>(
+        `${this.prefix}/invoices/decode/${invoice}`,
+      )
+      .then((i) => i.data.data);
   }
 
   specialInvoice = memoizee(

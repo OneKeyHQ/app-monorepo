@@ -1,38 +1,11 @@
-import { AxiosError } from 'axios';
 import { bech32 } from 'bech32';
 
-import ServiceLightning from '@onekeyhq/kit-bg/src/services/ServiceLightning';
-import ClientLightning from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  InvoiceExpiredError,
-  OneKeyError,
-  OneKeyLocalError,
-  OneKeyServerApiError,
-  RetryableLightningScanError,
-} from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
-import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
-import {
-  EQRCodeHandlerNames,
-  EQRCodeHandlerType,
-} from '@onekeyhq/shared/types/qrCode';
-
-import { parseQRCode } from '..';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import lightningNetwork from './lightningNetwork';
 
 import type { IQRCodeHandlerOptions } from '../type';
-import type { AxiosInstance } from 'axios';
-
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  return { ...actual, backgroundClass: () => (target: unknown) => target };
-});
 
 // BOLT 11 example invoices (mainnet and testnet) and the LUD-01 example LNURL.
 const INVOICE =
@@ -47,54 +20,17 @@ function setup() {
     tag: 'payRequest',
     url: 'https://example.com/pay',
   }));
-  const decodedInvoice = jest.fn(
-    async (address: string): Promise<IInvoiceDecodedResponse> => ({
-      paymentRequest: address,
-      tags: [],
-      tagsObject: {},
-    }),
-  );
-  const getLnClient = jest.fn(async (_isTestnet: boolean) => ({
-    decodedInvoice,
-  }));
-  const getNetwork = jest.fn(async ({ networkId }: { networkId: string }) => ({
-    id: networkId,
-  }));
   const options = {
     backgroundApi: {
-      serviceNetwork: { getNetwork },
-      serviceLightning: { findAndValidateLnurl, getLnClient },
+      serviceNetwork: {
+        getNetwork: jest.fn(async ({ networkId }: { networkId: string }) => ({
+          id: networkId,
+        })),
+      },
+      serviceLightning: { findAndValidateLnurl },
     },
   } as unknown as IQRCodeHandlerOptions;
-  return {
-    options,
-    findAndValidateLnurl,
-    getLnClient,
-    decodedInvoice,
-    getNetwork,
-  };
-}
-
-function setupRecipientValidation() {
-  const { options } = setup();
-  const lnurlDetails = { tag: 'payRequest', url: 'https://example.com/pay' };
-  const serverValidateAddress = jest.fn(
-    async (_params: { networkId: string; address: string }) => ({
-      data: { data: { lnurlDetails } },
-    }),
-  );
-  const serviceLightning = new ServiceLightning({
-    backgroundApi: { serviceValidator: { serverValidateAddress } },
-  });
-  const parseOptions = {
-    ...options,
-    backgroundApi: {
-      ...options.backgroundApi,
-      serviceLightning,
-    } as typeof options.backgroundApi,
-    handlers: [EQRCodeHandlerNames.lightningNetwork],
-  };
-  return { serverValidateAddress, serviceLightning, parseOptions };
+  return { options, findAndValidateLnurl };
 }
 
 describe('lightningNetwork QR handler', () => {
@@ -103,7 +39,7 @@ describe('lightningNetwork QR handler', () => {
     ['lightning:<invoice>', `lightning:${INVOICE}`],
     ['an upper case QR code', `lightning:${INVOICE}`.toUpperCase()],
   ])('reads %s as the bare invoice on mainnet', async (_label, value) => {
-    const { options, findAndValidateLnurl, decodedInvoice } = setup();
+    const { options, findAndValidateLnurl } = setup();
     await expect(lightningNetwork(value, options)).resolves.toMatchObject({
       type: EQRCodeHandlerType.LIGHTNING_NETWORK,
       data: {
@@ -111,12 +47,11 @@ describe('lightningNetwork QR handler', () => {
         network: { id: getNetworkIdsMap().lightning },
       },
     });
-    expect(decodedInvoice).toHaveBeenCalledWith(INVOICE);
     expect(findAndValidateLnurl).not.toHaveBeenCalled();
   });
 
   it('sends a testnet invoice to the testnet network', async () => {
-    const { options, getLnClient } = setup();
+    const { options } = setup();
     await expect(
       lightningNetwork(`lightning:${TESTNET_INVOICE}`, options),
     ).resolves.toMatchObject({
@@ -125,7 +60,6 @@ describe('lightningNetwork QR handler', () => {
         network: { id: getNetworkIdsMap().tlightning },
       },
     });
-    expect(getLnClient).toHaveBeenCalledWith(true);
   });
 
   it('reads an upper case LNURL in lower case and resolves its tag', async () => {
@@ -139,7 +73,6 @@ describe('lightningNetwork QR handler', () => {
     expect(findAndValidateLnurl).toHaveBeenCalledWith({
       toVal: LNURL,
       networkId: getNetworkIdsMap().lightning,
-      forScan: true,
     });
   });
 
@@ -155,6 +88,21 @@ describe('lightningNetwork QR handler', () => {
     await expect(
       lightningNetwork('satoshi@example.com', options),
     ).resolves.toBeNull();
+    await expect(
+      lightningNetwork('LNURLalice@example.com', options),
+    ).resolves.toBeNull();
+  });
+
+  it('leaves truncated and unsupported invoices out of the Lightning route', async () => {
+    const { options } = setup();
+    const { words } = bech32.decode(TESTNET_INVOICE, TESTNET_INVOICE.length);
+    for (const invoice of [
+      INVOICE.slice(0, -1),
+      bech32.encode('lntbs', words, 2000),
+      bech32.encode('lnbcrt', words, 2000),
+    ]) {
+      await expect(lightningNetwork(invoice, options)).resolves.toBeNull();
+    }
   });
 
   it.each([
@@ -165,505 +113,4 @@ describe('lightningNetwork QR handler', () => {
     const { options } = setup();
     await expect(lightningNetwork(value, options)).resolves.toBeNull();
   });
-});
-
-it.each([
-  ['a truncated invoice', INVOICE.slice(0, -4)],
-  ['an invoice with a wrong checksum', `${INVOICE.slice(0, -1)}q`],
-  ['a bare email with an LNURL prefix', 'LNURLalice@example.com'],
-])('leaves %s to the copy fallback', async (_label, input) => {
-  const { options, findAndValidateLnurl, getLnClient } = setup();
-  await expect(lightningNetwork(input, options)).resolves.toBeNull();
-  expect(getLnClient).not.toHaveBeenCalled();
-  expect(findAndValidateLnurl).not.toHaveBeenCalled();
-});
-
-it.each(['lntbs', 'lnbcrt'])(
-  'does not route %s to Lightning Testnet',
-  async (prefix) => {
-    const { options } = setup();
-    const { words } = bech32.decode(INVOICE, INVOICE.length);
-    const invoice = bech32.encode(prefix, words, INVOICE.length + 2);
-    await expect(lightningNetwork(invoice, options)).resolves.toBeNull();
-  },
-);
-
-it('requires a decoded invoice even when the checksum is valid', async () => {
-  const { options, decodedInvoice, getNetwork } = setup();
-  decodedInvoice.mockResolvedValueOnce({
-    paymentRequest: '',
-    tags: [],
-    tagsObject: {},
-  });
-  await expect(lightningNetwork(INVOICE, options)).resolves.toBeNull();
-  expect(getNetwork).not.toHaveBeenCalled();
-});
-
-it.each([
-  ['absolute expiry', { timeExpireDate: 1_900_000_000 }],
-  ['expiry tag', { timestamp: 1_899_999_940, tagsObject: { expire_time: 60 } }],
-  ['default expiry', { timestamp: 1_899_996_400 }],
-])(
-  'uses the current server time for a cached invoice with %s',
-  async (_label, expiry) => {
-    const { options, decodedInvoice, getNetwork } = setup();
-    const request = {
-      get: jest.fn(async () => ({
-        data: {
-          data: {
-            paymentRequest: INVOICE,
-            tags: [],
-            tagsObject: {},
-            ...expiry,
-          },
-        },
-      })),
-    };
-    const client = new ClientLightning(
-      options.backgroundApi,
-      request as unknown as AxiosInstance,
-      false,
-    );
-    decodedInvoice.mockImplementation((address) =>
-      client.decodedInvoice(address),
-    );
-    const parseOptions = {
-      ...options,
-      handlers: [EQRCodeHandlerNames.lightningNetwork],
-    };
-    const now = jest
-      .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
-      .mockResolvedValue(1_899_999_999_000);
-    try {
-      await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
-        type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-        data: { expiresAt: 1_900_000_000 },
-      });
-      now.mockResolvedValue(1_900_000_000_000);
-      const expired = parseQRCode(INVOICE, parseOptions);
-      await expect(expired).rejects.toBeInstanceOf(InvoiceExpiredError);
-      await expect(expired).rejects.toMatchObject({ autoToast: false });
-      expect(request.get).toHaveBeenCalledTimes(1);
-      expect(getNetwork).toHaveBeenCalledTimes(1);
-    } finally {
-      now.mockRestore();
-    }
-  },
-);
-
-it('resolves a recognized LNURL URI and preserves its scheme for validation', async () => {
-  const { options, findAndValidateLnurl } = setup();
-  const address = 'lnurlp://example.com/pay';
-  await expect(lightningNetwork(address, options)).resolves.toMatchObject({
-    data: { address, tag: 'payRequest' },
-  });
-  expect(findAndValidateLnurl).toHaveBeenCalledWith({
-    toVal: address,
-    networkId: getNetworkIdsMap().lightning,
-    forScan: true,
-  });
-});
-
-it('refreshes invoice time when the wall clock advances without the monotonic clock', async () => {
-  const { options, decodedInvoice, getNetwork } = setup();
-  const serverTime = 1_900_000_000_000;
-  const expiresAt = serverTime / 1000 + 2;
-  const local = jest.spyOn(Date, 'now').mockReturnValue(serverTime);
-  const refresh = jest
-    .spyOn(systemTimeUtils, 'refreshServerTime')
-    .mockImplementationOnce(async () => {
-      systemTimeUtils.updateServerTime({ serverTime: serverTime + 3000 });
-      return true;
-    });
-  systemTimeUtils.updateServerTime({ serverTime });
-  decodedInvoice.mockResolvedValueOnce({
-    paymentRequest: INVOICE,
-    timeExpireDate: expiresAt,
-    tags: [],
-    tagsObject: {},
-  });
-  local.mockReturnValue(serverTime + 3000);
-  try {
-    await expect(lightningNetwork(INVOICE, options)).rejects.toBeInstanceOf(
-      InvoiceExpiredError,
-    );
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(getNetwork).not.toHaveBeenCalled();
-  } finally {
-    local.mockRestore();
-    refresh.mockRestore();
-  }
-});
-
-it.each(['axios', 'fetch'] as const)(
-  'rejects an expired invoice when the %s decoder date was queued before desktop sleep',
-  async (source) => {
-    const { options, decodedInvoice, getNetwork } = setup();
-    const time = 1_920_000_000_000;
-    const resumedAt = time + 60_000;
-    jest.useFakeTimers({ now: time });
-    systemTimeUtils._handleServerResponseDateThrottle.cancel();
-    systemTimeUtils.updateServerTime({ serverTime: time });
-    const domain = jest
-      .spyOn(requestHelper, 'checkIsOneKeyDomain')
-      .mockResolvedValue(true);
-    const refresh = jest
-      .spyOn(systemTimeUtils, 'refreshServerTime')
-      .mockImplementationOnce(async () => {
-        systemTimeUtils.updateServerTime({ serverTime: resumedAt });
-        return true;
-      });
-    decodedInvoice.mockImplementationOnce(async () => {
-      const requestStart = { wallTime: time, monotonicTime: performance.now() };
-      jest.setSystemTime(resumedAt);
-      await systemTimeUtils.handleServerResponseDate({
-        source,
-        url: 'https://wallet.onekeycn.com/wallet/v1/ln/invoices/decode/test',
-        headerDate: new Date(time).toUTCString(),
-        requestStart,
-      });
-      return {
-        paymentRequest: INVOICE,
-        timeExpireDate: time / 1000 + 3,
-        tags: [],
-        tagsObject: {},
-      };
-    });
-    try {
-      await expect(lightningNetwork(INVOICE, options)).rejects.toBeInstanceOf(
-        InvoiceExpiredError,
-      );
-      expect(refresh).toHaveBeenCalledTimes(1);
-      expect(getNetwork).not.toHaveBeenCalled();
-    } finally {
-      systemTimeUtils._handleServerResponseDateThrottle.cancel();
-      domain.mockRestore();
-      refresh.mockRestore();
-      jest.useRealTimers();
-    }
-  },
-);
-
-it.each([false, true])(
-  'ignores wall-clock skew with a trusted server sample (needs refresh: %s)',
-  async (needsRefresh) => {
-    const { options, decodedInvoice } = setup();
-    const serverTime = 1_900_000_000_000;
-    const deviceTime = serverTime + 120_000;
-    const localNow = jest.spyOn(Date, 'now').mockReturnValue(deviceTime);
-    systemTimeUtils.updateServerTime({ serverTime });
-    if (needsRefresh) localNow.mockReturnValue(deviceTime + 4000);
-    const refresh = jest
-      .spyOn(systemTimeUtils, 'refreshServerTime')
-      .mockImplementationOnce(async () => {
-        systemTimeUtils.updateServerTime({ serverTime });
-        return true;
-      });
-    decodedInvoice.mockResolvedValueOnce({
-      paymentRequest: INVOICE,
-      timeExpireDate: 1_900_000_060,
-      tags: [],
-      tagsObject: {},
-    });
-    try {
-      await expect(lightningNetwork(INVOICE, options)).resolves.toMatchObject({
-        type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-      });
-      expect(refresh).toHaveBeenCalledTimes(needsRefresh ? 1 : 0);
-    } finally {
-      refresh.mockRestore();
-      localNow.mockRestore();
-    }
-  },
-);
-
-it.each(['missing Date', 'offline'])(
-  'keeps the invoice retryable when the server time refresh is %s',
-  async (failure) => {
-    const { options, decodedInvoice, getNetwork } = setup();
-    const refresh = jest.spyOn(systemTimeUtils, 'getFreshEstimatedServerTime');
-    if (failure === 'offline') {
-      refresh.mockRejectedValueOnce(new OneKeyLocalError('Synthetic offline'));
-    } else {
-      refresh.mockResolvedValueOnce(undefined);
-    }
-    decodedInvoice.mockResolvedValueOnce({
-      paymentRequest: INVOICE,
-      timeExpireDate: 1_900_000_060,
-      tags: [],
-      tagsObject: {},
-    });
-    try {
-      await expect(lightningNetwork(INVOICE, options)).rejects.toMatchObject({
-        className: EOneKeyErrorClassNames.RetryableLightningScanError,
-        autoToast: false,
-      });
-      expect(getNetwork).not.toHaveBeenCalled();
-    } finally {
-      refresh.mockRestore();
-    }
-  },
-);
-
-it('keeps repeated invoice scans retryable without another failed health request', async () => {
-  const { options, decodedInvoice, getNetwork } = setup();
-  const time = 1_900_001_000_000;
-  jest.useFakeTimers({ now: time });
-  systemTimeUtils.updateServerTime({ serverTime: time });
-  jest.setSystemTime(time + 3000);
-  decodedInvoice.mockImplementation(async (paymentRequest) => ({
-    paymentRequest,
-    timeExpireDate: time / 1000 + 60,
-    tags: [],
-    tagsObject: {},
-  }));
-  const refresh = jest
-    .spyOn(systemTimeUtils, 'refreshServerTime')
-    .mockResolvedValueOnce(false)
-    .mockImplementationOnce(async () => {
-      systemTimeUtils.updateServerTime({ serverTime: time + 4000 });
-      return true;
-    });
-  try {
-    for (let frame = 0; frame < 4; frame += 1) {
-      await expect(lightningNetwork(INVOICE, options)).rejects.toBeInstanceOf(
-        RetryableLightningScanError,
-      );
-    }
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(getNetwork).not.toHaveBeenCalled();
-    jest.advanceTimersByTime(1000);
-    await expect(lightningNetwork(INVOICE, options)).resolves.toMatchObject({
-      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-    });
-    expect(refresh).toHaveBeenCalledTimes(2);
-  } finally {
-    refresh.mockRestore();
-    jest.useRealTimers();
-  }
-});
-
-it.each([
-  ['HTTP 503', new OneKeyServerApiError({ httpStatusCode: 503 })],
-  [
-    'HTTP 429',
-    Object.assign(new Error('rate limited'), { httpStatusCode: 429 }),
-  ],
-  ['a timeout', new AxiosError('timeout', AxiosError.ECONNABORTED)],
-  [
-    'an offline connection',
-    new OneKeyError({ className: EOneKeyErrorClassNames.AxiosNetworkError }),
-  ],
-])('keeps an LNURL scan retryable after %s', async (_label, error) => {
-  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
-  serverValidateAddress.mockRejectedValueOnce(error);
-  const value = 'lightning:satoshi@example.com';
-  jest.useFakeTimers();
-  try {
-    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
-      autoToast: false,
-    });
-    jest.advanceTimersByTime(999);
-    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
-      autoToast: false,
-    });
-    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(1);
-    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
-      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-    });
-    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
-  } finally {
-    jest.useRealTimers();
-  }
-});
-
-it.each([
-  new OneKeyServerApiError({ httpStatusCode: 400 }),
-  new OneKeyLocalError('Invalid lnurl'),
-])('keeps the copy fallback for an invalid LNURL', async (error) => {
-  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
-  serverValidateAddress.mockRejectedValueOnce(error);
-  await expect(parseQRCode(LNURL, parseOptions)).resolves.toMatchObject({
-    type: EQRCodeHandlerType.UNKNOWN,
-  });
-  await expect(parseQRCode(LNURL, parseOptions)).resolves.toMatchObject({
-    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-  });
-  expect(serverValidateAddress).toHaveBeenCalledTimes(2);
-});
-
-it('retries an invoice after a transient decoder failure', async () => {
-  const { options, decodedInvoice, getNetwork } = setup();
-  decodedInvoice.mockRejectedValueOnce(new Error('decoder timeout'));
-  const parseOptions = {
-    ...options,
-    handlers: [EQRCodeHandlerNames.lightningNetwork],
-  };
-
-  await expect(parseQRCode(INVOICE, parseOptions)).rejects.toThrow();
-  expect(getNetwork).not.toHaveBeenCalled();
-  await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
-    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-  });
-});
-
-it('keeps an invoice retryable when the Lightning client fails to initialize', async () => {
-  const { options, getLnClient, decodedInvoice, getNetwork } = setup();
-  const parseOptions = {
-    ...options,
-    handlers: [EQRCodeHandlerNames.lightningNetwork],
-  };
-  getLnClient.mockRejectedValueOnce(
-    new OneKeyServerApiError({ httpStatusCode: 503 }),
-  );
-
-  const first = parseQRCode(INVOICE, parseOptions);
-  await expect(first).rejects.toBeInstanceOf(RetryableLightningScanError);
-  await expect(first).rejects.toMatchObject({ autoToast: false });
-  expect(decodedInvoice).not.toHaveBeenCalled();
-  expect(getNetwork).not.toHaveBeenCalled();
-  await expect(parseQRCode(INVOICE, parseOptions)).resolves.toMatchObject({
-    type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-  });
-});
-
-it('backs off recipient scans until Retry-After elapses despite a wall-clock change', async () => {
-  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
-  const value = 'lightning:satoshi@example.com';
-  const failure = new OneKeyServerApiError({ httpStatusCode: 429 });
-  failure.retryAfter = '30';
-  serverValidateAddress.mockRejectedValueOnce(failure);
-  const time = 1_900_000_000_000;
-  jest.useFakeTimers({ now: time });
-  try {
-    await expect(parseQRCode(value, parseOptions)).rejects.toMatchObject({
-      autoToast: false,
-    });
-    jest.setSystemTime(time - 3_600_000);
-    jest.advanceTimersByTime(29_999);
-    await expect(
-      parseQRCode('LIGHTNING:satoshi@example.com', parseOptions),
-    ).rejects.toMatchObject({ autoToast: false });
-    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
-    await expect(
-      parseQRCode('lightning:another@example.com', parseOptions),
-    ).resolves.toMatchObject({ type: EQRCodeHandlerType.LIGHTNING_NETWORK });
-    jest.advanceTimersByTime(1);
-    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
-      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-    });
-    expect(serverValidateAddress).toHaveBeenCalledTimes(3);
-  } finally {
-    jest.useRealTimers();
-  }
-});
-
-it('lets a recipient scan retry after desktop uptime confirms that sleep covered the cooldown', async () => {
-  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
-  const value = 'lightning:satoshi@example.com';
-  const time = 1_900_001_000_000;
-  const failure = Object.assign(
-    new OneKeyServerApiError({ httpStatusCode: 429 }),
-    {
-      retryAfter: '30',
-      retryAfterResponseDate: new Date(time).toUTCString(),
-    },
-  );
-  serverValidateAddress.mockRejectedValueOnce(failure);
-  jest.useFakeTimers({ now: time });
-  systemTimeUtils.updateServerTime({ serverTime: time });
-  const uptime = jest
-    .spyOn(systemTimeUtils, 'getDesktopSystemUptimeMs')
-    .mockResolvedValue(40_000);
-  try {
-    await expect(parseQRCode(value, parseOptions)).rejects.toBeInstanceOf(
-      RetryableLightningScanError,
-    );
-    jest.setSystemTime(time + 60_000);
-    uptime.mockResolvedValue(100_000);
-    await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
-      type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-    });
-    expect(uptime).toHaveBeenCalledTimes(2);
-    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
-  } finally {
-    uptime.mockRestore();
-    jest.useRealTimers();
-  }
-});
-
-it('coalesces one recipient scan probe when the clock stays unavailable through the cooldown', async () => {
-  const { parseOptions, serverValidateAddress } = setupRecipientValidation();
-  const address = 'satoshi@example.com';
-  const time = 1_900_000_000_000;
-  const failure = Object.assign(
-    new OneKeyServerApiError({ httpStatusCode: 503 }),
-    { retryAfter: new Date(time + 60_000).toUTCString() },
-  );
-  serverValidateAddress.mockRejectedValueOnce(failure);
-  jest.useFakeTimers({ now: time });
-  const clock = jest
-    .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
-    .mockReturnValue(undefined);
-  const refresh = jest
-    .spyOn(systemTimeUtils, 'getFreshEstimatedServerTime')
-    .mockResolvedValue(undefined);
-  try {
-    const scan = (prefix = 'lightning:') =>
-      parseQRCode(prefix + address, parseOptions);
-    await expect(scan()).rejects.toBeInstanceOf(RetryableLightningScanError);
-    jest.advanceTimersByTime(59_999);
-    await expect(scan()).rejects.toBeInstanceOf(RetryableLightningScanError);
-    expect(serverValidateAddress).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(1);
-    const results = await Promise.all([scan(), scan('LIGHTNING:')]);
-    expect(results).toMatchObject([
-      { type: EQRCodeHandlerType.LIGHTNING_NETWORK },
-      { type: EQRCodeHandlerType.LIGHTNING_NETWORK },
-    ]);
-    expect(serverValidateAddress).toHaveBeenCalledTimes(2);
-    expect(refresh).toHaveBeenCalledTimes(1);
-  } finally {
-    refresh.mockRestore();
-    clock.mockRestore();
-    jest.useRealTimers();
-  }
-});
-
-it('shares an in-flight recipient lookup between normalized scans without mixing networks', async () => {
-  const { serviceLightning, serverValidateAddress } =
-    setupRecipientValidation();
-  const networks = getNetworkIdsMap();
-  const address = 'satoshi@example.com';
-  const lookup = (networkId: string, toVal: string) =>
-    serviceLightning.findAndValidateLnurl({
-      toVal,
-      networkId,
-      forScan: true,
-    });
-  await Promise.all([
-    lookup(networks.lightning, address),
-    lookup(networks.lightning, `LIGHTNING:${address}`),
-    lookup(networks.tlightning, address),
-  ]);
-  expect(serverValidateAddress.mock.calls).toEqual([
-    [{ networkId: networks.lightning, address }],
-    [{ networkId: networks.tlightning, address }],
-  ]);
-});
-
-it('still falls back when the decoder rejects an invalid invoice', async () => {
-  const { options, decodedInvoice, getNetwork } = setup();
-  decodedInvoice.mockRejectedValueOnce(
-    Object.assign(new Error('invalid invoice'), { httpStatusCode: 400 }),
-  );
-
-  await expect(
-    parseQRCode(INVOICE, {
-      ...options,
-      handlers: [EQRCodeHandlerNames.lightningNetwork],
-    }),
-  ).resolves.toMatchObject({ type: EQRCodeHandlerType.UNKNOWN });
-  expect(getNetwork).not.toHaveBeenCalled();
 });

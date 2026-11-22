@@ -12,7 +12,6 @@ import type {
 } from 'axios';
 
 const mockOutcomes: IAvailabilityOutcome[] = [];
-const mockServerTimeUpdate = jest.fn(async (_request: unknown) => undefined);
 
 jest.mock('./availabilityAggregator', () => ({
   recordAvailabilityOutcome: (outcome: IAvailabilityOutcome) => {
@@ -53,13 +52,7 @@ jest.mock('../locale/appLocale', () => ({
 
 jest.mock('../utils/systemTimeUtils', () => ({
   __esModule: true,
-  default: {
-    captureServerTimeRequestStart: () => ({
-      wallTime: Date.now(),
-      monotonicTime: performance.now(),
-    }),
-    handleServerResponseDate: mockServerTimeUpdate,
-  },
+  default: { handleServerResponseDate: async () => undefined },
 }));
 
 jest.mock('../modules/NetworkThrottle', () => ({
@@ -124,7 +117,6 @@ describe('API availability counting in request interceptors', () => {
 
   beforeEach(() => {
     mockOutcomes.length = 0;
-    mockServerTimeUpdate.mockClear();
     stubFetch.mockReset();
     stubFetch.mockImplementation(
       async () =>
@@ -156,54 +148,6 @@ describe('API availability counting in request interceptors', () => {
     expect(apiOutcomes()).toEqual([
       expect.objectContaining({ target: 'wallet', status: 'ok' }),
     ]);
-  });
-
-  it('preserves the response date used by an HTTP-date Retry-After on 503', async () => {
-    const date = 'Sun, 17 Mar 2030 12:00:00 GMT';
-    const retryAfter = 'Sun, 17 Mar 2030 12:00:30 GMT';
-    stubFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ code: 503 }), {
-        status: 503,
-        headers: {
-          'content-type': 'application/json',
-          date,
-          'retry-after': retryAfter,
-        },
-      }),
-    );
-    await expect(axios.create().get(WALLET_URL)).rejects.toMatchObject({
-      httpStatusCode: 503,
-      retryAfter,
-      retryAfterResponseDate: date,
-    });
-  });
-
-  it('lets a managed health check validate its own server date', async () => {
-    const date = 'Sun, 17 Mar 2030 12:00:00 GMT';
-    const client = axios.create({
-      adapter: adapterOf((config) => ({
-        config,
-        data: { code: 0 },
-        headers: { date },
-        status: 200,
-        statusText: 'OK',
-      })),
-    });
-    await client.get('/wallet/v1/health', {
-      $oneKeySkipServerTimeUpdate: true,
-    });
-    expect(mockServerTimeUpdate).not.toHaveBeenCalled();
-    await client.get(WALLET_URL);
-    expect(mockServerTimeUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        headerDate: date,
-        url: WALLET_URL,
-        requestStart: {
-          wallTime: expect.any(Number),
-          monotonicTime: expect.any(Number),
-        },
-      }),
-    );
   });
 
   it('leaves event streams to their owner and counts HTTP errors at headers', async () => {

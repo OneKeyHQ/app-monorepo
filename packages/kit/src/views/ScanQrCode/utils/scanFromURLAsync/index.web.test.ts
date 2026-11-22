@@ -1,9 +1,5 @@
-/** @jest-environment jsdom */
-
 // cspell:ignore zxing
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
-import { decodeQrImageData, scanFromURLAsync } from './index.web';
+import { decodeQrImageData } from './index.web';
 
 const mockPrepareZXingReader = jest.fn(async () => undefined);
 const mockPonyfillDetect = jest.fn();
@@ -64,20 +60,4 @@ describe('decodeQrImageData', () => {
       decodeQrImageData(imageData as unknown as ImageData),
     ).resolves.toBeNull();
   });
-});
-
-it('rejects when the selected image cannot load', async () => {
-  const image = document.createElement('img');
-  const mockImage = jest.spyOn(globalThis, 'Image').mockReturnValue(image);
-  const rejectScan = jest.fn();
-  try {
-    void scanFromURLAsync('data:image/png;base64,AA==').catch(rejectScan);
-    image.dispatchEvent(new Event('error'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(rejectScan).toHaveBeenCalledWith(expect.any(OneKeyLocalError));
-    expect(mockPonyfillDetect).not.toHaveBeenCalled();
-  } finally {
-    mockImage.mockRestore();
-  }
 });

@@ -189,34 +189,6 @@ describe('useSignatureConfirm', () => {
     },
   );
 
-  it('drops a Lightning pay request when the recipient changes during validation', async () => {
-    let current = true;
-    let finishLookup: (details: { tag: 'payRequest' }) => void = () => {};
-    mockFindLnurl.mockReturnValueOnce(
-      new Promise((resolve) => {
-        finishLookup = resolve;
-      }),
-    );
-    const { result } = renderHook(() =>
-      useSignatureConfirm({
-        accountId: 'account-id',
-        networkId: getNetworkIdsMap().lightning,
-      }),
-    );
-
-    const confirm = result.current.navigationToTxConfirm({
-      transfersInfo: [{ to: 'old@example.com' } as ITransferInfo],
-      isNavigationCurrent: () => current,
-    });
-    expect(mockFindLnurl).toHaveBeenCalled();
-    current = false;
-    finishLookup({ tag: 'payRequest' });
-    await confirm;
-
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(mockPrepareUnsigned).not.toHaveBeenCalled();
-  });
-
   it('keeps the legacy confirmation failure handler when no observer is provided', async () => {
     const onFail = jest.fn();
     const error = new Error('confirmation failed');
