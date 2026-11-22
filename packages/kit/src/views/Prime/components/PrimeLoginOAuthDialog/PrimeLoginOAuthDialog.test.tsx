@@ -18,6 +18,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
+const mockUsageOpenChange: { current?: (open: boolean) => void } = {};
 const mockFirstEmailChange: {
   current?: (email: string | undefined) => void;
 } = {};
@@ -255,7 +256,12 @@ jest.mock('@onekeyhq/components', () => {
     },
     HeightTransition,
     Icon: () => null,
-    Popover: () => null,
+    // Keeps the latest onOpenChange: the popover's own closes reach the
+    // dialog through it.
+    Popover: (props: { onOpenChange: (open: boolean) => void }) => {
+      mockUsageOpenChange.current = props.onOpenChange;
+      return null;
+    },
     SizableText: Container,
     Stack: Container,
     Toast: {
@@ -431,9 +437,12 @@ describe('PrimeLoginOAuthDialog', () => {
     const lateEmailChange = mockFirstEmailChange.current;
     expect(lateEmailChange).toBeDefined();
     fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    const usageOpenChange = mockUsageOpenChange.current;
     view.unmount();
     expect(popoverClose).toHaveBeenCalledTimes(1);
-    // The email dialog's late callback does not log this close again.
+    // Neither the native sheet's own close nor the email dialog's late
+    // callback logs this close again.
+    act(() => usageOpenChange?.(false));
     act(() => lateEmailChange?.('a@example.com'));
     expect(popoverClose).toHaveBeenCalledTimes(1);
     popoverClose.mockRestore();

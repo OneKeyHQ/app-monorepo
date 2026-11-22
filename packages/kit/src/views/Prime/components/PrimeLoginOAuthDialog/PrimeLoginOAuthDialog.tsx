@@ -115,11 +115,23 @@ function PrimeLoginOAuthDialog(props: {
   // The latest state for callbacks that may run late: the email step's change
   // arrives after its storage write, by which time the panel may have opened.
   const usagePanelRef = useRef<IUsagePanelState>('closed');
+  // Every open and close of the panel goes through here, so each is logged
+  // once whatever triggered it (the popover itself logs nothing).
   const updateUsagePanel = useCallback((next: IUsagePanelState) => {
+    const prev = usagePanelRef.current;
     usagePanelRef.current = next;
     setUsagePanel(next);
+    if (prev === 'closed' && next !== 'closed') {
+      defaultLogger.ui.popover.popoverOpen({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
+    } else if (prev !== 'closed' && next === 'closed') {
+      defaultLogger.ui.popover.popoverClose({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
+    }
   }, []);
-  // Closing the dialog unmounts an open panel before the popover logs a close.
+  // Closing the dialog unmounts an open panel without an onOpenChange.
   useEffect(
     () => () => {
       if (usagePanelRef.current !== 'closed') {
@@ -645,36 +657,22 @@ function PrimeLoginOAuthDialog(props: {
   // form and its registration stay the same, only the hover handling and the
   // backdrop switch.
   const handleShowUsage = useCallback(() => {
-    if (usagePanelRef.current === 'press') {
-      return;
+    if (usagePanelRef.current !== 'press') {
+      updateUsagePanel('press');
     }
-    if (usagePanelRef.current === 'closed') {
-      // Hover opens go through the popover, which logs them itself.
-      defaultLogger.ui.popover.popoverOpen({
-        trackId: ONEKEY_ID_USAGE_TRACK_ID,
-      });
-    }
-    updateUsagePanel('press');
   }, [updateUsagePanel]);
   // The code step drops the header and its link: a panel left open there would
   // have nothing to anchor to or hover away from.
   const handleEmailVerificationEmailChange = useCallback(
     (email: string | undefined) => {
       setEmailVerificationEmail(email);
-      if (email === undefined) {
-        return;
+      if (email !== undefined) {
+        updateUsagePanel('closed');
       }
-      if (usagePanelRef.current !== 'closed') {
-        // The popover does not see this close, so it is logged here.
-        defaultLogger.ui.popover.popoverClose({
-          trackId: ONEKEY_ID_USAGE_TRACK_ID,
-        });
-      }
-      updateUsagePanel('closed');
     },
     [updateUsagePanel],
   );
-  // The popover reports hover opens and every close.
+  // The popover reports hover opens and its own closes.
   const handleUsagePopoverOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
