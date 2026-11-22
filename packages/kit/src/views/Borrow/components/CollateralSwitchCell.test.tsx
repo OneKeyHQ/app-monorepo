@@ -583,6 +583,39 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(getSwitch(siblingView).props.disabled).toBe(false);
   });
 
+  it.each([
+    ['same reserve', '0xUsDe', false],
+    ['another reserve', '0xUsDt', true],
+  ])(
+    'rechecks pending transactions arriving while confirming for %s',
+    async (_label, reserveAddress, shouldSubmit) => {
+      let dialogOptions: ITestDialogOptions | undefined;
+      componentsMock.dialogShow.mockImplementation(
+        (options: ITestDialogOptions) => {
+          dialogOptions = options;
+          return { close: jest.fn(async () => options.onClose?.()) };
+        },
+      );
+      const item = createSuppliedAsset(false, reserveAddress);
+      const view = render(<CollateralSwitchCell item={item} eModeId={1} />);
+      await act(async () => {
+        const { onChange } = getSwitch(view).props as { onChange: () => void };
+        onChange();
+        await flushMicrotasks();
+      });
+      expect(dialogOptions).toBeDefined();
+      borrowContext.pendingTxs = [scopedPendingSetCollateralTx];
+      view.rerender(<CollateralSwitchCell item={item} eModeId={1} />);
+      await act(async () => {
+        await dialogOptions?.renderContent.props.onConfirm();
+        await flushMicrotasks();
+      });
+      expect(setCollateralMocks.setCollateral).toHaveBeenCalledTimes(
+        shouldSubmit ? 1 : 0,
+      );
+    },
+  );
+
   it('allows a successful preview that omits optional collateral eligibility', async () => {
     serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
       healthFactor: {

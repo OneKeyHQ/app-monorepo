@@ -58,6 +58,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
     isBTCNetwork: () => false,
+    isEvmNetwork: ({ networkId }: { networkId: string }) =>
+      networkId.startsWith('evm--'),
   },
 }));
 
@@ -202,6 +204,176 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     );
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockReset();
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockResolvedValue({});
+  });
+
+  it('queries each supplied market account on its network for a non-indexed owner', async () => {
+    const pending = createPendingTx('arbitrum-pending');
+    backgroundMock.getAccountMetaForNetworksBatch.mockImplementation(
+      async ({ pairs }: { pairs: Array<{ networkId: string }> }) =>
+        Object.fromEntries(
+          pairs.map(({ networkId }: { networkId: string }) => [
+            networkId,
+            { accountAddress: '0xowner' },
+          ]),
+        ),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockImplementation(
+      async ({ networkId }) => (networkId === 'evm--42161' ? [pending] : []),
+    );
+    const targets = {
+      'evm--1': { accountId: 'imported', accountAddress: '0xOwner' },
+      'evm--42161': { accountId: 'imported', accountAddress: '0xOwner' },
+    };
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--42161'],
+        networkAccountTargets: targets,
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.isPendingHistoryVerified).toBe(true),
+    );
+    expect(result.current.filteredTxs).toEqual([pending]);
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--42161',
+        accountAddress: '0xowner',
+      }),
+    );
+  });
+
+  it('does not query or verify history when the market owner no longer matches', async () => {
+    backgroundMock.getAccountMetaForNetworksBatch.mockResolvedValue({
+      'evm--42161': { accountAddress: '0xNew' },
+    });
+    const targets = {
+      'evm--42161': { accountId: 'imported', accountAddress: '0xOld' },
+    };
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--42161'],
+        networkAccountTargets: targets,
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.pendingHistoryFailedNetworkIds).toContain(
+        'evm--42161',
+      ),
+    );
+    expect(result.current.isPendingHistoryVerified).toBe(false);
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports only the failed network when another market history succeeds', async () => {
+    backgroundMock.getAccountMetaForNetworksBatch.mockImplementation(
+      async ({ pairs }: { pairs: Array<{ networkId: string }> }) =>
+        Object.fromEntries(
+          pairs.map(({ networkId }: { networkId: string }) => [
+            networkId,
+            { accountAddress: '0xowner' },
+          ]),
+        ),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockImplementation(
+      async ({ networkId }) => {
+        if (networkId === 'evm--42161')
+          throw new OneKeyLocalError('history unavailable');
+        return [createPendingTx('ethereum-pending')];
+      },
+    );
+    const targets = {
+      'evm--1': { accountId: 'imported', accountAddress: '0xowner' },
+      'evm--42161': { accountId: 'imported', accountAddress: '0xowner' },
+    };
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--42161'],
+        networkAccountTargets: targets,
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.pendingHistoryFailedNetworkIds).toEqual([
+        'evm--42161',
+      ]),
+    );
+    expect(result.current.isPendingHistoryVerified).toBe(false);
+    expect(result.current.filteredTxs).toEqual([
+      expect.objectContaining({ id: 'ethereum-pending' }),
+    ]);
+  });
+
+  it('keeps a market with conflicting account identities unverified', async () => {
+    const targets = { 'evm--42161': null };
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--42161'],
+        networkAccountTargets: targets,
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.pendingHistoryFailedNetworkIds).toContain(
+        'evm--42161',
+      ),
+    );
+    expect(result.current.isPendingHistoryVerified).toBe(false);
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('invalidates a prior empty result on activation until pending history has been read again', async () => {
+    backgroundMock.getAccountMetaForNetworksBatch.mockResolvedValue({
+      'evm--1': { accountAddress: '0xowner' },
+    });
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    const targets = {
+      'evm--1': { accountId: 'imported', accountAddress: '0xowner' },
+    };
+    const view = renderHook(
+      ({ activationScope }: { activationScope: object }) =>
+        useStakingPendingTxsByInfo({
+          networkIds: ['evm--1'],
+          networkAccountTargets: targets,
+          activationScope,
+          tagMatcher: pendingTagMatcher,
+        }),
+      { initialProps: { activationScope: {} } },
+    );
+    await waitFor(() =>
+      expect(view.result.current.isPendingHistoryVerified).toBe(true),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockClear();
+    let finish: (txs: IStakePendingTx[]) => void = () => undefined;
+    const pendingResult = new Promise<IStakePendingTx[]>((resolve) => {
+      finish = resolve;
+    });
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockReturnValue(
+      pendingResult,
+    );
+    view.rerender({ activationScope: {} });
+    expect(view.result.current.isPendingHistoryVerified).toBe(false);
+    await waitFor(() =>
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs,
+      ).toHaveBeenCalled(),
+    );
+    await act(async () => {
+      finish([createPendingTx('new-pending')]);
+    });
+    await waitFor(() =>
+      expect(view.result.current.filteredTxs).toEqual([
+        expect.objectContaining({ id: 'new-pending' }),
+      ]),
+    );
+    view.unmount();
   });
 
   it('does not expose cancellation replacements as pending staking actions', async () => {

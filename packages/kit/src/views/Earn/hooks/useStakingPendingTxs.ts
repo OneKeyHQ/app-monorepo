@@ -21,6 +21,7 @@ import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
 import { useCommittedEarnScopeGuard } from '../../Staking/hooks/useCommittedEarnScopeGuard';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+import { normalizeTaskAccountAddress } from '../tasks/taskAddress';
 import { earnPortfolioAccountScope } from '../utils/portfolioAccountScope';
 
 import { resolveStakingPendingTxAccountOwnership } from './stakingPendingTxAccountOwnership';
@@ -361,6 +362,8 @@ export const useStakingPendingTxsByInfo = ({
   isActive = true,
   accountId: explicitAccountId,
   indexedAccountId: explicitIndexedAccountId,
+  networkAccountTargets,
+  activationScope,
 }: {
   filter?: (tx: IStakePendingTx) => boolean;
   onRefresh?: () => void | Promise<void>;
@@ -374,6 +377,11 @@ export const useStakingPendingTxsByInfo = ({
   isActive?: boolean;
   accountId?: string;
   indexedAccountId?: string;
+  networkAccountTargets?: Record<
+    string,
+    { accountId: string; accountAddress: string } | null
+  >;
+  activationScope?: object;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -526,6 +534,13 @@ export const useStakingPendingTxsByInfo = ({
     indexedAccountId,
     currentNetworkId,
     [...effectiveNetworkIds].toSorted(),
+    networkAccountTargets
+      ? Object.entries(networkAccountTargets).toSorted(([a], [b]) => {
+          if (a < b) return -1;
+          if (a > b) return 1;
+          return 0;
+        })
+      : undefined,
     !hasExplicitOwnership || accountId === activeAccountId
       ? earnPortfolioAccountScope({
           account,
@@ -542,6 +557,24 @@ export const useStakingPendingTxsByInfo = ({
     resolution: INetworkAccountResolution;
   }>(
     async () => {
+      if (networkAccountTargets) {
+        const map: Record<string, string> = {};
+        for (const networkId of effectiveNetworkIds) {
+          const target = networkAccountTargets[networkId];
+          if (target?.accountId && target.accountAddress) {
+            map[networkId] = target.accountId;
+          }
+        }
+        return {
+          scope: ownerScope,
+          resolution: {
+            map,
+            isComplete: effectiveNetworkIds.every((networkId) =>
+              Boolean(map[networkId]),
+            ),
+          },
+        };
+      }
       const sharedMap = hasExplicitOwnership
         ? undefined
         : precomputed?.networkAccountMap;
@@ -667,6 +700,7 @@ export const useStakingPendingTxsByInfo = ({
       precomputed?.networkAccountMap,
       precomputed?.requestedNetworkIds,
       precomputed?.isNetworkAccountMapComplete,
+      networkAccountTargets,
     ],
     {
       initResult: { scope: '', resolution: EMPTY_NETWORK_ACCOUNT_RESOLUTION },
@@ -749,9 +783,10 @@ export const useStakingPendingTxsByInfo = ({
       // hook instances (EarnHome's earn + borrow) share one batch RPC.
       // We still derive the per-instance `meta` map keyed by accountId
       // so downstream pendingTx fetch picks the right account per network.
-      const sharedMeta = hasExplicitOwnership
-        ? undefined
-        : precomputed?.accountMetaByNetwork;
+      const sharedMeta =
+        hasExplicitOwnership || networkAccountTargets
+          ? undefined
+          : precomputed?.accountMetaByNetwork;
       const missingPairs: Array<{ accountId: string; networkId: string }> = [];
       const meta: Record<string, INetworkAccountMeta> = {};
 
@@ -775,7 +810,20 @@ export const useStakingPendingTxsByInfo = ({
             networkId,
           } of missingPairs) {
             const entry = batchResult[networkId];
-            if (entry) {
+            const expected = networkAccountTargets?.[networkId];
+            if (
+              entry &&
+              (!networkAccountTargets ||
+                (expected &&
+                  normalizeTaskAccountAddress(
+                    networkId,
+                    entry.accountAddress,
+                  ) ===
+                    normalizeTaskAccountAddress(
+                      networkId,
+                      expected.accountAddress,
+                    )))
+            ) {
               meta[networkId] = {
                 accountId: accountForNetwork,
                 accountAddress: entry.accountAddress,
@@ -795,6 +843,7 @@ export const useStakingPendingTxsByInfo = ({
       accountMetaScope,
       hasExplicitOwnership,
       precomputed?.accountMetaByNetwork,
+      networkAccountTargets,
     ],
     {
       initResult: { scope: '', meta: EMPTY_ACCOUNT_META },
@@ -970,8 +1019,8 @@ export const useStakingPendingTxsByInfo = ({
     Object.entries(accountMetaByNetwork).toSorted(),
   ]);
   const pendingScope = useMemo(
-    () => ({ key: pendingScopeKey, filter, tagMatcher }),
-    [pendingScopeKey, filter, tagMatcher],
+    () => ({ key: pendingScopeKey, filter, tagMatcher, activationScope }),
+    [pendingScopeKey, filter, tagMatcher, activationScope],
   );
   const {
     result: scopedPendingTxsResult,

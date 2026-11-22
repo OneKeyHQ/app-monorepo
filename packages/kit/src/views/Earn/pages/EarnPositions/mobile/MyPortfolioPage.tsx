@@ -64,7 +64,11 @@ import {
 import { PortfolioLendingActionsProvider } from '../EarnLendingActions';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
-import { withLendingMarketPositions } from './earnLendingPositions';
+import {
+  isLendingPendingHistoryAvailable,
+  lendingPendingAccountTargets,
+  withLendingMarketPositions,
+} from './earnLendingPositions';
 import { EMPTY_POSITIONS_RESPONSE } from './earnPortfolioPositions.utils';
 import {
   buildEarnClaimableRewardGroups,
@@ -351,14 +355,24 @@ export function MyPortfolioPage({
     setLendingSettledCount((count) => count + 1);
     await refreshLendingMarkets();
   }, [refreshLendingMarkets]);
-  const { filteredTxs: lendingPendingTxs = NO_PENDING_TXS } =
-    useStakingPendingTxsByInfo({
-      networkIds: lendingNetworkIds,
-      tagMatcher: isLendingTxTag,
-      onRefresh: refreshLendingCards,
-      onRefreshDelayMs: LENDING_TX_SETTLE_DELAY_MS,
-      isActive: READS_LENDING_MARKETS,
-    });
+  const lendingAccountTargets = useMemo(
+    () => lendingPendingAccountTargets(lendingMarkets.entries),
+    [lendingMarkets.entries],
+  );
+  const lendingFocusScope = useMemo(() => ({ isFocused }), [isFocused]);
+  const {
+    filteredTxs: lendingPendingTxs = NO_PENDING_TXS,
+    isPendingHistoryVerified: lendingHistoryVerified,
+    pendingHistoryFailedNetworkIds: lendingHistoryFailedNetworks,
+  } = useStakingPendingTxsByInfo({
+    networkIds: lendingNetworkIds,
+    networkAccountTargets: lendingAccountTargets,
+    activationScope: lendingFocusScope,
+    tagMatcher: isLendingTxTag,
+    onRefresh: refreshLendingCards,
+    onRefreshDelayMs: LENDING_TX_SETTLE_DELAY_MS,
+    isActive: READS_LENDING_MARKETS,
+  });
   // A lending window (Withdraw, Repay) closes on its transaction's final
   // state, so the page may never see it pending: the cards read their
   // markets again once the page is back from one (their E-Mode reads itself
@@ -377,6 +391,13 @@ export function MyPortfolioPage({
   const lendingActions = useMemo<IPortfolioLendingActions>(
     () => ({
       pendingTxs: lendingPendingTxs,
+      isPendingHistoryAvailable: (networkId) =>
+        isLendingPendingHistoryAvailable({
+          networkId,
+          targets: lendingAccountTargets,
+          verified: lendingHistoryVerified,
+          failedNetworkIds: lendingHistoryFailedNetworks,
+        }),
       refresh: async () => {
         await refreshLendingMarkets();
       },
@@ -386,6 +407,9 @@ export function MyPortfolioPage({
     [
       handleLendingWindowOpen,
       lendingPendingTxs,
+      lendingAccountTargets,
+      lendingHistoryVerified,
+      lendingHistoryFailedNetworks,
       lendingSettledCount,
       refreshLendingMarkets,
     ],

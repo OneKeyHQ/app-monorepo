@@ -461,6 +461,7 @@ export function LendingRewardAction({
       testID="earn-portfolio-lending-claim"
       size="small"
       variant="secondary"
+      disabled={!rewards.isAvailable}
       hitSlop={ROW_ACTION_HIT_SLOP}
       aria-label={`${label} ${row.symbol}`}
       onPress={rewards.open}

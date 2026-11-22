@@ -432,6 +432,17 @@ export async function runDirectDepositTask({
             if (isReset) throw error;
           }
         }
+        if (txid && !taskSignal.aborted && isTaskCurrent()) {
+          const status = await waitForDepositTaskTxStatus({
+            identity: task.identity,
+            txid,
+            signal: taskSignal,
+            maxAttempts: 1,
+          });
+          if (!taskSignal.aborted && isTaskCurrent() && status === 'failed') {
+            return 'failed';
+          }
+        }
         return 'unknown';
       }
       return waitForDepositTaskTxStatus({

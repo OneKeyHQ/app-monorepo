@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import type { IEarnDesktopAccountMarket } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopHomeData';
 import type { IStakePendingTx } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import {
   normalizeBorrowMarketAddress,
   parseBorrowTag,
@@ -65,6 +66,51 @@ export type IEarnLendingMarketRef = {
   indexedAccountId?: string;
   summary?: IEarnLendingMarketSummary;
 };
+
+export function lendingPendingAccountTargets(
+  entries: IEarnDesktopAccountMarket[],
+) {
+  const targets: Record<
+    string,
+    { accountId: string; accountAddress: string } | null
+  > = {};
+  entries.forEach(({ market, accountId, accountAddress }) => {
+    if (!accountId) return;
+    const networkId = market.networkId;
+    const previous = targets[networkId];
+    if (!accountAddress || previous === null) {
+      targets[networkId] = null;
+    } else if (
+      previous &&
+      (previous.accountId !== accountId ||
+        normalizeTaskAccountAddress(networkId, previous.accountAddress) !==
+          normalizeTaskAccountAddress(networkId, accountAddress))
+    ) {
+      targets[networkId] = null;
+    } else {
+      targets[networkId] = { accountId, accountAddress };
+    }
+  });
+  return targets;
+}
+
+export function isLendingPendingHistoryAvailable({
+  networkId,
+  targets,
+  verified,
+  failedNetworkIds,
+}: {
+  networkId: string;
+  targets: ReturnType<typeof lendingPendingAccountTargets>;
+  verified: boolean;
+  failedNetworkIds: string[];
+}) {
+  return (
+    Boolean(targets[networkId]) &&
+    (verified ||
+      (failedNetworkIds.length > 0 && !failedNetworkIds.includes(networkId)))
+  );
+}
 
 /**
  * A lending row's reserve as its market reads it (demo 11-03): what the

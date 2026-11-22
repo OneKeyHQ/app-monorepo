@@ -74,6 +74,7 @@ import type { IStakePendingTx } from '../../hooks/useStakingPendingTxs';
  */
 export type IPortfolioLendingActions = {
   pendingTxs: IStakePendingTx[];
+  isPendingHistoryAvailable: (networkId: string) => boolean;
   /** reads the account's markets again, as the market page's refresh does */
   refresh: () => Promise<void>;
   /** counts the Borrow transactions that settled: the cards read their E-Mode again */
@@ -496,6 +497,7 @@ export function useLendingCardRewards():
       rewards: IEarnLendingRewards;
       /** the market's network, for the rewards' logos */
       networkId: string;
+      isAvailable: boolean;
       isPending: (row: IEarnLendingRewardRow) => boolean;
       open: () => void;
     }
@@ -529,9 +531,11 @@ export function useLendingCardRewards():
     return {
       rewards,
       networkId,
+      isAvailable: actions?.isPendingHistoryAvailable(networkId) ?? false,
       isPending: (row: IEarnLendingRewardRow) =>
         !row.isElsewhere && pendingIds.has(row.claimId),
       open: () => {
+        if (!actions?.isPendingHistoryAvailable(networkId)) return;
         actions?.onOpenWindow();
         openRewardsDialog();
       },
@@ -661,9 +665,17 @@ export function LendingCollateralLine({
         <CollateralSwitch
           market={market.market}
           accountId={market.accountId}
+          accountAddress={market.accountAddress}
+          pendingHistoryAvailable={
+            Boolean(market.accountAddress) &&
+            (actions?.isPendingHistoryAvailable(market.market.networkId) ??
+              false)
+          }
           item={reserve}
           eModeId={card?.eModeStatus?.eModeId}
-          pendingTxs={actions?.pendingTxs ?? NO_PENDING_TXS}
+          pendingTxs={(actions?.pendingTxs ?? NO_PENDING_TXS).filter(
+            (tx) => tx.decodedTx.networkId === market.market.networkId,
+          )}
           refreshAllBorrowData={actions?.refresh ?? refreshNothing}
           size={ESwitchSize.extraSmall}
         />

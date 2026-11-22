@@ -203,6 +203,7 @@ export type ICollateralSwitchProps = {
   eModeId?: number;
   /** The account's in-flight transactions; a collateral change locks its row */
   pendingTxs: IStakePendingTx[];
+  pendingHistoryAvailable?: boolean;
   /** Reads the market's reserves again, until they show the confirmed state */
   refreshAllBorrowData: () => Promise<void>;
   size?: ISwitchProps['size'];
@@ -222,6 +223,7 @@ export function CollateralSwitch({
   item,
   eModeId,
   pendingTxs,
+  pendingHistoryAvailable = true,
   refreshAllBorrowData,
   size = ESwitchSize.extraSmall,
 }: ICollateralSwitchProps) {
@@ -288,15 +290,6 @@ export function CollateralSwitch({
     [operationScopeKey],
   );
   const operationScopeRef = useRef(renderedOperationScope);
-  const confirmationScopeKey = JSON.stringify({
-    operationScopeKey,
-    eModeId: eModeId ?? null,
-  });
-  const renderedConfirmationScope = useMemo(
-    () => ({ key: confirmationScopeKey }),
-    [confirmationScopeKey],
-  );
-  const confirmationScopeRef = useRef(renderedConfirmationScope);
   const pendingSetCollateral = market
     ? hasPendingSetCollateral({
         pendingTxs,
@@ -306,6 +299,17 @@ export function CollateralSwitch({
         reserveAddress: item.reserveAddress,
       })
     : false;
+  const confirmationScopeKey = JSON.stringify({
+    operationScopeKey,
+    eModeId: eModeId ?? null,
+    pendingHistoryAvailable,
+    pendingSetCollateral,
+  });
+  const renderedConfirmationScope = useMemo(
+    () => ({ key: confirmationScopeKey }),
+    [confirmationScopeKey],
+  );
+  const confirmationScopeRef = useRef(renderedConfirmationScope);
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
   // v3.2+ e-modes never gate enabling collateral (see collateralControls.utils);
@@ -467,7 +471,7 @@ export function CollateralSwitch({
   });
 
   const handleToggle = useCallback(() => {
-    if (!market || !accountId) return;
+    if (!market || !accountId || !pendingHistoryAvailable) return;
     if (
       !mountedRef.current ||
       operationScopeRef.current !== renderedOperationScope ||
@@ -702,6 +706,7 @@ export function CollateralSwitch({
     item.token.symbol,
     effectiveUsageAsCollateral,
     market,
+    pendingHistoryAvailable,
     refreshAllBorrowData,
     releaseLocalSubmission,
     renderedConfirmationScope,
@@ -715,6 +720,7 @@ export function CollateralSwitch({
 
   const isSwitchDisabled =
     previewLoading ||
+    !pendingHistoryAvailable ||
     isNativeActionUnsupported ||
     disabled ||
     (!value && requiresEModeId && eModeId === undefined);

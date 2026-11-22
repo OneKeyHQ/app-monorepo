@@ -111,6 +111,9 @@ export function useBorrowRewardsClaimDialog({
     showBorrowClaimRewardsDialog({
       rewardsDetails,
       pendingClaimIds,
+      accountId,
+      networkId,
+      accountAddress,
       onClaimItem: async (item) =>
         handleBorrowClaim({
           provider,
@@ -143,6 +146,7 @@ export function useBorrowRewardsClaimDialog({
     marketAddress,
     networkId,
     accountId,
+    accountAddress,
     marketLogoURI,
     handleBorrowClaim,
     pendingClaimIds,

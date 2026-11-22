@@ -39,13 +39,10 @@ function conflicts(a: IDepositTask, b: IDepositTask) {
   const right = b.identity;
   if (left.networkId !== right.networkId) return false;
   const sameAccount =
-    left.accountId === right.accountId ||
-    Boolean(
-      left.accountAddress &&
-      right.accountAddress &&
-      normalizeTaskAccountAddress(left.networkId, left.accountAddress) ===
-        normalizeTaskAccountAddress(right.networkId, right.accountAddress),
-    );
+    left.accountAddress && right.accountAddress
+      ? normalizeTaskAccountAddress(left.networkId, left.accountAddress) ===
+        normalizeTaskAccountAddress(right.networkId, right.accountAddress)
+      : left.accountId === right.accountId;
   if (!sameAccount) return false;
   const sameVault =
     (!left.provider ||

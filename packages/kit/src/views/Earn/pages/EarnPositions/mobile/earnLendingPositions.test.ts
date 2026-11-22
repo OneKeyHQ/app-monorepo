@@ -13,6 +13,8 @@ import type {
 
 import {
   buildLendingMarketSummary,
+  isLendingPendingHistoryAvailable,
+  lendingPendingAccountTargets,
   lendingPendingTxsOf,
   lendingRewardsOf,
   lendingSupplyPositionOf,
@@ -133,6 +135,55 @@ describe('withLendingMarketPositions', () => {
     }),
     healthFactor: HEALTH,
   };
+
+  it('keeps a missing or conflicting market owner unverified', () => {
+    const bound = { ...loan, accountId: 'id', accountAddress: '0xAaA' };
+    expect(
+      lendingPendingAccountTargets([
+        bound,
+        { ...bound, accountAddress: '0xaaa' },
+      ]),
+    ).toEqual({
+      'evm--1': { accountId: 'id', accountAddress: '0xaaa' },
+    });
+    expect(
+      lendingPendingAccountTargets([
+        bound,
+        { ...bound, accountAddress: '0xbbb' },
+        bound,
+      ]),
+    ).toEqual({ 'evm--1': null });
+    expect(
+      lendingPendingAccountTargets([
+        bound,
+        { ...bound, accountAddress: undefined },
+      ]),
+    ).toEqual({ 'evm--1': null });
+  });
+
+  it('only enables actions for a resolved target with verified history', () => {
+    const targets = {
+      'evm--1': { accountId: 'id', accountAddress: '0xowner' },
+      'evm--42161': null,
+    };
+    const check = (
+      networkId: string,
+      verified: boolean,
+      failedNetworkIds: string[],
+    ) =>
+      isLendingPendingHistoryAvailable({
+        networkId,
+        targets,
+        verified,
+        failedNetworkIds,
+      });
+    expect(check('evm--1', false, [])).toBe(false);
+    expect(check('evm--1', true, [])).toBe(true);
+    expect(check('evm--42161', true, [])).toBe(false);
+    expect(check('evm--10', true, [])).toBe(false);
+    expect(check('evm--1', false, ['evm--42161'])).toBe(true);
+    expect(check('evm--1', false, ['evm--1'])).toBe(false);
+  });
 
   it("adds a market's supply and loan as one lending position", () => {
     const merged = withLendingMarketPositions({

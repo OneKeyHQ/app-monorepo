@@ -277,6 +277,82 @@ describe('direct deposit task', () => {
     expect(test.prepareDeposit).toHaveBeenCalledTimes(1);
   });
 
+  it('recognizes a failed legacy approval so it can be retried', async () => {
+    const test = setup();
+    mockWait.mockResolvedValue(EOnChainHistoryTxStatus.Failed);
+    let approvals = 0;
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const isApproval = Boolean(params.approvesInfo?.length);
+      if (isApproval) approvals += 1;
+      if (isApproval && approvals > 1) test.setAllowance('10');
+      const data = successData(isApproval ? 'approval-failed' : 'deposit');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      confirm,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status).toMatchObject({
+      type: 'failed',
+      txid: 'approval-failed',
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+    await test.getHandle()?.retry();
+    expect(approvals).toBe(2);
+    expect(test.prepareDeposit).toHaveBeenCalledTimes(1);
+  });
+
+  it('recognizes a failed legacy allowance reset without sending an approval', async () => {
+    const test = setup({ startingAllowance: '4', reset: true });
+    mockWait.mockResolvedValue(EOnChainHistoryTxStatus.Failed);
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const data = successData('reset-failed');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      confirm,
+      confirmReset: async () => true,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status).toMatchObject({
+      type: 'failed',
+      txid: 'reset-failed',
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+  });
+
+  it('does not apply a failed status after the task owner becomes stale', async () => {
+    const test = setup();
+    let current = true;
+    mockWait.mockImplementation(async () => {
+      current = false;
+      return EOnChainHistoryTxStatus.Failed;
+    });
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const data = successData('stale-approval');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      isCurrent: () => current,
+      confirm,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status.type).not.toBe('failed');
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+  });
+
   it('resets nonzero USDT allowance, verifies zero, then approves and deposits', async () => {
     const test = setup({ startingAllowance: '4', reset: true });
     const confirmReset = jest.fn(async () => true);

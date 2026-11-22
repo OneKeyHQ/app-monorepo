@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,12 +6,14 @@ import { Button, Dialog, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { shouldInvalidateAccountScopedData } from '@onekeyhq/kit/src/utils/accountUpdate';
+import { isTaskAccountCurrent } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IEarnBorrowUnclaimableReward,
@@ -186,6 +188,9 @@ function UnclaimableGroup({ group }: IUnclaimableGroupProps) {
 type IBorrowClaimRewardsDialogContentProps = {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds: string[];
+  accountId?: string;
+  networkId?: string;
+  accountAddress?: string;
   // Resolve false when the claim never started (the one-time risk disclaimer
   // was declined), so this dialog stays open instead of vanishing on cancel.
   onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
@@ -195,6 +200,9 @@ type IBorrowClaimRewardsDialogContentProps = {
 function BorrowClaimRewardsDialogContent({
   rewardsDetails,
   pendingClaimIds,
+  accountId,
+  networkId,
+  accountAddress,
   onClaimItem,
   onClaimAll,
 }: IBorrowClaimRewardsDialogContentProps) {
@@ -203,20 +211,46 @@ function BorrowClaimRewardsDialogContent({
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null);
   const [claimingAllIds, setClaimingAllIds] = useState<string[]>([]);
   const dialogInstance = useDialogInstance();
+  const dialogRef = useRef(dialogInstance);
+  dialogRef.current = dialogInstance;
   const { gtMd } = useMedia();
   const listMaxHeight = gtMd ? 520 : 360;
 
   useEffect(() => {
+    let generation = 0;
+    let active = true;
     const onAccountUpdate = (payload: unknown) => {
-      if (shouldInvalidateAccountScopedData(payload)) {
-        void dialogInstance.close();
-      }
+      if (!shouldInvalidateAccountScopedData(payload)) return;
+      generation += 1;
+      const request = generation;
+      const verify = async () => {
+        let current = false;
+        if (accountId && networkId && accountAddress) {
+          try {
+            current = await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress,
+            });
+          } catch {
+            defaultLogger.app.error.log(
+              'Unable to verify borrow rewards account',
+            );
+            current = false;
+          }
+        }
+        if (active && request === generation && !current) {
+          void dialogRef.current.close();
+        }
+      };
+      void verify();
     };
     appEventBus.on(EAppEventBusNames.AccountUpdate, onAccountUpdate);
     return () => {
+      active = false;
       appEventBus.off(EAppEventBusNames.AccountUpdate, onAccountUpdate);
     };
-  }, [dialogInstance]);
+  }, [accountId, networkId, accountAddress]);
 
   const claimableGroups = useMemo(
     () => rewardsDetails.data.rewardsDetail.claimable ?? [],
@@ -354,12 +388,18 @@ function BorrowClaimRewardsDialogContent({
 export function showBorrowClaimRewardsDialog({
   rewardsDetails,
   pendingClaimIds = [],
+  accountId,
+  networkId,
+  accountAddress,
   onClaimItem,
   onClaimAll,
   onClose,
 }: {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds?: string[];
+  accountId?: string;
+  networkId?: string;
+  accountAddress?: string;
   // See the content props: false keeps this dialog open, for a claim that never
   // started because the risk disclaimer was declined.
   onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
@@ -377,6 +417,9 @@ export function showBorrowClaimRewardsDialog({
       <BorrowClaimRewardsDialogContent
         rewardsDetails={rewardsDetails}
         pendingClaimIds={pendingClaimIds}
+        accountId={accountId}
+        networkId={networkId}
+        accountAddress={accountAddress}
         onClaimItem={onClaimItem}
         onClaimAll={onClaimAll}
       />

@@ -34,6 +34,25 @@ function makeState(
 }
 
 describe('deposit task registry', () => {
+  it('does not block different addresses on the same external account', () => {
+    const registry = createDepositTaskRegistry();
+    expect(registry.reserve('owner-a', makeState('a'))).toBeDefined();
+    expect(
+      registry.reserve('owner-b', makeState('b', { accountAddress: '0xdef' })),
+    ).toBeDefined();
+  });
+
+  it('conservatively blocks the same account when an address is missing', () => {
+    const registry = createDepositTaskRegistry();
+    expect(registry.reserve('owner-a', makeState('a'))).toBeDefined();
+    expect(
+      registry.reserve(
+        'owner-b',
+        makeState('b', { accountAddress: undefined }),
+      ),
+    ).toBeUndefined();
+  });
+
   it('reserves atomically across account aliases and keeps the same state', () => {
     const registry = createDepositTaskRegistry();
     const first = makeState('first');
