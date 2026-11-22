@@ -31,6 +31,7 @@ import { rootRouter, useRootRouter } from '../router';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
+import { getUrlAccountHistoryBackRouteKey } from './urlAccountHistory';
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
@@ -170,6 +171,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
       prefixes: [],
 
       getStateFromPath: onGetStateFromPath,
+      getHistoryBackRouteKey: platformEnv.isExtensionUiExpandTab
+        ? getUrlAccountHistoryBackRouteKey
+        : undefined,
       /**
        * Only change url at whitelist routes, or return home page
        */
