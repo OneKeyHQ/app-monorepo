@@ -21,6 +21,7 @@ import { usePrewarmPerpsTokenSelectorImages } from '../../hooks';
 
 import {
   DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+  DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT,
   DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH,
   PerpTokenSelectorContent,
 } from './PerpTokenSelector';
@@ -34,12 +35,16 @@ const POPOVER_CLEARANCE = 8 + 8 + 4;
 // Above the list: the search and the tabs; below it: the key hints.
 const ESTIMATED_CHROME_HEIGHT = 150;
 
-// What is left for the list is all it gets, however little: a list taller
-// than that would have the popover scroll around it, with its search or its
-// key hints out of reach.
+// What is left for the list is all it gets: a taller one would have the
+// popover scroll around it, with its search or its key hints out of reach.
+// Down to its own header rows and one result, though. A window too short for
+// that has the popover scroll as a whole, so a token can still be picked.
 function fitBodyHeight(height: number) {
   return Math.round(
-    Math.min(DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT, Math.max(0, height)),
+    Math.min(
+      DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+      Math.max(DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT, height),
+    ),
   );
 }
 
@@ -77,7 +82,8 @@ function PerpChartTokenSelectorContent({
  * panel, like any press in the panel, and a pick goes to `onSelectToken`,
  * which selects the panel with that token. The list fits the roomier side of
  * the header, so a panel low on the page gets a shorter list, which scrolls,
- * rather than a cut-off one.
+ * rather than a cut-off one; in a window too short for one result, the whole
+ * popover scrolls.
  */
 export const PerpChartTokenSelector = memo(
   ({

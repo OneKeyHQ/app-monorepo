@@ -244,19 +244,25 @@ keep the single chart.
   is reset along with the page, with the prices typed for it (a perp limit
   price starts from the restored token's mid again), and its market data is
   cleared only while no newer switch has started. A spot token the loaded
-  spot markets do not list
-  is no switch at all: the page stays where it is, and a switch on its way
-  still lands, as the spot token is looked up before its switch begins. The
-  same-token shortcuts need the asset's metadata, so a coin whose loading a
-  superseded switch cut short, or a spot token named before the spot markets
-  had loaded, is loaded again.
+  spot markets do not list is no switch at all: the page stays where it is,
+  and a switch on its way still lands, as the spot token is looked up before
+  its switch begins. For a chart panel neither is a spot token before the
+  spot markets have loaded (`requireSpotMetadata`), so its selection returns
+  instead of staying on a token without trading metadata. The same-token
+  shortcuts need the asset's metadata, so a coin whose loading a superseded
+  switch cut short, or a spot token named before the spot markets had
+  loaded, is loaded again. They are for a page already on the token: a page
+  that takes up a market another page moved the background to switches like
+  any other, so the order begun for its own token is reset.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
   Selecting the traded token's panel again drops a switch still on its way.
   Selecting a panel again after its switch was superseded asks for its token
   anew, and a selection made while another switch is on its way returns to
-  the last saved panel if it fails.
+  the last saved panel if it fails. A token the host shows before it has
+  switched to it, e.g. one picked in the selected panel, is no panel's yet:
+  a selection made meanwhile leaves that panel the token it showed before.
   Enter or Space on a panel's focused chart selects it like a press, so the
   controls row can be moved from the keyboard; the keys of the panel's own
   controls, e.g. a drawing tool's style list, do not select.
@@ -277,9 +283,9 @@ keep the single chart.
   e.g. of the token already traded, still lands in that panel.
   Its list fits the roomier side of the header, so a panel low on the page
   gets a shorter list instead of a cut-off one (OK-67552); the list takes
-  what the search, tabs and key hints leave and scrolls, however little that
-  is. Each header holds
-  one quote, subscribed to its own token
+  what the search, tabs and key hints leave and scrolls, down to its header
+  rows and one result. In a window too short for that the popover scrolls
+  as a whole. Each header holds one quote, subscribed to its own token
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
   (`chartPanelsSpotActive`). Both are let go while the workspace shows another
@@ -316,8 +322,10 @@ keep the single chart.
 - The layout picker has five sync switches, saved with the layout. All are
   off by default.
   - Symbol: every panel shows the trade instrument; selecting a panel then
-    only moves the controls row to it. Panels return to their own tokens when it is turned off: the ones
-    they showed when it was turned on, the selected panel's included.
+    only moves the controls row to it. Turning it off never changes the
+    trade instrument: the panel selected then goes on showing it, and the
+    other panels return to their own tokens, the ones they showed when it
+    was turned on, also the panel that was selected at that time.
   - Interval: every panel takes the trading chart's interval, and an interval
     picked in any panel applies to all.
   - Crosshair: hovering one chart shows its crosshair in the others at the

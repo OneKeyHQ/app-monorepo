@@ -1442,6 +1442,206 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       assetId: 10_150,
     });
   });
+
+  it('switches a page onto a perp market another page moved the background to like any other, with its order reset', async () => {
+    const { store, result } = setup('perp');
+    const eth: IPerpsActiveAssetAtom = {
+      coin: 'ETH',
+      assetId: 1,
+      universe: {
+        assetId: 1,
+        name: 'ETH',
+        szDecimals: 4,
+        maxLeverage: 25,
+      } as IPerpsUniverse,
+      margin: undefined,
+    };
+    store.set(perpsAllMidsAtom(), {
+      mids: { ETH: '1700' },
+    } as unknown as HL.IWsAllMids);
+    // A limit order begun on BTC.
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '59000',
+      size: '2',
+    });
+    // Another extension tab has switched the background to ETH.
+    jest.mocked(perpsActiveAssetAtom.get).mockResolvedValue(eth);
+    mockChangeActiveAsset.mockResolvedValueOnce(eth);
+
+    let switched: boolean | undefined;
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+
+    expect(switched).toBe(true);
+    expect(mockChangeActiveAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ coin: 'ETH' }),
+    );
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+    });
+    // BTC's size and price are not ETH's.
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      size: '',
+      price: formatPriceToSignificantDigits('1700'),
+    });
+  });
+
+  it('switches a page onto a spot market another page moved the background to like any other, with its order reset', async () => {
+    const { store, result, getSpotAsset } = setup('spot');
+    jest.spyOn(spotAssetCtxsMapAtom, 'get').mockResolvedValue({});
+    jest
+      .spyOn(perpsTradingPreferencesAtom, 'get')
+      .mockResolvedValue({ sizeInputUnit: 'usd' } as Awaited<
+        ReturnType<typeof perpsTradingPreferencesAtom.get>
+      >);
+    const universe = { name: '@150', assetId: 10_150 } as HL.ISpotUniverse;
+    // A limit order begun on @107.
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '62',
+      size: '2',
+    });
+    // Another extension tab has switched the background to @150.
+    await spotActiveAssetAtom.set({
+      coin: '@150',
+      assetId: 10_150,
+      universe,
+    });
+    jest.mocked(spotActiveAssetAtom.set).mockClear();
+
+    let switched: boolean | undefined;
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@150',
+        spotUniverse: universe,
+      });
+    });
+
+    expect(switched).toBe(true);
+    // The whole switch, not only the page.
+    expect(mockSetTradingModeForActiveAssetChange).toHaveBeenCalled();
+    expect(getSpotAsset()).toMatchObject({ coin: '@150', assetId: 10_150 });
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      size: '',
+      price: '',
+      type: 'market',
+    });
+  });
+
+  it.each(['perp', 'spot'] as const)(
+    'has nothing to switch for the %s token the page is on already',
+    async (mode) => {
+      const { store, result } = setup(mode);
+      const universe = { name: '@107', assetId: 10_107 } as HL.ISpotUniverse;
+      if (mode === 'spot') {
+        await spotActiveAssetAtom.set({ ...spot, universe });
+        store.set(activeTradeInstrumentAtom(), {
+          mode: 'spot',
+          coin: spot.coin,
+          assetId: spot.assetId,
+          universe,
+        });
+      }
+      store.set(tradingFormAtom(), {
+        ...store.get(tradingFormAtom()),
+        size: '2',
+      });
+
+      let switched: boolean | undefined;
+      await act(async () => {
+        switched = await result.current.current.switchTradeInstrument(
+          mode === 'perp'
+            ? { mode, coin: 'BTC' }
+            : { mode, coin: spot.coin, spotUniverse: universe },
+        );
+      });
+
+      expect(switched).toBe(true);
+      expect(mockChangeActiveAsset).not.toHaveBeenCalled();
+      expect(mockSetTradingModeForActiveAssetChange).not.toHaveBeenCalled();
+      expect(store.get(tradingFormAtom()).size).toBe('2');
+    },
+  );
+
+  it('keeps the order begun after a newer switch while an older one still clears the contexts', async () => {
+    const { store, result } = setup('perp');
+    const sol: IPerpsActiveAssetAtom = {
+      coin: 'SOL',
+      assetId: 5,
+      universe: {
+        assetId: 5,
+        name: 'SOL',
+        szDecimals: 2,
+        maxLeverage: 20,
+      } as IPerpsUniverse,
+      margin: undefined,
+    };
+    mockChangeActiveAsset.mockResolvedValueOnce(sol);
+    // On a split runtime the service's answer takes its time.
+    const ctxClear = createDeferred<boolean>();
+    mockClearActiveAssetCtxForActiveAssetChange.mockImplementationOnce(
+      () => ctxClear.promise,
+    );
+
+    let first: Promise<boolean> | undefined;
+    await act(async () => {
+      first = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    await act(async () => {
+      await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'SOL',
+      });
+    });
+    act(() => {
+      store.set(tradingFormAtom(), {
+        ...store.get(tradingFormAtom()),
+        size: '2',
+      });
+    });
+    await act(async () => {
+      ctxClear.resolve(false);
+      await expect(first).resolves.toBe(false);
+    });
+
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
+    expect(store.get(tradingFormAtom()).size).toBe('2');
+  });
+
+  it('leaves the page where it is for a spot token whose markets have not loaded when its caller needs the metadata', async () => {
+    const { store, result, getMode } = setup('perp');
+
+    let switched: boolean | undefined;
+    await act(async () => {
+      switched = await result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@999',
+        // As a chart panel asks, which returns its selection otherwise.
+        requireSpotMetadata: true,
+      });
+    });
+
+    expect(switched).toBe(false);
+    expect(getMode()).toBe('perp');
+    expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+  });
 });
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {

@@ -149,6 +149,11 @@ export const SPOT_DEX_INDEX = -1;
 export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
 export const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
+// What the body holds above its first result: the category tabs and the
+// column header. With one result below, the least a body shows a token in.
+const TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT = 84;
+export const DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT =
+  TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT + TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
 
@@ -1702,9 +1707,7 @@ function BasePerpTokenSelectorContent({
             </XStack>
           </ScrollView>
         </XStack>
-        {/* Clipped: a chart's picker in a short window gives the list less
-        height than the rows above it take. */}
-        <YStack height={bodyHeight} gap="$1" overflow="hidden">
+        <YStack height={bodyHeight} gap="$1">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView

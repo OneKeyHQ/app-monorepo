@@ -82,6 +82,8 @@ interface IPendingSwitch {
    * before the switches still on their way.
    */
   returnKey: string;
+  /** That source itself, the last one the host is known to have landed on. */
+  returnSource: ITradingViewNativeSource;
 }
 
 interface ILayoutChannel {
@@ -544,23 +546,43 @@ export function TradingViewNativeMultiChart({
       const keepsOwnToken =
         state.isSymbolSynced &&
         Boolean(state.layout.panels[keptPanelId]?.source);
+      const { switches } = channel;
+      // The switch on its way to the token the host shows, which may show a
+      // token before it lands.
+      const shownSwitch = switches.get(state.activeSourceKey);
+      // Such a token is no panel's until its switch lands, e.g. one picked in
+      // the selected panel that this selection supersedes. The panel keeps
+      // what it showed before: the token the host returns to where it was
+      // the host's panel already, or else the token it stores.
+      const unlanded =
+        shownSwitch &&
+        state.selection &&
+        !state.selection.isSaved &&
+        state.selection.panelId === keptPanelId
+          ? state.selection
+          : null;
+      let keptSource: ITradingViewNativeSource | undefined = state.activeSource;
+      if (unlanded) {
+        keptSource =
+          unlanded.hostPanelId === keptPanelId
+            ? shownSwitch?.returnSource
+            : undefined;
+      }
       const keptSources: IKeptSources = { ...state.selection?.keptSources };
-      if (keepsOwnToken) delete keptSources[keptPanelId];
-      else keptSources[keptPanelId] = state.activeSource;
+      if (keepsOwnToken || !keptSource) delete keptSources[keptPanelId];
+      else keptSources[keptPanelId] = keptSource;
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
       const sourceKey = getTradingViewNativeSourceKey(source);
-      const { switches } = channel;
-      // The switch on its way to the token the host shows, which may show a
-      // token before it lands. With this token, e.g. asked for by the press
-      // that opened a picker in the panel, that switch's answer decides this
+      // With the token the host shows, e.g. asked for by the press that
+      // opened a picker in the panel, the switch on its way decides this
       // selection too: asking again would drop it for one that finds the host
       // halfway there. A switch the host has left for another token is
       // turned down, so this token is asked for anew.
-      const shownSwitch = switches.get(state.activeSourceKey);
       const pending = sourceKey === state.activeSourceKey ? shownSwitch : null;
       const fromKey = pending?.fromKey ?? state.activeSourceKey;
       const returnKey = shownSwitch?.returnKey ?? state.activeSourceKey;
+      const returnSource = shownSwitch?.returnSource ?? state.activeSource;
       const waitsForHost = sourceKey !== fromKey;
       channel.selectionSeq += 1;
       const seq = channel.selectionSeq;
@@ -592,7 +614,12 @@ export function TradingViewNativeMultiChart({
       let answer = pending?.answer;
       if (!answer) {
         const asked = state.onSelectPanel(source).catch(() => false);
-        switches.set(sourceKey, { answer: asked, fromKey, returnKey });
+        switches.set(sourceKey, {
+          answer: asked,
+          fromKey,
+          returnKey,
+          returnSource,
+        });
         void asked.then(() => {
           if (switches.get(sourceKey)?.answer === asked) {
             switches.delete(sourceKey);

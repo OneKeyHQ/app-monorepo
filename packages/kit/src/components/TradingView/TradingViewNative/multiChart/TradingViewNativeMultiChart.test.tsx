@@ -904,6 +904,88 @@ it('selects a panel with a token picked in it, decided by that one switch', asyn
   });
 });
 
+it('keeps a token picked in a panel out of its saved layout when another selection lands instead', async () => {
+  const answers: Array<(switched: boolean) => void> = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '3',
+      activePanelId: 'panel-2',
+      panels: {
+        main: { source: coin('BTC') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+      },
+    },
+    activeSource: coin('ETH'),
+    onSelectPanel: (source, { setActiveSource }) => {
+      // The host shows a token at once, before it has switched to it.
+      setActiveSource(source);
+      return new Promise((resolve) => {
+        answers.push(resolve);
+      });
+    },
+  });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL' }, 'panel-2');
+
+  // DOGE is picked in the selected ETH chart, and SOL's chart is selected
+  // before the host got to DOGE.
+  act(() => mockPanels.get('panel-2')?.selectSource(coin('DOGE')));
+  await act(async () => press('panel-3'));
+  // The chart left behind shows what it had, not a token it never got.
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL' }, 'panel-3');
+
+  // The host drops the switch to DOGE for the one to SOL, which lands.
+  await act(async () => {
+    answers[0](false);
+    answers[1](true);
+  });
+
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL' }, 'panel-3');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-3',
+    panels: { 'panel-2': { source: coin('ETH') } },
+  });
+});
+
+it('leaves a panel its own token when a token picked in it never lands and another panel is selected', async () => {
+  const answers: Array<(switched: boolean) => void> = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '3',
+      panels: {
+        main: { source: coin('BTC') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+      },
+    },
+    onSelectPanel: (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return new Promise((resolve) => {
+        answers.push(resolve);
+      });
+    },
+  });
+
+  // DOGE is picked in the ETH chart, which the first chart was selected
+  // before; then SOL's chart, before the host got to DOGE.
+  act(() => mockPanels.get('panel-2')?.selectSource(coin('DOGE')));
+  await act(async () => press('panel-3'));
+  await act(async () => {
+    answers[0](false);
+    answers[1](true);
+  });
+
+  // The first chart keeps the token it traded, the second its own.
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL' }, 'panel-3');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'panel-3',
+    panels: {
+      main: { source: coin('BTC') },
+      'panel-2': { source: coin('ETH') },
+    },
+  });
+});
+
 it('waits for a switch on its way to the token picked in a panel instead of asking again', async () => {
   const answers: Array<(switched: boolean) => void> = [];
   const asked: string[] = [];

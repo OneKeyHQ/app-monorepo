@@ -1438,6 +1438,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       : '';
   }
 
+  /** The same token in the same mode, loaded or not. */
+  private static _isSameToken(
+    a: IActiveTradeInstrument | null,
+    b: IActiveTradeInstrument,
+  ): boolean {
+    return a?.mode === b.mode && a.coin === b.coin;
+  }
+
   /** Skip redundant atom writes to avoid downstream re-renders. */
   private static _isTradeInstrumentEqual(
     a: IActiveTradeInstrument,
@@ -1728,6 +1736,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
+      const isPageOnToken =
+        !shouldSetOptimisticInstrument &&
+        ContextJotaiActionsHyperliquid._isSameToken(
+          get(confirmedTradeInstrumentAtom()),
+          optimisticInstrument,
+        );
       if (
         shouldSetOptimisticInstrument &&
         !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
@@ -1747,7 +1761,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const activeAsset = await perpsActiveAssetAtom.get();
       // The service names the coin before its metadata has loaded, e.g. for
       // a switch this one superseded; only a loaded asset is a done switch.
-      if (activeAsset?.coin === coin && activeAsset.universe && !force) {
+      // And only for a page already on the token: one that takes up a market
+      // the service was moved to elsewhere, e.g. by another extension tab,
+      // switches like any other, so the order begun for its own token goes.
+      if (
+        isPageOnToken &&
+        activeAsset?.coin === coin &&
+        activeAsset.universe &&
+        !force
+      ) {
         // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
         // mode already matches, otherwise the trading panel keeps the
         // previous mode's layout when switching back with an unchanged coin.
@@ -2051,6 +2073,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       const shouldSetOptimisticInstrument =
         prevInstrument.mode !== 'spot' || prevInstrument.coin !== coin;
+      const isPageOnToken =
+        !shouldSetOptimisticInstrument &&
+        ContextJotaiActionsHyperliquid._isSameToken(
+          get(confirmedTradeInstrumentAtom()),
+          optimisticInstrument,
+        );
       if (
         shouldSetOptimisticInstrument &&
         !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
@@ -2069,8 +2097,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const currentSpotAsset = await spotActiveAssetAtom.get();
       // A token named before the spot markets had loaded has no metadata yet;
       // only a loaded one is a done switch, so picking it again loads it.
+      // And only for a page already on the token, as for a perp one.
       if (
         !force &&
+        isPageOnToken &&
         currentSpotAsset?.coin === coin &&
         currentSpotAsset.universe
       ) {
@@ -2225,6 +2255,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         force?: boolean;
         spotUniverse?: ISpotUniverse;
+        /**
+         * For a caller that goes back when the switch is not done, e.g. a
+         * chart panel: a spot token whose markets have not loaded is then no
+         * switch, instead of showing without its metadata.
+         */
+        requireSpotMetadata?: boolean;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
@@ -2246,8 +2282,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           spotUniverse = universes.find((item) => item.name === params.coin);
           // A token the loaded spot markets do not list, e.g. one no longer
-          // listed, is no switch: the page stays where it is.
-          if (!spotUniverse && universes.length > 0) {
+          // listed, is no switch: the page stays where it is. Nor is any
+          // token before the markets have loaded, for a caller that needs
+          // its metadata.
+          if (
+            !spotUniverse &&
+            (universes.length > 0 || params.requireSpotMetadata)
+          ) {
             markPerpsColdStartPerf('action_switch_trade_instrument_end', {
               mode: params.mode,
               coin: params.coin,
@@ -2649,9 +2690,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       this.clearOtherTokenMarketData.call(set);
-      const holdsMarket = await this.clearActiveAssetCtx.call(set, params);
+      // Before the service answers: by then a newer switch can have landed
+      // and its own order been begun.
       this.resetOrderDraft.call(set);
-      return holdsMarket;
+      return this.clearActiveAssetCtx.call(set, params);
     },
   );
 

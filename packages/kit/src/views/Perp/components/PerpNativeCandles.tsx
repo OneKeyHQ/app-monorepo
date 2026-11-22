@@ -316,6 +316,9 @@ export function PerpNativeSplitCandles({
         const switched = await actions.current.switchTradeInstrument({
           mode: isSpotInstrument(panelSource.coin) ? 'spot' : 'perp',
           coin: panelSource.coin,
+          // A token it cannot trade is none to select: the grid then returns
+          // the selection, which a page left on that token would keep.
+          requireSpotMetadata: true,
         });
         return switched !== false;
       } finally {

@@ -89,6 +89,7 @@ jest.mock('../../hooks', () => ({
 
 jest.mock('./PerpTokenSelector', () => ({
   DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT: 440,
+  DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT: 132,
   DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH: 800,
   PerpTokenSelectorContent: (props: {
     bodyHeight?: number;
@@ -155,11 +156,12 @@ it.each([
   ['above a header near the bottom', { top: 700, bottom: 728 }, 800, 440],
   // Neither side has room for it all: the list gives way, so nothing is cut.
   ['in a short window', { top: 400, bottom: 428 }, 800, 400 - 20 - 170],
-  // However short the window: the list takes what is left and scrolls,
-  // instead of pushing the search or the key hints out of the popover.
-  ['in a tiny window', { top: 200, bottom: 228 }, 400, 200 - 20 - 170],
-  // Not even the rest fits: the list gives way altogether.
-  ['in a window too short for it', { top: 100, bottom: 128 }, 250, 0],
+  // Still the case with room for only a few rows: the list takes what is
+  // left and scrolls, instead of pushing the search or the key hints out.
+  ['in a shorter window', { top: 330, bottom: 358 }, 660, 330 - 20 - 170],
+  // Down to its header rows and one result: below that the popover scrolls
+  // as a whole, so a token can still be picked.
+  ['in a tiny window', { top: 200, bottom: 228 }, 400, 132],
 ])(
   'fits the token list to the roomier side %s',
   (_, rect, windowHeight, expected) => {

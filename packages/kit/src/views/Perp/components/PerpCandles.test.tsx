@@ -666,11 +666,15 @@ describe('split view', () => {
     expect(mockSwitchTradeInstrument).toHaveBeenLastCalledWith({
       mode: 'perp',
       coin: 'ETH',
+      requireSpotMetadata: true,
     });
+    // A spot token goes only with its metadata: a chart the page cannot
+    // trade on is none to select.
     await select?.({ ...ethSource, coin: '@107' });
     expect(mockSwitchTradeInstrument).toHaveBeenLastCalledWith({
       mode: 'spot',
       coin: '@107',
+      requireSpotMetadata: true,
     });
     mockSwitchTradeInstrument.mockResolvedValueOnce(false);
     await expect(select?.(ethSource)).resolves.toBe(false);
