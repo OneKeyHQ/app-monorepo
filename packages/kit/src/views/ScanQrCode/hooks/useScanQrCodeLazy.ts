@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Haptics,
   ImpactFeedbackStyle,
+  rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -57,10 +58,17 @@ export default function useScanQrCodeLazy() {
               qrWalletScene,
               showProTutorial,
               scanRequestId,
-              callback: async ({ value, popNavigation }) => {
+              callback: async ({ value, popNavigation, routeKey }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
                     await parseQRCodeModulePromise;
+                  if (
+                    popNavigation &&
+                    rootNavigationRef.current?.getCurrentRoute()?.key !==
+                      routeKey
+                  ) {
+                    return {};
+                  }
                   let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
                   try {
                     parseValue = await parseQRCodeWithDeps(
