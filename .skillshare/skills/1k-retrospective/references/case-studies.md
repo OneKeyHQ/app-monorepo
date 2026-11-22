@@ -1,6 +1,6 @@
 # Bug Fix Case Studies
 
-Cases are appended by AI after each bug fix. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
+Record only bug fixes with non-obvious, reusable lessons that help diagnose or prevent similar failures. Ordinary fixes do not require an entry; follow the selection criteria in `.cursor/rules/self-testing.mdc`. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
 
 ---
 
@@ -1723,3 +1723,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
 **Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.
+
+## Case: Page requests could carry WalletConnect session fields (OK-67092)
+**Date**: 2026-11-12 | **Platforms**: All. Page requests reach bg through the bridge entry; the WalletConnect SDK proxy runs in bg and calls the provider directly.
+**Symptom**: A security audit found that a dApp page could send the WalletConnect-only request flag and session fields, so its request was handled as part of a WalletConnect session.
+**Root Cause**: The bridge overwrites only `origin` and `internal`. #13744 assumed that only the WalletConnect request proxy sets these fields, but the page entry passed them through unchanged.
+**Fix**: `BackgroundApiBase._bridgeReceiveHandler` drops the WalletConnect flag and session fields from page requests before dispatch; the SDK proxy path keeps them. The web-embed channel mark on opaque origins is honored only on native, where the WebView host sets it. Entry tests cover a forged request, an ordinary request and the proxy path.
+**Catchable by**: NEW — not covered: treat every field of a page bridge payload except `origin` and `internal` as page-controlled; strip host-only fields at the page entry or pass them out of band.
+
+## Case: Prebuilt yttrium binaries were not pinned by content (OK-67096)
+**Date**: 2026-11-12 | **Platforms**: iOS and Android builds. The library loads into the app process whenever WalletKit initializes; Mac Catalyst does not link it.
+**Symptom**: A security audit found that the YttriumWrapper pod downloads its prebuilt library from a GitHub release asset in `prepare_command`, and that the Android AAR comes from JitPack, with neither checked by content.
+**Root Cause**: Podfile.lock pins only podspec text and Gradle verifies no checksums by default, so a replaced asset under the same version would be built in.
+**Fix**: The Podfile `post_install` compares a digest of every installed YttriumWrapper file, except on Mac Catalyst; Gradle dependency verification pins the AAR, POM and module. The first version also added a generic pinning script and a JitPack group filter, which review trimmed as more than the risk needed, and it missed that Mac Catalyst excludes the pod.
+**Catchable by**: Section 3: check every build configuration that installs or excludes a native dependency (Mac Catalyst). Section 4: every file touched maps to the task.
