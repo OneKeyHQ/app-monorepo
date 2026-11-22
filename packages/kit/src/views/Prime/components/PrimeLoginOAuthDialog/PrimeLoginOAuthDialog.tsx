@@ -119,6 +119,17 @@ function PrimeLoginOAuthDialog(props: {
     usagePanelRef.current = next;
     setUsagePanel(next);
   }, []);
+  // Closing the dialog unmounts an open panel before the popover logs a close.
+  useEffect(
+    () => () => {
+      if (usagePanelRef.current !== 'closed') {
+        defaultLogger.ui.popover.popoverClose({
+          trackId: ONEKEY_ID_USAGE_TRACK_ID,
+        });
+      }
+    },
+    [],
+  );
   // Web: the subtitle link span, which the wide-window panel anchors to and
   // opens on hover from.
   const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();

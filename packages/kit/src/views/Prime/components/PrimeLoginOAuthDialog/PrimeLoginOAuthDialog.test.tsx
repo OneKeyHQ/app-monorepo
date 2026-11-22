@@ -423,6 +423,17 @@ describe('PrimeLoginOAuthDialog', () => {
     popoverClose.mockRestore();
   });
 
+  test('logs the usage panel close when the dialog closes over it', () => {
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
+    const view = render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    view.unmount();
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    popoverClose.mockRestore();
+  });
+
   test.each(['google', 'apple'])(
     'stops a banned %s login without completing or offering account merging',
     async (provider) => {
