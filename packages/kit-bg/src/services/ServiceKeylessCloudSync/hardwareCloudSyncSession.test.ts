@@ -1134,6 +1134,44 @@ describe('hardware Cloud sync session', () => {
       }
     });
 
+    test.each(['actual', 'missing', 'wrong'] as const)(
+      'own flush origin requires the actual transport URL: %s',
+      async (marker) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock }));
+        const responseURL =
+          marker === 'actual'
+            ? new URL('/prime/v1/sync/flush', BASE_URL).href
+            : 'https://foreign.example.invalid/prime/v1/sync/flush';
+        c.post
+          .mockResolvedValueOnce(ok({ nonce: 7 }))
+          .mockResolvedValueOnce(ok({ serverData: [] }))
+          .mockResolvedValueOnce(
+            marker === 'missing'
+              ? ok({})
+              : {
+                  ...ok({}),
+                  request: { responseURL },
+                },
+          );
+        const rotation = rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: { ...session(), boundBaseURL: BASE_URL },
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending: async () => undefined,
+        });
+        if (marker === 'wrong')
+          await expect(rotation).rejects.toThrow('endpoint changed');
+        else
+          await expect(rotation).resolves.toMatchObject({
+            verifiedFlushOrigin: marker === 'actual' ? BASE_URL : undefined,
+          });
+      },
+    );
+
     test('re-encrypts records with the new key in one guarded flush', async () => {
       const { key, lock, envelopeItem } = await firstDevice();
       const local = [

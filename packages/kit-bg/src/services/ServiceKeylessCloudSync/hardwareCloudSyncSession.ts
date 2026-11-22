@@ -1133,6 +1133,7 @@ export async function rotateHardwareCloudSyncDataKey<
   next: IHardwareCloudSyncDataKey;
   items: T[];
   generation: number;
+  verifiedFlushOrigin?: string;
 }> {
   const assertCurrent = () => {
     if (!isCurrent()) {
@@ -1140,7 +1141,7 @@ export async function rotateHardwareCloudSyncDataKey<
     }
   };
   assertCurrent();
-  const { forEachHardwareCloudSyncResetPage } =
+  const { prepareHardwareCloudSyncResetRecords } =
     await import('./hardwareCloudSyncResetDownload');
   assertCurrent();
   const existing = await readLockEnvelope({ client, session });
@@ -1180,11 +1181,7 @@ export async function rotateHardwareCloudSyncDataKey<
     from: current,
     to: next,
   });
-  // Read the complete rotation input once, then re-encrypt in bounded batches.
-  // The pre-download nonce still guards concurrent server writes at flush.
-  const envelopeRecords: IServerSyncRecord[] = [];
-  const serverItems: IServerSyncRecord[] = [];
-  const downloadResult = await forEachHardwareCloudSyncResetPage({
+  const { data, envelopeCount } = await prepareHardwareCloudSyncResetRecords({
     download: async () => {
       const response = await requestWithHardwareCloudSyncSession<{
         serverData?: unknown;
@@ -1197,103 +1194,53 @@ export async function rotateHardwareCloudSyncDataKey<
       });
       return response?.serverData;
     },
-    onPage: async (records) => {
-      const encrypted = await reencryptHardwareCloudSyncItems({
-        items: records
-          .filter((record) => {
-            if (isHardwareCloudSyncKeyEnvelopeItem(record)) {
-              envelopeRecords.push(record);
-              return false;
-            }
-            return true;
-          })
-          .map((record) => ({
-            ...record,
-            id: record.key,
-            pwdHash: current.pwdHash,
-          })),
+    reencrypt: (records) =>
+      reencryptHardwareCloudSyncItems({
+        items: records.map((record) => ({
+          ...record,
+          id: record.key,
+          pwdHash: current.pwdHash,
+        })),
         from: current,
         to: next,
-      });
-      assertCurrent();
-      for (const record of encrypted) {
-        const { key, dataType, data, dataTimestamp, isDeleted } = record;
-        serverItems.push({
-          key,
-          dataType,
-          data: data ?? '',
-          dataTimestamp,
-          isDeleted: !!isDeleted,
-        });
-      }
-    },
+      }),
+    envelope,
+    nonce: serverNonce,
+    oldPwdHash: current.pwdHash,
+    newPwdHash: next.pwdHash,
+    previousGeneration: existing.generation,
+    localItemCount: localItems.length,
+    isPrevious: (record) => readEnvelope(record.data)?.dekId === existing.dekId,
     assertCurrent,
   });
-  logHardwareCloudSyncDiagnostic('reset_download_received', {
-    hasServerDataArray: true,
-    returnedCount: downloadResult.recordCount,
-    page: downloadResult.pageCount,
-    historyCompleteKnown: false,
-  });
-  const envelopeData = stringUtils.stableStringify(envelope);
-  // Keep every earlier envelope; they are tiny and help recovery.
-  const envelopeItems = [
-    ...envelopeRecords.map(({ key, dataType, data, dataTimestamp }) => ({
-      key,
-      dataType,
-      data,
-      dataTimestamp,
-      isDeleted: false,
-    })),
-    {
-      key: `dek:${envelope.dekId}`,
-      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-      data: envelopeData,
-      dataTimestamp: envelope.createdAt,
-      isDeleted: false,
-    },
-  ];
 
-  logHardwareCloudSyncDiagnostic('rotation_prepared', () => ({
-    previousGeneration: existing.generation,
-    nextGeneration: envelope.generation,
-    localItemCount: localItems.length,
-    returnedCount: downloadResult.recordCount,
-    inputEnvelopeCount: envelopeRecords.length,
-    outputEnvelopeCount: envelopeItems.length,
-    previousCurrentEnvelopeIncluded: envelopeRecords.some(
-      (item) => readEnvelope(item.data)?.dekId === existing.dekId,
-    ),
-  }));
   assertCurrent();
   await savePending({ ...next, generation: envelope.generation });
   assertCurrent();
   await beforeFlush?.();
   assertCurrent();
-  await requestWithHardwareCloudSyncSession({
+  const urlPath = '/prime/v1/sync/flush';
+  const response = await requestRawWithHardwareCloudSyncSession({
     client,
     session,
     method: 'POST',
-    urlPath: '/prime/v1/sync/flush',
-    data: {
-      nonce: 0,
-      pwdHash: next.pwdHash,
-      expectedPwdHash: current.pwdHash,
-      expectedNonce: serverNonce,
-      lock: {
-        key: 'lock',
-        dataType: 'Lock',
-        data: envelopeData,
-        dataTimestamp: envelope.createdAt,
-      },
-      localData: [...serverItems, ...envelopeItems],
-    },
+    urlPath,
+    data,
   });
   logHardwareCloudSyncDiagnostic('rotation_flush_accepted', {
     generation: envelope.generation,
-    outputEnvelopeCount: envelopeItems.length,
+    outputEnvelopeCount: envelopeCount,
   });
-  return { next, items, generation: envelope.generation };
+  return {
+    next,
+    items,
+    generation: envelope.generation,
+    verifiedFlushOrigin: verifiedSessionBaseURL(
+      response,
+      session.boundBaseURL,
+      urlPath,
+    ),
+  };
 }
 
 export type IServerSyncRecord = {

@@ -1,4 +1,8 @@
+import { HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+import { logHardwareCloudSyncDiagnostic } from './hardwareCloudSyncLog';
 
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
 
@@ -67,4 +71,108 @@ export async function forEachHardwareCloudSyncResetPage({
     assertCurrent();
   }
   return { recordCount: records.length, pageCount: 1, paginated: false };
+}
+
+export async function prepareHardwareCloudSyncResetRecords({
+  download,
+  reencrypt,
+  assertCurrent,
+  envelope,
+  nonce,
+  oldPwdHash,
+  newPwdHash,
+  previousGeneration,
+  localItemCount,
+  isPrevious,
+}: {
+  download: () => Promise<unknown>;
+  reencrypt: (records: IServerSyncRecord[]) => Promise<IServerSyncRecord[]>;
+  assertCurrent: () => void;
+  envelope: { dekId: string; createdAt: number; generation: number };
+  nonce: number;
+  oldPwdHash: string;
+  newPwdHash: string;
+  previousGeneration: number;
+  localItemCount: number;
+  isPrevious: (record: IServerSyncRecord) => boolean;
+}) {
+  // Read the complete rotation input once, then re-encrypt in bounded batches.
+  // The pre-download nonce still guards concurrent server writes at flush.
+  const envelopeRecords: IServerSyncRecord[] = [];
+  const serverItems: IServerSyncRecord[] = [];
+  const downloadResult = await forEachHardwareCloudSyncResetPage({
+    download,
+    onPage: async (records) => {
+      const encrypted = await reencrypt(
+        records.filter((record) => {
+          if (record.dataType !== HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE)
+            return true;
+          envelopeRecords.push(record);
+          return false;
+        }),
+      );
+      assertCurrent();
+      for (const record of encrypted) {
+        const { key, dataType, data, dataTimestamp, isDeleted } = record;
+        serverItems.push({
+          key,
+          dataType,
+          data: data ?? '',
+          dataTimestamp,
+          isDeleted: !!isDeleted,
+        });
+      }
+    },
+    assertCurrent,
+  });
+  logHardwareCloudSyncDiagnostic('reset_download_received', {
+    hasServerDataArray: true,
+    returnedCount: downloadResult.recordCount,
+    page: downloadResult.pageCount,
+    historyCompleteKnown: false,
+  });
+  const envelopeData = stringUtils.stableStringify(envelope);
+  // Keep every earlier envelope; they are tiny and help recovery.
+  const envelopeItems = [
+    ...envelopeRecords.map(({ key, dataType, data, dataTimestamp }) => ({
+      key,
+      dataType,
+      data,
+      dataTimestamp,
+      isDeleted: false,
+    })),
+    {
+      key: `dek:${envelope.dekId}`,
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      data: envelopeData,
+      dataTimestamp: envelope.createdAt,
+      isDeleted: false,
+    },
+  ];
+
+  logHardwareCloudSyncDiagnostic('rotation_prepared', () => ({
+    previousGeneration,
+    nextGeneration: envelope.generation,
+    localItemCount,
+    returnedCount: downloadResult.recordCount,
+    inputEnvelopeCount: envelopeRecords.length,
+    outputEnvelopeCount: envelopeItems.length,
+    previousCurrentEnvelopeIncluded: envelopeRecords.some(isPrevious),
+  }));
+  return {
+    envelopeCount: envelopeItems.length,
+    data: {
+      nonce: 0,
+      pwdHash: newPwdHash,
+      expectedPwdHash: oldPwdHash,
+      expectedNonce: nonce,
+      lock: {
+        key: 'lock',
+        dataType: 'Lock',
+        data: envelopeData,
+        dataTimestamp: envelope.createdAt,
+      },
+      localData: [...serverItems, ...envelopeItems],
+    },
+  };
 }

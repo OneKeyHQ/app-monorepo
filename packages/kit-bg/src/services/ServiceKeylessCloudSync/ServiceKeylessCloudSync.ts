@@ -1749,10 +1749,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     {
       expected = credential,
       refreshedSession = false,
+      beforeSave,
       refreshAdmission,
     }: {
       expected?: IKeylessCloudSyncCredential;
       refreshedSession?: boolean;
+      beforeSave?: (stored: IKeylessCloudSyncCredential) => Promise<void>;
       refreshAdmission?: {
         canPersist: () => boolean;
         canPublish: () => boolean;
@@ -1837,6 +1839,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           (!sameSession && !refreshAdmission.canPublish()))
       )
         return undefined;
+      if (beforeSave) await beforeSave(stored);
       await keylessSyncCredentialStorage.saveCredential(updated);
       if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
@@ -1896,6 +1899,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async commitHardwareDataKey(
     credential: IKeylessCloudSyncCredential,
     next: IHardwareCloudSyncDataKey,
+    verifiedCommit?: { origin: string; isCurrent: () => boolean },
   ): Promise<IKeylessCloudSyncCredential> {
     return this.runWithCloudSyncSourceLock(async () => {
       const session = credential.hardwareSession;
@@ -1928,35 +1932,70 @@ class ServiceKeylessCloudSync extends ServiceBase {
         hardwareSession: { ...session, dekId: next.dekId },
         pendingDataKey: undefined,
       };
-      const saved = await this.saveHardwareCredential(updated, {
-        expected: credential,
-      });
       const originalsById = new Map(
         originalItems.map((item) => [item.id, item]),
       );
       const replacementsById = new Map(items.map((item) => [item.id, item]));
-      await localDb.updateSyncItem({
-        ids: items.map((item) => item.id),
-        updater: (record) => {
-          const original = originalsById.get(record.id);
-          const replacement = replacementsById.get(record.id);
-          // A later edit must keep its raw data; the following full sync rebuilds
-          // it with the selected key. Compare inside the database transaction.
-          if (
-            original &&
-            replacement &&
-            record.pwdHash === original.pwdHash &&
-            record.data === original.data &&
-            record.rawData === original.rawData &&
-            record.dataTime === original.dataTime &&
-            record.isDeleted === original.isDeleted
-          ) {
-            record.data = replacement.data;
-            record.pwdHash = replacement.pwdHash;
-          }
-          return record;
-        },
+      const rekeyPool = () =>
+        localDb.updateSyncItem({
+          ids: items.map((item) => item.id),
+          isCurrent: verifiedCommit?.isCurrent,
+          updater: (record) => {
+            const original = originalsById.get(record.id);
+            const replacement = replacementsById.get(record.id);
+            // A later edit must keep its raw data; the following full sync rebuilds
+            // it with the selected key. Compare inside the database transaction.
+            if (
+              original &&
+              replacement &&
+              record.pwdHash === original.pwdHash &&
+              record.data === original.data &&
+              record.rawData === original.rawData &&
+              record.dataTime === original.dataTime &&
+              record.isDeleted === original.isDeleted
+            ) {
+              record.data = replacement.data;
+              record.pwdHash = replacement.pwdHash;
+            } else if (
+              verifiedCommit &&
+              record.pwdHash === credential.pwdHash
+            ) {
+              throw settingsChangedError();
+            }
+            return record;
+          },
+        });
+      // Retire the journal only after the pool committed, on the directly
+      // attested flush. Legacy recovery keeps its existing admission path.
+      if (verifiedCommit) {
+        const { origin, isCurrent } = verifiedCommit;
+        return this.saveHardwareCredential(updated, {
+          expected: credential,
+          refreshAdmission: { canPersist: () => true, canPublish: isCurrent },
+          beforeSave: async (stored) => {
+            const pending = stored.pendingDataKey;
+            if (
+              !isCurrent() ||
+              stored.hardwareSession?.boundBaseURL !== origin ||
+              stored.encryptionKey !== credential.encryptionKey ||
+              stored.source?.type !== 'hardware' ||
+              stored.source.credentialId !== credential.source?.credentialId ||
+              stored.source.derivationVersion !==
+                credential.source.derivationVersion ||
+              pending?.dekId !== next.dekId ||
+              pending?.pwdHash !== next.pwdHash ||
+              pending?.dek !== next.dek
+            )
+              throw settingsChangedError();
+            await rekeyPool();
+            if (!isCurrent()) throw settingsChangedError();
+          },
+        });
+      }
+      const saved = await this.saveHardwareCredential(updated, {
+        expected: credential,
       });
+      await rekeyPool();
       return saved;
     });
   }
@@ -2197,6 +2236,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const generation = this.hardwareCloudKeyGeneration;
     const isCurrent = () => this.hardwareCloudKeyGeneration === generation;
     this.cancelHardwareCloudKeyDevicePrompt();
+    let endpointChanged = false;
+    const stopEndpointWatch = session.boundBaseURL
+      ? devSettingsPersistAtom.sub(() => {
+          endpointChanged = true;
+        })
+      : undefined;
     let rotated:
       | Awaited<
           ReturnType<typeof rotateHardwareCloudSyncDataKey<IDBCloudSyncItem>>
@@ -2388,9 +2433,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!rotated) {
         throw new HardwareCloudSyncCancelledError();
       }
+      const origin = rotated.verifiedFlushOrigin;
       const updated = await this.commitHardwareDataKey(
         credential,
         rotated.next,
+        origin
+          ? {
+              origin,
+              isCurrent: () =>
+                isCurrent() &&
+                !endpointChanged &&
+                client.defaults?.baseURL === origin,
+            }
+          : undefined,
       );
       committedSource = derived.source;
       await this.recordHardwareKeyGeneration(
@@ -2403,6 +2458,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         forceSync: true,
       });
     } finally {
+      stopEndpointWatch?.();
       // A committed key keeps its fresh display metadata even if synchronization
       // fails, while optional metadata storage cannot replace the original error.
       if (committedSource) {
