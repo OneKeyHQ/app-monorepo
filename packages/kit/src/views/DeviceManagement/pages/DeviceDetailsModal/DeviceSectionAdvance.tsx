@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useDeviceDetailsActions,
@@ -16,8 +15,13 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import {
+  LIST_ITEM_GROUP_ITEM_PROPS,
+  LIST_ITEM_TITLE_SIZE,
+} from '../listItemGroupLayout';
 
 import { useDialogPassphraseEnable } from './dialog/DialogPassphraseEnable';
+import { RowSwitch } from './RowSwitch';
 
 function DeviceSectionAdvancePassphrase() {
   const intl = useIntl();
@@ -49,22 +53,17 @@ function DeviceSectionAdvancePassphrase() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_passphrase,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       justifyContent="center"
       value={passphraseEnabled ?? false}
       onAction={onPressPassphrase}
     >
       {({ value, disabled, onChange }) => (
-        <Switch
-          size="small"
+        <RowSwitch
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -88,23 +87,18 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.enter_pin_on_app,
       })}
-      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
       justifyContent="center"
       value={inputPinOnSoftwareEnabled ?? false}
       onAction={actions.updateInputPinOnSoftware}
       disabled={inputPinOnSoftwareEnabled === undefined}
     >
       {({ value, disabled, onChange }) => (
-        <Switch
-          size="small"
+        <RowSwitch
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -124,9 +118,8 @@ function DeviceSectionAdvance() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
-        id: ETranslations.global_advance,
+        id: ETranslations.device_details_advanced__title,
       })}
     >
       <DeviceSectionAdvancePassphrase />
