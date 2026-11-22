@@ -1,11 +1,19 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
-import { perpsActiveAssetAtom } from '../../states/jotai/atoms';
+import {
+  perpsActiveAssetAtom,
+  spotActiveAssetAtom,
+  tradingModeAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHyperliquid from './ServiceHyperliquid';
 
-import type { IPerpsActiveAssetAtom } from '../../states/jotai/atoms';
+import type {
+  IPerpsActiveAssetAtom,
+  ISpotActiveAssetAtom,
+  ITradingMode,
+} from '../../states/jotai/atoms';
 
 jest.mock('p-timeout', () => ({
   __esModule: true,
@@ -55,13 +63,26 @@ function createService(activeAsset: IPerpsActiveAssetAtom) {
     lastCommittedActiveAsset: btc,
   });
   let current = activeAsset;
+  let mode: ITradingMode = 'perp';
+  let spotAsset: ISpotActiveAssetAtom | undefined;
   jest
     .spyOn(perpsActiveAssetAtom, 'get')
     .mockImplementation(async () => current);
   jest.spyOn(perpsActiveAssetAtom, 'set').mockImplementation(async (next) => {
     current = next as IPerpsActiveAssetAtom;
   });
-  return { service, getActiveAsset: () => current };
+  jest.spyOn(tradingModeAtom, 'set').mockImplementation(async (next) => {
+    mode = next as ITradingMode;
+  });
+  jest.spyOn(spotActiveAssetAtom, 'set').mockImplementation(async (next) => {
+    spotAsset = next as ISpotActiveAssetAtom;
+  });
+  return {
+    service,
+    getActiveAsset: () => current,
+    getMode: () => mode,
+    getSpotAsset: () => spotAsset,
+  };
 }
 
 afterEach(() => jest.restoreAllMocks());
@@ -79,11 +100,15 @@ it('goes back to the last loaded asset when asking again for a coin a superseded
   expect(getActiveAsset()).toEqual(btc);
 });
 
-it('puts the last loaded asset back over a coin named without its metadata', async () => {
-  const { service, getActiveAsset } = createService(ethNamed);
+it('puts the last loaded asset and perp mode back over a coin named without its metadata', async () => {
+  const { service, getActiveAsset, getMode } = createService(ethNamed);
+  const requestId = await service.cancelPendingActiveAssetChange();
 
-  await expect(service.restoreLoadedActiveAsset()).resolves.toEqual(btc);
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({ requestId }),
+  ).resolves.toEqual({ restored: true, perpAsset: btc });
   expect(getActiveAsset()).toEqual(btc);
+  expect(getMode()).toBe('perp');
 });
 
 it('leaves a loaded active asset as it is', async () => {
@@ -99,7 +124,76 @@ it('leaves a loaded active asset as it is', async () => {
     margin: undefined,
   };
   const { service } = createService(sol);
+  const requestId = await service.cancelPendingActiveAssetChange();
 
-  await expect(service.restoreLoadedActiveAsset()).resolves.toEqual(sol);
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({ requestId }),
+  ).resolves.toEqual({ restored: true, perpAsset: sol });
+  expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
+});
+
+it('puts the spot token given and spot mode back', async () => {
+  const { service, getMode, getSpotAsset } = createService(ethNamed);
+  const spot: ISpotActiveAssetAtom = {
+    coin: '@107',
+    assetId: 10_107,
+    universe: undefined,
+  };
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: spot,
+    }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getSpotAsset()).toEqual(spot);
+  expect(getMode()).toBe('spot');
+});
+
+it('leaves the market to a switch begun since on another page', async () => {
+  const { service, getActiveAsset } = createService(ethNamed);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  // Another extension tab begins a switch.
+  await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+    }),
+  ).resolves.toEqual({ restored: false, perpAsset: undefined });
+  expect(getActiveAsset()).toEqual(ethNamed);
+  expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
+  expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+  expect(tradingModeAtom.set).not.toHaveBeenCalled();
+});
+
+it('writes nothing for a switch another page superseded before it reached the service', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.changeActiveAsset({ coin: 'ETH', requestId }),
+  ).resolves.toEqual(ethNamed);
+  expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
+});
+
+it('leaves the loaded asset to a switch begun on another page while the markets load', async () => {
+  const { service, getActiveAsset } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  jest.spyOn(service, 'getTradingUniverse').mockImplementation(async () => {
+    await service.cancelPendingActiveAssetChange();
+    return {
+      universesByDex: [[btc.universe as IPerpsUniverse]],
+      marginTablesMapByDex: [],
+    } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>;
+  });
+
+  await expect(
+    service.changeActiveAsset({ coin: 'BTC', requestId }),
+  ).resolves.toEqual({ ...ethNamed, coin: 'BTC' });
+  expect(getActiveAsset()).toEqual(btc);
   expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
 });

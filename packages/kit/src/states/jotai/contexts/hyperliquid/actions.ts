@@ -406,6 +406,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private activeInstrumentChangeRequestId = 0;
 
+  // Every switch asked for, also a spot pick still looking up its token. The
+  // newest one asked wins, but a pick owns the page only once it begins, so
+  // one turned down on lookup never cuts short the switch on its way.
+  private activeInstrumentSwitchAskId = 0;
+
   private loadTwapDataRequestId = 0;
 
   private loadTwapDataInFlightByAccount = new Map<
@@ -413,7 +418,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ITwapDataLoadPromises
   >();
 
+  private askActiveInstrumentSwitch(): number {
+    this.activeInstrumentSwitchAskId += 1;
+    return this.activeInstrumentSwitchAskId;
+  }
+
   private beginActiveInstrumentChange(): number {
+    this.askActiveInstrumentSwitch();
     this.activeInstrumentChangeRequestId += 1;
     return this.activeInstrumentChangeRequestId;
   }
@@ -1671,7 +1682,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(bboAtom(), null);
       }
       hydrateL2BookFromSwr(coin);
-      await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
+      // Shared with the switches of other pages, e.g. extension tabs: only
+      // while this switch holds it may a failure put the market back.
+      const assetChangeRequestId =
+        await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
       const activeAsset = await perpsActiveAssetAtom.get();
       // The service names the coin before its metadata has loaded, e.g. for
       // a switch this one superseded; only a loaded asset is a done switch.
@@ -1732,11 +1746,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         nextActiveAsset =
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin,
+            requestId: assetChangeRequestId,
           });
       } catch (error) {
         // The page never stays on a token no switch reached.
         await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
           requestId,
+          assetChangeRequestId,
           subscriptionRecoveryProof,
         });
         throw error;
@@ -1774,13 +1790,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return false;
       }
       // A token the service found no trading metadata for, e.g. one no longer
-      // listed, is no switch: the page goes back as after a failed one, and
-      // its caller learns the switch is not done.
+      // listed or asked for by a request superseded on another page, is no
+      // switch: the page goes back as after a failed one, and its caller
+      // learns the switch is not done.
       if (
         !ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument)
       ) {
         await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
           requestId,
+          assetChangeRequestId,
           subscriptionRecoveryProof,
         });
         return false;
@@ -1805,17 +1823,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // of the last switch that landed, or else on the perp asset the service
   // holds once it is back on the last one loaded. The subscriptions follow
   // the background's mode and assets, which a switch cut short can have moved
-  // on, so they go back with the page. None of them is read from the UI's
-  // copies, which follow broadcasts that can still be on their way.
+  // on, so they go back with the page. The service puts the mode and assets
+  // back only while this switch holds the market: one begun since on another
+  // page, e.g. an extension tab, owns them and the order book target, which
+  // this page then leaves alone, its own page too. None of them is read from
+  // the UI's copies, which follow broadcasts that can still be on their way.
   restoreTradeInstrumentAfterFailedSwitch = contextAtomMethod(
     async (
       get,
       set,
       {
         requestId,
+        assetChangeRequestId,
         subscriptionRecoveryProof,
       }: {
         requestId: number;
+        /** The service's request id for the switch, shared across pages. */
+        assetChangeRequestId: number;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
@@ -1824,16 +1848,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const confirmed = get(confirmedTradeInstrumentAtom());
       const confirmedSpot =
         confirmed?.mode === 'spot' && confirmed.coin ? confirmed : undefined;
-      const perpAsset =
-        await backgroundApiProxy.serviceHyperliquid.restoreLoadedActiveAsset();
+      const { restored: isRestored, perpAsset } =
+        await backgroundApiProxy.serviceHyperliquid.restoreActiveAssetAfterFailedChange(
+          {
+            requestId: assetChangeRequestId,
+            spotAsset: confirmedSpot
+              ? {
+                  coin: confirmedSpot.coin,
+                  assetId: confirmedSpot.assetId,
+                  universe: confirmedSpot.universe,
+                }
+              : undefined,
+          },
+        );
       if (!isLatest()) return;
-      if (confirmedSpot) {
-        await spotActiveAssetAtom.set({
-          coin: confirmedSpot.coin,
-          assetId: confirmedSpot.assetId,
-          universe: confirmedSpot.universe,
+      if (!isRestored) {
+        // The subscriptions follow the switch that owns the market now, but
+        // this one still consumes its proof, or the stale disable survives.
+        await recoverSubscriptionsWithProof({
+          recoveryProof: subscriptionRecoveryProof,
+          recover: (disabledCount) =>
+            backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+              { disabledCount },
+            ),
         });
-        if (!isLatest()) return;
+        return;
       }
       const restored: IActiveTradeInstrument = confirmedSpot ?? {
         mode: 'perp',
@@ -1841,8 +1880,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: perpAsset?.assetId,
         universe: perpAsset?.universe,
       };
-      await tradingModeAtom.set(restored.mode);
-      if (!isLatest()) return;
       set(activeTradeInstrumentAtom(), restored);
       if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
         set(confirmedTradeInstrumentAtom(), restored);
@@ -2064,13 +2101,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: params.coin,
         force: !!params.force,
       });
-      const requestId = this.beginActiveInstrumentChange();
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
         if (!spotUniverse) {
+          // Looked up before the switch begins: a token turned down here
+          // leaves the switch on its way to land.
+          const askId = this.askActiveInstrumentSwitch();
           const { universes } =
             await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-          if (!this.isLatestActiveInstrumentChange(requestId)) {
+          if (askId !== this.activeInstrumentSwitchAskId) {
             return false;
           }
           spotUniverse = universes.find((item) => item.name === params.coin);
@@ -2085,6 +2124,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             return false;
           }
         }
+        const requestId = this.beginActiveInstrumentChange();
         const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
@@ -2100,6 +2140,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return result;
       }
 
+      const requestId = this.beginActiveInstrumentChange();
       const result = await this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,

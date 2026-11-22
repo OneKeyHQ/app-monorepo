@@ -97,10 +97,27 @@ const mockAmendOrderPriceByOid = jest.fn<
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
-const mockChangeActiveAsset = jest.fn<Promise<unknown>, [{ coin: string }]>();
-const mockRestoreLoadedActiveAsset = jest.fn<
+const mockChangeActiveAsset = jest.fn<
+  Promise<unknown>,
+  [{ coin: string; requestId?: number }]
+>();
+// The service's request ids, shared by the switches of every page.
+let mockAssetChangeRequestId = 0;
+// The perp asset the service holds once it is back on the last one loaded.
+const mockLoadedPerpAsset = jest.fn<
   Promise<IPerpsActiveAssetAtom | undefined>,
   []
+>();
+type IMockRestoreParams = {
+  requestId: number;
+  spotAsset?: ISpotActiveAssetAtom;
+};
+const mockRestoreActiveAssetAfterFailedChange = jest.fn<
+  Promise<{
+    restored: boolean;
+    perpAsset: IPerpsActiveAssetAtom | undefined;
+  }>,
+  [IMockRestoreParams]
 >();
 const mockGetSpotMeta = jest.fn<
   Promise<{ tokens: unknown[]; universes: HL.ISpotUniverse[] }>,
@@ -203,11 +220,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockAmendOrderPriceByOid(...args),
     },
     serviceHyperliquid: {
-      cancelPendingActiveAssetChange: async () => undefined,
-      changeActiveAsset: (params: { coin: string }) =>
+      cancelPendingActiveAssetChange: async () => {
+        mockAssetChangeRequestId += 1;
+        return mockAssetChangeRequestId;
+      },
+      changeActiveAsset: (params: { coin: string; requestId?: number }) =>
         mockChangeActiveAsset(params),
       getSpotMeta: () => mockGetSpotMeta(),
-      restoreLoadedActiveAsset: () => mockRestoreLoadedActiveAsset(),
+      restoreActiveAssetAfterFailedChange: (params: IMockRestoreParams) =>
+        mockRestoreActiveAssetAfterFailedChange(params),
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
       enableTrading: () => mockEnableTrading(),
       getTwapStates: (params: HL.IEventWebData2Parameters) =>
@@ -343,7 +364,23 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     jest.restoreAllMocks();
     mockChangeActiveAsset.mockReset();
     // The service is back on its last loaded perp asset after a failure.
-    mockRestoreLoadedActiveAsset.mockReset().mockResolvedValue(btc);
+    mockLoadedPerpAsset.mockReset().mockResolvedValue(btc);
+    // Puts the market back only while the failed switch holds it.
+    mockRestoreActiveAssetAfterFailedChange
+      .mockReset()
+      .mockImplementation(async ({ requestId, spotAsset }) => {
+        const notRestored = { restored: false, perpAsset: undefined };
+        const isCurrent = () => requestId === mockAssetChangeRequestId;
+        if (!isCurrent()) return notRestored;
+        const perpAsset = await mockLoadedPerpAsset();
+        if (spotAsset) {
+          await spotActiveAssetAtom.set(spotAsset);
+          if (!isCurrent()) return notRestored;
+        }
+        await tradingModeAtom.set(spotAsset ? 'spot' : 'perp');
+        if (!isCurrent()) return notRestored;
+        return { restored: true, perpAsset };
+      });
     mockGetSpotMeta
       .mockReset()
       .mockResolvedValue({ tokens: [], universes: [] });
@@ -510,7 +547,9 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       });
     });
 
-    expect(mockChangeActiveAsset).toHaveBeenCalledWith({ coin: 'ETH' });
+    expect(mockChangeActiveAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ coin: 'ETH' }),
+    );
     expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
       coin: 'ETH',
       assetId: 1,
@@ -639,7 +678,7 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       } as IPerpsUniverse,
       margin: undefined,
     };
-    mockRestoreLoadedActiveAsset.mockResolvedValue(sol);
+    mockLoadedPerpAsset.mockResolvedValue(sol);
     mockChangeActiveAsset.mockRejectedValue(
       new OneKeyLocalError('Network error'),
     );
@@ -869,6 +908,160 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       coin: '@999',
     });
   });
+
+  it('lets a perp switch on its way land when a spot pick is turned down on lookup', async () => {
+    const { store, result } = setup('perp');
+    const eth: IPerpsActiveAssetAtom = {
+      coin: 'ETH',
+      assetId: 1,
+      universe: {
+        assetId: 1,
+        name: 'ETH',
+        szDecimals: 4,
+        maxLeverage: 25,
+      } as IPerpsUniverse,
+      margin: undefined,
+    };
+    const ethLoad = createDeferred<IPerpsActiveAssetAtom>();
+    mockChangeActiveAsset.mockImplementationOnce(() => ethLoad.promise);
+    mockGetSpotMeta.mockResolvedValue({
+      tokens: [],
+      universes: [{ name: '@1', assetId: 10_001 } as HL.ISpotUniverse],
+    });
+
+    let perpSwitch: Promise<boolean> | undefined;
+    await act(async () => {
+      perpSwitch = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    let spotSwitched: boolean | undefined;
+    await act(async () => {
+      spotSwitched = await result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@999',
+      });
+    });
+    let perpSwitched: boolean | undefined;
+    await act(async () => {
+      ethLoad.resolve(eth);
+      perpSwitched = await perpSwitch;
+    });
+
+    expect(spotSwitched).toBe(false);
+    // ETH lands with its trading metadata, so orders can be placed.
+    expect(perpSwitched).toBe(true);
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+      universe: eth.universe,
+    });
+  });
+
+  it('drops a spot pick still looking up its token for a switch asked after it', async () => {
+    const { store, result, getMode } = setup('perp');
+    const spotMeta = createDeferred<{
+      tokens: unknown[];
+      universes: HL.ISpotUniverse[];
+    }>();
+    mockGetSpotMeta.mockImplementationOnce(() => spotMeta.promise);
+    mockChangeActiveAsset.mockResolvedValue({
+      coin: 'ETH',
+      assetId: 1,
+      universe: {
+        assetId: 1,
+        name: 'ETH',
+        szDecimals: 4,
+        maxLeverage: 25,
+      } as IPerpsUniverse,
+      margin: undefined,
+    });
+
+    let spotSwitch: Promise<boolean> | undefined;
+    await act(async () => {
+      spotSwitch = result.current.current.switchTradeInstrument({
+        mode: 'spot',
+        coin: '@150',
+      });
+    });
+    await act(async () => {
+      await result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    let spotSwitched: boolean | undefined;
+    await act(async () => {
+      spotMeta.resolve({
+        tokens: [],
+        universes: [{ name: '@150', assetId: 10_150 } as HL.ISpotUniverse],
+      });
+      spotSwitched = await spotSwitch;
+    });
+
+    expect(spotSwitched).toBe(false);
+    expect(getMode()).toBe('perp');
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'ETH',
+      assetId: 1,
+    });
+  });
+
+  it.each([
+    ['fails', 'reject'],
+    ['is superseded', 'superseded'],
+  ] as const)(
+    'leaves the market to a switch begun on another page when a perp switch %s',
+    async (_label, outcome) => {
+      const { store, result, getMode, getOrderBookCoin } = setup('spot');
+      mockChangeActiveAsset.mockImplementationOnce(async ({ coin }) => {
+        // Another extension tab begins a perp switch meanwhile.
+        mockAssetChangeRequestId += 1;
+        await tradingModeAtom.set('perp');
+        if (outcome === 'reject') {
+          throw new OneKeyLocalError('Network error');
+        }
+        // What the service answers a request a newer one superseded.
+        return {
+          coin,
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
+        };
+      });
+
+      let switchError: unknown;
+      let switched: boolean | undefined;
+      await act(async () => {
+        try {
+          switched = await result.current.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: 'XYZ',
+          });
+        } catch (error) {
+          switchError = error;
+        }
+      });
+
+      if (outcome === 'reject') {
+        expect(switchError).toBeInstanceOf(OneKeyLocalError);
+      } else {
+        expect(switched).toBe(false);
+      }
+      // The other tab's switch keeps the mode, assets and order book target.
+      expect(getMode()).toBe('perp');
+      expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+      expect(getOrderBookCoin()).toBeUndefined();
+      // This page does not claim the spot token over it either.
+      expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+        mode: 'perp',
+        coin: 'XYZ',
+      });
+    },
+  );
 });
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {

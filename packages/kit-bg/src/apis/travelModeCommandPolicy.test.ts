@@ -138,7 +138,7 @@ describe('travelModeCommandPolicy', () => {
     ['serviceHyperliquid', 'prepareInitialSymbolSelect'],
     ['serviceHyperliquid', 'refreshActiveAssetCtxSnapshot'],
     ['serviceHyperliquid', 'refreshTradingMeta'],
-    ['serviceHyperliquid', 'restoreLoadedActiveAsset'],
+    ['serviceHyperliquid', 'restoreActiveAssetAfterFailedChange'],
     ['serviceHyperliquid', 'updatePerpsConfigByServer'],
     ['serviceHyperliquid', 'updatePerpsConfigByServerSilently'],
     ['serviceHyperliquid', 'updatePerpsConfigByServerWithCache'],

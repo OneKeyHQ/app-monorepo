@@ -223,6 +223,7 @@ import type {
   ITradingMode,
 } from '../../states/jotai/atoms';
 import type {
+  ISpotActiveAssetAtom,
   ISpotActiveAssetCtxAtom,
   ISpotAssetCtxEntry,
 } from '../../states/jotai/atoms/spot';
@@ -377,9 +378,21 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
+  // Cuts short the change on its way, and returns the request id of the
+  // switch that asked. Every page's switches take theirs from here, so the id
+  // tells whether a switch still holds the market, also across extension tabs.
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<void> {
+  async cancelPendingActiveAssetChange(): Promise<number> {
+    return this.beginActiveAssetChange();
+  }
+
+  private beginActiveAssetChange(): number {
     this.activeAssetChangeRequestId += 1;
+    return this.activeAssetChangeRequestId;
+  }
+
+  private isActiveAssetChangeCurrent(requestId: number): boolean {
+    return requestId === this.activeAssetChangeRequestId;
   }
 
   // main only mirrors these atoms and its copy is refreshed by a broadcast whose
@@ -414,21 +427,39 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  // After a switch that failed or could not load its token: an active asset
-  // without trading metadata, e.g. a coin named for a switch that never
-  // landed, goes back to the last one loaded. Returned as held here, since
-  // the UI's copy of the atom follows a broadcast that can still be on its way.
+  // After a switch that failed or could not load its token, while that switch
+  // still holds the market: an active asset without trading metadata, e.g. a
+  // coin named for a switch that never landed, goes back to the last one
+  // loaded, and the trading mode to the spot token given or else perp. A
+  // switch begun since, on any page, owns the market, so nothing goes back.
+  // The perp asset is returned as held here, since the UI's copy of the atom
+  // follows a broadcast that can still be on its way.
   @backgroundMethod()
-  async restoreLoadedActiveAsset(): Promise<
-    IChangeActiveAssetResult | undefined
-  > {
-    const activeAsset = await perpsActiveAssetAtom.get();
+  async restoreActiveAssetAfterFailedChange(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+  }): Promise<{
+    restored: boolean;
+    perpAsset: IChangeActiveAssetResult | undefined;
+  }> {
+    const notRestored = { restored: false, perpAsset: undefined };
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    if (!isCurrent()) return notRestored;
+    let perpAsset = await perpsActiveAssetAtom.get();
+    if (!isCurrent()) return notRestored;
     const loaded = this.lastCommittedActiveAsset;
-    if (isLoadedActiveAsset(activeAsset) || !loaded) {
-      return activeAsset;
+    if (!isLoadedActiveAsset(perpAsset) && loaded) {
+      await perpsActiveAssetAtom.set(loaded);
+      perpAsset = loaded;
+      if (!isCurrent()) return notRestored;
     }
-    await perpsActiveAssetAtom.set(loaded);
-    return loaded;
+    if (params.spotAsset) {
+      await spotActiveAssetAtom.set(params.spotAsset);
+      if (!isCurrent()) return notRestored;
+    }
+    await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
+    if (!isCurrent()) return notRestored;
+    return { restored: true, perpAsset };
   }
 
   private beginActivePerpsAccountChange(): number {
@@ -3125,12 +3156,16 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async changeActiveAsset(params: {
     coin: string;
+    /**
+     * The id a UI switch took from `cancelPendingActiveAssetChange`, so the
+     * whole switch holds one request; other callers begin theirs here.
+     */
+    requestId?: number;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
-    this.activeAssetChangeRequestId += 1;
-    const requestId = this.activeAssetChangeRequestId;
+    const requestId = params.requestId ?? this.beginActiveAssetChange();
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
@@ -3142,8 +3177,24 @@ export default class ServiceHyperliquid extends ServiceBase {
     // asked for again.
     const shouldRollBackOnError =
       shouldSeedSubscriptionTarget || !isLoadedActiveAsset(oldActiveAsset);
+    // A request a newer one superseded, on any page, did not load its coin:
+    // it writes nothing, and its caller gets the coin without metadata.
+    const supersededResult = (): IChangeActiveAssetResult => {
+      markPerpsColdStartPerf('service_change_active_asset_stale_request', {
+        coin: newCoin,
+      });
+      return {
+        coin: newCoin,
+        assetId: undefined,
+        universe: undefined,
+        margin: undefined,
+      };
+    };
 
     try {
+      if (!this.isActiveAssetChangeCurrent(requestId)) {
+        return supersededResult();
+      }
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic
         // instrument, so seed the target before trading metadata finishes.
@@ -3157,6 +3208,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
+      if (!this.isActiveAssetChangeCurrent(requestId)) {
+        return supersededResult();
+      }
 
       const targetDexIndex = getDexIndexByCoin(newCoin);
       const dexUniverses: IPerpsUniverse[] | undefined =
@@ -3223,20 +3277,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return result;
       }
 
-      if (requestId !== this.activeAssetChangeRequestId) {
-        const result = {
-          coin: oldActiveAsset?.coin || newCoin || '',
-          assetId: oldActiveAsset?.assetId,
-          universe: oldActiveAsset?.universe,
-          margin: oldActiveAsset?.margin,
-        };
-        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
-          coin: result.coin,
-          assetId: result.assetId,
-        });
-        return result;
-      }
-
       const assetId =
         selectedUniverse?.assetId ??
         dexUniverses?.findIndex(
@@ -3246,20 +3286,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       const selectedMargin = isNil(selectedUniverse?.marginTableId)
         ? undefined
         : dexMarginTables?.[selectedUniverse.marginTableId];
-      if (requestId !== this.activeAssetChangeRequestId) {
-        const result = {
-          coin: oldActiveAsset?.coin || newCoin || '',
-          assetId: oldActiveAsset?.assetId,
-          universe: oldActiveAsset?.universe,
-          margin: oldActiveAsset?.margin,
-        };
-        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
-          coin: result.coin,
-          assetId: result.assetId,
-        });
-        return result;
-      }
-
       const nextActiveAsset = {
         coin: selectedUniverse?.name || newCoin || '',
         assetId,
