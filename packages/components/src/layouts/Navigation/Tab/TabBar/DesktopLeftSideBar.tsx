@@ -659,6 +659,18 @@ function OverflowMoreButton({
   const overflowPopoverContent = useMemo(
     () => (
       <YStack p="$1">
+        {/* Icons only: the button has no visible name, so the list shows it. */}
+        {iconsOnly ? (
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            px="$3"
+            pt="$2"
+            pb="$1"
+          >
+            {moreLabel}
+          </SizableText>
+        ) : null}
         {overflowRoutes.map((route) => {
           const currentFocusedRouteName = state.routes[state.index]?.name;
           const isActive = isRouteActive(
@@ -685,6 +697,8 @@ function OverflowMoreButton({
       descriptors,
       extraConfig?.name,
       handleTabPress,
+      iconsOnly,
+      moreLabel,
       overflowRoutes,
       state.index,
       state.routes,

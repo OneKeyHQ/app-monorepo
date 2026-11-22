@@ -17,9 +17,14 @@ jest.mock('@onekeyhq/components/src/hooks/useShortcuts', () => ({
   },
 }));
 
-function press(type: 'keydown' | 'keyup', key: string, code = key) {
+function press(
+  type: 'keydown' | 'keyup',
+  key: string,
+  code = key,
+  metaKey = false,
+) {
   act(() => {
-    globalThis.dispatchEvent(new KeyboardEvent(type, { key, code }));
+    globalThis.dispatchEvent(new KeyboardEvent(type, { key, code, metaKey }));
   });
 }
 
@@ -79,6 +84,26 @@ describe('useModifierKeyHold', () => {
     press('keydown', 'Meta');
     wait(MODIFIER_HOLD_DELAY_MS);
     expect(result.current).toBe(false);
+  });
+
+  it('a key held from before still blocks it after Cmd is pressed again', () => {
+    const { result } = renderHold();
+    press('keydown', 'a', 'KeyA');
+    press('keydown', 'Meta', 'MetaLeft', true);
+    press('keyup', 'Meta', 'MetaLeft');
+    press('keydown', 'Meta', 'MetaLeft', true);
+    wait(MODIFIER_HOLD_DELAY_MS);
+    expect(result.current).toBe(false);
+  });
+
+  it('a key pressed under Cmd whose keyup was dropped does not block it', () => {
+    const { result } = renderHold();
+    press('keydown', 'Meta', 'MetaLeft', true);
+    press('keydown', 'c', 'KeyC', true);
+    press('keyup', 'Meta', 'MetaLeft');
+    press('keydown', 'Meta', 'MetaLeft', true);
+    wait(MODIFIER_HOLD_DELAY_MS);
+    expect(result.current).toBe(true);
   });
 
   it('a key released under another name (Shift+A) no longer blocks it', () => {

@@ -32,14 +32,23 @@ export function useModifierKeyHold({
     }
     // Other keys still down, so a key held before the modifier also counts.
     const otherKeysDown = new Set<string>();
+    // macOS drops the keyup of keys pressed while Cmd is down; forget those
+    // when the modifier goes up, but keep keys held from before it.
+    const keysDownUnderModifier = new Set<string>();
     const resetAll = () => {
       otherKeysDown.clear();
+      keysDownUnderModifier.clear();
       reset();
     };
+    const isModifierDown = (event: KeyboardEvent) =>
+      modifierKey === 'Meta' ? event.metaKey : event.ctrlKey;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== modifierKey) {
         // `code` is the physical key: `key` can change between down and up
         // (Shift+A released as "a").
+        if (!otherKeysDown.has(event.code) && isModifierDown(event)) {
+          keysDownUnderModifier.add(event.code);
+        }
         otherKeysDown.add(event.code);
         reset();
         return;
@@ -65,11 +74,13 @@ export function useModifierKeyHold({
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === modifierKey) {
-        // macOS drops the keyup of keys pressed while Cmd is down.
-        resetAll();
+        keysDownUnderModifier.forEach((code) => otherKeysDown.delete(code));
+        keysDownUnderModifier.clear();
+        reset();
         return;
       }
       otherKeysDown.delete(event.code);
+      keysDownUnderModifier.delete(event.code);
     };
     globalThis.addEventListener('keydown', onKeyDown, true);
     globalThis.addEventListener('keyup', onKeyUp, true);
