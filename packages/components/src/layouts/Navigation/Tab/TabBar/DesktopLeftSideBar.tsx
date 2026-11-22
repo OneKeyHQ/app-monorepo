@@ -18,6 +18,7 @@ import {
   LazyPopover,
   LazyTooltip,
   Shortcut,
+  closeAllTooltips,
 } from '@onekeyhq/components/src/actions';
 import type {
   IActionListSection,
@@ -781,6 +782,7 @@ export function DesktopLeftSideBar({
     }
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
+      closeAllTooltips();
       const title = intl.formatMessage({
         id: ETranslations.settings_sidebar_labels__title,
       });

@@ -65,6 +65,7 @@ const unrelatedModules = [
   '../hooks/useAppNavigation',
   '../hooks/useHandleAppStateActive',
   '../hooks/useOnLock',
+  '../hooks/usePerpTabConfig',
   '../hooks/useRunAfterTokensDone',
   '../hooks/useTrayDataProvider',
   './preloadComponents',
