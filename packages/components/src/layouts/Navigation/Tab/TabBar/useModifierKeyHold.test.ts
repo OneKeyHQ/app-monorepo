@@ -73,6 +73,14 @@ describe('useModifierKeyHold', () => {
     expect(result.current).toBe(false);
   });
 
+  it('does not show while another key is still held', () => {
+    const { result } = renderHold();
+    press('keydown', 'a');
+    press('keydown', 'Meta');
+    wait(MODIFIER_HOLD_DELAY_MS);
+    expect(result.current).toBe(false);
+  });
+
   it('hides when the window loses focus while held', () => {
     const { result } = renderHold();
     press('keydown', 'Meta');

@@ -19108,7 +19108,6 @@
     "packages/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext.ts": 10932,
     "packages/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem.tsx": 12343,
     "packages/components/src/layouts/Navigation/Tab/TabBar/SidebarAppearanceContext.tsx": 6037,
-    "packages/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute.ts": 22797,
     "packages/components/src/layouts/Navigation/index.ts": 3993,
     "packages/components/src/layouts/OverlayContainer/OverlayContainer.ios.tsx": 4974,
     "packages/components/src/layouts/OverlayContainer/OverlayContainer.tsx": 18573,

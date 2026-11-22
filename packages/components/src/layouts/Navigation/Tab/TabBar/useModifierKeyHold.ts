@@ -30,8 +30,15 @@ export function useModifierKeyHold({
     if (!enabled) {
       return undefined;
     }
+    // Other keys still down, so a key held before the modifier also counts.
+    const otherKeysDown = new Set<string>();
+    const resetAll = () => {
+      otherKeysDown.clear();
+      reset();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== modifierKey) {
+        otherKeysDown.add(event.key);
         reset();
         return;
       }
@@ -41,7 +48,12 @@ export function useModifierKeyHold({
       reset();
       const otherModifier =
         modifierKey === 'Meta' ? event.ctrlKey : event.metaKey;
-      if (event.shiftKey || event.altKey || otherModifier) {
+      if (
+        event.shiftKey ||
+        event.altKey ||
+        otherModifier ||
+        otherKeysDown.size > 0
+      ) {
         return;
       }
       timerRef.current = setTimeout(
@@ -51,16 +63,19 @@ export function useModifierKeyHold({
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === modifierKey) {
-        reset();
+        // macOS drops the keyup of keys pressed while Cmd is down.
+        resetAll();
+        return;
       }
+      otherKeysDown.delete(event.key);
     };
     globalThis.addEventListener('keydown', onKeyDown, true);
     globalThis.addEventListener('keyup', onKeyUp, true);
-    globalThis.addEventListener('blur', reset);
+    globalThis.addEventListener('blur', resetAll);
     return () => {
       globalThis.removeEventListener('keydown', onKeyDown, true);
       globalThis.removeEventListener('keyup', onKeyUp, true);
-      globalThis.removeEventListener('blur', reset);
+      globalThis.removeEventListener('blur', resetAll);
       reset();
     };
   }, [enabled, modifierKey, reset]);

@@ -57,7 +57,6 @@ import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
-import { getLastBrowserRoute, setLastBrowserRoute } from './lastBrowserRoute';
 import { MenuHamburger } from './Menu';
 import {
   SidebarAppearanceContext,
@@ -177,6 +176,8 @@ const HOVER_STYLE_BG_HOVER = { bg: '$bgHover' } as const;
 const PRESS_STYLE_BG_ACTIVE = { bg: '$bgActive' } as const;
 const PLATFORM_WEB_APP_REGION_DRAG = { 'app-region': 'drag' } as const;
 
+let lastBrowserRoute: string = ETabRoutes.Discovery;
+
 function DesktopWinSidebarTop() {
   return (
     <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
@@ -243,9 +244,10 @@ function BasicTabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
-  // The item, not the lazily loaded tooltip trigger, reports the hover, so the
-  // first hover counts even before the tooltip module has loaded.
+  // The whole item, not the lazily loaded tooltip trigger, owns the hover: one
+  // boundary for the tooltip, and the first hover counts before it loads.
   const onTooltipOpenChange = iconsOnly ? tooltip.onOpenChange : undefined;
+  const closeTooltip = tooltip.close;
   const handleHoverIn = useCallback(() => {
     setIsContainerHovered(true);
     onTooltipOpenChange?.(true);
@@ -257,13 +259,14 @@ function BasicTabItemView({
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
       setIsContainerHovered(false);
+      closeTooltip();
       const press = (options.tabbarOnPress ?? onPress) as (
         event: GestureResponderEvent,
       ) => void | undefined;
       press?.(event);
       onPressOut?.();
     },
-    [onPress, onPressOut, options],
+    [closeTooltip, onPress, onPressOut, options],
   );
 
   const tabBarStyleMemo = useMemo(
@@ -302,7 +305,6 @@ function BasicTabItemView({
               label=""
               tooltipLabel={iconsOnly ? title : undefined}
               tooltipOpen={iconsOnly ? tooltip.open : undefined}
-              onTooltipOpenChange={onTooltipOpenChange}
               shortcutKey={iconsOnly ? shortcutKey : undefined}
               aria-label={title}
               actionList={options.actionList}
@@ -338,7 +340,6 @@ function BasicTabItemView({
       tabBarStyleMemo,
       title,
       tooltip.open,
-      onTooltipOpenChange,
     ],
   );
 
@@ -484,7 +485,6 @@ function SidebarBottomItem({
       renderContent={label}
       shortcutKey={iconsOnly ? shortcutKey : undefined}
       open={iconsOnly ? tooltip.open : undefined}
-      onOpenChange={onTooltipOpenChange}
     />
   );
 }
@@ -721,9 +721,9 @@ function BasicVisibleTabItemView({
     if (
       route.name === ETabRoutes.Discovery &&
       !isActive &&
-      getLastBrowserRoute() !== ETabRoutes.Discovery
+      lastBrowserRoute !== ETabRoutes.Discovery
     ) {
-      switchTab(getLastBrowserRoute());
+      switchTab(lastBrowserRoute as ETabRoutes);
     } else {
       handleTabPress(route, isActive);
     }
@@ -826,9 +826,9 @@ export function DesktopLeftSideBar({
   // Track last active browser route (Discovery or MultiTabBrowser)
   useEffect(() => {
     if (focusedRouteName === ETabRoutes.Discovery) {
-      setLastBrowserRoute(ETabRoutes.Discovery);
+      lastBrowserRoute = ETabRoutes.Discovery;
     } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
-      setLastBrowserRoute(extraConfig.name as ETabRoutes);
+      lastBrowserRoute = extraConfig.name;
     }
   }, [focusedRouteName, extraConfig?.name]);
 
