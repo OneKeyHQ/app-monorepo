@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { CommonActions, useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -14,6 +15,7 @@ import {
   useMedia,
   useSplitSubView,
 } from '@onekeyhq/components';
+import { SidebarAppearanceContext } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/SidebarAppearanceContext';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -24,6 +26,10 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
+import {
+  setSidebarShowLabels,
+  useSidebarShowLabels,
+} from '../../hooks/useSidebarShowLabels';
 import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
@@ -99,6 +105,33 @@ function FloatingDevModeBackButton() {
     </Stack>
   );
 }
+
+const setShowLabelsFromSidebar = (showLabels: boolean) => {
+  void setSidebarShowLabels(showLabels, 'sidebarContextMenu');
+};
+
+// Labels can be turned off on desktop only. Kept apart so a settings change
+// re-renders the provider, not the navigator.
+function DesktopSidebarAppearanceProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const showLabels = useSidebarShowLabels();
+  const value = useMemo(
+    () => ({ showLabels, setShowLabels: setShowLabelsFromSidebar }),
+    [showLabels],
+  );
+  return (
+    <SidebarAppearanceContext.Provider value={value}>
+      {children}
+    </SidebarAppearanceContext.Provider>
+  );
+}
+
+const SidebarAppearanceProvider = platformEnv.isDesktop
+  ? DesktopSidebarAppearanceProvider
+  : ({ children }: { children: ReactNode }) => children;
 
 export function TabNavigator() {
   const intl = useIntl();
@@ -210,16 +243,18 @@ export function TabNavigator() {
 
   return (
     <>
-      <TabStackNavigator<ETabRoutes>
-        config={config}
-        extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={Boolean(
-          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
-        )}
-        bottomMenu={<BottomMenu />}
-        webPageTabBar={<WebPageTabBar />}
-        sideAccessory={sideAccessory}
-      />
+      <SidebarAppearanceProvider>
+        <TabStackNavigator<ETabRoutes>
+          config={config}
+          extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
+          showTabBar={Boolean(
+            !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
+          )}
+          bottomMenu={<BottomMenu />}
+          webPageTabBar={<WebPageTabBar />}
+          sideAccessory={sideAccessory}
+        />
+      </SidebarAppearanceProvider>
       {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />
       ) : null}

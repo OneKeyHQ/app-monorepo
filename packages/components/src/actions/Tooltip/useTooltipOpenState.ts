@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  TOOLTIP_GROUP_OPEN_DELAY_MS,
+  useTooltipDelayGroup,
+} from './tooltipDelayGroup';
 import { registerOpenTooltip } from './tooltipRegistry';
 
 const HOVER_OPEN_DELAY_MS = 250;
@@ -68,7 +72,23 @@ export function useTooltipOpenState({
   hovering?: boolean;
   closeOnScroll?: boolean;
 }) {
-  const [isShow, setIsShow] = useState(false);
+  const [isShow, setIsShowState] = useState(false);
+  const delayGroup = useTooltipDelayGroup();
+  const groupOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Every show/hide goes through here so a pending grouped open is dropped.
+  const setIsShow = useCallback((show: boolean) => {
+    if (groupOpenTimerRef.current) {
+      clearTimeout(groupOpenTimerRef.current);
+      groupOpenTimerRef.current = null;
+    }
+    setIsShowState(show);
+  }, []);
+  useEffect(
+    () => () => {
+      if (groupOpenTimerRef.current) clearTimeout(groupOpenTimerRef.current);
+    },
+    [],
+  );
   const [forceClose, setForceClose] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
   // A mouse/pen press on the trigger closes the tooltip and keeps it closed
@@ -107,7 +127,7 @@ export function useTooltipOpenState({
       document.removeEventListener('scroll', handleScroll, true);
       document.removeEventListener('wheel', handleScroll, true);
     };
-  }, [clearHoverTimers, closeOnScroll, setIsHovered]);
+  }, [clearHoverTimers, closeOnScroll, setIsHovered, setIsShow]);
 
   const isOpen = useMemo(() => {
     if (forceClose || isPressLatched) {
@@ -119,12 +139,23 @@ export function useTooltipOpenState({
     return isDisabled ? false : isShow;
   }, [forceClose, isPressLatched, hovering, isDisabled, isShow, isHovered]);
 
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (open && Date.now() < scrollBlockedUntilRef.current) {
-      return;
-    }
-    setIsShow(open);
-  }, []);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && Date.now() < scrollBlockedUntilRef.current) {
+        return;
+      }
+      if (open && delayGroup && !delayGroup.isWarm()) {
+        setIsShow(false);
+        groupOpenTimerRef.current = setTimeout(() => {
+          groupOpenTimerRef.current = null;
+          setIsShowState(true);
+        }, TOOLTIP_GROUP_OPEN_DELAY_MS);
+        return;
+      }
+      setIsShow(open);
+    },
+    [delayGroup, setIsShow],
+  );
 
   const handleTriggerPointerDown = useCallback(
     (event: ITooltipPointerDownEvent) => {
@@ -136,7 +167,7 @@ export function useTooltipOpenState({
       setIsShow(false);
       setIsHovered(false);
     },
-    [setIsHovered],
+    [setIsHovered, setIsShow],
   );
 
   const handleTriggerMouseEnter = useCallback(() => {
@@ -159,7 +190,7 @@ export function useTooltipOpenState({
     if (hovering) {
       onContentHoverOut();
     }
-  }, [hovering, onContentHoverOut, setIsHovered]);
+  }, [hovering, onContentHoverOut, setIsHovered, setIsShow]);
 
   const handleContentMouseEnter = useCallback(() => {
     if (Date.now() < scrollBlockedUntilRef.current) {
@@ -188,7 +219,7 @@ export function useTooltipOpenState({
         setForceClose(false);
       }, FORCE_CLOSE_RELEASE_MS);
     });
-  }, [setIsHovered]);
+  }, [setIsHovered, setIsShow]);
 
   const openTooltip = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -198,12 +229,12 @@ export function useTooltipOpenState({
         resolve();
       }, OPEN_SETTLE_MS);
     });
-  }, [setIsHovered]);
+  }, [setIsHovered, setIsShow]);
 
   const closeFromRegistry = useCallback(() => {
     setIsShow(false);
     setIsHovered(false);
-  }, [setIsHovered]);
+  }, [setIsHovered, setIsShow]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -211,6 +242,13 @@ export function useTooltipOpenState({
     }
     return registerOpenTooltip(closeFromRegistry);
   }, [isOpen, closeFromRegistry]);
+
+  useEffect(() => {
+    if (!isOpen || !delayGroup) {
+      return undefined;
+    }
+    return delayGroup.markOpen();
+  }, [isOpen, delayGroup]);
 
   return {
     isOpen,
