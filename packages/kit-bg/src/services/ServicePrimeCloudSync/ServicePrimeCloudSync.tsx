@@ -3771,6 +3771,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
       let onlyWalletVerificationDeferred = false;
+      let opaqueAccountBlocked = false;
       const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
       const onWalletNameHistoryDeferred = (item: IDBCloudSyncItem) => {
         if (
@@ -3987,7 +3988,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                 accountIssues?.spaceId === spaceId
                   ? accountIssues.issues
                   : undefined;
-              return readReconciliationApplyProgress({
+              const receipt = await readReconciliationApplyProgress({
                 ids,
                 before,
                 response,
@@ -3997,6 +3998,12 @@ class ServicePrimeCloudSync extends ServiceBase {
                 holds,
                 spaceId,
                 issues,
+                opaqueAccountCredential:
+                  !endpointChanged &&
+                  credential.keylessCredential?.source?.type === 'hardware' &&
+                  credential.keylessCredential.hardwareSession
+                    ? credential
+                    : undefined,
                 removeOnDelete: (type) =>
                   this.getSyncManager(type).removeSyncItemIfServerDeleted,
                 read: async (chunk) =>
@@ -4007,6 +4014,8 @@ class ServicePrimeCloudSync extends ServiceBase {
                     })
                   ).records,
               });
+              opaqueAccountBlocked ||= receipt.opaqueAccountBlocked;
+              return receipt;
             })();
             activeApply = work;
             return work;
@@ -4019,6 +4028,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
       const unknownTie = !!holds.size;
+      const blockedOnly =
+        shouldReplay &&
+        !endpointChanged &&
+        opaqueAccountBlocked &&
+        !result.applied &&
+        !result.uploaded;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
       if (shouldReplay && hardwareRecovery) {
         const recovered = await hardwareRecovery
@@ -4067,7 +4082,8 @@ class ServicePrimeCloudSync extends ServiceBase {
           result,
           onlyWalletVerificationDeferred,
           unknownTie,
-          reportOriginalPartial: !!onManualResult && reportOriginalPartial,
+          reportOriginalPartial:
+            blockedOnly || (!!onManualResult && reportOriginalPartial),
           forceSceneReplay,
           networkRequests,
         });
@@ -4101,13 +4117,13 @@ class ServicePrimeCloudSync extends ServiceBase {
         result.status !== 'cancelled'
       )
         this.scheduleReconciliation(state.nextRetryAt, spaceId);
-      if (!state.unfinished && !deferredLocalWalletName)
+      if (!state.unfinished && !deferredLocalWalletName && !blockedOnly)
         await this.updateLastSyncTime();
       if (onManualResult && isSourceCurrent()) {
         if (result.status === 'cancelled') onManualResult('cancelled');
         else if (result.status === 'complete')
           onManualResult(
-            hasIssues || deferredLocalWalletName
+            hasIssues || deferredLocalWalletName || blockedOnly
               ? 'local-deferred'
               : 'completed',
           );

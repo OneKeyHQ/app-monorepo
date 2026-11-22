@@ -1,10 +1,13 @@
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ICloudSyncReconciliationAdapter,
   ICloudSyncReconciliationContract,
@@ -16,8 +19,13 @@ import type { ICloudSyncReconciliationPersistState } from '@onekeyhq/shared/type
 import type {
   ICloudSyncCheckServerStatusPostData,
   ICloudSyncCheckServerStatusResult,
+  ICloudSyncCredential,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import { canArchiveForeignAccountCopy } from './cloudSyncCheckUtils';
+import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
 
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { IManualCloudSyncResult } from './ServicePrimeCloudSync';
@@ -326,6 +334,7 @@ export async function readReconciliationApplyProgress({
   issues,
   removeOnDelete,
   read,
+  opaqueAccountCredential,
 }: {
   ids: string[];
   before: Map<string, IDBCloudSyncItem>;
@@ -338,8 +347,32 @@ export async function readReconciliationApplyProgress({
   issues?: Readonly<Record<string, string>>;
   removeOnDelete: (dataType: EPrimeCloudSyncDataType) => boolean;
   read: (ids: string[]) => Promise<(IDBCloudSyncItem | null | undefined)[]>;
+  opaqueAccountCredential?: ICloudSyncCredential;
 }) {
   let applied = 0;
+  const opaqueWires =
+    opaqueAccountCredential &&
+    !response.reconciliation &&
+    !response.obsoleted.length &&
+    response.pwdHash === spaceId
+      ? new Map(
+          response.updated
+            .filter(
+              (wire) =>
+                wire.dataType === EPrimeCloudSyncDataType.Account &&
+                (wire.isDeleted === false || wire.isDeleted === undefined) &&
+                !before.has(wire.key) &&
+                !acknowledgedDeletes.has(wire.key) &&
+                (wire.pwdHash || response.pwdHash) === spaceId &&
+                !!wire.data &&
+                wire.data.length <= 64 * 1024 &&
+                Number.isSafeInteger(wire.dataTimestamp) &&
+                (wire.dataTimestamp ?? 0) > 0,
+            )
+            .map((wire) => [wire.key, wire]),
+        )
+      : undefined;
+  const opaqueCandidates: ICloudSyncServerItem[] = [];
   for (let offset = 0; offset < ids.length; offset += 50) {
     if (!operationIsCurrent())
       throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -352,6 +385,15 @@ export async function readReconciliationApplyProgress({
     for (const id of ids.slice(offset, offset + 50)) {
       const item = after.get(id);
       const old = before.get(id);
+      const opaque = opaqueWires?.get(id);
+      if (
+        opaque &&
+        item &&
+        !item.rawKey &&
+        !item.rawData &&
+        canArchiveForeignAccountCopy(item, spaceId)
+      )
+        opaqueCandidates.push(opaque);
       const receipt = walletReceipt(
         id,
         item,
@@ -391,7 +433,70 @@ export async function readReconciliationApplyProgress({
     }
     if (offset + 50 < ids.length) await timerUtils.wait(0);
   }
-  return { applied };
+  const opaqueAccountBlocked =
+    !applied &&
+    !!opaqueAccountCredential &&
+    opaqueCandidates.length > 0 &&
+    (await verifyAnyOpaqueAccountCollision({
+      candidates: opaqueCandidates,
+      syncCredential: opaqueAccountCredential,
+      spaceId,
+      isCurrent: operationIsCurrent,
+    }));
+  return { applied, opaqueAccountBlocked };
+}
+
+async function verifyAnyOpaqueAccountCollision({
+  candidates,
+  syncCredential,
+  spaceId,
+  isCurrent,
+}: {
+  candidates: ICloudSyncServerItem[];
+  syncCredential: ICloudSyncCredential;
+  spaceId: string;
+  isCurrent: () => boolean;
+}): Promise<boolean> {
+  let active = true;
+  try {
+    return (
+      (await resolveBeforeTimeout(
+        (async () => {
+          for (const wire of candidates) {
+            if (!active || !isCurrent()) return false;
+            try {
+              const { rawDataJson } =
+                await cloudSyncItemBuilder.decryptSyncItem({
+                  item: {
+                    id: wire.key,
+                    data: wire.data,
+                    dataType: wire.dataType,
+                    dataTime: wire.dataTimestamp,
+                    pwdHash: spaceId,
+                    isDeleted: false,
+                    rawKey: '',
+                    rawData: '',
+                    localSceneUpdated: false,
+                    serverUploaded: true,
+                  },
+                  syncCredential,
+                });
+              const { rawKey } =
+                normalizePublicAccountSnapshotRecord(rawDataJson);
+              if (sha512ProSync({ data: rawKey }) === wire.key)
+                return active && isCurrent();
+            } catch {
+              // An unreadable or invalid wire item is not a verified collision.
+            }
+          }
+          return false;
+        })(),
+        1500,
+      )) === true
+    );
+  } finally {
+    active = false;
+  }
 }
 
 export const CLOUD_SYNC_RECONCILIATION_DEFAULT_LIMITS: ICloudSyncReconciliationLimits =

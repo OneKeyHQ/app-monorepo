@@ -2339,6 +2339,14 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     'verified-newer',
     'wrong-ciphertext-key',
     'withheld-hung-proof',
+    'opaque-only',
+    'opaque-omitted-live-flag',
+    'opaque-with-sibling',
+    'opaque-wrong-ciphertext',
+    'opaque-source-changed',
+    'opaque-unexpected-diff',
+    'opaque-deleted-alias',
+    'opaque-invalid-live-flag',
   ] as const)(
     'handles a same-ID Account without interrupting a sibling: %s',
     async (mode) => {
@@ -2429,8 +2437,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       expect(collided.id).toBe(old.id);
       expect(collided.data).not.toBe(old.data);
       expect(sibling.id).not.toBe(old.id);
+      const opaque = mode.startsWith('opaque-');
       const preserved = {
         ...old,
+        ...(opaque ? { rawKey: '' } : {}),
         rawData: '',
         serverUploaded: true,
         localSceneUpdated: true,
@@ -2459,16 +2469,28 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
               enteredProof.resolve();
               await releaseProof.promise;
             }
+            if (
+              mode === 'opaque-source-changed' &&
+              params.item.id === collided.id
+            ) {
+              h.changeSource();
+            }
             return builder.decryptSyncItem(params);
           });
       }
       jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue(active);
       h.readLocalCredential.mockResolvedValue(active);
-      const remote = [collided, sibling].map(
+      const remote = (
+        opaque && mode !== 'opaque-with-sibling'
+          ? [collided]
+          : [collided, sibling]
+      ).map(
         (row): ICloudSyncServerItem => ({
           key: row.id,
           data:
-            mode === 'wrong-ciphertext-key' && row.id === collided.id
+            (mode === 'wrong-ciphertext-key' ||
+              mode === 'opaque-wrong-ciphertext') &&
+            row.id === collided.id
               ? old.data
               : row.data,
           dataTimestamp: row.dataTime,
@@ -2477,34 +2499,71 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           pwdHash: row.pwdHash,
         }),
       );
-      // The deployed response has no reconciliation envelope. The simulated
-      // server returns only the records absent from the client's exact summary.
-      h.check.mockImplementation(async ({ localItems = [] }) =>
-        reply({
+      // No reconciliation envelope. The deployed full comparison puts a live
+      // row missing from the client's exact summary in "updated", not "diff".
+      h.check.mockImplementation(async ({ localItems = [] }) => {
+        const incoming = remote.filter(
+          (row) =>
+            !localItems.some(
+              (local) =>
+                local.id === row.key && local.dataTime === row.dataTimestamp,
+            ),
+        );
+        if (mode === 'opaque-omitted-live-flag') {
+          Object.assign(incoming[0], { isDeleted: undefined });
+        } else if (mode === 'opaque-invalid-live-flag') {
+          Object.assign(incoming[0], { isDeleted: null });
+        }
+        return reply({
           reconciliation: undefined,
           pwdHash: active.masterPasswordUUID,
-          diff: remote.filter(
-            (row) =>
-              !localItems.some(
-                (local) =>
-                  local.id === row.key && local.dataTime === row.dataTimestamp,
-              ),
-          ),
-        }),
-      );
+          ...(mode === 'opaque-deleted-alias'
+            ? { deleted: [collided.id] }
+            : {}),
+          ...(mode === 'opaque-unexpected-diff'
+            ? { diff: incoming }
+            : { updated: incoming }),
+        });
+      });
       const upload = jest
         .spyOn(h.service, '_callApiUploadItems')
         .mockRejectedValue(
           new OneKeyLocalError('Unexpected upload in download fixture'),
         );
 
-      const run = h.run();
+      if (opaque) {
+        jest
+          .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+          .mockResolvedValue('fixture');
+        jest
+          .spyOn(h.service, 'prepareLocalSyncWallets')
+          .mockResolvedValue(undefined);
+        jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+          allWallets: [],
+          allDevices: undefined,
+          allAccounts: [],
+          allIndexedAccounts: [],
+        });
+      }
+      const run = opaque
+        ? h.service.syncNowKeylessWithResult({
+            callerName: 'Manual legacy collision fixture',
+            askPasswordOnlyIfHdXfpMissing: true,
+          })
+        : h.run();
       if (mode === 'withheld-hung-proof') {
         await enteredProof.promise;
         expect(h.sourceMutex.isLocked()).toBe(false);
         await jest.advanceTimersByTimeAsync(1500);
       }
-      await expect(run).resolves.toBe(true);
+      const blocked =
+        mode === 'opaque-only' || mode === 'opaque-omitted-live-flag';
+      let expectedResult: true | 'completed' | 'local-deferred' | 'cancelled' =
+        true;
+      if (opaque) expectedResult = 'completed';
+      if (blocked) expectedResult = 'local-deferred';
+      if (mode === 'opaque-source-changed') expectedResult = 'cancelled';
+      await expect(run).resolves.toBe(expectedResult);
       if (mode === 'withheld-hung-proof') {
         releaseProof.resolve();
         await jest.advanceTimersByTimeAsync(0);
@@ -2512,6 +2571,26 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       expect(h.check).toHaveBeenCalledTimes(1);
       expect(h.check.mock.calls[0][0].localItems).toEqual([]);
       expect(h.pool.get(old.id)).toEqual(preserved);
+      if (mode === 'opaque-source-changed') {
+        expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+        return;
+      }
+      if (opaque) {
+        expect(h.updateLastSyncTime).toHaveBeenCalledTimes(blocked ? 0 : 1);
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          status: blocked ? 'partial' : 'complete',
+          unfinished: false,
+          applied: mode === 'opaque-with-sibling' ? 1 : 0,
+        });
+        expect(h.config().publicAccountSnapshotStatus?.pending ?? 0).toBe(0);
+        if (mode === 'opaque-with-sibling') {
+          expect(h.pool.get(sibling.id)?.data).toBe(sibling.data);
+        }
+        await jest.advanceTimersByTimeAsync(120_000);
+        expect(h.check).toHaveBeenCalledTimes(1);
+        expect(upload).not.toHaveBeenCalled();
+        return;
+      }
       expect(h.pool.get(sibling.id)).toMatchObject({
         data: sibling.data,
         pwdHash: sibling.pwdHash,
