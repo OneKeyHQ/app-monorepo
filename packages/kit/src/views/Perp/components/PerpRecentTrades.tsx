@@ -11,6 +11,7 @@ import {
   ScrollView,
   SizableText,
   Spinner,
+  Tooltip,
   XStack,
   YStack,
   getCurrentVisibilityState,
@@ -23,7 +24,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getHlPriceTick } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHlPriceTick,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
@@ -38,6 +42,7 @@ import {
 function TradeLine({
   price,
   size,
+  sizeSymbol,
   time,
   hash,
   side,
@@ -46,6 +51,7 @@ function TradeLine({
 }: {
   price: string;
   size: string;
+  sizeSymbol?: string;
   time: string;
   hash?: IRecentTrade['hash'];
   side?: IRecentTrade['side'];
@@ -80,17 +86,56 @@ function TradeLine({
       {price}
     </PerpBookText>
   );
-  const sizeCell = (
-    <PerpBookText
-      numberOfLines={1}
-      style={[
-        textStyle,
-        { width: inline ? '36%' : '30%', textAlign: 'right', color: textColor },
-      ]}
-    >
-      {size}
-    </PerpBookText>
-  );
+  const sizeCell =
+    isHeader && sizeSymbol ? (
+      <Tooltip
+        triggerAsChild
+        renderContent={<Tooltip.Text>{`${size} (${sizeSymbol})`}</Tooltip.Text>}
+        renderTrigger={
+          <XStack
+            width={inline ? '36%' : '30%'}
+            minWidth={0}
+            alignItems="center"
+            justifyContent="flex-end"
+            gap="$1"
+            aria-label={`${size} (${sizeSymbol})`}
+          >
+            <PerpBookText
+              numberOfLines={1}
+              style={[
+                textStyle,
+                { minWidth: 0, flexShrink: 1, color: textColor },
+              ]}
+            >
+              {size}
+            </PerpBookText>
+            <PerpBookText
+              numberOfLines={1}
+              style={[
+                textStyle,
+                { flexShrink: 0, maxWidth: '65%', color: textColor },
+              ]}
+            >
+              {`(${sizeSymbol})`}
+            </PerpBookText>
+          </XStack>
+        }
+      />
+    ) : (
+      <PerpBookText
+        numberOfLines={1}
+        style={[
+          textStyle,
+          {
+            width: inline ? '36%' : '30%',
+            textAlign: 'right',
+            color: textColor,
+          },
+        ]}
+      >
+        {size}
+      </PerpBookText>
+    );
   const timeWidth = inline ? '40%' : '37%';
   const timeRightPadding = isHeader ? 8 : 20;
   const transactionUrl =
@@ -273,6 +318,7 @@ function RecentTradesList({
         inline={inline}
         price={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
         size={intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+        sizeSymbol={parseDexCoin(coin).displayName}
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
