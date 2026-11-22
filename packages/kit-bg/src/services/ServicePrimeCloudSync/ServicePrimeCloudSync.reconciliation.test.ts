@@ -26,8 +26,12 @@ import type {
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  primeCloudSyncPersistAtom,
+} from '../../states/jotai/atoms';
 
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
@@ -82,7 +86,10 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   addressBookPersistAtom: {},
-  devSettingsPersistAtom: { get: jest.fn(async () => ({})) },
+  devSettingsPersistAtom: {
+    get: jest.fn(async () => ({})),
+    sub: jest.fn(() => jest.fn()),
+  },
   primeMasterPasswordPersistAtom: {},
   primePersistAtom: {},
 }));
@@ -168,6 +175,14 @@ jest.mock('./cloudSyncCheckUtils', () => ({
 jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
   default: {
+    buildWalletSyncKey: (
+      ...args: Parameters<typeof cloudSyncItemBuilder.buildWalletSyncKey>
+    ) =>
+      jest
+        .requireActual<typeof import('./cloudSyncItemBuilder')>(
+          './cloudSyncItemBuilder',
+        )
+        .default.buildWalletSyncKey(...args),
     normalizeDataTime: (value: number | undefined) =>
       jest
         .requireActual<typeof import('./cloudSyncItemBuilder')>(
@@ -2840,11 +2855,27 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
   test.each([
     'equal-tombstone',
     'equal-race',
+    'request-race',
+    'request-cleaned-tombstone',
+    'after-write-race',
     'typed-and-bare',
-    'cold-failure',
+    'read-error',
     'read-hang',
     'equal-live',
+    'live-vs-live',
+    'empty-typed',
+    'empty-response',
+    'wrong-origin',
+    'changed-node',
+    'changed-node-at-commit',
+    'wrong-scope',
+    'spliced-wallet',
+    'held-and-bare',
     'newer-tombstone',
+    'paired-later-cloud',
+    'paired-later-continuation',
+    'conflicting-equal-cloud',
+    'identical-equal-cloud',
     'bare-delete',
     'unknown-live',
     'fractional-time',
@@ -2853,8 +2884,44 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     async (kind) => {
       if (kind === 'read-hang') jest.useRealTimers();
       const h = harness();
+      const live = [
+        'equal-live',
+        'paired-later-cloud',
+        'paired-later-continuation',
+        'identical-equal-cloud',
+        'live-vs-live',
+        'typed-and-bare',
+        'after-write-race',
+        'request-cleaned-tombstone',
+      ].includes(kind);
       const db = new LocalDbIndexed();
-      const rawKey = `hd:__fixture-checked-wallet-${kind}:`;
+      const hash = `fixture-checked-wallet-${kind}`;
+      const rawKey = `Wallet >> hd:__${hash}:`;
+      const { CloudSyncFlowManagerWallet } = jest.requireActual<
+        typeof import('./CloudSyncFlowManager/CloudSyncFlowManagerWallet')
+      >('./CloudSyncFlowManager/CloudSyncFlowManagerWallet');
+      h.service.syncManagers.wallet = new CloudSyncFlowManagerWallet({
+        backgroundApi: { ...h.service.backgroundApi, localDb: db },
+      });
+      await db.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
+        db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [
+            {
+              id: `hd-${hash}`,
+              name: 'Existing exact authorizable Wallet',
+              type: 'hd',
+              hash,
+              accounts: [],
+              nextIds: {},
+              backuped: true,
+              walletNo: 9987,
+            },
+          ],
+          skipIfExists: true,
+        }),
+      );
       const id = sha512ProSync({ data: rawKey });
       const timestamp = 1_750_000_000_000;
       const initial: IDBCloudSyncItem = {
@@ -2864,8 +2931,12 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         rawData: '',
         pwdHash: 'public-root-space',
         dataTime: timestamp,
-        data: 'initial-version',
-        isDeleted: kind === 'equal-live',
+        data:
+          kind === 'typed-and-bare'
+            ? 'server-encrypted-version'
+            : 'initial-version',
+        isDeleted:
+          kind === 'equal-live' || kind === 'request-cleaned-tombstone',
         serverUploaded: true,
         localSceneUpdated: true,
       };
@@ -2875,24 +2946,45 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       });
       h.getPool.mockImplementation(() => db.getAllSyncItems());
       h.getRecords.mockImplementation((params) => db.getRecordsByIds(params));
-      if (kind === 'read-hang') {
-        const save = h.service.saveServerSyncItemsToLocal.bind(h.service);
+      if (kind === 'read-error')
         jest
-          .spyOn(h.service, 'saveServerSyncItemsToLocal')
-          .mockImplementationOnce(async (params) => {
-            h.getRecords.mockImplementationOnce(
-              () =>
-                new Promise<Awaited<ReturnType<typeof db.getRecordsByIds>>>(
-                  () => {},
-                ),
-            );
-            await save(params);
-          });
-      }
+          .spyOn(db, 'getAllWallets')
+          .mockRejectedValueOnce(
+            new OneKeyLocalError('Synthetic lazy verification unavailable'),
+          );
+      if (kind === 'read-hang')
+        jest
+          .spyOn(db, 'getAllWallets')
+          .mockImplementationOnce(
+            () =>
+              new Promise<Awaited<ReturnType<typeof db.getAllWallets>>>(
+                () => {},
+              ),
+          );
       h.writePool.mockImplementation((params) =>
         db.addAndUpdateSyncItems(params),
       );
       const refreshed = { ...initial, data: 'later-verified-live-ciphertext' };
+      if (kind === 'changed-node' || kind === 'changed-node-at-commit') {
+        let changeNode = () => {};
+        jest
+          .spyOn(devSettingsPersistAtom, 'sub')
+          .mockImplementationOnce((fn) => {
+            changeNode = fn;
+            return () => {};
+          });
+        h.writePool.mockImplementationOnce(async (params) => {
+          if (kind === 'changed-node') changeNode();
+          await db.addAndUpdateSyncItems({
+            ...params,
+            fn: async () => {
+              if (kind === 'changed-node-at-commit') changeNode();
+              await params.fn?.();
+            },
+          });
+        });
+      }
+
       if (kind === 'equal-race')
         h.writePool.mockImplementationOnce(async (params) => {
           await db.addAndUpdateSyncItems({
@@ -2901,8 +2993,19 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           });
           await db.addAndUpdateSyncItems(params);
         });
+      if (kind === 'after-write-race')
+        h.scene.mockImplementationOnce(async () => {
+          await db.addAndUpdateSyncItems({
+            items: [
+              { ...refreshed, dataTime: timestamp + 1, serverUploaded: false },
+            ],
+            skipUploadToServer: true,
+          });
+        });
+
       jest
         .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockReset()
         .mockResolvedValueOnce({
           rawDataJson: {
             dataType: EPrimeCloudSyncDataType.Wallet,
@@ -2912,7 +3015,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
                 : rawKey,
             payload: {
               walletType: 'hd',
-              walletHash: 'fixture-checked-wallet',
+              walletHash: kind === 'spliced-wallet' ? 'other-wallet' : hash,
               name: 'Wallet name retained',
               avatar: undefined,
               hwDeviceId: undefined,
@@ -2929,55 +3032,203 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       const wire: ICloudSyncServerItem = {
         key: id,
         dataType: EPrimeCloudSyncDataType.Wallet,
-        data: kind === 'equal-live' ? 'server-live-version' : '',
-        pwdHash: initial.pwdHash,
+        data: ['empty-typed', 'held-and-bare'].includes(kind)
+          ? ''
+          : 'server-encrypted-version',
+        pwdHash: kind === 'wrong-scope' ? 'other-root-space' : initial.pwdHash,
         dataTimestamp: timestamp + offset,
-        isDeleted: kind !== 'equal-live',
+        isDeleted: !live,
       };
-      h.check.mockResolvedValueOnce(
-        reply(
-          kind === 'bare-delete'
-            ? { deleted: [id], reconciliation: undefined }
-            : {
-                diff: [wire],
-                deleted: [
-                  'typed-and-bare',
-                  'read-hang',
-                  'cold-failure',
+      h.check.mockRestore();
+      const url = '/prime/v1/sync/check';
+      const origin = endpointsMap.prod.prime;
+      const data = reply({
+        serverTime: timestamp + 10_000,
+        diff: ['bare-delete', 'empty-response'].includes(kind) ? [] : [wire],
+        updated: [
+          'paired-later-cloud',
+          'paired-later-continuation',
+          'conflicting-equal-cloud',
+          'identical-equal-cloud',
+        ].includes(kind)
+          ? [
+              {
+                ...wire,
+                isDeleted: kind === 'paired-later-cloud',
+                data:
+                  kind === 'identical-equal-cloud'
+                    ? wire.data
+                    : 'different-typed-cloud-version',
+                dataTimestamp: [
+                  'conflicting-equal-cloud',
+                  'identical-equal-cloud',
                 ].includes(kind)
-                  ? [id]
-                  : [],
-                reconciliation: undefined,
+                  ? timestamp
+                  : timestamp + 1,
               },
-        ),
-      );
-      if (kind === 'cold-failure')
-        jest.doMock('./incrementalCloudSync', () => {
-          throw new OneKeyLocalError('Synthetic lazy module unavailable');
+            ]
+          : [],
+        deleted: [
+          'typed-and-bare',
+          'held-and-bare',
+          'bare-delete',
+          'request-cleaned-tombstone',
+        ].includes(kind)
+          ? [id]
+          : [],
+        ...(kind === 'paired-later-continuation'
+          ? {}
+          : { reconciliation: undefined }),
+      });
+      const check = {
+        pwdHash: initial.pwdHash,
+        response: {
+          status: 200,
+          statusText: 'OK',
+          headers: new AxiosHeaders(),
+          config: {
+            url,
+            method: 'post',
+            baseURL: origin,
+            data: JSON.stringify({ pwdHash: initial.pwdHash }),
+            headers: new AxiosHeaders(),
+          },
+          request: {
+            oneKeyVerifiedFinalUrl:
+              (kind === 'wrong-origin' ? endpointsMap.test.prime : origin) +
+              url,
+          },
+          data: { code: 0, message: '', data },
+        },
+      };
+      const rawCheck = jest
+        .spyOn(h.service, 'apiCheckServerStatusKeyless')
+        .mockImplementationOnce(async () => {
+          if (kind === 'request-race')
+            await db.addAndUpdateSyncItems({
+              items: [{ ...refreshed, serverUploaded: false }],
+              skipUploadToServer: true,
+            });
+          if (kind === 'request-cleaned-tombstone')
+            await db.removeCloudSyncPoolItems({ keys: [id] });
+          return check;
         });
-      try {
-        await h.run();
-      } finally {
-        if (kind === 'cold-failure') jest.dontMock('./incrementalCloudSync');
-      }
+      if (kind === 'paired-later-continuation')
+        rawCheck.mockResolvedValueOnce({
+          ...check,
+          response: {
+            ...check.response,
+            data: {
+              ...check.response.data,
+              data: reply({
+                reconciliation: {
+                  version: 1,
+                  diffBeforeLimit: true,
+                  includesDeleted: true,
+                  maxItems: 500,
+                  maxBytes: 1024 * 1024,
+                  hasMore: false,
+                },
+              }),
+            },
+          },
+        });
+      await h.run();
       const { records } = await db.getRecordsByIds({
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: [id],
       });
-      const keepsLive =
-        kind === 'equal-live' ||
-        kind === 'equal-tombstone' ||
-        kind === 'equal-race' ||
-        kind === 'typed-and-bare' ||
-        kind === 'cold-failure' ||
-        kind === 'read-hang';
+      if (kind === 'request-cleaned-tombstone') {
+        expect(records[0]).toBeUndefined();
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(0);
+        return;
+      }
+      const deleted = [
+        'equal-tombstone',
+        'newer-tombstone',
+        'paired-later-cloud',
+        'bare-delete',
+      ].includes(kind);
       expect(records[0]).toMatchObject({
-        isDeleted: !keepsLive,
-        dataTime: timestamp + Math.floor(offset),
+        isDeleted: deleted,
+        dataTime:
+          timestamp +
+          ([
+            'after-write-race',
+            'paired-later-cloud',
+            'paired-later-continuation',
+          ].includes(kind)
+            ? 1
+            : Math.floor(offset)),
       });
-      if (kind === 'equal-live') expect(records[0]?.data).toBe(wire.data);
-      if (kind === 'equal-tombstone')
+      if (
+        live &&
+        ![
+          'after-write-race',
+          'paired-later-cloud',
+          'paired-later-continuation',
+        ].includes(kind)
+      )
+        expect(records[0]?.data).toBe(wire.data);
+      if (['equal-race', 'after-write-race', 'request-race'].includes(kind))
+        expect(records[0]?.data).toBe(refreshed.data);
+      if (kind === 'after-write-race' || kind === 'request-race')
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(0);
+      if (
+        [
+          'empty-typed',
+          'empty-response',
+          'wrong-origin',
+          'changed-node',
+          'changed-node-at-commit',
+          'wrong-scope',
+          'conflicting-equal-cloud',
+          'spliced-wallet',
+          'held-and-bare',
+          'unknown-live',
+          'fractional-time',
+        ].includes(kind)
+      )
         expect(records[0]?.data).toBe(initial.data);
+      if (
+        [
+          'read-error',
+          'read-hang',
+          'empty-typed',
+          'wrong-origin',
+          'changed-node',
+          'wrong-scope',
+          'conflicting-equal-cloud',
+          'spliced-wallet',
+          'held-and-bare',
+        ].includes(kind)
+      ) {
+        expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          status: 'partial',
+          applied: 0,
+        });
+      }
+      if (kind === 'changed-node-at-commit') {
+        expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(0);
+      }
+      if (kind === 'equal-live' || kind === 'live-vs-live')
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(1);
+      if (kind === 'identical-equal-cloud')
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          applied: 1,
+          status: 'complete',
+        });
+      if (kind === 'paired-later-continuation') {
+        expect(rawCheck).toHaveBeenCalledTimes(2);
+        expect(records[0]?.data).toBe('different-typed-cloud-version');
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          applied: 1,
+          status: 'complete',
+          rounds: 2,
+        });
+      }
     },
   );
 

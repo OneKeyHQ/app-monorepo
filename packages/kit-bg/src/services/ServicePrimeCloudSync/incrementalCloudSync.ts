@@ -23,7 +23,10 @@ import {
 } from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
-import { recordWalletTieProof } from './publicAccountSnapshotWriteGuard';
+import {
+  type IWalletTieState,
+  recordWalletTieProof,
+} from './publicAccountSnapshotWriteGuard';
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import type { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
@@ -34,6 +37,7 @@ import type {
   IDBCloudSyncItem,
   IDBDevice,
   IDBWallet,
+  ILocalDBRecordUpdater,
 } from '../../dbs/local/types';
 
 type IUploadRequestOptions = { signal: AbortSignal; timeout: number };
@@ -633,52 +637,80 @@ export async function probeDurableWalletNameDeferral(
 // Only authenticated, explicit server versions enter this preflight. A bare
 // deletion ACK has no time and must keep its normal request-version CAS.
 export async function verifyWalletTies(
-  db: ILocalDb,
+  wallet: CloudSyncFlowManagerWallet,
+  { requested, wire }: IWalletTieState,
   rows: IDBCloudSyncItem[],
   credential: ICloudSyncCredential,
   isCurrent: () => boolean,
 ): Promise<void> {
   if (!isCurrent()) return;
-  const { records } = await db.getRecordsByIds({
-    name: ELocalDBStoreNames.CloudSyncItem,
-    ids: rows.map(({ id }) => id),
-  });
-  const byId = new Map(
-    records.flatMap((row) => (row ? [[row.id, row] as const] : [])),
-  );
+  const observed = new Map<string, ICloudSyncServerItem | null>();
+  for (const row of wire) {
+    const previous = requested.get(row.key);
+    if (
+      row.dataType === EPrimeCloudSyncDataType.Wallet &&
+      row.dataTimestamp === previous?.dataTime &&
+      row.dataTimestamp !== undefined
+    ) {
+      const earlier = observed.get(row.key);
+      if (earlier === undefined) observed.set(row.key, row);
+      else if (
+        !earlier ||
+        earlier.isDeleted !== row.isDeleted ||
+        earlier.data !== row.data ||
+        (earlier.pwdHash || previous?.pwdHash) !==
+          (row.pwdHash || previous?.pwdHash)
+      )
+        observed.set(row.key, null);
+    }
+  }
+
   let next = 0;
   const verify = async () => {
     while (isCurrent() && next < rows.length) {
-      const tombstone = rows[next];
+      const incoming = rows[next];
       next += 1;
-      const live = byId.get(tombstone.id);
+      const previous = requested.get(incoming.id);
       if (
-        live?.dataType === EPrimeCloudSyncDataType.Wallet &&
-        live.isDeleted === false &&
-        live.pwdHash === tombstone.pwdHash &&
-        live.dataTime === tombstone.dataTime &&
-        live.data &&
-        live.data.length <= 64 * 1024
-      ) {
-        try {
-          const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
-            item: { ...live, rawData: '', rawDataJson: undefined },
-            syncCredential: credential,
+        !observed.get(incoming.id) ||
+        previous?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+        previous.pwdHash !== incoming.pwdHash ||
+        previous.dataTime !== incoming.dataTime ||
+        !incoming.data ||
+        incoming.data.length > 64 * 1024
+      )
+        // eslint-disable-next-line no-continue
+        continue;
+      try {
+        const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+          item: { ...incoming, rawData: '', rawDataJson: undefined },
+          syncCredential: credential,
+        });
+        if (
+          isCurrent() &&
+          rawDataJson?.dataType === EPrimeCloudSyncDataType.Wallet &&
+          !!rawDataJson.payload &&
+          typeof rawDataJson.rawKey === 'string' &&
+          !!rawDataJson.rawKey &&
+          sha512ProSync({ data: rawDataJson.rawKey }) === incoming.id
+        ) {
+          const match = await wallet.findWalletSyncTargetReadOnly({
+            payload: rawDataJson.payload,
+            isCurrent,
           });
+          const key =
+            match && isCurrent()
+              ? await wallet.buildSyncKeyInfo({ target: match.target })
+              : undefined;
           if (
             isCurrent() &&
-            rawDataJson?.dataType === EPrimeCloudSyncDataType.Wallet &&
-            typeof rawDataJson.rawKey === 'string' &&
-            !!rawDataJson.rawKey
+            key?.key === incoming.id &&
+            key.rawKey === rawDataJson.rawKey
           )
-            recordWalletTieProof(
-              tombstone,
-              live.data,
-              sha512ProSync({ data: rawDataJson.rawKey }) === live.id,
-            );
-        } catch {
-          // Unknown is not permission to replace an equally dated live row.
+            recordWalletTieProof(incoming, previous);
         }
+      } catch {
+        // An unverified equal-time cloud value must not overwrite the local row.
       }
     }
   };
@@ -732,7 +764,30 @@ export async function probeAccountHandoffs(
   );
 }
 
-export async function decodeCloudSyncDebugRows(
+export async function downloadCloudDebugRows(
+  service: Pick<
+    ServicePrimeCloudSync,
+    | 'getSyncCredentialSafe'
+    | 'apiDownloadItems'
+    | 'convertServerItemToLocalItem'
+  >,
+  includeDeleted?: boolean,
+): Promise<IDBCloudSyncItem[]> {
+  const syncCredential = await service.getSyncCredentialSafe();
+  const { serverData: items, pwdHash } = await service.apiDownloadItems({
+    includeDeleted,
+  });
+  return decodeCloudSyncDebugRows(items, (serverItem, shouldDecrypt) =>
+    service.convertServerItemToLocalItem({
+      serverItem,
+      shouldDecrypt,
+      syncCredential,
+      serverPwdHash: pwdHash,
+    }),
+  );
+}
+
+async function decodeCloudSyncDebugRows(
   items: ICloudSyncServerItem[],
   convert: (
     item: ICloudSyncServerItem,
@@ -760,4 +815,20 @@ export async function decodeCloudSyncDebugRows(
     failedCount,
   });
   return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
+}
+
+// Called only through the existing developer-only background methods.
+export async function updateDemoSyncItems(
+  db: ILocalDb,
+  updater: ILocalDBRecordUpdater<ELocalDBStoreNames.CloudSyncItem>,
+) {
+  const { syncItems } = await db.getAllSyncItems();
+  await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+    await db.txUpdateRecords({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: syncItems.map((item) => item.id),
+      updater,
+    });
+  });
 }

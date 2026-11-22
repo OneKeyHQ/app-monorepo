@@ -1,5 +1,6 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type { ICloudSyncServerItem } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -20,11 +21,17 @@ const previousVersions = new WeakMap<
   IPreviousSnapshotVersion | null
 >();
 const rejectedWrites = new WeakSet<IDBCloudSyncItem>();
-export type IWalletTieState = { ids: Set<string>; unknown: boolean };
+export type IWalletTieState = {
+  accepted: Map<string, IDBCloudSyncItem>;
+  held: Set<string>;
+  requested: Map<string, IDBCloudSyncItem>;
+  wire: ICloudSyncServerItem[];
+  isCurrent: () => boolean;
+};
 
 const walletTies = new WeakMap<
   IDBCloudSyncItem,
-  { state: IWalletTieState; invalid?: string; verified?: string }
+  { state: IWalletTieState; verified?: IPreviousSnapshotVersion }
 >();
 
 export function guardWalletTie(item: IDBCloudSyncItem, state: IWalletTieState) {
@@ -33,11 +40,10 @@ export function guardWalletTie(item: IDBCloudSyncItem, state: IWalletTieState) {
 
 export function recordWalletTieProof(
   item: IDBCloudSyncItem,
-  data: string,
-  valid: boolean,
+  previous: IDBCloudSyncItem,
 ) {
   const tie = walletTies.get(item);
-  if (tie) tie[valid ? 'verified' : 'invalid'] = data;
+  if (tie) tie.verified = versionOf(previous);
 }
 const rawPublicAccountFills = new WeakSet<IDBCloudSyncItem>();
 const localOnlyRemovals = new WeakSet<IDBCloudSyncItem>();
@@ -97,35 +103,10 @@ export function rejectPublicAccountSnapshotWrite(item: IDBCloudSyncItem): void {
   rejectedWrites.add(item);
 }
 
-export function matchesPublicAccountSnapshotWrite(
-  item: IDBCloudSyncItem,
-  current?: IDBCloudSyncItem,
-): boolean {
-  if (rejectedWrites.has(item)) return false;
-  const tie = walletTies.get(item);
-  if (
-    tie &&
-    current?.dataType === EPrimeCloudSyncDataType.Wallet &&
-    current.isDeleted === false &&
-    current.pwdHash === item.pwdHash &&
-    current.dataTime === item.dataTime &&
-    current.data &&
-    current.data !== tie.invalid
-  ) {
-    tie.state.ids.add(item.id);
-    tie.state.unknown ||= current.data !== tie.verified;
-    return false;
-  }
-
-  const previous = previousVersions.get(item);
-  if (previous === undefined) return true;
-  if (previous === null) return current === undefined;
-  if (!current) return false;
-  if (
-    rawPublicAccountFills.has(item) &&
-    current.remoteHardwareAccountTombstoneProof !== undefined
-  )
-    return false;
+function sameVersion(
+  previous: IPreviousSnapshotVersion,
+  current: IDBCloudSyncItem,
+) {
   const version = versionOf(current);
   return (
     previous.id === version.id &&
@@ -141,6 +122,51 @@ export function matchesPublicAccountSnapshotWrite(
     previous.rawData === version.rawData &&
     previous.rawKey === version.rawKey
   );
+}
+
+export function matchesPublicAccountSnapshotWrite(
+  item: IDBCloudSyncItem,
+  current?: IDBCloudSyncItem,
+): boolean {
+  if (rejectedWrites.has(item)) return false;
+  const tie = walletTies.get(item);
+  if (tie && item.dataTime !== undefined) {
+    const requested = tie.state.requested.get(item.id);
+    if (
+      (requested?.dataType === EPrimeCloudSyncDataType.Wallet &&
+        requested.dataTime === item.dataTime) ||
+      (current?.dataType === EPrimeCloudSyncDataType.Wallet &&
+        current.dataTime === item.dataTime)
+    ) {
+      const accepted = tie.state.accepted.get(item.id);
+      if (accepted && current) {
+        const prior = versionOf(accepted);
+        if (sameVersion(prior, item) && sameVersion(prior, current))
+          return false;
+      }
+      const verified = tie.verified;
+      if (
+        !tie.state.isCurrent() ||
+        !verified ||
+        !current ||
+        !sameVersion(verified, current)
+      ) {
+        tie.state.held.add(item.id);
+        return false;
+      }
+      tie.state.accepted.set(item.id, item);
+    }
+  }
+  const previous = previousVersions.get(item);
+  if (previous === undefined) return true;
+  if (previous === null) return current === undefined;
+  if (!current) return false;
+  if (
+    rawPublicAccountFills.has(item) &&
+    current.remoteHardwareAccountTombstoneProof !== undefined
+  )
+    return false;
+  return sameVersion(previous, current);
 }
 
 // Proven only for this local delete operation; no scope credential or old
