@@ -1576,8 +1576,9 @@ it.each([
   'unavailable-supplement',
   'unproven-ordinary-origin',
   'ordinary-missing-final-url',
-  'unverified-session-baseline-newer',
-  'native-sni-baseline-newer',
+  'unverified-session-retains-old-wallet',
+  'native-sni-retains-old-wallet',
+  'native-sni-current-key-newer',
   'native-without-sni-recovers',
   'known-bounded-capability',
   'history-unavailable',
@@ -1624,9 +1625,12 @@ it.each([
     const currentHash = computeHardwareCloudSyncPwdHash(dekId);
     const oldHash = computeHardwareCloudSyncPwdHash(oldDekId);
     const baseURL = 'https://manual-cloud-fixture.example.test';
-    const unverifiedSession = scenario === 'unverified-session-baseline-newer';
-    const nativeSni = scenario === 'native-sni-baseline-newer';
-    const baselineOnly = unverifiedSession || nativeSni;
+    const unverifiedSession =
+      scenario === 'unverified-session-retains-old-wallet';
+    const alreadyCurrent = scenario === 'native-sni-current-key-newer';
+    const nativeSni =
+      scenario === 'native-sni-retains-old-wallet' || alreadyCurrent;
+    const normalCheckOnly = unverifiedSession || nativeSni;
     if (nativeSni || scenario === 'native-without-sni-recovers') {
       mockManualSniCapability = nativeSni;
     }
@@ -1769,7 +1773,7 @@ it.each([
         scenario === 'local-diverged' ? 'Stale old cloud name' : wallet.name,
         'bear',
         baseTime,
-        oldCredential,
+        alreadyCurrent ? credential : oldCredential,
       )),
       serverUploaded: true,
       localSceneUpdated: true,
@@ -1916,18 +1920,12 @@ it.each([
         const supplemental = postData.reconciliation === undefined;
         if (!supplemental) {
           const persisted = await localDb.getSyncItem({ id: key });
-          if (baselineOnly) {
-            expect(hint).toEqual({ key, dataType, dataTimestamp: baseTime });
-            expect(persisted).toMatchObject({
-              pwdHash: currentHash,
-              dataTime: baseTime,
-              serverUploaded: false,
-            });
-            expect(persisted.data).not.toBe(previous.data);
-          } else {
-            expect(hint).toBeUndefined();
-            expect(persisted).toEqual(previous);
-          }
+          expect(hint).toEqual(
+            alreadyCurrent
+              ? { key, dataType, dataTimestamp: baseTime }
+              : undefined,
+          );
+          expect(persisted).toEqual(previous);
           if (sibling) {
             await localDb.withTransaction(
               EIndexedDBBucketNames.account,
@@ -1988,7 +1986,7 @@ it.each([
           headers: {},
           config: request,
           request:
-            baselineOnly || scenario === 'ordinary-missing-final-url'
+            normalCheckOnly || scenario === 'ordinary-missing-final-url'
               ? {}
               : {
                   responseURL: `${(supplemental && scenario === 'wrong-origin') || (!supplemental && scenario === 'unproven-ordinary-origin') ? 'https://wrong.example.test' : baseURL}/prime/v1/sync/check`,
@@ -1999,7 +1997,7 @@ it.each([
               pwdHash: currentHash,
               serverTime: Date.now(),
               updated: [
-                ...((supplemental || baselineOnly) &&
+                ...((supplemental || normalCheckOnly) &&
                 strictlyNewer &&
                 scenario !== 'absent'
                   ? [incoming, ...(sibling ? [sibling.server] : [])]
@@ -2112,8 +2110,9 @@ it.each([
       'known-bounded-capability',
       'unproven-ordinary-origin',
       'ordinary-missing-final-url',
-      'unverified-session-baseline-newer',
-      'native-sni-baseline-newer',
+      'unverified-session-retains-old-wallet',
+      'native-sni-retains-old-wallet',
+      'native-sni-current-key-newer',
     ].includes(scenario);
     expect(checked).toHaveBeenCalledTimes(oneNormalOnly ? 1 : 2);
     const canonical = await localDb.getWallet({
@@ -2142,7 +2141,7 @@ it.each([
       scenario === 'newer' ||
       scenario === 'duplicate' ||
       scenario === 'native-without-sni-recovers' ||
-      baselineOnly
+      alreadyCurrent
     ) {
       expect(result).toBe('completed');
       expect(canonical).toMatchObject({

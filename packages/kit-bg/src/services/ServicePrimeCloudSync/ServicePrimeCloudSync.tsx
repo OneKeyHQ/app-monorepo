@@ -5022,16 +5022,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         : 'software-key-unavailable';
     }
     const hardware = syncCredential.keylessCredential;
-    const manualHardwareRecovery =
+    // Protect the old ciphertext during local initialization even when the
+    // optional network recovery cannot prove its endpoint or is unsupported.
+    const preserveInactiveWallets =
       withManualResult &&
-      askPasswordOnlyIfHdXfpMissing &&
       hardware?.source?.type === 'hardware' &&
-      hardware.hardwareSession?.boundBaseURLVerified === true &&
-      !!hardware.hardwareSession.boundBaseURL?.startsWith('https://') &&
+      !!hardware.hardwareSession &&
       selection.hardwareCloudSyncKeySource?.credentialId ===
         hardware.keylessWalletId;
+    const manualHardwareRecovery =
+      preserveInactiveWallets &&
+      askPasswordOnlyIfHdXfpMissing &&
+      hardware.hardwareSession?.boundBaseURLVerified === true &&
+      !!hardware.hardwareSession.boundBaseURL?.startsWith('https://');
     let hardwareRecovery: IManualHardwareWalletRecovery | undefined;
-    let preserveInactiveWallets = false;
     try {
       // Ask before taking the key lock; never hold it while a prompt is open.
       try {
@@ -5055,7 +5059,6 @@ class ServicePrimeCloudSync extends ServiceBase {
               !helper.supportsManualHardwareWalletRecoveryTransport()
             )
               return undefined;
-            preserveInactiveWallets = true;
             const plan = await helper.prepareManualHardwareWalletRecovery(
               keyless,
               hardware,
