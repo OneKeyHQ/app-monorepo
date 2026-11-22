@@ -126,6 +126,9 @@ it.each([
   'lnurlp://merchant.example/checkout?order=12\tORDER:AB34',
   'lnurlp://merchant.example/checkout?order=12\t订单：34',
   'lnurlp://merchant.example/checkout?order=12\t订单号：34&item=7',
+  'lnurlp://merchant.example/checkout?order=12\t—',
+  'lnurlp://merchant.example/checkout?order=12\t—\tPaid',
+  'lnurlp://merchant.example/checkout?order=12\t— \t Paid',
   'Pay: (lnurlp://merchant.example/checkout?order=12\t34)',
 ])('rejects an LNURL with an ambiguous continuation', (text) => {
   expect(isAmbiguousLnurl(text)).toBe(true);
@@ -179,6 +182,16 @@ it('keeps an LNURL when an explicit wrapper closes before a tab', () => {
   expect(
     parseReusableLightningRecipient(`Pay: (${uri})\tKeep the receipt.`),
   ).toEqual({ kind: 'recipient', address: uri });
+});
+
+it('keeps an explicitly bounded LNURL beside a spreadsheet placeholder', () => {
+  const uri = 'lnurlp://merchant.example/checkout?order=12—';
+  for (const cells of ['—', '—\tPaid']) {
+    expect(parseReusableLightningRecipient(`<${uri}>\t${cells}`)).toEqual({
+      kind: 'recipient',
+      address: uri,
+    });
+  }
 });
 
 it.each([

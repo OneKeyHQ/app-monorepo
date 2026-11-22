@@ -107,6 +107,8 @@ it.each([
   'Please pay (use (lnurlp://merchant.example/checkout?order=12))\n123) before Friday.',
   'Pay: lnurlp://merchant.example/checkout?order=12\t34',
   'lnurlp://merchant.example/checkout?order=12\tOrder:AB34&item=7',
+  'lnurlp://merchant.example/checkout?order=12\t—',
+  'lnurlp://merchant.example/checkout?order=12\t—\tPaid',
   'Pay here: <LIGHTNING:LNURL\nP://merchant.example/pay>',
   'Please pay (use (lnurlp://merchant.example/pay?ref=12),34) for order\n123) before Friday.',
   `Pay ${LNURL}; or <${LNURL_URI}>.`,

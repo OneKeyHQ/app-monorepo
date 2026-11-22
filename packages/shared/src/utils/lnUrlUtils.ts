@@ -112,9 +112,9 @@ const LNURL_QUERY_CONTINUATION = /^[?&#]\S/u;
 const LNURL_TAB_ORDER_LABEL =
   /(?:order(?: +(?:id|number))?|订单号?)(?: +#? *| *[:：] +)(?=\S)/iy;
 const LNURL_WRAPPER_BOUNDARY = /[\s.,!?，。！？;；:：)>"']/u;
-// An em dash can end a wrapper when it introduces prose on the same line.
+// An em dash introduces prose only within the same line and spreadsheet cell.
 const LNURL_CLOSER_END =
-  /[)>"'.,!?，。！？;；:：]*(?:—(?=[^\S\r\n\u2028\u2029]+\S))?(?=\s|$)/uy;
+  /[)>"'.,!?，。！？;；:：]*(?:—(?=[^\S\t\r\n\u2028\u2029]+\S))?(?=\s|$)/uy;
 const LNURL_WRAPPER_CLOSERS: Record<string, string | undefined> = {
   '<': '>',
   '"': '"',
