@@ -101,6 +101,7 @@ import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
+import { usePerpTabConfig } from '../hooks/usePerpTabConfig';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
@@ -155,6 +156,8 @@ const useDesktopEvents = platformEnv.isDesktop
       useOnLockRef.current = onLock;
 
       const onCheckUpdate = useDesktopUpdateMenu();
+      // Same Perps tab the sidebar shows, so Cmd+4 opens what the icon opens.
+      const { perpTabShowWeb } = usePerpTabConfig();
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -345,7 +348,9 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
-              navigation.switchTab(ETabRoutes.Perp);
+              navigation.switchTab(
+                perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
+              );
             });
             break;
           case EShortcutEvents.TabReferAFriend:

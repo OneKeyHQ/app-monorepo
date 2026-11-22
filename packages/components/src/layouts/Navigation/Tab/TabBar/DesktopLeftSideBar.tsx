@@ -17,13 +17,13 @@ import {
   ActionList,
   LazyPopover,
   LazyTooltip,
+  Shortcut,
 } from '@onekeyhq/components/src/actions';
 import type {
   IActionListSection,
   IPopoverProps,
 } from '@onekeyhq/components/src/actions';
 import { TooltipDelayGroup } from '@onekeyhq/components/src/actions/Tooltip/tooltipDelayGroup';
-import { ESwitchSize, Switch } from '@onekeyhq/components/src/forms/Switch';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -130,20 +130,12 @@ function SidebarShortcutBadge({
     <Stack
       {...SHORTCUT_BADGE_STYLE}
       pointerEvents="none"
-      minWidth="$4"
-      px="$1"
       borderRadius="$1"
-      borderCurve="continuous"
-      bg="$bgStrong"
       outlineWidth="$px"
       outlineStyle="solid"
       outlineColor="$bgSidebar"
-      ai="center"
-      jc="center"
     >
-      <SizableText size="$headingXs" color="$textSubdued">
-        {keys[keys.length - 1]}
-      </SizableText>
+      <Shortcut.Key>{keys[keys.length - 1]}</Shortcut.Key>
     </Stack>
   );
 }
@@ -753,16 +745,10 @@ export function DesktopLeftSideBar({
                 label: title,
                 icon: 'SidebarOutline',
                 testID: 'sidebar-show-labels',
-                // Display only: pressing the row toggles the setting.
-                extra: (
-                  <Stack pointerEvents="none">
-                    <Switch
-                      testID="sidebar-show-labels-switch"
-                      size={ESwitchSize.small}
-                      value={appearance.showLabels}
-                    />
-                  </Stack>
-                ),
+                // A check mark like a native menu; the row toggles it.
+                extra: appearance.showLabels ? (
+                  <Icon name="CheckLargeOutline" size="$4" color="$icon" />
+                ) : null,
                 onPress: () => {
                   appearance.setShowLabels(!appearance.showLabels);
                 },
@@ -898,20 +884,21 @@ export function DesktopLeftSideBar({
         )}
         {/* eslint-enable no-nested-ternary */}
         <SidebarShortcutHintProvider>
-          <TooltipDelayGroup>
-            <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
-              <YStack flex={1}>
-                {!platformEnv.isDesktopWithCustomTitleBar &&
-                !platformEnv.isNativeIOSPad ? (
-                  <XStack ai="center" jc="center" px="$4" py="$3">
-                    <Icon
-                      name="OnekeyLogoIllus"
-                      width={28}
-                      height={28}
-                      color="$text"
-                    />
-                  </XStack>
-                ) : null}
+          <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
+            <YStack flex={1}>
+              {!platformEnv.isDesktopWithCustomTitleBar &&
+              !platformEnv.isNativeIOSPad ? (
+                <XStack ai="center" jc="center" px="$4" py="$3">
+                  <Icon
+                    name="OnekeyLogoIllus"
+                    width={28}
+                    height={28}
+                    color="$text"
+                  />
+                </XStack>
+              ) : null}
+              {/* Icons-only tooltips follow the pointer across the icons. */}
+              <TooltipDelayGroup enabled={iconsOnly}>
                 <YStack
                   flex={1}
                   px="$3"
@@ -955,10 +942,10 @@ export function DesktopLeftSideBar({
                     />
                   </YStack>
                 ) : null}
-                {bottomMenu}
-              </YStack>
+              </TooltipDelayGroup>
+              {bottomMenu}
             </YStack>
-          </TooltipDelayGroup>
+          </YStack>
         </SidebarShortcutHintProvider>
       </YStack>
       <BrowserSubmenuColumn

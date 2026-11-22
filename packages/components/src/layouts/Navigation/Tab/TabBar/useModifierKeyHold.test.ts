@@ -76,4 +76,28 @@ describe('useModifierKeyHold', () => {
     });
     expect(result.current).toBe(false);
   });
+
+  // Cmd+digit is taken by the Electron main process and never reaches the
+  // page as a keydown; it arrives as the shortcut IPC instead.
+  it('hides when an app shortcut fires while held', () => {
+    let onShortcut: (() => void) | undefined;
+    globalThis.desktopApi = {
+      addIpcEventListener: (_event: string, listener: () => void) => {
+        onShortcut = listener;
+        return () => undefined;
+      },
+    } as unknown as typeof globalThis.desktopApi;
+
+    const { result, unmount } = renderHold();
+    press('keydown', 'Meta');
+    wait(MODIFIER_HOLD_DELAY_MS);
+    expect(result.current).toBe(true);
+
+    act(() => onShortcut?.());
+    expect(result.current).toBe(false);
+
+    unmount();
+    // @ts-expect-error test cleanup
+    delete globalThis.desktopApi;
+  });
 });

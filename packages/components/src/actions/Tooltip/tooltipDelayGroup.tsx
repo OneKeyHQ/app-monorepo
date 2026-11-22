@@ -36,10 +36,17 @@ const TooltipDelayGroupContext = createContext<ITooltipDelayGroup | undefined>(
   undefined,
 );
 
-export function TooltipDelayGroup({ children }: { children: ReactNode }) {
+export function TooltipDelayGroup({
+  enabled = true,
+  children,
+}: {
+  // Off keeps the tooltips' own timing, without remounting the children.
+  enabled?: boolean;
+  children: ReactNode;
+}) {
   const group = useMemo(createTooltipDelayGroup, []);
   return (
-    <TooltipDelayGroupContext.Provider value={group}>
+    <TooltipDelayGroupContext.Provider value={enabled ? group : undefined}>
       {children}
     </TooltipDelayGroupContext.Provider>
   );

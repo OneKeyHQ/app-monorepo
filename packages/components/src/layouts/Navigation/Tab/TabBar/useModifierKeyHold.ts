@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+
 export const MODIFIER_HOLD_DELAY_MS = 500;
 
 // True while the modifier alone has been held for a moment. Any other key,
 // releasing it, or the window losing focus ends the hold, so quick combos
-// such as Cmd+C never trigger it.
+// such as Cmd+C never trigger it. Registered app shortcuts (Cmd+2, ...) are
+// taken by the Electron main process before the page sees the key, so they
+// end the hold through the shortcut IPC instead.
 export function useModifierKeyHold({
   enabled,
   modifierKey,
@@ -47,8 +51,13 @@ export function useModifierKeyHold({
     globalThis.addEventListener('keydown', onKeyDown, true);
     globalThis.addEventListener('keyup', onKeyUp, true);
     globalThis.addEventListener('blur', reset);
+    const unsubscribeShortcut = globalThis.desktopApi?.addIpcEventListener(
+      ipcMessageKeys.APP_SHORTCUT,
+      reset,
+    );
     return () => {
       clearTimeout(timer);
+      unsubscribeShortcut?.();
       globalThis.removeEventListener('keydown', onKeyDown, true);
       globalThis.removeEventListener('keyup', onKeyUp, true);
       globalThis.removeEventListener('blur', reset);
