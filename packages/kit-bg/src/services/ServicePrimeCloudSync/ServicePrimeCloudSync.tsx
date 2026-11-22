@@ -36,6 +36,8 @@ import {
 import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { canDispatchGuardedWalletRequests } from '@onekeyhq/shared/src/travelMode/runtimeNetworkAdapter';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
@@ -48,7 +50,10 @@ import timerUtils, {
 } from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
-import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import {
+  EServiceEndpointEnum,
+  type IApiClientResponse,
+} from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -140,6 +145,12 @@ import {
 } from './publicAccountSnapshotWriteGuard';
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
+import type {
+  ISoftwareWalletRetryIdentity,
+  IWalletEditVersion,
+  IWalletUploadRetry,
+  IWalletUploadRetryVersion,
+} from './incrementalCloudSync';
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
@@ -211,33 +222,6 @@ type ISyncNowKeylessParams = {
   // Only the hardware Cloud key Sync now button sets this.
   askPasswordOnlyIfHdXfpMissing?: boolean;
 };
-
-const MAX_WALLET_UPLOAD_RETRY_VERSIONS = 4;
-const MAX_WALLET_UPLOAD_RETRY_ITEMS = 500;
-const MAX_WALLET_UPLOAD_RETRY_CACHE_BYTES = 2 * 1024 * 1024;
-const WALLET_UPLOAD_RETRY_CONTESTED_READ_MS = 250;
-
-function matchesWalletUploadRetryVersion(
-  row: IDBCloudSyncItem,
-  expected: IDBCloudSyncItem,
-) {
-  return (
-    row.id === expected.id &&
-    row.dataType === expected.dataType &&
-    row.pwdHash === expected.pwdHash &&
-    row.data === expected.data &&
-    row.dataTime === expected.dataTime &&
-    row.rawKey === expected.rawKey &&
-    row.rawData === expected.rawData &&
-    row.localSceneUpdated === expected.localSceneUpdated &&
-    row.serverUploaded === expected.serverUploaded &&
-    row.isDeleted === expected.isDeleted &&
-    row.pendingPublicAccountDeletionAt ===
-      expected.pendingPublicAccountDeletionAt &&
-    row.pendingPublicAccountDeletionHash ===
-      expected.pendingPublicAccountDeletionHash
-  );
-}
 
 @backgroundClass()
 class ServicePrimeCloudSync extends ServiceBase {
@@ -2084,17 +2068,66 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   };
 
+  // Read-only scope epoch for this optional retry, installed lazily on first
+  // eligible local edit. Any settings change cancels the detached attempt.
+  private softwareWalletRetryEpoch?: { generation: number };
+
+  private softwareWalletRetryActive = false;
+
   captureWalletUploadReadRetry(credential: IKeylessCloudSyncCredential) {
     const { pwdHash, hardwareSession, source } = credential;
-    const origin = hardwareSession?.boundBaseURL;
+    const software =
+      !platformEnv.isNative &&
+      !platformEnv.isDesktop &&
+      (platformEnv.isWeb || platformEnv.isExtension) &&
+      !source &&
+      !hardwareSession &&
+      !!credential.signingPublicKey;
+    const hardwareOrigin = hardwareSession?.boundBaseURL;
     if (
-      source?.type !== 'hardware' ||
-      !origin?.startsWith('https://') ||
-      !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+      !software &&
+      (source?.type !== 'hardware' ||
+        !hardwareOrigin?.startsWith('https://') ||
+        !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX))
     )
       return undefined;
-    const isCurrent = this.captureHardwareDirectUploadScope();
-    return (item: IDBCloudSyncItem, error: unknown) => {
+    if (software && !this.softwareWalletRetryEpoch) {
+      const epoch = { generation: 0 };
+      this.softwareWalletRetryEpoch = epoch;
+      devSettingsPersistAtom.sub(() => {
+        epoch.generation += 1;
+      });
+      primeCloudSyncPersistAtom.sub(() => {
+        epoch.generation += 1;
+      });
+      primePersistAtom.sub(() => {
+        epoch.generation += 1;
+      });
+    }
+    const epoch = this.softwareWalletRetryEpoch?.generation;
+    const expires = Date.now() + 30_000;
+    const keyless = this.backgroundApi.serviceKeylessCloudSync;
+    const selectedGeneration = software
+      ? keyless.getCloudAccountImportGeneration()
+      : undefined;
+    const importGeneration = this.publicAccountSnapshotImportGeneration;
+    const isCurrent = software
+      ? () =>
+          epoch === this.softwareWalletRetryEpoch?.generation &&
+          selectedGeneration === keyless.getCloudAccountImportGeneration() &&
+          importGeneration === this.publicAccountSnapshotImportGeneration
+      : this.captureHardwareDirectUploadScope();
+    // Capture origin before the Wallet write, without waiting on the editor.
+    const originPromise = software
+      ? this.getClientEndpointInfo(EServiceEndpointEnum.Prime)
+          .then(({ endpoint }) => endpoint)
+          .catch(() => undefined)
+      : Promise.resolve(hardwareOrigin);
+    return (
+      item: IDBCloudSyncItem,
+      error: unknown,
+      wallet?: IWalletEditVersion,
+    ) => {
       if (
         !isRetryableWalletVerificationReadError(error) ||
         item.dataType !== EPrimeCloudSyncDataType.Wallet ||
@@ -2103,336 +2136,226 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.serverUploaded ||
         item.isDeleted ||
         item.pendingPublicAccountDeletionAt ||
-        item.pendingPublicAccountDeletionHash
+        item.pendingPublicAccountDeletionHash ||
+        (software && !wallet) ||
+        !isCurrent()
       )
         return;
-      this.scheduleWalletUploadReadRetry({
-        items: [
-          {
-            ...item,
-            dataTime: cloudSyncItemBuilder.normalizeDataTime(item.dataTime),
-          },
-        ],
-        pwdHash,
-        origin,
-        isCurrent,
-      });
+      const candidate: IWalletUploadRetryVersion = {
+        ...item,
+        dataTime: cloudSyncItemBuilder.normalizeDataTime(item.dataTime),
+        ...(wallet ? { retryWallet: wallet } : {}),
+      };
+      if (!software && hardwareOrigin) {
+        this.scheduleWalletUploadReadRetry({
+          items: [candidate],
+          pwdHash,
+          origin: hardwareOrigin,
+          isCurrent,
+        });
+        return;
+      }
+      void originPromise
+        .then(async (origin) => {
+          if (
+            !isCurrent() ||
+            Date.now() >= expires ||
+            !origin ||
+            ![endpointsMap.prod.prime, endpointsMap.test.prime].includes(origin)
+          )
+            return;
+          if (
+            !(await canDispatchGuardedWalletRequests()) ||
+            !isCurrent() ||
+            Date.now() >= expires
+          )
+            return;
+          this.scheduleWalletUploadReadRetry({
+            items: [candidate],
+            pwdHash,
+            origin,
+            isCurrent,
+            expiresAt: expires,
+            softwareCredential: {
+              keylessWalletId: credential.keylessWalletId,
+              signingPublicKey: credential.signingPublicKey,
+              encryptionKey: credential.encryptionKey,
+              pwdHash,
+            },
+          });
+        })
+        .catch(errorUtils.autoPrintErrorIgnore);
     };
   }
 
-  private walletUploadReadRetry:
-    | {
-        items: Map<string, IDBCloudSyncItem[] | null>;
-        retainedBytes: number;
-        pwdHash: string;
-        origin: string;
-        isCurrent: () => boolean;
-      }
-    | undefined;
+  private walletUploadReadRetry?: IWalletUploadRetry;
+
+  private loadWalletUploadRetryModule() {
+    return import('./incrementalCloudSync');
+  }
 
   private scheduleWalletUploadReadRetry({
     items,
     pwdHash,
     origin,
     isCurrent,
+    softwareCredential,
+    expiresAt,
   }: {
-    items: IDBCloudSyncItem[];
+    items: IWalletUploadRetryVersion[];
     pwdHash: string;
     origin: string;
     isCurrent: () => boolean;
+    softwareCredential?: ISoftwareWalletRetryIdentity;
+    expiresAt?: number;
   }) {
-    if (!isCurrent()) return;
-    const eligible = items.filter(
-      (item) =>
-        typeof item.dataTime === 'number' &&
-        Number.isSafeInteger(item.dataTime) &&
-        item.dataTime > 0,
-    );
-    if (!eligible.length) return;
-    const pending = this.walletUploadReadRetry;
-    const canCoalesce =
-      pending?.pwdHash === pwdHash &&
-      pending.origin === origin &&
-      pending.isCurrent();
-    const retry = canCoalesce
-      ? pending
-      : {
-          items: new Map<string, IDBCloudSyncItem[] | null>(),
-          retainedBytes: 0,
+    const offeredAt = Date.now();
+    const deadline = Math.min(expiresAt ?? Infinity, offeredAt + 30_000);
+    const canRetry = () => Date.now() < deadline && isCurrent();
+    if (!canRetry()) return;
+    void this.loadWalletUploadRetryModule()
+      .then((retryModule) => {
+        if (
+          !canRetry() ||
+          (softwareCredential && this.softwareWalletRetryActive)
+        )
+          return;
+        const retry = retryModule.mergeWalletUploadRetryCandidates({
+          pending: this.walletUploadReadRetry,
+          items,
           pwdHash,
           origin,
-          isCurrent,
-        };
-    for (const item of eligible) {
-      const previous = retry.items.get(item.id);
-      if (
-        previous === null ||
-        previous?.some((candidate) =>
-          matchesWalletUploadRetryVersion(item, candidate),
-        )
-      )
-        continue;
-      if (!previous && retry.items.size >= MAX_WALLET_UPLOAD_RETRY_ITEMS)
-        continue;
-      // Approximate worst-case UTF-16 bytes for the retained local data, not
-      // just the encrypted wire bytes. Keep the queue bounded across calls.
-      const retainedBytes =
-        128 +
-        2 *
-          (item.id.length +
-            item.rawKey.length +
-            item.pwdHash.length +
-            (item.rawData?.length ?? 0) +
-            (item.data?.length ?? 0));
-      if (
-        (previous && previous.length >= MAX_WALLET_UPLOAD_RETRY_VERSIONS) ||
-        retry.retainedBytes + retainedBytes >
-          MAX_WALLET_UPLOAD_RETRY_CACHE_BYTES
-      ) {
-        // Never fall back to an earlier candidate when a version wasn't
-        // retained. Leave this ID to ordinary reconciliation.
-        if (previous) retry.items.set(item.id, null);
-        continue;
-      }
-      retry.retainedBytes += retainedBytes;
-      retry.items.set(item.id, [...(previous ?? []), { ...item }]);
-    }
-    if (canCoalesce) return;
-    this.walletUploadReadRetry = retry;
-    const expiresAt = Date.now() + 30_000;
-    setTimeout(() => {
-      if (this.walletUploadReadRetry !== retry) return;
-      void this.uploadItemsMutex
-        .runExclusive(async () => {
-          if (this.walletUploadReadRetry !== retry) return;
-          this.walletUploadReadRetry = undefined;
-          if (!isCurrent() || Date.now() >= expiresAt) return;
-          const controller = new AbortController();
-          const isRetryCurrent = () =>
-            !controller.signal.aborted && Date.now() < expiresAt && isCurrent();
-          this.cloudSyncItemAbortControllers.add(controller);
-          try {
-            await resolveBeforeTimeout(
-              (async () => {
-                const expected = new Map<string, IDBCloudSyncItem>();
-                const contested: string[] = [];
-                for (const [id, versions] of retry.items) {
-                  if (versions?.length === 1) expected.set(id, versions[0]);
-                  else if (versions) contested.push(id);
-                }
-                // A corrected clock may persist a later edit at a lower
-                // timestamp. Only the exact stored candidate wins, never
-                // the greater timestamp or the last arrival.
-                if (contested.length) {
-                  const contestedRead = await resolveBeforeTimeout(
-                    (async () => {
-                      try {
-                        return await localDb.getRecordsByIds({
-                          name: ELocalDBStoreNames.CloudSyncItem,
-                          ids: contested,
-                        });
-                      } catch (error) {
-                        errorUtils.autoPrintErrorIgnore(error);
-                        return undefined;
+          isCurrent: canRetry,
+          softwareCredential,
+        });
+        if (!retry) return;
+        this.walletUploadReadRetry = retry;
+        setTimeout(
+          () => {
+            if (this.walletUploadReadRetry !== retry) return;
+            const drain = async () => {
+              if (this.walletUploadReadRetry !== retry) return;
+              this.walletUploadReadRetry = undefined;
+              if (!canRetry()) return;
+              const controller = new AbortController();
+              const isRetryCurrent = () =>
+                !controller.signal.aborted && canRetry();
+              this.cloudSyncItemAbortControllers.add(controller);
+              if (softwareCredential) this.softwareWalletRetryActive = true;
+              try {
+                await resolveBeforeTimeout(
+                  (async () => {
+                    const expected = new Map<
+                      string,
+                      IWalletUploadRetryVersion
+                    >();
+                    const contested: string[] = [];
+                    for (const [id, versions] of retry.items) {
+                      if (versions?.length === 1) expected.set(id, versions[0]);
+                      else if (versions) contested.push(id);
+                    }
+                    // A corrected clock may persist a later edit at a lower
+                    // timestamp. Only the exact stored candidate wins, never
+                    // the greater timestamp or the last arrival.
+                    if (contested.length) {
+                      const contestedRead = await resolveBeforeTimeout(
+                        (async () => {
+                          try {
+                            return await localDb.getRecordsByIds({
+                              name: ELocalDBStoreNames.CloudSyncItem,
+                              ids: contested,
+                            });
+                          } catch (error) {
+                            errorUtils.autoPrintErrorIgnore(error);
+                            return undefined;
+                          }
+                        })(),
+                        250,
+                      );
+                      if (!isRetryCurrent()) return;
+                      for (const row of contestedRead?.records ?? []) {
+                        const exact =
+                          row &&
+                          retry.items
+                            .get(row.id)
+                            ?.find((candidate) =>
+                              retryModule.matchesWalletUploadRetryVersion(
+                                row,
+                                candidate,
+                              ),
+                            );
+                        if (exact) expected.set(exact.id, exact);
                       }
-                    })(),
-                    WALLET_UPLOAD_RETRY_CONTESTED_READ_MS,
-                  );
-                  if (!isRetryCurrent()) return;
-                  for (const row of contestedRead?.records ?? []) {
-                    if (
-                      row &&
-                      retry.items
-                        .get(row.id)
-                        ?.some((candidate) =>
-                          matchesWalletUploadRetryVersion(row, candidate),
-                        )
-                    )
-                      expected.set(row.id, { ...row });
-                  }
-                }
-                if (!expected.size || !isRetryCurrent()) return;
-                return this._callApiUploadItems({
-                  localItems: [...expected.values()],
-                  isFlush: false,
-                  lockItem: undefined,
-                  pwdHash,
-                  setUndefinedTimeToNow: false,
-                  requestOptions: {
-                    signal: controller.signal,
-                    timeout: 10_000,
-                  },
-                  skipLastSyncTime: true,
-                  canUploadHardware: isRetryCurrent,
-                  prepareWalletRetry: async (batch, credential, baseURL) => {
-                    if (baseURL !== origin) return undefined;
-                    return this.prepareWalletUploadReadRetry({
-                      batch,
-                      credential,
-                      expected,
-                      isCurrent: isRetryCurrent,
+                    }
+                    if (!expected.size || !isRetryCurrent()) return;
+                    if (softwareCredential) {
+                      return retryModule.retrySoftwareWalletUpload({
+                        backgroundApi: this.backgroundApi,
+                        expected: [...expected.values()],
+                        credential: softwareCredential,
+                        origin,
+                        signal: controller.signal,
+                        isCurrent: isRetryCurrent,
+                        convert: (item) =>
+                          this.convertLocalItemToServerItem({
+                            localItem: item,
+                            dataTimestamp: item.dataTime,
+                          }),
+                        matchesVersion:
+                          retryModule.matchesWalletUploadRetryVersion,
+                      });
+                    }
+                    return this._callApiUploadItems({
+                      localItems: [...expected.values()],
+                      isFlush: false,
+                      lockItem: undefined,
+                      pwdHash,
+                      setUndefinedTimeToNow: false,
+                      requestOptions: {
+                        signal: controller.signal,
+                        timeout: 10_000,
+                      },
+                      skipLastSyncTime: true,
+                      canUploadHardware: isRetryCurrent,
+                      prepareWalletRetry: async (
+                        batch,
+                        credential,
+                        baseURL,
+                      ) => {
+                        if (baseURL !== origin) return undefined;
+                        return retryModule.prepareWalletUploadReadRetry({
+                          backgroundApi: this.backgroundApi,
+                          filterDivergentPendingWalletNames: (options) =>
+                            this.filterDivergentPendingWalletNames(options),
+                          batch,
+                          credential,
+                          expected,
+                          isCurrent: isRetryCurrent,
+                        });
+                      },
                     });
-                  },
-                });
-              })(),
-              12_000,
-            );
-          } finally {
-            // A slow optional read must not keep the upload semaphore or
-            // send a later request after the retry window has closed.
-            controller.abort();
-            this.cloudSyncItemAbortControllers.delete(controller);
-          }
-        })
-        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
-    }, 1000);
-  }
-
-  private async prepareWalletUploadReadRetry({
-    batch,
-    credential,
-    expected,
-    isCurrent,
-  }: {
-    batch: ICloudSyncUploadPostData;
-    credential: IKeylessCloudSyncCredential;
-    expected: ReadonlyMap<string, IDBCloudSyncItem>;
-    isCurrent: () => boolean;
-  }) {
-    const keyless = this.backgroundApi.serviceKeylessCloudSync;
-    let verifying = true;
-    const canVerify = () => verifying && isCurrent();
-    const records = await resolveBeforeTimeout(
-      (async () => {
-        if (!canVerify() || !credential.hardwareSession) return [];
-        const selectedSyncCredential =
-          await keyless.getLocalMutationSyncCredential();
-        const selected = selectedSyncCredential?.keylessCredential;
-        if (
-          !canVerify() ||
-          !selected?.hardwareSession ||
-          selected.source?.type !== 'hardware' ||
-          credential.source?.type !== 'hardware' ||
-          selected.keylessWalletId !== credential.keylessWalletId ||
-          selected.source?.credentialId !== credential.source?.credentialId ||
-          selected.pwdHash !== credential.pwdHash ||
-          selected.pwdHash !== batch.pwdHash ||
-          selected.hardwareSession.dekId !== credential.hardwareSession.dekId ||
-          selected.hardwareSession.sessionId !==
-            credential.hardwareSession.sessionId ||
-          selected.encryptionKey !== credential.encryptionKey
-        )
-          return [];
-
-        const matchesPendingRow = (
-          row: IDBCloudSyncItem | null | undefined,
-        ): row is IDBCloudSyncItem => {
-          if (!row) return false;
-          const previous = expected.get(row.id);
-          return (
-            !!previous &&
-            row.dataType === EPrimeCloudSyncDataType.Wallet &&
-            row.dataType === previous.dataType &&
-            row.pwdHash === batch.pwdHash &&
-            row.pwdHash === previous.pwdHash &&
-            !!row.data &&
-            row.data === previous.data &&
-            row.dataTime === previous.dataTime &&
-            row.rawKey === previous.rawKey &&
-            row.rawData === previous.rawData &&
-            row.localSceneUpdated === previous.localSceneUpdated &&
-            !row.serverUploaded &&
-            !row.isDeleted &&
-            !row.pendingPublicAccountDeletionAt &&
-            !row.pendingPublicAccountDeletionHash
-          );
-        };
-        const { records: initial } = await localDb.getRecordsByIds({
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: batch.localData.map(({ key }) => key),
-        });
-        if (!canVerify()) return [];
-        const authority = new Map<
-          string,
-          { wallet: IDBWallet; device?: IDBDevice }
-        >();
-        const verified = await this.filterDivergentPendingWalletNames({
-          items: initial.filter(matchesPendingRow),
-          credential: selectedSyncCredential,
-          expectedPwdHash: batch.pwdHash,
-          isCurrent: canVerify,
-          onVerifiedWallet: (item, wallet, device) =>
-            authority.set(item.id, { wallet, device }),
-        });
-        const itemIds = verified
-          .filter(({ id }) => authority.has(id))
-          .map(({ id }) => id);
-        if (!itemIds.length || !canVerify()) return [];
-        const proofs = itemIds.flatMap((id) => {
-          const proof = authority.get(id);
-          return proof ? [proof] : [];
-        });
-        const { wallets, devices, items } =
-          await localDb.readWalletNameUploadRetrySources({
-            walletIds: Array.from(
-              new Set(proofs.map(({ wallet }) => wallet.id)),
-            ),
-            deviceIds: Array.from(
-              new Set(
-                proofs.flatMap(({ device }) => (device ? [device.id] : [])),
-              ),
-            ),
-            itemIds,
-          });
-        const walletsById = new Map(
-          wallets.map((wallet) => [wallet?.id, wallet]),
+                  })(),
+                  12_000,
+                );
+              } finally {
+                // A slow optional read must not keep the upload semaphore or
+                // send a later request after the retry window has closed.
+                controller.abort();
+                this.cloudSyncItemAbortControllers.delete(controller);
+                if (softwareCredential) this.softwareWalletRetryActive = false;
+              }
+            };
+            // The isolated browser compare/upload must not hold the normal batch
+            // semaphore during network I/O.
+            const task = softwareCredential
+              ? drain()
+              : this.uploadItemsMutex.runExclusive(drain);
+            void task.catch((error) => errorUtils.autoPrintErrorIgnore(error));
+          },
+          Math.max(0, offeredAt + 1000 - Date.now()),
         );
-        const devicesById = new Map(
-          devices.map((device) => [device?.id, device]),
-        );
-        return items.filter(matchesPendingRow).filter((item) => {
-          const proof = authority.get(item.id);
-          if (!proof) return false;
-          const { wallet: old, device } = proof;
-          const wallet = walletsById.get(old.id);
-          const currentDevice = device && devicesById.get(device.id);
-          return (
-            !!wallet &&
-            !wallet.isTemp &&
-            !wallet.isMocked &&
-            wallet.name === old.name &&
-            wallet.avatar === old.avatar &&
-            wallet.firstEvmAddress === old.firstEvmAddress &&
-            wallet.type === old.type &&
-            wallet.hash === old.hash &&
-            wallet.associatedDevice === old.associatedDevice &&
-            wallet.passphraseState === old.passphraseState &&
-            (!device ||
-              (!!currentDevice &&
-                currentDevice.deviceId === device.deviceId &&
-                currentDevice.deviceType === device.deviceType &&
-                // Vendor is derived from the persisted settings.
-                currentDevice.settingsRaw === device.settingsRaw))
-          );
-        });
-      })(),
-      1500,
-    ).finally(() => {
-      verifying = false;
-    });
-    if (!records?.length || !isCurrent()) return undefined;
-    const ids = new Set(records.map(({ id }) => id));
-    const localData = batch.localData.filter(({ key }) => ids.has(key));
-    // The hardware sender evaluates this after all preparation, with no
-    // further await before dispatch. Scope changes never use another lane.
-    return () => {
-      if (!isCurrent())
-        throw new OneKeyLocalError({
-          message: 'Cloud Wallet upload retry cancelled',
-          autoToast: false,
-        });
-      return { ...batch, localData };
-    };
+      })
+      .catch(errorUtils.autoPrintErrorIgnore);
   }
 
   _callApiUploadItemsDebounced = debounce(

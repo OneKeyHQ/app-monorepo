@@ -13,20 +13,29 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/request/axiosInterceptor';
+import { fetchOrigin } from '@onekeyhq/shared/src/request/createFetchInterceptor';
+import { ONEKEY_REQUEST_TOKEN_HEADER } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
+import { createRuntimeNetworkAdapter } from '@onekeyhq/shared/src/travelMode/runtimeNetworkAdapter';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusResult,
   ICloudSyncCredential,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { createLazyServiceProxy } from '../../apis/lazyServiceProxy';
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
+import { SimpleDbEntityPrime } from '../../dbs/simple/entity/SimpleDbEntityPrime';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   devSettingsPersistAtom,
@@ -64,6 +73,13 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
+jest.mock('@onekeyhq/shared/src/request/createFetchInterceptor', () => ({
+  ...jest.requireActual<object>(
+    '@onekeyhq/shared/src/request/createFetchInterceptor',
+  ),
+  fetchOrigin: jest.fn(),
+}));
+
 jest.mock('@onekeyhq/shared/src/request/Interceptor', () => ({
   ...jest.requireActual<object>('@onekeyhq/shared/src/request/Interceptor'),
   getRequestHeaders: async () => ({}),
@@ -84,6 +100,7 @@ jest.mock('../../states/jotai/atoms', () => ({
   primeCloudSyncPersistAtom: {
     get: jest.fn(),
     set: jest.fn(),
+    sub: jest.fn(() => jest.fn()),
   },
   addressBookPersistAtom: {},
   devSettingsPersistAtom: {
@@ -91,7 +108,7 @@ jest.mock('../../states/jotai/atoms', () => ({
     sub: jest.fn(() => jest.fn()),
   },
   primeMasterPasswordPersistAtom: {},
-  primePersistAtom: {},
+  primePersistAtom: { sub: jest.fn(() => jest.fn()) },
 }));
 
 jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerAccount', () => ({
@@ -483,6 +500,312 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
   });
+
+  test.each([
+    'exact',
+    'scope-switched',
+    'updated-row',
+    'new-local-name-at-dispatch',
+    'conflicting-server-result',
+    'unsupported-route',
+    'unverified-check-response',
+    'ordinary-batch-independent',
+    'stale-ciphertext-address-at-commit',
+    'row-changed-before-check-dispatch',
+    'different-auth-token-between-requests',
+    'different-auth-generation-between-requests',
+    'auth-slot-changed-in-final-wallet-transaction',
+    'cold-retry-import-past-deadline',
+  ] as const)(
+    'compares and independently dispatches only committed Software Wallet versions (%s)',
+    async (scenario) => {
+      jest.replaceProperty(
+        platformEnv,
+        'isWeb',
+        scenario !== 'unsupported-route',
+      );
+      jest.replaceProperty(platformEnv, 'isExtension', false);
+      jest.replaceProperty(platformEnv, 'isNative', false);
+      jest.replaceProperty(platformEnv, 'isDesktop', false);
+      const wallet: IDBWallet = {
+        id: 'hd-software-retry-wallet',
+        type: 'hd',
+        name: 'Locally committed name',
+        hash: 'fixture-identity',
+        firstEvmAddress: `0x${'1'.repeat(40)}`,
+        accounts: [],
+        nextIds: {},
+        backuped: true,
+        walletNo: 5,
+      };
+      const credential = {
+        keylessWalletId: 'synthetic-keyless-wallet',
+        signingPublicKey: 'synthetic-signing-public',
+        signingPrivateKey: 'unused-synthetic-private',
+        encryptionKey: 'a1'.repeat(32),
+        pwdHash: 'synthetic-software-pwdhash',
+      };
+      const walletKey = cloudSyncItemBuilder.buildWalletSyncKey({
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        wallet: { ...wallet, avatarInfo: undefined },
+        accountIndex: undefined,
+      });
+      if (!walletKey) throw new OneKeyLocalError('Missing fixture Wallet key');
+      const data = await keylessCloudSyncUtils.encryptWithKeylessKey({
+        encryptionKey: credential.encryptionKey,
+        itemId: walletKey.key,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawData: stringUtils.stableStringify({
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          rawKey: walletKey.rawKey,
+          payload: {
+            walletType: wallet.type,
+            walletHash: wallet.hash,
+            passphraseState: '',
+            name: wallet.name,
+            firstEvmAddress:
+              scenario === 'stale-ciphertext-address-at-commit'
+                ? `0x${'2'.repeat(40)}`
+                : wallet.firstEvmAddress,
+          },
+        }),
+      });
+      const row: IDBCloudSyncItem = {
+        id: walletKey.key,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawKey: walletKey.rawKey,
+        rawData: '',
+        data,
+        dataTime: 1000,
+        pwdHash: credential.pwdHash,
+        localSceneUpdated: true,
+        serverUploaded: false,
+        isDeleted: false,
+      };
+      const h = harness(0, { initialPool: new Map([[row.id, row]]) });
+      const origin = endpointsMap.prod.prime;
+      const { serviceKeylessCloudSync } = h.service.backgroundApi;
+      Object.assign(h.service, {
+        getClientEndpointInfo: async () => ({
+          endpoint: origin,
+          name: EServiceEndpointEnum.Prime,
+        }),
+      });
+      h.readLocalCredential.mockResolvedValue({
+        keylessCredential: credential,
+        masterPasswordUUID: credential.pwdHash,
+        primeAccountSalt: 'synthetic-salt',
+        securityPasswordR1: 'synthetic-unused',
+      });
+      serviceKeylessCloudSync.getKeylessCloudSyncCredentialCacheSync = () =>
+        credential;
+      const signed = jest.fn();
+      serviceKeylessCloudSync.getKeylessSyncAuth = async ({ postData }) => {
+        signed(postData);
+        return {
+          signatureHeader: 'signed-by-fixture',
+          publicKey: credential.signingPublicKey,
+          pwdHash: credential.pwdHash,
+          fullPostData: { ...postData, pwdHash: credential.pwdHash },
+        };
+      };
+      let currentWallet = wallet;
+      const prime = new SimpleDbEntityPrime();
+      Object.assign(prime, {
+        appStorage: {
+          getItem: jest.fn(async () => null),
+          setItem: jest.fn(async () => undefined),
+        },
+      });
+      const changeAuthState = () =>
+        prime.setAuthSessionSourceWithCommitId({
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          sessionCommitId: 'test-later-commit',
+        });
+      Object.assign(h.service.backgroundApi, {
+        simpleDb: {
+          prime: createLazyServiceProxy({
+            serviceName: 'fixture.SimpleDb.prime',
+            loader: async () => prime,
+          }),
+        },
+      });
+      let signingUpload = false;
+      let switchedInsideWalletRead = false;
+      jest
+        .spyOn(localDb, 'readWalletNameUploadRetrySources')
+        .mockImplementation(async ({ itemIds }) => {
+          if (
+            signingUpload &&
+            scenario === 'auth-slot-changed-in-final-wallet-transaction'
+          ) {
+            switchedInsideWalletRead = true;
+            await changeAuthState();
+          }
+          return {
+            items: itemIds.map((id) => h.pool.get(id)),
+            wallets: [currentWallet],
+            devices: [],
+          };
+        });
+      const sent = jest.fn();
+      const holdingReply = deferred<void>();
+      const ordinaryTransport = jest.fn(async () => {
+        throw new OneKeyLocalError(
+          'A guarded retry cannot use the ordinary transport',
+        );
+      });
+      const client = axios.create({
+        baseURL: origin,
+        adapter: createRuntimeNetworkAdapter(ordinaryTransport, true),
+      });
+      // Actual production Axios adapter and its final Fetch policy; only the
+      // terminal browser primitive is synthetic.
+      jest.mocked(fetchOrigin).mockImplementation(async (input, init) => {
+        expect(input).toBeInstanceOf(Request);
+        expect(init?.redirect).toBe('error');
+        const request = input as Request;
+        const url = new URL(request.url);
+        const upload = url.pathname === '/prime/v1/sync/upload';
+        sent(url.pathname, await request.json());
+        if (!upload && scenario === 'ordinary-batch-independent')
+          await holdingReply.promise;
+        if (!upload && scenario === 'scope-switched') h.changeSource();
+        if (
+          !upload &&
+          scenario === 'different-auth-generation-between-requests'
+        )
+          await changeAuthState();
+        if (!upload && scenario === 'updated-row')
+          h.pool.set(row.id, { ...row, data: 'newer-local-row' });
+        const response = new Response(
+          JSON.stringify({
+            code: 0,
+            data: upload
+              ? { created: 1, updated: 0, nonce: 0 }
+              : reply({
+                  reconciliation: undefined,
+                  pwdHash: credential.pwdHash,
+                  obsoleted: [row.id, 'unrequested-account'],
+                  deleted:
+                    scenario === 'conflicting-server-result' ? [row.id] : [],
+                }),
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+        Object.defineProperty(response, 'url', {
+          value:
+            scenario === 'unverified-check-response'
+              ? `${endpointsMap.test.prime}${url.pathname}`
+              : request.url,
+        });
+        jest.spyOn(response, 'clone').mockReturnValue(response);
+        return response;
+      });
+      client.interceptors.request.use((config) => {
+        signingUpload = config.url === '/prime/v1/sync/upload';
+        if (scenario === 'different-auth-token-between-requests') {
+          config.headers.set(
+            ONEKEY_REQUEST_TOKEN_HEADER,
+            config.url === '/prime/v1/sync/upload'
+              ? 'synthetic-b'
+              : 'synthetic-a',
+          );
+        }
+        if (
+          scenario === 'row-changed-before-check-dispatch' &&
+          config.url === '/prime/v1/sync/check'
+        ) {
+          h.pool.set(row.id, { ...row, data: 'replacement-after-sign' });
+        }
+        if (
+          scenario === 'new-local-name-at-dispatch' &&
+          config.url === '/prime/v1/sync/upload'
+        )
+          currentWallet = { ...wallet, name: 'Newer unbound local name' };
+        return config;
+      });
+      Object.assign(h.service.backgroundApi, {
+        servicePrime: {
+          getPrimeClient: async () => client,
+          authStateWriteMutex: new Semaphore(1),
+        },
+      });
+      const stalledModule = deferred<typeof import('./incrementalCloudSync')>();
+      const loadRetry = jest.fn(() => stalledModule.promise);
+      if (scenario === 'cold-retry-import-past-deadline')
+        Object.assign(h.service, { loadWalletUploadRetryModule: loadRetry });
+      const enqueue = h.service.captureWalletUploadReadRetry(credential);
+      if (scenario === 'unsupported-route') expect(enqueue).toBeUndefined();
+      else expect(enqueue).toBeDefined();
+      enqueue?.(
+        row,
+        new OneKeyLocalError('Transient test storage read'),
+        wallet,
+      );
+      if (scenario === 'cold-retry-import-past-deadline') {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(loadRetry).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(31_000);
+        stalledModule.resolve(await import('./incrementalCloudSync'));
+      }
+      await jest.advanceTimersByTimeAsync(1000);
+      if (scenario === 'ordinary-batch-independent') {
+        expect(sent).toHaveBeenCalledTimes(1);
+        expect(h.service['uploadItemsMutex'].isLocked()).toBe(false);
+        // An overlapping offer must not launch a second guarded compare.
+        enqueue?.(row, new OneKeyLocalError('Duplicate retry fixture'), wallet);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(sent).toHaveBeenCalledTimes(1);
+        holdingReply.resolve();
+        await jest.advanceTimersByTimeAsync(0);
+      }
+      const noCheck =
+        scenario === 'unsupported-route' ||
+        scenario === 'cold-retry-import-past-deadline' ||
+        scenario === 'row-changed-before-check-dispatch' ||
+        scenario === 'stale-ciphertext-address-at-commit';
+      if (noCheck) {
+        expect(sent).not.toHaveBeenCalled();
+      } else {
+        expect(sent).toHaveBeenNthCalledWith(
+          1,
+          '/prime/v1/sync/check',
+          expect.objectContaining({
+            localData: [
+              {
+                key: row.id,
+                dataTimestamp: row.dataTime,
+                dataType: row.dataType,
+              },
+            ],
+          }),
+        );
+      }
+      if (scenario === 'exact' || scenario === 'ordinary-batch-independent') {
+        expect(sent).toHaveBeenCalledTimes(2);
+        expect(sent).toHaveBeenNthCalledWith(
+          2,
+          '/prime/v1/sync/upload',
+          expect.objectContaining({
+            localData: [
+              expect.objectContaining({ key: row.id, data: row.data }),
+            ],
+          }),
+        );
+        expect(signed).toHaveBeenCalledTimes(2);
+      } else if (!noCheck) {
+        expect(sent).toHaveBeenCalledTimes(1);
+      }
+      if (scenario === 'auth-slot-changed-in-final-wallet-transaction') {
+        expect(switchedInsideWalletRead).toBe(true);
+        expect(await prime.getAuthStateGeneration()).toBe(1);
+      }
+      expect(ordinaryTransport).not.toHaveBeenCalled();
+      expect(h.pool.get(row.id)?.serverUploaded).toBe(false);
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+    },
+  );
 
   test.each([
     { forceSync: true },

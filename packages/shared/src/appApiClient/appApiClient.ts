@@ -95,6 +95,7 @@ const getBasicClient = async ({
 
   const transportAdapter = createRuntimeNetworkAdapter(
     ipTableAdapter ?? axios.getAdapter(axios.defaults.adapter),
+    name === EServiceEndpointEnum.Prime && !ipTableAdapter,
   );
 
   const options = {

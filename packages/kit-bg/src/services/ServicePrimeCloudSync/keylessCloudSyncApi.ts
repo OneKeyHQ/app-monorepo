@@ -2,6 +2,7 @@
 
 import { KEYLESS_SYNC_SIGNATURE_HEADER } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IGuardedWalletRequest } from '@onekeyhq/shared/src/request/guardedWalletRequest';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
   ICloudSyncCheckServerStatusPostData,
@@ -13,6 +14,12 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import type { AxiosInstance, AxiosResponse } from 'axios';
+
+type IKeylessSyncRequestOptions = {
+  signal?: AbortSignal;
+  timeout?: number;
+  $oneKeyGuardedWalletRequest?: IGuardedWalletRequest;
+};
 
 class KeylessCloudSyncApi {
   private async postToServer<T>({
@@ -26,7 +33,7 @@ class KeylessCloudSyncApi {
     url: string;
     signatureHeader: string;
     postData: unknown;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<T>, any>> {
     try {
       const response = await client.post<IApiClientResponse<T>>(url, postData, {
@@ -64,7 +71,7 @@ class KeylessCloudSyncApi {
     urlPath: string;
     signatureHeader: string;
     postData: ICloudSyncUploadPostData;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<ICloudSyncUploadResult>, any>> {
     return this.postToServer<ICloudSyncUploadResult>({
       client: params.client,
@@ -79,7 +86,7 @@ class KeylessCloudSyncApi {
     client: AxiosInstance;
     signatureHeader: string;
     postData: ICloudSyncCheckServerStatusPostData;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<
     AxiosResponse<IApiClientResponse<ICloudSyncCheckServerStatusResult>, any>
   > {

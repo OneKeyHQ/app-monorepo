@@ -289,10 +289,14 @@ it.each([
   'same-key-fractional-time',
   'verification-read-unavailable',
   'hardware-verification-read-unavailable',
+  'hardware-verification-read-unavailable-stale',
   'hardware-verification-read-timeout',
   'hardware-verification-row-deleted',
   'hardware-verification-row-replaced',
+  'hardware-local-error',
   'verification-read-delayed',
+  'software-healthy-read',
+  'software-failed-read',
   'missing-row',
   'local-error',
 ] as const)(
@@ -326,10 +330,16 @@ it.each([
     if (scenario === 'different-key' || scenario === 'retained-off')
       pwdHash = 'hw-dek-different-fixture';
     let dataTime = 3000;
-    if (scenario === 'stale-same-key') dataTime = 1000;
+    if (
+      scenario === 'stale-same-key' ||
+      scenario === 'hardware-verification-read-unavailable-stale'
+    )
+      dataTime = 1000;
     if (scenario === 'same-key-fractional-time') dataTime = 3000.5;
     const candidate: IDBCloudSyncItem = {
       ...original,
+      // The adapter keeps the registered raw key on updates.
+      rawKey: 'candidate raw key',
       pwdHash,
       data:
         scenario === 'without-key' || scenario === 'same-key-without-data'
@@ -356,9 +366,14 @@ it.each([
     );
     const before = await db.getSyncItemSafe({ id: original.id });
     const isHardwareRetryFixture = scenario.startsWith('hardware-');
+    const isSoftwareRetryFixture = scenario.startsWith('software-');
     const schedule = jest.fn();
     const captureWalletUploadReadRetry = jest.fn(() => schedule);
     const hardwareCredential = { hardwareSession: {}, pwdHash };
+    const softwareCredential = {
+      signingPublicKey: 'synthetic-public-key',
+      pwdHash,
+    };
     const uploaded = Promise.withResolvers<void>();
     const apiUploadItems = jest.fn(async () => uploaded.resolve());
     const buildSyncItemByDBQuery = jest.fn(async () => candidate);
@@ -376,24 +391,30 @@ it.each([
         captureWalletUploadReadRetry,
         syncManagers: {
           wallet: {
-            getSyncCredential: jest.fn(async () =>
-              isHardwareRetryFixture
-                ? { keylessCredential: hardwareCredential }
-                : undefined,
-            ),
+            getSyncCredential: jest.fn(async () => {
+              if (isHardwareRetryFixture)
+                return { keylessCredential: hardwareCredential };
+              if (isSoftwareRetryFixture)
+                return { keylessCredential: softwareCredential };
+              return undefined;
+            }),
             buildSyncItemByDBQuery,
           },
         },
       },
     } as unknown as IBackgroundApi);
-    if (scenario === 'local-error') {
+    const localError = scenario.endsWith('local-error');
+    if (localError) {
       jest
         .spyOn(db, 'txUpdateWallet')
         .mockRejectedValueOnce(
           new OneKeyLocalError('Synthetic real wallet write error'),
         );
     }
-    if (scenario === 'verification-read-unavailable') {
+    if (
+      scenario === 'verification-read-unavailable' ||
+      scenario === 'software-failed-read'
+    ) {
       jest
         .spyOn(db, 'getSyncItem')
         .mockRejectedValueOnce(
@@ -415,7 +436,7 @@ it.each([
             settledHardwareRead.resolve();
             return record;
           }
-          if (scenario === 'hardware-verification-read-unavailable')
+          if (scenario.startsWith('hardware-verification-read-unavailable'))
             throw new OneKeyLocalError('Synthetic pool read error');
           if (scenario === 'hardware-verification-row-deleted')
             return undefined;
@@ -440,7 +461,7 @@ it.each([
       avatar: { img: 'bear' },
       allowDesktopLocalMetadata: true,
     });
-    if (scenario === 'local-error') {
+    if (localError) {
       await expect(rename).rejects.toThrow('Synthetic real wallet write error');
     } else {
       await expect(rename).resolves.toMatchObject({
@@ -453,7 +474,7 @@ it.each([
         withoutRefill: true,
       }),
     ).resolves.toMatchObject({
-      name: scenario === 'local-error' ? wallet.name : `New local ${scenario}`,
+      name: localError ? wallet.name : `New local ${scenario}`,
     });
     if (isHardwareRetryFixture) {
       expect(captureWalletUploadReadRetry).toHaveBeenCalledWith(
@@ -461,7 +482,7 @@ it.each([
       );
       if (scenario === 'hardware-verification-read-unavailable')
         expect(schedule).toHaveBeenCalledWith(
-          candidate,
+          { ...candidate, rawKey: original.rawKey },
           expect.any(OneKeyLocalError),
         );
       else if (blockedHardwareRead) {
@@ -473,18 +494,29 @@ it.each([
         await settledHardwareRead.promise;
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         expect(schedule).toHaveBeenCalledTimes(1);
-        expect(schedule).toHaveBeenCalledWith(candidate, undefined);
+        expect(schedule).toHaveBeenCalledWith(
+          { ...candidate, rawKey: original.rawKey },
+          undefined,
+        );
       } else expect(schedule).not.toHaveBeenCalled();
       expect(apiUploadItems).not.toHaveBeenCalled();
       // An independent handle still sees the committed business and pool rows.
       await expect(
         new LocalDbIndexed().getSyncItem({ id: candidate.id }),
-      ).resolves.toMatchObject({ data: candidate.data, serverUploaded: false });
+      ).resolves.toMatchObject({
+        data:
+          localError ||
+          scenario === 'hardware-verification-read-unavailable-stale'
+            ? original.data
+            : candidate.data,
+        serverUploaded: false,
+      });
     } else if (
       scenario === 'same-key' ||
       scenario === 'same-key-fractional-time' ||
       scenario === 'verification-read-unavailable' ||
       scenario === 'verification-read-delayed' ||
+      isSoftwareRetryFixture ||
       scenario === 'missing-row'
     ) {
       const accepted = await db.getSyncItem({ id: original.id });
@@ -493,7 +525,10 @@ it.each([
         pwdHash: original.pwdHash,
         dataTime: Math.floor(candidate.dataTime ?? 0),
       });
-      if (scenario === 'verification-read-unavailable') {
+      if (
+        scenario === 'verification-read-unavailable' ||
+        scenario === 'software-failed-read'
+      ) {
         expect(apiUploadItems).not.toHaveBeenCalled();
       } else {
         if (delayedRead) {
@@ -505,6 +540,7 @@ it.each([
         }
         expect(apiUploadItems).toHaveBeenCalledTimes(1);
         expect(apiUploadItems).toHaveBeenCalledWith({ localItems: [accepted] });
+        expect(schedule).not.toHaveBeenCalled();
       }
     } else {
       await expect(db.getSyncItem({ id: original.id })).resolves.toEqual(
