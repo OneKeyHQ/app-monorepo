@@ -242,15 +242,15 @@ export const TradingViewNativeChart = memo(
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
-    // single chart's tools, and in a split view also the share of the tools
-    // column that collapsing would give the chart. Revealing candles then
-    // never rescales the plot.
+    // single chart's tools, and in a split view also the width that
+    // collapsing the tools column would give the chart. Revealing candles
+    // then never rescales the plot.
     const getReferenceLeft = useCallback(
       (fallbackLeft: number) => {
         const root = drawingRootRef.current;
         if (!root) return fallbackLeft;
         const rect = root.getBoundingClientRect();
-        return rect.left - (getDrawingToolsCollapseGain?.(rect.width) ?? 0);
+        return rect.left - (getDrawingToolsCollapseGain?.() ?? 0);
       },
       [getDrawingToolsCollapseGain],
     );

@@ -38,6 +38,11 @@ type IPendingChartLineAction = {
   originalPrice: number;
   price?: number;
   scope: IChartLineActionScope;
+  /**
+   * The request went through and the order stream has yet to show its price.
+   * Until then the request alone holds the line.
+   */
+  isAwaitingSync?: boolean;
 };
 
 function isSameScope(a: IChartLineActionScope, b: IChartLineActionScope) {
@@ -156,16 +161,18 @@ export function usePerpsChartLineActions({
   useEffect(() => {
     for (const [id, action] of Object.entries(pendingActions)) {
       if (
+        // A request on its way keeps its line until it settles.
+        action.isAwaitingSync &&
         isSameScope(action.scope, scope) &&
-        pending[id] !== action &&
-        // The order stream caught up. A chart that is not trading may not
-        // have every line of its token yet, so a line it lacks tells nothing.
-        (canInteract || linePrices.has(id))
+        // The order stream caught up: the line shows another price. A chart
+        // without the line tells nothing, e.g. one with its lines hidden.
+        linePrices.has(id) &&
+        linePrices.get(id) !== action.originalPrice
       ) {
         setPendingChartLineAction(id, action, undefined);
       }
     }
-  }, [canInteract, linePrices, pending, pendingActions, scope]);
+  }, [linePrices, pendingActions, scope]);
 
   const onReferenceLineAction = useCallback(
     async (action: ITradingViewNativeReferenceLineAction) => {
@@ -238,7 +245,7 @@ export function usePerpsChartLineActions({
           });
           // Keep a new token until the order stream catches up; finally only
           // clears the submission token, never this preview or a newer action.
-          const awaitingSync = { ...pendingAction };
+          const awaitingSync = { ...pendingAction, isAwaitingSync: true };
           if (
             setPendingChartLineAction(action.id, pendingAction, awaitingSync)
           ) {

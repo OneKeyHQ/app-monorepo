@@ -757,44 +757,6 @@ export function TradingViewNativeMultiChart({
     },
     [],
   );
-  // Collapsing the column widens every panel by its share of the column.
-  const getDrawingToolsCollapseGain = useCallback(
-    (width: number) => {
-      const row = drawingToolsColumn?.parentElement;
-      if (!drawingToolsColumn || !row) return 0;
-      const columnWidth = drawingToolsColumn.offsetWidth;
-      const gridWidth = row.offsetWidth - columnWidth;
-      return gridWidth > 0 ? (width * columnWidth) / gridWidth : 0;
-    },
-    [drawingToolsColumn],
-  );
-  const [activeControlsSlot, inactiveControlsSlot] = useMemo<
-    [
-      ITradingViewNativeMultiChartControlsSlot,
-      ITradingViewNativeMultiChartControlsSlot,
-    ]
-  >(() => {
-    const drawingTools = {
-      container: null,
-      isCollapsed: isDrawingToolsCollapsed,
-      onCollapsedChange: handleDrawingToolsCollapsedChange,
-      getCollapseGain: getDrawingToolsCollapseGain,
-    };
-    return [
-      {
-        renderControls: (controls) =>
-          controlsBar ? createPortal(controls, controlsBar) : null,
-        drawingTools: { ...drawingTools, container: drawingToolsColumn },
-      },
-      { renderControls: () => null, drawingTools },
-    ];
-  }, [
-    controlsBar,
-    drawingToolsColumn,
-    getDrawingToolsCollapseGain,
-    handleDrawingToolsCollapsedChange,
-    isDrawingToolsCollapsed,
-  ]);
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
   const handleGridLayout = useCallback((event: LayoutChangeEvent) => {
@@ -813,15 +775,68 @@ export function TradingViewNativeMultiChart({
       setDraft(null);
     }
   }, [draft, storedLayout]);
-  const sizes =
+  // The track sizes of a grid `width` wide: the released ones until they are
+  // saved, or else the saved ones kept above the minimum panel size.
+  const getSizes = (width: number) =>
     draft?.preset === preset
       ? draft.sizes
       : getTradingViewNativeMultiChartSizes({
-          availableSize: gridSize,
+          availableSize: { width, height: gridSize.height },
           layout,
         });
+  const sizes = getSizes(gridSize.width);
   const latest = useRef({ preset, sizes, gridSize, storedLayout });
   latest.current = { preset, sizes, gridSize, storedLayout };
+  const getPanelWidth = (index: number, width: number) =>
+    (getTradingViewNativeMultiChartRects(preset, getSizes(width))[index]
+      ?.width ?? 0) * width;
+  const latestGetPanelWidth = useRef(getPanelWidth);
+  latestGetPanelWidth.current = getPanelWidth;
+  // Collapsing the column widens the grid, and a panel by what its tracks
+  // take of that: nothing while they are held at the minimum panel width.
+  const getDrawingToolsCollapseGain = useCallback(
+    (index: number) => {
+      const row = drawingToolsColumn?.parentElement;
+      if (!drawingToolsColumn || !row) return 0;
+      const columnWidth = drawingToolsColumn.offsetWidth;
+      const gridWidth = row.offsetWidth - columnWidth;
+      if (columnWidth <= 0 || gridWidth <= 0) return 0;
+      const getWidth = latestGetPanelWidth.current;
+      return Math.max(
+        0,
+        getWidth(index, gridWidth + columnWidth) - getWidth(index, gridWidth),
+      );
+    },
+    [drawingToolsColumn],
+  );
+  // Each panel's slot while it is selected and while it is not, so a
+  // selection gives a new one only to the two panels it moves between.
+  const controlsSlots = useMemo(() => {
+    const createSlot = (
+      index: number,
+      isActive: boolean,
+    ): ITradingViewNativeMultiChartControlsSlot => ({
+      renderControls: (controls) =>
+        isActive && controlsBar ? createPortal(controls, controlsBar) : null,
+      drawingTools: {
+        container: isActive ? drawingToolsColumn : null,
+        isCollapsed: isDrawingToolsCollapsed,
+        onCollapsedChange: handleDrawingToolsCollapsedChange,
+        getCollapseGain: () => getDrawingToolsCollapseGain(index),
+      },
+    });
+    return panelIds.map((_, index) => ({
+      active: createSlot(index, true),
+      inactive: createSlot(index, false),
+    }));
+  }, [
+    controlsBar,
+    drawingToolsColumn,
+    getDrawingToolsCollapseGain,
+    handleDrawingToolsCollapsedChange,
+    isDrawingToolsCollapsed,
+    panelIds,
+  ]);
   const activeResize = useRef<{
     axis: ITradingViewNativeMultiChartAxis;
     index: number;
@@ -985,7 +1000,9 @@ export function TradingViewNativeMultiChart({
                   }
                 >
                   <TradingViewNativeMultiChartControlsContext.Provider
-                    value={isActive ? activeControlsSlot : inactiveControlsSlot}
+                    value={
+                      controlsSlots[index][isActive ? 'active' : 'inactive']
+                    }
                   >
                     {source ? (
                       <Panel

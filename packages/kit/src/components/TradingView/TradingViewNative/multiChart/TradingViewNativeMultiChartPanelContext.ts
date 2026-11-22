@@ -26,11 +26,12 @@ export interface ITradingViewNativeMultiChartDrawingTools {
   isCollapsed: boolean;
   onCollapsedChange: (isCollapsed: boolean) => void;
   /**
-   * The width a chart `width` wide gains when the column collapses: its share
-   * of the column. Its price scale counts it in, as a single chart counts its
+   * The width the panel's chart gains when the column collapses: what its
+   * tracks take of the column, and nothing while they are held at the minimum
+   * panel width. Its price scale counts it in, as a single chart counts its
    * own tools in, so the candles that collapsing reveals never rescale it.
    */
-  getCollapseGain: (width: number) => number;
+  getCollapseGain: () => number;
 }
 
 export interface ITradingViewNativeMultiChartControlsSlot {

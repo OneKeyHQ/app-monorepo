@@ -182,11 +182,6 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return;
       }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
-      // The order book target belongs to the switch that took the market,
-      // e.g. on another extension tab, not to the token this page went back to.
-      if (actions.current.hasLostMarketToOtherPage()) {
-        return;
-      }
       const _activeInstrument = activeTradeInstrumentRef.current;
       const effectiveOrderBookTickOptions =
         getPerpsOrderBookTickOptionsWithCache(_orderBookTickOptions);
@@ -203,7 +198,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return { nSigFigs: nSigFigs ?? null, mantissa: mantissa ?? null };
       })();
 
-      const next: IPerpsActiveOrderBookOptionsAtom = {
+      const next: NonNullable<IPerpsActiveOrderBookOptionsAtom> = {
         coin: _activeInstrument?.coin,
         assetId: _activeInstrument?.assetId,
         ...l2SubscriptionOptions,
@@ -211,9 +206,10 @@ function useSyncContextOrderBookOptionsToGlobal() {
       if (isEqual(prev, next)) {
         return;
       }
-      await perpsActiveOrderBookOptionsAtom.set(
-        (): IPerpsActiveOrderBookOptionsAtom => next,
-      );
+      // Through the service, which takes it only from the page that holds
+      // the market: the target of a page another one took it from, e.g. an
+      // extension tab, would stop that page's subscriptions.
+      await actions.current.publishOrderBookOptions(next);
     },
     [actions],
   );

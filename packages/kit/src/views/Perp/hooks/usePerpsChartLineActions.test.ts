@@ -192,3 +192,106 @@ it('leaves a chart of another token out of it', async () => {
   });
   expect(trading.result.current.pending[id]).toBeUndefined();
 });
+
+it('keeps an order locked while its chart lines are hidden', async () => {
+  const line = createOrderLine('100');
+  let finishAmend: () => void = () => {};
+  mockAmendChartOrder.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishAmend = resolve;
+      }),
+  );
+  const chart = renderChart([line], true);
+  const id = chart.result.current.getLineId(line);
+  const amend = (price: number) =>
+    chart.result.current.onReferenceLineAction({
+      id,
+      type: 'priceChange',
+      originalPrice: 100,
+      price,
+    });
+  // Chart lines turned off and on again in the settings.
+  const hideAndShowLines = () => {
+    chart.rerender({ lines: [], enabled: true });
+    chart.rerender({ lines: [line], enabled: true });
+  };
+
+  let request: Promise<void> = Promise.resolve();
+  await act(async () => {
+    request = amend(110);
+  });
+
+  // No line says the order changed, so the request on its way keeps it.
+  hideAndShowLines();
+  expect(chart.result.current.pending[id]).toMatchObject({ price: 110 });
+  await act(async () => {
+    await amend(120);
+  });
+  expect(mockAmendChartOrder).toHaveBeenCalledTimes(1);
+
+  // And so does the change the order stream has yet to show.
+  await act(async () => {
+    finishAmend();
+    await request;
+  });
+  hideAndShowLines();
+  expect(chart.result.current.pending[id]).toMatchObject({ price: 110 });
+  await act(async () => {
+    await amend(120);
+  });
+  expect(mockAmendChartOrder).toHaveBeenCalledTimes(1);
+
+  // The order's own line lets it go.
+  chart.rerender({ lines: [{ ...line, price: '110' }], enabled: true });
+  expect(chart.result.current.pending[id]).toBeUndefined();
+});
+
+it('holds an order until its request settles though the order stream is ahead', async () => {
+  const line = createOrderLine('100');
+  let finishAmend: () => void = () => {};
+  mockAmendChartOrder.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishAmend = resolve;
+      }),
+  );
+  const chart = renderChart([line], true);
+  const id = chart.result.current.getLineId(line);
+
+  let request: Promise<void> = Promise.resolve();
+  await act(async () => {
+    request = chart.result.current.onReferenceLineAction({
+      id,
+      type: 'priceChange',
+      originalPrice: 100,
+      price: 110,
+    });
+  });
+  // The stream shows the new price before the request answers.
+  const amended = { ...line, price: '110' };
+  chart.rerender({ lines: [amended], enabled: true });
+  expect(chart.result.current.pending[id]).toBeUndefined();
+  const amendAgain = () =>
+    chart.result.current.onReferenceLineAction({
+      id,
+      type: 'priceChange',
+      originalPrice: 110,
+      price: 120,
+    });
+  await act(async () => {
+    await amendAgain();
+  });
+  expect(mockAmendChartOrder).toHaveBeenCalledTimes(1);
+
+  // Once it has, the line is free again.
+  await act(async () => {
+    finishAmend();
+    await request;
+  });
+  mockAmendChartOrder.mockResolvedValueOnce();
+  await act(async () => {
+    await amendAgain();
+  });
+  expect(mockAmendChartOrder).toHaveBeenCalledTimes(2);
+});

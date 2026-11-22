@@ -143,6 +143,7 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   perpsCommonConfigPersistAtom,
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
@@ -214,6 +215,7 @@ import type {
   IPerpsActiveAccountStatusInfoAtom,
   IPerpsActiveAccountSummaryAtom,
   IPerpsActiveAssetCtxAtom,
+  IPerpsActiveOrderBookOptionsAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
   IPerpsDepositNetworksAtom,
@@ -370,7 +372,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
-  private activeAssetChangeRequestId = 0;
+  // Pages keep the id of their latest switch across a restart of this
+  // runtime, e.g. the extension's service worker, so the ids start where none
+  // of theirs can be.
+  private activeAssetChangeRequestId = Date.now();
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
@@ -482,6 +487,59 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
     return isCurrent();
+  }
+
+  // Clears the active asset's contexts for a UI switch, which the
+  // subscriptions fill in again, while that switch holds the market: one
+  // begun since on another page, e.g. an extension tab, has its own contexts
+  // in by then. A spot switch gives the context it shows meanwhile. Resolves
+  // to whether the switch still holds the market.
+  @backgroundMethod()
+  async clearActiveAssetCtxForActiveAssetChange(params: {
+    requestId: number;
+    spotAssetCtx?: ISpotActiveAssetCtxAtom;
+  }): Promise<boolean> {
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    if (!isCurrent()) return false;
+    await perpsActiveAssetCtxAtom.set(undefined);
+    if (!isCurrent()) return false;
+    // Also drops a display update still waiting for its turn.
+    schedulePerpsActiveAssetCtxDisplayUpdate({
+      nextValue: undefined,
+      immediate: true,
+    });
+    await perpsActiveAssetDataAtom.set(undefined);
+    if (!isCurrent()) return false;
+    await spotActiveAssetCtxAtom.set(params.spotAssetCtx);
+    return isCurrent();
+  }
+
+  // Sets what the order book subscription is for. The subscriptions stop
+  // while it names another token than the market, so it is taken only from
+  // the switch that holds the market, e.g. for a token still loading, or for
+  // the token the market is on, e.g. as its tick size changes. Any other
+  // comes from a page another one took the market from, e.g. an extension
+  // tab. Resolves to whether it was taken.
+  @backgroundMethod()
+  async setActiveOrderBookOptions(params: {
+    /** The page's latest switch; none for a page that has not switched. */
+    requestId?: number;
+    options: NonNullable<IPerpsActiveOrderBookOptionsAtom>;
+  }): Promise<boolean> {
+    const holdsMarket =
+      params.requestId !== undefined &&
+      this.isActiveAssetChangeCurrent(params.requestId);
+    if (!holdsMarket) {
+      const { mode, spotAsset, perpAsset } =
+        await this.getActiveTradeInstrumentTarget();
+      const marketCoin = mode === 'spot' ? spotAsset?.coin : perpAsset?.coin;
+      if (!marketCoin || marketCoin !== params.options.coin) return false;
+    }
+    const previous = await perpsActiveOrderBookOptionsAtom.get();
+    if (!isEqual(previous, params.options)) {
+      await perpsActiveOrderBookOptionsAtom.set(params.options);
+    }
+    return true;
   }
 
   private beginActivePerpsAccountChange(): number {

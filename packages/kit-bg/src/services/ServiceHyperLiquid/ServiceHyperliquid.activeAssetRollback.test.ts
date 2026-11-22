@@ -3,7 +3,12 @@ import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetCtxDisplayAtom,
+  perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
   tradingModeAtom,
 } from '../../states/jotai/atoms';
 
@@ -11,7 +16,9 @@ import ServiceHyperliquid from './ServiceHyperliquid';
 
 import type {
   IPerpsActiveAssetAtom,
+  IPerpsActiveOrderBookOptionsAtom,
   ISpotActiveAssetAtom,
+  ISpotActiveAssetCtxAtom,
   ITradingMode,
 } from '../../states/jotai/atoms';
 
@@ -65,25 +72,65 @@ function createService(activeAsset: IPerpsActiveAssetAtom) {
   let current = activeAsset;
   let mode: ITradingMode = 'perp';
   let spotAsset: ISpotActiveAssetAtom | undefined;
+  let orderBookOptions: IPerpsActiveOrderBookOptionsAtom;
   jest
     .spyOn(perpsActiveAssetAtom, 'get')
     .mockImplementation(async () => current);
   jest.spyOn(perpsActiveAssetAtom, 'set').mockImplementation(async (next) => {
     current = next as IPerpsActiveAssetAtom;
   });
+  jest.spyOn(tradingModeAtom, 'get').mockImplementation(async () => mode);
   jest.spyOn(tradingModeAtom, 'set').mockImplementation(async (next) => {
     mode = next as ITradingMode;
   });
+  jest
+    .spyOn(spotActiveAssetAtom, 'get')
+    .mockImplementation(async () => spotAsset as ISpotActiveAssetAtom);
   jest.spyOn(spotActiveAssetAtom, 'set').mockImplementation(async (next) => {
     spotAsset = next as ISpotActiveAssetAtom;
   });
+  // What the order book subscription is for.
+  jest
+    .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+    .mockImplementation(async () => orderBookOptions);
+  jest
+    .spyOn(perpsActiveOrderBookOptionsAtom, 'set')
+    .mockImplementation(async (next) => {
+      orderBookOptions = next as IPerpsActiveOrderBookOptionsAtom;
+    });
+  // The active asset's contexts.
+  for (const atom of [
+    perpsActiveAssetCtxAtom,
+    perpsActiveAssetCtxDisplayAtom,
+    perpsActiveAssetDataAtom,
+    spotActiveAssetCtxAtom,
+  ]) {
+    jest.spyOn(atom, 'set').mockResolvedValue(undefined);
+  }
+  // Shown for the asset until its contexts are cleared.
+  jest.spyOn(perpsActiveAssetCtxDisplayAtom, 'get').mockResolvedValue({
+    coin: activeAsset.coin,
+    assetId: activeAsset.assetId,
+  } as unknown as Awaited<
+    ReturnType<typeof perpsActiveAssetCtxDisplayAtom.get>
+  >);
   return {
     service,
     getActiveAsset: () => current,
     getMode: () => mode,
     getSpotAsset: () => spotAsset,
+    getOrderBookCoin: () => orderBookOptions?.coin,
   };
 }
+
+const orderBookOptionsFor = (
+  coin: string,
+): NonNullable<IPerpsActiveOrderBookOptionsAtom> => ({
+  coin,
+  assetId: undefined,
+  nSigFigs: null,
+  mantissa: null,
+});
 
 afterEach(() => jest.restoreAllMocks());
 
@@ -244,4 +291,133 @@ it('stops at the spot token once another page begins a switch', async () => {
     }),
   ).resolves.toBe(false);
   expect(tradingModeAtom.set).not.toHaveBeenCalled();
+});
+
+it('clears the contexts for the switch holding the market, down to the spot context it gives', async () => {
+  const { service } = createService(btc);
+  const spotAssetCtx = {
+    coin: '@107',
+    assetId: 10_107,
+    ctx: { markPrice: '62' },
+  } as ISpotActiveAssetCtxAtom;
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.clearActiveAssetCtxForActiveAssetChange({
+      requestId,
+      spotAssetCtx,
+    }),
+  ).resolves.toBe(true);
+  expect(perpsActiveAssetCtxAtom.set).toHaveBeenCalledWith(undefined);
+  expect(perpsActiveAssetCtxDisplayAtom.set).toHaveBeenCalledWith(undefined);
+  expect(perpsActiveAssetDataAtom.set).toHaveBeenCalledWith(undefined);
+  expect(spotActiveAssetCtxAtom.set).toHaveBeenCalledWith(spotAssetCtx);
+});
+
+it('leaves the contexts to a switch begun since on another page', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  // Another extension tab begins a switch.
+  await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.clearActiveAssetCtxForActiveAssetChange({ requestId }),
+  ).resolves.toBe(false);
+  expect(perpsActiveAssetCtxAtom.set).not.toHaveBeenCalled();
+  expect(perpsActiveAssetCtxDisplayAtom.set).not.toHaveBeenCalled();
+  expect(perpsActiveAssetDataAtom.set).not.toHaveBeenCalled();
+  expect(spotActiveAssetCtxAtom.set).not.toHaveBeenCalled();
+});
+
+it('stops clearing the contexts once another page begins a switch', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  jest.mocked(perpsActiveAssetCtxAtom.set).mockImplementationOnce(async () => {
+    await service.cancelPendingActiveAssetChange();
+  });
+
+  await expect(
+    service.clearActiveAssetCtxForActiveAssetChange({ requestId }),
+  ).resolves.toBe(false);
+  expect(perpsActiveAssetDataAtom.set).not.toHaveBeenCalled();
+  expect(spotActiveAssetCtxAtom.set).not.toHaveBeenCalled();
+});
+
+it('takes the order book target of a token still loading from the switch holding the market', async () => {
+  const { service, getOrderBookCoin } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.setActiveOrderBookOptions({
+      requestId,
+      options: orderBookOptionsFor('ETH'),
+    }),
+  ).resolves.toBe(true);
+  expect(getOrderBookCoin()).toBe('ETH');
+});
+
+it.each([
+  ['a switch another page superseded', true],
+  ['a page that has not switched', false],
+])(
+  'turns down the order book target of another token from %s',
+  async (_label, hasSwitched) => {
+    const { service, getOrderBookCoin } = createService(btc);
+    const requestId = hasSwitched
+      ? await service.cancelPendingActiveAssetChange()
+      : undefined;
+    // Another extension tab begins a switch.
+    await service.cancelPendingActiveAssetChange();
+
+    await expect(
+      service.setActiveOrderBookOptions({
+        requestId,
+        options: orderBookOptionsFor('ETH'),
+      }),
+    ).resolves.toBe(false);
+    expect(getOrderBookCoin()).toBeUndefined();
+    expect(perpsActiveOrderBookOptionsAtom.set).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['perp', 'spot'] as const)(
+  'takes the order book target for the %s token the market is on from any page',
+  async (mode) => {
+    const { service, getOrderBookCoin } = createService(btc);
+    // As after a restart of this runtime, when no page holds a current id,
+    // or for the tick size of the token two tabs show.
+    if (mode === 'spot') {
+      const requestId = await service.cancelPendingActiveAssetChange();
+      await service.setTradingModeForActiveAssetChange({
+        requestId,
+        spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+      });
+    }
+    await service.cancelPendingActiveAssetChange();
+    const coin = mode === 'spot' ? '@107' : 'BTC';
+
+    await expect(
+      service.setActiveOrderBookOptions({
+        options: { ...orderBookOptionsFor(coin), nSigFigs: 4 },
+      }),
+    ).resolves.toBe(true);
+    expect(getOrderBookCoin()).toBe(coin);
+  },
+);
+
+it('leaves an order book target that is already in place', async () => {
+  const { service } = createService(btc);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('BTC'),
+  });
+
+  await expect(
+    service.setActiveOrderBookOptions({
+      requestId,
+      options: orderBookOptionsFor('BTC'),
+    }),
+  ).resolves.toBe(true);
+  expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenCalledTimes(1);
 });

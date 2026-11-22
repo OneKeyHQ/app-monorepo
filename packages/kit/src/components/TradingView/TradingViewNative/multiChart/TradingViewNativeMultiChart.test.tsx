@@ -1185,18 +1185,39 @@ it('keeps one collapse state for the drawing tools whichever panel is selected',
 it('keeps the width the price scale of each chart counts from as the tools column collapses', () => {
   renderGrid({ onSelectPanel: async () => true });
   const column = screen.getByTestId('trading-view-multi-chart-drawing-tools');
-  const gain = (width: number) =>
-    mockDrawingTools.get('panel-2')?.getCollapseGain(width) ?? NaN;
+  const gain = () => mockDrawingTools.get('panel-2')?.getCollapseGain() ?? NaN;
 
   // Two charts side by side beside an open column: each gains half of it.
   setWidth(column, 48);
   setWidth(column.parentElement, 1048);
-  expect(gain(500)).toBe(24);
-  const open = 500 + gain(500);
+  expect(gain()).toBe(24);
+  const open = 500 + gain();
 
   // Once it is collapsed the charts have that width, and gain nothing more.
   setWidth(column, 0);
-  expect(open).toBe(524 + gain(524));
+  expect(open).toBe(524 + gain());
+});
+
+it('gives the tools column to the charts that grow as it collapses, not to one held at its minimum width', () => {
+  renderGrid({
+    layout: {
+      preset: '2h',
+      sizes: { '2h': { columns: [0.7, 0.3], rows: [1] } },
+      panels: { 'panel-2': { source: coin('ETH'), indicatorSettings } },
+    },
+    onSelectPanel: async () => true,
+  });
+  const column = screen.getByTestId('trading-view-multi-chart-drawing-tools');
+  const gain = (panelId: string) =>
+    mockDrawingTools.get(panelId)?.getCollapseGain() ?? NaN;
+
+  // A 500 px grid beside the open column: the narrow chart is at the 240 px
+  // minimum, and stays there once the grid is 548 px wide.
+  setWidth(column, 48);
+  setWidth(column.parentElement, 548);
+  expect(gain('panel-2')).toBe(0);
+  // So the wide one goes from 260 px to 308 px.
+  expect(gain('main')).toBeCloseTo(48);
 });
 
 it('only moves the selection while every panel shows the host token', async () => {

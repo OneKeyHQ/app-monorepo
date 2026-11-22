@@ -155,8 +155,11 @@ it.each([
   ['above a header near the bottom', { top: 700, bottom: 728 }, 800, 440],
   // Neither side has room for it all: the list gives way, so nothing is cut.
   ['in a short window', { top: 400, bottom: 428 }, 800, 400 - 20 - 170],
-  // It keeps a few rows however short the window.
-  ['in a tiny window', { top: 200, bottom: 228 }, 400, 200],
+  // However short the window: the list takes what is left and scrolls,
+  // instead of pushing the search or the key hints out of the popover.
+  ['in a tiny window', { top: 200, bottom: 228 }, 400, 200 - 20 - 170],
+  // Not even the rest fits: the list gives way altogether.
+  ['in a window too short for it', { top: 100, bottom: 128 }, 250, 0],
 ])(
   'fits the token list to the roomier side %s',
   (_, rect, windowHeight, expected) => {

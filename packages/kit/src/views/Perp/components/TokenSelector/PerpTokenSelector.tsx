@@ -1702,7 +1702,9 @@ function BasePerpTokenSelectorContent({
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack height={bodyHeight} gap="$1">
+        {/* Clipped: a chart's picker in a short window gives the list less
+        height than the rows above it take. */}
+        <YStack height={bodyHeight} gap="$1" overflow="hidden">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView

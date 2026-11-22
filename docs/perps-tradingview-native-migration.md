@@ -223,19 +223,27 @@ keep the single chart.
   follow the background's mode and assets, so those go back with the page,
   also a spot asset that a switch cut short had moved on. Every page's switch
   takes a request id from the background (`cancelPendingActiveAssetChange`),
-  and the background sets the mode, with the spot token for spot
-  (`setTradingModeForActiveAssetChange`), and puts the asset and mode back
-  only while that switch still holds the market: a switch begun since on
-  another page, e.g. an extension tab, owns it, so the page leaves the mode,
-  assets, their contexts and order book target to that switch and goes back
-  alone to the token of its last switch that landed, publishing no order book
-  target until it switches again. The order begun for the failed token is
-  reset along with the page, and its market data is cleared only while no
+  and every write of the switch to the shared market goes by it: the
+  background sets the mode, with the spot token for spot
+  (`setTradingModeForActiveAssetChange`), clears the active asset's contexts
+  (`clearActiveAssetCtxForActiveAssetChange`), takes the order book target
+  (`setActiveOrderBookOptions`) and puts the asset and mode back only while
+  that switch still holds the market. A switch begun since on another page,
+  e.g. an extension tab, owns it, so the page leaves all of them to that
+  switch and goes back alone to the token of its last switch that landed.
+  The order book target is also what a page publishes on its own, e.g. as
+  the tick size changes; the background takes it from the page whose switch
+  holds the market, or for the token the market is on, so a page another one
+  took the market from cannot stop that page's subscriptions with a token of
+  its own. The order begun for the failed token is reset along with the
+  page, with the prices typed for it (a perp limit price starts from the
+  restored token's mid again), and its market data is cleared only while no
   newer switch has started. A spot token the loaded spot markets do not list
   is no switch at all: the page stays where it is, and a switch on its way
   still lands, as the spot token is looked up before its switch begins. The
-  perp switch's same-coin shortcut needs the asset's metadata, so a coin whose
-  loading a superseded switch cut short is loaded again.
+  same-token shortcuts need the asset's metadata, so a coin whose loading a
+  superseded switch cut short, or a spot token named before the spot markets
+  had loaded, is loaded again.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.
@@ -262,7 +270,9 @@ keep the single chart.
   instrument decides both; a pick before a spot panel's metadata has loaded,
   e.g. of the token already traded, still lands in that panel.
   Its list fits the roomier side of the header, so a panel low on the page
-  gets a shorter list instead of a cut-off one (OK-67552). Each header holds
+  gets a shorter list instead of a cut-off one (OK-67552); the list takes
+  what the search, tabs and key hints leave and scrolls, however little that
+  is. Each header holds
   one quote, subscribed to its own token
   only. Perp quotes mark the shared asset contexts as required; a spot token
   outside the selected panel turns on the spot asset context subscription
@@ -276,14 +286,19 @@ keep the single chart.
   panel has its own.
 - An order line that is being cancelled or moved is locked in every chart
   showing its token (`usePerpsChartLineActions`), so moving the selection
-  between two panels of one token cannot send a second request for it.
+  between two panels of one token cannot send a second request for it. The
+  request holds the line until it settles, and the change it made until the
+  order's line shows another price or the timeout passes: a chart without
+  the line, e.g. with chart lines hidden, lets go of nothing.
 - The drawing tools in the column at the left are the selected chart's; the
   properties of its selected drawing and its hints stay on that chart. A
   chart that loses the selection drops its tool, unfinished drawing and
   selected drawings, and takes no drawing shortcuts while it is not selected,
   so nothing is left armed out of sight and the press that selects it again
   never starts a drawing. The column has one collapse state, and collapsing
-  it never rescales a chart's candles. The split view passes
+  it never rescales a chart's candles: each chart counts in the width its
+  panel gains, which is none for a panel held at the minimum width. The
+  split view passes
   `layoutKey="perps"`, so a selection the trade instrument answers after the
   view is gone lands on the layout changes still on their way, and a split
   view mounted again, e.g. across the breakpoint, waits for a switch the one

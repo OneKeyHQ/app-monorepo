@@ -33,15 +33,13 @@ import type { LayoutChangeEvent } from 'react-native';
 const POPOVER_CLEARANCE = 8 + 8 + 4;
 // Above the list: the search and the tabs; below it: the key hints.
 const ESTIMATED_CHROME_HEIGHT = 150;
-// The list keeps a few rows in a short window.
-const MIN_BODY_HEIGHT = 200;
 
+// What is left for the list is all it gets, however little: a list taller
+// than that would have the popover scroll around it, with its search or its
+// key hints out of reach.
 function fitBodyHeight(height: number) {
   return Math.round(
-    Math.min(
-      DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
-      Math.max(MIN_BODY_HEIGHT, height),
-    ),
+    Math.min(DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT, Math.max(0, height)),
   );
 }
 
@@ -78,8 +76,8 @@ function PerpChartTokenSelectorContent({
  * Token picker in a split-view panel's header. A press on it selects the
  * panel, like any press in the panel, and a pick goes to `onSelectToken`,
  * which selects the panel with that token. The list fits the roomier side of
- * the header, so a panel low on the page gets a shorter list rather than a
- * cut-off one.
+ * the header, so a panel low on the page gets a shorter list, which scrolls,
+ * rather than a cut-off one.
  */
 export const PerpChartTokenSelector = memo(
   ({
