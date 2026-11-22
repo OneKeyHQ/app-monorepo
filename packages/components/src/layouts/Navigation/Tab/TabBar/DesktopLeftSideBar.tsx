@@ -505,6 +505,16 @@ function OverflowMenuItemWithHandler({
   setIsOpen: (value: boolean) => void;
 }) {
   const handlePress = useCallback(() => {
+    // Same as the sidebar Browser icon: return to the browser page left.
+    if (
+      route.name === ETabRoutes.Discovery &&
+      !isActive &&
+      getLastBrowserRoute() !== ETabRoutes.Discovery
+    ) {
+      switchTab(getLastBrowserRoute());
+      setIsOpen(false);
+      return;
+    }
     handleTabPress(route, isActive, {
       tabbarOnPress: (options as { tabbarOnPress?: () => void }).tabbarOnPress,
       onPressWhenSelected: (options as { onPressWhenSelected?: () => void })

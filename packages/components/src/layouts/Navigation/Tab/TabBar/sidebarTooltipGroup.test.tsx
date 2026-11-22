@@ -134,15 +134,20 @@ describe('useSidebarTooltipOpen', () => {
     expect(second().open).toBe(false);
   });
 
-  it('a scroll on the page closes an open tooltip', () => {
+  it('scrolling a pane on the page closes an open tooltip', () => {
     const { first } = renderGroup();
     act(() => first().onOpenChange(true));
     wait(SIDEBAR_TOOLTIP_OPEN_DELAY_MS);
     expect(first().open).toBe(true);
 
+    // Scroll events don't bubble: a nested pane's scroll only reaches a
+    // capturing listener.
+    const pane = document.createElement('div');
+    document.body.appendChild(pane);
     act(() => {
-      document.dispatchEvent(new Event('scroll'));
+      pane.dispatchEvent(new Event('scroll', { bubbles: false }));
     });
+    pane.remove();
     expect(first().open).toBe(false);
   });
 });

@@ -345,19 +345,26 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           }
           case EShortcutEvents.TabPerps:
-            ensureModalClosedAndNavigate(() => {
-              // Resolved now, after the modals closed: the same Perps tab the
-              // sidebar shows for the current config.
-              void getPerpTabRoute().then((perpTabRoute) => {
-                if (!perpTabRoute) {
-                  return;
-                }
-                // Only an actual entry may record the source, or a later
-                // visit would consume it.
-                if (willTabFocusTransition(perpTabRoute)) {
-                  setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
-                }
-                navigation.switchTab(perpTabRoute);
+            // No Perps tab: leave open forms alone instead of closing them
+            // for nothing.
+            void getPerpTabRoute().then((availableRoute) => {
+              if (!availableRoute) {
+                return;
+              }
+              ensureModalClosedAndNavigate(() => {
+                // Resolved now, after the modals closed: the same Perps tab the
+                // sidebar shows for the current config.
+                void getPerpTabRoute().then((perpTabRoute) => {
+                  if (!perpTabRoute) {
+                    return;
+                  }
+                  // Only an actual entry may record the source, or a later
+                  // visit would consume it.
+                  if (willTabFocusTransition(perpTabRoute)) {
+                    setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
+                  }
+                  navigation.switchTab(perpTabRoute);
+                });
               });
             });
             break;
