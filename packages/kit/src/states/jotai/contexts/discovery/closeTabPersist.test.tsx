@@ -72,6 +72,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
       browserHistory: {
         getRawData: jest.fn(async () => ({ data: [] })),
+        addEntries: jest.fn(async () => true),
         setRawData: (payload: unknown) => {
           mockSetBrowserHistoryRawData(payload);
           return Promise.resolve();

@@ -1,3 +1,5 @@
+import pLimit from 'p-limit';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import {
@@ -34,6 +36,10 @@ import {
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_ARCHIVE_MIME_TYPE = 'application/zip';
+
+// Older desktop shells send domain upload progress without a request ID.
+const runDomainUpload = pLimit(1);
+let pendingDomainUploads = 0;
 
 export const collectLogDigest = async (
   fileBaseName?: string,
@@ -147,6 +153,8 @@ const uploadViaDomain = async ({
   filePath: string;
   requestId?: string;
 }): Promise<IDesktopUploadPayload> => {
+  // A timed-out IPC call can still emit legacy progress until it settles.
+  const allowLegacyProgress = pendingDomainUploads === 0;
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
       ? globalThis.desktopApi.on(
@@ -161,30 +169,42 @@ const uploadViaDomain = async ({
             message?: string;
           }) => {
             // Final states are emitted once by uploadLogBundle.
-            if (
-              payload.stage === ELogUploadStage.Uploading &&
-              payload.requestId === requestId
-            ) {
-              appEventBus.emit(
-                EAppEventBusNames.ClientLogUploadProgress,
-                payload,
-              );
+            if (payload.stage !== ELogUploadStage.Uploading) {
+              return;
+            }
+            const matchesAttempt =
+              payload.requestId === undefined
+                ? allowLegacyProgress
+                : payload.requestId === requestId;
+            if (matchesAttempt) {
+              appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+                ...payload,
+                requestId,
+              });
             }
           },
         )
       : undefined;
   try {
+    pendingDomainUploads += 1;
+    const upload = Promise.resolve()
+      .then(() =>
+        globalThis.desktopApiProxy.dev.uploadLoggerBundle({
+          uploadUrl,
+          filePath,
+          headers,
+          sizeBytes: digest.sizeBytes,
+          timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+          ...(requestId ? { requestId } : {}),
+        }),
+      )
+      .finally(() => {
+        pendingDomainUploads -= 1;
+      });
     // The main process aborts at LOG_UPLOAD_TIMEOUT_MS; the margin only
     // guards a lost IPC reply.
     const response = (await withLogUploadTimeout(
-      globalThis.desktopApiProxy.dev.uploadLoggerBundle({
-        uploadUrl,
-        filePath,
-        headers,
-        sizeBytes: digest.sizeBytes,
-        timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-        ...(requestId ? { requestId } : {}),
-      }),
+      upload,
       LOG_UPLOAD_TIMEOUT_MS + 5000,
     )) as unknown;
     if (!response || typeof response !== 'object') {
@@ -388,13 +408,15 @@ export const uploadLogBundle = async ({
       headers.authorization = `Bearer ${uploadToken}`;
       headers['content-type'] = mimeType;
       headers['content-length'] = String(digest.sizeBytes);
-      requestSent = true;
-      payload = await uploadViaDomain({
-        ...(requestId ? { requestId } : {}),
-        uploadUrl,
-        headers,
-        digest,
-        filePath,
+      payload = await runDomainUpload(() => {
+        requestSent = true;
+        return uploadViaDomain({
+          uploadUrl,
+          headers,
+          digest,
+          filePath,
+          requestId,
+        });
       });
       if (typeof payload.httpStatus === 'number') {
         httpStatus = payload.httpStatus;

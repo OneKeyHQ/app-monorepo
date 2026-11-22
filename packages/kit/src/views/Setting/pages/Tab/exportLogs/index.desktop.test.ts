@@ -1,3 +1,4 @@
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -56,7 +57,15 @@ const mockedUploadLoggerBundle = jest.fn();
 const mockedEventBus = jest.requireMock(
   '@onekeyhq/shared/src/eventBus/appEventBus',
 ) as {
-  appEventBus: { emit: jest.Mock };
+  appEventBus: {
+    emit: jest.Mock<
+      void,
+      [
+        EAppEventBusNames.ClientLogUploadProgress,
+        IAppEventBusPayload[EAppEventBusNames.ClientLogUploadProgress],
+      ]
+    >;
+  };
 };
 
 const SUCCESS_PAYLOAD = {
@@ -221,6 +230,71 @@ describe('desktop log upload transport', () => {
     );
   });
 
+  test('serializes domain uploads and tags legacy progress with the active attempt', async () => {
+    mockedUploadViaIpTable.mockResolvedValue({
+      route: 'skipped',
+      reason: 'sni_unsupported',
+    });
+    const firstReply = Promise.withResolvers<typeof SUCCESS_PAYLOAD>();
+    const progress = {
+      stage: ELogUploadStage.Uploading,
+      progressPercent: 40,
+    };
+    mockedUploadLoggerBundle
+      .mockImplementationOnce(async () => {
+        const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
+          -1,
+        )?.[1] as (event: unknown) => void;
+        listener(progress);
+        listener({ ...progress, requestId: 'other', progressPercent: 90 });
+        return firstReply.promise;
+      })
+      .mockImplementationOnce(async () => {
+        const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
+          -1,
+        )?.[1] as (event: unknown) => void;
+        listener({ ...progress, progressPercent: 70 });
+        return SUCCESS_PAYLOAD;
+      });
+
+    const first = uploadLogBundle({
+      uploadToken: 'first-token',
+      digest: desktopDigest(),
+      requestId: 'first-attempt',
+    });
+    const second = uploadLogBundle({
+      uploadToken: 'second-token',
+      digest: desktopDigest(),
+      requestId: 'second-attempt',
+    });
+    const uploads = Promise.allSettled([first, second]);
+
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(mockedUploadViaIpTable).toHaveBeenCalledTimes(2);
+      expect(mockedUploadLoggerBundle).toHaveBeenCalledTimes(1);
+    } finally {
+      firstReply.resolve(SUCCESS_PAYLOAD);
+    }
+
+    await expect(uploads).resolves.toMatchObject([
+      { status: 'fulfilled' },
+      { status: 'fulfilled' },
+    ]);
+    expect(
+      mockedEventBus.appEventBus.emit.mock.calls
+        .map(([, payload]) => payload)
+        .filter(
+          (payload) =>
+            payload.stage === ELogUploadStage.Uploading &&
+            typeof payload.progressPercent === 'number',
+        ),
+    ).toEqual([
+      { ...progress, requestId: 'first-attempt' },
+      { ...progress, requestId: 'second-attempt', progressPercent: 70 },
+    ]);
+  });
+
   test.each(['SNI_CONNECTION_REFUSED', 'SNI_SECURITY_POLICY_FAILED'])(
     'falls back to the domain upload after pre-write %s',
     async (errorCode) => {
@@ -311,16 +385,15 @@ describe('desktop log upload transport', () => {
     );
   });
 
-  test('never hangs past the timeout when the IPC reply is lost', async () => {
+  test('times out a lost IPC reply and ignores ambiguous legacy progress during the next upload', async () => {
     jest.useFakeTimers();
+    const lateReply = Promise.withResolvers<typeof SUCCESS_PAYLOAD>();
     try {
       mockedUploadViaIpTable.mockResolvedValue({
         route: 'skipped',
         reason: 'no_selected_ip',
       });
-      mockedUploadLoggerBundle.mockReturnValue(
-        new Promise<never>(() => undefined),
-      );
+      mockedUploadLoggerBundle.mockReturnValueOnce(lateReply.promise);
 
       const settled = uploadLogBundle({
         uploadToken: 'token',
@@ -328,7 +401,39 @@ describe('desktop log upload transport', () => {
       }).catch((error: unknown) => error);
       await jest.advanceTimersByTimeAsync(LOG_UPLOAD_TIMEOUT_MS + 5000);
       await expect(settled).resolves.toMatchObject({ reason: 'timeout' });
+
+      const progress = {
+        stage: ELogUploadStage.Uploading,
+        progressPercent: 45,
+      };
+      mockedUploadLoggerBundle.mockImplementationOnce(async () => {
+        const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
+          -1,
+        )?.[1] as (event: unknown) => void;
+        listener(progress);
+        listener({
+          ...progress,
+          requestId: 'next-attempt',
+          progressPercent: 50,
+        });
+        return SUCCESS_PAYLOAD;
+      });
+
+      await uploadLogBundle({
+        uploadToken: 'next-token',
+        digest: desktopDigest(),
+        requestId: 'next-attempt',
+      });
+      expect(mockedEventBus.appEventBus.emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        expect.objectContaining({ progressPercent: 45 }),
+      );
+      expect(mockedEventBus.appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        { ...progress, requestId: 'next-attempt', progressPercent: 50 },
+      );
     } finally {
+      lateReply.resolve(SUCCESS_PAYLOAD);
       jest.useRealTimers();
     }
   });
