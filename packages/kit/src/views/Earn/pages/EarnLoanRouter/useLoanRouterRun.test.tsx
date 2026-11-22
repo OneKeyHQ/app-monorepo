@@ -392,7 +392,27 @@ it('confirms the USDT allowance reset before asking to authorize the new amount'
       const [amount] = approvesInfo?.map((approval) => approval.amount) ?? [];
       amounts.push(String(amount));
       if (amount === '0') {
-        await onBeforeSend?.();
+        await onBeforeSend?.({
+          unsignedTxs: [
+            {
+              uuid: 'approval-uuid',
+              accountId,
+              networkId,
+              approveInfo: approvesInfo?.[0],
+            } as IUnsignedTxPro,
+          ],
+        });
+        expect(store.get(loanOperationKey(plan, 'approval'))).toEqual(
+          expect.objectContaining({
+            status: 'unknown',
+            destinationRecovery: {
+              uuid: 'approval-uuid',
+              accountId,
+              networkId,
+              accountAddress: address,
+            },
+          }),
+        );
         onSuccess?.([
           {
             signedTx: { txid: 'reset-tx', rawTx: '', encodedTx: null },
@@ -502,15 +522,17 @@ it('persists the actual supply transaction identity before spending swap funding
           } as IUnsignedTxPro,
         ],
       });
-      await onBeforeSend?.({
-        unsignedTxs: [
-          {
-            uuid: 'supply-uuid',
-            accountId: 'account',
-            networkId,
-          } as IUnsignedTxPro,
-        ],
-      });
+      await expect(
+        onBeforeSend?.({
+          unsignedTxs: [
+            {
+              uuid: 'supply-uuid',
+              accountId: 'account',
+              networkId,
+            } as IUnsignedTxPro,
+          ],
+        }),
+      ).rejects.toThrow();
       onCancel?.();
     },
   );
@@ -538,6 +560,107 @@ it('persists the actual supply transaction identity before spending swap funding
     }),
   );
 });
+
+it('persists the actual direct supply identity even without an upstream receipt', async () => {
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+    .mockResolvedValue({ tx: '{}', orderId: 'order' });
+  confirm.mockImplementation(
+    async ({ onBeforeSend, onCancel, preserveBatchTxIds }) => {
+      expect(preserveBatchTxIds).toBe(true);
+      await onBeforeSend?.({
+        unsignedTxs: [
+          {
+            uuid: 'direct-uuid',
+            accountId: 'account',
+            networkId,
+          } as IUnsignedTxPro,
+        ],
+      });
+      onCancel?.();
+    },
+  );
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      collateralAmount: '10',
+      borrowAmount: '0',
+    }),
+  );
+  expect(store.get(supplyKey)).toEqual(
+    expect.objectContaining({
+      status: 'unknown',
+      source: undefined,
+      destinationRecovery: {
+        uuid: 'direct-uuid',
+        accountId: 'account',
+        networkId,
+        accountAddress: '0xowner',
+      },
+    }),
+  );
+});
+
+it.each(['account', 'network'] as const)(
+  'blocks a direct batch with a mismatched later %s',
+  async (mismatch) => {
+    jest
+      .mocked(readLoanRoutePosition)
+      .mockResolvedValue({ collateralSupplied: '0' } as Awaited<
+        ReturnType<typeof readLoanRoutePosition>
+      >);
+    jest
+      .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+      .mockResolvedValue({ allowance: '100000000', allowanceParsed: '100' });
+    jest
+      .spyOn(backgroundApiProxy.serviceStaking, 'borrowBuildSupplyTransaction')
+      .mockResolvedValue({ tx: '{}', orderId: 'order' });
+    const checked = jest.fn();
+    confirm.mockImplementation(async ({ onBeforeSend, onCancel }) => {
+      await expect(
+        onBeforeSend?.({
+          unsignedTxs: [
+            {
+              uuid: 'first',
+              accountId: 'account',
+              networkId,
+            } as IUnsignedTxPro,
+            {
+              uuid: 'second',
+              accountId: mismatch === 'account' ? 'other' : 'account',
+              networkId: mismatch === 'network' ? 'evm--2' : networkId,
+            } as IUnsignedTxPro,
+          ],
+        }),
+      ).rejects.toThrow();
+      checked();
+      onCancel?.();
+    });
+    const { result } = renderHook(() =>
+      useLoanRouterRun({ ...plan, onDone: jest.fn() }),
+    );
+    await act(async () =>
+      result.current.start({
+        ...plan,
+        collateralAmount: '10',
+        borrowAmount: '0',
+      }),
+    );
+    expect(checked).toHaveBeenCalledTimes(1);
+    expect(store.get(supplyKey)?.status).not.toBe('submitted');
+  },
+);
 
 it('recovers a submitted supply by identity before checking the position delta', async () => {
   store.set('swap-source', {

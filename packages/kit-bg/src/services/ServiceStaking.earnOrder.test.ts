@@ -566,6 +566,50 @@ describe('Earn order registration', () => {
     );
   });
 
+  it('retries a local-only repair after another storage failure without reposting a bound order', async () => {
+    const entity = new SimpleDbEntityEarnOrders();
+    Reflect.set(entity, 'appStorage', createMemoryStorage(null));
+    mockAddOrder
+      .mockRejectedValueOnce(new OneKeyLocalError('initial write failed'))
+      .mockRejectedValueOnce(new OneKeyLocalError('repair write failed'))
+      .mockImplementation((value, options) =>
+        entity.addOrder(value as typeof order, options),
+      );
+    const service = new ServiceStaking({
+      backgroundApi: { simpleDb: { earnOrders: entity } },
+    });
+    const sync = jest
+      .spyOn(service, 'updateEarnOrderStatusToServer')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'getEarnOrderDetail').mockResolvedValue({
+      orderId: order.orderId,
+      networkId: order.networkId,
+      txId: order.txId,
+      status: 'success',
+      action: 'unstake',
+      provider: 'pendle',
+    });
+    await service.addEarnOrder(order, {
+      remoteSync: 'once',
+      preserveExistingTx: true,
+      recordAttemptId: 'attempt-1',
+      guardHistory: 'ethena-unstake',
+    });
+    const tx = {
+      accountId: 'account',
+      networkId: order.networkId,
+      txId: order.txId,
+      status: EDecodedTxStatus.Confirmed,
+    };
+    await service.updateEarnOrder({ txs: [tx] });
+    expect(await entity.getOrderByTxId(order.txId)).toBeUndefined();
+    await service.updateEarnOrder({ txs: [tx] });
+    expect((await entity.getOrderByTxId(order.txId))?.status).toBe(
+      EDecodedTxStatus.Confirmed,
+    );
+    expect(sync).not.toHaveBeenCalled();
+  });
+
   it('does not let history repost an attempt with an uncertain remote result', async () => {
     const entity = new SimpleDbEntityEarnOrders();
     Reflect.set(entity, 'appStorage', createMemoryStorage(null));

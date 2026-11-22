@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
+import pTimeout from 'p-timeout';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -51,6 +52,37 @@ const EMPTY_NETWORK_ACCOUNT_RESOLUTION: INetworkAccountResolution = {
 const EMPTY_ACCOUNT_META: Record<string, INetworkAccountMeta> = {};
 
 const ACCOUNTS_ADDED_REFRESH_DELAY_MS = 300;
+const PENDING_HISTORY_TIMEOUT_MS = 15_000;
+
+type IRequestFlights<T> = {
+  pending: Set<Promise<T>>;
+  timedOut: boolean;
+};
+
+function avoidTimedOutOverlap<T>(
+  flights: Map<string, IRequestFlights<T>>,
+  key: string,
+  start: () => Promise<T>,
+): Promise<T> {
+  const existing = flights.get(key);
+  if (existing?.timedOut)
+    return Promise.reject(new Error('Request is still pending'));
+  const entry = existing ?? { pending: new Set<Promise<T>>(), timedOut: false };
+  const pending = start();
+  entry.pending.add(pending);
+  flights.set(key, entry);
+  const timeout = setTimeout(() => {
+    entry.timedOut = true;
+  }, PENDING_HISTORY_TIMEOUT_MS);
+  const clear = () => {
+    clearTimeout(timeout);
+    entry.pending.delete(pending);
+    if (entry.pending.size === 0 && flights.get(key) === entry)
+      flights.delete(key);
+  };
+  void pending.then(clear, clear);
+  return pending;
+}
 
 // A network account created while these hooks are mounted changes none of
 // their inputs, so the account map has to be told. `AddDBAccountsToWallet` is
@@ -106,18 +138,29 @@ type IFilteredPendingTxsResult = {
   filteredTxs: IStakePendingTx[];
   isPendingHistoryVerified: boolean;
   pendingHistoryFailedNetworkIds: string[];
+  verifiedNetworks: Record<
+    string,
+    {
+      targetKey: string;
+      accountId: string;
+      accountAddress: string;
+      isPending: boolean;
+    }
+  >;
 };
 
 const UNVERIFIED_PENDING_TXS_RESULT: IFilteredPendingTxsResult = {
   filteredTxs: [],
   isPendingHistoryVerified: false,
   pendingHistoryFailedNetworkIds: [],
+  verifiedNetworks: {},
 };
 
 const VERIFIED_EMPTY_PENDING_TXS_RESULT: IFilteredPendingTxsResult = {
   filteredTxs: [],
   isPendingHistoryVerified: true,
   pendingHistoryFailedNetworkIds: [],
+  verifiedNetworks: {},
 };
 
 // Precomputed inputs from a co-located parent (e.g. EarnHome) so two
@@ -385,6 +428,42 @@ export const useStakingPendingTxsByInfo = ({
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+  const metadataFlights = useRef(
+    new Map<
+      string,
+      IRequestFlights<
+        Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch
+          >
+        >
+      >
+    >(),
+  );
+  const historyFlights = useRef(
+    new Map<
+      string,
+      IRequestFlights<
+        Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.serviceHistory.fetchAccountHistory
+          >
+        >
+      >
+    >(),
+  );
+  const localHistoryFlights = useRef(
+    new Map<
+      string,
+      IRequestFlights<
+        Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs
+          >
+        >
+      >
+    >(),
+  );
   const activeAccountId = account?.id;
   const activeIndexedAccountId = indexedAccount?.id;
   const activeNetworkId = activeAccount.network?.id;
@@ -394,7 +473,10 @@ export const useStakingPendingTxsByInfo = ({
     Map<string, { requestId: number; pendingTxs: IAccountHistoryTx[] }>
   >(new Map());
   const pendingHistoryRequestIdRef = useRef(0);
-  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionTimersRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  );
+  const completionInFlightRef = useRef(0);
   const mountedRef = useRef(true);
   const [isCompletionRevalidating, setIsCompletionRevalidating] =
     useState(false);
@@ -766,9 +848,7 @@ export const useStakingPendingTxsByInfo = ({
   );
 
   // Resolve xpub + accountAddress for every (accountId, networkId) pair.
-  // One batched bridge call replaces the prior 2N per-pair fan-out
-  // (getAccountXpub + getAccountAddressForApi) — see ServiceAccount
-  // .getAccountMetaForNetworksBatch for the contract.
+  // Resolve each network independently so a stalled chain cannot block others.
   const accountMetaResult = usePromiseResult<{
     scope: string;
     meta: Record<string, INetworkAccountMeta>;
@@ -800,40 +880,54 @@ export const useStakingPendingTxsByInfo = ({
       }
 
       if (missingPairs.length > 0) {
-        try {
-          const batchResult =
-            await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
-              { pairs: missingPairs },
-            );
-          for (const {
-            accountId: accountForNetwork,
-            networkId,
-          } of missingPairs) {
-            const entry = batchResult[networkId];
-            const expected = networkAccountTargets?.[networkId];
-            if (
-              entry &&
-              (!networkAccountTargets ||
-                (expected &&
-                  normalizeTaskAccountAddress(
-                    networkId,
-                    entry.accountAddress,
-                  ) ===
-                    normalizeTaskAccountAddress(
+        await Promise.all(
+          missingPairs.map(
+            async ({ accountId: accountForNetwork, networkId }) => {
+              try {
+                const batchResult = await pTimeout(
+                  avoidTimedOutOverlap(
+                    metadataFlights.current,
+                    JSON.stringify([
+                      accountMetaScope,
+                      accountForNetwork,
                       networkId,
-                      expected.accountAddress,
-                    )))
-            ) {
-              meta[networkId] = {
-                accountId: accountForNetwork,
-                accountAddress: entry.accountAddress,
-                xpub: entry.xpub,
-              };
-            }
-          }
-        } catch {
-          // Missing entries remain explicit unverified networks downstream.
-        }
+                    ]),
+                    () =>
+                      backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
+                        {
+                          pairs: [{ accountId: accountForNetwork, networkId }],
+                        },
+                      ),
+                  ),
+                  { milliseconds: PENDING_HISTORY_TIMEOUT_MS },
+                );
+                const entry = batchResult[networkId];
+                const expected = networkAccountTargets?.[networkId];
+                if (
+                  entry &&
+                  (!networkAccountTargets ||
+                    (expected &&
+                      normalizeTaskAccountAddress(
+                        networkId,
+                        entry.accountAddress,
+                      ) ===
+                        normalizeTaskAccountAddress(
+                          networkId,
+                          expected.accountAddress,
+                        )))
+                ) {
+                  meta[networkId] = {
+                    accountId: accountForNetwork,
+                    accountAddress: entry.accountAddress,
+                    xpub: entry.xpub,
+                  };
+                }
+              } catch {
+                // This network remains unverified without blocking healthy networks.
+              }
+            },
+          ),
+        );
       }
 
       return { scope: accountMetaScope, meta };
@@ -921,17 +1015,31 @@ export const useStakingPendingTxsByInfo = ({
             meta.xpub ?? '',
           ].join('|');
           try {
-            const pendingTxs =
-              await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
-                {
+            const pendingTxs = await pTimeout(
+              avoidTimedOutOverlap(
+                localHistoryFlights.current,
+                JSON.stringify([
                   networkId,
-                  accountAddress: meta.accountAddress,
-                  xpub: meta.xpub,
-                },
-              );
+                  meta.accountId,
+                  meta.accountAddress,
+                  meta.xpub,
+                ]),
+                () =>
+                  backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
+                    {
+                      networkId,
+                      accountAddress: meta.accountAddress,
+                      xpub: meta.xpub,
+                    },
+                  ),
+              ),
+              { milliseconds: PENDING_HISTORY_TIMEOUT_MS },
+            );
 
             return {
               networkId,
+              accountId: meta.accountId,
+              accountAddress: meta.accountAddress,
               targetKey,
               ok: true as const,
               pendingTxs,
@@ -939,6 +1047,8 @@ export const useStakingPendingTxsByInfo = ({
           } catch {
             return {
               networkId,
+              accountId: meta.accountId,
+              accountAddress: meta.accountAddress,
               targetKey,
               ok: false as const,
             };
@@ -955,6 +1065,8 @@ export const useStakingPendingTxsByInfo = ({
             .map((result) => result.networkId),
         ]),
       ].toSorted();
+      const verifiedNetworks: IFilteredPendingTxsResult['verifiedNetworks'] =
+        {};
       const allTxs = txsForTargets.flatMap((result) => {
         const pendingTxs = result.ok
           ? result.pendingTxs
@@ -974,27 +1086,44 @@ export const useStakingPendingTxsByInfo = ({
           });
         }
 
-        return pendingTxs.filter((tx): tx is IStakePendingTx => {
-          if (tx.replacedType === EReplaceTxType.Cancel) return false;
-          if (!tx.stakingInfo) return false;
-          const tags = tx.stakingInfo.tags ?? [];
-          if (tags.length === 0) return false;
-          if (tagMatcher) {
-            return tags.some((tag) => tagMatcher(tag));
-          }
-          const stakeTags = stakeTagsByNetwork[result.networkId];
-          if (!stakeTags?.size) return false;
-          return tags.some((tag) => stakeTags.has(tag));
-        });
+        const matches = pendingTxs
+          .filter((tx): tx is IStakePendingTx => {
+            if (tx.replacedType === EReplaceTxType.Cancel) return false;
+            if (!tx.stakingInfo) return false;
+            const tags = tx.stakingInfo.tags ?? [];
+            if (tags.length === 0) return false;
+            if (tagMatcher) {
+              return tags.some((tag) => tagMatcher(tag));
+            }
+            const stakeTags = stakeTagsByNetwork[result.networkId];
+            if (!stakeTags?.size) return false;
+            return tags.some((tag) => stakeTags.has(tag));
+          })
+          .map((tx) =>
+            tx.decodedTx && tx.decodedTx.accountId !== result.accountId
+              ? {
+                  ...tx,
+                  decodedTx: { ...tx.decodedTx, accountId: result.accountId },
+                }
+              : tx,
+          )
+          .filter((tx) => !filter || filter(tx));
+        if (result.ok) {
+          verifiedNetworks[result.networkId] = {
+            targetKey: result.targetKey,
+            accountId: result.accountId,
+            accountAddress: result.accountAddress,
+            isPending: matches.length > 0,
+          };
+        }
+        return matches;
       });
 
-      // Apply custom filter if provided
-      const nextTxs = filter ? allTxs.filter(filter) : allTxs;
-
       return {
-        filteredTxs: nextTxs,
+        filteredTxs: allTxs,
         isPendingHistoryVerified: failedNetworkIds.length === 0,
         pendingHistoryFailedNetworkIds: failedNetworkIds,
+        verifiedNetworks,
       };
     }, [
       accountMetaByNetwork,
@@ -1050,120 +1179,175 @@ export const useStakingPendingTxsByInfo = ({
     filteredTxs,
     isPendingHistoryVerified,
     pendingHistoryFailedNetworkIds,
+    verifiedNetworks,
   } = pendingTxsResult;
   const pendingHistoryFailureKey = pendingHistoryFailedNetworkIds.join('|');
   const isPendingHistoryVerifiedRef = useRef(isPendingHistoryVerified);
   const networkAccountMapRef = useRef(networkAccountMap);
+  const verifiedNetworksRef = useRef(verifiedNetworks);
   isPendingHistoryVerifiedRef.current = isPendingHistoryVerified;
   networkAccountMapRef.current = networkAccountMap;
+  verifiedNetworksRef.current = verifiedNetworks;
 
   const isPending = filteredTxs.length > 0;
-  const previousPendingRef = useRef({ scope: pendingScope, isPending: false });
-  const prevPendingCountRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const nextCount = filteredTxs.length;
-    if (prevPendingCountRef.current !== nextCount) {
-      prevPendingCountRef.current = nextCount;
-    }
-  }, [filteredTxs.length]);
-
+  const completionOwnerKey = JSON.stringify([
+    accountId,
+    indexedAccountId,
+    !hasExplicitOwnership || accountId === activeAccountId
+      ? earnPortfolioAccountScope({
+          account,
+          indexedAccountId: activeIndexedAccountId,
+        })
+      : undefined,
+  ]);
+  const completionScope = useMemo(
+    () => ({ key: completionOwnerKey, filter, tagMatcher }),
+    [completionOwnerKey, filter, tagMatcher],
+  );
+  const previousPendingRef = useRef<{
+    scope: typeof completionScope;
+    networks: IFilteredPendingTxsResult['verifiedNetworks'];
+  }>({ scope: completionScope, networks: {} });
   useEffect(() => {
     const previous = previousPendingRef.current;
-    const scopeChanged = previous.scope !== pendingScope;
-    if (scopeChanged || isPending) {
+    const scopeChanged = previous.scope !== completionScope;
+    if (scopeChanged) {
       completionRefreshGenerationRef.current += 1;
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
+      completionTimersRef.current.forEach(clearTimeout);
+      completionTimersRef.current.clear();
+      completionInFlightRef.current = 0;
+      setIsCompletionRevalidating(false);
+      previousPendingRef.current = { scope: completionScope, networks: {} };
+    }
+    const observed = previousPendingRef.current.networks;
+    const cancelTimer = (networkId: string) => {
+      const timer = completionTimersRef.current.get(networkId);
+      if (timer) clearTimeout(timer);
+      completionTimersRef.current.delete(networkId);
+    };
+    for (const [networkId, prior] of Object.entries(observed)) {
+      const target = networkAccountTargets?.[networkId];
+      if (
+        !effectiveNetworkIds.includes(networkId) ||
+        (networkAccountTargets &&
+          (!target ||
+            target.accountId !== prior.accountId ||
+            normalizeTaskAccountAddress(networkId, target.accountAddress) !==
+              normalizeTaskAccountAddress(networkId, prior.accountAddress))) ||
+        (networkAccountMap[networkId] &&
+          networkAccountMap[networkId] !== prior.accountId)
+      ) {
+        delete observed[networkId];
+        cancelTimer(networkId);
       }
+    }
+    const newlySettled: string[] = [];
+    for (const [networkId, current] of Object.entries(verifiedNetworks)) {
+      const prior = observed[networkId];
+      if (prior && prior.targetKey !== current.targetKey) {
+        cancelTimer(networkId);
+      } else if (current.isPending) {
+        cancelTimer(networkId);
+      } else if (prior?.isPending) {
+        newlySettled.push(networkId);
+      }
+      observed[networkId] = current;
+    }
+    if (!completionTimersRef.current.size && !completionInFlightRef.current) {
       setIsCompletionRevalidating(false);
     }
-    if (scopeChanged) {
-      previousPendingRef.current = { scope: pendingScope, isPending: false };
-    }
-    if (isPending) {
-      previousPendingRef.current = { scope: pendingScope, isPending: true };
-      return;
-    }
-    if (!isPendingHistoryVerified) return;
-    previousPendingRef.current = { scope: pendingScope, isPending };
-    if (!scopeChanged && !isPending && previous.isPending) {
-      completionRefreshGenerationRef.current += 1;
+    newlySettled.forEach((networkId) => {
+      cancelTimer(networkId);
       const attempt = completionRefreshGenerationRef.current;
-      let ownedTimeout: ReturnType<typeof setTimeout> | null = null;
       setIsCompletionRevalidating(true);
       const refreshAfterPending = async () => {
+        completionTimersRef.current.delete(networkId);
+        completionInFlightRef.current += 1;
         try {
-          await onRefreshRef.current?.();
+          const refresh = onRefreshRef.current?.();
+          if (refresh) {
+            await pTimeout(Promise.resolve(refresh), {
+              milliseconds: PENDING_HISTORY_TIMEOUT_MS,
+            });
+          }
         } catch {
           // Best-effort refresh; pending history remains the durable guard.
         } finally {
-          if (
-            mountedRef.current &&
-            attempt === completionRefreshGenerationRef.current
-          ) {
-            setIsCompletionRevalidating(false);
-          }
-          if (refreshTimeoutRef.current === ownedTimeout) {
-            refreshTimeoutRef.current = null;
+          if (attempt === completionRefreshGenerationRef.current) {
+            completionInFlightRef.current -= 1;
+            if (
+              mountedRef.current &&
+              !completionInFlightRef.current &&
+              !completionTimersRef.current.size
+            ) {
+              setIsCompletionRevalidating(false);
+            }
           }
         }
       };
       if (onRefreshDelayMs > 0) {
-        ownedTimeout = setTimeout(() => {
+        const timer = setTimeout(() => {
           void refreshAfterPending();
         }, onRefreshDelayMs);
-        refreshTimeoutRef.current = ownedTimeout;
+        completionTimersRef.current.set(networkId, timer);
       } else {
         void refreshAfterPending();
       }
-    }
-  }, [isPending, isPendingHistoryVerified, onRefreshDelayMs, pendingScope]);
+    });
+  }, [
+    completionScope,
+    effectiveNetworkIds,
+    networkAccountMap,
+    networkAccountTargets,
+    onRefreshDelayMs,
+    verifiedNetworks,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
+    const timers = completionTimersRef.current;
     return () => {
       mountedRef.current = false;
       completionRefreshGenerationRef.current += 1;
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
+      timers.forEach(clearTimeout);
+      timers.clear();
     };
   }, []);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
-    if (!isPendingHistoryVerifiedRef.current) {
-      // Account-map and account-meta failures must be recoverable too, not only
-      // history-query failures. Re-running the top-level mapping produces a new
-      // scoped map; the dependent meta and pending-history requests then
-      // continue automatically with that recovered ownership.
-      await refreshNetworkAccountMap({ alwaysSetState: true });
-      return;
-    }
-
-    const accounts = Object.entries(networkAccountMapRef.current);
-    if (accounts.length === 0) {
-      return;
-    }
-
-    // Refresh history for all monitored networks
-    await Promise.all(
-      accounts.map(([networkId, pendingAccountId]) =>
-        backgroundApiProxy.serviceHistory
-          .fetchAccountHistory({
-            accountId: pendingAccountId,
-            networkId,
-          })
-          .catch(() => {
-            // Skip networks that fail
-          }),
-      ),
+    const accounts = Object.entries(networkAccountMapRef.current).filter(
+      ([networkId]) => Boolean(verifiedNetworksRef.current[networkId]),
     );
-
-    await refreshPendingTxs();
+    const synchronizeVerifiedNetworks = async () => {
+      await Promise.all(
+        accounts.map(([networkId, pendingAccountId]) =>
+          pTimeout(
+            avoidTimedOutOverlap(
+              historyFlights.current,
+              JSON.stringify([pendingAccountId, networkId]),
+              () =>
+                backgroundApiProxy.serviceHistory.fetchAccountHistory({
+                  accountId: pendingAccountId,
+                  networkId,
+                }),
+            ),
+            { milliseconds: PENDING_HISTORY_TIMEOUT_MS },
+          ).catch(() => undefined),
+        ),
+      );
+      if (accounts.length) await refreshPendingTxs();
+    };
+    await Promise.all([
+      synchronizeVerifiedNetworks(),
+      ...(!isPendingHistoryVerifiedRef.current
+        ? [
+            pTimeout(refreshNetworkAccountMap({ alwaysSetState: true }), {
+              milliseconds: PENDING_HISTORY_TIMEOUT_MS,
+            }).catch(() => undefined),
+          ]
+        : []),
+    ]);
   }, [refreshNetworkAccountMap, refreshPendingTxs]);
 
   // Auto-polling when there are pending transactions
@@ -1199,10 +1383,15 @@ export const useStakingPendingTxsByInfo = ({
       networkAccountMapLoading !== false ||
       accountMetaLoading !== false ||
       filteredTxsLoading !== false ||
-      (previousPendingRef.current.scope === pendingScope &&
-        previousPendingRef.current.isPending &&
-        !isPending &&
-        isPendingHistoryVerified) ||
+      (previousPendingRef.current.scope === completionScope &&
+        Object.entries(verifiedNetworks).some(([networkId, current]) => {
+          const previous = previousPendingRef.current.networks[networkId];
+          return (
+            previous?.targetKey === current.targetKey &&
+            previous.isPending &&
+            !current.isPending
+          );
+        })) ||
       isCompletionRevalidating,
     refreshPending: refreshPendingWithHistory,
   };
@@ -1212,13 +1401,12 @@ export const useStakingPendingTxsByInfo = ({
  * Parent-side resolver that batches the three RPCs every
  * `useStakingPendingTxsByInfo` instance independently issues:
  * - `getNetworkAccountsInSameIndexedAccountId` (account map for union)
- * - `getAccountMetaForNetworksBatch` (xpub + accountAddress for union)
+ * - `getAccountMetaForNetworksBatch` (xpub + accountAddress per network)
  * - `getFetchHistoryPollingIntervalsBatch` (polling intervals for union)
  *
  * When EarnHome renders both an Earn and a Borrow instance side-by-side,
- * each was previously paying its own 3 round-trips on the same union of
- * networks. Calling this hook once at the EarnHome level and forwarding
- * the result via `precomputed` collapses 6 RPCs → 3 RPCs per dep change.
+ * each would otherwise resolve the same union of networks independently.
+ * Forwarding this result via `precomputed` shares the resolution.
  *
  * Single-instance callers MUST NOT use this — they already pay only one
  * set of RPCs and adding the wrapper would double the work.
@@ -1228,6 +1416,18 @@ export const useEarnPendingTxsSharedMeta = ({
 }: {
   extraNetworkIds?: string[];
 } = {}): IStakingPendingTxsPrecomputed => {
+  const metadataFlights = useRef(
+    new Map<
+      string,
+      IRequestFlights<
+        Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch
+          >
+        >
+      >
+    >(),
+  );
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const accountId = account?.id;
@@ -1379,25 +1579,40 @@ export const useEarnPendingTxsSharedMeta = ({
       if (entries.length === 0) {
         return { scope: accountMetaScope, meta: EMPTY_ACCOUNT_META };
       }
-      const pairs = entries.map(([networkId, accountForNetwork]) => ({
-        accountId: accountForNetwork,
-        networkId,
-      }));
-      const batchResult =
-        await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch({
-          pairs,
-        });
       const meta: Record<string, INetworkAccountMeta> = {};
-      for (const [networkId, accountForNetwork] of entries) {
-        const entry = batchResult[networkId];
-        if (entry) {
-          meta[networkId] = {
-            accountId: accountForNetwork,
-            accountAddress: entry.accountAddress,
-            xpub: entry.xpub,
-          };
-        }
-      }
+      await Promise.all(
+        entries.map(async ([networkId, accountForNetwork]) => {
+          try {
+            const batchResult = await pTimeout(
+              avoidTimedOutOverlap(
+                metadataFlights.current,
+                JSON.stringify([
+                  accountMetaScope,
+                  accountForNetwork,
+                  networkId,
+                ]),
+                () =>
+                  backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
+                    {
+                      pairs: [{ accountId: accountForNetwork, networkId }],
+                    },
+                  ),
+              ),
+              { milliseconds: PENDING_HISTORY_TIMEOUT_MS },
+            );
+            const entry = batchResult[networkId];
+            if (entry) {
+              meta[networkId] = {
+                accountId: accountForNetwork,
+                accountAddress: entry.accountAddress,
+                xpub: entry.xpub,
+              };
+            }
+          } catch {
+            // Let each network resolve independently when another is unavailable.
+          }
+        }),
+      );
       return { scope: accountMetaScope, meta };
     },
     [networkAccountMap, accountMetaScope],

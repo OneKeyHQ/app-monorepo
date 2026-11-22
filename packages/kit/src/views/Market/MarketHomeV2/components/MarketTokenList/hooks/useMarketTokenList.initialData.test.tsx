@@ -81,6 +81,10 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   default: {
     isAllNetwork: ({ networkId }: { networkId: string }) =>
       networkId === 'onekeyall--0',
+    isEvmNetwork: ({ networkId }: { networkId: string }) =>
+      networkId.startsWith('evm--'),
+    getNetworkImpl: ({ networkId }: { networkId: string }) =>
+      networkId.split('--')[0],
   },
 }));
 

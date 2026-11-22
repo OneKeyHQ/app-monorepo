@@ -81,7 +81,10 @@ export async function runDirectDepositTask({
   ) => Promise<
     { type: 'confirm'; prepared: IDepositPayload } | { type: 'cancelled' }
   >;
-  beforeSendGuard?: (step: IDirectStep) => Promise<boolean>;
+  beforeSendGuard?: (
+    step: IDirectStep,
+    signal: AbortSignal,
+  ) => Promise<boolean>;
   canSendNow?: (step: IDirectStep) => boolean;
   onTaskReady?: (handle: IDepositTaskHandle) => boolean | void;
   onTaskChange?: (task: IDepositTask) => void;
@@ -252,14 +255,14 @@ export async function runDirectDepositTask({
         },
       };
     },
-    beforeConfirm: async ({ step }) => {
+    beforeConfirm: async ({ step, signal: taskSignal }) => {
       if (
         step.kind !== 'resetApproval' &&
         step.kind !== 'approve' &&
         step.kind !== 'deposit'
       )
         return false;
-      return beforeSendGuard ? beforeSendGuard(step.kind) : true;
+      return beforeSendGuard ? beforeSendGuard(step.kind, taskSignal) : true;
     },
     confirm: async ({
       taskId,
@@ -300,7 +303,7 @@ export async function runDirectDepositTask({
         signal: taskSignal,
         canSendNow: canSendNow ? () => canSendNow(kind) : undefined,
         beforeSendGuard: async () => {
-          if (beforeSendGuard && !(await beforeSendGuard(kind))) {
+          if (beforeSendGuard && !(await beforeSendGuard(kind, taskSignal))) {
             throw new OneKeyLocalError(
               formatMessage(ETranslations.privacy_error_review_expired__msg),
             );

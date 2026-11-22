@@ -32,7 +32,7 @@ type IFundingUpdate =
   | {
       type: 'recoverDestination';
       attemptId: string;
-      source: IEarnFundingReceipt;
+      source?: IEarnFundingReceipt;
       recovery: IEarnDestinationRecovery;
       txId: string;
     };
@@ -145,8 +145,6 @@ function isValidRecord(record: unknown): record is IFundingRecord {
     'destinationRecovery' in state &&
     state.destinationRecovery !== undefined &&
     (!isValidDestinationRecovery(state.destinationRecovery) ||
-      !('source' in record) ||
-      !isValidReceipt(record.source) ||
       ('swapRecovery' in state && state.swapRecovery !== undefined) ||
       ('swapTxUuid' in state && state.swapTxUuid !== undefined))
   )
@@ -199,7 +197,6 @@ function applyChange(
       (change.swapTxUuid !== undefined && !isValidId(change.swapTxUuid)) ||
       (change.destinationRecovery !== undefined &&
         (!isValidDestinationRecovery(change.destinationRecovery) ||
-          !change.source ||
           change.swapRecovery !== undefined ||
           change.swapTxUuid !== undefined))
     )
@@ -280,9 +277,11 @@ function applyChange(
             : current.externalAcceptedTxId !== change.txId)) ||
         state.status !== 'unknown' ||
         state.txIdConflict ||
-        !current.source ||
-        current.source.scope !== change.source.scope ||
-        current.source.txId !== change.source.txId ||
+        Boolean(current.source) !== Boolean(change.source) ||
+        (current.source &&
+          change.source &&
+          (current.source.scope !== change.source.scope ||
+            current.source.txId !== change.source.txId)) ||
         !destinationRecovery ||
         destinationRecovery.uuid !== change.recovery.uuid ||
         destinationRecovery.accountId !== change.recovery.accountId ||
@@ -473,7 +472,6 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
       !record ||
       record.state.status !== 'unknown' ||
       record.state.txIdConflict ||
-      !record.source ||
       !recovery ||
       Object.values(records ?? {}).filter(
         (item) =>
@@ -489,7 +487,7 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
     scope: string,
     candidate: {
       attemptId: string;
-      source: IEarnFundingReceipt;
+      source?: IEarnFundingReceipt;
       recovery: IEarnDestinationRecovery;
     },
     txId: string,
@@ -693,10 +691,12 @@ export class SimpleDbEntityEarnFunding extends SimpleDbEntityBase<IFundingRecord
         build: (records) => {
           const previous = readRecord(records, scope);
           if (change.type === 'recoverDestination') {
-            const source = readRecord(records, change.source.scope)?.state;
+            const source =
+              change.source && readRecord(records, change.source.scope)?.state;
             if (
-              source?.status !== 'funded' ||
-              source.txId !== change.source.txId ||
+              (change.source &&
+                (source?.status !== 'funded' ||
+                  source.txId !== change.source.txId)) ||
               Object.values(records ?? {}).filter(
                 (item) =>
                   item.state.destinationRecovery?.uuid ===

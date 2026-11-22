@@ -92,6 +92,7 @@ export type IEarnStakeConfirmParams = IApproveConfirmFnParams & {
   prepareWrappedDeposit?: IDirectDepositTaskConfig['prepareDeposit'];
   beforeDepositTaskSend?: (
     step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+    signal: AbortSignal,
   ) => Promise<boolean>;
   canSendDepositTask?: (
     step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',

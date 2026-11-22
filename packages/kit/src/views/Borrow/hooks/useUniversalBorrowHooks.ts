@@ -799,9 +799,12 @@ export function useUniversalBorrowRepayWithCollateral({
                 networkId,
                 txId: txid,
               });
-            if (currentTask.getSetupTask().facts?.orderId) {
+            const setupOrderId = currentTask.getSetupTask().facts?.orderId;
+            if (setupOrderId) {
               await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId({
                 currentTxId: txid,
+                expectedOrderId: setupOrderId,
+                expectedNetworkId: networkId,
                 status: mapBorrowLutFinalizationToTxStatus(result),
               });
             }
@@ -1183,6 +1186,16 @@ export function useUniversalBorrowRepayWithCollateral({
             detach();
           }
         };
+        if (
+          sameSetupRoute(task) &&
+          task.getSetupTask().facts?.finality === 'pending'
+        ) {
+          const finality = await task.refreshSetupFinality(
+            makeOwner(task, false),
+          );
+          if (!isCurrent()) return false;
+          if (finality === 'unavailable') return pending();
+        }
         if (task.getSetupTask().facts?.finality === 'failed') {
           const priorRepay = task
             .getTask()

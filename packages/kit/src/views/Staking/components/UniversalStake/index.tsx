@@ -1965,7 +1965,14 @@ export function UniversalStake({
       isStakingCapFull,
     ],
   );
+  const assetRefreshGenerationRef = useRef(0);
   useLayoutEffect(() => {
+    if (
+      resetActionState.isStakeAssetRefreshing &&
+      !resetActionStateRef.current.isStakeAssetRefreshing
+    ) {
+      assetRefreshGenerationRef.current += 1;
+    }
     resetActionStateRef.current = resetActionState;
   }, [resetActionState]);
   const verifyPreparedAction = useCallback(async (isCurrent: () => boolean) => {
@@ -2107,26 +2114,67 @@ export function UniversalStake({
     async (
       isCurrent: () => boolean,
       step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+      signal: AbortSignal,
     ) => {
-      if (!canSendDepositTask(isCurrent, step)) return false;
-      const verify =
-        resetActionStateRef.current.actionGuard?.verifyBeforeAction;
-      if (verify && !(await verify({ allowRevoke: false }))) return false;
-      if (!canSendDepositTask(isCurrent, step)) return false;
-      if (step !== 'wrap') {
-        if (isWrapStake && !postWrapApproveTarget)
-          throw new OneKeyLocalError('Wrapped approval is unavailable');
-        await assertStakeApproval(
-          isCurrent,
-          isWrapStake && postWrapApproveTarget
-            ? postWrapApproveTarget
-            : approveTarget,
-        );
+      const deadline = Date.now() + 30_000;
+      const isActive = () => !signal.aborted && isCurrent();
+      const waitForAssetRefresh = async () => {
+        while (resetActionStateRef.current.isStakeAssetRefreshing) {
+          if (!isActive()) return false;
+          const remaining = deadline - Date.now();
+          if (remaining <= 0)
+            throw new OneKeyLocalError('Earn balance refresh timed out');
+          await new Promise<void>((resolve) => {
+            const timer: { timeout?: ReturnType<typeof setTimeout> } = {};
+            const finish = () => {
+              clearTimeout(timer.timeout);
+              signal.removeEventListener('abort', finish);
+              resolve();
+            };
+            timer.timeout = setTimeout(finish, Math.min(100, remaining));
+            signal.addEventListener('abort', finish, { once: true });
+            if (signal.aborted) finish();
+          });
+        }
+        return isActive();
+      };
+      while (isActive()) {
+        if (
+          resetActionStateRef.current.isStakeAssetRefreshing &&
+          !(await waitForAssetRefresh())
+        )
+          return false;
+        if (!canSendDepositTask(isCurrent, step)) return false;
+        const refreshGeneration = assetRefreshGenerationRef.current;
+        const verify =
+          resetActionStateRef.current.actionGuard?.verifyBeforeAction;
+        if (verify && !(await verify({ allowRevoke: false }))) return false;
+        if (!isActive()) return false;
+        if (assetRefreshGenerationRef.current === refreshGeneration) {
+          if (!canSendDepositTask(isCurrent, step)) return false;
+          if (step !== 'wrap') {
+            if (isWrapStake && !postWrapApproveTarget)
+              throw new OneKeyLocalError('Wrapped approval is unavailable');
+            await assertStakeApproval(
+              isCurrent,
+              isWrapStake && postWrapApproveTarget
+                ? postWrapApproveTarget
+                : approveTarget,
+            );
+          }
+          if (!isActive()) return false;
+          if (assetRefreshGenerationRef.current === refreshGeneration) {
+            return Boolean(
+              canSendDepositTask(isCurrent, step) &&
+              resetActionStateRef.current.actionGuard?.verifyBeforeAction ===
+                verify,
+            );
+          }
+        }
+        if (Date.now() >= deadline)
+          throw new OneKeyLocalError('Earn balance refresh timed out');
       }
-      return Boolean(
-        canSendDepositTask(isCurrent, step) &&
-        resetActionStateRef.current.actionGuard?.verifyBeforeAction === verify,
-      );
+      return false;
     },
     [
       canSendDepositTask,
@@ -2246,7 +2294,7 @@ export function UniversalStake({
       }
       if (
         signal.aborted ||
-        !(await verifyDepositTaskSend(isCurrent, 'deposit'))
+        !(await verifyDepositTaskSend(isCurrent, 'deposit', signal))
       ) {
         return { type: 'cancelled' };
       }
@@ -2592,7 +2640,8 @@ export function UniversalStake({
                   }
                 : undefined,
               beforeDepositTaskSend: isWrapStake
-                ? (step) => verifyDepositTaskSend(isCurrent, step)
+                ? (step, signal) =>
+                    verifyDepositTaskSend(isCurrent, step, signal)
                 : undefined,
               prepareWrappedDeposit:
                 preparationPolicy && isWrapStake && postWrapApproveTarget?.token
@@ -2804,8 +2853,8 @@ export function UniversalStake({
             taskMode: 'deposit',
             taskAccountAddress,
             resumeTaskState,
-            beforeDepositTaskSend: (step) =>
-              verifyDepositTaskSend(isCurrent, step),
+            beforeDepositTaskSend: (step, signal) =>
+              verifyDepositTaskSend(isCurrent, step, signal),
             canSendDepositTask: (step) => canSendDepositTask(isCurrent, step),
             onDepositTaskReady,
             onDepositTaskChange,
@@ -3004,8 +3053,8 @@ export function UniversalStake({
           taskMode: 'deposit',
           taskAccountAddress,
           resumeTaskState: state,
-          beforeDepositTaskSend: (step) =>
-            verifyDepositTaskSend(isCurrent, step),
+          beforeDepositTaskSend: (step, signal) =>
+            verifyDepositTaskSend(isCurrent, step, signal),
           canSendDepositTask: (step) => canSendDepositTask(isCurrent, step),
           prepareWrappedDeposit: preparationPolicy
             ? (signal) =>

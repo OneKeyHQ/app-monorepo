@@ -3195,7 +3195,7 @@ class ServiceStaking extends ServiceBase {
     const matches = [...this.earnOrderRecordAttempts.entries()].filter(
       ([, attempt]) =>
         attempt.guardHistory &&
-        attempt.state === 'retryable' &&
+        (attempt.state === 'retryable' || attempt.state === 'sent') &&
         attempt.order?.networkId === tx.networkId &&
         normalize(attempt.order.txId) === normalize(tx.txId),
     );
@@ -3243,6 +3243,7 @@ class ServiceStaking extends ServiceBase {
         throw error;
       }
     } else {
+      if (attempt.state !== 'retryable') return undefined;
       if (detail.status !== 'pending' && detail.status !== 'created')
         return undefined;
       await this.addEarnOrder(

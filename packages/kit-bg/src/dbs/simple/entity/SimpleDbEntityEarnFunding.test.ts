@@ -11,6 +11,44 @@ function createFundingEntity(storage = createMemoryStorage(null)) {
 
 const scope = 'wallet-a|evm--1|wallet-a-base|evm--8453|vault-a';
 
+it('recovers a source-less transaction only for its original identity and attempt', async () => {
+  const { entity, storage } = createFundingEntity();
+  const recovery = {
+    uuid: 'direct-uuid',
+    accountId: 'wallet-a',
+    networkId: 'evm--1',
+    accountAddress: '0xowner',
+  };
+  expect(
+    (
+      await entity.changeFunding(scope, {
+        type: 'claim',
+        attemptId: 'direct',
+        destinationRecovery: recovery,
+      })
+    ).applied,
+  ).toBe(true);
+  const restarted = createFundingEntity(storage).entity;
+  const candidate = await restarted.getDestinationRecoveryCandidate(scope);
+  if (!candidate) throw new OneKeyLocalError('Missing candidate');
+  expect(
+    (
+      await restarted.recoverDestinationFunding(
+        scope,
+        { ...candidate, attemptId: 'other' },
+        'tx',
+      )
+    ).applied,
+  ).toBe(false);
+  expect(
+    (await restarted.recoverDestinationFunding(scope, candidate, 'tx')).funding,
+  ).toMatchObject({
+    status: 'submitted',
+    txId: 'tx',
+    destinationRecovery: recovery,
+  });
+});
+
 it('recovers only the original destination attempt and source from its unique UUID', async () => {
   const { entity, storage } = createFundingEntity();
   await entity.changeFunding('source', { type: 'claim', attemptId: 'swap' });

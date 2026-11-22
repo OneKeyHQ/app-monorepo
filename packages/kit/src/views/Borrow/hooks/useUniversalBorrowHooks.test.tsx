@@ -1010,6 +1010,8 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       backgroundMock.serviceStaking.updateOrderStatusByTxId,
     ).toHaveBeenCalledWith({
       currentTxId: 'setup-tx-id',
+      expectedNetworkId: 'sol--101',
+      expectedOrderId: 'setup-order-id',
       status: 'Confirmed',
     });
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
@@ -1299,6 +1301,8 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       backgroundMock.serviceStaking.updateOrderStatusByTxId,
     ).toHaveBeenCalledWith({
       currentTxId: 'setup-tx-id',
+      expectedNetworkId: 'sol--101',
+      expectedOrderId: 'setup-order-id',
       status: 'Pending',
     });
     expect(
@@ -2099,6 +2103,77 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       ).toHaveBeenCalledTimes(finality === 'failed' ? 1 : 2);
     },
   );
+
+  it('rechecks a retained setup on the same route before reusing it', async () => {
+    backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'setup-order-id' },
+    );
+    backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
+      localStatus: 'saved',
+      remoteStatus: 'synced',
+    });
+    backgroundMock.serviceStaking.waitForSolTxFinalized
+      .mockResolvedValueOnce('timeout')
+      .mockResolvedValueOnce('failed')
+      .mockResolvedValue('finalized');
+    backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockResolvedValue(
+      { routeKey: 'route', swapIn: '1' },
+    );
+    backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+      { tx: '{}', orderId: 'repay-order-id' },
+    );
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async ({
+        stakingInfo,
+        onSuccess,
+        onCancel,
+      }: {
+        stakingInfo?: { orderId?: string };
+        onSuccess: (data: unknown[]) => void;
+        onCancel: () => void;
+      }) => {
+        if (stakingInfo?.orderId === 'repay-order-id') onCancel();
+        else
+          onSuccess([
+            {
+              decodedTx: { txid: 'setup-tx', status: 'Pending' },
+              signedTx: { txid: 'setup-tx' },
+            },
+          ]);
+      },
+    );
+    const params = {
+      amount: '1',
+      provider: 'kamino',
+      marketAddress: 'market',
+      reserveAddress: 'reserve',
+      collateralReserveAddress: 'collateral-a',
+      needsSetupLut: true,
+      stakingInfo: {
+        protocol: 'Kamino',
+        label: EEarnLabels.Repay,
+        tags: ['borrow'],
+      },
+    };
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'account-a',
+      }),
+    );
+    await act(async () => {
+      expect(await result.current(params)).toBe(false);
+    });
+    await act(async () => {
+      expect(await result.current(params)).toBe(false);
+    });
+    expect(
+      backgroundMock.serviceStaking.waitForSolTxFinalized,
+    ).toHaveBeenCalledTimes(3);
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+    ).toHaveBeenCalledTimes(2);
+  });
 
   it.each(['cancelled', 'completed', 'unknown'] as const)(
     'switches collateral after failed setup order sync only when the repay is resolved (%s)',

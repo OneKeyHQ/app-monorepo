@@ -3356,11 +3356,15 @@ describe('EtherFi USDT approval reset', () => {
 
       fireEvent.click(screen.getByText('Commit blocked state'));
       expect(screen.getByTestId('committed-guard').textContent).toBe('blocked');
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       fireEvent.click(screen.getByText('Suspend enabled state'));
       await waitFor(() => expect(onSuspended).toHaveBeenCalled());
       expect(screen.getByTestId('committed-guard').textContent).toBe('blocked');
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       await act(async () => pending.resolve(false));
     },
   );
@@ -3368,15 +3372,21 @@ describe('EtherFi USDT approval reset', () => {
   it('checks input validity before wrap but does not block later task steps on spent ETH', async () => {
     const { screen, taskProps, verify, beforeSend } =
       await startWrappedTaskGuardTest();
-    expect(await beforeSend?.('wrap')).toBe(true);
+    expect(await beforeSend?.('wrap', new AbortController().signal)).toBe(true);
     expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
     verify.mockClear();
     screen.rerender(<UniversalStake {...taskProps} balance="0" />);
 
-    expect(await beforeSend?.('wrap')).toBe(false);
+    expect(await beforeSend?.('wrap', new AbortController().signal)).toBe(
+      false,
+    );
     expect(verify).not.toHaveBeenCalled();
-    expect(await beforeSend?.('approve')).toBe(true);
-    expect(await beforeSend?.('deposit')).toBe(true);
+    expect(await beforeSend?.('approve', new AbortController().signal)).toBe(
+      true,
+    );
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      true,
+    );
     expect(verify.mock.calls).toEqual([
       [{ allowRevoke: false }],
       [{ allowRevoke: false }],
@@ -3412,7 +3422,9 @@ describe('EtherFi USDT approval reset', () => {
       });
       await staleCheck.promise;
     });
-    expect(await beforeSend?.('deposit')).toBe(true);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      true,
+    );
   });
 
   it('prepares the wrapped deposit with WETH inputs and the fresh quote', async () => {
@@ -3491,7 +3503,9 @@ describe('EtherFi USDT approval reset', () => {
     expect(screen.getByTestId('alert-warning')).toBeTruthy();
     expect(screen.queryByText('server success message')).toBeNull();
     expect(screen.queryByTestId('alert-critical')).toBeNull();
-    expect(await beforeSend?.('deposit')).toBe(false);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      false,
+    );
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -3546,7 +3560,9 @@ describe('EtherFi USDT approval reset', () => {
       } else {
         screen.rerender(<UniversalStake {...taskProps} accountId="other" />);
       }
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       expect(verify).not.toHaveBeenCalled();
     },
   );
@@ -3554,7 +3570,9 @@ describe('EtherFi USDT approval reset', () => {
   it('blocks a task confirmation when the read-only action guard rejects it', async () => {
     const { verify, beforeSend } = await startWrappedTaskGuardTest();
     verify.mockResolvedValueOnce(false);
-    expect(await beforeSend?.('deposit')).toBe(false);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      false,
+    );
     expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
   });
 
@@ -3565,7 +3583,7 @@ describe('EtherFi USDT approval reset', () => {
         await startWrappedTaskGuardTest();
       const pendingGuard = deferred<boolean>();
       verify.mockReturnValueOnce(pendingGuard.promise);
-      const checking = beforeSend?.('deposit');
+      const checking = beforeSend?.('deposit', new AbortController().signal);
       expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
       if (reason === 'blocked') {
         screen.rerender(
@@ -4337,6 +4355,8 @@ describe('EtherFi USDT approval reset', () => {
     await act(async () => pendingGuard.resolve(true));
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(1);
+    screen.rerender(<StakeTaskHarness {...overrides} />);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
   });
   async function beginDirectUSDTWithPendingAllowance() {
     const screen = render(<StakeTaskHarness {...props} />);
@@ -4582,6 +4602,8 @@ describe('EtherFi USDT approval reset', () => {
     screen.rerender(<StakeTaskHarness {...props} isStakeAssetRefreshing />);
     await act(async () => pending.resolve(EOnChainHistoryTxStatus.Success));
     expect(mockNavigate).toHaveBeenCalledTimes(1);
+    screen.rerender(<StakeTaskHarness {...props} />);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
   });
 
   it('does not reopen approval if the form becomes disabled while the account is loading', async () => {

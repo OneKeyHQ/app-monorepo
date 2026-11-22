@@ -1,5 +1,9 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
+
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketBasicConfigNetwork,
   IMarketTokenListItem,
@@ -8,22 +12,29 @@ import type {
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
-export function marketTokenKey(item: IMarketToken) {
-  if (item.assetId) return `asset:${item.assetId}`;
-  if (item.stockId) return `stock:${item.stockId}`;
-  return item.perpsCoin
-    ? `perps:${item.perpsCoin}`
-    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+export function marketTokenKey(
+  item: Pick<
+    IMarketToken,
+    'assetId' | 'stockId' | 'perpsCoin' | 'networkId' | 'address' | 'isNative'
+  >,
+) {
+  if (item.assetId) return toMarketRowKey(`asset:${item.assetId}`);
+  if (item.stockId) return toMarketRowKey(`stock:${item.stockId}`);
+  return toMarketRowKey(
+    item.perpsCoin
+      ? `perps:${item.perpsCoin}`
+      : `${item.networkId}:${normalizeTokenContractAddress({ networkId: item.networkId, contractAddress: item.address }) ?? ''}:${item.isNative ? 1 : 0}`,
+  );
 }
 
 const MARKET_ROW_KEY_MAX_LENGTH = 256;
 
-// A token's id is its row key in the Market lists. NativeList on web throws
-// on a key with leading or trailing whitespace or over 256 characters, which
-// takes the whole app down, and server names and symbols can bring either
-// (a trending token came with a symbol ending in a space)
+// Prefixes keep compact identities distinct from hashed long or padded inputs.
 export function toMarketRowKey(raw: string) {
-  return raw.trim().slice(0, MARKET_ROW_KEY_MAX_LENGTH).trimEnd();
+  if (raw === raw.trim() && raw.length <= MARKET_ROW_KEY_MAX_LENGTH - 2) {
+    return `s:${raw}`;
+  }
+  return `h:${bytesToHex(sha256(raw))}`;
 }
 
 // Helper function to check if token is native and get normalized address for matching
@@ -32,10 +43,19 @@ export function toMarketRowKey(raw: string) {
 export function getNativeTokenInfo(
   isNativeField: boolean | undefined,
   address: string | undefined,
+  networkId?: string,
 ) {
   const isNative =
     isNativeField !== undefined ? isNativeField : (address?.length ?? 0) < 30;
-  const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
+  let normalizedAddress = '';
+  if (!isNative) {
+    normalizedAddress = networkId
+      ? (normalizeTokenContractAddress({
+          networkId,
+          contractAddress: address,
+        }) ?? '')
+      : (address ?? '').toLowerCase();
+  }
   return { isNative, normalizedAddress };
 }
 
@@ -371,9 +391,12 @@ export function transformApiItemToToken(
       : undefined;
 
   return {
-    id: toMarketRowKey(
-      `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
-    ),
+    id: marketTokenKey({
+      networkId: tokenNetworkId,
+      address: item.address,
+      isNative: item.isNative,
+      stockId: resolveMarketStockId(item),
+    }),
     name: item.name,
     symbol: item.symbol,
     address: item.address,

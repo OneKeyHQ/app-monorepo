@@ -29,6 +29,7 @@ import {
   buildMarketNetworkLogoUriMap,
   getNativeTokenInfo,
   getNetworkLogoUri,
+  marketTokenKey,
   normalizeStockMetadataValue,
   toMarketRowKey,
   transformApiItemToToken,
@@ -397,6 +398,7 @@ export function useMarketWatchlistTokenList({
         const { isNative } = getNativeTokenInfo(
           item.isNative,
           item.contractAddress,
+          item.chainId,
         );
         return {
           chainId: item.chainId,
@@ -573,7 +575,7 @@ export function useMarketWatchlistTokenList({
     const map = new Map<string, IMarketToken>();
     for (const t of tokens) {
       map.set(t.name, {
-        id: toMarketRowKey(`perps_${t.name}`),
+        id: toMarketRowKey(`perps:${t.name}`),
         name: t.displayName,
         symbol: t.displayName,
         address: '',
@@ -611,6 +613,7 @@ export function useMarketWatchlistTokenList({
         const { isNative, normalizedAddress } = getNativeTokenInfo(
           w.isNative,
           w.contractAddress,
+          w.chainId,
         );
         const key = `${w.chainId}:${normalizedAddress}`;
         tokenMap[key] = {
@@ -629,6 +632,7 @@ export function useMarketWatchlistTokenList({
           const { normalizedAddress } = getNativeTokenInfo(
             item.isNative,
             item.address,
+            networkId,
           );
           const key = `${networkId}:${normalizedAddress}`;
           const tokenInfo = tokenMap[key];
@@ -714,17 +718,21 @@ export function useMarketWatchlistTokenList({
           const { normalizedAddress: tokenKey } = getNativeTokenInfo(
             token.isNative,
             token.address,
+            token.networkId,
           );
           const { normalizedAddress: watchlistKey } = getNativeTokenInfo(
             watchlistItem.isNative,
             watchlistItem.contractAddress,
+            watchlistItem.chainId,
           );
           return (
             tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
           );
         });
         // Keep legacy chain favorites removable under their stored identity.
-        return found ? { ...found, stockId: watchlistItem.stockId } : undefined;
+        if (!found) return undefined;
+        const token = { ...found, stockId: watchlistItem.stockId };
+        return { ...token, id: marketTokenKey(token) };
       })
       .filter(Boolean);
 

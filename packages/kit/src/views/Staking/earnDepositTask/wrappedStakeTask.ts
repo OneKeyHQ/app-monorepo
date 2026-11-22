@@ -87,6 +87,7 @@ export async function runWrappedStakeTask({
   ) => ReturnType<typeof waitForEarnTransactionConfirm>;
   beforeDepositTaskSend?: (
     step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+    signal: AbortSignal,
   ) => Promise<boolean>;
   canSendDepositTask?: (
     step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
@@ -308,14 +309,16 @@ export async function runWrappedStakeTask({
       }
       throw new OneKeyLocalError('Unsupported wrapped stake task step');
     },
-    beforeConfirm: async ({ step }) => {
+    beforeConfirm: async ({ step, signal: taskSignal }) => {
       if (
         step.kind !== 'wrap' &&
         step.kind !== 'approve' &&
         step.kind !== 'deposit'
       )
         return false;
-      return beforeDepositTaskSend ? beforeDepositTaskSend(step.kind) : true;
+      return beforeDepositTaskSend
+        ? beforeDepositTaskSend(step.kind, taskSignal)
+        : true;
     },
     confirm: async ({
       taskId,
@@ -352,7 +355,8 @@ export async function runWrappedStakeTask({
             (step.kind !== 'wrap' &&
               step.kind !== 'approve' &&
               step.kind !== 'deposit') ||
-            (beforeDepositTaskSend && !(await beforeDepositTaskSend(step.kind)))
+            (beforeDepositTaskSend &&
+              !(await beforeDepositTaskSend(step.kind, taskSignal)))
           ) {
             throw new OneKeyLocalError(
               formatMessage(ETranslations.privacy_error_review_expired__msg),

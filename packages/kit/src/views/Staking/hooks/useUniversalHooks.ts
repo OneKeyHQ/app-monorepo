@@ -656,6 +656,7 @@ export function useUniversalStake({
       prepareWrappedDeposit?: IDirectDepositTaskConfig['prepareDeposit'];
       beforeDepositTaskSend?: (
         step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+        signal: AbortSignal,
       ) => Promise<boolean>;
       canSendDepositTask?: (
         step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
@@ -1121,10 +1122,16 @@ export function useUniversalStake({
                 return { status: 'cancel' as const };
               }
             },
-            beforeDepositTaskSend: async (step) => {
-              if (beforeDepositTaskSend && !(await beforeDepositTaskSend(step)))
+            beforeDepositTaskSend: async (step, signal) => {
+              if (
+                beforeDepositTaskSend &&
+                !(await beforeDepositTaskSend(step, signal))
+              )
                 return false;
-              return step !== 'approve' || (await assertWrappedApproval());
+              if (signal.aborted) return false;
+              const allowed =
+                step !== 'approve' || (await assertWrappedApproval());
+              return !signal.aborted && allowed;
             },
             canSendDepositTask,
             prepareWrappedDeposit,

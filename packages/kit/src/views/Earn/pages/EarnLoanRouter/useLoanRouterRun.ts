@@ -325,9 +325,9 @@ export function useLoanRouterRun({
         let destinationUuid: string | undefined;
         let destinationGuardPending = false;
         let duplicateDestinationGuard = false;
-        const recoverableSource =
-          Boolean(source) &&
-          !accountUtils.isExternalAccount({ accountId: plan.networkAccountId });
+        const recoverableInternal = !accountUtils.isExternalAccount({
+          accountId: plan.networkAccountId,
+        });
         const settle = (txid?: string) => {
           if (!isSettled) {
             isSettled = true;
@@ -357,14 +357,14 @@ export function useLoanRouterRun({
           encodedTx,
           approvesInfo,
           stakingInfo,
-          preserveBatchTxIds: recoverableSource,
+          preserveBatchTxIds: recoverableInternal,
           isNavigationCurrent: plan.isCurrent,
           onBeforeSend: async (params) => {
-            if (isSettled || confirmationOutcomeObserved) {
+            if (isSettled || confirmationOutcomeObserved || sendObserved) {
               duplicateDestinationGuard = true;
               throw LOAN_UNKNOWN;
             }
-            if (recoverableSource) {
+            if (recoverableInternal) {
               if (destinationGuardPending) {
                 duplicateDestinationGuard = true;
                 throw LOAN_UNKNOWN;
@@ -374,29 +374,41 @@ export function useLoanRouterRun({
             try {
               await assertLoanAccount(plan);
               if (confirmationClosed) throw LOAN_STOPPED;
-              if (recoverableSource) {
+              if (recoverableInternal) {
                 const tx =
                   params?.unsignedTxs?.length === 1
                     ? params.unsignedTxs[0]
                     : undefined;
                 if (
-                  !tx?.uuid?.trim() ||
-                  tx.approveInfo ||
-                  (tx.accountId && tx.accountId !== plan.networkAccountId) ||
-                  (tx.networkId && tx.networkId !== plan.route.market.networkId)
+                  (source && (!tx?.uuid?.trim() || tx.approveInfo)) ||
+                  params?.unsignedTxs?.some(
+                    (item) =>
+                      (item.accountId &&
+                        item.accountId !== plan.networkAccountId) ||
+                      (item.networkId &&
+                        item.networkId !== plan.route.market.networkId),
+                  )
                 )
                   throw LOAN_UNKNOWN;
-                if (destinationUuid && destinationUuid !== tx.uuid) {
+                if (
+                  tx?.uuid &&
+                  destinationUuid &&
+                  destinationUuid !== tx.uuid
+                ) {
                   duplicateDestinationGuard = true;
                   throw LOAN_UNKNOWN;
                 }
-                await reservation.markUnknown(undefined, undefined, {
-                  uuid: tx.uuid,
-                  accountId: plan.networkAccountId,
-                  networkId: plan.route.market.networkId,
-                  accountAddress: plan.accountAddress,
-                });
-                destinationUuid = tx.uuid;
+                if (tx?.uuid?.trim()) {
+                  await reservation.markUnknown(undefined, undefined, {
+                    uuid: tx.uuid,
+                    accountId: plan.networkAccountId,
+                    networkId: plan.route.market.networkId,
+                    accountAddress: plan.accountAddress,
+                  });
+                  destinationUuid = tx.uuid;
+                } else {
+                  await reservation.markUnknown();
+                }
               } else {
                 await reservation.markUnknown();
               }
@@ -408,7 +420,7 @@ export function useLoanRouterRun({
               }
               sendObserved = true;
             } finally {
-              if (recoverableSource) destinationGuardPending = false;
+              if (recoverableInternal) destinationGuardPending = false;
             }
           },
           onSuccess: (data) => {
@@ -444,7 +456,7 @@ export function useLoanRouterRun({
             if (
               fact.accountId !== plan.networkAccountId ||
               fact.networkId !== plan.route.market.networkId ||
-              (recoverableSource &&
+              (recoverableInternal &&
                 (!destinationUuid || fact.uuid !== destinationUuid)) ||
               !fact.txid
             ) {

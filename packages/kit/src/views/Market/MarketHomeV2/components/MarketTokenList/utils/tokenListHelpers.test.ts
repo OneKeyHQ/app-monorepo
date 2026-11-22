@@ -4,6 +4,7 @@ import { calcSwapProSliderAmount } from '@onekeyhq/kit/src/views/Swap/utils/swap
 
 import {
   calculateMarketTokenLivePriceChange,
+  getNativeTokenInfo,
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
@@ -650,22 +651,59 @@ test('does not treat an underlying ticker as a stock id', () => {
 });
 
 describe('toMarketRowKey', () => {
-  test('drops the spaces a server name or symbol leaves at either end', () => {
-    expect(toMarketRowKey('9BB6NFEcjBToken https://logo/sol.pngTOKEN ')).toBe(
-      '9BB6NFEcjBToken https://logo/sol.pngTOKEN',
-    );
-    expect(toMarketRowKey(' TOKEN')).toBe('TOKEN');
+  test('distinguishes different identities even beyond the maximum key length', () => {
+    const prefix = 'a'.repeat(300);
+    expect(toMarketRowKey(`${prefix}A`)).not.toBe(toMarketRowKey(`${prefix}B`));
   });
 
-  test('keeps a clean id as it is', () => {
-    expect(toMarketRowKey('0x42a1Some Token Name TOKEN')).toBe(
-      '0x42a1Some Token Name TOKEN',
+  test('distinguishes native tokens by network and keeps the ID stable when the logo changes', () => {
+    const token = {
+      address: '',
+      name: 'ETH',
+      symbol: 'ETH',
+      isNative: true,
+      decimals: 18,
+    };
+    const first = transformApiItemToToken(token, {
+      chainId: 'evm--1',
+      networkLogoUri: `${'x'.repeat(300)}a`,
+    });
+    const second = transformApiItemToToken(token, {
+      chainId: 'evm--42161',
+      networkLogoUri: `${'x'.repeat(300)}b`,
+    });
+    const updatedLogo = transformApiItemToToken(token, {
+      chainId: 'evm--1',
+      networkLogoUri: 'new-logo',
+    });
+    expect(first.id).not.toBe(second.id);
+    expect(first.id).toBe(updatedLogo.id);
+  });
+  test('keeps padded identities valid and distinct from their trimmed form', () => {
+    expect(toMarketRowKey(' TOKEN')).not.toBe(toMarketRowKey('TOKEN'));
+    expect(toMarketRowKey('TOKEN ')).toMatch(/^h:[a-f0-9]{64}$/);
+  });
+
+  test('normalizes addresses according to their network', () => {
+    const address = 'aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890';
+    expect(
+      getNativeTokenInfo(false, address, 'sol--101').normalizedAddress,
+    ).toBe(address);
+    expect(getNativeTokenInfo(false, address, 'evm--1').normalizedAddress).toBe(
+      address.toLowerCase(),
+    );
+    expect(getNativeTokenInfo(true, address, 'evm--1').normalizedAddress).toBe(
+      '',
+    );
+    expect(getNativeTokenInfo(false, address).normalizedAddress).toBe(
+      address.toLowerCase(),
     );
   });
 
-  test('stays within 256 characters without ending in a space', () => {
-    const key = toMarketRowKey(`${'a'.repeat(255)} tail`);
-    expect(key).toBe('a'.repeat(255));
-    expect(toMarketRowKey('x'.repeat(300))).toHaveLength(256);
+  test('keeps short and hashed identities in separate namespaces', () => {
+    const longKey = toMarketRowKey('x'.repeat(300));
+    expect(toMarketRowKey(longKey)).not.toBe(longKey);
+    expect(toMarketRowKey('clean-id')).toBe('s:clean-id');
+    expect(longKey.length).toBeLessThanOrEqual(256);
   });
 });
