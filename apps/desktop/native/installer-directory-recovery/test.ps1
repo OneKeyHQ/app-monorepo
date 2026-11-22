@@ -95,7 +95,6 @@ function Assert-Original {
 
 function Assert-Promoted {
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $target 'OneKey.exe') -Raw) -eq 'new/OneKey.exe') 'Replacement payload was lost'
-    Assert-Condition ((Get-Content -LiteralPath (Join-Path $backup 'OneKey.exe') -Raw) -eq 'old/OneKey.exe') 'Backup payload was lost'
     Assert-Condition ((Get-Content -LiteralPath $walletData -Raw) -eq 'fixture wallet data') 'External data was modified'
 }
 
@@ -154,6 +153,8 @@ Invoke-Fixture 'normal promotion and checked registry commit' {
     Start-MockStage
     Invoke-Recovery promote 0
     Assert-Promoted
+    $retiredFile = Join-Path $backup 'OneKey.exe'
+    Assert-Condition ((Get-Content -LiteralPath $retiredFile -Raw) -eq 'old/OneKey.exe') 'Backup payload was lost before commit'
     Invoke-Recovery commit 13
     Invoke-Recovery recover 12
     Invoke-Recovery recover 13 -Release '3.0.0'
@@ -163,7 +164,9 @@ Invoke-Fixture 'normal promotion and checked registry commit' {
     Invoke-Recovery commit 13
     Invoke-Recovery recover 12
     Set-MockRegistration User $target '2.0.0'
+    (Get-Item -LiteralPath $retiredFile).IsReadOnly = $true
     Invoke-Recovery commit 0
+    Assert-Condition (!(Test-Path -LiteralPath $backup)) 'Commit retained its read-only backup'
     Invoke-Recovery recover 10
     Assert-Promoted
 }
@@ -171,7 +174,7 @@ Invoke-Fixture 'normal promotion and checked registry commit' {
 Invoke-Fixture 'process target authorization is scoped and read-only' {
     $installKey = Join-Path $registry 'User\Install'
     Remove-ItemProperty -LiteralPath $installKey -Name InstallLocation
-    Invoke-Recovery check-process-target 10
+    Invoke-Recovery check-process-target 13
 
     Set-MockRegistration User $target '1.0.0'
     Invoke-Recovery check-process-target 0
@@ -189,11 +192,28 @@ Invoke-Fixture 'process target authorization is scoped and read-only' {
     Assert-Original
 }
 
+Invoke-Fixture 'unregistered default directory preserves existing files' {
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall') -Recurse
+    Invoke-Recovery check-process-target 17
+    Assert-Original
+    Remove-Item -LiteralPath (Join-Path $target 'OneKey.exe'),(Join-Path $target 'Uninstall OneKey.exe'),(Join-Path $target 'resources\app.asar')
+    [IO.Directory]::Delete((Join-Path $target 'resources'))
+    Invoke-Recovery check-process-target 10
+    [IO.Directory]::Delete($target)
+    Invoke-Recovery check-process-target 10
+}
+
 Invoke-Fixture 'opposite scope cannot claim a pending cleanup tree' {
     Start-MockStage
     Invoke-Recovery promote 0
     Set-MockRegistration User $target '2.0.0'
-    Invoke-Recovery commit 0
+    $held = [IO.File]::Open((Join-Path $backup 'OneKey.exe'), 'Open', 'Read', 'Read')
+    try {
+        Invoke-Recovery commit 0
+        Assert-Condition (Test-Path -LiteralPath $backup) 'Commit removed a pinned backup'
+    } finally {
+        $held.Dispose()
+    }
     Invoke-Recovery check-process-target 13 -Scope machine -Location $backup
     Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'resources')
     Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'missing\OneKey')
@@ -380,6 +400,22 @@ Invoke-Fixture 'failed staging leaves old payload registered and in place' {
     Invoke-Recovery promote 13
     Invoke-Recovery recover 11
     Assert-Original
+    Assert-Condition (!(Test-Path -LiteralPath $stage)) 'Rollback retained its verified partial stage'
+}
+
+Invoke-Fixture 'rollback retains unexpected staging contents and permits a later cleanup retry' {
+    Start-MockStage
+    $unknown = Join-Path $stage 'unknown.txt'
+    [IO.File]::WriteAllText($unknown, 'preserve me')
+    Invoke-Recovery recover 11
+    Invoke-Recovery recover 10
+    Assert-Original
+    Assert-Condition ((Get-Content -LiteralPath $unknown -Raw) -eq 'preserve me') 'Rollback modified unknown files'
+    Invoke-Recovery prepare 13
+    Remove-Item -LiteralPath $unknown
+    $null = Invoke-Recovery prepare 0
+    Assert-Condition (!(Test-Path -LiteralPath $stage)) 'Next swap retained the previously blocked stage'
+    Invoke-Recovery recover 11
 }
 
 Invoke-Fixture 'tampered old content and unlisted files fail closed' {
@@ -471,12 +507,28 @@ Invoke-Fixture 'another scope cannot ignore a pending transaction' {
 
 Invoke-Fixture 'unsupported paths may use legacy only without a pending transaction' {
     $unsupported = '\\example.invalid\OneKey'
+    Invoke-Recovery check-process-target 16 -Location $unsupported
+    Invoke-Recovery check-legacy-uninstall 16 -Location $unsupported -OwnerPid $PID
     Invoke-Recovery recover 10 -Location $unsupported
     Invoke-Recovery prepare 10 -Location $unsupported
     Invoke-Recovery enroll 10 -Location $unsupported
     Start-MockStage
     Invoke-Recovery recover 13 -Location $unsupported
     Invoke-Recovery recover 11
+    Assert-Original
+}
+
+Invoke-Fixture 'legacy path verification identifies a directory junction' {
+    $alias = Join-Path $root 'legacy-junction'
+    New-Item -ItemType Junction -Path $alias -Target $target | Out-Null
+    try {
+        Invoke-Recovery check-process-target 16 -Location $alias
+        Invoke-Recovery check-legacy-uninstall 16 -Location $alias -OwnerPid $PID
+        Set-MockRegistration Machine $alias '1.0.0'
+        Invoke-Recovery check-process-target 16
+    } finally {
+        [IO.Directory]::Delete($alias)
+    }
     Assert-Original
 }
 
@@ -612,6 +664,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery recover 11
             Assert-Original
             Assert-Condition (Test-Path -LiteralPath $installedCarrier) 'Rollback did not restore the carrier'
+            Assert-Condition (!(Test-Path -LiteralPath $stage)) 'Rollback retained the signed staging tree'
 
             $stageToken = Invoke-SignedRecovery prepare 0
             $stage = "$target.new-$stageToken"
@@ -622,13 +675,12 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery recover 13 -Inventory $tampered
             Invoke-SignedRecovery recover 12
             Set-MockRegistration User $target '2.0.0'
-            Invoke-SignedRecovery commit 0
-            Assert-Promoted
-
             $otherBackup = "$target.old-$('3' * 32)"
             Write-Payload $otherBackup 'untracked'
             $unknown = Join-Path $backup 'unknown.txt'
             [IO.File]::WriteAllText($unknown, 'preserve me')
+            Invoke-SignedRecovery commit 0
+            Assert-Promoted
             Invoke-SignedRecovery prepare 13
             Assert-Condition ((Get-Content -LiteralPath $unknown -Raw) -eq 'preserve me') 'Unknown backup file was modified'
             Remove-Item -LiteralPath $unknown

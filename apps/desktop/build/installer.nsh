@@ -14,9 +14,6 @@
     !include "${PROJECT_DIR}\native\installer-update-status\update-status.nsh"
   !endif
 !endif
-!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
-  !include "${PROJECT_DIR}\native\installer-directory-recovery\recovery.nsh"
-!endif
 
 !define ONEKEY_APP_USER_MODEL_ID "OneKey Wallet"
 !define ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY "Software\Classes\AppUserModelId\${ONEKEY_APP_USER_MODEL_ID}"
@@ -79,10 +76,14 @@ Var OneKeyModernLocale
 Var OneKeyModernResult
 Var OneKeyModernIsInner
 
-!include "${PROJECT_DIR}\native\installer-native-ui\renderer.nsh"
+!include /CHARSET=UTF8 "${PROJECT_DIR}\native\installer-native-ui\renderer.nsh"
+!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+  !include /CHARSET=UTF8 "${PROJECT_DIR}\native\installer-directory-recovery\recovery.nsh"
+!endif
 
 !ifndef BUILD_UNINSTALLER
   !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+    Var OneKeyModernRecoveryScope
     !macro customHeader
       !insertmacro OneKeyRecoveryDefineOuterState
     !macroend
@@ -191,24 +192,48 @@ Var OneKeyModernIsInner
   ${EndIf}
   ${GetOptions} $0 "/currentuser" $1
   ${IfNot} ${Errors}
-    StrCpy $OneKeyModernExplicitScope "current"
+    ${If} $OneKeyModernExplicitScope == "all"
+      StrCpy $OneKeyModernExplicitScope "both"
+    ${Else}
+      StrCpy $OneKeyModernExplicitScope "current"
+    ${EndIf}
   ${EndIf}
   !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
-    ${If} $OneKeyModernExplicitScope == ""
-    ${AndIf} $OneKeyModernInstallScope == ""
-      ${If} $2 == "1"
-      ${AndIf} $3 == "0"
-        StrCpy $OneKeyModernInstallScope "current"
+    StrCpy $OneKeyModernRecoveryScope ""
+    ${If} $2 == "1"
+    ${AndIf} $3 == "1"
+      StrCpy $OneKeyModernRecoveryScope "both"
+    ${ElseIf} $2 == "1"
+      StrCpy $OneKeyModernRecoveryScope "current"
+    ${ElseIf} $3 == "1"
+      StrCpy $OneKeyModernRecoveryScope "all"
+    ${EndIf}
+    ${If} $OneKeyModernRecoveryScope != ""
+      ${If} $OneKeyModernRecoveryScope == "both"
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      ${If} $OneKeyModernExplicitScope != ""
+      ${AndIf} $OneKeyModernExplicitScope != $OneKeyModernRecoveryScope
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      ${If} $OneKeyModernInstallScope != ""
+      ${AndIf} $OneKeyModernInstallScope != $OneKeyModernRecoveryScope
+        Goto OneKeyModernRecoveryScopeConflict
+      ${EndIf}
+      StrCpy $OneKeyModernInstallScope "$OneKeyModernRecoveryScope"
+      StrCpy $OneKeyModernAccepted "1"
+      StrCpy $OneKeyModernChosenDirectory ""
+      ${If} $OneKeyModernRecoveryScope == "current"
         !ifndef INSTALL_MODE_PER_ALL_USERS
           !ifndef ONE_CLICK
             StrCpy $hasPerMachineInstallation "0"
             StrCpy $hasPerUserInstallation "1"
           !endif
           !insertmacro setInstallModePerUser
+        !else
+          Goto OneKeyModernRecoveryScopeConflict
         !endif
-      ${ElseIf} $2 == "0"
-      ${AndIf} $3 == "1"
-        StrCpy $OneKeyModernInstallScope "all"
+      ${Else}
         !ifndef INSTALL_MODE_PER_ALL_USERS
           !ifndef ONE_CLICK
             StrCpy $hasPerMachineInstallation "1"
@@ -217,10 +242,27 @@ Var OneKeyModernIsInner
         !endif
         !ifdef INSTALL_MODE_PER_ALL_USERS_REQUIRED
           !insertmacro setInstallModePerAllUsers
+        !else
+          Goto OneKeyModernRecoveryScopeConflict
         !endif
       ${EndIf}
     ${EndIf}
+    Goto OneKeyModernRecoveryScopeReady
+
+    OneKeyModernRecoveryScopeConflict:
+      ${IfNot} ${Silent}
+        !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+          "OneKey Setup could not select a scope for recovery. Run Setup again without a scope option or contact OneKey support." \
+          "OneKey 安装程序无法确定要恢复的安装范围。请不指定安装范围重新运行安装程序，或联系 OneKey 支持。"
+      ${EndIf}
+      SetErrorLevel 1
+      Quit
+
+    OneKeyModernRecoveryScopeReady:
   !endif
+  ${If} $OneKeyModernExplicitScope == "both"
+    StrCpy $OneKeyModernExplicitScope "current"
+  ${EndIf}
   # An explicit scope is an upgrade only when that scope is already installed.
   ${If} $OneKeyModernExplicitScope == "all"
     StrCpy $OneKeyModernWasInstalled "$OneKeyModernHadPerMachine"
@@ -565,13 +607,16 @@ FunctionEnd
     ${EndIf}
   !macroend
 
-  !macro customUnInstall
-    StrCpy $OneKeyModernUninstallRetryPath "$OneKeyModernUninstallOriginalDirectory\${UNINSTALL_FILENAME}"
+  !macro customUnInstallBeforeValidation
+    GetFullPathName $OneKeyModernUninstallRetryPath "$OneKeyModernUninstallOriginalDirectory\${UNINSTALL_FILENAME}"
     ${If} $installMode == "all"
       StrCpy $OneKeyModernUninstallRetryScope "/allusers"
     ${Else}
       StrCpy $OneKeyModernUninstallRetryScope "/currentuser"
     ${EndIf}
+  !macroend
+
+  !macro customUnInstall
     ${If} $OneKeyModernUiActive == "1"
       !insertmacro OneKeyModernRendererCall SetPage '"uninstalling"'
       Pop $OneKeyModernResult
@@ -652,10 +697,22 @@ FunctionEnd
       OneKeyUninstallCheckAncestor:
         System::Call 'Kernel32::GetFileAttributesW(w r0)i .r1'
         IntOp $1 $1 & 0x410
-        StrCmp $1 16 0 OneKeyUninstallInvalidTarget
+        StrCmp $1 16 0 OneKeyUninstallInvalidDirectory
         ${GetParent} "$0" $1
+        StrCmp $1 "" OneKeyUninstallValidTarget
+        StrCpy $2 "$1" 1 -1
+        ${If} $2 == ":"
+          System::Call 'Kernel32::GetFileAttributesW(w "$1\")i .r1'
+          IntOp $1 $1 & 0x410
+          StrCmp $1 16 OneKeyUninstallValidTarget OneKeyUninstallInvalidDirectory
+        ${EndIf}
         StrCpy $0 "$1"
-        StrCmp $0 "" OneKeyUninstallValidTarget OneKeyUninstallCheckAncestor
+        Goto OneKeyUninstallCheckAncestor
+
+      OneKeyUninstallInvalidDirectory:
+        !insertmacro OneKeyRecoveryReportPathError ${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}
+        SetErrorLevel 1
+        Quit
 
       OneKeyUninstallInvalidTarget:
         ${IfNot} ${Silent}
@@ -753,8 +810,38 @@ FunctionEnd
     Quit
   FunctionEnd
 
-  Function un.onUninstFailed
+  Function un.OneKeyModernCheckUninstallRetryRegistration
+    ReadRegStr $0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $0 != ""
+      GetFullPathName $0 "$0"
+      GetFullPathName $1 "$OneKeyModernUninstallOriginalDirectory"
+      ${If} $0 == $1
+        ReadRegStr $0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString
+        ${If} $0 == '"$OneKeyModernUninstallRetryPath" $OneKeyModernUninstallRetryScope'
+          StrCpy $0 "ok"
+          Return
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+    StrCpy $0 "error"
+  FunctionEnd
+
+  Function un.OneKeyModernShowUninstallFailure
     ${If} $OneKeyModernUiActive == "1"
+      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+        ${If} $OneKeyUninstallCommitted == "1"
+          Goto OneKeyModernUninstallNeedsSetup
+        ${EndIf}
+      !endif
+      Call un.OneKeyModernCheckUninstallRetryRegistration
+      ${If} $0 != "ok"
+        Goto OneKeyModernUninstallNeedsSetup
+      ${EndIf}
+      !insertmacro OneKeyModernRendererCall CheckUninstallRetry '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult != "ok"
+        Goto OneKeyModernUninstallNeedsSetup
+      ${EndIf}
       !insertmacro OneKeyModernRendererCall SetPage '"uninstallError"'
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
@@ -765,13 +852,18 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_HIDE}
         !insertmacro OneKeyModernRendererCall WaitForEvent ''
         Pop $OneKeyModernResult
-        !insertmacro OneKeyModernRendererCall Shutdown ''
-        Pop $0
-        StrCpy $OneKeyModernUiActive "0"
         ${If} $OneKeyModernResult == "primary"
-          ExecShell "open" "$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"
+          Call un.OneKeyModernCheckUninstallRetryRegistration
+          ${If} $0 != "ok"
+            Goto OneKeyModernUninstallNeedsSetup
+          ${EndIf}
+          !insertmacro OneKeyModernRendererCall RetryUninstall '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
+          Pop $OneKeyModernResult
+          ${If} $OneKeyModernResult != "ok"
+            Goto OneKeyModernUninstallNeedsSetup
+          ${EndIf}
         ${EndIf}
-        Quit
+        Goto OneKeyModernUninstallExit
       ${Else}
         !insertmacro OneKeyModernRendererCall Shutdown ''
         Pop $0
@@ -779,6 +871,23 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_SHOW}
       ${EndIf}
     ${EndIf}
+    Return
+
+    OneKeyModernUninstallNeedsSetup:
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND \
+        "OneKey could not finish uninstalling. Run OneKey Setup to recover the installation." \
+        "OneKey 未能完成卸载。请运行 OneKey 安装程序以恢复安装。"
+
+    OneKeyModernUninstallExit:
+      !insertmacro OneKeyModernRendererCall ShutdownHidden ''
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
+      SetErrorLevel 1
+      Quit
+  FunctionEnd
+
+  Function un.onUninstFailed
+    Call un.OneKeyModernShowUninstallFailure
   FunctionEnd
 
 !else
@@ -799,6 +908,12 @@ FunctionEnd
     ${If} $OneKeyModernIsInner == "1"
       Abort
     ${EndIf}
+    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+      ${If} $OneKeyModernRecoveryScope != ""
+        ShowWindow $HWNDPARENT ${SW_SHOW}
+        Abort
+      ${EndIf}
+    !endif
     ${If} $OneKeyModernExplicitScope != ""
       ShowWindow $HWNDPARENT ${SW_SHOW}
       Abort
@@ -847,7 +962,17 @@ FunctionEnd
   OneKeyModernWelcomeLoop:
     !insertmacro OneKeyModernRendererCall WaitForEvent ''
     Pop $OneKeyModernResult
-    ${If} $OneKeyModernResult == "browse-current"
+    ${If} $OneKeyModernResult == "terms"
+    ${OrIf} $OneKeyModernResult == "privacy"
+      !insertmacro OneKeyModernRendererCall OpenLegalLink '"$OneKeyModernResult"'
+      Pop $0
+      ${If} $0 != "ok"
+        !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND \
+          "Open this address in your browser.$\r$\n$0" \
+          "请在浏览器中打开此地址。$\r$\n$0"
+      ${EndIf}
+      Goto OneKeyModernWelcomeLoop
+    ${ElseIf} $OneKeyModernResult == "browse-current"
       ${If} $OneKeyModernWasInstalled == "1"
         Goto OneKeyModernWelcomeLoop
       ${EndIf}
@@ -1190,13 +1315,8 @@ FunctionEnd
             ${EndIf}
             ${If} $OneKeyModernPackagePrepared != "1"
               DetailPrint "OneKey Setup could not prepare the embedded application package."
-              ${If} $OneKeyModernUiActive == "1"
-                !insertmacro OneKeyModernRendererCall Shutdown ''
-                Pop $0
-                StrCpy $OneKeyModernUiActive "0"
-                ShowWindow $HWNDPARENT ${SW_SHOW}
-              ${EndIf}
               SetErrorLevel 1
+              Call OneKeyModernShowInstallFailure
               Abort
             ${EndIf}
           !endif
@@ -1333,7 +1453,7 @@ FunctionEnd
     Abort
   FunctionEnd
 
-  Function .onInstFailed
+  Function OneKeyModernShowInstallFailure
     ${If} $OneKeyModernUiActive == "1"
       !insertmacro OneKeyModernRendererCall SetPage '"error"'
       Pop $OneKeyModernResult
@@ -1351,6 +1471,7 @@ FunctionEnd
         ${If} $OneKeyModernResult == "primary"
           ExecShell "open" "$EXEPATH"
         ${EndIf}
+        SetErrorLevel 1
         Quit
       ${Else}
         !insertmacro OneKeyModernRendererCall Shutdown ''
@@ -1359,6 +1480,10 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_SHOW}
       ${EndIf}
     ${EndIf}
+  FunctionEnd
+
+  Function .onInstFailed
+    Call OneKeyModernShowInstallFailure
   FunctionEnd
 
 !endif

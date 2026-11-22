@@ -2,6 +2,17 @@
   !addplugindir /x86-unicode "${BUILD_RESOURCES_DIR}\installer-generated\native-ui\Release"
 !endif
 
+!macro OneKeyInstallerMessage FLAGS EN ZH
+  Push $R9
+  System::Call 'Kernel32::GetUserDefaultUILanguage() i .R9'
+  ${If} $R9 == 2052
+    MessageBox ${FLAGS} "${ZH}"
+  ${Else}
+    MessageBox ${FLAGS} "${EN}"
+  ${EndIf}
+  Pop $R9
+!macroend
+
 Var OneKeyModernRendererReady
 
 !ifdef BUILD_UNINSTALLER

@@ -215,19 +215,38 @@ std::wstring ElementText(const Node& node, const State& state, bool welcome) {
 
 LegalText ParseLegalText(std::wstring_view raw) {
   LegalText result;
+  constexpr std::wstring_view open = L"{a ";
+  constexpr std::wstring_view close = L"{/a}";
   auto remainder = raw;
-  for (std::size_t i = 0; i < kLegalLinks.size(); ++i) {
-    const auto marker = L"{a " + std::wstring(kLegalLinks[i]) + L"}";
-    const auto begin = remainder.find(marker);
-    const auto end = begin == std::wstring_view::npos ? begin : remainder.find(L"{/a}", begin);
-    if (end == std::wstring_view::npos) return {std::wstring(raw), {}};
+  for (std::size_t parsed = 0; parsed < kLegalLinks.size(); ++parsed) {
+    const auto begin = remainder.find(open);
+    if (begin == std::wstring_view::npos) return {std::wstring(raw), {}};
+    const auto id_begin = begin + open.size();
+    const auto id_end = remainder.find(L'}', id_begin);
+    if (id_end == std::wstring_view::npos) return {std::wstring(raw), {}};
+
+    const auto id = remainder.substr(id_begin, id_end - id_begin);
+    const auto link = std::find(kLegalLinks.begin(), kLegalLinks.end(), id);
+    if (link == kLegalLinks.end()) return {std::wstring(raw), {}};
+
+    const auto i = static_cast<std::size_t>(link - kLegalLinks.begin());
+    const auto label = id_end + 1;
+    const auto end = remainder.find(close, label);
+    if (result.links[i].length != 0 || end == std::wstring_view::npos ||
+        end == label || remainder.find(open, label) < end ||
+        remainder.find(close) < begin) {
+      return {std::wstring(raw), {}};
+    }
 
     result.text.append(remainder.substr(0, begin));
-    const auto label = begin + marker.size();
     result.links[i] = {result.text.size(), end - label};
     result.text.append(remainder.substr(label, result.links[i].length));
-    remainder.remove_prefix(end + 4);
+    remainder.remove_prefix(end + close.size());
     if (!remainder.empty() && remainder.front() == L' ') remainder.remove_prefix(1);
+  }
+  if (remainder.find(open) != std::wstring_view::npos ||
+      remainder.find(close) != std::wstring_view::npos) {
+    return {std::wstring(raw), {}};
   }
   result.text.append(remainder);
   return result;

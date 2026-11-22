@@ -225,7 +225,7 @@ index b7f4752..f257d39 100644
      !insertmacro customUninstallPage
    !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
-index 981246d..f14245c 100644
+index 981246d..533c224 100644
 --- a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
 @@ -1,12 +1,3 @@
@@ -241,11 +241,11 @@ index 981246d..f14245c 100644
  # http://nsis.sourceforge.net/Allow_only_one_installer_instance
  !macro ALLOW_ONLY_ONE_INSTALLER_INSTANCE
    BringToFront
-@@ -29,136 +20,143 @@
+@@ -29,136 +20,156 @@
    launch:
  !macroend
 
-+# OneKey patch: select the exact installed executable and keep the same
++# OneKey patch: select the shipped app and BLE helper by full image path and keep the same
 +# verified process handle through termination.
 +!ifdef BUILD_UNINSTALLER
 +  !define ONEKEY_APP_PROCESSES un.OneKeyAppProcesses
@@ -265,14 +265,20 @@ index 981246d..f14245c 100644
 +    Push $7
 +    Push $8
 +    Push $9
++    Push $R0
 +    StrCpy $9 1
 +
 +    ${If} $INSTDIR == ""
 +      Goto done
 +    ${EndIf}
-+    GetFullPathName $1 "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
-+    ${If} $1 == ""
++    System::Call 'kernel32::GetLongPathNameW(w "$INSTDIR", w .r1, i ${NSIS_MAX_STRLEN})i .r6'
++    ${If} $6 == 0
++    ${OrIf} $6 >= ${NSIS_MAX_STRLEN}
 +      Goto done
++    ${EndIf}
++    StrCpy $6 "$1" 1 -1
++    ${If} $6 == "\"
++      StrCpy $1 "$1" -1
 +    ${EndIf}
 +    System::Call 'kernel32::GetCurrentProcessId() i .r2'
 +    System::Call 'kernel32::CreateToolhelp32Snapshot(i 2, i 0) p .r3'
@@ -289,7 +295,13 @@ index 981246d..f14245c 100644
 +    ${While} $5 != 0
 +      System::Call '*$4(i,i,i .r6,i,i,i,i,i,i,&w260 .r7)'
 +      ${If} $6 != $2
-+      ${AndIf} $7 == "${APP_EXECUTABLE_FILENAME}"
++        ${If} $7 == "${APP_EXECUTABLE_FILENAME}"
++          StrCpy $R0 "$1\${APP_EXECUTABLE_FILENAME}"
++        ${ElseIf} $7 == "onekey-ble-pair.exe"
++          StrCpy $R0 "$1\resources\bin\ble-pair\onekey-ble-pair.exe"
++        ${Else}
++          Goto next_process
++        ${EndIf}
 +        StrCpy $8 0x1000 # PROCESS_QUERY_LIMITED_INFORMATION
 +        ${If} $0 == 1
 +          IntOp $8 $8 | 1 # PROCESS_TERMINATE
@@ -299,8 +311,7 @@ index 981246d..f14245c 100644
 +          StrCpy $6 ${NSIS_MAX_STRLEN}
 +          System::Call 'kernel32::QueryFullProcessImageNameW(p r8, i 0, w .r7, *i r6) i .r6'
 +          ${If} $6 != 0
-+            GetFullPathName $7 "$7"
-+            System::Call 'kernel32::CompareStringOrdinal(w r1, i -1, w r7, i -1, i 1) i .r6'
++            System::Call 'kernel32::CompareStringOrdinal(w R0, i -1, w r7, i -1, i 1) i .r6'
 +            ${If} $6 == 2 # CSTR_EQUAL
 +              StrCpy $9 0
 +              ${If} $0 == 1
@@ -315,6 +326,7 @@ index 981246d..f14245c 100644
 +          ${EndIf}
 +        ${EndIf}
 +      ${EndIf}
++      next_process:
 +      System::Call 'kernel32::Process32NextW(p r3, p r4) i .r5'
 +    ${EndWhile}
 +    System::Free $4
@@ -323,6 +335,7 @@ index 981246d..f14245c 100644
 +    System::Call 'kernel32::CloseHandle(p r3)'
 +    done:
 +    StrCpy $0 $9
++    Pop $R0
 +    Pop $9
 +    Pop $8
 +    Pop $7
@@ -919,7 +932,7 @@ index c345dee..279e9e4 100644
          ${endif}
        !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..fc8e8b4 100644
+index 917b3da..d88469c 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -3,7 +3,11 @@ Function un.checkAppRunning
@@ -1007,10 +1020,10 @@ index 917b3da..fc8e8b4 100644
    Push $R2
    Push $R3
 +  Push $R4
-+
-+  StrCpy $R4 0
 
 -  StrCpy $R3 "$PLUGINSDIR\old-install$R0\*.*"
++  StrCpy $R4 0
++
 +  StrCpy $R3 "$uninstallStagingDir$R0\*.*"
    FindFirst $R1 $R2 $R3
 
@@ -1056,12 +1069,15 @@ index 917b3da..fc8e8b4 100644
      Pop $R3
      Pop $R2
      Pop $R1
-@@ -144,8 +175,31 @@ FunctionEnd
+@@ -144,8 +175,34 @@ FunctionEnd
 
  Section "un.${UNINSTALL_SECTION_NAME}"
    SectionIn RO
 -  # for assisted installer we check it here to show progress
 -  !ifndef ONE_CLICK
++  !ifmacrodef customUnInstallBeforeValidation
++    !insertmacro customUnInstallBeforeValidation
++  !endif
 +  !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
 +    !insertmacro OneKeyRecoveryReadUninstallRequest
 +    ${If} $OneKeyUninstallToken == ""
@@ -1090,7 +1106,7 @@ index 917b3da..fc8e8b4 100644
      ${IfNot} ${Silent}
        call un.checkAppRunning
      ${endIf}
-@@ -161,8 +215,15 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -161,8 +218,15 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !ifmacrodef customRemoveFiles
      !insertmacro customRemoveFiles
    !else
@@ -1107,7 +1123,7 @@ index 917b3da..fc8e8b4 100644
 
        Push ""
        Call un.atomicRMDir
-@@ -183,6 +244,13 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -183,6 +247,13 @@ Section "un.${UNINSTALL_SECTION_NAME}"
 
      # Remove all files (or remaining shallow directories from the block above)
      RMDir /r $INSTDIR
@@ -1121,7 +1137,7 @@ index 917b3da..fc8e8b4 100644
    !endif
 
    ${ifNot} ${isKeepShortcuts}
-@@ -220,6 +288,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -220,6 +291,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${if} ${Errors}
      !ifdef DELETE_APP_DATA_ON_UNINSTALL
        ${ifNot} ${isUpdated}
@@ -1129,7 +1145,7 @@ index 917b3da..fc8e8b4 100644
          StrCpy $isDeleteAppData "1"
        ${endif}
      !endif
-@@ -228,6 +297,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -228,6 +300,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${endIf}
 
    ${if} $isDeleteAppData == "1"
@@ -1142,7 +1158,7 @@ index 917b3da..fc8e8b4 100644
      # electron always uses per user app data
      ${if} $installMode == "all"
        SetShellVarContext current
-@@ -243,6 +318,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -243,6 +321,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
      ${if} $installMode == "all"
        SetShellVarContext all
      ${endif}
@@ -1150,7 +1166,7 @@ index 917b3da..fc8e8b4 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
-@@ -251,6 +327,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -251,6 +330,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !endif
    DeleteRegKey SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}"
 

@@ -385,9 +385,11 @@ void RunWindow(HINSTANCE instance, const Locale& locale) {
   const int height = std::max(window.Scale(78), text_height + window.Scale(52));
   const int width = std::max(window.Scale(300), text_left + static_cast<int>(text.right) +
                             window.Scale(22));
+  const int content_top = window.Scale(12);
+  const int content_bottom = height - window.Scale(22);
   const HWND label = CreateWindowExW(
       0, L"STATIC", locale.title, WS_VISIBLE | WS_CHILD | SS_NOPREFIX,
-      text_left, (window.Scale(68) - text_height) / 2,
+      text_left, (content_top + content_bottom - text_height) / 2,
       width - text_left - window.Scale(20), std::max(text_height, window.Scale(24)),
       hwnd, nullptr, instance, nullptr);
   if (label) {

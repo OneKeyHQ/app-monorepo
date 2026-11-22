@@ -9,6 +9,25 @@
 !endif
 !define ONEKEY_RECOVERY_TOKEN_CHARS 32
 !define ONEKEY_RECOVERY_CARRIER "OneKeyInstallerInventory.dll"
+!define ONEKEY_RECOVERY_UNINSTALL_COMPLETED 15
+!define ONEKEY_RECOVERY_UNSUPPORTED_LOCATION 16
+!define ONEKEY_RECOVERY_TARGET_NOT_EMPTY 17
+
+!macro OneKeyRecoveryReportPathError RESULT
+  ${IfNot} ${Silent}
+    ${If} ${RESULT} == "${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}"
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+        "OneKey could not verify an installation location. Connect the installation drives and use a local fixed drive and a folder without junctions or other redirects." \
+        "OneKey 无法验证安装位置。请连接安装所用的磁盘，并使用本地固定磁盘上未被重定向的文件夹。"
+    !ifndef BUILD_UNINSTALLER
+    ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_TARGET_NOT_EMPTY}"
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+        "The default OneKey folder already contains files. Choose another installation folder or make the default folder empty, then run Setup again." \
+        "OneKey 默认安装文件夹中已有文件。请选择其他安装文件夹，或将默认文件夹清空后重新运行安装程序。"
+    !endif
+    ${EndIf}
+  ${EndIf}
+!macroend
 
 !macro OneKeyRecoveryReadJournalValue ROOT KEY NAME OUT
   # Treat unreadable or malformed journals as pending. Only a missing key or
@@ -102,9 +121,13 @@ FunctionEnd
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${INSTALL_REGISTRY_KEY}" InstallLocation
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${UNINSTALL_REGISTRY_KEY}" UninstallString
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${UNINSTALL_REGISTRY_KEY}" UninstallString
+    !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${UNINSTALL_REGISTRY_KEY}" QuietUninstallString
+    !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${UNINSTALL_REGISTRY_KEY}" QuietUninstallString
     !ifdef UNINSTALL_REGISTRY_KEY_2
       !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${UNINSTALL_REGISTRY_KEY_2}" UninstallString
       !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${UNINSTALL_REGISTRY_KEY_2}" UninstallString
+      !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${UNINSTALL_REGISTRY_KEY_2}" QuietUninstallString
+      !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${UNINSTALL_REGISTRY_KEY_2}" QuietUninstallString
     !endif
     # Cleanup still belongs to the initiating user after uninstall registration is removed.
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${ONEKEY_RECOVERY_JOURNAL_KEY}" PendingCleanupV1
@@ -167,6 +190,7 @@ FunctionEnd
 
   Function un.OneKeyRecoveryFail
     SetErrorLevel 1
+    Call un.OneKeyModernShowUninstallFailure
     Abort "OneKey could not finish uninstalling. Run OneKey Setup or retry from Installed apps."
   FunctionEnd
 
@@ -203,6 +227,7 @@ FunctionEnd
     Pop $R8
     ${If} $R9 != "0"
       DetailPrint "$R8"
+      !insertmacro OneKeyRecoveryReportPathError $R9
       Call un.OneKeyRecoveryFail
     ${EndIf}
   !macroend
@@ -331,12 +356,15 @@ FunctionEnd
   !macroend
 
   Function OneKeyRecoveryFail
+    !insertmacro OneKeyRecoveryReportPathError $OneKeyRecoveryResult
     ${If} $OneKeyRecoveryState == "staging"
       StrCpy $INSTDIR "$OneKeyRecoveryTarget"
+      SetOutPath "$PLUGINSDIR"
       !insertmacro OneKeyRecoveryExecute recover
     ${EndIf}
     DetailPrint "OneKey Setup could not complete installation. Run Setup again to retry recovery."
     SetErrorLevel 1
+    Call OneKeyModernShowInstallFailure
     Abort
   FunctionEnd
 
@@ -395,7 +423,17 @@ FunctionEnd
     System::Call 'Kernel32::CloseHandle(p R9)'
     Delete "$R8"
     System::Call 'Kernel32::CloseHandle(p R4)'
-    SetErrorLevel 0
+    DetailPrint "OneKey finished the previous uninstall. Run OneKey Setup again to install OneKey."
+    ${IfNot} ${Silent}
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND \
+        "OneKey finished the previous uninstall. Run OneKey Setup again to install OneKey." \
+        "OneKey 已完成上次未完成的卸载。请重新运行 OneKey 安装程序以安装 OneKey。"
+      SetErrorLevel 0
+    ${ElseIf} ${isUpdated}
+      SetErrorLevel ${ONEKEY_RECOVERY_UNINSTALL_COMPLETED}
+    ${Else}
+      SetErrorLevel 0
+    ${EndIf}
     Quit
 
   WorkerCloseFile:
@@ -420,6 +458,13 @@ FunctionEnd
     ${If} $installMode == "all"
       !insertmacro OneKeyRecoveryGuardInitiatingUser
       StrCpy $OneKeyRecoveryScope "machine"
+    ${EndIf}
+    ${If} $OneKeyModernRecoveryScope == "all"
+    ${AndIf} $OneKeyRecoveryScope != "machine"
+      Call OneKeyRecoveryFail
+    ${ElseIf} $OneKeyModernRecoveryScope == "current"
+    ${AndIf} $OneKeyRecoveryScope != "user"
+      Call OneKeyRecoveryFail
     ${EndIf}
     StrCpy $OneKeyRecoveryTarget "$INSTDIR"
     System::Call 'Kernel32::GetCurrentProcessId() i .s'
@@ -496,6 +541,9 @@ FunctionEnd
       Goto OneKeyRecoveryFilesReady
     ${ElseIf} $OneKeyRecoveryState == "staging"
       StrCpy $INSTDIR "$OneKeyRecoveryStage"
+      # Put the signed inventory in place before any payload entries are copied.
+      CopyFiles /SILENT /FILESONLY "$PLUGINSDIR\${ONEKEY_RECOVERY_CARRIER}" "$INSTDIR"
+      !insertmacro OneKeyRecoveryHandleFileErrors
     ${EndIf}
   !macroend
 
@@ -509,9 +557,11 @@ FunctionEnd
   !macro OneKeyRecoveryAfterFiles
     !insertmacro OneKeyRecoveryHandleFileErrors
     ClearErrors
-    CopyFiles /SILENT /FILESONLY "$PLUGINSDIR\${ONEKEY_RECOVERY_CARRIER}" "$INSTDIR"
-    ${If} ${Errors}
-      Call OneKeyRecoveryFail
+    ${If} $OneKeyRecoveryState == "legacy"
+      CopyFiles /SILENT /FILESONLY "$PLUGINSDIR\${ONEKEY_RECOVERY_CARRIER}" "$INSTDIR"
+      ${If} ${Errors}
+        Call OneKeyRecoveryFail
+      ${EndIf}
     ${EndIf}
     ${If} $OneKeyRecoveryState == "staging"
       StrCpy $INSTDIR "$OneKeyRecoveryTarget"

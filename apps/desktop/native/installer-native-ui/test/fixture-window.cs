@@ -36,9 +36,18 @@ public static class FixtureWindow {
     static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")]
     public static extern bool PrintWindow(IntPtr window, IntPtr device, uint flags);
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern IntPtr SendMessageTimeout(IntPtr window, uint message, IntPtr wparam,
                                             IntPtr lparam, uint flags, uint timeout, out IntPtr result);
+
+    public static void UsePhysicalPixels() {
+        if (SetThreadDpiAwarenessContext(new IntPtr(-4)) == IntPtr.Zero &&
+            SetThreadDpiAwarenessContext(new IntPtr(-3)) == IntPtr.Zero) {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        }
+    }
 
     public static IntPtr Find(uint expected, string kind, bool visible) {
         IntPtr found = IntPtr.Zero;

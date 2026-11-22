@@ -12,6 +12,7 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -Path (Join-Path $PSScriptRoot 'fixture-window.cs')
 Add-Type -AssemblyName Accessibility
 Add-Type -Path (Join-Path $PSScriptRoot 'fixture-accessibility.cs') -ReferencedAssemblies 'Accessibility'
+[FixtureWindow]::UsePhysicalPixels()
 
 function Wait-For($Condition, [string]$Label) {
     $end = [DateTime]::UtcNow.AddSeconds(15)
@@ -100,8 +101,12 @@ Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=accessibility') {
     $null = [FixtureAccessibility]::Find($root, 'By continuing, you agree to the Terms and Privacy Policy', 41)
     $terms = [FixtureAccessibility]::Find($root, 'Terms', 30)
     [FixtureAccessibility]::CheckLocation($root, $terms)
+    [FixtureAccessibility]::Invoke($root, $terms)
+    Wait-Log 'event=terms'
     $privacy = [FixtureAccessibility]::Find($root, 'Privacy Policy', 30)
     [FixtureAccessibility]::CheckLocation($root, $privacy)
+    [FixtureAccessibility]::Invoke($root, $privacy)
+    Wait-Log 'event=privacy'
     $more = [FixtureAccessibility]::Find($root, 'More options', 43)
     [FixtureAccessibility]::CheckState($root, $more, 0x400, $true)
     [FixtureAccessibility]::TakeFocus($root, $more)

@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <limits>
 #include <map>
 #include <optional>
@@ -49,7 +50,10 @@ constexpr size_t kDigestLength = 64;
 constexpr size_t kInventoryLimit = 8 * 1024 * 1024;
 constexpr size_t kCarrierLimit = kInventoryLimit + 256 * 1024;
 
-enum Result { Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14 };
+enum Result {
+  Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14,
+  UnsupportedLocation = 16, TargetNotEmpty = 17
+};
 enum class Phase : DWORD { Creating = 1, Staging, Swapping, Restoring, Promoted };
 
 struct Error {
@@ -168,14 +172,17 @@ bool sameId(const Identity& first, const Identity& second) {
                      sizeof(first.FileId.Identifier)) == 0;
 }
 
-Identity directoryId(HANDLE handle) {
-  FILE_ATTRIBUTE_TAG_INFO attributes{};
-  check(GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &attributes,
-                                    sizeof(attributes)), "read directory attributes");
-  if (!(attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
-      attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-    fail("directory is a reparse point or not a directory");
+void checkDirectory(HANDLE handle, Result invalid = Blocked) {
+  BY_HANDLE_FILE_INFORMATION info{};
+  check(GetFileInformationByHandle(handle, &info), "read directory attributes");
+  if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+      info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    fail("directory is a reparse point or not a directory", ERROR_INVALID_DATA, invalid);
   }
+}
+
+Identity directoryId(HANDLE handle) {
+  checkDirectory(handle);
   Identity id{};
   check(GetFileInformationByHandleEx(handle, FileIdInfo, &id, sizeof(id)), "read file ID");
   return id;
@@ -194,14 +201,17 @@ std::optional<Identity> directoryAt(const std::wstring& path) {
 
 enum class AncestorSpelling { Canonical, AllowShortNames };
 
-std::vector<Handle> lockParents(const std::wstring& target,
-                                AncestorSpelling spelling = AncestorSpelling::Canonical) {
+bool fixedNtfs(const std::wstring& target) {
   const auto drive = target.substr(0, 3);
   wchar_t fs[16]{};
-  if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED ||
-      !GetVolumeInformationW(drive.c_str(), nullptr, 0, nullptr, nullptr, nullptr,
-                             fs, static_cast<DWORD>(std::size(fs))) ||
-      !equal(fs, L"NTFS")) {
+  return GetDriveTypeW(drive.c_str()) == DRIVE_FIXED &&
+         GetVolumeInformationW(drive.c_str(), nullptr, 0, nullptr, nullptr, nullptr,
+                               fs, static_cast<DWORD>(std::size(fs))) && equal(fs, L"NTFS");
+}
+
+std::vector<Handle> lockParents(const std::wstring& target,
+                                AncestorSpelling spelling = AncestorSpelling::Canonical) {
+  if (!fixedNtfs(target)) {
     fail("install path must be on a fixed NTFS volume");
   }
   std::vector<Handle> handles;
@@ -367,78 +377,98 @@ bool supportedTarget(const Options& options) {
   return equal(options.target, root + L"\\OneKey");
 }
 
-std::wstring resolvedRegistration(const std::wstring& path) {
+struct ResolvedDirectory {
+  std::wstring path;
+  std::wstring volumePath;
+  bool exists = false;
+};
+
+ResolvedDirectory resolveDirectory(const std::wstring& path,
+                                    Result invalid = Blocked,
+                                    std::vector<Handle>* keepOpen = nullptr) {
   const auto drive = path.substr(0, 3);
-  wchar_t fs[16]{};
+  wchar_t volume[kPathCapacity]{};
   if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED ||
-      !GetVolumeInformationW(drive.c_str(), nullptr, 0, nullptr, nullptr, nullptr,
-                             fs, static_cast<DWORD>(std::size(fs))) ||
-      !equal(fs, L"NTFS")) {
-    fail("installation path must be on a fixed NTFS volume");
+      !GetVolumeNameForVolumeMountPointW(drive.c_str(), volume,
+                                       static_cast<DWORD>(std::size(volume)))) {
+    fail("installation path must be on an accessible fixed local volume", ERROR_INVALID_DATA, invalid);
   }
   std::vector<Handle> directories;
-  auto resolved = path;
+  ResolvedDirectory resolved{path, L"", false};
   for (size_t end = 3;;) {
     const auto prefix = path.substr(0, end);
     auto directory = openPath(prefix, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
     if (directory.value == INVALID_HANDLE_VALUE) {
       const auto error = GetLastError();
-      if (missing(error)) break;
-      fail("open another scope's installation path", error);
+      if (end != 3 && missing(error)) break;
+      fail("open installation path", error, invalid);
     }
-    directoryId(directory.value);
+    checkDirectory(directory.value, invalid);
     wchar_t actual[kPathCapacity]{};
     const auto length = GetFinalPathNameByHandleW(directory.value, actual,
                                                  static_cast<DWORD>(std::size(actual)), 0);
     if (length < 7 || length >= std::size(actual) || std::wstring(actual, 4) != L"\\\\?\\") {
-      fail("resolve another scope's installation path");
+      fail("resolve installation path", ERROR_INVALID_DATA, invalid);
     }
     auto expanded = std::wstring(actual + 4);
-    if (end == 3 && expanded.back() != L'\\') expanded += L'\\';
-    resolved = canonical(expanded + path.substr(end));
+    if (end == 3) {
+      if (expanded.size() == 2) expanded += L'\\';
+      if (expanded.size() != 3) {
+        fail("installation drive does not resolve to a volume root", ERROR_INVALID_DATA, invalid);
+      }
+    }
+    resolved.path = canonical(expanded + path.substr(end));
     directories.push_back(std::move(directory));
-    if (end == path.size()) break;
+    if (end == path.size()) {
+      resolved.exists = true;
+      break;
+    }
     end = std::min(path.size(), path.find(L'\\', end == 3 ? 3 : end + 1));
   }
+  resolved.volumePath = volume + resolved.path.substr(3);
+  if (keepOpen) *keepOpen = std::move(directories);
   return resolved;
 }
 
-std::wstring registeredUninstallerPath(const std::wstring& command) {
+std::wstring registeredUninstallerPath(const std::wstring& command, Result invalid) {
   if (command.empty() || command.front() != L'"') fail("expected a quoted registered uninstaller");
   const auto close = command.find(L'"', 1);
   if (close == std::wstring::npos ||
       (close + 1 < command.size() && command[close + 1] != L' ')) {
     fail("invalid registered uninstaller");
   }
-  const auto executable = canonical(command.substr(1, close - 1));
+  const auto executable = canonical(command.substr(1, close - 1), invalid);
   const auto slash = executable.find_last_of(L'\\');
   if (!equal(executable.substr(slash + 1), kUninstaller)) fail("unexpected registered uninstaller");
   return canonical(executable.substr(0, slash));
 }
 
 struct Registration {
-  std::optional<std::wstring> path;
+  std::optional<ResolvedDirectory> directory;
+  std::vector<std::wstring> paths;
   bool hasLocation = false;
 };
 
-Registration resolveRegistration(const Scope& scope) {
+Registration resolveRegistration(const Scope& scope, Result invalid = Blocked) {
   Registration registration;
   auto add = [&](const std::wstring& path) {
-    const auto resolved = resolvedRegistration(path);
-    if (registration.path && !equal(*registration.path, resolved)) {
+    auto resolved = resolveDirectory(path, invalid);
+    if (registration.directory &&
+        !equal(registration.directory->volumePath, resolved.volumePath)) {
       fail("inconsistent installation registration");
     }
-    registration.path = resolved;
+    registration.paths.push_back(path);
+    registration.directory = std::move(resolved);
   };
   for (const auto view : {RRF_SUBKEY_WOW6464KEY, RRF_SUBKEY_WOW6432KEY}) {
     const auto location = readString(scope.root, scope.install, L"InstallLocation", view);
     if (location) {
-      add(canonical(*location));
+      add(canonical(*location, invalid));
       registration.hasLocation = true;
     }
     for (const auto* name : {L"UninstallString", L"QuietUninstallString"}) {
       const auto command = readString(scope.root, scope.uninstall, name, view);
-      if (command) add(registeredUninstallerPath(*command));
+      if (command) add(registeredUninstallerPath(*command, invalid));
     }
   }
   return registration;
@@ -459,14 +489,35 @@ bool hasRegistrationKeys(const Scope& scope) {
 
 void checkOtherScope(const Options& options, const std::wstring& staging = L"",
                      const std::wstring& backup = L"") {
-  const auto other = resolveRegistration(scopeFor(options, !options.machine));
-  if (!other.path) return;
+  const auto invalid = options.command == L"check-process-target" ||
+      options.command == L"check-legacy-uninstall" ? UnsupportedLocation : Blocked;
+  const auto other = resolveRegistration(scopeFor(options, !options.machine), invalid);
+  if (!other.directory) return;
   for (const auto* candidate : {&options.target, &staging, &backup}) {
-    if (!candidate->empty() && (overlap(*other.path, *candidate) ||
-        overlap(*other.path, resolvedRegistration(*candidate)))) {
+    if (candidate->empty()) continue;
+    if (std::any_of(other.paths.begin(), other.paths.end(), [&](const auto& path) {
+          return overlap(path, *candidate);
+        }) || overlap(other.directory->volumePath, resolveDirectory(*candidate, invalid).volumePath)) {
       fail("other scope overlaps an installer directory");
     }
   }
+}
+
+bool directoryEmpty(const std::wstring& path) {
+  WIN32_FIND_DATAW entry{};
+  FindHandle found{FindFirstFileW((extended(path) + L"\\*").c_str(), &entry)};
+  if (found.value == INVALID_HANDLE_VALUE) {
+    const auto error = GetLastError();
+    if (error == ERROR_FILE_NOT_FOUND) return true;
+    fail("enumerate unregistered installation directory", error);
+  }
+  do {
+    if (std::wcscmp(entry.cFileName, L".") != 0 &&
+        std::wcscmp(entry.cFileName, L"..") != 0) return false;
+  } while (FindNextFileW(found.value, &entry));
+  const auto error = GetLastError();
+  if (error != ERROR_NO_MORE_FILES) fail("enumerate unregistered installation directory", error);
+  return true;
 }
 
 bool checkRegistration(const Options& options, const Scope& scope) {
@@ -876,7 +927,7 @@ struct Record {
 
 constexpr DWORD kRecordMagic = 0x31524b4f;
 
-enum class CleanupKind : DWORD { Backup = 1, Uninstall };
+enum class CleanupKind : DWORD { Backup = 1, Uninstall, Staging };
 enum class UninstallPhase : DWORD { Intent = 1, Tombstoned };
 constexpr DWORD kCleanupMagic = 0x31434b4f;
 constexpr DWORD kUninstallMagic = 0x31554b4f;
@@ -981,7 +1032,7 @@ void clear(const Scope& scope) {
 
 void checkCleanup(const CleanupRecord& entry) {
   if (entry.magic != kCleanupMagic ||
-      (entry.kind != CleanupKind::Backup && entry.kind != CleanupKind::Uninstall) ||
+      (entry.kind < CleanupKind::Backup || entry.kind > CleanupKind::Staging) ||
       !hex(field(entry.token), 32) || !safeRelease(field(entry.release)) ||
       !hex(field(entry.inventory), kDigestLength) ||
       !equal(field(entry.target), canonical(field(entry.target)))) {
@@ -1146,7 +1197,9 @@ void printToken(const std::wstring& token) {
 }
 
 std::wstring cleanupPath(const CleanupRecord& entry) {
-  const auto suffix = entry.kind == CleanupKind::Backup ? L".old-" : L".uninstall-";
+  const wchar_t* suffix = L".uninstall-";
+  if (entry.kind == CleanupKind::Backup) suffix = L".old-";
+  if (entry.kind == CleanupKind::Staging) suffix = L".new-";
   return field(entry.target) + suffix + field(entry.token);
 }
 
@@ -1162,9 +1215,9 @@ void checkPendingCleanupTarget(const Options& options) {
     const auto path = cleanupPath(*cleanup);
     // Resolve parent aliases without opening a replacement at the reserved sibling.
     const auto slash = path.find_last_of(L'\\');
-    const auto reserved = resolvedRegistration(path.substr(0, slash)) + path.substr(slash);
+    const auto reserved = resolveDirectory(path.substr(0, slash)).volumePath + path.substr(slash);
     if (overlap(options.target, path) ||
-        overlap(resolvedRegistration(options.target), reserved)) {
+        overlap(resolveDirectory(options.target).volumePath, reserved)) {
       fail("selected directory overlaps pending installer cleanup");
     }
   }
@@ -1202,8 +1255,8 @@ void trackCleanup(const Scope& scope, const CleanupRecord& entry) {
 void eraseInventoryEntry(const std::wstring& path, const std::wstring& digest,
                          const Sha256& sha, const Identity* expectedId = nullptr) {
   const bool directory = digest == L"d";
-  auto entry = openPath(path, DELETE | FILE_READ_ATTRIBUTES | (directory ? 0 : GENERIC_READ),
-                        FILE_SHARE_READ);
+  const DWORD access = DELETE | FILE_READ_ATTRIBUTES;
+  auto entry = openPath(path, access | (directory ? 0 : GENERIC_READ), FILE_SHARE_READ);
   if (entry.value == INVALID_HANDLE_VALUE) {
     const auto error = GetLastError();
     if (missing(error)) return;
@@ -1217,9 +1270,47 @@ void eraseInventoryEntry(const std::wstring& path, const std::wstring& digest,
     if (sha.read(entry.value) != digest) fail("cleanup file differs from signed inventory");
   }
   checkStreams(path);
+  FILE_DISPOSITION_INFO_EX dispositionEx{FILE_DISPOSITION_FLAG_DELETE |
+                                         FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE};
+  if (SetFileInformationByHandle(entry.value, FileDispositionInfoEx, &dispositionEx,
+                                sizeof(dispositionEx))) return;
+  const auto failure = GetLastError();
+  if (failure != ERROR_INVALID_PARAMETER && failure != ERROR_INVALID_FUNCTION &&
+      failure != ERROR_NOT_SUPPORTED && failure != ERROR_ACCESS_DENIED) {
+    fail("dispose verified cleanup entry", failure);
+  }
+  FILE_BASIC_INFO attributes{};
+  check(GetFileInformationByHandleEx(entry.value, FileBasicInfo, &attributes,
+                                    sizeof(attributes)), "read cleanup attributes");
+  std::optional<Handle> attributeWriter;
+  if (attributes.FileAttributes & FILE_ATTRIBUTE_READONLY) {
+    attributeWriter.emplace(openPath(path, FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+                                    FILE_SHARE_READ | FILE_SHARE_DELETE));
+    check(attributeWriter->value != INVALID_HANDLE_VALUE, "open verified cleanup attributes");
+    Identity checked{}, writableId{};
+    check(GetFileInformationByHandleEx(entry.value, FileIdInfo, &checked, sizeof(checked)),
+          "read verified cleanup file ID");
+    check(GetFileInformationByHandleEx(attributeWriter->value, FileIdInfo,
+                                      &writableId, sizeof(writableId)), "read cleanup file ID");
+    if (!sameId(checked, writableId)) fail("cleanup entry identity changed");
+    FILE_BASIC_INFO writable{};
+    writable.FileAttributes = attributes.FileAttributes & ~FILE_ATTRIBUTE_READONLY;
+    if (!writable.FileAttributes) writable.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+    check(SetFileInformationByHandle(attributeWriter->value, FileBasicInfo, &writable, sizeof(writable)),
+          "make verified cleanup entry writable");
+  }
   FILE_DISPOSITION_INFO disposition{TRUE};
-  check(SetFileInformationByHandle(entry.value, FileDispositionInfo, &disposition,
-                                   sizeof(disposition)), "dispose verified cleanup entry");
+  if (!SetFileInformationByHandle(entry.value, FileDispositionInfo, &disposition,
+                                  sizeof(disposition))) {
+    const auto error = GetLastError();
+    if (attributeWriter) {
+      FILE_BASIC_INFO original{};
+      original.FileAttributes = attributes.FileAttributes;
+      check(SetFileInformationByHandle(attributeWriter->value, FileBasicInfo, &original, sizeof(original)),
+            "restore verified cleanup attributes");
+    }
+    fail("dispose verified cleanup entry", error);
+  }
 }
 
 void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha) {
@@ -1234,12 +1325,24 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha)
   const auto parents = lockParents(path);
   if (const auto id = directoryAt(path)) {
     if (!sameId(*id, record->directory)) fail("cleanup directory identity changed");
+    const bool staging = record->kind == CleanupKind::Staging;
     const auto source = oldInventorySource(options, path);
+    const auto release = field(record->release);
     {
       const auto root = openPath(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
       check(root.value != INVALID_HANDLE_VALUE, "lock cleanup directory");
       if (!sameId(directoryId(root.value), *id)) fail("cleanup directory identity changed");
-      if (const auto files = loadInventory(source, field(record->release), sha)) {
+      std::optional<Inventory> files;
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+      files = loadInventory(source, release, sha);
+      const bool hasCarrier = files.has_value();
+#else
+      if (!staging) files = loadInventory(source, release, sha);
+#endif
+      if (!files && staging && options.release == release && !options.newInventory.empty()) {
+        files = loadInventory(options.newInventory, release, sha);
+      }
+      if (files) {
         if (files->digest != field(record->inventory)) fail("cleanup inventory changed");
         // A previous attempt can have removed a verified subset.
         std::set<std::wstring, CaseInsensitive> seen;
@@ -1255,9 +1358,13 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha)
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
         seen.clear();
         verifyContents(path, L"", *files, sha, seen);
-        if (seen.size() != 1 || !seen.count(kInventory)) fail("cleanup directory is not empty");
-        eraseInventoryEntry(source, files->digest, sha);
-        interruptAt(options, L"after-cleanup-carrier");
+        if (hasCarrier) {
+          if (seen.size() != 1 || !seen.count(kInventory)) fail("cleanup directory is not empty");
+          eraseInventoryEntry(source, files->digest, sha);
+          interruptAt(options, L"after-cleanup-carrier");
+        } else if (!seen.empty()) {
+          fail("cleanup directory is not empty");
+        }
 #endif
       }
     }
@@ -1265,6 +1372,14 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha)
     eraseInventoryEntry(path, L"d", sha, &record->directory);
   }
   clearEntry(scope, kPendingCleanup);
+}
+
+void tryDrainCleanup(const Options& options, const Scope& scope, const Sha256& sha) {
+  try {
+    drainCleanup(options, scope, sha);
+  } catch (const Error& error) {
+    std::fprintf(stderr, "%s (Windows error %lu)\n", error.operation, error.code);
+  }
 }
 
 Inventory validateTombstone(const Options& options, const CleanupRecord& cleanup, const Sha256& sha) {
@@ -1367,7 +1482,13 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
   if (!matches(directoryAt(paths.final), record.original) || directoryAt(paths.backup)) {
     fail("restored directory identity could not be confirmed");
   }
+  if (record.phase != Phase::Creating) {
+    trackCleanup(scope, cleanupRecord(CleanupKind::Staging, record.staging, paths.final,
+                                      field(record.token), field(record.release),
+                                      field(record.newInventory)));
+  }
   clear(scope);
+  tryDrainCleanup(options, scope, sha);
   return Restored;
 }
 
@@ -1394,6 +1515,7 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
                                         field(record.token), field(record.oldRelease),
                                         field(record.oldInventory)));
       clear(scope);
+      tryDrainCleanup(options, scope, sha);
       return Ok;
     }
     record.phase = Phase::Promoted;
@@ -1533,12 +1655,7 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
     interruptAt(options, L"after-uninstall-cleanup-intent");
     clearEntry(scope, kEnrollment);
     clearEntry(scope, kUninstallRecord);
-    try {
-      drainCleanup(options, scope, sha);
-    } catch (const Error& error) {
-      // Metadata teardown is durable. A later installer can retry disposal.
-      std::fprintf(stderr, "%s (Windows error %lu)\n", error.operation, error.code);
-    }
+    tryDrainCleanup(options, scope, sha);
     return Ok;
   }
   if (options.command == L"uninstall-prepare") {
@@ -1558,20 +1675,23 @@ Result checkLegacyUninstall(Options options) {
   // The legacy NSIS worker holds the global mutex through recursive removal.
   // This child only reads state and must not try to acquire the worker's lock.
   if (!liveOwner(options.ownerPid)) fail("legacy uninstall worker is unavailable");
-  options.target = canonical(std::move(options.target));
+  options.target = canonical(std::move(options.target), UnsupportedLocation);
   const auto scope = scopeFor(options, options.machine);
   const auto other = scopeFor(options, !options.machine);
   if (load(scope) || load(other) || loadUninstall(scope) || loadUninstall(other) ||
       enrolled(scope)) fail("legacy uninstall cannot use a pending or enrolled installation");
-  const auto parents = lockParents(options.target, AncestorSpelling::AllowShortNames);
+  std::vector<Handle> directories;
+  const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
   checkPendingCleanupTarget(options);
   checkOtherScope(options);
-  const auto registration = resolveRegistration(scope);
-  if (!registration.hasLocation || !registration.path ||
-      !equal(*registration.path, resolvedRegistration(options.target)) ||
-      !checkRegistration(options, scope) || !directoryAt(options.target)) {
+  const auto registration = resolveRegistration(scope, UnsupportedLocation);
+  const auto registered = readString(scope.root, scope.install, L"InstallLocation",
+                                      RRF_SUBKEY_WOW6464KEY);
+  if (!registration.hasLocation || !registration.directory || !registered ||
+      !equal(registration.directory->volumePath, selected.volumePath) || !selected.exists) {
     fail("legacy uninstall target differs from its installation registration");
   }
+  options.target = canonical(*registered);
   checkUninstallerRegistration(options, scope);
   return Ok;
 }
@@ -1616,8 +1736,9 @@ Result run(Options options) {
   if (!record && !uninstall && !checkingProcessTarget && !preparing && !enrolling &&
       !uninstallPreparing && !uninstallFinishing && !checkingWorker) return Ineligible;
   const bool hasEnrollment = (preparing || enrolling) && enrolled(scope);
-  const auto invalidTarget = record || uninstall || hasEnrollment || checkingProcessTarget ||
-      uninstallPreparing || uninstallFinishing || checkingWorker ? Blocked : Ineligible;
+  const auto invalidTarget = record || uninstall || hasEnrollment || uninstallPreparing ||
+      uninstallFinishing || checkingWorker ? Blocked :
+      checkingProcessTarget ? UnsupportedLocation : Ineligible;
   options.target = canonical(std::move(options.target), invalidTarget);
   if (checkingProcessTarget || preparing || enrolling || uninstallPreparing) {
     checkPendingCleanupTarget(options);
@@ -1645,7 +1766,8 @@ Result run(Options options) {
     const auto parents = lockParents(options.target);
     checkOtherScope(options, L"", cleanupPath(uninstall->cleanup));
     const auto registration = resolveRegistration(scope);
-    if (registration.path && !equal(*registration.path, options.target)) {
+    if (registration.directory &&
+        !equal(registration.directory->volumePath, resolveDirectory(options.target).volumePath)) {
       fail("uninstall target differs from current registration");
     }
     const Sha256 sha;
@@ -1661,31 +1783,41 @@ Result run(Options options) {
   // Legacy custom locations can still be updated. Only authorize stopping a
   // process when the scope owns an existing directory without another scope's overlap.
   if (checkingProcessTarget) {
-    options.target = resolvedRegistration(options.target);
+    std::vector<Handle> directories;
+    const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
     checkOtherScope(options);
-    const auto registration = resolveRegistration(scope);
-    if (registration.path && !equal(*registration.path, options.target)) {
-      fail("target does not match scope registration");
+    const auto registration = resolveRegistration(scope, UnsupportedLocation);
+    if (registration.directory) {
+      if (!registration.hasLocation || !selected.exists ||
+          !equal(registration.directory->volumePath, selected.volumePath)) {
+        fail("installation target is incomplete or differs from its registration");
+      }
+      return Ok;
     }
-    if (!registration.hasLocation || !directoryAt(options.target)) {
-      if (enrolled(scope)) fail("enrolled installation is incomplete");
-      return Ineligible;
+    if (enrolled(scope)) {
+      fail("installation registration is incomplete");
     }
-    return Ok;
+    options.target = selected.path;
+    if (selected.exists && supportedTarget(options) && !directoryEmpty(options.target)) {
+      fail("default installation directory is not empty; select another installation directory",
+           ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
+    }
+    return Ineligible;
   }
   if (uninstallPreparing) {
-    options.target = resolvedRegistration(options.target);
+    const auto selected = resolveDirectory(options.target);
     checkOtherScope(options);
     const auto registration = resolveRegistration(scope);
-    if (registration.path && !equal(*registration.path, options.target)) {
+    if (registration.directory && !equal(registration.directory->volumePath, selected.volumePath)) {
       fail("uninstall target differs from current registration");
     }
+    options.target = selected.path;
     const Sha256 sha;
     return startUninstall(options, scope, owner, sha);
   }
   if (uninstallFinishing || checkingWorker) fail("uninstall recovery transaction is missing");
 
-  if (!supportedTarget(options)) {
+  if (!supportedTarget(options) || !fixedNtfs(options.target)) {
     if (!record && !hasEnrollment) return Ineligible;
     fail("unsupported install directory for an enrolled or pending installation");
   }

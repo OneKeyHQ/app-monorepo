@@ -3,7 +3,6 @@
 #include <commctrl.h>
 #include <dwmapi.h>
 #include <oleacc.h>
-#include <shellapi.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -604,9 +603,7 @@ void Window::Activate(std::wstring_view target) {
       event_ = target;
     }
   } else if (target == L"terms" || target == L"privacy") {
-    const auto url = target == L"terms" ? L"https://help.onekey.so/articles/11461297"
-                                       : L"https://help.onekey.so/articles/11461298";
-    ShellExecuteW(hwnd_.load(), L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
+    event_ = target;
   }
 }
 

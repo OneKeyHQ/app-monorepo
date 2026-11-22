@@ -1,11 +1,14 @@
 LIBRARY "onekey-installer-ui"
 EXPORTS
+    CheckUninstallRetry
     ConcealHost
     Hide
     Init
+    OpenLegalLink
     PollEvent
     PrepareCommit
     ResetProgress
+    RetryUninstall
     SetInstallDirectory
     SetPage
     SetPerMachineInstallDirectory

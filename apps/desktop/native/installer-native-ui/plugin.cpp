@@ -1,8 +1,11 @@
 #include "window.h"
+#include "legal-links.h"
+#include "uninstall-retry.h"
 
 #include <commctrl.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cwchar>
 #include <memory>
 #include <string_view>
@@ -65,11 +68,17 @@ class Stack {
 
 std::shared_ptr<installer::Window> g_window;
 HMODULE g_module = nullptr;
-HWND g_concealed_host = nullptr;
+std::atomic<HWND> g_concealed_host{nullptr};
 constexpr UINT_PTR kConcealSubclass = 0x4F4B;
+constexpr UINT kRestoreHost = WM_APP + 0x4B;
 
 LRESULT CALLBACK ConcealHostProc(HWND hwnd, UINT message, WPARAM wparam,
                                  LPARAM lparam, UINT_PTR id, DWORD_PTR) {
+  if (message == kRestoreHost && wparam == kConcealSubclass) {
+    RemoveWindowSubclass(hwnd, ConcealHostProc, id);
+    g_concealed_host.compare_exchange_strong(hwnd, nullptr);
+    return 0;
+  }
   if (message == WM_WINDOWPOSCHANGING) {
     auto* position = reinterpret_cast<WINDOWPOS*>(lparam);
     if ((position->flags & SWP_SHOWWINDOW) != 0) {
@@ -81,32 +90,38 @@ LRESULT CALLBACK ConcealHostProc(HWND hwnd, UINT message, WPARAM wparam,
     return 0;
   } else if (message == WM_NCDESTROY) {
     RemoveWindowSubclass(hwnd, ConcealHostProc, id);
-    if (g_concealed_host == hwnd) {
-      g_concealed_host = nullptr;
-    }
+    auto concealed = hwnd;
+    g_concealed_host.compare_exchange_strong(concealed, nullptr);
   }
   return DefSubclassProc(hwnd, message, wparam, lparam);
 }
 
 void RestoreHost() {
-  if (IsWindow(g_concealed_host)) {
-    RemoveWindowSubclass(g_concealed_host, ConcealHostProc, kConcealSubclass);
+  const auto host = g_concealed_host.load();
+  DWORD process = 0;
+  if (GetWindowThreadProcessId(host, &process) != 0 &&
+      process == GetCurrentProcessId()) {
+    // The host can outlive the renderer. Its own GUI thread removes the subclass.
+    SendMessageW(host, kRestoreHost, kConcealSubclass, 0);
   }
-  g_concealed_host = nullptr;
 }
 
 bool HideHost(HWND host) {
-  if (host == g_concealed_host) {
+  const auto owner_thread = GetWindowThreadProcessId(host, nullptr);
+  if (owner_thread == 0) {
+    return true;
+  }
+  if (owner_thread != GetCurrentThreadId()) {
+    return false;
+  }
+  if (host == g_concealed_host.load()) {
     return true;
   }
   RestoreHost();
-  if (!IsWindow(host)) {
-    return true;
-  }
   if (!SetWindowSubclass(host, ConcealHostProc, kConcealSubclass, 0)) {
     return false;
   }
-  g_concealed_host = host;
+  g_concealed_host.store(host);
   ShowWindow(host, SW_HIDE);
   return true;
 }
@@ -174,6 +189,19 @@ void Directory(Stack& stack, std::wstring_view scope) {
     window.SetDirectory(std::move(value), scope);
     return L"ok";
   });
+}
+
+void UninstallRetry(Stack& stack, bool launch) {
+  std::wstring path;
+  std::wstring scope;
+  try {
+    if (stack.Pop(path) && stack.Pop(scope) && installer::UninstallRetry(path, scope, launch)) {
+      stack.Push(L"ok");
+      return;
+    }
+  } catch (...) {
+  }
+  stack.Push(L"error:uninstaller retry unavailable");
 }
 
 #define NSIS_ENTRY(name) \
@@ -310,6 +338,26 @@ NSIS_ENTRY(WaitForEvent) {
 NSIS_ENTRY(PrepareCommit) {
   Stack stack(capacity, items);
   WithWindow(stack, [](installer::Window& window) { return window.PrepareCommit(); }, L"error:window unavailable");
+}
+
+NSIS_ENTRY(OpenLegalLink) {
+  Stack stack(capacity, items);
+  try {
+    std::wstring link;
+    stack.Push(stack.Pop(link) ? installer::OpenLegalLink(link) : L"");
+  } catch (...) {
+    stack.Push(L"");
+  }
+}
+
+NSIS_ENTRY(CheckUninstallRetry) {
+  Stack stack(capacity, items);
+  UninstallRetry(stack, false);
+}
+
+NSIS_ENTRY(RetryUninstall) {
+  Stack stack(capacity, items);
+  UninstallRetry(stack, true);
 }
 
 NSIS_ENTRY(Shutdown) {

@@ -8,6 +8,19 @@
 namespace installer {
 namespace {
 
+class PhysicalCoordinates {
+ public:
+  // MSAA uses physical pixels even when NSIS is running in a DPI-unaware context.
+  explicit PhysicalCoordinates(HWND window)
+      : previous_(SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(window))) {}
+  ~PhysicalCoordinates() {
+    if (previous_ != nullptr) SetThreadDpiAwarenessContext(previous_);
+  }
+
+ private:
+  DPI_AWARENESS_CONTEXT previous_;
+};
+
 HRESULT CopyString(std::wstring_view value, BSTR* result) {
   *result = nullptr;
   if (value.empty()) {
@@ -340,6 +353,7 @@ class Window::Accessible final : public IAccessible {
     const auto status = Validate(child);
     if (FAILED(status)) return status;
     const auto hwnd = window_->hwnd_.load();
+    const PhysicalCoordinates dpi(hwnd);
     const auto* item = Child(child);
     RECT bounds{};
     if (item) {
@@ -383,6 +397,7 @@ class Window::Accessible final : public IAccessible {
     VariantInit(result);
     if (!window_) return CO_E_OBJNOTCONNECTED;
     const auto hwnd = window_->hwnd_.load();
+    const PhysicalCoordinates dpi(hwnd);
     POINT point{x, y};
     RECT client{};
     if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || !ScreenToClient(hwnd, &point) ||
