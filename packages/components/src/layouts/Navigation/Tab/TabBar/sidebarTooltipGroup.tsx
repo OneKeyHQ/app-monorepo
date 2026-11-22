@@ -54,14 +54,16 @@ export function SidebarTooltipGroup({ children }: { children: ReactNode }) {
 }
 
 // Controlled `open` / `onOpenChange` for one sidebar tooltip. Turning it off
-// (labels shown again) closes the tooltip and drops a pending open, and so does
-// closeAllTooltips() (a modal opening under a still pointer).
+// (labels shown again) closes the tooltip and drops a pending open, and so do
+// closeAllTooltips() (a modal opening under a still pointer) and a scroll
+// anywhere on the page (content moves, the pointer does not).
 export function useSidebarTooltipOpen(enabled: boolean) {
   const group = useContext(SidebarTooltipGroupContext);
   const [open, setOpen] = useState(false);
   const isOpenRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const unregisterRef = useRef<(() => void) | undefined>(undefined);
+  const removeScrollListenerRef = useRef<(() => void) | undefined>(undefined);
 
   const show = useCallback(() => {
     timerRef.current = undefined;
@@ -77,6 +79,8 @@ export function useSidebarTooltipOpen(enabled: boolean) {
     timerRef.current = undefined;
     unregisterRef.current?.();
     unregisterRef.current = undefined;
+    removeScrollListenerRef.current?.();
+    removeScrollListenerRef.current = undefined;
     if (isOpenRef.current) {
       isOpenRef.current = false;
       group?.closed();
@@ -94,6 +98,11 @@ export function useSidebarTooltipOpen(enabled: boolean) {
         return;
       }
       unregisterRef.current = registerOpenTooltip(hide);
+      if (typeof document !== 'undefined') {
+        document.addEventListener('scroll', hide, true);
+        removeScrollListenerRef.current = () =>
+          document.removeEventListener('scroll', hide, true);
+      }
       if (!group || group.isWarm()) {
         show();
         return;

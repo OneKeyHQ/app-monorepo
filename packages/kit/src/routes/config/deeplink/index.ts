@@ -3,7 +3,6 @@ import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
-import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
@@ -46,6 +45,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
 import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { getPerpTabRoute } from '../../../utils/perpTabRoute';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
@@ -293,19 +293,6 @@ function parseOneKeyAppLinkTarget({
   return undefined;
 }
 
-async function getPerpsAppLinkTabRoute() {
-  const { perpConfigCommon, perpConfigLoaded } =
-    await perpsCommonConfigPersistAtom.get();
-  // Mirrors usePerpTabConfig: the persisted disablePerp default only takes
-  // effect after the remote config has actually loaded.
-  if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
-    return undefined;
-  }
-  return perpConfigCommon?.usePerpWeb
-    ? ETabRoutes.WebviewPerpTrade
-    : ETabRoutes.Perp;
-}
-
 async function processOneKeyAppUniversalLink(
   params: IProcessDeepLinkParams,
   times = 0,
@@ -394,7 +381,7 @@ async function processOneKeyAppUniversalLink(
     });
     return true;
   }
-  const perpsTabRoute = await getPerpsAppLinkTabRoute();
+  const perpsTabRoute = await getPerpTabRoute();
   if (perpsTabRoute) {
     // switchTabAsync serializes overlay dismiss and tab switch; the sync
     // switchTab is deprecated for the iOS RNSScreenStack orphan freeze.

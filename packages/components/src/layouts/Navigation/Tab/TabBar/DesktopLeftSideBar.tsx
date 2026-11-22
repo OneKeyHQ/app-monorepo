@@ -51,6 +51,7 @@ import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
+import { getLastBrowserRoute, setLastBrowserRoute } from './lastBrowserRoute';
 import { MenuHamburger } from './Menu';
 import {
   SidebarAppearanceContext,
@@ -122,8 +123,6 @@ const PLATFORM_WEB_SHADOW_STYLE = {
 const HOVER_STYLE_BG_HOVER = { bg: '$bgHover' } as const;
 const PRESS_STYLE_BG_ACTIVE = { bg: '$bgActive' } as const;
 const PLATFORM_WEB_APP_REGION_DRAG = { 'app-region': 'drag' } as const;
-
-let lastBrowserRoute: string = ETabRoutes.Discovery;
 
 function DesktopWinSidebarTop() {
   return (
@@ -684,9 +683,9 @@ function BasicVisibleTabItemView({
     if (
       route.name === ETabRoutes.Discovery &&
       !isActive &&
-      lastBrowserRoute !== ETabRoutes.Discovery
+      getLastBrowserRoute() !== ETabRoutes.Discovery
     ) {
-      switchTab(lastBrowserRoute as ETabRoutes);
+      switchTab(getLastBrowserRoute());
     } else {
       handleTabPress(route, isActive);
     }
@@ -780,9 +779,9 @@ export function DesktopLeftSideBar({
   // Track last active browser route (Discovery or MultiTabBrowser)
   useEffect(() => {
     if (focusedRouteName === ETabRoutes.Discovery) {
-      lastBrowserRoute = ETabRoutes.Discovery;
+      setLastBrowserRoute(ETabRoutes.Discovery);
     } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
-      lastBrowserRoute = extraConfig.name;
+      setLastBrowserRoute(extraConfig.name as ETabRoutes);
     }
   }, [focusedRouteName, extraConfig?.name]);
 

@@ -19,6 +19,7 @@ import {
   useSplitSubView,
   willTabFocusTransition,
 } from '@onekeyhq/components';
+import { getLastBrowserRoute } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
@@ -101,11 +102,11 @@ import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
-import { usePerpTabConfig } from '../hooks/usePerpTabConfig';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
+import { getPerpTabRoute } from '../utils/perpTabRoute';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
 import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
@@ -156,8 +157,6 @@ const useDesktopEvents = platformEnv.isDesktop
       useOnLockRef.current = onLock;
 
       const onCheckUpdate = useDesktopUpdateMenu();
-      // Same Perps tab the sidebar shows, so Cmd+4 opens what the icon opens.
-      const { perpTabShowWeb } = usePerpTabConfig();
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -347,10 +346,19 @@ const useDesktopEvents = platformEnv.isDesktop
           }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
-              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
-              navigation.switchTab(
-                perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
-              );
+              // Resolved now, after the modals closed: the same Perps tab the
+              // sidebar shows for the current config.
+              void getPerpTabRoute().then((perpTabRoute) => {
+                if (!perpTabRoute) {
+                  return;
+                }
+                // Only an actual entry may record the source, or a later
+                // visit would consume it.
+                if (willTabFocusTransition(perpTabRoute)) {
+                  setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
+                }
+                navigation.switchTab(perpTabRoute);
+              });
             });
             break;
           case EShortcutEvents.TabReferAFriend:
@@ -365,7 +373,8 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Discovery);
+              // Back to the browser page the sidebar icon would restore.
+              navigation.switchTab(getLastBrowserRoute());
             });
             break;
           case EShortcutEvents.TabDeveloper:

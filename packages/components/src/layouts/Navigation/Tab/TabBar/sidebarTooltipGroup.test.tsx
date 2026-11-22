@@ -133,4 +133,16 @@ describe('useSidebarTooltipOpen', () => {
     wait(SIDEBAR_TOOLTIP_OPEN_DELAY_MS);
     expect(second().open).toBe(false);
   });
+
+  it('a scroll on the page closes an open tooltip', () => {
+    const { first } = renderGroup();
+    act(() => first().onOpenChange(true));
+    wait(SIDEBAR_TOOLTIP_OPEN_DELAY_MS);
+    expect(first().open).toBe(true);
+
+    act(() => {
+      document.dispatchEvent(new Event('scroll'));
+    });
+    expect(first().open).toBe(false);
+  });
 });
