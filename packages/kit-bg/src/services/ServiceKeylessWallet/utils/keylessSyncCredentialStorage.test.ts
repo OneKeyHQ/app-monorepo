@@ -79,6 +79,42 @@ describe('shared Cloud credential storage source changes', () => {
     ).resolves.toEqual(credential);
   });
 
+  test.each(['saveCredential', 'removeAllCredentials'] as const)(
+    'invalidates the preflight witness before an asynchronous %s publishes',
+    async (operation) => {
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const storageMethod =
+        operation === 'saveCredential' ? 'storageSetItem' : 'storageRemoveItem';
+      jest
+        .mocked(keylessStorageUtils[storageMethod])
+        .mockImplementationOnce(async () => {
+          entered.resolve();
+          await release.promise;
+        });
+      const before = keylessSyncCredentialStorage.captureWriteGuard();
+      expect(before()).toBe(true);
+      const writer =
+        operation === 'saveCredential'
+          ? keylessSyncCredentialStorage.saveCredential(credential)
+          : keylessSyncCredentialStorage.removeAllCredentials();
+      try {
+        expect(before()).toBe(false);
+        await entered.promise;
+        const during = keylessSyncCredentialStorage.captureWriteGuard();
+        expect(during()).toBe(false);
+        release.resolve();
+        await writer;
+        expect(during()).toBe(false);
+        expect(before()).toBe(false);
+        expect(keylessSyncCredentialStorage.captureWriteGuard()()).toBe(true);
+      } finally {
+        release.resolve();
+        await writer;
+      }
+    },
+  );
+
   test('explicit disable cleanup still removes the shared persisted credential', async () => {
     await keylessSyncCredentialStorage.saveCredential(credential);
     await keylessSyncCredentialStorage.removeAllCredentials();

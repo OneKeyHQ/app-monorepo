@@ -96,6 +96,17 @@ export function hasPublicAccountSnapshotWriteGuard(
   return previousVersions.has(item) || walletTies.has(item);
 }
 
+// Operation-local proof of a prepared, authenticated same-key deletion.
+const preparedAccountDeletions = new WeakSet<IDBCloudSyncItem>();
+
+export function rememberPreparedAccountDeletion(item: IDBCloudSyncItem) {
+  preparedAccountDeletions.add(item);
+}
+
+export function isPreparedAccountDeletion(item: IDBCloudSyncItem): boolean {
+  return preparedAccountDeletions.has(item);
+}
+
 export function isRejectedPublicAccountSnapshotWrite(
   item: IDBCloudSyncItem,
 ): boolean {

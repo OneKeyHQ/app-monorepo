@@ -42,6 +42,7 @@ import {
 } from '../publicAccountSnapshot';
 import {
   rememberForeignAccountDeletion,
+  rememberPreparedAccountDeletion,
   rememberPublicAccountSnapshotWrite,
   removeUnsyncedPublicAccountSnapshot,
 } from '../publicAccountSnapshotWriteGuard';
@@ -320,6 +321,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     if (snapshot && built) {
       if (built.data) built.rawData = '';
       rememberPublicAccountSnapshotWrite(built, existing);
+      if (requestedDeletionTime !== undefined && built.data)
+        rememberPreparedAccountDeletion(built);
     }
     return built;
   }

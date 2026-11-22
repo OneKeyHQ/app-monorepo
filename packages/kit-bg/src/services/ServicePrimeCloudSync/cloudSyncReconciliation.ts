@@ -1198,3 +1198,148 @@ export async function runReconciliationApply({
   onReceipt(receipt);
   return receipt;
 }
+
+export async function readReconciliationFullSummary({
+  signal,
+  isCurrent,
+  spaceId,
+  read,
+  onItems,
+}: {
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  spaceId: string;
+  read: () => Promise<{ items: IDBCloudSyncItem[] }>;
+  onItems: (items: IDBCloudSyncItem[]) => void;
+}) {
+  if (!isCurrent() || signal.aborted)
+    throw new OneKeyLocalError('Cloud sync was cancelled');
+  const all = await read();
+  // An Account without ciphertext cannot satisfy a matching Cloud version.
+  const items = all.items.filter(
+    (item) =>
+      item.pwdHash === spaceId &&
+      !item.pendingPublicAccountDeletionAt &&
+      (item.dataType !== EPrimeCloudSyncDataType.Account ||
+        item.isDeleted ||
+        !!item.data),
+  );
+  onItems(items);
+  return items.map((item) => ({
+    key: item.id,
+    dataTimestamp: item.dataTime,
+    dataType: item.dataType,
+  }));
+}
+
+export async function runReconciliationObsoletedUpload({
+  keys,
+  response,
+  signal,
+  isCurrent,
+  credential,
+  spaceId,
+  getLatestItems,
+  assertCredential,
+  mutex,
+  filter,
+  upload,
+  onWithheld,
+  onFailure,
+  onDeferred,
+}: Parameters<ICloudSyncReconciliationAdapter['uploadObsoleted']>[0] & {
+  isCurrent: () => boolean;
+  credential: ICloudSyncCredential;
+  spaceId: string;
+  getLatestItems: () => IDBCloudSyncItem[];
+  assertCredential: () => Promise<void>;
+  mutex: Pick<import('async-mutex').Semaphore, 'runExclusive'>;
+  filter: (input: {
+    items: IDBCloudSyncItem[];
+    credential: ICloudSyncCredential;
+    signal: AbortSignal;
+    isCurrent: () => boolean;
+    onTimeout: (items: IDBCloudSyncItem[]) => void;
+    onReadFailure: (item: IDBCloudSyncItem) => void;
+  }) => Promise<IDBCloudSyncItem[]>;
+  upload: ServicePrimeCloudSync['_callApiUploadItems'];
+  onWithheld: () => void;
+  onFailure: (result: IManualCloudSyncResult | undefined) => void;
+  onDeferred: (onlyDeferred: boolean) => void;
+}) {
+  if (!isCurrent() || signal.aborted)
+    throw new OneKeyLocalError('Cloud sync was cancelled');
+  await assertCredential();
+  const keySet = new Set(keys);
+  const localItems = getLatestItems().filter((item) => keySet.has(item.id));
+  let skipped = 0;
+  const deferredVerification = new Set<IDBCloudSyncItem>();
+  const uploaded = await mutex.runExclusive(async () => {
+    // Only the deployed legacy full compare has a one-pass completion
+    // receipt. A bounded server needs its own pagination protocol for holds.
+    const outgoing = response.reconciliation
+      ? localItems
+      : await filter({
+          items: localItems,
+          credential,
+          signal,
+          isCurrent,
+          onTimeout: (items) => {
+            for (const item of items) deferredVerification.add(item);
+          },
+          onReadFailure: (item) => {
+            deferredVerification.add(item);
+          },
+        });
+    const withheld = localItems.length - outgoing.length;
+    skipped = withheld - deferredVerification.size;
+    if (withheld > 0) onWithheld();
+    if (withheld > 0 && !outgoing.length) return undefined;
+    try {
+      return await upload({
+        localItems: outgoing,
+        isFlush: false,
+        lockItem: undefined,
+        pwdHash: spaceId,
+        setUndefinedTimeToNow: true,
+        skipLastSyncTime: true,
+        requestOptions: { signal, timeout: 10_000 },
+      });
+    } catch (error) {
+      onFailure(classifyManualReconciliationTransport(error));
+      throw error;
+    }
+  });
+  const confirmed = (uploaded?.created ?? 0) + (uploaded?.updated ?? 0);
+  const verificationDeferred = deferredVerification.size;
+  onDeferred(
+    verificationDeferred > 0 &&
+      confirmed + skipped + verificationDeferred === keys.length,
+  );
+  return { uploaded: confirmed, skipped, verificationDeferred };
+}
+
+export function getReconciliationManualResult({
+  result,
+  hasLocalIssue,
+  quietWalletRetry,
+  transportFailure,
+}: {
+  result: ICloudSyncReconciliationResult;
+  hasLocalIssue: boolean;
+  quietWalletRetry: boolean;
+  transportFailure?: IManualCloudSyncResult;
+}): IManualCloudSyncResult {
+  if (result.status === 'cancelled') return 'cancelled';
+  if (result.status === 'complete')
+    return hasLocalIssue ? 'local-deferred' : 'completed';
+  if (quietWalletRetry) return 'local-deferred';
+  if (transportFailure) return transportFailure;
+  if (
+    result.reason === 'invalid-response' ||
+    result.reason === 'invalid-summary' ||
+    result.reason === 'summary-budget'
+  )
+    return 'sync-blocked';
+  return 'incomplete';
+}

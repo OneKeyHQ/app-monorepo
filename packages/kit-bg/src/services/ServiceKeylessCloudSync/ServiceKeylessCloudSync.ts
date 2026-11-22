@@ -1203,6 +1203,30 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return keylessWallet ?? null;
   }
 
+  captureLocalAccountDeleteScope() {
+    const storage = keylessSyncCredentialStorage.captureWriteGuard();
+    const selection = this.getCloudAccountImportGeneration();
+    const prime = this.backgroundApi.servicePrimeCloudSync;
+    const intent = prime.getPublicAccountSnapshotImportGeneration();
+    let endpointChanged = false;
+    let release: () => void;
+    try {
+      release = devSettingsPersistAtom.sub(() => {
+        endpointChanged = true;
+      });
+    } catch {
+      return undefined;
+    }
+    return {
+      release,
+      isCurrent: () =>
+        !endpointChanged &&
+        storage() &&
+        selection === this.getCloudAccountImportGeneration() &&
+        intent === prime.getPublicAccountSnapshotImportGeneration(),
+    };
+  }
+
   async getLocalMutationSyncCredential(): Promise<
     ICloudSyncCredential | undefined
   > {

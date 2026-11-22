@@ -3787,7 +3787,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       const holds = new Map<string, number>();
       const {
         runCloudSyncReconciliation,
-        classifyManualReconciliationTransport,
+        readReconciliationFullSummary,
+        runReconciliationObsoletedUpload,
+        getReconciliationManualResult,
         summarizeReconciliationRound,
         runReconciliationApply,
         getReconciliationStampScope,
@@ -3801,25 +3803,16 @@ class ServicePrimeCloudSync extends ServiceBase {
           now: () => Date.now(),
           isBoundedCheckVerified: (contract) => contract.version === 1,
           pause: pauseReconciliation,
-          getFullSummary: async ({ signal }) => {
-            if (!isCurrent() || signal.aborted)
-              throw new OneKeyLocalError('Cloud sync was cancelled');
-            const all = await this.getAllLocalSyncItems();
-            // An Account without ciphertext cannot satisfy a matching Cloud version.
-            latestItems = all.items.filter(
-              (item) =>
-                item.pwdHash === spaceId &&
-                !item.pendingPublicAccountDeletionAt &&
-                (item.dataType !== EPrimeCloudSyncDataType.Account ||
-                  item.isDeleted ||
-                  !!item.data),
-            );
-            return latestItems.map((item) => ({
-              key: item.id,
-              dataTimestamp: item.dataTime,
-              dataType: item.dataType,
-            }));
-          },
+          getFullSummary: ({ signal }) =>
+            readReconciliationFullSummary({
+              signal,
+              isCurrent,
+              spaceId,
+              read: () => this.getAllLocalSyncItems(),
+              onItems: (items) => {
+                latestItems = items;
+              },
+            }),
           check: async ({ reconciliation, signal, timeoutMs }) => {
             await this.assertSyncCredentialUnchanged(credential);
             checkRequestItems = latestItems.map((item) => ({ ...item }));
@@ -3853,70 +3846,28 @@ class ServicePrimeCloudSync extends ServiceBase {
               },
             });
           },
-          uploadObsoleted: ({ keys, response, signal }) => {
-            const work = (async () => {
-              if (!isCurrent() || signal.aborted)
-                throw new OneKeyLocalError('Cloud sync was cancelled');
-              await this.assertSyncCredentialUnchanged(credential);
-              const keySet = new Set(keys);
-              const localItems = latestItems.filter((item) =>
-                keySet.has(item.id),
-              );
-              let skipped = 0;
-              const deferredVerification = new Set<IDBCloudSyncItem>();
-              const uploaded = await this.uploadItemsMutex.runExclusive(
-                async () => {
-                  // Only the deployed legacy full compare has a one-pass
-                  // completion receipt. A bounded server needs its own
-                  // pagination protocol for versions we intentionally hold.
-                  const outgoing = response.reconciliation
-                    ? localItems
-                    : await this.filterDivergentPendingWalletNames({
-                        items: localItems,
-                        credential,
-                        signal,
-                        isCurrent,
-                        onTimeout: (items) => {
-                          for (const item of items)
-                            deferredVerification.add(item);
-                        },
-                        onReadFailure: (item) => {
-                          deferredVerification.add(item);
-                        },
-                      });
-                  const withheld = localItems.length - outgoing.length;
-                  skipped = withheld - deferredVerification.size;
-                  heldDivergentWalletName ||= withheld > 0;
-                  if (withheld > 0 && !outgoing.length) return undefined;
-                  try {
-                    return await this._callApiUploadItems({
-                      localItems: outgoing,
-                      isFlush: false,
-                      lockItem: undefined,
-                      pwdHash: spaceId,
-                      setUndefinedTimeToNow: true,
-                      skipLastSyncTime: true,
-                      requestOptions: { signal, timeout: 10_000 },
-                    });
-                  } catch (error) {
-                    transportFailure =
-                      classifyManualReconciliationTransport(error);
-                    throw error;
-                  }
-                },
-              );
-              const confirmed =
-                (uploaded?.created ?? 0) + (uploaded?.updated ?? 0);
-              const verificationDeferred = deferredVerification.size;
-              onlyWalletVerificationDeferred =
-                verificationDeferred > 0 &&
-                confirmed + skipped + verificationDeferred === keys.length;
-              return {
-                uploaded: confirmed,
-                skipped,
-                verificationDeferred,
-              };
-            })();
+          uploadObsoleted: (input) => {
+            const work = runReconciliationObsoletedUpload({
+              ...input,
+              isCurrent,
+              credential,
+              spaceId,
+              getLatestItems: () => latestItems,
+              assertCredential: () =>
+                this.assertSyncCredentialUnchanged(credential),
+              mutex: this.uploadItemsMutex,
+              filter: this.filterDivergentPendingWalletNames.bind(this),
+              upload: this._callApiUploadItems,
+              onWithheld: () => {
+                heldDivergentWalletName = true;
+              },
+              onFailure: (failure) => {
+                transportFailure = failure;
+              },
+              onDeferred: (onlyDeferred) => {
+                onlyWalletVerificationDeferred = onlyDeferred;
+              },
+            });
             activeUpload = work;
             return work;
           },
@@ -4055,22 +4006,14 @@ class ServicePrimeCloudSync extends ServiceBase {
         if (stamp) await this.updateLastSyncTimeInternal(stamp);
       }
       if (onManualResult && isSourceCurrent()) {
-        if (result.status === 'cancelled') onManualResult('cancelled');
-        else if (result.status === 'complete')
-          onManualResult(
-            hasIssues || deferredLocalWalletName || blockedOnly
-              ? 'local-deferred'
-              : 'completed',
-          );
-        else if (quietWalletRetry) onManualResult('local-deferred');
-        else if (transportFailure) onManualResult(transportFailure);
-        else if (
-          result.reason === 'invalid-response' ||
-          result.reason === 'invalid-summary' ||
-          result.reason === 'summary-budget'
-        )
-          onManualResult('sync-blocked');
-        else onManualResult('incomplete');
+        onManualResult(
+          getReconciliationManualResult({
+            result,
+            hasLocalIssue: hasIssues || deferredLocalWalletName || blockedOnly,
+            quietWalletRetry,
+            transportFailure,
+          }),
+        );
       }
       return state.status === 'complete';
     } catch (error) {

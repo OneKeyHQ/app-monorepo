@@ -217,7 +217,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: Pick<
       ILocalDBWithTransactionOptions,
-      'skipCloudCredentialWarmup' | 'confirmRollbackOnError'
+      'skipCloudCredentialWarmup' | 'confirmRollbackOnError' | 'assertCanCommit'
     >,
   ): Promise<T> {
     return this.withTransaction(bucketName, task, {

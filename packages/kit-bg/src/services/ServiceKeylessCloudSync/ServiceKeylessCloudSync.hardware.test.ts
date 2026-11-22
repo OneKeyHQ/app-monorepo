@@ -240,6 +240,7 @@ function withSignIn<T>(value: T) {
 jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
   __esModule: true,
   default: {
+    captureWriteGuard: jest.fn(() => () => true),
     getPendingHardwareKeyMigration: jest.fn(async () =>
       mockStored?.pendingHardwareKeyMigration ? mockStored : undefined,
     ),
@@ -923,6 +924,28 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(signAuth).not.toHaveBeenCalled();
     expect(verifyHardwareCloudSyncChallenge).not.toHaveBeenCalled();
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
+  });
+
+  test('batch deletion witness invalidates on endpoint changes and software selection ABA', async () => {
+    const { service } = setup();
+    await service.setPersistedCurrentCloudSyncKeylessWalletId('keyless-A');
+    const selection = service.captureLocalAccountDeleteScope();
+    try {
+      expect(selection?.isCurrent()).toBe(true);
+      await service.setPersistedCurrentCloudSyncKeylessWalletId('keyless-B');
+      await service.setPersistedCurrentCloudSyncKeylessWalletId('keyless-A');
+      expect(selection?.isCurrent()).toBe(false);
+    } finally {
+      selection?.release();
+    }
+    const endpoint = service.captureLocalAccountDeleteScope();
+    try {
+      expect(endpoint?.isCurrent()).toBe(true);
+      for (const listener of mockDevSettingsListeners) listener();
+      expect(endpoint?.isCurrent()).toBe(false);
+    } finally {
+      endpoint?.release();
+    }
   });
 
   test('optional local credential reads never enter retired OneKey ID or sync-off storage paths', async () => {

@@ -129,6 +129,7 @@ class DeletionTestDb extends LocalDbBase {
     });
     this.setBackgroundApi({
       serviceKeylessCloudSync: {
+        captureLocalAccountDeleteScope: () => undefined,
         getLocalMutationSyncCredential: async () => undefined,
         runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
           operation(),

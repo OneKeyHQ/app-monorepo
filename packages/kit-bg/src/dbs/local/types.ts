@@ -921,6 +921,8 @@ export type ILocalDBWithTransactionOptions = {
   // IndexedDB only. Required before retrying another business transaction
   // after a deliberately declined optional pool write.
   confirmRollbackOnError?: boolean;
+  // Optional transactional veto, checked synchronously with explicit commit.
+  assertCanCommit?: (canCommit: boolean) => void;
   readOnly?: boolean;
   /**
    * Let the transaction run while the disk-full guard is raised. Set it for

@@ -192,6 +192,7 @@ import {
   getForeignAccountDeletion,
   getOfflinePublicAccountSnapshotFill,
   hasPublicAccountSnapshotWriteGuard,
+  isPreparedAccountDeletion,
   isRejectedPublicAccountSnapshotWrite,
   isUnsyncedPublicAccountSnapshotRemoval,
   matchesPublicAccountSnapshotWrite,
@@ -12099,14 +12100,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     prepareCloud: boolean,
     requestedAt?: number,
     resolveHistoricalDataTime?: () => number,
+    onPartialBatch?: () => boolean,
   ): Promise<IDBCloudSyncItem[]> {
     if (!prepareCloud) return [];
+    const completed: IDBCloudSyncItem[] = [];
     let isCurrent = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const elapsed = new Promise<IDBCloudSyncItem[]>((resolve) => {
       timeout = setTimeout(() => {
         isCurrent = false;
-        resolve([]);
+        const ready = uniqBy(completed, (item) => item.id);
+        resolve(ready.length && onPartialBatch?.() ? ready : []);
       }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
     });
     try {
@@ -12119,6 +12123,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           () => isCurrent,
           requestedAt,
           resolveHistoricalDataTime,
+          onPartialBatch
+            ? (item) => {
+                if (isPreparedAccountDeletion(item)) completed.push(item);
+              }
+            : undefined,
         ),
       ]);
     } finally {
@@ -12132,6 +12141,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     isCurrent: () => boolean,
     requestedAt: number | undefined,
     resolveHistoricalDataTime: (() => number) | undefined,
+    onPrepared?: (item: IDBCloudSyncItem) => void,
   ) {
     const supportedAccounts = accounts.filter((account) => {
       const walletId = accountUtils.getWalletIdFromAccountId({
@@ -12184,7 +12194,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 : {}),
               syncCredential,
             });
-          if (item) items.push(item);
+          if (isCurrent() && item) {
+            items.push(item);
+            onPrepared?.(item);
+          }
         } catch (_error) {
           // Cloud preparation is best-effort; local reads/writes still fail
           // normally if the business database itself is unusable.
@@ -12385,9 +12398,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   private async withPublicAccountDeletionTransaction(
     items: IDBCloudSyncItem[],
     task: (tx: ILocalDBTransaction) => Promise<void>,
-    offlineCancellation?: { ids: string[]; requestedAt: number },
+    offlineCancellation?: {
+      ids: string[];
+      requestedAt: number;
+      assertCanCommit?: (canCommit: boolean) => void;
+    },
   ): Promise<boolean> {
     const declined = new Set<string>();
+    let committedWithoutCloud = false;
     const runTransaction = (
       candidates: IDBCloudSyncItem[],
       cancelOffline: boolean,
@@ -12395,11 +12413,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       this.withSpaceFreeingTransaction(
         EIndexedDBBucketNames.account,
         async (tx) => {
-          await this.txWritePublicAccountDeletionSyncItems({
-            tx,
-            items: candidates,
-            declined,
-          });
+          try {
+            await this.txWritePublicAccountDeletionSyncItems({
+              tx,
+              items: candidates,
+              declined,
+            });
+          } catch (error) {
+            // A recovered prefix is optional; never replay a possibly committed
+            // business mutation or change the existing full-preparation path.
+            if (
+              offlineCancellation?.assertCanCommit &&
+              error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED
+            )
+              throw OFFLINE_ACCOUNT_CANCELLATION_DECLINED;
+            throw error;
+          }
           if (cancelOffline && offlineCancellation) {
             try {
               await this.txCancelUnboundPublicAccounts({
@@ -12415,18 +12444,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         {
           skipCloudCredentialWarmup: true,
           confirmRollbackOnError: cancelOffline,
+          assertCanCommit: candidates.length
+            ? offlineCancellation?.assertCanCommit
+            : undefined,
         },
       );
     const run = async (candidates: IDBCloudSyncItem[]) => {
       try {
         await runTransaction(
           candidates,
-          candidates.length === 0 && !!offlineCancellation?.ids.length,
+          !!offlineCancellation?.ids.length &&
+            (candidates.length === 0 || !!offlineCancellation.assertCanCommit),
         );
       } catch (error) {
         if (error !== OFFLINE_ACCOUNT_CANCELLATION_DECLINED) throw error;
         // The adapter confirmed rollback; the local mutation has not run.
         await runTransaction([], false);
+        committedWithoutCloud = true;
       }
     };
     const attempt = async (candidates: IDBCloudSyncItem[]) => {
@@ -12479,12 +12513,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         clearTimeout(timeout);
       }
     };
-    if (items.length && (await attempt(items))) return true;
+    if (items.length && (await attempt(items))) return !committedWithoutCloud;
     if (declined.size) {
       // The declined transaction is rolled back. Retry unaffected versions
       // once with their already-issued times; do not rebase a stale delete.
       const remaining = items.filter((item) => !declined.has(item.id));
-      if (remaining.length && (await attempt(remaining))) return true;
+      if (remaining.length && (await attempt(remaining)))
+        return !committedWithoutCloud;
     }
     await run([]);
     return false;
@@ -12749,14 +12784,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const requestedAt = this.getOfflineAccountRemovalTime();
     const resolveHistoricalDataTime =
       systemTimeUtils.captureColdCloudActionTime(requestedAt);
-    return this.runLocalAccountRemoval((prepareCloud) =>
-      this.removeAccountsByIdsWithCloudKeyLock(
+    return this.runLocalAccountRemoval((prepareCloud) => {
+      const scope = prepareCloud
+        ? this.backgroundApi.serviceKeylessCloudSync.captureLocalAccountDeleteScope()
+        : undefined;
+      return this.removeAccountsByIdsWithCloudKeyLock(
         params,
         prepareCloud,
         requestedAt,
         resolveHistoricalDataTime,
-      ),
-    );
+        scope?.isCurrent,
+      ).finally(() => scope?.release());
+    });
   }
 
   private async removeAccountsByIdsWithCloudKeyLock(
@@ -12768,6 +12807,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     prepareCloud: boolean,
     requestedAt: number,
     resolveHistoricalDataTime: (() => number) | undefined,
+    stillSelected?: () => boolean,
   ) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
@@ -12781,6 +12821,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return accountId;
     });
     const mapEntries = Object.entries(walletToRemovedAccountsMap);
+    let partialBatch = false;
     const publicAccountDeletionItems =
       await this.buildPublicAccountDeletionSyncItems(
         await this.getPublicAccountDeletionCandidates({
@@ -12790,6 +12831,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         prepareCloud,
         requestedAt,
         resolveHistoricalDataTime,
+        stillSelected
+          ? () => {
+              partialBatch = stillSelected();
+              return partialBatch;
+            }
+          : undefined,
       );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
@@ -12824,7 +12871,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       },
-      { ids: accountIdsToRemove, requestedAt },
+      {
+        ids: accountIdsToRemove,
+        requestedAt,
+        assertCanCommit: partialBatch
+          ? (canCommit) => {
+              if (!canCommit || !stillSelected?.())
+                throw CLOUD_ACCOUNT_DELETE_WRITE_DECLINED;
+            }
+          : undefined,
+      },
     );
     if (wroteCloud) {
       this.startPublicAccountDeletionSyncDebounced();

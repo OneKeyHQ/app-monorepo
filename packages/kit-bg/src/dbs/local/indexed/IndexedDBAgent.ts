@@ -689,8 +689,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       allowWhenStorageFull: options?.allowWhenStorageFull,
     });
 
+    const assertCanCommit = options?.assertCanCommit;
+    if (assertCanCommit && typeof dbTx.nativeTx.commit !== 'function') {
+      // No operations have been issued: even auto-committing this empty
+      // transaction cannot affect the existing confirmed-local fallback.
+      assertCanCommit(false);
+    }
     try {
       const result = await task(tx);
+      if (assertCanCommit) {
+        assertCanCommit(true);
+        dbTx.commit();
+      }
       await dbTx.done;
       return result;
     } catch (error) {

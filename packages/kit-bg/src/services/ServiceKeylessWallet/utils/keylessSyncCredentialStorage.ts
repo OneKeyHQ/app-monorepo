@@ -85,11 +85,30 @@ async function writeMap(map: ICredentialMap): Promise<void> {
   await keylessStorageUtils.storageSetItem(STORAGE_KEY, base64);
 }
 
+let writeRevision = 0;
+let pendingWrites = 0;
+
+function captureWriteGuard(): () => boolean {
+  const revision = writeRevision;
+  const stable = pendingWrites === 0;
+  return () => stable && revision === writeRevision;
+}
+
+async function mutate(operation: () => Promise<void>): Promise<void> {
+  writeRevision += 1;
+  pendingWrites += 1;
+  try {
+    await operation();
+  } finally {
+    pendingWrites -= 1;
+  }
+}
+
 async function saveCredential(
   credential: IKeylessCloudSyncCredential,
 ): Promise<void> {
   // Overwrite entire map — only keep the current credential
-  await writeMap({ [credential.keylessWalletId]: credential });
+  await mutate(() => writeMap({ [credential.keylessWalletId]: credential }));
 }
 
 async function getCredential(
@@ -104,7 +123,7 @@ async function getCredential(
 }
 
 async function removeAllCredentials(): Promise<void> {
-  await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+  await mutate(() => keylessStorageUtils.storageRemoveItem(STORAGE_KEY));
 }
 
 async function getPendingHardwareKeyMigration(): Promise<
@@ -117,6 +136,7 @@ async function getPendingHardwareKeyMigration(): Promise<
 }
 
 export default {
+  captureWriteGuard,
   saveCredential,
   getCredential,
   removeAllCredentials,

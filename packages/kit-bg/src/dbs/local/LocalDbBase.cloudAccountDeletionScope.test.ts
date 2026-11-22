@@ -1,5 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBTransaction } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -73,6 +73,8 @@ async function fixture({
   refuseAuthority = false,
   rejectPreflight = false,
   beforeKey,
+  selectedCredential = syncCredential,
+  isCurrent = () => true,
   unsent = false,
   missingCredential = false,
   beforeTime,
@@ -85,6 +87,8 @@ async function fixture({
   refuseAuthority?: boolean;
   rejectPreflight?: boolean;
   beforeKey?: () => Promise<void>;
+  selectedCredential?: ICloudSyncCredential;
+  isCurrent?: () => boolean;
   unsent?: boolean;
   missingCredential?: boolean;
   useHistoricalTime?: boolean;
@@ -144,7 +148,7 @@ async function fixture({
   );
   const syncLater = jest.fn(async () => undefined);
   const readCredential = jest.fn(async () =>
-    missingCredential ? undefined : syncCredential,
+    missingCredential ? undefined : selectedCredential,
   );
   const stages: string[] = [];
   const managers: { account?: CloudSyncFlowManagerAccount } = {};
@@ -152,6 +156,7 @@ async function fixture({
     localDb: db,
     serviceKeylessCloudSync: {
       getLocalMutationSyncCredential: readCredential,
+      captureLocalAccountDeleteScope: () => ({ isCurrent, release: jest.fn() }),
       runWithCloudSyncKeyLock: async <T>(fn: () => Promise<T>) => {
         stages.push('key');
         await beforeKey?.();
@@ -766,15 +771,84 @@ it.each([
   { batch: true, delta: 100, clockAdjustment: 0 },
   { batch: false, delta: -100, clockAdjustment: -1 },
   { batch: true, delta: -100, clockAdjustment: 0, lateConflict: true },
+  { batch: true, delta: -100, clockAdjustment: 0, deadline: true },
+  {
+    batch: true,
+    delta: -100,
+    clockAdjustment: 0,
+    deadline: true,
+    newerPrefix: true,
+  },
+  {
+    batch: true,
+    delta: -100,
+    clockAdjustment: 0,
+    deadline: true,
+    software: true,
+  },
+  {
+    batch: true,
+    delta: -100,
+    clockAdjustment: 0,
+    deadline: true,
+    switchAtCommit: true,
+  },
+  {
+    batch: true,
+    delta: -100,
+    clockAdjustment: 0,
+    deadline: true,
+    software: true,
+    switchAtCommit: true,
+  },
+  {
+    batch: true,
+    delta: -100,
+    clockAdjustment: 0,
+    deadline: true,
+    unsupportedCommit: true,
+  },
 ])(
-  'uses the original time only on the existing authenticated Account path (batch=$batch delta=$delta adjustment=$clockAdjustment lateConflict=$lateConflict)',
-  async ({ batch, delta, clockAdjustment, lateConflict }) => {
+  'uses the original time only on the existing authenticated Account path (batch=$batch delta=$delta adjustment=$clockAdjustment lateConflict=$lateConflict deadline=$deadline newerPrefix=$newerPrefix software=$software switchAtCommit=$switchAtCommit unsupportedCommit=$unsupportedCommit)',
+  async ({
+    batch,
+    delta,
+    clockAdjustment,
+    lateConflict,
+    deadline,
+    newerPrefix,
+    software,
+    switchAtCommit,
+    unsupportedCommit,
+  }) => {
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let stalledWireId: string | undefined;
     const requestedAt = 1_750_000_000_000;
     let conflictingWireId: string | undefined;
+    let sameSource = true;
+    const selectedCredential: ICloudSyncCredential = software
+      ? {
+          ...syncCredential,
+          keylessCredential: {
+            ...hardware,
+            keylessWalletId: 'fixture-software',
+            source: undefined,
+            hardwareSession: undefined,
+            pwdHash: 'keyless-delete-fixture',
+          },
+        }
+      : syncCredential;
     const h = await fixture({
+      selectedCredential,
+      isCurrent: () => sameSource,
       useHistoricalTime: true,
       historicalClockAdjustment: clockAdjustment,
       beforeTime: async (db, wireId) => {
+        if (wireId === stalledWireId) {
+          started.resolve();
+          await release.promise;
+        }
         if (wireId !== conflictingWireId) return;
         await db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
           db.txUpdateRecords({
@@ -795,6 +869,11 @@ it.each([
       wallet: h.snapshot.wallet,
     };
     const source = batch ? [h.snapshot, second] : [h.snapshot];
+    if (deadline)
+      source.push({
+        ...publicAccountTestSnapshot(2),
+        wallet: h.snapshot.wallet,
+      });
     const accounts = source.map((snapshot) =>
       publicAccountSnapshotToAccount(snapshot, h.wallet.id),
     );
@@ -816,16 +895,16 @@ it.each([
               },
             },
             dataTime: requestedAt + (index === 0 ? delta : -100),
-            syncCredential,
+            syncCredential: index === 2 ? undefined : selectedCredential,
           })),
-          rawData: '',
+          ...(index === 2 ? {} : { rawData: '', serverUploaded: true }),
           localSceneUpdated: true,
-          serverUploaded: true,
           isDeleted: false,
         };
       }),
     );
     if (lateConflict) conflictingWireId = syncItems[1].id;
+    if (deadline) stalledWireId = syncItems[1].id;
     await h.db.withTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -858,25 +937,77 @@ it.each([
       },
       { skipCloudCredentialWarmup: true },
     );
+    if (switchAtCommit) {
+      const remove = h.db.txRemoveRecords.bind(h.db);
+      jest.spyOn(h.db, 'txRemoveRecords').mockImplementation(async (params) => {
+        const result = await remove(params);
+        if (params.name === ELocalDBStoreNames.Account) sameSource = false;
+        return result;
+      });
+    }
+    const beforeCommit = Object.getOwnPropertyDescriptor(
+      IDBTransaction.prototype,
+      'commit',
+    );
+    if (unsupportedCommit) {
+      Object.defineProperty(IDBTransaction.prototype, 'commit', {
+        ...beforeCommit,
+        value: undefined,
+      });
+    }
+    const didRemove = jest.spyOn(h.db, 'txRemoveRecords');
     jest.useFakeTimers({
       now: requestedAt,
       doNotFake: ['setImmediate', 'nextTick'],
     });
     try {
-      if (batch)
-        await h.db.removeAccountsByIds({
+      if (batch) {
+        const removing = h.db.removeAccountsByIds({
           ids: accounts.map((item) => item.id),
         });
-      else await h.remove();
-      expect(Date.now()).toBe(requestedAt + 250);
+        if (deadline) {
+          await started.promise;
+          if (newerPrefix) {
+            await h.other.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+              h.other.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.CloudSyncItem,
+                ids: [syncItems[0].id],
+                updater: (row) =>
+                  Object.assign(row, { dataTime: requestedAt + 101 }),
+              }),
+            );
+          }
+          await jest.advanceTimersByTimeAsync(1000);
+        }
+        await removing;
+      } else await h.remove();
+      expect(Date.now()).toBe(requestedAt + (deadline ? 1250 : 250));
+      if (unsupportedCommit)
+        expect(
+          didRemove.mock.calls.filter(
+            ([operation]) => operation.name === ELocalDBStoreNames.Account,
+          ),
+        ).toHaveLength(1);
       for (let index = 0; index < accounts.length; index += 1) {
         const account = accounts[index];
         const original = syncItems[index];
         expect(
           await h.other.getAccountSafe({ accountId: account.id }),
         ).toBeFalsy();
+        if (deadline && index === 2) {
+          expect(
+            await h.other.getSyncItemSafe({ id: original.id }),
+          ).toBeFalsy();
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const pool = await h.other.getSyncItem({ id: original.id });
-        if (lateConflict && index === 1) {
+        if (deadline && (index === 1 || switchAtCommit || unsupportedCommit)) {
+          expect(pool).toEqual(original);
+        } else if (newerPrefix && index === 0) {
+          expect(pool).toEqual({ ...original, dataTime: requestedAt + 101 });
+        } else if (lateConflict && index === 1) {
           expect(pool).toMatchObject({
             isDeleted: false,
             dataTime: requestedAt + 100,
@@ -892,16 +1023,30 @@ it.each([
           expect(pool).toMatchObject({
             isDeleted: true,
             dataTime: requestedAt,
-            pwdHash: hardware.pwdHash,
+            pwdHash: selectedCredential.keylessCredential?.pwdHash,
             serverUploaded: false,
           });
         }
       }
+      release.resolve();
       await jest.advanceTimersByTimeAsync(1000);
+      if (deadline)
+        expect(await h.other.getSyncItem({ id: syncItems[1].id })).toEqual(
+          syncItems[1],
+        );
       expect(h.syncLater).toHaveBeenCalledTimes(
-        !clockAdjustment && (batch || delta < 0) ? 1 : 0,
+        !clockAdjustment &&
+          !newerPrefix &&
+          !switchAtCommit &&
+          !unsupportedCommit &&
+          (batch || delta < 0)
+          ? 1
+          : 0,
       );
     } finally {
+      if (unsupportedCommit && beforeCommit)
+        Object.defineProperty(IDBTransaction.prototype, 'commit', beforeCommit);
+      release.resolve();
       jest.useRealTimers();
     }
   },
