@@ -206,6 +206,39 @@ it('keeps the scan page open after a transient parse failure', async () => {
   expect(isRetryableQrParseFailure(transient)).toBe(true);
 });
 
+it('keeps Copy off the search screen opened during scanner dismissal', async () => {
+  mockGetCurrentRoute.mockReturnValue({
+    key: 'scan',
+    name: EScanQrCodeModalPages.ScanQrCodeStack,
+  });
+  mockGetRootState.mockReturnValue({
+    routes: [{ name: ERootRoutes.Main, state: { routes: [{ key: 'home' }] } }],
+  });
+  mockParse.mockResolvedValueOnce({
+    type: EQRCodeHandlerType.BITCOIN,
+    data: {},
+  });
+  const wait = jest
+    .spyOn(timerUtils, 'wait')
+    .mockImplementationOnce(async () => {
+      mockGetCurrentRoute.mockReturnValue({
+        key: 'search',
+        name: 'UniversalSearch',
+      });
+    });
+  try {
+    await parseQRCodeWithDeps(
+      'scanned payment code',
+      { popNavigation: true, autoExecuteParsedAction: true },
+      deps,
+    );
+    expect(resetAboveMainRoute).toHaveBeenCalledTimes(1);
+    expect(Dialog.confirm).not.toHaveBeenCalled();
+  } finally {
+    wait.mockRestore();
+  }
+});
+
 it('closes the scan page for a code that can never be accepted', async () => {
   const invalid = { key: ETranslations.feedback_invalid_qr_code };
   mockParse.mockRejectedValueOnce(invalid);

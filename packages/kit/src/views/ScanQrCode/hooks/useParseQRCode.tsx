@@ -124,7 +124,14 @@ export async function parseQRCodeWithDeps(
     !scannerKey ||
     rootNavigationRef.current?.getCurrentRoute()?.key === scannerKey;
 
-  const closeScanPage = async () => {
+  const closeScanPage = async (checkDestination = false) => {
+    const mainState =
+      popNavigation && checkDestination
+        ? rootNavigationRef.current
+            ?.getRootState()
+            ?.routes.find((route) => route.name === ERootRoutes.Main)?.state
+        : undefined;
+    const destinationKey = mainState && findFocusedRoute(mainState)?.key;
     if (popNavigation) {
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
@@ -148,6 +155,14 @@ export async function parseQRCodeWithDeps(
         }
       }
     }
+    return (
+      !destinationKey ||
+      rootNavigationRef.current?.getCurrentRoute()?.key === destinationKey
+    );
+  };
+
+  const closeScanPageAndCopyPaymentCode = async () => {
+    if (await closeScanPage(true)) showCopyDialog(value);
   };
 
   let result: Awaited<
@@ -291,8 +306,7 @@ export async function parseQRCodeWithDeps(
         if (!account) {
           // No account to send from: hand the code back like any other that
           // cannot be acted on, instead of leaving the scanner open.
-          await closeScanPage();
-          showCopyDialog(value);
+          await closeScanPageAndCopyPaymentCode();
           break;
         }
         const chainValue = result.data as IChainValue;
@@ -312,8 +326,7 @@ export async function parseQRCodeWithDeps(
           if (newAccountId) {
             accountId = newAccountId;
           } else {
-            await closeScanPage();
-            showCopyDialog(value);
+            await closeScanPageAndCopyPaymentCode();
             break;
           }
         }
@@ -329,21 +342,8 @@ export async function parseQRCodeWithDeps(
               accountId,
             });
 
-          if (!isScannerCurrent()) break;
-          const mainState =
-            popNavigation && isLightning
-              ? rootNavigationRef.current
-                  ?.getRootState()
-                  ?.routes.find((route) => route.name === ERootRoutes.Main)
-                  ?.state
-              : undefined;
-          const destinationKey = mainState && findFocusedRoute(mainState)?.key;
-          await closeScanPage();
           const amount = await parseOnChainAmount(result, nativeToken);
-          if (
-            destinationKey &&
-            rootNavigationRef.current?.getCurrentRoute()?.key !== destinationKey
-          ) {
+          if (!isScannerCurrent() || !(await closeScanPage(isLightning))) {
             break;
           }
           const newNetworkId =
