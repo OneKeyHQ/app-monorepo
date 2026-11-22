@@ -96,6 +96,7 @@ import type {
   IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
 import type { IManualHardwareWalletRecovery } from './hardwareCloudSyncRecovery';
+import type { IHardwareDataKeyCommitGuard } from './hardwareCloudSyncResetDownload';
 import type {
   IHardwareCloudSyncDataKey,
   IHardwareCloudSyncHistory,
@@ -759,6 +760,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
               },
             ),
           ),
+        resumePending: async (
+          session,
+          lockGeneration,
+          isBound,
+          assertStored,
+        ) => {
+          if (!legacy.pendingDataKey)
+            throw new HardwareCloudSyncCancelledError();
+          await this.commitHardwareDataKey(legacy, legacy.pendingDataKey, {
+            isCurrent: isBound,
+            generation: legacy.pendingDataKey.generation,
+            rebind: { session, assertStored },
+          });
+          await this.recordHardwareKeyGeneration(
+            legacy.keylessWalletId,
+            lockGeneration,
+          );
+        },
       });
     }
     const { items: localItems } =
@@ -1752,11 +1771,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
     {
       expected = credential,
       refreshedSession = false,
+      reboundSession,
       beforeSave,
       refreshAdmission,
     }: {
       expected?: IKeylessCloudSyncCredential;
       refreshedSession?: boolean;
+      reboundSession?: IHardwareCloudSyncSession;
       beforeSave?: (
         stored: IKeylessCloudSyncCredential,
       ) => Promise<boolean | void>;
@@ -1793,7 +1814,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         ? { ...stored, hardwareSession: credential.hardwareSession }
         : {
             ...credential,
-            hardwareSession: {
+            hardwareSession: reboundSession ?? {
               ...stored.hardwareSession,
               dekId:
                 credential.hardwareSession?.dekId ??
@@ -1909,88 +1930,27 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async commitHardwareDataKey(
     credential: IKeylessCloudSyncCredential,
     next: IHardwareCloudSyncDataKey,
-    guard?: {
-      origin?: string;
-      isCurrent: () => boolean;
-      generation?: number;
-    },
+    guard?: IHardwareDataKeyCommitGuard,
   ): Promise<IKeylessCloudSyncCredential> {
-    const { preparePoolRekey } =
+    const { commitHardwareDataKey } =
       await import('./hardwareCloudSyncResetDownload');
-    return this.runWithCloudSyncSourceLock(async () => {
-      const session = credential.hardwareSession;
-      if (!session) {
-        throw hardwareSignedOutError();
-      }
-      // Read after the device and network waits, so account edits made while
-      // confirming the reset are carried forward instead of an old snapshot.
-      const { items: originalItems } =
-        await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+    return commitHardwareDataKey({
+      credential,
+      next,
+      guard,
+      runWithSourceLock: (task) => this.runWithCloudSyncSourceLock(task),
+      loadSyncItems: () =>
+        this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
           includeUnsupportedDataTypes: true,
-        });
-      this.assertUnknownSyncItemsCanMigrate(originalItems, [
-        credential.pwdHash,
-        next.pwdHash,
-      ]);
-      const items = await reencryptHardwareCloudSyncItems({
-        items: originalItems,
-        from: {
-          dek: credential.encryptionKey,
-          dekId: session.dekId,
-          pwdHash: credential.pwdHash,
-        },
-        to: next,
-      });
-      const updated: IKeylessCloudSyncCredential = {
-        ...credential,
-        encryptionKey: next.dek,
-        pwdHash: next.pwdHash,
-        hardwareSession: { ...session, dekId: next.dekId },
-        pendingDataKey: undefined,
-      };
-      const rekeyPool = () =>
-        localDb.updateSyncItem(
-          preparePoolRekey(
-            originalItems,
-            items,
-            credential.pwdHash,
-            guard?.isCurrent,
-            settingsChangedError,
-          ),
-        );
-      // The recognized rotation remains resumable until its pool commits.
-      if (guard) {
-        const { origin, generation, isCurrent } = guard;
-        return this.saveHardwareCredential(updated, {
-          expected: credential,
-          refreshAdmission: { canPersist: () => true, canPublish: isCurrent },
-          beforeSave: async (stored) => {
-            const pending = stored.pendingDataKey;
-            if (
-              !isCurrent() ||
-              (origin && stored.hardwareSession?.boundBaseURL !== origin) ||
-              (generation !== undefined &&
-                pending?.generation !== generation) ||
-              stored.encryptionKey !== credential.encryptionKey ||
-              stored.source?.type !== 'hardware' ||
-              stored.source.credentialId !== credential.source?.credentialId ||
-              stored.source.derivationVersion !==
-                credential.source.derivationVersion ||
-              pending?.dekId !== next.dekId ||
-              pending?.pwdHash !== next.pwdHash ||
-              pending?.dek !== next.dek
-            )
-              throw settingsChangedError();
-            await rekeyPool();
-            if (!isCurrent()) throw settingsChangedError();
-          },
-        });
-      }
-      const saved = await this.saveHardwareCredential(updated, {
-        expected: credential,
-      });
-      await rekeyPool();
-      return saved;
+        }),
+      assertUnknownSyncItemsCanMigrate: (items, hashes) =>
+        this.assertUnknownSyncItemsCanMigrate(items, hashes),
+      reencrypt: reencryptHardwareCloudSyncItems,
+      updateSyncItems: (params) => localDb.updateSyncItem(params),
+      saveCredential: (updated, options) =>
+        this.saveHardwareCredential(updated, options),
+      hardwareSignedOutError,
+      settingsChangedError,
     });
   }
 

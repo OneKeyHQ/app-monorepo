@@ -25,10 +25,13 @@ import {
   computeHardwareCloudSyncPwdHash,
   downloadAllForReset,
   isHardwareCloudSyncKeyEnvelopeItem,
+  readEnvelope,
   readLockEnvelope,
   reencryptHardwareCloudSyncItems,
+  requestRawWithHardwareCloudSyncSession,
   requestWithHardwareCloudSyncSession,
   unwrapDek,
+  verifiedSessionBaseURL,
 } from './hardwareCloudSyncSession';
 
 import type {
@@ -59,8 +62,8 @@ class PendingAccountDeletionError extends HardwareCloudSyncError {
   }
 }
 
-// Only session metadata changes. This is deliberately separate from normal
-// activation/migration, which can create a Lock and reinitialize business data.
+// Never bootstrap a Lock or initialize business data here. Only the exact
+// local reset journal can also authorize rekeying to the existing Lock.
 export async function rebindLegacyHardwareSession({
   legacy,
   isCurrent,
@@ -69,6 +72,7 @@ export async function rebindLegacyHardwareSession({
   minGeneration,
   derive,
   save,
+  resumePending,
 }: {
   legacy: IKeylessCloudSyncCredential;
   isCurrent: () => boolean;
@@ -88,14 +92,19 @@ export async function rebindLegacyHardwareSession({
     isBound: () => boolean,
     beforeSave: (stored: IKeylessCloudSyncCredential) => Promise<void>,
   ) => Promise<IKeylessCloudSyncCredential>;
+  resumePending: (
+    session: IHardwareCloudSyncSession,
+    generation: number,
+    isCurrent: () => boolean,
+    assertStored: (stored: IKeylessCloudSyncCredential) => Promise<void>,
+  ) => Promise<void>;
 }) {
-  const { source, hardwareSession: old } = legacy;
+  const { source, hardwareSession: old, pendingDataKey: pending } = legacy;
   if (
     source?.type !== 'hardware' ||
     source.credentialId !== legacy.keylessWalletId ||
     !old?.dekId ||
     old.boundBaseURL ||
-    legacy.pendingDataKey ||
     legacy.pendingHardwareKeyMigration
   )
     throw new HardwareCloudSyncError(
@@ -115,6 +124,7 @@ export async function rebindLegacyHardwareSession({
       if (!isBound()) throw new HardwareCloudSyncCancelledError();
     };
     assertBound();
+    let pendingGeneration: number | undefined;
     const { credential } = await derive({
       expectedCredentialId: source.credentialId,
       isCurrent: isBound,
@@ -131,7 +141,26 @@ export async function rebindLegacyHardwareSession({
           throw new HardwareCloudSyncCancelledError();
         const generation = await minGeneration();
         assertBound();
-        const lock = await readLockEnvelope({ client, session });
+        // An interrupted reset needs explicit issuer proof for both successful
+        // authorization and the existing Lock. Without it, keep the journal.
+        const lock = await (async () => {
+          if (!pending) return readLockEnvelope({ client, session });
+          if (!session.boundBaseURLVerified)
+            throw new HardwareCloudSyncCancelledError();
+          const urlPath = '/prime/v1/sync/lock';
+          const response = await requestRawWithHardwareCloudSyncSession<{
+            lock?: { data?: string } | null;
+          }>({
+            client,
+            session,
+            method: 'GET',
+            urlPath,
+            assertCanSend: assertBound,
+          });
+          if (!verifiedSessionBaseURL(response, endpoint, urlPath))
+            throw new HardwareCloudSyncCancelledError();
+          return readEnvelope(response.data.data?.lock?.data);
+        })();
         assertBound();
         if (!lock)
           throw createHardwareCloudSyncDataError(
@@ -141,12 +170,24 @@ export async function rebindLegacyHardwareSession({
         const kek = await device.deriveKek(lock.kekSalt);
         assertBound();
         const dek = await unwrapDek({ kek, envelope: lock });
+        const hash = computeHardwareCloudSyncPwdHash(lock.dekId);
         if (
+          pending &&
+          pending.dekId !== old.dekId &&
+          pending.dekId === lock.dekId &&
+          pending.pwdHash === hash &&
+          pending.dek === dek &&
+          (pending.generation === undefined ||
+            pending.generation === lock.generation)
+        ) {
+          pendingGeneration = lock.generation;
+        } else if (
           lock.dekId !== old.dekId ||
-          computeHardwareCloudSyncPwdHash(lock.dekId) !== legacy.pwdHash ||
+          hash !== legacy.pwdHash ||
           dek !== legacy.encryptionKey
-        )
+        ) {
           throw createHardwareCloudSyncDataError('Cloud sync data key changed');
+        }
         assertBound();
         return { ...legacy, hardwareSession: { ...session, dekId: old.dekId } };
       },
@@ -155,7 +196,7 @@ export async function rebindLegacyHardwareSession({
     const session = credential.hardwareSession;
     if (!session || session.boundBaseURL !== endpoint)
       throw new HardwareCloudSyncCancelledError();
-    await save(session, isBound, async (stored) => {
+    const assertStored = async (stored: IKeylessCloudSyncCredential) => {
       const config = await primeCloudSyncPersistAtom.get();
       if (
         !isBound() ||
@@ -170,7 +211,10 @@ export async function rebindLegacyHardwareSession({
           stringUtils.stableStringify(legacy)
       )
         throw new HardwareCloudSyncCancelledError();
-    });
+    };
+    if (pendingGeneration !== undefined)
+      await resumePending(session, pendingGeneration, isBound, assertStored);
+    else await save(session, isBound, assertStored);
   } finally {
     stopWatching();
   }
