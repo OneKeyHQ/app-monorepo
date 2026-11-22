@@ -53,7 +53,13 @@ jest.mock('../locale/appLocale', () => ({
 
 jest.mock('../utils/systemTimeUtils', () => ({
   __esModule: true,
-  default: { handleServerResponseDate: mockServerTimeUpdate },
+  default: {
+    captureServerTimeRequestStart: () => ({
+      wallTime: Date.now(),
+      monotonicTime: performance.now(),
+    }),
+    handleServerResponseDate: mockServerTimeUpdate,
+  },
 }));
 
 jest.mock('../modules/NetworkThrottle', () => ({
@@ -189,7 +195,14 @@ describe('API availability counting in request interceptors', () => {
     expect(mockServerTimeUpdate).not.toHaveBeenCalled();
     await client.get(WALLET_URL);
     expect(mockServerTimeUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ headerDate: date, url: WALLET_URL }),
+      expect.objectContaining({
+        headerDate: date,
+        url: WALLET_URL,
+        requestStart: {
+          wallTime: expect.any(Number),
+          monotonicTime: expect.any(Number),
+        },
+      }),
     );
   });
 

@@ -350,7 +350,7 @@ class ClientLightning {
         return data.data;
       } catch (error) {
         const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
-        const deadline = getLightningRetryDeadline(error, fallbackMs);
+        const deadline = await getLightningRetryDeadline(error, fallbackMs);
         if (deadline) {
           failed.set(invoice, {
             deadline,

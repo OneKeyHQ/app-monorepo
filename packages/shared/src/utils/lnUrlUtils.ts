@@ -446,7 +446,6 @@ function readReusableLightningRecipient(
           if (
             (noSameLineSuffix &&
               firstAfter < (followingBreak?.index ?? address.length)) ||
-            hasAdjacentLnurl(candidate) ||
             hasUriContinuation
           ) {
             return { kind: 'ambiguous' };
@@ -455,6 +454,9 @@ function readReusableLightningRecipient(
       }
     }
     if (candidate !== undefined) {
+      if (LNURL_URI_SCHEME.test(candidate) && hasAdjacentLnurl(candidate)) {
+        return { kind: 'ambiguous' };
+      }
       const key = lightningRecipientKey(candidate);
       if (
         recipientKey !== undefined &&

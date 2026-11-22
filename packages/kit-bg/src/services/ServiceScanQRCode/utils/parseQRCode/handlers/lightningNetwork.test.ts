@@ -12,6 +12,7 @@ import {
   RetryableLightningScanError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/shared/types/lightning';
 import {
@@ -294,6 +295,55 @@ it('refreshes invoice time when the wall clock advances without the monotonic cl
   }
 });
 
+it.each(['axios', 'fetch'] as const)(
+  'rejects an expired invoice when the %s decoder date was queued before desktop sleep',
+  async (source) => {
+    const { options, decodedInvoice, getNetwork } = setup();
+    const time = 1_920_000_000_000;
+    const resumedAt = time + 60_000;
+    jest.useFakeTimers({ now: time });
+    systemTimeUtils._handleServerResponseDateThrottle.cancel();
+    systemTimeUtils.updateServerTime({ serverTime: time });
+    const domain = jest
+      .spyOn(requestHelper, 'checkIsOneKeyDomain')
+      .mockResolvedValue(true);
+    const refresh = jest
+      .spyOn(systemTimeUtils, 'refreshServerTime')
+      .mockImplementationOnce(async () => {
+        systemTimeUtils.updateServerTime({ serverTime: resumedAt });
+        return true;
+      });
+    decodedInvoice.mockImplementationOnce(async () => {
+      const requestStart = { wallTime: time, monotonicTime: performance.now() };
+      jest.setSystemTime(resumedAt);
+      await systemTimeUtils.handleServerResponseDate({
+        source,
+        url: 'https://wallet.onekeycn.com/wallet/v1/ln/invoices/decode/test',
+        headerDate: new Date(time).toUTCString(),
+        requestStart,
+      });
+      return {
+        paymentRequest: INVOICE,
+        timeExpireDate: time / 1000 + 3,
+        tags: [],
+        tagsObject: {},
+      };
+    });
+    try {
+      await expect(lightningNetwork(INVOICE, options)).rejects.toBeInstanceOf(
+        InvoiceExpiredError,
+      );
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(getNetwork).not.toHaveBeenCalled();
+    } finally {
+      systemTimeUtils._handleServerResponseDateThrottle.cancel();
+      domain.mockRestore();
+      refresh.mockRestore();
+      jest.useRealTimers();
+    }
+  },
+);
+
 it.each([false, true])(
   'ignores wall-clock skew with a trusted server sample (needs refresh: %s)',
   async (needsRefresh) => {
@@ -509,7 +559,7 @@ it('backs off recipient scans until Retry-After elapses despite a wall-clock cha
   }
 });
 
-it('lets a recipient scan retry after trusted time confirms that sleep covered the cooldown', async () => {
+it('lets a recipient scan retry after desktop uptime confirms that sleep covered the cooldown', async () => {
   const { parseOptions, serverValidateAddress } = setupRecipientValidation();
   const value = 'lightning:satoshi@example.com';
   const time = 1_900_001_000_000;
@@ -523,24 +573,22 @@ it('lets a recipient scan retry after trusted time confirms that sleep covered t
   serverValidateAddress.mockRejectedValueOnce(failure);
   jest.useFakeTimers({ now: time });
   systemTimeUtils.updateServerTime({ serverTime: time });
-  const refresh = jest
-    .spyOn(systemTimeUtils, 'refreshServerTime')
-    .mockImplementationOnce(async () => {
-      systemTimeUtils.updateServerTime({ serverTime: time + 60_000 });
-      return true;
-    });
+  const uptime = jest
+    .spyOn(systemTimeUtils, 'getDesktopSystemUptimeMs')
+    .mockResolvedValue(40_000);
   try {
     await expect(parseQRCode(value, parseOptions)).rejects.toBeInstanceOf(
       RetryableLightningScanError,
     );
     jest.setSystemTime(time + 60_000);
+    uptime.mockResolvedValue(100_000);
     await expect(parseQRCode(value, parseOptions)).resolves.toMatchObject({
       type: EQRCodeHandlerType.LIGHTNING_NETWORK,
     });
-    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(uptime).toHaveBeenCalledTimes(2);
     expect(serverValidateAddress).toHaveBeenCalledTimes(2);
   } finally {
-    refresh.mockRestore();
+    uptime.mockRestore();
     jest.useRealTimers();
   }
 });

@@ -489,18 +489,35 @@ describe('system time error notifications', () => {
     },
   );
 
-  it('does not notify for an old business response while preserving its time update', async () => {
+  it('does not notify when a fresh business response reveals clock skew', async () => {
     jest.setSystemTime(BASE_TIME + SLEEP_TIME);
 
     await systemTimeUtils.handleServerResponseDate({
       source: 'axios',
       headerDate: new Date(BASE_TIME).toUTCString(),
       url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
+      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
     });
 
     expectNoTimeError();
     expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
     expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
+  });
+
+  it('does not install a business date after the clock diverges during domain verification', async () => {
+    mockTrustedDomain.mockImplementationOnce(async () => {
+      jest.setSystemTime(BASE_TIME + 4000);
+      monotonicTime += 100;
+      return true;
+    });
+    await systemTimeUtils.handleServerResponseDate({
+      source: 'axios',
+      headerDate: new Date(BASE_TIME).toUTCString(),
+      url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
+      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
+    });
+    expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBeUndefined();
+    expectNoTimeError();
   });
 
   it('notifies once when the health response also passes through the interceptor', async () => {
@@ -511,6 +528,7 @@ describe('system time error notifications', () => {
         source: 'axios',
         headerDate: date,
         url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
+        requestStart: systemTimeUtils.captureServerTimeRequestStart(),
       });
       return { headers: { date } };
     });
@@ -532,6 +550,7 @@ describe('system time error notifications', () => {
       url: 'https://wallet.onekeycn.com/wallet/v1/health',
       requestUrl:
         'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils',
+      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
     });
 
     expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBeUndefined();
@@ -539,6 +558,7 @@ describe('system time error notifications', () => {
       source: 'fetch',
       headerDate: new Date(resumedAt).toUTCString(),
       url: 'https://wallet.onekeycn.com/wallet/v1/network/list',
+      requestStart: systemTimeUtils.captureServerTimeRequestStart(),
     });
     expect(systemTimeUtils.getContinuousEstimatedServerTime()).toBe(resumedAt);
   });

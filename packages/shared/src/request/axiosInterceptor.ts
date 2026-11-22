@@ -370,6 +370,10 @@ axios.interceptors.request.use(async (config) => {
   }
   await markNetworkThrottleRequestTiming(config);
   config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
+  if (!config.$oneKeySkipServerTimeUpdate) {
+    config.$oneKeyServerTimeRequestStart =
+      systemTimeUtils.captureServerTimeRequestStart();
+  }
   return config;
 });
 
@@ -382,12 +386,13 @@ axios.interceptors.response.use(
     const { config } = response;
     const url =
       response?.request?.responseURL || config?.baseURL || config?.url || '';
-    if (!config.$oneKeySkipServerTimeUpdate) {
+    if (config.$oneKeyServerTimeRequestStart) {
       const timeCheckRequestId: unknown = config.headers[HEADER_REQUEST_ID_KEY];
       void systemTimeUtils.handleServerResponseDate({
         source: 'axios',
         headerDate: response?.headers?.date || '',
         url,
+        requestStart: config.$oneKeyServerTimeRequestStart,
         requestId:
           typeof timeCheckRequestId === 'string'
             ? timeCheckRequestId

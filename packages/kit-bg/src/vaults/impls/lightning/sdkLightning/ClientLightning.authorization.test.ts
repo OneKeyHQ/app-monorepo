@@ -265,12 +265,39 @@ describe('Lightning read authorization without wallet interaction', () => {
     },
   );
 
+  test('keeps a relative Retry-After pending across an ordinary server clock correction', async () => {
+    const { client, get } = harness();
+    const time = 1_900_000_000_000;
+    const failure = Object.assign(
+      new OneKeyServerApiError({ httpStatusCode: 429 }),
+      { retryAfter: '1' },
+    );
+    get.mockRejectedValueOnce(failure);
+    jest.useFakeTimers({ now: time });
+    const clock = jest
+      .spyOn(systemTimeUtils, 'getContinuousEstimatedServerTime')
+      .mockReturnValue(time);
+    try {
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      jest.advanceTimersByTime(200);
+      clock.mockReturnValue(time + 1050);
+      await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
+      expect(get).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(800);
+      await expect(client.decodedInvoice('lnbc123')).resolves.toBe(true);
+      expect(get).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   test.each([
     ['system resume', 60_000, true],
     ['manual wall-clock jump', 500, false],
   ])(
-    'rechecks an invoice cooldown against server time after %s',
-    async (_scenario, serverElapsed, canRetry) => {
+    'rechecks a relative invoice cooldown against desktop uptime after %s',
+    async (_scenario, uptimeElapsed, canRetry) => {
       const { client, get } = harness();
       const serverTime = 1_900_000_000_000;
       const failure = Object.assign(
@@ -283,17 +310,13 @@ describe('Lightning read authorization without wallet interaction', () => {
       get.mockRejectedValueOnce(failure);
       jest.useFakeTimers({ now: serverTime });
       systemTimeUtils.updateServerTime({ serverTime });
-      const refresh = jest
-        .spyOn(systemTimeUtils, 'refreshServerTime')
-        .mockImplementationOnce(async () => {
-          systemTimeUtils.updateServerTime({
-            serverTime: serverTime + serverElapsed,
-          });
-          return true;
-        });
+      const uptime = jest
+        .spyOn(systemTimeUtils, 'getDesktopSystemUptimeMs')
+        .mockResolvedValue(40_000);
       try {
         await expect(client.decodedInvoice('lnbc123')).rejects.toBe(failure);
         jest.setSystemTime(serverTime + 60_000);
+        uptime.mockResolvedValue(40_000 + uptimeElapsed);
         const results = await Promise.allSettled([
           client.decodedInvoice('lnbc123'),
           client.decodedInvoice('LIGHTNING:LNBC123'),
@@ -309,10 +332,10 @@ describe('Lightning read authorization without wallet interaction', () => {
                 { status: 'rejected', reason: failure },
               ],
         );
-        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(uptime).toHaveBeenCalledTimes(2);
         expect(get).toHaveBeenCalledTimes(canRetry ? 2 : 1);
       } finally {
-        refresh.mockRestore();
+        uptime.mockRestore();
         jest.useRealTimers();
       }
     },

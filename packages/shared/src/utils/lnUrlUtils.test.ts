@@ -402,13 +402,17 @@ it('recognizes equivalent protocol URLs and Bech32 links without merging distinc
 });
 
 it.each([';', '；'])(
-  'rejects adjacent unwrapped checkout URLs separated by %s',
+  'rejects adjacent checkout URLs separated by %s',
   (separator) => {
     const first = 'lnurlp://merchant.example/checkout?order=12';
     const second = 'lnurlp://merchant.example/checkout?order=34';
+    const pair = `${first}${separator}${second}`;
     for (const text of [
-      `${first}${separator}${second}`,
-      `Pay: ${first}${separator}${second}`,
+      pair,
+      `Pay: ${pair}`,
+      `Pay (${pair}).`,
+      `<${pair}>`,
+      `"${pair}"`,
     ]) {
       expect(parseReusableLightningRecipient(text)).toEqual({
         kind: 'ambiguous',

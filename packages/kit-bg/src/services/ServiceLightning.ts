@@ -291,7 +291,7 @@ class ServiceLightning extends ServiceBase {
           (axios.isAxiosError(error) && !axios.isCancel(error));
         const fallbackMs = previousFailure?.nextDelayMs ?? 1000;
         const deadline = isRequestError
-          ? getLightningRetryDeadline(error, fallbackMs)
+          ? await getLightningRetryDeadline(error, fallbackMs)
           : undefined;
         if (!deadline) {
           this.lnurlScanFailures.delete(key);

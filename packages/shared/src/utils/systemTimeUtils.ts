@@ -99,10 +99,26 @@ function getMonotonicTimeNow(): number | undefined {
   return time;
 }
 
-async function getDesktopSystemUptimeMs() {
-  if (platformEnv.isDesktop) {
-    return globalThis.desktopApi?.getSystemUptimeMs?.().catch(() => undefined);
+type IServerTimeRequestStart = {
+  wallTime: number;
+  monotonicTime: number | undefined;
+};
+
+function isFreshServerTimeRequest(
+  start: IServerTimeRequestStart,
+  localTime = Date.now(),
+) {
+  const wallElapsed = localTime - start.wallTime;
+  if (wallElapsed < 0 || wallElapsed > freshResponseMaxDuration) return false;
+  const monotonicTime = getMonotonicTimeNow();
+  if (monotonicTime === undefined || start.monotonicTime === undefined) {
+    return true;
   }
+  const monotonicElapsed = monotonicTime - start.monotonicTime;
+  return (
+    monotonicElapsed >= 0 &&
+    Math.abs(wallElapsed - monotonicElapsed) <= clockContinuityToleranceMs
+  );
 }
 
 function isManagedHealthCheckUrl(url: string) {
@@ -115,6 +131,7 @@ function isManagedHealthCheckUrl(url: string) {
 declare module 'axios' {
   interface AxiosRequestConfig {
     $oneKeySkipServerTimeUpdate?: boolean;
+    $oneKeyServerTimeRequestStart?: IServerTimeRequestStart;
   }
 }
 
@@ -142,6 +159,18 @@ function getPersistedTimeValue(key: EAppSyncStorageKeys): number | undefined {
 }
 
 class SystemTimeUtils {
+  captureServerTimeRequestStart(): IServerTimeRequestStart {
+    return { wallTime: Date.now(), monotonicTime: getMonotonicTimeNow() };
+  }
+
+  async getDesktopSystemUptimeMs() {
+    if (platformEnv.isDesktop) {
+      return globalThis.desktopApi
+        ?.getSystemUptimeMs?.()
+        .catch(() => undefined);
+    }
+  }
+
   constructor() {
     const lastServerTimeInStorage = getPersistedTimeValue(
       lastValidServerTimeStorageKey,
@@ -479,8 +508,8 @@ class SystemTimeUtils {
         endpoint,
         name: EServiceEndpointEnum.Wallet,
       });
-      requestStartedAt = Date.now();
-      const monotonicRequestStartedAt = getMonotonicTimeNow();
+      const requestStart = this.captureServerTimeRequestStart();
+      requestStartedAt = requestStart.wallTime;
       const response = await client.get<unknown, IAxiosResponse<unknown>>(
         ONEKEY_HEALTH_CHECK_URL,
         {
@@ -519,21 +548,7 @@ class SystemTimeUtils {
         return false;
       }
       const localTimestamp = Date.now();
-      const requestDuration = localTimestamp - requestStartedAt;
-      const monotonicCompletedAt = getMonotonicTimeNow();
-      const monotonicDuration =
-        monotonicCompletedAt === undefined ||
-        monotonicRequestStartedAt === undefined
-          ? undefined
-          : monotonicCompletedAt - monotonicRequestStartedAt;
-      if (
-        requestDuration < 0 ||
-        requestDuration > freshResponseMaxDuration ||
-        (monotonicDuration !== undefined &&
-          (monotonicDuration < 0 ||
-            Math.abs(requestDuration - monotonicDuration) >
-              clockContinuityToleranceMs))
-      ) {
+      if (!isFreshServerTimeRequest(requestStart, localTimestamp)) {
         logResult('stale-response');
         return false;
       }
@@ -658,7 +673,7 @@ class SystemTimeUtils {
     const retry = this._freshEstimateRetry;
     if (retry && (getMonotonicTimeNow() ?? Date.now()) < retry.monotonicAt) {
       if (retry.uptimeAt === undefined) return undefined;
-      const uptime = await getDesktopSystemUptimeMs();
+      const uptime = await this.getDesktopSystemUptimeMs();
       if (uptime === undefined || uptime < retry.uptimeAt) return undefined;
     }
     let delayMs = freshEstimateRetryDelayMs;
@@ -692,7 +707,7 @@ class SystemTimeUtils {
       }
     }
     const monotonicAt = (getMonotonicTimeNow() ?? Date.now()) + delayMs;
-    const uptime = await getDesktopSystemUptimeMs();
+    const uptime = await this.getDesktopSystemUptimeMs();
     this._freshEstimateRetry = {
       monotonicAt,
       // System uptime counts suspend and can be rounded to whole seconds.
@@ -1060,16 +1075,23 @@ class SystemTimeUtils {
     source,
     headerDate,
     url,
+    requestStart,
     requestUrl,
     requestId,
   }: {
     source: 'axios' | 'fetch';
     headerDate: string;
     url: string;
+    requestStart: IServerTimeRequestStart;
     requestUrl?: string;
     requestId?: string;
   }) {
-    if (!headerDate || !url || isManagedHealthCheckUrl(requestUrl ?? url)) {
+    if (
+      !headerDate ||
+      !url ||
+      isManagedHealthCheckUrl(requestUrl ?? url) ||
+      !isFreshServerTimeRequest(requestStart)
+    ) {
       return;
     }
     try {
@@ -1077,6 +1099,7 @@ class SystemTimeUtils {
         source,
         headerDate,
         url,
+        requestStart,
         requestId,
       });
     } catch (error) {
@@ -1089,11 +1112,13 @@ class SystemTimeUtils {
       source,
       headerDate,
       url,
+      requestStart,
       requestId,
     }: {
       source: 'axios' | 'fetch';
       headerDate: string;
       url: string;
+      requestStart: IServerTimeRequestStart;
       requestId?: string;
     }) => {
       if (!headerDate || !url) {
@@ -1119,7 +1144,7 @@ class SystemTimeUtils {
         return;
       }
       const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
-      if (!isOneKeyDomain) {
+      if (!isOneKeyDomain || !isFreshServerTimeRequest(requestStart)) {
         return;
       }
       let localTimestamp: number = Date.now();

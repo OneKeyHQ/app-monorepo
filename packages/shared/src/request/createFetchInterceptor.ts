@@ -137,19 +137,25 @@ export function createFetchInterceptor(
     // A Request carries its own signal, which `options.signal` overrides when
     // set. Reading only the latter counted a Request's timeout as a cancellation.
     const abortSignal: unknown = options.signal ?? resourceInfo?.signal;
+    const serverTimeRequestStart = isOneKeyDomain
+      ? systemTimeUtils.captureServerTimeRequestStart()
+      : undefined;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
     return (
       send
         // @ts-ignore
         .call(this, resource, options, ...others)
         .then((res) => {
-          void systemTimeUtils.handleServerResponseDate({
-            source: 'fetch',
-            headerDate: res?.headers?.get?.('date') || '',
-            url: res?.url || url || '',
-            requestUrl: url,
-            requestId,
-          });
+          if (serverTimeRequestStart) {
+            void systemTimeUtils.handleServerResponseDate({
+              source: 'fetch',
+              headerDate: res?.headers?.get?.('date') || '',
+              url: res?.url || url || '',
+              requestStart: serverTimeRequestStart,
+              requestUrl: url,
+              requestId,
+            });
+          }
 
           if (isEnableLogNetwork(url)) {
             defaultLogger.app.network.end({
