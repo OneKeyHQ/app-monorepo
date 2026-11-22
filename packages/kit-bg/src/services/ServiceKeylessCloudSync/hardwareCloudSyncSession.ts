@@ -1082,14 +1082,17 @@ export async function reencryptHardwareCloudSyncItems<
   items,
   from,
   to,
+  validateOnly,
 }: {
   items: T[];
   from: IHardwareCloudSyncDataKey;
   to: IHardwareCloudSyncDataKey;
+  validateOnly?: boolean;
 }): Promise<T[]> {
   const result: T[] = [];
-  const carried = items.filter((item) => item.pwdHash === from.pwdHash);
-  for (const item of carried) {
+  for (const item of items) {
+    // eslint-disable-next-line no-continue
+    if (item.pwdHash !== from.pwdHash) continue;
     let { data } = item;
     if (data) {
       const raw = await keylessCloudSyncUtils.decryptWithKeylessKey({
@@ -1098,27 +1101,27 @@ export async function reencryptHardwareCloudSyncItems<
         itemId: item.id,
         dataType: item.dataType,
       });
-      data = await keylessCloudSyncUtils.encryptWithKeylessKey({
-        rawData: raw,
-        encryptionKey: to.dek,
-        itemId: item.id,
-        dataType: item.dataType,
-      });
+      if (!validateOnly)
+        data = await keylessCloudSyncUtils.encryptWithKeylessKey({
+          rawData: raw,
+          encryptionKey: to.dek,
+          itemId: item.id,
+          dataType: item.dataType,
+        });
     }
-    result.push({ ...item, data, pwdHash: to.pwdHash });
+    if (!validateOnly) result.push({ ...item, data, pwdHash: to.pwdHash });
   }
   return result;
 }
 
 /**
  * Replaces the data key: everything on the server is re-encrypted with a new
- * DEK in one flush, guarded by the current pwdHash. Local records are
- * re-encrypted too and returned for the local database. `savePending` runs
+ * DEK in one flush, guarded by the current pwdHash. Authenticate the local
+ * pool before flushing; the later local commit re-reads and rekeys it.
+ * `savePending` runs
  * before the flush so an interrupted reset can be finished or dropped later.
  */
-export async function rotateHardwareCloudSyncDataKey<
-  T extends IEncryptedSyncItem,
->({
+export async function rotateHardwareCloudSyncDataKey({
   client,
   session,
   deriveKek,
@@ -1134,7 +1137,7 @@ export async function rotateHardwareCloudSyncDataKey<
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
   current: IHardwareCloudSyncDataKey;
-  localItems: T[];
+  localItems: IEncryptedSyncItem[];
   savePending: (
     next: IHardwareCloudSyncDataKey & { generation: number },
   ) => Promise<void>;
@@ -1144,7 +1147,6 @@ export async function rotateHardwareCloudSyncDataKey<
   minGeneration?: number;
 }): Promise<{
   next: IHardwareCloudSyncDataKey;
-  items: T[];
   generation: number;
   verifiedFlushOrigin?: string;
 }> {
@@ -1190,11 +1192,13 @@ export async function rotateHardwareCloudSyncDataKey<
     existing.generation + 1,
   );
   assertCurrent();
-  const items = await reencryptHardwareCloudSyncItems({
+  await reencryptHardwareCloudSyncItems({
     items: localItems,
     from: current,
     to: next,
+    validateOnly: true,
   });
+  assertCurrent();
   const { data, envelopeCount } = await prepareHardwareCloudSyncResetRecords({
     download: async () => {
       const response = await requestWithHardwareCloudSyncSession<{
@@ -1251,7 +1255,6 @@ export async function rotateHardwareCloudSyncDataKey<
   });
   return {
     next,
-    items,
     generation: envelope.generation,
     verifiedFlushOrigin: verifiedSessionBaseURL(
       response,

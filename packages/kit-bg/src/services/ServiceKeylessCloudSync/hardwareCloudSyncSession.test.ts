@@ -1279,6 +1279,7 @@ describe('hardware Cloud sync session', () => {
       const local = [
         await item(key.dek, key.pwdHash, 'a'),
         { ...(await item(key.dek, 'keyless-other', 'b')) },
+        await item(key.dek, key.pwdHash, 'local-only'),
       ];
       // The server also holds a record this device has no local copy of.
       const remote = await item(key.dek, key.pwdHash, 'from-other-device');
@@ -1295,7 +1296,15 @@ describe('hardware Cloud sync session', () => {
         .mockResolvedValueOnce(ok({ serverData }))
         .mockResolvedValueOnce(ok({}));
       const savePending = jest.fn(async () => undefined);
-      const { next, items } = await rotateHardwareCloudSyncDataKey({
+      const decrypt = jest.spyOn(
+        keylessCloudSyncUtils,
+        'decryptWithKeylessKey',
+      );
+      const encrypt = jest.spyOn(
+        keylessCloudSyncUtils,
+        'encryptWithKeylessKey',
+      );
+      const rotation = await rotateHardwareCloudSyncDataKey({
         client: c.client,
         session: session(),
         deriveKek: wallet(WALLET),
@@ -1303,23 +1312,29 @@ describe('hardware Cloud sync session', () => {
         localItems: local,
         savePending,
       });
+      const { next } = rotation;
+      expect(rotation).not.toHaveProperty('items');
+      expect(decrypt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: 'local-only',
+          encryptionKey: key.dek,
+        }),
+      );
+      expect(decrypt.mock.calls.some(([entry]) => entry.itemId === 'b')).toBe(
+        false,
+      );
+      expect(
+        encrypt.mock.calls.some(([entry]) => entry.itemId === 'local-only'),
+      ).toBe(false);
+      expect(
+        encrypt.mock.calls.filter(([entry]) => entry.itemId === 'a'),
+      ).toHaveLength(1);
       expect(next.dek).not.toBe(key.dek);
       expect(next.pwdHash).toBe(computeHardwareCloudSyncPwdHash(next.dekId));
       const newSalt = JSON.parse(c.post.mock.calls[2][1].lock.data).kekSalt;
       expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
       expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
       expect(savePending).toHaveBeenCalledWith({ ...next, generation: 2 });
-      // Only records under the current key are carried over.
-      expect(items.map((i) => i.id)).toEqual(['a']);
-      await expect(
-        keylessCloudSyncUtils.decryptWithKeylessKey({
-          encryptedData: items[0].data,
-          encryptionKey: next.dek,
-          itemId: 'a',
-          dataType: 'BrowserBookmark',
-        }),
-      ).resolves.toBe('raw-a');
-
       const flush = c.post.mock.calls[2] as [
         string,
         {
@@ -1405,20 +1420,12 @@ describe('hardware Cloud sync session', () => {
             c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
           ).toBe(false);
         } else {
-          const { next, items } = await rotate;
-          expect(items[0]).toMatchObject({
-            id: opaque.id,
-            dataType: opaque.dataType,
-            pwdHash: next.pwdHash,
+          const rotation = await rotate;
+          expect(rotation).not.toHaveProperty('items');
+          expect(savePending).toHaveBeenCalledWith({
+            ...rotation.next,
+            generation: 2,
           });
-          await expect(
-            keylessCloudSyncUtils.decryptWithKeylessKey({
-              encryptedData: items[0].data,
-              encryptionKey: next.dek,
-              itemId: opaque.id,
-              dataType: opaque.dataType,
-            }),
-          ).resolves.toBe('public-test-opaque-payload');
         }
       },
     );

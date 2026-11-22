@@ -2285,9 +2285,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       !endpointAbort.signal.aborted &&
       (!rotationBaseURL || client.defaults?.baseURL === rotationBaseURL);
     let rotated:
-      | Awaited<
-          ReturnType<typeof rotateHardwareCloudSyncDataKey<IDBCloudSyncItem>>
-        >
+      | Awaited<ReturnType<typeof rotateHardwareCloudSyncDataKey>>
       | undefined;
     let committing = false;
     let committedSource: IHardwareCloudSyncKeySource | undefined;
