@@ -1991,6 +1991,7 @@ describe('hardware Cloud key source lifecycle', () => {
         currentCloudSyncKeylessWalletId: source.credentialId,
         isCloudSyncEnabledKeyless: true,
         lastSyncTimeKeyless: 123,
+        lastSyncTimeOneKeyId: 456,
       };
       // Current source needs a new hardware signature; there is no usable
       // older session to reuse.
@@ -2128,7 +2129,18 @@ describe('hardware Cloud key source lifecycle', () => {
             serverTime: Date.now(),
           };
         });
-      const stamp = jest.spyOn(prime, 'updateLastSyncTime');
+      const setConfig = jest.mocked(primeCloudSyncPersistAtom.set);
+      const originalSetConfig = setConfig.getMockImplementation();
+      if (!originalSetConfig)
+        throw new OneKeyLocalError('Missing atom setter fixture');
+      const committedStamps: number[] = [];
+      setConfig.mockImplementation(async (update) => {
+        const before = mockConfig.lastSyncTimeKeyless;
+        await originalSetConfig(update);
+        const after = mockConfig.lastSyncTimeKeyless;
+        if (after !== undefined && after > 123 && after !== before)
+          committedStamps.push(after);
+      });
       try {
         if (scenario === 'rollback') {
           initLocalSyncItemsDB.mockRejectedValueOnce(
@@ -2155,11 +2167,13 @@ describe('hardware Cloud key source lifecycle', () => {
         if (scenario === 'empty') {
           expect(mockConfig.lastSyncTimeKeyless).toEqual(expect.any(Number));
           expect(mockConfig.lastSyncTimeKeyless).toBeGreaterThan(123);
-          expect(stamp.mock.calls).toEqual([[]]);
+          expect(mockConfig.lastSyncTime).toBe(mockConfig.lastSyncTimeKeyless);
+          expect(committedStamps).toEqual([mockConfig.lastSyncTimeKeyless]);
         } else {
           expect(mockConfig.lastSyncTimeKeyless).toBeUndefined();
-          expect(stamp).not.toHaveBeenCalled();
+          expect(committedStamps).toEqual([]);
         }
+        expect(mockConfig.lastSyncTimeOneKeyId).toBe(456);
         if (scenario === 'deferred') {
           expect(mockConfig.cloudSyncReconciliation).toMatchObject({
             status: 'complete',
@@ -2171,6 +2185,7 @@ describe('hardware Cloud key source lifecycle', () => {
           );
         }
       } finally {
+        setConfig.mockImplementation(originalSetConfig);
         for (const read of scopedReads) read.mockRestore();
       }
     },
