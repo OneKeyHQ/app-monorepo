@@ -8,7 +8,9 @@ import {
   HardwareCloudSyncError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncSession,
@@ -419,7 +421,7 @@ type IVerifiedAccountRotation = {
 
 // The caller alone supplies history from the verified current hardware
 // session. An ordinary /check has no pre-rotation lineage and cannot use this.
-async function prepareVerifiedAccountRotations({
+async function* prepareVerifiedAccountRotations({
   items,
   records,
   knownPwdHashes,
@@ -436,7 +438,7 @@ async function prepareVerifiedAccountRotations({
       )
       .map((item) => [item.id, item]),
   );
-  if (!old.size) return [];
+  if (!old.size) return;
   const remote = new Map<string, IServerSyncRecord | undefined>();
   for (const row of records)
     if (row && old.has(row.key))
@@ -445,7 +447,7 @@ async function prepareVerifiedAccountRotations({
   const candidates: IVerifiedAccountRotation[] = [];
   let probes = 0;
   for (const [id, row] of remote) {
-    if (!isCurrent()) return [];
+    if (!isCurrent()) return;
     const previous = old.get(id);
     if (
       !previous ||
@@ -482,7 +484,6 @@ async function prepareVerifiedAccountRotations({
       // eslint-disable-next-line no-continue
       continue;
     probes += 1;
-    if (probes > 10) break;
     try {
       const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
         item: { ...incoming },
@@ -495,8 +496,15 @@ async function prepareVerifiedAccountRotations({
     } catch {
       // Leave malformed, legacy, or unauthenticated candidates untouched.
     }
+    // Bound each DB batch, not the number of rows examined. Yield even
+    // after a fully rejected batch so the outer deadline can run.
+    if (probes === 10) {
+      if (candidates.length && isCurrent()) yield candidates.splice(0);
+      await timerUtils.wait(0);
+      probes = 0;
+    }
   }
-  return candidates;
+  if (candidates.length && isCurrent()) yield candidates;
 }
 
 async function commitVerifiedAccountRotations(
@@ -735,13 +743,16 @@ export async function recoverVerifiedWalletCaches({
                 )
               : undefined,
           ),
-          prepareVerifiedAccountRotations(recovery).then((accounts) =>
-            accounts.length
-              ? commit(() =>
-                  commitVerifiedAccountRotations(accounts, stillSelected),
-                )
-              : undefined,
-          ),
+          (async () => {
+            for await (const accounts of prepareVerifiedAccountRotations(
+              recovery,
+            )) {
+              if (!stillSelected()) return;
+              await commit(() =>
+                commitVerifiedAccountRotations(accounts, stillSelected),
+              );
+            }
+          })(),
         ]);
       })(),
       1000,

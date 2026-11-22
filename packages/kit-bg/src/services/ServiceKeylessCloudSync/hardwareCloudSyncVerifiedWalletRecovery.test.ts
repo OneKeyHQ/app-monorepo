@@ -443,6 +443,9 @@ test.each([
 test.each([
   'current',
   'current-realm-optionals',
+  'after-ten-failed-probes',
+  'two-ready-pages',
+  'expire-before-second-commit',
   'nonempty-realm-network',
   'empty-realm-network',
   'foreign-lineage',
@@ -458,7 +461,12 @@ test.each([
 ] as const)(
   'after same-source key rotation, only exact live Account recovery permits ordinary deletion (%s)',
   async (scenario) => {
-    const { wallet, walletManager } = await fixture('hw');
+    const {
+      wallet,
+      walletManager,
+      previous: walletPrevious,
+      row: walletRow,
+    } = await fixture('hw');
     const snapshot = publicAccountTestSnapshot(count);
     snapshot.wallet.xfp = snapshot.wallet.xfp.replace(
       /^[a-f0-9]{8}/i,
@@ -500,35 +508,75 @@ test.each([
     } satisfies IKeylessCloudSyncCredential;
     const old = { ...base, pwdHash: oldHash, encryptionKey: '39'.repeat(32) };
     const signedCredential = { ...credential, keylessCredential: current };
-    const oldItem = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
-      key: id,
-      rawDataJson: {
-        rawKey,
-        dataType: EPrimeCloudSyncDataType.Account,
-        payload: {
-          name: snapshot.account.name,
-          accountId,
-          publicAccountSnapshot: snapshot,
+    const createPrevious = async (value: typeof snapshot) => {
+      const payloadId = getPublicAccountSnapshotId(value);
+      const key = `Account >> ${payloadId}`;
+      const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+        key: sha512ProSync({ data: key }),
+        rawDataJson: {
+          rawKey: key,
+          dataType: EPrimeCloudSyncDataType.Account,
+          payload: {
+            name: value.account.name,
+            accountId: payloadId,
+            publicAccountSnapshot: value,
+          },
         },
-      },
-      syncCredential: { ...credential, keylessCredential: old },
-      dataTime: 1_750_000_000_000,
-    });
-    const previous = {
-      ...oldItem,
-      rawData: '',
-      serverUploaded: true,
-      localSceneUpdated: true,
+        syncCredential: { ...credential, keylessCredential: old },
+        dataTime: 1_750_000_000_000,
+      });
+      return {
+        ...item,
+        rawData: '',
+        serverUploaded: true,
+        localSceneUpdated: true,
+      };
     };
-    const [rotated] = await reencryptHardwareCloudSyncItems({
-      items: [previous],
-      from: { dek: old.encryptionKey, dekId: 'old-dek', pwdHash: oldHash },
-      to: {
-        dek: current.encryptionKey,
-        dekId: current.hardwareSession.dekId,
-        pwdHash,
-      },
+    const rotate = async (item: IDBCloudSyncItem) =>
+      (
+        await reencryptHardwareCloudSyncItems({
+          items: [item],
+          from: { dek: old.encryptionKey, dekId: 'old-dek', pwdHash: oldHash },
+          to: {
+            dek: current.encryptionKey,
+            dekId: current.hardwareSession.dekId,
+            pwdHash,
+          },
+        })
+      )[0];
+    const toWire = (item: IDBCloudSyncItem) => ({
+      key: item.id,
+      dataType: item.dataType,
+      data: item.data,
+      dataTimestamp: item.dataTime,
+      isDeleted: item.isDeleted,
     });
+    const previous = await createPrevious(snapshot);
+    const rotated = await rotate(previous);
+    const failedFirst = scenario === 'after-ten-failed-probes';
+    const secondPage =
+      scenario === 'two-ready-pages' ||
+      scenario === 'expire-before-second-commit';
+    const additionalSnapshot = (relative: number) => ({
+      ...publicAccountTestSnapshot(count * 100 + relative),
+      wallet: snapshot.wallet,
+    });
+    let failedProbeCount = 0;
+    if (failedFirst) failedProbeCount = 12;
+    else if (secondPage) failedProbeCount = 9;
+    const failures = await Promise.all(
+      Array.from({ length: failedProbeCount }, (_, i) =>
+        createPrevious(additionalSnapshot(i)),
+      ),
+    );
+    const laterSnapshot = additionalSnapshot(99);
+    const laterOld = secondPage
+      ? await createPrevious(laterSnapshot)
+      : undefined;
+    const laterRotated = laterOld ? await rotate(laterOld) : undefined;
+    const laterAccount = laterOld
+      ? publicAccountSnapshotToAccount(laterSnapshot, wallet.id)
+      : undefined;
     expect(rotated.dataTime).toBe(previous.dataTime);
     expect(rotated.data).not.toBe(previous.data);
     const persistedOld =
@@ -585,22 +633,38 @@ test.each([
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
-          records: [storedIndex],
+          records: [
+            storedIndex,
+            ...(laterAccount?.indexedAccountId
+              ? [
+                  {
+                    ...storedIndex,
+                    id: laterAccount.indexedAccountId,
+                    index: laterSnapshot.account.pathIndex,
+                    name: laterSnapshot.account.name,
+                  },
+                ]
+              : []),
+          ],
         });
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.Account,
-          records: [storedAccount],
+          records: [storedAccount, ...(laterAccount ? [laterAccount] : [])],
         });
         await mockDb.txAddRecords({
           tx,
           name: ELocalDBStoreNames.CloudSyncItem,
-          records: [persistedOld],
+          records: [persistedOld, ...failures, ...(laterOld ? [laterOld] : [])],
         });
       },
       { skipCloudCredentialWarmup: true },
     );
     const startServerSyncFlowSilently = jest.fn(async () => undefined);
+    const secondAdmission = Promise.withResolvers<void>();
+    const finishSecondAdmission = Promise.withResolvers<void>();
+    const lateCommitSettled = Promise.withResolvers<void>();
+    let admitted = 0;
     const service = {
       backgroundApi: {
         localDb: mockDb,
@@ -630,7 +694,18 @@ test.each([
       runWithVerifiedHardwareAccountArchiveSession: async <T>(
         _key: unknown,
         run: () => Promise<T>,
-      ) => run(),
+      ) => {
+        admitted += 1;
+        if (scenario !== 'expire-before-second-commit' || admitted !== 2)
+          return run();
+        secondAdmission.resolve();
+        await finishSecondAdmission.promise;
+        try {
+          return await run();
+        } finally {
+          lateCommitSettled.resolve();
+        }
+      },
     };
     service.backgroundApi.servicePrimeCloudSync.syncManagers.account =
       new CloudSyncFlowManagerAccount({ backgroundApi: service.backgroundApi });
@@ -639,37 +714,77 @@ test.each([
       key: id,
       dataType: EPrimeCloudSyncDataType.Account,
       data:
-        scenario === 'older-encrypted-version' ? oldItem.data : rotated.data,
+        scenario === 'older-encrypted-version' ? previous.data : rotated.data,
       dataTimestamp: scenario === 'missing-time' ? undefined : rotated.dataTime,
       isDeleted: scenario === 'remote-tombstone',
     };
-    await recoverVerifiedWalletCaches({
+    const serverData = failedFirst
+      ? [...failures.map(toWire), row, walletRow]
+      : [
+          row,
+          ...failures.map(toWire),
+          ...(laterRotated ? [toWire(laterRotated)] : []),
+        ];
+    const recovery = recoverVerifiedWalletCaches({
       service,
       history: {
         data: {
-          data: { serverData: scenario === 'missing' ? [] : [row], pwdHash },
+          data: {
+            serverData: scenario === 'missing' ? [] : serverData,
+            pwdHash,
+          },
         },
         request: {
           responseURL: `${scenario === 'wrong-origin' ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
         },
       } as Parameters<typeof recoverVerifiedWalletCaches>[0]['history'],
-      items: [previous],
+      items: [
+        previous,
+        ...failures,
+        ...(laterOld ? [laterOld] : []),
+        ...(failedFirst ? [walletPrevious] : []),
+      ],
       previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
       key: current,
       isCurrent: () => true,
     });
+    if (scenario === 'expire-before-second-commit') {
+      await Promise.race([secondAdmission.promise, recovery]);
+      expect(admitted).toBe(2);
+      await expect(mockDb.getSyncItem({ id })).resolves.toEqual(rotated);
+      await recovery;
+      finishSecondAdmission.resolve();
+      await lateCommitSettled.promise;
+    } else {
+      await recovery;
+    }
+    if (failedFirst)
+      await expect(
+        mockDb.getSyncItem({ id: walletRow.key }),
+      ).resolves.toMatchObject({ pwdHash, data: walletRow.data });
+    if (laterOld)
+      await expect(mockDb.getSyncItem({ id: laterOld.id })).resolves.toEqual(
+        scenario === 'two-ready-pages' ? laterRotated : laterOld,
+      );
+    for (const failed of failures)
+      await expect(mockDb.getSyncItem({ id: failed.id })).resolves.toEqual(
+        failed,
+      );
     await expect(
       mockDb.getRecordById({
         name: ELocalDBStoreNames.Account,
         id: account.id,
       }),
     ).resolves.toEqual(storedAccount);
-    const applies =
-      scenario === 'current' || scenario === 'current-realm-optionals';
+    const verifiesDeletion =
+      scenario === 'current' ||
+      scenario === 'current-realm-optionals' ||
+      failedFirst;
+    const applies = verifiesDeletion || secondPage;
     await expect(mockDb.getSyncItem({ id })).resolves.toEqual(
       applies ? rotated : persistedOld,
     );
-    if (applies) {
+    if (verifiesDeletion) {
       await mockDb.removeAccount({
         accountId: account.id,
         walletId: wallet.id,
