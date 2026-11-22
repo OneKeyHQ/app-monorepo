@@ -1,0 +1,2 @@
+101 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/licenses/upstream-renderer-MIT.txt"
+102 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/licenses/NSIS-zlib.txt"

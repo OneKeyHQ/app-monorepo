@@ -746,6 +746,9 @@ jobs:
           cd apps/desktop
           yarn install-app-deps
 
+      - name: Prepare Windows NSIS payload
+        run: yarn workspace @onekeyhq/desktop prepare:installer:win
+
       # Assume the signing role right before packaging, without exporting the
       # session to the job environment. Only the packaging step below receives
       # the short-lived credentials, so build steps never see them.
@@ -778,8 +781,8 @@ jobs:
           if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
             $baseConfig = (Resolve-Path 'electron-builder-win.config.js').Path.Replace('\', '/')
             $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
-            # NSIS embeds 7za and the installer UI plugin directly, outside
-            # electron-builder's signer, so sign them before packaging.
+            $env:ONEKEY_WINDOWS_RECOVERY_INVENTORY_HOOK = (Resolve-Path 'scripts/sign-windows-recovery-inventory.js').Path
+            # Sign the native files that NSIS embeds outside electron-builder.
             node scripts/kms-sign-windows.js sign-installer-payload
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-win-hsm-builder.json'
@@ -882,12 +885,17 @@ jobs:
           cd apps/desktop
           yarn build:main
 
+      - name: Prepare Windows Store NSIS payload
+        id: phase2_prepare
+        if: always() && steps.phase2_main.outcome == 'success'
+        run: yarn workspace @onekeyhq/desktop prepare:installer:win
+
       # Assume the signing role right before packaging, without exporting the
       # session to the job environment. Only the packaging step below receives
       # the short-lived credentials, so build steps never see them.
       - name: Authenticate to AWS for Windows Store signing
         id: phase2_aws
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_main.outcome == 'success'
+        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_prepare.outcome == 'success'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
@@ -904,7 +912,7 @@ jobs:
 
       - name: 'Package Windows Microsoft Store'
         id: phase2_winms
-        if: always() && steps.phase2_main.outcome == 'success' && (env.WIN_HSM_SIGNING_ENABLED != 'true' || steps.phase2_manifest.outcome == 'success')
+        if: always() && steps.phase2_prepare.outcome == 'success' && (env.WIN_HSM_SIGNING_ENABLED != 'true' || steps.phase2_manifest.outcome == 'success')
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -922,8 +930,8 @@ jobs:
           if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
             $baseConfig = (Resolve-Path 'electron-builder-ms.config.js').Path.Replace('\', '/')
             $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
-            # NSIS embeds 7za and the installer UI plugin directly, outside
-            # electron-builder's signer, so sign them before packaging.
+            $env:ONEKEY_WINDOWS_RECOVERY_INVENTORY_HOOK = (Resolve-Path 'scripts/sign-windows-recovery-inventory.js').Path
+            # Sign the native files that NSIS embeds outside electron-builder.
             node scripts/kms-sign-windows.js sign-installer-payload
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-winms-hsm-builder.json'

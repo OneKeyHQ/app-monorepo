@@ -180,23 +180,34 @@ function signFile(file) {
   recordSigned(file);
 }
 
-// Files that NSIS embeds directly into the installer, outside electron-builder's
-// signing pipeline: the 7za extractor run during install (path matches the
-// app-builder-lib patch) and the custom installer UI plugin.
-function installerPayload() {
+// Files NSIS embeds directly, outside electron-builder's signing pipeline.
+function nsisPayload() {
   const appBuilderLib = path.dirname(
     require.resolve('app-builder-lib/package.json', { paths: [desktopDir] }),
   );
   const sevenZipBin = path.dirname(
     require.resolve('7zip-bin/package.json', { paths: [appBuilderLib] }),
   );
-  return [
+  const generated = path.join(desktopDir, 'build', 'installer-generated');
+  const config = fs.readFileSync(
+    path.join(generated, 'installer-config.nsh'),
+    'utf8',
+  );
+  if (!/^!define ONEKEY_USE_UPDATE_STATUS\s*$/m.test(config)) {
+    throw new Error('Prepare the Windows NSIS update status before signing');
+  }
+  if (!/^!define ONEKEY_USE_WIN32_INSTALLER_UI\s*$/m.test(config)) {
+    throw new Error('Prepare the Windows NSIS renderer before signing');
+  }
+  const payload = [
     path.join(sevenZipBin, 'win', 'ia32', '7za.exe'),
-    path.join(
-      desktopDir,
-      'build/nsis-duilib-ui/plugin/x86-unicode/nsis-duilib-ui.dll',
-    ),
+    path.join(generated, 'OneKeyUpdateStatus.dll'),
+    path.join(generated, 'native-ui/Release/onekey-installer-ui.dll'),
   ];
+  if (process.env.WIN_HSM_SIGNING_ENABLED === 'true') {
+    payload.push(path.join(generated, 'OneKeyInstallerDirectoryRecovery.exe'));
+  }
+  return payload;
 }
 
 const peExtensions = new Set(['.exe', '.dll', '.node']);
@@ -251,7 +262,26 @@ function verifyNsisOutput() {
   }
   const normalize = (file) => path.resolve(file).toLowerCase();
   const signedSet = new Set(signed.map(normalize));
-  for (const file of installerPayload()) {
+  if (process.env.WIN_HSM_SIGNING_ENABLED === 'true') {
+    for (const file of installers) {
+      const { name, dir } = path.parse(file);
+      const requiredInventories = [];
+      if (!name.endsWith('-arm64')) requiredInventories.push('64');
+      if (!name.endsWith('-x64')) requiredInventories.push('ARM64');
+      for (const architecture of requiredInventories) {
+        const inventory = path.join(
+          dir,
+          `${name}__recovery_${architecture}.dll`,
+        );
+        if (!signedSet.has(normalize(inventory))) {
+          throw new Error(
+            `Missing signed directory recovery inventory: ${inventory}`,
+          );
+        }
+      }
+    }
+  }
+  for (const file of nsisPayload()) {
     if (!signedSet.has(normalize(file))) {
       throw new Error(`Unsigned installer payload: ${file}`);
     }
@@ -287,7 +317,7 @@ module.exports = async function signWithAwsKms(configuration) {
 if (require.main === module) {
   const command = process.argv[2];
   if (command === 'sign-installer-payload') {
-    installerPayload().forEach(signFile);
+    nsisPayload().forEach(signFile);
   } else if (command === 'verify-nsis') {
     verifyNsisOutput();
   } else {

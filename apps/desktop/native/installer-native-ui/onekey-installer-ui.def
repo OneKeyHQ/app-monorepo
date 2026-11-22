@@ -1,0 +1,19 @@
+LIBRARY "onekey-installer-ui"
+EXPORTS
+    ConcealHost
+    Hide
+    Init
+    PollEvent
+    PrepareCommit
+    ResetProgress
+    SetInstallDirectory
+    SetPage
+    SetPerMachineInstallDirectory
+    SetPerUserInstallDirectory
+    SetProgress
+    SetStatus
+    SetVersion
+    Show
+    Shutdown
+    ShutdownHidden
+    WaitForEvent
