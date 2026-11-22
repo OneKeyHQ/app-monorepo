@@ -755,6 +755,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
               {
                 expected: legacy,
                 refreshedSession: true,
+                legacyRebind: true,
                 refreshAdmission: { canPersist: isBound, canPublish: isBound },
                 beforeSave,
               },
@@ -1795,12 +1796,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
     {
       expected = credential,
       refreshedSession = false,
+      legacyRebind,
       reboundSession,
       beforeSave,
       refreshAdmission,
     }: {
       expected?: IKeylessCloudSyncCredential;
       refreshedSession?: boolean;
+      legacyRebind?: true;
       reboundSession?: IHardwareCloudSyncSession;
       beforeSave?: (
         stored: IKeylessCloudSyncCredential,
@@ -1812,7 +1815,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
       };
     } = {},
   ): Promise<IKeylessCloudSyncCredential> {
-    const saved = await this.repairCredentialMutex.runExclusive(async () => {
+    let rebindCommitting = false;
+    const commit = this.repairCredentialMutex.runExclusive(async () => {
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
       if (!(await this.isStoredHardwareSession(expected))) return undefined;
       const stored = await keylessSyncCredentialStorage.getCredential(
@@ -1895,6 +1899,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
         if (refreshAdmission && !refreshAdmission.canPersist())
           return undefined;
       }
+      if (legacyRebind || reboundSession) {
+        if (this.hardwareCloudKeyCommitting) throw keyChangeInProgressError();
+        this.hardwareCloudKeyCommitting = true;
+        rebindCommitting = true;
+      }
       await keylessSyncCredentialStorage.saveCredential(updated);
       if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;
@@ -1928,26 +1937,40 @@ class ServiceKeylessCloudSync extends ServiceBase {
           !!updated.pendingDataKey,
       };
     });
-    if (!saved) {
-      throw settingsChangedError();
-    }
-    if (!saved.preservesScope) {
-      if (refreshAdmission && !refreshAdmission.canPublish())
+    try {
+      const saved = await commit;
+      if (!saved) {
         throw settingsChangedError();
-      this.setKeylessCloudSyncCredentialCache(saved.credential);
-      const prime = this.backgroundApi.servicePrimeCloudSync;
-      if (saved.preservePendingHardwareRefresh) {
-        // A pending reset journal did not replace the key. Cancel active
-        // sync but let the old session save the token already rotated by
-        // the server, alongside the journal and without warming the cache.
-        await prime.clearCachedSyncCredential({
-          preservePendingHardwareRefresh: true,
-        });
-      } else {
-        await prime.clearCachedSyncCredential();
       }
+      if (!saved.preservesScope) {
+        if (refreshAdmission && !refreshAdmission.canPublish())
+          throw settingsChangedError();
+        this.setKeylessCloudSyncCredentialCache(saved.credential);
+        const prime = this.backgroundApi.servicePrimeCloudSync;
+        if (saved.preservePendingHardwareRefresh) {
+          // A pending reset journal did not replace the key. Cancel active
+          // sync but let the old session save the token already rotated by
+          // the server, alongside the journal and without warming the cache.
+          await prime.clearCachedSyncCredential({
+            preservePendingHardwareRefresh: true,
+          });
+        } else {
+          await prime.clearCachedSyncCredential();
+        }
+      }
+      return saved.credential;
+    } catch (error) {
+      // A legacy save may have committed even if publication became stale or
+      // secure storage could not report its outcome. Never reuse the old cache.
+      if (rebindCommitting) {
+        await this.backgroundApi.servicePrimeCloudSync
+          .clearCachedSyncCredential()
+          .catch(errorUtils.autoPrintErrorIgnore);
+      }
+      throw error;
+    } finally {
+      if (rebindCommitting) this.hardwareCloudKeyCommitting = false;
     }
-    return saved.credential;
   }
 
   // Moves this device to a data key the server already uses.

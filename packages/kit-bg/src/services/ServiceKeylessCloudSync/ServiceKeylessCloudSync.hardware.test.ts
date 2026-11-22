@@ -3642,6 +3642,10 @@ describe('hardware Cloud key in production builds', () => {
     'node-changed',
     'stored-slot-changed',
     'secure-write-refused',
+    'cancel-during-save',
+    'endpoint-during-save',
+    'unknown-save-outcome',
+    'pending-cancel-during-save',
     'pending-reset',
     'pending-generation-absent',
     'pending-old-lock',
@@ -3658,7 +3662,15 @@ describe('hardware Cloud key in production builds', () => {
       const ownsJournal = scenario.startsWith('pending-');
       const acceptsPending =
         scenario === 'pending-reset' ||
-        scenario === 'pending-generation-absent';
+        scenario === 'pending-generation-absent' ||
+        scenario === 'pending-cancel-during-save';
+      const cancelsDuringSave =
+        scenario === 'cancel-during-save' ||
+        scenario === 'pending-cancel-during-save';
+      const changesEndpointDuringSave = scenario === 'endpoint-during-save';
+      const unresolvedSave = scenario === 'unknown-save-outcome';
+      const pauseSave =
+        cancelsDuringSave || changesEndpointDuringSave || unresolvedSave;
       const sessionApi = jest.requireActual<
         typeof import('./hardwareCloudSyncSession')
       >('./hardwareCloudSyncSession');
@@ -3879,10 +3891,43 @@ describe('hardware Cloud key in production builds', () => {
         jest
           .mocked(keylessSyncCredentialStorage.saveCredential)
           .mockRejectedValueOnce(new Error('Synthetic key write refused'));
+      const saving = Promise.withResolvers<void>();
+      const finishSave = Promise.withResolvers<void>();
+      if (pauseSave) {
+        service.setKeylessCloudSyncCredentialCache(previous);
+        backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential.mockImplementation(
+          async () => service.clearKeylessCloudSyncCredentialCache(),
+        );
+        jest
+          .mocked(keylessSyncCredentialStorage.saveCredential)
+          .mockImplementationOnce(async (updated) => {
+            saving.resolve();
+            await finishSave.promise;
+            mockStored = updated;
+            if (unresolvedSave)
+              throw new OneKeyLocalError(
+                'Unknown fixture secure write outcome',
+              );
+          });
+      }
       await expect(
         service.getSelectedHardwareCloudKeyAvailability(),
       ).resolves.toBe('missing');
       const rebind = service.enableHardwareCloudSync({ connectId });
+      let cancelledDuringSave: boolean | undefined;
+      if (pauseSave) {
+        try {
+          await saving.promise;
+          expect(mockStored).toBe(previous);
+          if (cancelsDuringSave)
+            cancelledDuringSave =
+              await service.cancelHardwareCloudKeyOperation();
+          if (changesEndpointDuringSave) changeMockTestEndpoint();
+        } finally {
+          finishSave.resolve();
+        }
+      }
+
       if (acceptsPending) {
         await expect(rebind).resolves.toBeUndefined();
       } else if (scenario === 'pending-resume-after-pool') {
@@ -3905,8 +3950,18 @@ describe('hardware Cloud key in production builds', () => {
         await expect(
           restarted.service.enableHardwareCloudSync({ connectId }),
         ).resolves.toBeUndefined();
-      } else if (scenario === 'same-key' || scenario === 'pending-old-lock') {
+      } else if (
+        scenario === 'same-key' ||
+        scenario === 'pending-old-lock' ||
+        scenario === 'cancel-during-save'
+      ) {
         await expect(rebind).resolves.toBeUndefined();
+        expect(mockStored).toEqual({
+          ...previous,
+          hardwareSession: { ...fresh, dekId: key.dekId },
+        });
+      } else if (changesEndpointDuringSave || unresolvedSave) {
+        await expect(rebind).rejects.toBeInstanceOf(Error);
         expect(mockStored).toEqual({
           ...previous,
           hardwareSession: { ...fresh, dekId: key.dekId },
@@ -3915,6 +3970,20 @@ describe('hardware Cloud key in production builds', () => {
         await expect(rebind).rejects.toBeInstanceOf(Error);
         expect(mockStored).toBe(
           scenario === 'stored-slot-changed' ? concurrent : previous,
+        );
+      }
+      if (pauseSave) {
+        if (cancelsDuringSave) expect(cancelledDuringSave).toBe(false);
+        expect(
+          backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          service.getKeylessCloudSyncCredentialCacheSync(
+            previous.keylessWalletId,
+          ),
+        ).toBeUndefined();
+        await expect(service.cancelHardwareCloudKeyOperation()).resolves.toBe(
+          true,
         );
       }
       const expectedRequests =

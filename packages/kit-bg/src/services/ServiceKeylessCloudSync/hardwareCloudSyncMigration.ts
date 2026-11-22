@@ -99,13 +99,22 @@ export async function rebindLegacyHardwareSession({
     assertStored: (stored: IKeylessCloudSyncCredential) => Promise<void>,
   ) => Promise<void>;
 }) {
-  const { source, hardwareSession: old, pendingDataKey: pending } = legacy;
+  const {
+    source,
+    hardwareSession: old,
+    pendingDataKey: pending,
+    pendingHardwareKeyMigration: migration,
+  } = legacy;
   if (
     source?.type !== 'hardware' ||
     source.credentialId !== legacy.keylessWalletId ||
     !old?.dekId ||
     old.boundBaseURL ||
-    legacy.pendingHardwareKeyMigration
+    (migration &&
+      (migration.phase !== 'prepared' ||
+        pending ||
+        !migration.target?.keylessWalletId ||
+        migration.target.keylessWalletId === legacy.keylessWalletId))
   )
     throw new HardwareCloudSyncError(
       ETranslations.cloud_sync_hardware_signed_out__msg,
@@ -141,10 +150,11 @@ export async function rebindLegacyHardwareSession({
           throw new HardwareCloudSyncCancelledError();
         const generation = await minGeneration();
         assertBound();
-        // An interrupted reset needs explicit issuer proof for both successful
-        // authorization and the existing Lock. Without it, keep the journal.
+        // A journal needs issuer proof for both sign-in and the existing Lock.
+        // A prepared migration does not prove the target write was never sent.
         const lock = await (async () => {
-          if (!pending) return readLockEnvelope({ client, session });
+          if (!pending && !migration)
+            return readLockEnvelope({ client, session });
           if (!session.boundBaseURLVerified)
             throw new HardwareCloudSyncCancelledError();
           const urlPath = '/prime/v1/sync/lock';
