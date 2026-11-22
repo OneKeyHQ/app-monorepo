@@ -1,8 +1,8 @@
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { getNetworkIdsMap } from '../config/networkIds';
+import { NETWORK_ID_SEPARATOR as SEPERATOR } from '../utils/networkIdUtils';
 
-const SEPERATOR = '--';
 const INDEX_PLACEHOLDER = '$$INDEX$$';
 
 const IMPL_EVM = 'evm';

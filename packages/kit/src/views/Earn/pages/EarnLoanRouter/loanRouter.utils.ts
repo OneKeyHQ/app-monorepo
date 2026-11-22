@@ -7,7 +7,7 @@ import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
-import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowNativeReserve.utils';
 import { isBorrowAssetVisible } from '../../../Borrow/components/collateralControls.utils';
 import {
   EARN_DESKTOP_LOAN_LTV,

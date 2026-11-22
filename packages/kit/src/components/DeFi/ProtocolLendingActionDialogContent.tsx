@@ -26,10 +26,8 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import {
-  buildAaveNativeGatewayReceiveToken,
-  shouldUseAaveNativeGateway,
-} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { shouldUseAaveNativeGateway } from '@onekeyhq/kit/src/views/Borrow/components/borrowNativeReserve.utils';
+import { buildAaveNativeGatewayReceiveToken } from '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils';
 import { useBorrowApproval } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproval';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import { isSamePositiveAmount } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';

@@ -5,10 +5,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
-import {
-  getBorrowAssetByReserveAddress,
-  hasPositiveBorrowBalance,
-} from '../../../components/borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from '../../../components/borrowBalance.utils';
+import { getBorrowAssetByReserveAddress } from '../../../components/borrowReserve.utils';
 
 /**
  * What the account holds of the reserve, from the market's own list (the

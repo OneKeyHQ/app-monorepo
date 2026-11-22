@@ -7,7 +7,7 @@ import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAcc
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
-import { getBorrowReserveTokenByAddress } from '../../../components/borrowRepayPosition.utils';
+import { getBorrowReserveTokenByAddress } from '../../../components/borrowReserve.utils';
 
 export function useBorrowReserveDetailData({
   accountId,

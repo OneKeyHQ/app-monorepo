@@ -7,6 +7,7 @@ import {
   buildBorrowRepayPositionKey,
   buildBorrowRepayWithCollateralConfirmationParams,
   filterUnsupportedAaveNativeReserveAssets,
+  getBorrowAssetByReserveAddress,
   getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
@@ -14,10 +15,63 @@ import {
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
   isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
+  it('matches native, EVM, and case-sensitive reserve addresses correctly', () => {
+    const assets = [
+      { reserveAddress: '' },
+      { reserveAddress: '0xAbCd' },
+      { reserveAddress: 'SolCase' },
+    ];
+
+    expect(getBorrowAssetByReserveAddress({ assets, reserveAddress: '' })).toBe(
+      assets[0],
+    );
+    expect(getBorrowAssetByReserveAddress({ assets })).toBeUndefined();
+    expect(
+      getBorrowAssetByReserveAddress({ assets, reserveAddress: '0xabcd' }),
+    ).toBe(assets[1]);
+    expect(
+      getBorrowAssetByReserveAddress({ assets, reserveAddress: 'solcase' }),
+    ).toBeUndefined();
+  });
+
+  it('prefers the backend spender and only falls back for Aave ERC20 tokens', () => {
+    const params = {
+      providerName: 'Aave',
+      marketAddress: '0xmarket',
+      tokenIsNative: false,
+    };
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        ...params,
+        backendApproveTarget: '0xbackend',
+      }),
+    ).toBe('0xbackend');
+    expect(resolveBorrowTokenApproveSpenderAddress(params)).toBe('0xmarket');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        ...params,
+        tokenIsNative: true,
+      }),
+    ).toBe('');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        ...params,
+        tokenIsNative: undefined,
+      }),
+    ).toBe('');
+    expect(
+      resolveBorrowTokenApproveSpenderAddress({
+        ...params,
+        providerName: 'other',
+      }),
+    ).toBe('');
+  });
+
   it('uses the raw borrow balance before rounded display values', () => {
     const balance = {
       number: '0.0000001',

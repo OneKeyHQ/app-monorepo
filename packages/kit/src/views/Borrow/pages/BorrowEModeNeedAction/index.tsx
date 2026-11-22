@@ -21,7 +21,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils';
 import { BorrowTestIDs } from '@onekeyhq/kit/src/views/Borrow/testIDs';
 import { useStakingPendingTxsByInfo } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';

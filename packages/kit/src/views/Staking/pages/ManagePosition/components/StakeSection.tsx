@@ -17,11 +17,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
-  buildAaveNativeGatewayReceiveToken,
   isUnsupportedAaveNativeReserve,
-  resolveBorrowTokenApproveSpenderAddress,
   shouldUseAaveNativeGateway,
-} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowNativeReserve.utils';
+import {
+  buildAaveNativeGatewayReceiveToken,
+  resolveBorrowTokenApproveSpenderAddress,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils';
 import {
   type IManagePositionConfirmParams,
   ManagePosition,

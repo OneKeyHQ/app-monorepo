@@ -24,7 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
-import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowBalance.utils';
 import { useBorrowMarkets } from '../../../Borrow/hooks/useBorrowMarkets';
 import { isBorrowReservesPayloadUsable } from '../../../Borrow/hooks/useBorrowReserves';
 import { useCommittedEarnScopeGuard } from '../../../Staking/hooks/useCommittedEarnScopeGuard';

@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { buildBorrowMarketKey } from '@onekeyhq/kit/src/views/Borrow/borrowMarketKey';
-import { isUnsupportedAaveNativeReserve } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { isUnsupportedAaveNativeReserve } from '@onekeyhq/kit/src/views/Borrow/components/borrowNativeReserve.utils';
 import { getCollateralCellState } from '@onekeyhq/kit/src/views/Borrow/components/collateralControls.utils';
 import type { ICollateralCellState } from '@onekeyhq/kit/src/views/Borrow/components/collateralControls.utils';
 import { normalizeEModeLabel } from '@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch/emodeUtils';

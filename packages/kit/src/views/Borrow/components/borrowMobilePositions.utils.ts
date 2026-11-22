@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
-import { hasPositiveBorrowBalance } from './borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from './borrowBalance.utils';
 
 export type IBorrowPositionKind = 'supplied' | 'borrowed';
 

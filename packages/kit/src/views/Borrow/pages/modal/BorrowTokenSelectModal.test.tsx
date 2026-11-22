@@ -95,7 +95,7 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
   ),
 }));
 
-jest.mock('../../components/borrowRepayPosition.utils', () => ({
+jest.mock('../../components/borrowNativeReserve.utils', () => ({
   filterUnsupportedAaveNativeReserveAssets: ({
     assets,
   }: {

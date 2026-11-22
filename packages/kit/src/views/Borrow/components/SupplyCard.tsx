@@ -24,11 +24,9 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
+import { hasPositiveBorrowBalance } from './borrowBalance.utils';
 import { splitCbbtcAssets } from './borrowCbbtc.utils';
-import {
-  filterUnsupportedAaveNativeReserveAssets,
-  hasPositiveBorrowBalance,
-} from './borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowNativeReserve.utils';
 import {
   ActionField,
   AmountField,

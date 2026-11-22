@@ -65,7 +65,7 @@ jest.mock('../borrowUtils', () => ({
   },
 }));
 
-jest.mock('./borrowRepayPosition.utils', () => ({
+jest.mock('./borrowNativeReserve.utils', () => ({
   filterUnsupportedAaveNativeReserveAssets: ({
     assets,
   }: {

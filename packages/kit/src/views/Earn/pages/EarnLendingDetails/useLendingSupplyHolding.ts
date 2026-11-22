@@ -9,7 +9,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
-import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowBalance.utils';
 import { useRememberedAccountMarket } from '../../components/desktopHome/useEarnDesktopHomeData';
 import {
   findSuppliedReserve,

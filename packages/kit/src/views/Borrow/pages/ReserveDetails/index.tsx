@@ -55,7 +55,7 @@ import { StickyFormColumn } from '../../../Earn/pages/EarnProtocolDetails/compon
 import { getBorrowMarketLabel } from '../../borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../borrowMarketKey';
 import { BorrowNavigation } from '../../borrowUtils';
-import { isUnsupportedAaveNativeReserve } from '../../components/borrowRepayPosition.utils';
+import { isUnsupportedAaveNativeReserve } from '../../components/borrowNativeReserve.utils';
 import { useBorrowMarkets } from '../../hooks/useBorrowMarkets';
 
 import { DetailsPart } from './components/DetailsPart';

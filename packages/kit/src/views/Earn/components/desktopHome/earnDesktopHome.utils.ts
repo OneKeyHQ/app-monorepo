@@ -20,7 +20,7 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
-import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowNativeReserve.utils';
 import { isBorrowAssetVisible } from '../../../Borrow/components/collateralControls.utils';
 import {
   parseAprPercentValue,

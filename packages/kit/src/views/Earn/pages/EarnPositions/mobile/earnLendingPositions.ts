@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { getBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '@onekeyhq/kit/src/views/Borrow/borrowMarketKey';
-import { hasPositiveBorrowBalance } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from '@onekeyhq/kit/src/views/Borrow/components/borrowBalance.utils';
 import {
   readLoanHealth,
   summarizeLoanPositionYield,

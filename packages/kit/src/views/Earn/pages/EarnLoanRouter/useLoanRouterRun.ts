@@ -30,10 +30,8 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import {
-  resolveBorrowTokenApproveSpenderAddress,
-  shouldUseAaveNativeGateway,
-} from '../../../Borrow/components/borrowRepayPosition.utils';
+import { shouldUseAaveNativeGateway } from '../../../Borrow/components/borrowNativeReserve.utils';
+import { resolveBorrowTokenApproveSpenderAddress } from '../../../Borrow/components/borrowReserve.utils';
 import {
   attachBorrowOrderId,
   handleBorrowSuccess,

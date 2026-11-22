@@ -20,10 +20,10 @@ import {
   IMPL_TRON,
   IMPL_XMR,
   IMPL_ZCASH,
-  SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
 
+import { parseNetworkId } from './networkIdUtils';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
@@ -31,11 +31,6 @@ import type { IServerNetwork } from '../../types';
 const defaultEnabledNetworkIds = new Set(
   getDefaultEnabledNetworkIdsInAllNetworks(),
 );
-
-function parseNetworkId({ networkId }: { networkId: string }) {
-  const [impl, chainId] = networkId.split(SEPERATOR);
-  return { impl, chainId };
-}
 
 function getNetworkChainId({
   networkId,

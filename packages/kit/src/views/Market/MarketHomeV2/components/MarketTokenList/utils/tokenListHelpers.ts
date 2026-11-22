@@ -3,7 +3,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenAddressUtils';
 import type {
   IMarketBasicConfigNetwork,
   IMarketTokenListItem,

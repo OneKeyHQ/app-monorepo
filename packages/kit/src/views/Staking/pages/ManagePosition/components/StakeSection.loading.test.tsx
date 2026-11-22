@@ -201,11 +201,16 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn/actions', () => ({
   }),
 }));
 jest.mock(
-  '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils',
+  '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils',
   () => ({
     buildAaveNativeGatewayReceiveToken: jest.fn(),
-    isUnsupportedAaveNativeReserve: () => false,
     resolveBorrowTokenApproveSpenderAddress: () => '',
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Borrow/components/borrowNativeReserve.utils',
+  () => ({
+    isUnsupportedAaveNativeReserve: () => false,
     shouldUseAaveNativeGateway: () => false,
   }),
 );

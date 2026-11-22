@@ -9,24 +9,30 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  getBorrowBalanceAmount,
+  hasPositiveBorrowBalance,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowBalance.utils';
+import {
+  filterUnsupportedAaveNativeReserveAssets,
+  isUnsupportedAaveNativeReserve,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowNativeReserve.utils';
+import {
   BorrowRepayPosition,
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import {
-  buildAaveNativeGatewayReceiveToken,
-  buildBorrowTokenFromAsset,
-  filterUnsupportedAaveNativeReserveAssets,
-  getBorrowAssetByReserveAddress,
-  getBorrowBalanceAmount,
   getBorrowRepayDebtBalance,
   getBorrowRepayMaxInputBalance,
   getBorrowRepayWalletBalance,
-  getValidBorrowSelectedAsset,
-  hasPositiveBorrowBalance,
-  isUnsupportedAaveNativeReserve,
-  resolveBorrowTokenApproveSpenderAddress,
-  shouldUseAaveNativeGateway,
 } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import {
+  buildAaveNativeGatewayReceiveToken,
+  buildBorrowTokenFromAsset,
+  getBorrowAssetByReserveAddress,
+  getValidBorrowSelectedAsset,
+  resolveBorrowTokenApproveSpenderAddress,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';

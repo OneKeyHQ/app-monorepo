@@ -51,7 +51,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { useUniversalBorrowSetCollateral } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
-import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
+import { isUnsupportedAaveNativeReserve } from './borrowNativeReserve.utils';
 import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,

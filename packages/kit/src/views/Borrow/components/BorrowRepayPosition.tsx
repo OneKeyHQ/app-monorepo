@@ -48,6 +48,7 @@ import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { hasPositiveDebtBalance } from './borrowBalance.utils';
 import { BorrowInfoItem } from './BorrowInfoItem';
 import {
   appendBorrowRepaySetupState,
@@ -55,7 +56,6 @@ import {
   buildBorrowRepayWithCollateralConfirmationParams,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
-  hasPositiveDebtBalance,
   isBorrowRepayAllAmount,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';

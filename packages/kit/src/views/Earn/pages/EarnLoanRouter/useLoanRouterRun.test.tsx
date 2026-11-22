@@ -69,7 +69,7 @@ jest.mock('@onekeyhq/kit/src/views/Earn/tasks/taskAccount', () => ({
 jest.mock('../../../Staking/components/EarnRiskWarningDialog', () => ({
   useEarnRiskWarningGate: () => async () => true,
 }));
-jest.mock('../../../Borrow/components/borrowRepayPosition.utils', () => ({
+jest.mock('../../../Borrow/components/borrowReserve.utils', () => ({
   resolveBorrowTokenApproveSpenderAddress: ({
     providerName,
   }: {
@@ -78,6 +78,8 @@ jest.mock('../../../Borrow/components/borrowRepayPosition.utils', () => ({
     ['kamino', 'unknown'].includes(providerName.toLowerCase())
       ? ''
       : '0xspender',
+}));
+jest.mock('../../../Borrow/components/borrowNativeReserve.utils', () => ({
   shouldUseAaveNativeGateway: () => false,
 }));
 jest.mock('../../../Borrow/hooks/useUniversalBorrowWithdrawRepayHooks', () => ({

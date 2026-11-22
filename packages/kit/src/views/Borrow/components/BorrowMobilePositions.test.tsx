@@ -159,7 +159,7 @@ jest.mock('../borrowUtils', () => ({
   BorrowNavigation: { pushToBorrowManagePosition: jest.fn() },
 }));
 
-jest.mock('./borrowRepayPosition.utils', () => ({
+jest.mock('./borrowNativeReserve.utils', () => ({
   __esModule: true,
   isUnsupportedAaveNativeReserve: () => false,
 }));

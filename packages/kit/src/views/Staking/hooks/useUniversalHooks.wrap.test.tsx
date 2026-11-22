@@ -1395,8 +1395,15 @@ describe('useUniversalStake deposits and wrapping', () => {
     const onStepChange = jest.fn();
     const onWrapStateChange = jest.fn();
     const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+    const signalStates: { signal: AbortSignal; aborted: boolean }[] = [];
     const beforeDepositTaskSend = jest.fn(
-      async (_step: 'wrap' | 'resetApproval' | 'approve' | 'deposit') => true,
+      async (
+        _step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+        signal: AbortSignal,
+      ) => {
+        signalStates.push({ signal, aborted: signal.aborted });
+        return true;
+      },
     );
     const { result } = renderHook(() => useUniversalStake(account));
     await expect(
@@ -1436,15 +1443,56 @@ describe('useUniversalStake deposits and wrapping', () => {
     ).toEqual(['succeeded', 'succeeded', 'handedOff']);
     expect(onWrapStateChange).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(beforeDepositTaskSend.mock.calls).toEqual([
-      ['wrap'],
-      ['wrap'],
-      ['approve'],
-      ['approve'],
-      ['deposit'],
-      ['deposit'],
+    expect(beforeDepositTaskSend.mock.calls.map(([step]) => step)).toEqual([
+      'wrap',
+      'wrap',
+      'approve',
+      'approve',
+      'deposit',
+      'deposit',
     ]);
+    expect(signalStates).toHaveLength(6);
+    signalStates.forEach(({ signal, aborted }) => {
+      expect(signal).toBeInstanceOf(AbortSignal);
+      expect(signal).toBe(signalStates[0].signal);
+      expect(aborted).toBe(false);
+    });
     expect(onStepChange).not.toHaveBeenCalled();
+  });
+
+  it('aborts a wrapped task while its send guard is waiting', async () => {
+    const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+    let guardSignal: AbortSignal | undefined;
+    let opened: () => void = () => undefined;
+    const guardOpened = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    const beforeDepositTaskSend = jest.fn(
+      async (
+        _step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+        signal: AbortSignal,
+      ) => {
+        guardSignal = signal;
+        opened();
+        await new Promise<void>((resolve) =>
+          signal.addEventListener('abort', () => resolve(), { once: true }),
+        );
+        return false;
+      },
+    );
+    const { result } = renderHook(() => useUniversalStake(account));
+    const running = result.current({
+      ...params,
+      taskMode: 'deposit',
+      onDepositTaskReady,
+      beforeDepositTaskSend,
+    });
+    await guardOpened;
+    expect(guardSignal?.aborted).toBe(false);
+    onDepositTaskReady.mock.calls[0][0].dispose();
+    await expect(running).resolves.toBe(false);
+    expect(guardSignal?.aborted).toBe(true);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('reserves cross-chain funding for the EtherFi deposit after wrap and approval', async () => {
@@ -1898,7 +1946,16 @@ describe('useUniversalStake deposits and wrapping', () => {
         .mockResolvedValueOnce({ type: 'confirm', effectiveApy: '1.23' })
         .mockResolvedValueOnce({ type: 'confirm', effectiveApy: '4.56' });
       const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
-      const beforeDepositTaskSend = jest.fn(async () => true);
+      const signalStates: { signal: AbortSignal; aborted: boolean }[] = [];
+      const beforeDepositTaskSend = jest.fn(
+        async (
+          _step: 'wrap' | 'resetApproval' | 'approve' | 'deposit',
+          signal: AbortSignal,
+        ) => {
+          signalStates.push({ signal, aborted: signal.aborted });
+          return true;
+        },
+      );
       const { result } = renderHook(() => useUniversalStake(account));
 
       await expect(
@@ -1968,11 +2025,26 @@ describe('useUniversalStake deposits and wrapping', () => {
           }),
         ]);
       }
-      expect(beforeDepositTaskSend.mock.calls).toEqual(
+      expect(beforeDepositTaskSend.mock.calls.map(([step]) => step)).toEqual(
         needsApproval
-          ? [['approve'], ['approve'], ['deposit'], ['deposit'], ['deposit']]
-          : [['deposit'], ['deposit'], ['deposit']],
+          ? ['approve', 'approve', 'deposit', 'deposit', 'deposit']
+          : ['deposit', 'deposit', 'deposit'],
       );
+      expect(signalStates).toHaveLength(needsApproval ? 5 : 3);
+      signalStates.forEach(({ signal, aborted }) => {
+        expect(signal).toBeInstanceOf(AbortSignal);
+        expect(aborted).toBe(false);
+      });
+      const firstAttemptCount = needsApproval ? 3 : 1;
+      signalStates
+        .slice(0, firstAttemptCount)
+        .forEach(({ signal }) => expect(signal).toBe(signalStates[0].signal));
+      signalStates
+        .slice(firstAttemptCount)
+        .forEach(({ signal }) =>
+          expect(signal).toBe(signalStates.at(-1)?.signal),
+        );
+      expect(signalStates.at(-1)?.signal).not.toBe(signalStates[0].signal);
       expect(mockWaitForFinal).toHaveBeenCalledTimes(needsApproval ? 1 : 0);
       expect(mockTrackOrder).toHaveBeenCalledTimes(1);
     },

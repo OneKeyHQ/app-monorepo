@@ -771,9 +771,13 @@ describe('MobileMarketNativeWatchlist action anchor', () => {
           listContainerProps={{ paddingBottom: 20 }}
         />,
       );
+      const rowKey = mockNativeSnapshot?.rows.find(
+        (row) => row.type === 'market',
+      )?.key;
+      expect(rowKey).toBeDefined();
       await act(async () => {
         mockRowAction?.({
-          rowKey: 'evm--1:0x1234:0',
+          rowKey,
           actionKey: 'watchlist-menu',
           anchor: {
             token: 'binding-3',
@@ -812,6 +816,53 @@ describe('MobileMarketNativeWatchlist action anchor', () => {
   );
 });
 
+it('keeps actions bound to the selected row when addresses match across networks', async () => {
+  jest.clearAllMocks();
+  const original = [...mockWatchlistData];
+  mockWatchlistData.push({
+    ...original[0],
+    id: 'second',
+    networkId: 'evm--42161',
+    symbol: 'OTHER',
+  });
+  try {
+    render(
+      <MobileMarketNativeWatchlist
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+    const rows =
+      mockNativeSnapshot?.rows.filter((row) => row.type === 'market') ?? [];
+    expect(rows).toHaveLength(2);
+    expect(rows[0].key).not.toBe(rows[1].key);
+    const toggleRow = async (rowKey: string) => {
+      await act(async () =>
+        mockRowAction?.({ rowKey, actionKey: 'watchlist-menu' }),
+      );
+      const element = mockPortalRender.mock.calls.at(-1)?.[1] as ReactElement<{
+        onToggleWatchlist: () => Promise<void>;
+      }>;
+      await act(async () => element.props.onToggleWatchlist());
+    };
+    await toggleRow(rows[0].key);
+    await toggleRow(rows[1].key);
+    expect(mockActions.current.removeFromWatchListV2).toHaveBeenNthCalledWith(
+      1,
+      'evm--1',
+      '0x1234',
+      { assetId: undefined, stockId: undefined },
+    );
+    expect(mockActions.current.removeFromWatchListV2).toHaveBeenNthCalledWith(
+      2,
+      'evm--42161',
+      '0x1234',
+      { assetId: undefined, stockId: undefined },
+    );
+  } finally {
+    mockWatchlistData.splice(0, mockWatchlistData.length, ...original);
+  }
+});
+
 it.each([{ assetId: 'bitcoin' }, { stockId: 'AAPL' }])(
   'preserves listing identity through native watchlist menu actions: %j',
   async (identity) => {
@@ -829,9 +880,10 @@ it.each([{ assetId: 'bitcoin' }, { stockId: 'AAPL' }])(
           listContainerProps={{ paddingBottom: 20 }}
         />,
       );
-      const rowKey = identity.assetId
-        ? `asset:${identity.assetId}`
-        : `stock:${identity.stockId}`;
+      const rowKey = mockNativeSnapshot?.rows.find(
+        (row) => row.type === 'market',
+      )?.key;
+      expect(rowKey).toBeDefined();
       await act(async () =>
         mockRowAction?.({ rowKey, actionKey: 'watchlist-menu' }),
       );

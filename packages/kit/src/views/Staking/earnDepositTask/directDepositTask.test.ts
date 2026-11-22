@@ -840,6 +840,31 @@ describe('direct deposit task', () => {
     expect(test.getHandle()?.getTask().steps[0].status.type).toBe('cancelled');
   });
 
+  it('aborts a pending send guard when the task is disposed', async () => {
+    const test = setup();
+    let guardSignal: AbortSignal | undefined;
+    let opened: () => void = () => undefined;
+    const guardOpened = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    test.args.beforeSendGuard = async (_step, signal) => {
+      guardSignal = signal;
+      opened();
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      return false;
+    };
+    const running = runDirectDepositTask(test.args);
+    await guardOpened;
+    expect(guardSignal?.aborted).toBe(false);
+    test.getHandle()?.dispose();
+    await expect(running).resolves.toBe(false);
+    expect(guardSignal?.aborted).toBe(true);
+    expect(test.args.confirm).not.toHaveBeenCalled();
+    expect(test.actions).toEqual([]);
+  });
+
   it('blocks sending if the guard changes after the confirmation opens', async () => {
     const test = setup();
     let checks = 0;

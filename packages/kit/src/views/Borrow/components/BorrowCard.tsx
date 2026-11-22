@@ -17,7 +17,7 @@ import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowNativeReserve.utils';
 import {
   ActionField,
   AmountField,
