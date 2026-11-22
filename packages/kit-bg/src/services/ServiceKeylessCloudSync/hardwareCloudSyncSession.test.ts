@@ -724,6 +724,70 @@ describe('hardware Cloud sync session', () => {
     ]);
   });
 
+  test.each(['exact', 'missing', 'foreign', 'wrong-hash'] as const)(
+    'only exact hardware origin proves a re-sign Wallet download: %s',
+    async (kind) => {
+      const first = fakeClient();
+      first.get.mockResolvedValue(ok({ lock: null }));
+      first.post.mockResolvedValue(ok({}));
+      const created = await bootstrapHardwareCloudSyncDataKey({
+        client: first.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      });
+      const lock = first.post.mock.calls[0][1].lock;
+      const origin = 'https://wallet-cache.example.test';
+      const path = '/prime/v1/sync/download';
+      const second = fakeClient();
+      second.client.defaults.baseURL = origin;
+      second.get.mockResolvedValue(ok({ lock }));
+      const serverData = [
+        { key: 'wallet-fixture', dataType: 'Wallet', isDeleted: true },
+      ];
+      second.post.mockResolvedValue({
+        ...ok({
+          serverData,
+          pwdHash: kind === 'wrong-hash' ? 'unrelated' : created.pwdHash,
+        }),
+        ...(kind === 'missing'
+          ? {}
+          : {
+              request: {
+                responseURL:
+                  (kind === 'foreign'
+                    ? 'https://another.example.test'
+                    : origin) + path,
+              },
+            }),
+      });
+      const observe = jest.fn();
+      const boundSession = {
+        ...session(),
+        boundBaseURL: origin,
+        boundBaseURLVerified: true,
+      };
+      await bootstrapHardwareCloudSyncDataKey({
+        client: second.client,
+        session: boundSession,
+        deriveKek: wallet(WALLET),
+        onHistory: observe,
+      });
+      expect(second.post.mock.calls[0][1]).toEqual({
+        pwdHash: created.pwdHash,
+      });
+      const { getVerifiedRecoveryRecords } =
+        await import('./hardwareCloudSyncRecovery');
+      expect(observe).toHaveBeenCalledTimes(1);
+      expect(
+        getVerifiedRecoveryRecords(
+          observe.mock.calls[0][0],
+          boundSession,
+          created.pwdHash,
+        ),
+      ).toEqual(kind === 'exact' ? serverData : undefined);
+    },
+  );
+
   test('a device with another KEK cannot unwrap the data key', async () => {
     const first = fakeClient();
     first.get.mockResolvedValue(ok({ lock: null }));

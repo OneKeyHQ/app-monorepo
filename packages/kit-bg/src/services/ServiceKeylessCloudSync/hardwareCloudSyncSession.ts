@@ -313,7 +313,7 @@ async function requestRaw<T>({
   }
 }
 
-function verifiedSessionBaseURL(
+export function verifiedSessionBaseURL(
   response: AxiosResponse,
   baseURL: string | undefined,
   urlPath: string,
@@ -844,18 +844,25 @@ function envelopeRecord(envelope: IKeyEnvelope) {
   };
 }
 
+export type IHardwareCloudSyncHistory = AxiosResponse<
+  IApiClientResponse<{ serverData: IServerSyncRecord[]; pwdHash?: string }>
+>;
+
 // Earlier key versions on the server, known by dekId alone.
 async function listPreviousPwdHashes({
   client,
   session,
   pwdHash,
+  onHistory,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   pwdHash: string;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
 }): Promise<string[]> {
-  const { serverData } = await requestWithHardwareCloudSyncSession<{
-    serverData: Array<{ dataType?: string; data?: string }>;
+  const response = await requestRawWithHardwareCloudSyncSession<{
+    serverData: IServerSyncRecord[];
+    pwdHash?: string;
   }>({
     client,
     session,
@@ -863,6 +870,7 @@ async function listPreviousPwdHashes({
     urlPath: '/prime/v1/sync/download',
     data: { pwdHash },
   });
+  const { serverData } = response.data.data;
   logHardwareCloudSyncDiagnostic('history_download_received', {
     hasServerDataArray: Array.isArray(serverData),
     returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
@@ -913,6 +921,7 @@ async function listPreviousPwdHashes({
     uniquePreviousCount: new Set(hashes).size,
     historyCompleteKnown: false,
   });
+  onHistory?.(response);
   return hashes;
 }
 
@@ -926,12 +935,14 @@ export async function bootstrapHardwareCloudSyncDataKey({
   session,
   deriveKek,
   minGeneration = 0,
+  onHistory,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
   // Highest key generation this device accepted for the wallet.
   minGeneration?: number;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
 }): Promise<
   IHardwareCloudSyncDataKey & {
     generation: number;
@@ -963,6 +974,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
           client,
           session,
           pwdHash,
+          onHistory,
         }),
       };
     }

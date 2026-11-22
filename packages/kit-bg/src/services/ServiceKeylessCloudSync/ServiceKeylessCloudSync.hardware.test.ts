@@ -120,6 +120,16 @@ jest.mock('./hardwareCloudSyncMigration', () => ({
 }));
 // Sign-in and the data key need the server; the key under test stays the
 // device-derived one, as if this device created the data key.
+jest.mock('./hardwareCloudSyncRecovery', () => {
+  const actual = jest.requireActual<
+    typeof import('./hardwareCloudSyncRecovery')
+  >('./hardwareCloudSyncRecovery');
+  return {
+    ...actual,
+    recoverVerifiedWalletCaches: jest.fn(actual.recoverVerifiedWalletCaches),
+  };
+});
+
 jest.mock('./hardwareCloudSyncSession', () => {
   const actual = jest.requireActual<
     typeof import('./hardwareCloudSyncSession')
@@ -2157,6 +2167,124 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(mockStored).toBe(credential);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
+
+  test.each(['unlocked', 'before-own-clear', 'after-own-clear'] as const)(
+    'forced re-sign keeps optional Wallet reads detached during %s lock transition',
+    async (locking) => {
+      const oldHash = `hw-dek-${'1'.repeat(64)}`;
+      const newHash = `hw-dek-${'2'.repeat(64)}`;
+      const { service, backgroundApi } = setup([
+        {
+          pwdHash: oldHash,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          rawKey: 'published-wallet-key',
+          rawData: 'stale cache',
+          data: 'settled-old-row',
+          dataTime: 200,
+          serverUploaded: true,
+        },
+      ]);
+      const prime = backgroundApi.servicePrimeCloudSync;
+      let primeGeneration = 10;
+      prime.getPublicAccountSnapshotImportGeneration.mockImplementation(
+        () => primeGeneration,
+      );
+      const realClear = prime.clearCachedSyncCredential.getMockImplementation();
+      prime.clearCachedSyncCredential.mockImplementation(async (options) => {
+        primeGeneration += 1;
+        await realClear?.(options);
+      });
+      prime.cancelPublicAccountSnapshotImport.mockImplementation(async () => {
+        primeGeneration += 1;
+      });
+      const startLock = () => {
+        // lockApp's cache clear/cancellation happens before the lock atom.
+        void prime.cancelPublicAccountSnapshotImport();
+        void prime.clearCachedSyncCredential();
+      };
+      if (locking === 'before-own-clear') {
+        jest
+          .mocked(keylessSyncCredentialStorage.saveCredential)
+          .mockImplementationOnce(async (next) => {
+            mockStored = next;
+            startLock();
+          });
+      }
+      prime.initLocalSyncItemsDB.mockImplementationOnce(async () => {
+        if (locking === 'after-own-clear') startLock();
+        return undefined;
+      });
+      const recovery = await import('./hardwareCloudSyncRecovery');
+      const blocked = Promise.withResolvers<void>();
+      const recover = jest.mocked(recovery.recoverVerifiedWalletCaches);
+      const realRecover = recover.getMockImplementation();
+      recover.mockReturnValueOnce(blocked.promise);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      mockStored = undefined;
+      const record = {
+        key: 'public-test-record-0',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        isDeleted: false,
+        dataTimestamp: 300,
+        data: 'verified-wallet-fixture',
+      };
+      jest
+        .mocked(bootstrapHardwareCloudSyncDataKey)
+        .mockImplementationOnce(async (options) => {
+          options.onHistory?.({
+            data: { data: { serverData: [record] } },
+          } as Parameters<NonNullable<typeof options.onHistory>>[0]);
+          return {
+            dek: 'synthetic-dek',
+            dekId: 'public-test-dek',
+            pwdHash: newHash,
+            generation: 2,
+            previousPwdHashes: [oldHash],
+          };
+        });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({
+            source,
+            credential: {
+              ...credential,
+              pwdHash: newHash,
+              signingPrivateKey: '',
+              signingPublicKey: '',
+            },
+          }),
+        );
+      try {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).resolves.toBeUndefined();
+        expect(mockStored).toEqual(
+          expect.objectContaining({ pwdHash: newHash }),
+        );
+        if (locking !== 'unlocked') expect(recover).not.toHaveBeenCalled();
+        else {
+          expect(recover).toHaveBeenCalledWith(
+            expect.objectContaining({
+              history: expect.objectContaining({
+                data: { data: { serverData: [record] } },
+              }),
+              previousPwdHashes: [oldHash],
+            }),
+          );
+        }
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalledTimes(1);
+      } finally {
+        blocked.resolve();
+        recover.mockReset();
+        if (realRecover) recover.mockImplementation(realRecover);
+      }
+    },
+  );
 
   test('same-source re-signing recovers locally readable hardware records missing from server key history', async () => {
     const { service, backgroundApi } = setup([
