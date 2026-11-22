@@ -636,6 +636,103 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([
+    'older lookup',
+    'older updater',
+    'newer fails',
+    'other device',
+  ] as const)(
+    'orders only pending label callbacks for the same hardware device: %s',
+    async (scenario) => {
+      const { service } = setup();
+      const xfp = `00001234--xpub${'A'.repeat(107)}`;
+      mockConfig.hardwareCloudSyncKeySource = {
+        ...source,
+        credentialId: `hardware-cloud-v1-${createHash('sha256')
+          .update(xfp)
+          .digest('hex')}`,
+        deviceName: 'Initial label',
+        deviceSerialNoHash: displayDeviceSerialNoHash,
+      };
+      const getWallet = jest.spyOn(localDb, 'getWalletSafe').mockImplementation(
+        async ({ walletId }) =>
+          ({
+            id: walletId,
+            associatedDevice: walletId.slice(3),
+            xfp,
+          }) as IDBWallet,
+      );
+      const device = {
+        id: 'device-1',
+        uuid: displayDeviceSerialNo,
+      } as IDBDevice;
+      const getDevice = jest
+        .spyOn(localDb, 'getDeviceSafe')
+        .mockImplementation(async (id) =>
+          id === device.id ? device : undefined,
+        );
+      const set = jest.mocked(primeCloudSyncPersistAtom.set);
+      let entered: () => void = () => {};
+      let release: () => void = () => {};
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const resume = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      if (scenario === 'older updater') {
+        set.mockImplementationOnce(async (update) => {
+          entered();
+          await resume;
+          if (typeof update === 'function') mockConfig = update(mockConfig);
+        });
+      } else {
+        getDevice.mockImplementationOnce(async () => {
+          entered();
+          await resume;
+          return device;
+        });
+      }
+      try {
+        const older = service.syncHardwareCloudSyncDeviceLabel({
+          walletId: 'hw-device-1',
+          label: 'First label',
+        });
+        await started;
+        const secondDevice = scenario === 'other device';
+        if (scenario === 'newer fails') {
+          getDevice.mockRejectedValueOnce(
+            new Error('Fixture Device read failed'),
+          );
+        }
+        const newer = service.syncHardwareCloudSyncDeviceLabel({
+          walletId: secondDevice ? 'hw-device-2' : 'hw-device-1',
+          label: 'Second label',
+        });
+        if (scenario === 'newer fails')
+          await expect(newer).rejects.toThrow('Fixture Device read failed');
+        else await newer;
+        release();
+        await older;
+        let expected = 'Second label';
+        if (secondDevice) expected = 'First label';
+        if (scenario === 'newer fails') expected = 'Initial label';
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(expected);
+        await service.syncHardwareCloudSyncDeviceLabel({
+          walletId: 'hw-device-1',
+          label: 'Fresh label',
+        });
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(
+          'Fresh label',
+        );
+      } finally {
+        release();
+        getWallet.mockRestore();
+        getDevice.mockRestore();
+      }
+    },
+  );
+
   test('keeps a legacy Cloud source name until a signing operation identifies its device', async () => {
     const { service } = setup();
     mockConfig.hardwareCloudSyncKeySource = {

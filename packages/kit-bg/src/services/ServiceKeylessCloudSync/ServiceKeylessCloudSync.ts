@@ -151,11 +151,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
       IHardwareCloudSyncKeySource,
       'credentialId' | 'deviceName' | 'deviceBleName' | 'deviceSerialNoHash'
     >,
-    { onlyIfLabelFallback = false }: { onlyIfLabelFallback?: boolean } = {},
+    {
+      onlyIfLabelFallback = false,
+      isCurrent,
+    }: { onlyIfLabelFallback?: boolean; isCurrent?: () => boolean } = {},
   ) {
     await primeCloudSyncPersistAtom.set((config) => {
       const current = config.hardwareCloudSyncKeySource;
       if (
+        (isCurrent && !isCurrent()) ||
         current?.credentialId !== source.credentialId ||
         (onlyIfLabelFallback &&
           (current.deviceBleName ||
@@ -178,6 +182,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
   }
 
+  // The eligible standard hardware wallet ID is derived from its Device ID.
+  private pendingHardwareDeviceLabels = new Map<string, symbol>();
+
   async syncHardwareCloudSyncDeviceLabel({
     walletId,
     label,
@@ -186,78 +193,86 @@ class ServiceKeylessCloudSync extends ServiceBase {
     | { label: string; dbDeviceId?: never }
     | { dbDeviceId: string; label?: never }
   )) {
-    const source = (await primeCloudSyncPersistAtom.get())
-      .hardwareCloudSyncKeySource;
-    if (
-      !source ||
-      source.deviceBleName ||
-      !source.deviceSerialNoHash ||
-      !accountUtils.isHwWallet({ walletId })
-    )
-      return;
-    const wallet = await localDb.getWalletSafe({
-      walletId,
-      withoutRefill: true,
-    });
-    if (
-      !wallet?.xfp ||
-      wallet.passphraseState ||
-      !wallet.associatedDevice ||
-      (dbDeviceId !== undefined && wallet.associatedDevice !== dbDeviceId)
-    )
-      return;
-    // Cloud has no wallet record of its own; match the standard wallet identity
-    // before reusing another flow's device metadata.
-    let credentialId: string;
+    if (!accountUtils.isHwWallet({ walletId })) return;
+    const token = Symbol('device-label');
+    const isCurrent = () =>
+      this.pendingHardwareDeviceLabels.get(walletId) === token;
+    this.pendingHardwareDeviceLabels.set(walletId, token);
     try {
-      const [{ default: appCrypto }, { normalizeHardwareCloudWalletXfp }] =
-        await Promise.all([
-          import('@onekeyhq/shared/src/appCrypto'),
-          import('./hardwareCloudSyncCredential'),
-        ]);
-      credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
-        appCrypto.hash.sha256Sync(
-          Buffer.from(normalizeHardwareCloudWalletXfp(wallet.xfp), 'utf8'),
-        ),
-      ).toString('hex')}`;
-    } catch {
-      return;
+      const source = (await primeCloudSyncPersistAtom.get())
+        .hardwareCloudSyncKeySource;
+      if (!source || source.deviceBleName || !source.deviceSerialNoHash) return;
+      const wallet = await localDb.getWalletSafe({
+        walletId,
+        withoutRefill: true,
+      });
+      if (
+        !wallet?.xfp ||
+        wallet.passphraseState ||
+        !wallet.associatedDevice ||
+        (dbDeviceId !== undefined && wallet.associatedDevice !== dbDeviceId)
+      )
+        return;
+      // Cloud has no wallet record of its own; match the standard wallet identity
+      // before reusing another flow's device metadata.
+      let credentialId: string;
+      try {
+        const [{ default: appCrypto }, { normalizeHardwareCloudWalletXfp }] =
+          await Promise.all([
+            import('@onekeyhq/shared/src/appCrypto'),
+            import('./hardwareCloudSyncCredential'),
+          ]);
+        credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
+          appCrypto.hash.sha256Sync(
+            Buffer.from(normalizeHardwareCloudWalletXfp(wallet.xfp), 'utf8'),
+          ),
+        ).toString('hex')}`;
+      } catch {
+        return;
+      }
+      if (credentialId !== source.credentialId) return;
+      const { getHardwareCloudSyncDeviceSerialNoHash } =
+        await import('./hardwareCloudSyncDeviceName');
+      const device = await localDb.getDeviceSafe(wallet.associatedDevice);
+      if (!device) return;
+      const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+        device.deviceStateInfo?.identity.serialNo ||
+          deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ||
+          device.uuid,
+      );
+      if (deviceSerialNoHash !== source.deviceSerialNoHash) return;
+      const bleName = device.deviceStateInfo?.identity.bleName
+        ? deviceUtils.getDeviceDisplayName({
+            state: device.deviceStateInfo,
+            preferBleName: true,
+          })
+        : deviceUtils.buildDeviceBleName({ features: device.featuresInfo });
+      // A passive wallet refill can be older than a confirmed firmware edit.
+      // Use the linked Device record, never the wallet's presentation metadata.
+      let currentLabel: string | null | undefined = label;
+      if (dbDeviceId !== undefined) {
+        currentLabel = device.deviceStateInfo
+          ? device.deviceStateInfo.identity.label
+          : device.featuresInfo?.label;
+        if (!bleName && !currentLabel) return;
+      }
+      const deviceName =
+        bleName ||
+        currentLabel ||
+        deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
+        device.name;
+      await this.updateHardwareCloudSyncDeviceName(
+        {
+          credentialId,
+          deviceName,
+          deviceBleName: bleName,
+          deviceSerialNoHash,
+        },
+        { onlyIfLabelFallback: true, isCurrent },
+      );
+    } finally {
+      if (isCurrent()) this.pendingHardwareDeviceLabels.delete(walletId);
     }
-    if (credentialId !== source.credentialId) return;
-    const { getHardwareCloudSyncDeviceSerialNoHash } =
-      await import('./hardwareCloudSyncDeviceName');
-    const device = await localDb.getDeviceSafe(wallet.associatedDevice);
-    if (!device) return;
-    const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
-      device.deviceStateInfo?.identity.serialNo ||
-        deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ||
-        device.uuid,
-    );
-    if (deviceSerialNoHash !== source.deviceSerialNoHash) return;
-    const bleName = device.deviceStateInfo?.identity.bleName
-      ? deviceUtils.getDeviceDisplayName({
-          state: device.deviceStateInfo,
-          preferBleName: true,
-        })
-      : deviceUtils.buildDeviceBleName({ features: device.featuresInfo });
-    // A passive wallet refill can be older than a confirmed firmware edit.
-    // Use the linked Device record, never the wallet's presentation metadata.
-    let currentLabel: string | null | undefined = label;
-    if (dbDeviceId !== undefined) {
-      currentLabel = device.deviceStateInfo
-        ? device.deviceStateInfo.identity.label
-        : device.featuresInfo?.label;
-      if (!bleName && !currentLabel) return;
-    }
-    const deviceName =
-      bleName ||
-      currentLabel ||
-      deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
-      device.name;
-    await this.updateHardwareCloudSyncDeviceName(
-      { credentialId, deviceName, deviceBleName: bleName, deviceSerialNoHash },
-      { onlyIfLabelFallback: true },
-    );
   }
 
   private repairCredentialMutex = new Semaphore(1);
