@@ -593,6 +593,28 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it('subscribes to another market while the previous acknowledgement is pending', async () => {
+    const service = createService();
+    let acknowledgeBtc!: () => void;
+    trades.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        acknowledgeBtc = resolve;
+      }).then(() => ({ unsubscribe })),
+    );
+
+    const btc = service.subscribePublicTrades({ coin: 'BTC' });
+    const releaseBtc = service.unsubscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'SOL' });
+    expect(unsubscribe).not.toHaveBeenCalled();
+
+    acknowledgeBtc();
+    await Promise.all([btc, releaseBtc]);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    await service.unsubscribePublicTrades({ coin: 'SOL' });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it('clears a failed BTC subscription on the wire before reacquiring it alongside ETH', async () => {
     const service = createService();
     const btc = { coin: 'BTC' };

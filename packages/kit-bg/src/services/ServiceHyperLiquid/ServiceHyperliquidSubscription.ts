@@ -213,8 +213,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
 
-  private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
-
   private _currentState: ISubscriptionState = {
     currentUser: null,
     currentSymbol: '',
@@ -2155,7 +2153,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     await this._subscriptionMutationQueue.enqueue(
-      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      `public-trades:${normalizedCoin}`,
       async () => {
         const current = this._publicTradesSubscriptions.get(normalizedCoin);
         if (current) {
@@ -2226,7 +2224,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     await this._subscriptionMutationQueue.enqueue(
-      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      `public-trades:${normalizedCoin}`,
       async () => {
         const entry = this._publicTradesSubscriptions.get(normalizedCoin);
         if (!entry) {

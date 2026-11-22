@@ -8,6 +8,7 @@ import {
   Anchor,
   Button,
   Icon,
+  Popover,
   ScrollView,
   SizableText,
   Spinner,
@@ -86,48 +87,67 @@ function TradeLine({
       {price}
     </PerpBookText>
   );
-  const sizeCell =
-    isHeader && sizeSymbol ? (
+  const sizeWidth = inline ? '36%' : '30%';
+  let sizeCell;
+  if (isHeader && sizeSymbol) {
+    const label = `${size} (${sizeSymbol})`;
+    const headerTextStyle = { width: 'auto', color: textColor } as const;
+    const trigger = (
+      <XStack
+        width={platformEnv.isNative ? '100%' : sizeWidth}
+        minWidth={0}
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$1"
+        aria-label={label}
+        tabIndex={platformEnv.isNative ? undefined : 0}
+        role={platformEnv.isNative ? 'button' : undefined}
+      >
+        <PerpBookText
+          numberOfLines={1}
+          style={[textStyle, headerTextStyle, { minWidth: 0, flexShrink: 1 }]}
+        >
+          {size}
+        </PerpBookText>
+        <PerpBookText
+          numberOfLines={1}
+          style={[
+            textStyle,
+            headerTextStyle,
+            { flexShrink: 0, maxWidth: '65%' },
+          ]}
+        >
+          {`(${sizeSymbol})`}
+        </PerpBookText>
+      </XStack>
+    );
+    sizeCell = platformEnv.isNative ? (
+      <YStack width={sizeWidth} minWidth={0}>
+        <Popover
+          title={size}
+          renderTrigger={trigger}
+          renderContent={
+            <SizableText px="$5" pt="$2" pb="$5" size="$bodyMd">
+              {label}
+            </SizableText>
+          }
+        />
+      </YStack>
+    ) : (
       <Tooltip
         triggerAsChild
-        renderContent={<Tooltip.Text>{`${size} (${sizeSymbol})`}</Tooltip.Text>}
-        renderTrigger={
-          <XStack
-            width={inline ? '36%' : '30%'}
-            minWidth={0}
-            alignItems="center"
-            justifyContent="flex-end"
-            gap="$1"
-            aria-label={`${size} (${sizeSymbol})`}
-          >
-            <PerpBookText
-              numberOfLines={1}
-              style={[
-                textStyle,
-                { minWidth: 0, flexShrink: 1, color: textColor },
-              ]}
-            >
-              {size}
-            </PerpBookText>
-            <PerpBookText
-              numberOfLines={1}
-              style={[
-                textStyle,
-                { flexShrink: 0, maxWidth: '65%', color: textColor },
-              ]}
-            >
-              {`(${sizeSymbol})`}
-            </PerpBookText>
-          </XStack>
-        }
+        renderTrigger={trigger}
+        renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
       />
-    ) : (
+    );
+  } else {
+    sizeCell = (
       <PerpBookText
         numberOfLines={1}
         style={[
           textStyle,
           {
-            width: inline ? '36%' : '30%',
+            width: sizeWidth,
             textAlign: 'right',
             color: textColor,
           },
@@ -136,6 +156,7 @@ function TradeLine({
         {size}
       </PerpBookText>
     );
+  }
   const timeWidth = inline ? '40%' : '37%';
   const timeRightPadding = isHeader ? 8 : 20;
   const transactionUrl =

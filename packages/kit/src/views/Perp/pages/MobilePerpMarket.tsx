@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/components';
 import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   usePerpsActiveAccountAtom,
@@ -771,9 +772,13 @@ function MobilePerpMarket() {
   );
 
   const isChartActive = activeTab === 'orderbook';
+  const showRecentTradesTab =
+    mode === 'perp' &&
+    (platformEnv.isNative || platformEnv.isWeb) &&
+    !shouldRedirectOnboardingToTravelMode();
   const orderBookContent = useMemo(
     () =>
-      mode === 'perp' && (platformEnv.isNative || platformEnv.isWeb) ? (
+      showRecentTradesTab ? (
         <MobilePerpMarketBookPanel
           coin={activeTradeInstrument.coin}
           isChartActive={isChartActive}
@@ -783,7 +788,7 @@ function MobilePerpMarket() {
           <PerpOrderBook entry="perpMobileMarket" />
         </YStack>
       ),
-    [activeTradeInstrument.coin, isChartActive, mode],
+    [activeTradeInstrument.coin, isChartActive, showRecentTradesTab],
   );
   const infoContent = useMemo(
     () => (
