@@ -347,12 +347,18 @@ function getBoundSessionEndpoint(
   session: IHardwareCloudSyncSession,
   client: AxiosInstance,
   requestedBaseURL?: string,
-): string | undefined {
-  const boundBaseURL = session.boundBaseURL ?? requestedBaseURL;
+): string {
+  // A requested or currently selected endpoint is only a constraint. It
+  // cannot establish where a previously issued token came from.
+  const { boundBaseURL } = session;
+  if (!boundBaseURL)
+    throw new HardwareCloudSyncLocalError(
+      ETranslations.cloud_sync_hardware_signed_out__msg,
+      'Cloud sync is signed out. Reconnect your hardware wallet.',
+    );
   if (
-    boundBaseURL &&
-    (client.defaults.baseURL !== boundBaseURL ||
-      (requestedBaseURL && requestedBaseURL !== boundBaseURL))
+    client.defaults.baseURL !== boundBaseURL ||
+    (requestedBaseURL && requestedBaseURL !== boundBaseURL)
   )
     throw new OneKeyLocalError({
       message: 'Hardware Cloud endpoint changed',
@@ -547,7 +553,11 @@ export async function refreshHardwareCloudSyncSessionIfNeeded({
   force?: boolean;
   boundBaseURL?: string;
 }): Promise<IHardwareCloudSyncSession | undefined> {
-  const endpoint = getBoundSessionEndpoint(session, client, boundBaseURL);
+  const selectedBaseURL = getBoundSessionEndpoint(
+    session,
+    client,
+    boundBaseURL,
+  );
   if (
     !force &&
     session.accessTokenExpiresAt - Date.now() > ACCESS_TOKEN_REFRESH_MARGIN_MS
@@ -555,7 +565,6 @@ export async function refreshHardwareCloudSyncSessionIfNeeded({
     return undefined;
   }
   const urlPath = `${AUTH_BASE}/refresh`;
-  const selectedBaseURL = endpoint ?? client.defaults.baseURL;
   const response = await requestRaw<ITokenResponse>({
     client,
     method: 'POST',
@@ -684,7 +693,7 @@ async function wrapDek({
   });
 }
 
-async function unwrapDek({
+export async function unwrapDek({
   kek,
   envelope,
 }: {
@@ -837,7 +846,10 @@ async function createEnvelope(
 
 // A Lock older than one this device already accepted for the wallet is a
 // rollback to a key a reset was meant to retire.
-function assertNotRolledBack(envelope: IKeyEnvelope, minGeneration: number) {
+export function assertNotRolledBack(
+  envelope: IKeyEnvelope,
+  minGeneration: number,
+) {
   if (envelope.generation < minGeneration) {
     throw createHardwareCloudSyncDataError(
       'Cloud sync key on the server is older than this device has seen',

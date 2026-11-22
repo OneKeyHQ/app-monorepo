@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
-  getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -79,22 +78,17 @@ import {
   logHardwareCloudSyncFailure,
 } from './hardwareCloudSyncLog';
 import {
-  assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
-  createHardwareCloudSyncDeviceKey,
   getCurrentHardwareCloudSyncDataKeyId,
-  getHardwareCloudSyncDeviceKeyThumbprint,
   isHardwareCloudSyncKeyEnvelopeItem,
   isHardwareCloudSyncNonceInvalidError,
   isHardwareCloudSyncPwdHashInvalidError,
   isHardwareCloudSyncUnauthorizedError,
   reencryptHardwareCloudSyncItems,
   refreshHardwareCloudSyncSessionIfNeeded,
-  requestHardwareCloudSyncChallenge,
   requestRawWithHardwareCloudSyncSession,
   revokeHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
-  verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
 
 import type {
@@ -564,13 +558,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const resignsSelectedSource =
       !!targetId &&
       config.hardwareCloudSyncKeySource?.credentialId === targetId;
+    const stored =
+      !config.isCloudSyncEnabled &&
+      config.isCloudSyncEnabledKeyless &&
+      resignsSelectedSource
+        ? await keylessSyncCredentialStorage.getCredential(targetId)
+        : undefined;
+    const session = stored?.hardwareSession;
     if (
       config.isCloudSyncEnabled ||
       (config.isCloudSyncEnabledKeyless &&
         !(
           resignsSelectedSource &&
-          !(await keylessSyncCredentialStorage.getCredential(targetId))
-            ?.hardwareSession
+          (!session || (!rebuildsLocalItems && !session.boundBaseURL))
         ))
     ) {
       throw new HardwareCloudSyncError(
@@ -578,6 +578,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         'Turn off Cloud sync before changing how your data is encrypted.',
       );
     }
+    if (stored && session && !session.boundBaseURL) return stored;
     const { items } =
       await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
         includeUnsupportedDataTypes: true,
@@ -602,69 +603,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
   }
 
-  private async getHardwareCloudSyncEnvironment(): Promise<'prod' | 'test'> {
-    if (platformEnv.isWebEmbed) {
-      return globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
-        ? 'test'
-        : 'prod';
-    }
-    const config = await devSettingsPersistAtom.get();
-    return config.enabled && config.settings?.enableTestEndpoint
-      ? 'test'
-      : 'prod';
-  }
-
-  // Sign-in uses its own path and a server nonce, never the key path.
-  private async signInHardwareCloudSync({
-    client,
-    device,
-  }: {
+  private async signInHardwareCloudSync(params: {
     client: AxiosInstance;
     device: IHardwareCloudKeyDevice;
   }): Promise<IHardwareCloudSyncSession> {
-    const deviceKeyJwk = createHardwareCloudSyncDeviceKey();
-    const identityTag = getHardwareCloudSyncIdentityTagFromCredentialId(
-      device.credentialId,
-    );
-    const env = await this.getHardwareCloudSyncEnvironment();
-    const assertEnvironmentUnchanged = async () => {
-      if (env !== (await this.getHardwareCloudSyncEnvironment())) {
-        throw new OneKeyError('Cloud sync environment changed. Try again.');
-      }
-    };
-    const { challengeId, message } = await requestHardwareCloudSyncChallenge({
-      client,
-      jwk: deviceKeyJwk,
-      identityTag,
-      env,
-    });
-    await assertEnvironmentUnchanged();
-    assertHardwareCloudSyncChallengeFor({
-      message,
-      jwk: deviceKeyJwk,
-      identityTag,
-      env,
-    });
-    const signature = await device.signAuth(message, {
-      identityTag,
-      env,
-      jkt: getHardwareCloudSyncDeviceKeyThumbprint(deviceKeyJwk),
-    });
-    await assertEnvironmentUnchanged();
-    assertHardwareCloudSyncChallengeFor({
-      message,
-      jwk: deviceKeyJwk,
-      identityTag,
-      env,
-    });
-    const session = await verifyHardwareCloudSyncChallenge({
-      client,
-      jwk: deviceKeyJwk,
-      challengeId,
-      signature,
-    });
-    await assertEnvironmentUnchanged();
-    return session;
+    const { signInHardwareCloudSync } = await import('./hardwareCloudSyncSdk');
+    return signInHardwareCloudSync(params);
   }
 
   // The device prompt can wait indefinitely, so callers run it outside the
@@ -773,9 +717,50 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // only re-signs the selected key, which must stay the same.
     const rebuildsLocalItems =
       switchDevice || !startConfig.isCloudSyncEnabledKeyless;
-    await this.assertCloudKeySelectionCanChange(previousSource?.credentialId, {
-      rebuildsLocalItems,
-    });
+    const legacy = await this.assertCloudKeySelectionCanChange(
+      previousSource?.credentialId,
+      {
+        rebuildsLocalItems,
+      },
+    );
+    if (legacy) {
+      const { rebindLegacyHardwareSession } =
+        await import('./hardwareCloudSyncMigration');
+      return rebindLegacyHardwareSession({
+        legacy,
+        isCurrent: () =>
+          isCurrent() &&
+          restoreGeneration ===
+            prime.getPublicAccountSnapshotImportGeneration(),
+        getClient: async () => ({
+          ...(await this.getClientEndpointInfo(EServiceEndpointEnum.Prime)),
+          client: await this.getHardwareSyncClient(),
+        }),
+        signIn: (client, device) =>
+          this.signInHardwareCloudSync({ client, device }),
+        minGeneration: () =>
+          this.getHardwareKeyGeneration(legacy.keylessWalletId),
+        derive: (options) =>
+          this.deriveHardwareCloudKey({
+            ...options,
+            connectId,
+            generation,
+            signatures: 3,
+          }),
+        save: (hardwareSession, isBound, beforeSave) =>
+          this.runWithCloudSyncSourceLock(() =>
+            this.saveHardwareCredential(
+              { ...legacy, hardwareSession },
+              {
+                expected: legacy,
+                refreshedSession: true,
+                refreshAdmission: { canPersist: isBound, canPublish: isBound },
+                beforeSave,
+              },
+            ),
+          ),
+      });
+    }
     const { items: localItems } =
       await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
         includeUnsupportedDataTypes: true,
@@ -1128,7 +1113,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const credential = await keylessSyncCredentialStorage.getCredential(
       source.credentialId,
     );
-    return !credential?.hardwareSession;
+    return !credential?.hardwareSession?.boundBaseURL;
   }
 
   @backgroundMethod()
@@ -1173,7 +1158,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       latest.hardwareCloudSyncKeySource?.credentialId !== source.credentialId
     )
       return 'selection-changed';
-    if (!session) return 'missing';
+    if (!boundBaseURL) return 'missing';
     const isEndpointMismatch =
       isApiBaseURL(boundBaseURL) &&
       isApiBaseURL(baseURL) &&
@@ -1859,8 +1844,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
           (!sameSession && !refreshAdmission.canPublish()))
       )
         return undefined;
-      if (beforeSave && (await beforeSave(stored)) === false)
-        return { credential: stored, preservesScope: true };
+      if (beforeSave) {
+        if ((await beforeSave(stored)) === false)
+          return { credential: stored, preservesScope: true };
+        if (refreshAdmission && !refreshAdmission.canPersist())
+          return undefined;
+      }
       await keylessSyncCredentialStorage.saveCredential(updated);
       if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
       if (refreshAdmission && !refreshAdmission.canPersist()) return undefined;

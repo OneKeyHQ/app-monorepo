@@ -31,6 +31,7 @@ import {
   refreshHardwareCloudSyncSessionIfNeeded,
   requestHardwareCloudSyncChallenge,
   requestWithHardwareCloudSyncSession,
+  revokeHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
   verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
@@ -72,8 +73,9 @@ function fakeClient() {
   return { client: client as unknown as AxiosInstance, get, post };
 }
 
-function session(): IHardwareCloudSyncSession {
+function session(boundBaseURL = BASE_URL): IHardwareCloudSyncSession {
   return {
+    boundBaseURL,
     deviceKeyJwk: createHardwareCloudSyncDeviceKey(),
     accessToken: 'public-test-access',
     accessTokenExpiresAt: Date.now() + 600_000,
@@ -170,7 +172,7 @@ describe('hardware Cloud sync session', () => {
     await expect(
       requestWithHardwareCloudSyncSession({
         client: c.client,
-        session: session(),
+        session: session(c.client.defaults.baseURL),
         method: 'POST',
         urlPath: '/prime/v1/sync/upload',
         prepareWalletRetry,
@@ -197,14 +199,16 @@ describe('hardware Cloud sync session', () => {
       });
       const request = requestWithHardwareCloudSyncSession({
         client: c.client,
-        session: session(),
+        session: session(original),
         method: 'POST',
         urlPath: '/prime/v1/sync/upload',
         data: { localData: ['not-for-dispatch'] },
         prepareWalletRetry,
       });
       if (replaceEndpoint) {
-        await expect(request).rejects.toThrow('retry cancelled');
+        await expect(request).rejects.toThrow(
+          'Hardware Cloud endpoint changed',
+        );
         expect(c.post).not.toHaveBeenCalled();
         expect(finalGuard).not.toHaveBeenCalled();
       } else {
@@ -219,13 +223,51 @@ describe('hardware Cloud sync session', () => {
     },
   );
 
+  test.each([undefined, 'https://selected.example.invalid'])(
+    'a caller-selected node cannot authorize a legacy Hardware token (%s)',
+    async (boundBaseURL) => {
+      const { client, post, get } = fakeClient();
+      if (boundBaseURL) client.defaults.baseURL = boundBaseURL;
+      const legacy = { ...session(), boundBaseURL: undefined };
+      const unavailable = {
+        key: ETranslations.cloud_sync_hardware_signed_out__msg,
+      };
+      await expect(
+        refreshHardwareCloudSyncSessionIfNeeded({
+          client,
+          session: legacy,
+          boundBaseURL,
+          force: true,
+        }),
+      ).rejects.toMatchObject(unavailable);
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: legacy,
+          method: 'GET',
+          urlPath: '/prime/v1/sync/lock',
+          boundBaseURL,
+        }),
+      ).rejects.toMatchObject(unavailable);
+      await expect(
+        revokeHardwareCloudSyncSession({
+          client,
+          session: legacy,
+          scope: 'current',
+        }),
+      ).rejects.toMatchObject(unavailable);
+      expect(post).not.toHaveBeenCalled();
+      expect(get).not.toHaveBeenCalled();
+    },
+  );
+
   test('missing final proof records a negative endpoint fence, not verified authority', async () => {
     const { client, post } = fakeClient();
     const baseURL = 'https://prime.example.invalid';
     const otherURL = 'https://alternate-prime.example.invalid';
     const path = '/prime/v1/hw-sync/auth/refresh';
     client.defaults.baseURL = baseURL;
-    const credentials = session();
+    const credentials = session(baseURL);
     const body = ok({
       accessToken: 'public-fixture-renewed-access',
       refreshToken: 'public-fixture-renewed-refresh',
@@ -256,7 +298,7 @@ describe('hardware Cloud sync session', () => {
       session: credentials,
       force: true,
     });
-    expect(credentials).not.toHaveProperty('boundBaseURL');
+    expect(credentials).not.toHaveProperty('boundBaseURLVerified');
     expect(nativeShape).toMatchObject({
       boundBaseURL: baseURL,
       boundBaseURLVerified: false,
@@ -304,7 +346,7 @@ describe('hardware Cloud sync session', () => {
     const send = () =>
       requestWithHardwareCloudSyncSession({
         client,
-        session: session(),
+        session: session(origin),
         method: 'POST',
         urlPath: '/prime/v1/sync/upload',
         boundBaseURL: origin,
@@ -330,7 +372,7 @@ describe('hardware Cloud sync session', () => {
     const prepareUpload = jest.fn(() => body);
     await requestWithHardwareCloudSyncSession({
       client: c.client,
-      session: session(),
+      session: session(c.client.defaults.baseURL),
       method: 'POST',
       urlPath: '/prime/v1/sync/upload',
       data: { localData: ['future', 'safe'] },

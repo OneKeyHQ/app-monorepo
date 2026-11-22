@@ -124,6 +124,9 @@ jest.mock('../../states/jotai/atoms', () => ({
   },
 }));
 jest.mock('./hardwareCloudSyncSdk', () => ({
+  ...jest.requireActual<typeof import('./hardwareCloudSyncSdk')>(
+    './hardwareCloudSyncSdk',
+  ),
   generateHardwareCloudSyncCredentialWithSdk: jest.fn(),
 }));
 jest.mock('./hardwareCloudSyncMigration', () => ({
@@ -149,6 +152,10 @@ jest.mock('./hardwareCloudSyncSession', () => {
     typeof import('./hardwareCloudSyncSession')
   >('./hardwareCloudSyncSession');
   return {
+    assertNotRolledBack: actual.assertNotRolledBack,
+    computeHardwareCloudSyncPwdHash: actual.computeHardwareCloudSyncPwdHash,
+    readLockEnvelope: actual.readLockEnvelope,
+    unwrapDek: actual.unwrapDek,
     assertHardwareCloudSyncChallengeFor:
       actual.assertHardwareCloudSyncChallengeFor,
     getHardwareCloudSyncDeviceKeyThumbprint:
@@ -3434,6 +3441,15 @@ describe('hardware Cloud key in production builds', () => {
 
   test('keeps a key in use: sync runs and Keyless auto-enable leaves it alone', async () => {
     const { service, backgroundApi } = setup();
+    const knownIssuer = {
+      ...activeCredential,
+      hardwareSession: activeCredential.hardwareSession && {
+        ...activeCredential.hardwareSession,
+        boundBaseURL: 'https://prime.onekeycn.com',
+        boundBaseURLVerified: false,
+      },
+    };
+    mockStored = knownIssuer;
     await expect(service.getActiveSyncMode()).resolves.toBe(
       ECloudSyncMode.Keyless,
     );
@@ -3442,7 +3458,7 @@ describe('hardware Cloud key in production builds', () => {
     await expect(service.isSelectedHardwareCloudKeyMissing()).resolves.toBe(
       false,
     );
-    expect(mockStored).toBe(activeCredential);
+    expect(mockStored).toBe(knownIssuer);
     expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
     expect(
@@ -3455,6 +3471,15 @@ describe('hardware Cloud key in production builds', () => {
 
   test('re-signing a key still in use requires turning sync off', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);
+    const session = activeCredential.hardwareSession;
+    if (!session) throw new OneKeyLocalError('Missing fixture session');
+    mockStored = {
+      ...activeCredential,
+      hardwareSession: {
+        ...session,
+        boundBaseURL: 'https://prime.onekeycn.com',
+      },
+    };
     await expect(
       service.enableHardwareCloudSync({ connectId }),
     ).rejects.toThrow('Turn off Cloud sync');
@@ -3542,7 +3567,7 @@ describe('hardware Cloud key in production builds', () => {
       };
       await expect(
         service.getSelectedHardwareCloudKeyAvailability(),
-      ).resolves.toBe('available');
+      ).resolves.toBe(boundBaseURL ? 'available' : 'missing');
       expect(getClient).not.toHaveBeenCalled();
       mockStored = credential;
       await expect(
@@ -3564,9 +3589,12 @@ describe('hardware Cloud key in production builds', () => {
     ).not.toHaveBeenCalled();
   });
 
-  test('the selected legacy key can sign in again while sync remains enabled', async () => {
+  test('the selected key without a stored session can still sign in', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);
     mockStored = credential;
+    expect(await service.getSelectedHardwareCloudKeyAvailability()).toBe(
+      'missing',
+    );
     await service.enableHardwareCloudSync({ connectId });
     expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledWith(
       expect.objectContaining({ expectedCredentialId: source.credentialId }),
@@ -3578,6 +3606,168 @@ describe('hardware Cloud key in production builds', () => {
       keylessSyncCredentialStorage.removeAllCredentials,
     ).not.toHaveBeenCalled();
   });
+
+  test.each([
+    'same-key',
+    'missing-lock',
+    'invalid-lock',
+    'read-refused',
+    'different-dek',
+    'rolled-back-generation',
+    'node-changed',
+    'stored-slot-changed',
+    'secure-write-refused',
+  ] as const)(
+    'legacy explicit rebind only replaces the session of the unchanged existing key: %s',
+    async (scenario) => {
+      const sessionApi = jest.requireActual<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      const origin = 'https://prime.example.invalid';
+      const { service, getClient, backgroundApi, initLocalSyncItemsDB } = setup(
+        [{ pwdHash: credential.pwdHash }],
+      );
+      jest
+        .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+        .mockResolvedValue(true);
+      jest.spyOn(systemTimeUtils, 'refreshServerTime').mockResolvedValue(true);
+      jest.spyOn(service, 'getClientEndpointInfo').mockResolvedValue({
+        name: EServiceEndpointEnum.Prime,
+        endpoint: origin,
+      });
+      const fresh = {
+        ...activeCredential.hardwareSession,
+        deviceKeyJwk: sessionApi.createHardwareCloudSyncDeviceKey(),
+        accessToken: 'synthetic-fresh-access',
+        accessTokenExpiresAt: Date.now() + 600_000,
+        refreshToken: 'synthetic-fresh-refresh',
+        sessionId: 'synthetic-fresh-session',
+        dekId: '',
+        boundBaseURL: origin,
+        boundBaseURLVerified: false,
+      };
+      let lock: { data: string } | null = null;
+      const sent = jest.fn();
+      const responseFor = (
+        request: InternalAxiosRequestConfig,
+        data: object,
+      ) => ({
+        config: request,
+        data: { data },
+        headers: {},
+        status: 200,
+        statusText: 'OK',
+      });
+      const seedClient = axios.create({
+        baseURL: origin,
+        adapter: async (request) => {
+          if (request.url?.endsWith('/flush')) {
+            const body = JSON.parse(String(request.data)) as {
+              lock: { data: string };
+            };
+            lock = body.lock;
+          }
+          return responseFor(request, { lock });
+        },
+      });
+      const deriveKek = async (salt: string) =>
+        createHash('sha256').update(salt).digest('hex');
+      const key = await sessionApi.bootstrapHardwareCloudSyncDataKey({
+        client: seedClient,
+        session: fresh,
+        deriveKek,
+      });
+      if (!lock) throw new OneKeyLocalError('Fixture failed to provide Lock');
+      const previous: IKeylessCloudSyncCredential = {
+        ...credential,
+        encryptionKey: scenario === 'different-dek' ? 'be'.repeat(32) : key.dek,
+        pwdHash: key.pwdHash,
+        hardwareSession: {
+          ...fresh,
+          sessionId: 'synthetic-old-session',
+          accessToken: 'synthetic-old-access',
+          refreshToken: 'synthetic-old-refresh',
+          boundBaseURL: undefined,
+          dekId: key.dekId,
+        },
+      };
+      mockStored = previous;
+      if (scenario === 'rolled-back-generation')
+        mockConfig.hardwareCloudSyncKeyGenerations = {
+          [source.credentialId]: key.generation + 1,
+        };
+      const concurrent = { ...previous, encryptionKey: 'de'.repeat(32) };
+      const primeClient = axios.create({
+        baseURL: origin,
+        adapter: async (request) => {
+          sent(request.url, request.headers.get('Authorization'));
+          if (scenario === 'read-refused')
+            throw new OneKeyLocalError('Synthetic Lock unavailable');
+          if (scenario === 'node-changed') changeMockTestEndpoint();
+          if (scenario === 'stored-slot-changed') mockStored = concurrent;
+          let returnedLock = lock;
+          if (scenario === 'missing-lock') returnedLock = null;
+          if (scenario === 'invalid-lock')
+            returnedLock = { data: 'invalid fixture lock' };
+          return responseFor(request, { lock: returnedLock });
+        },
+      });
+      getClient.mockResolvedValue(primeClient);
+      const protocol = jest.requireMock<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      jest
+        .mocked(protocol.verifyHardwareCloudSyncChallenge)
+        .mockResolvedValueOnce(fresh);
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(async ({ unlock }) => ({
+          source,
+          credential: await unlock({
+            credentialId: source.credentialId,
+            source,
+            signAuth: async () => 'synthetic-test-signature',
+            deriveKek,
+          }),
+        }));
+      if (scenario === 'secure-write-refused')
+        jest
+          .mocked(keylessSyncCredentialStorage.saveCredential)
+          .mockRejectedValueOnce(new Error('Synthetic key write refused'));
+      await expect(
+        service.getSelectedHardwareCloudKeyAvailability(),
+      ).resolves.toBe('missing');
+      const rebind = service.enableHardwareCloudSync({ connectId });
+      if (scenario === 'same-key') {
+        await expect(rebind).resolves.toBeUndefined();
+        expect(mockStored).toEqual({
+          ...previous,
+          hardwareSession: { ...fresh, dekId: key.dekId },
+        });
+      } else {
+        await expect(rebind).rejects.toBeInstanceOf(Error);
+        expect(mockStored).toBe(
+          scenario === 'stored-slot-changed' ? concurrent : previous,
+        );
+      }
+      expect(sent).toHaveBeenCalledTimes(1);
+      expect(sent).toHaveBeenCalledWith(
+        '/prime/v1/sync/lock',
+        'DPoP synthetic-fresh-access',
+      );
+      expect(bootstrapHardwareCloudSyncDataKey).not.toHaveBeenCalled();
+      expect(verifyHardwareCloudSyncChallenge).toHaveBeenCalledTimes(1);
+      expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+      expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+      ).not.toHaveBeenCalled();
+      expect(
+        keylessSyncCredentialStorage.removeAllCredentials,
+      ).not.toHaveBeenCalled();
+    },
+  );
 
   test('a failed legacy sign-in preserves the existing key and sync selection', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);

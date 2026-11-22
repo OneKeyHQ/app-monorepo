@@ -7,21 +7,34 @@ import {
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  IHardwareCloudSyncSession,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 
 import localDb from '../../dbs/local/localDb';
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  primeCloudSyncPersistAtom,
+} from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
 import {
+  assertNotRolledBack,
+  computeHardwareCloudSyncPwdHash,
   downloadAllForReset,
   isHardwareCloudSyncKeyEnvelopeItem,
   readLockEnvelope,
   reencryptHardwareCloudSyncItems,
   requestWithHardwareCloudSyncSession,
+  unwrapDek,
 } from './hardwareCloudSyncSession';
 
+import type {
+  IHardwareCloudKeyDevice,
+  IHardwareCloudKeyUnlock,
+} from './hardwareCloudSyncCredential';
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -43,6 +56,123 @@ class PendingAccountDeletionError extends HardwareCloudSyncError {
       ETranslations.cloud_sync_data_changed_during_key_change__msg,
       'Sync pending account deletions with the current Cloud key before switching wallets.',
     );
+  }
+}
+
+// Only session metadata changes. This is deliberately separate from normal
+// activation/migration, which can create a Lock and reinitialize business data.
+export async function rebindLegacyHardwareSession({
+  legacy,
+  isCurrent,
+  getClient,
+  signIn,
+  minGeneration,
+  derive,
+  save,
+}: {
+  legacy: IKeylessCloudSyncCredential;
+  isCurrent: () => boolean;
+  getClient: () => Promise<{ endpoint: string; client: AxiosInstance }>;
+  signIn: (
+    client: AxiosInstance,
+    device: IHardwareCloudKeyDevice,
+  ) => Promise<IHardwareCloudSyncSession>;
+  minGeneration: () => Promise<number>;
+  derive: (options: {
+    expectedCredentialId: string;
+    isCurrent: () => boolean;
+    unlock: IHardwareCloudKeyUnlock;
+  }) => Promise<{ credential: IKeylessCloudSyncCredential }>;
+  save: (
+    session: IHardwareCloudSyncSession,
+    isBound: () => boolean,
+    beforeSave: (stored: IKeylessCloudSyncCredential) => Promise<void>,
+  ) => Promise<IKeylessCloudSyncCredential>;
+}) {
+  const { source, hardwareSession: old } = legacy;
+  if (
+    source?.type !== 'hardware' ||
+    source.credentialId !== legacy.keylessWalletId ||
+    !old?.dekId ||
+    old.boundBaseURL ||
+    legacy.pendingDataKey ||
+    legacy.pendingHardwareKeyMigration
+  )
+    throw new HardwareCloudSyncError(
+      ETranslations.cloud_sync_hardware_signed_out__msg,
+      'Cloud sync is signed out. Reconnect your hardware wallet.',
+    );
+
+  let endpointCurrent = true;
+  const stopWatching = devSettingsPersistAtom.sub(() => {
+    endpointCurrent = false;
+  });
+  try {
+    const { endpoint, client } = await getClient();
+    const isBound = () =>
+      endpointCurrent && isCurrent() && client.defaults.baseURL === endpoint;
+    const assertBound = () => {
+      if (!isBound()) throw new HardwareCloudSyncCancelledError();
+    };
+    assertBound();
+    const { credential } = await derive({
+      expectedCredentialId: source.credentialId,
+      isCurrent: isBound,
+      unlock: async (device) => {
+        assertBound();
+        if (
+          device.credentialId !== source.credentialId ||
+          device.source?.derivationVersion !== source.derivationVersion
+        )
+          throw new HardwareCloudSyncCancelledError();
+        const session = await signIn(client, device);
+        assertBound();
+        if (!endpoint || session.boundBaseURL !== endpoint)
+          throw new HardwareCloudSyncCancelledError();
+        const generation = await minGeneration();
+        assertBound();
+        const lock = await readLockEnvelope({ client, session });
+        assertBound();
+        if (!lock)
+          throw createHardwareCloudSyncDataError(
+            'Cloud sync data key is unavailable',
+          );
+        assertNotRolledBack(lock, generation);
+        const kek = await device.deriveKek(lock.kekSalt);
+        assertBound();
+        const dek = await unwrapDek({ kek, envelope: lock });
+        if (
+          lock.dekId !== old.dekId ||
+          computeHardwareCloudSyncPwdHash(lock.dekId) !== legacy.pwdHash ||
+          dek !== legacy.encryptionKey
+        )
+          throw createHardwareCloudSyncDataError('Cloud sync data key changed');
+        assertBound();
+        return { ...legacy, hardwareSession: { ...session, dekId: old.dekId } };
+      },
+    });
+    assertBound();
+    const session = credential.hardwareSession;
+    if (!session || session.boundBaseURL !== endpoint)
+      throw new HardwareCloudSyncCancelledError();
+    await save(session, isBound, async (stored) => {
+      const config = await primeCloudSyncPersistAtom.get();
+      if (
+        !isBound() ||
+        config.isCloudSyncEnabled ||
+        !config.isCloudSyncEnabledKeyless ||
+        config.currentCloudSyncKeylessWalletId !== source.credentialId ||
+        config.hardwareCloudSyncKeySource?.credentialId !==
+          source.credentialId ||
+        config.hardwareCloudSyncKeySource.derivationVersion !==
+          source.derivationVersion ||
+        stringUtils.stableStringify(stored) !==
+          stringUtils.stableStringify(legacy)
+      )
+        throw new HardwareCloudSyncCancelledError();
+    });
+  } finally {
+    stopWatching();
   }
 }
 

@@ -181,6 +181,7 @@ async function setup() {
   const credentials: IKeylessCloudSyncCredential[] = [];
   for (const id of ['source', 'target']) {
     const session: IHardwareCloudSyncSession = {
+      boundBaseURL: client.defaults.baseURL,
       deviceKeyJwk: createHardwareCloudSyncDeviceKey(),
       accessToken: id,
       accessTokenExpiresAt: Date.now() + 600_000,
