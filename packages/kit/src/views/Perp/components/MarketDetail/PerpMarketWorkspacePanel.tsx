@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Tooltip,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -57,7 +63,7 @@ function WorkspaceTabButton({
   onPress: () => void;
   fullWidth?: boolean;
 }) {
-  return (
+  const trigger = (
     <XStack
       render={
         platformEnv.isNative ? undefined : (
@@ -68,9 +74,11 @@ function WorkspaceTabButton({
       aria-selected={active}
       focusable
       width={fullWidth ? '50%' : undefined}
+      minWidth={0}
       flexShrink={0}
       h="100%"
       p="$0"
+      px={fullWidth ? '$2' : '$0'}
       bg="transparent"
       alignItems="center"
       justifyContent="center"
@@ -81,18 +89,31 @@ function WorkspaceTabButton({
     >
       <XStack
         h="100%"
+        minWidth={0}
+        maxWidth="100%"
+        flexShrink={1}
         alignItems="center"
         borderBottomWidth="$0.5"
         borderBottomColor={active ? '$borderActive' : 'transparent'}
       >
         <SizableText
-          size={fullWidth ? '$bodySmMedium' : '$bodyMdMedium'}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+          minWidth={0}
+          flexShrink={1}
           color={active ? '$text' : '$textSubdued'}
         >
           {label}
         </SizableText>
       </XStack>
     </XStack>
+  );
+  return (
+    <Tooltip
+      triggerAsChild
+      renderTrigger={trigger}
+      renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
+    />
   );
 }
 

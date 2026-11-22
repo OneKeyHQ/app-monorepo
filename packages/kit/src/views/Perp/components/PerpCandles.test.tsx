@@ -86,6 +86,10 @@ jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children?: ReactNode }) => children,
   YStack: ({ children }: { children?: ReactNode }) => children,
   SizableText: () => null,
+  Tooltip: Object.assign(
+    ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
+    { Text: ({ children }: { children?: ReactNode }) => children },
+  ),
   IconButton: () => null,
   LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
