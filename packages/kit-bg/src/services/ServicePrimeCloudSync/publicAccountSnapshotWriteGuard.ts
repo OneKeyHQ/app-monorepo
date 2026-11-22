@@ -23,7 +23,9 @@ const previousVersions = new WeakMap<
 const rejectedWrites = new WeakSet<IDBCloudSyncItem>();
 export type IWalletTieState = {
   accepted: Map<string, IDBCloudSyncItem>;
-  held: Set<string>;
+  held: Map<string, number>;
+  checked: ReadonlySet<string>;
+  sameNode?: boolean;
   cleaned: Set<string>;
   requested: Map<string, IDBCloudSyncItem>;
   wire: ICloudSyncServerItem[];
@@ -152,7 +154,10 @@ export function matchesPublicAccountSnapshotWrite(
         !current ||
         !sameVersion(verified, current)
       ) {
-        tie.state.held.add(item.id);
+        tie.state.held.set(
+          item.id,
+          Math.max(item.dataTime, tie.state.held.get(item.id) ?? 0),
+        );
         return false;
       }
       tie.state.accepted.set(item.id, item);

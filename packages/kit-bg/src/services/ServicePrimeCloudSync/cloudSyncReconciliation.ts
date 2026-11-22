@@ -1,5 +1,7 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   ICloudSyncReconciliationAdapter,
@@ -8,14 +10,17 @@ import type {
   ICloudSyncReconciliationResult,
   ICloudSyncReconciliationSummary,
 } from '@onekeyhq/shared/types/prime/cloudSyncReconciliation';
-import type { ICloudSyncCheckServerStatusResult } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type {
+  ICloudSyncCheckServerStatusResult,
+  ICloudSyncServerItem,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 
 // A missing tied version only means progress when this checked apply itself
 // committed the matching tombstone cleanup transaction.
-export function hasCheckedWalletReceipt(
+function hasCheckedWalletReceipt(
   id: string,
   item: IDBCloudSyncItem | undefined,
   previous: IDBCloudSyncItem | undefined,
@@ -27,15 +32,7 @@ export function hasCheckedWalletReceipt(
   if (!item.serverUploaded || item.pwdHash !== spaceId) return false;
   const later =
     (item.dataTime ?? 0) > (tie.requested.get(id)?.dataTime ?? Infinity) &&
-    tie.wire.some(
-      (row) =>
-        row.key === id &&
-        row.dataType === item.dataType &&
-        (row.pwdHash || serverPwdHash) === item.pwdHash &&
-        row.dataTimestamp === item.dataTime &&
-        row.data === item.data &&
-        row.isDeleted === item.isDeleted,
-    );
+    matchesCheckedWireWallet(id, item, tie, serverPwdHash);
   const accepted = tie.accepted.get(id);
   return (
     later ||
@@ -49,6 +46,107 @@ export function hasCheckedWalletReceipt(
         item.data !== previous.data ||
         item.isDeleted !== previous.isDeleted))
   );
+}
+
+function matchesCheckedWireWallet(
+  id: string,
+  item: IDBCloudSyncItem,
+  tie: IWalletTieState,
+  serverPwdHash: string,
+): boolean {
+  return tie.wire.some(
+    (row) =>
+      row.key === id &&
+      row.dataType === item.dataType &&
+      (row.pwdHash || serverPwdHash) === item.pwdHash &&
+      row.dataTimestamp === item.dataTime &&
+      row.data === item.data &&
+      row.isDeleted === item.isDeleted,
+  );
+}
+
+export function addWalletHolds(
+  pending: Map<string, number>,
+  held: ReadonlyMap<string, number>,
+) {
+  for (const [id, time] of held) {
+    pending.set(id, Math.max(time, pending.get(id) ?? 0));
+  }
+}
+
+function pruneWalletHold(
+  id: string,
+  item: IDBCloudSyncItem | undefined,
+  tie: IWalletTieState,
+  pending: Map<string, number>,
+  spaceId: string,
+  serverPwdHash: string,
+): void {
+  const time = pending.get(id);
+  if (time === undefined || !tie.sameNode || !tie.isCurrent()) return;
+  const accepted = tie.accepted.get(id);
+  const ownedDeletion = !item && tie.cleaned.has(id);
+  const current = item ?? (ownedDeletion ? accepted : undefined);
+  if (
+    current?.dataType !== EPrimeCloudSyncDataType.Wallet ||
+    current.pwdHash !== spaceId ||
+    current.serverUploaded !== true ||
+    !Number.isSafeInteger(current.dataTime) ||
+    (current.dataTime ?? 0) <= time ||
+    !matchesCheckedWireWallet(id, current, tie, serverPwdHash)
+  )
+    return;
+  if (ownedDeletion || current.localSceneUpdated === true) pending.delete(id);
+}
+
+export function walletReceipt(
+  id: string,
+  item: IDBCloudSyncItem | undefined,
+  previous: IDBCloudSyncItem | undefined,
+  tie: IWalletTieState,
+  holds: Map<string, number>,
+  spaceId: string,
+  serverPwdHash: string,
+): boolean | undefined {
+  if (holds.size) pruneWalletHold(id, item, tie, holds, spaceId, serverPwdHash);
+  if (!tie.accepted.has(id) && !tie.held.has(id) && !tie.checked.has(id))
+    return undefined;
+  return hasCheckedWalletReceipt(
+    id,
+    item,
+    previous,
+    tie,
+    spaceId,
+    serverPwdHash,
+  );
+}
+
+export function prepareWalletTieState(
+  wire: ICloudSyncServerItem[],
+  requestItems: IDBCloudSyncItem[],
+  isCurrent: () => boolean,
+): IWalletTieState {
+  const requested = new Map(requestItems.map((item) => [item.id, item]));
+  const checked = new Set(
+    wire.flatMap((row) => {
+      const local = requested.get(row.key);
+      return row.dataType === EPrimeCloudSyncDataType.Wallet &&
+        local?.dataType === EPrimeCloudSyncDataType.Wallet &&
+        local.dataTime !== undefined &&
+        local.dataTime === cloudSyncUtils.normalizeDataTime(row.dataTimestamp)
+        ? [row.key]
+        : [];
+    }),
+  );
+  return {
+    wire,
+    requested,
+    checked,
+    accepted: new Map(),
+    cleaned: new Set(),
+    held: new Map(),
+    isCurrent,
+  };
 }
 
 export const CLOUD_SYNC_RECONCILIATION_DEFAULT_LIMITS: ICloudSyncReconciliationLimits =

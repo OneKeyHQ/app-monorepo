@@ -2881,6 +2881,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               (await this.backgroundApi.serviceKeylessCloudSync.getHardwareWalletRetryOrigin())
             )
               return;
+            if (active && tieState.isCurrent()) tieState.sameNode = true;
             const helper = await import('./incrementalCloudSync');
             await helper.verifyWalletTies(
               this.syncManagers.wallet,
@@ -2938,6 +2939,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverPwdHash,
     isCurrent,
     skipLastSyncTime = false,
+    tieState,
   }: {
     deletedItemIds: string[];
     requestItems: IDBCloudSyncItem[];
@@ -2946,6 +2948,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverPwdHash: string;
     isCurrent?: () => boolean;
     skipLastSyncTime?: boolean;
+    tieState?: IWalletTieState;
   }) {
     // A bare deletion ACK only applies to the version sent in that request.
     // Preserve that version and compare it atomically inside the DB write.
@@ -2968,6 +2971,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       shouldSyncToScene,
       isCurrent,
       skipLastSyncTime,
+      tieState,
     });
   }
 
@@ -3247,6 +3251,8 @@ class ServicePrimeCloudSync extends ServiceBase {
           });
         }
       }
+      // A full check reports only after all lists/pages have settled.
+      if (tieState) return;
       if (skipLastSyncTime) {
         // Only this caller owns the timestamp. A live Wallet additionally
         // needs the existing durable exact scene ACK, not just downloaded
@@ -3862,9 +3868,13 @@ class ServicePrimeCloudSync extends ServiceBase {
           transportFailure = 'server-unavailable';
         else transportFailure = undefined;
       };
-      let unknownTie = false;
-      const { runCloudSyncReconciliation, hasCheckedWalletReceipt } =
-        await import('./cloudSyncReconciliation');
+      const holds = new Map<string, number>();
+      const {
+        runCloudSyncReconciliation,
+        walletReceipt,
+        addWalletHolds,
+        prepareWalletTieState,
+      } = await import('./cloudSyncReconciliation');
       const result = await runCloudSyncReconciliation({
         signal: controller.signal,
         adapter: {
@@ -3990,6 +4000,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                       lockItem: undefined,
                       pwdHash: spaceId,
                       setUndefinedTimeToNow: true,
+                      skipLastSyncTime: true,
                       requestOptions: { signal, timeout: 10_000 },
                     });
                   } catch (error) {
@@ -4035,29 +4046,11 @@ class ServicePrimeCloudSync extends ServiceBase {
                   .filter((item) => item.isDeleted)
                   .map((item) => item.key),
               ]);
-              const requested = new Map(
-                checkRequestItems.map((item) => [item.id, item]),
-              );
-              const checkedTies = new Set(
-                wire.flatMap((row) => {
-                  const local = requested.get(row.key);
-                  return row.dataType === EPrimeCloudSyncDataType.Wallet &&
-                    local?.dataType === EPrimeCloudSyncDataType.Wallet &&
-                    local.dataTime !== undefined &&
-                    local.dataTime ===
-                      cloudSyncItemBuilder.normalizeDataTime(row.dataTimestamp)
-                    ? [row.key]
-                    : [];
-                }),
-              );
-              const tieState: IWalletTieState = {
-                accepted: new Map(),
-                held: new Set(),
-                cleaned: new Set(),
-                requested,
+              const tieState = prepareWalletTieState(
                 wire,
-                isCurrent: () => !endpointChanged && operationIsCurrent(),
-              };
+                checkRequestItems,
+                () => !endpointChanged && operationIsCurrent(),
+              );
               for (const serverItems of [response.diff, response.updated]) {
                 if (!isCurrent() || signal.aborted)
                   throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -4069,17 +4062,16 @@ class ServicePrimeCloudSync extends ServiceBase {
                     serverPwdHash: response.pwdHash,
                     isCurrent: operationIsCurrent,
                     onWalletNameHistoryDeferred,
-                    skipLastSyncTime: !!checkedTies.size,
                     tieState,
                     tieOrigin: this.walletCheckOrigins.get(response),
                   });
               }
               if (!isCurrent() || signal.aborted)
                 throw new OneKeyLocalError('Cloud sync was cancelled');
-              unknownTie ||= tieState.held.size > 0;
+              addWalletHolds(holds, tieState.held);
               const bareDeletes = response.deleted.filter(
                 (id) =>
-                  !checkedTies.has(id) &&
+                  !tieState.checked.has(id) &&
                   !tieState.held.has(id) &&
                   !tieState.accepted.has(id),
               );
@@ -4091,7 +4083,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                   syncCredential: credential,
                   serverPwdHash: response.pwdHash,
                   isCurrent: operationIsCurrent,
-                  skipLastSyncTime: !!checkedTies.size,
+                  tieState,
                 });
               const accountIssues =
                 await simpleDb.cloudSyncAccountIssues.getRawData();
@@ -4115,23 +4107,17 @@ class ServicePrimeCloudSync extends ServiceBase {
                 for (const id of ids.slice(offset, offset + 50)) {
                   const item = after.get(id);
                   const old = before.get(id);
-                  const accepted = tieState.accepted.get(id);
-                  if (
-                    accepted ||
-                    tieState.held.has(id) ||
-                    checkedTies.has(id)
-                  ) {
-                    if (
-                      hasCheckedWalletReceipt(
-                        id,
-                        item,
-                        old,
-                        tieState,
-                        spaceId,
-                        response.pwdHash,
-                      )
-                    )
-                      applied += 1;
+                  const receipt = walletReceipt(
+                    id,
+                    item,
+                    old,
+                    tieState,
+                    holds,
+                    spaceId,
+                    response.pwdHash,
+                  );
+                  if (receipt !== undefined) {
+                    if (receipt) applied += 1;
                     // eslint-disable-next-line no-continue -- A tie needs an exact receipt.
                     continue;
                   }
@@ -4172,6 +4158,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
+      const unknownTie = !!holds.size;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
       if (shouldReplay) {
         await this.syncPendingItemsToScene({

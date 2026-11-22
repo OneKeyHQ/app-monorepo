@@ -2855,6 +2855,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
   test.each([
     'equal-tombstone',
     'owned-tombstone-cleanup',
+    'held-then-newer',
+    'held-then-newer-page',
+    'late-current-equal-hold',
+    'late-current-equal-in-updated',
+    'ordinary-page-before-typed-hold',
+    'held-then-equal-page-unacked',
+    'held-then-newer-unacked',
+    'held-then-newer-other-origin',
+    'held-newer-with-held-sibling',
     'competing-tombstone-cleanup',
     'equal-race',
     'request-race',
@@ -2886,6 +2895,18 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     async (kind) => {
       if (kind === 'read-hang') jest.useRealTimers();
       const h = harness();
+      const repair = kind.startsWith('held-') && kind !== 'held-and-bare';
+      const equalToLaterRequest = kind === 'held-then-equal-page-unacked';
+      const ordinaryFirstPage = kind === 'ordinary-page-before-typed-hold';
+      const paginateRepair =
+        kind === 'held-then-newer-page' || equalToLaterRequest;
+      const heldSibling = kind === 'held-newer-with-held-sibling';
+      const holdInUpdated = kind === 'late-current-equal-in-updated';
+      const lateHold = kind === 'late-current-equal-hold' || holdInUpdated;
+      const healthyDiff = {
+        ...serverItem(1041),
+        key: 'healthy-diff-before-updated-hold',
+      };
       const cleanup = [
         'owned-tombstone-cleanup',
         'competing-tombstone-cleanup',
@@ -2946,13 +2967,73 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         serverUploaded: true,
         localSceneUpdated: true,
       };
+      const sibling = { ...initial, id: `sibling-${id}` };
+      const outgoing = {
+        ...initial,
+        dataType: EPrimeCloudSyncDataType.Account,
+        id: 'ordinary-page-outbound',
+        serverUploaded: false,
+      };
+      const upload = jest.spyOn(h.service, '_callApiUploadItems');
+      if (ordinaryFirstPage)
+        upload.mockImplementation(async ({ skipLastSyncTime }) => {
+          if (!skipLastSyncTime) await h.service.updateLastSyncTime();
+          return { nonce: 1, updated: 1, created: 0 };
+        });
       await db.addAndUpdateSyncItems({
-        items: [initial],
+        items: [
+          initial,
+          ...(heldSibling ? [sibling] : []),
+          ...(ordinaryFirstPage ? [outgoing] : []),
+        ],
         skipUploadToServer: true,
       });
+      if (equalToLaterRequest) {
+        h.scene.mockImplementationOnce(async () => {
+          await db.addAndUpdateSyncItems({
+            items: [
+              {
+                ...initial,
+                data: 'local-newer-than-held',
+                dataTime: timestamp + 1,
+                serverUploaded: false,
+              },
+            ],
+            skipUploadToServer: true,
+          });
+        });
+      } else if (repair && kind !== 'held-then-newer-unacked')
+        h.scene.mockImplementation(async ({ items }) => {
+          if (
+            !items.some(
+              (item) =>
+                item.id === id &&
+                item.dataTime === timestamp + 1 &&
+                item.data === 'source-verified-newer-ack' &&
+                !item.isDeleted,
+            )
+          )
+            return;
+          await db.updateSyncItem({
+            ids: [id],
+            updater: (record) => {
+              if (
+                record.dataTime === timestamp + 1 &&
+                record.data === 'source-verified-newer-ack' &&
+                !record.isDeleted
+              )
+                record.localSceneUpdated = true;
+              return record;
+            },
+          });
+        });
       h.getPool.mockImplementation(() => db.getAllSyncItems());
       h.getRecords.mockImplementation((params) => db.getRecordsByIds(params));
-      if (kind === 'read-error')
+      if (
+        kind === 'read-error' ||
+        ordinaryFirstPage ||
+        (repair && kind !== 'held-then-newer-other-origin')
+      )
         jest
           .spyOn(db, 'getAllWallets')
           .mockRejectedValueOnce(
@@ -3020,31 +3101,33 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           });
         });
 
-      jest
+      const decoded: Awaited<
+        ReturnType<typeof cloudSyncItemBuilder.decryptSyncItem>
+      > = {
+        rawDataJson: {
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          rawKey:
+            kind === 'unknown-live' ? 'unrelated-synthetic-wallet-id' : rawKey,
+          payload: {
+            walletType: 'hd',
+            walletHash: kind === 'spliced-wallet' ? 'other-wallet' : hash,
+            name: 'Wallet name retained',
+            avatar: undefined,
+            hwDeviceId: undefined,
+            passphraseState: undefined,
+          },
+        },
+        dbItem: initial,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        isDeleted: false,
+      };
+      const decrypt = jest
         .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
         .mockReset()
-        .mockResolvedValueOnce({
-          rawDataJson: {
-            dataType: EPrimeCloudSyncDataType.Wallet,
-            rawKey:
-              kind === 'unknown-live'
-                ? 'unrelated-synthetic-wallet-id'
-                : rawKey,
-            payload: {
-              walletType: 'hd',
-              walletHash: kind === 'spliced-wallet' ? 'other-wallet' : hash,
-              name: 'Wallet name retained',
-              avatar: undefined,
-              hwDeviceId: undefined,
-              passphraseState: undefined,
-            },
-          },
-          dbItem: initial,
-          dataType: EPrimeCloudSyncDataType.Wallet,
-          isDeleted: false,
-        });
+        .mockResolvedValueOnce(decoded);
+      if (equalToLaterRequest) decrypt.mockResolvedValueOnce(decoded);
       let offset = 0;
-      if (kind === 'newer-tombstone') offset = 1;
+      if (kind === 'newer-tombstone' || lateHold) offset = 1;
       if (kind === 'fractional-time') offset = 0.5;
       const wire: ICloudSyncServerItem = {
         key: id,
@@ -3059,32 +3142,55 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       h.check.mockRestore();
       const url = '/prime/v1/sync/check';
       const origin = endpointsMap.prod.prime;
+      const recovered: ICloudSyncServerItem = {
+        ...wire,
+        data: 'source-verified-newer-ack',
+        isDeleted: false,
+        dataTimestamp: timestamp + 1,
+      };
       const data = reply({
         serverTime: timestamp + 10_000,
-        diff: ['bare-delete', 'empty-response'].includes(kind) ? [] : [wire],
+        diff: [
+          ...(['bare-delete', 'empty-response'].includes(kind)
+            ? []
+            : [
+                holdInUpdated || ordinaryFirstPage
+                  ? { ...healthyDiff, key: `healthy-diff-${kind}` }
+                  : wire,
+              ]),
+          ...(heldSibling ? [{ ...wire, key: sibling.id, data: '' }] : []),
+          ...(paginateRepair
+            ? [{ ...serverItem(1040), key: `page-anchor-${kind}` }]
+            : []),
+        ],
         updated: [
-          'paired-later-cloud',
-          'paired-later-continuation',
-          'conflicting-equal-cloud',
-          'identical-equal-cloud',
-        ].includes(kind)
-          ? [
-              {
-                ...wire,
-                isDeleted: kind === 'paired-later-cloud',
-                data:
-                  kind === 'identical-equal-cloud'
-                    ? wire.data
-                    : 'different-typed-cloud-version',
-                dataTimestamp: [
-                  'conflicting-equal-cloud',
-                  'identical-equal-cloud',
-                ].includes(kind)
-                  ? timestamp
-                  : timestamp + 1,
-              },
-            ]
-          : [],
+          ...(repair && !paginateRepair ? [recovered] : []),
+          ...(holdInUpdated ? [wire] : []),
+          ...([
+            'paired-later-cloud',
+            'paired-later-continuation',
+            'conflicting-equal-cloud',
+            'identical-equal-cloud',
+          ].includes(kind)
+            ? [
+                {
+                  ...wire,
+                  isDeleted: kind === 'paired-later-cloud',
+                  data:
+                    kind === 'identical-equal-cloud'
+                      ? wire.data
+                      : 'different-typed-cloud-version',
+                  dataTimestamp: [
+                    'conflicting-equal-cloud',
+                    'identical-equal-cloud',
+                  ].includes(kind)
+                    ? timestamp
+                    : timestamp + 1,
+                },
+              ]
+            : []),
+        ],
+        obsoleted: ordinaryFirstPage ? [outgoing.id] : [],
         deleted: [
           'typed-and-bare',
           'held-and-bare',
@@ -3093,7 +3199,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         ].includes(kind)
           ? [id]
           : [],
-        ...(kind === 'paired-later-continuation' || cleanup
+        ...(kind === 'paired-later-continuation' ||
+        cleanup ||
+        paginateRepair ||
+        ordinaryFirstPage
           ? {}
           : { reconciliation: undefined }),
       });
@@ -3112,8 +3221,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           },
           request: {
             oneKeyVerifiedFinalUrl:
-              (kind === 'wrong-origin' ? endpointsMap.test.prime : origin) +
-              url,
+              (['wrong-origin', 'held-then-newer-other-origin'].includes(kind)
+                ? endpointsMap.test.prime
+                : origin) + url,
           },
           data: { code: 0, message: '', data },
         },
@@ -3121,9 +3231,15 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       const rawCheck = jest
         .spyOn(h.service, 'apiCheckServerStatusKeyless')
         .mockImplementationOnce(async () => {
-          if (kind === 'request-race')
+          if (kind === 'request-race' || lateHold)
             await db.addAndUpdateSyncItems({
-              items: [{ ...refreshed, serverUploaded: false }],
+              items: [
+                {
+                  ...refreshed,
+                  dataTime: lateHold ? timestamp + 1 : timestamp,
+                  serverUploaded: false,
+                },
+              ],
               skipUploadToServer: true,
             });
           if (kind === 'request-cleaned-tombstone')
@@ -3132,7 +3248,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         });
       if (
         kind === 'paired-later-continuation' ||
-        kind === 'owned-tombstone-cleanup'
+        kind === 'owned-tombstone-cleanup' ||
+        paginateRepair ||
+        ordinaryFirstPage
       )
         rawCheck.mockResolvedValueOnce({
           ...check,
@@ -3141,6 +3259,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             data: {
               ...check.response.data,
               data: reply({
+                serverTime: timestamp + 10_000,
+                diff: paginateRepair ? [recovered] : [],
+                updated: ordinaryFirstPage ? [wire] : [],
                 reconciliation: {
                   version: 1,
                   diffBeforeLimit: true,
@@ -3158,6 +3279,59 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: [id],
       });
+      if (ordinaryFirstPage) {
+        expect(records[0]).toMatchObject({
+          data: initial.data,
+          dataTime: timestamp,
+        });
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          status: 'partial',
+          applied: 1,
+          rounds: 2,
+          uploaded: 1,
+        });
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({ skipLastSyncTime: true }),
+        );
+        expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+        return;
+      }
+      if (lateHold) {
+        expect(records[0]).toMatchObject({
+          data: refreshed.data,
+          dataTime: timestamp + 1,
+          isDeleted: false,
+        });
+        expect(h.config().cloudSyncReconciliation?.status).toBe('partial');
+        expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+        if (holdInUpdated) {
+          const saved = await db.getRecordsByIds({
+            name: ELocalDBStoreNames.CloudSyncItem,
+            ids: [`healthy-diff-${kind}`],
+          });
+          expect(saved.records[0]).toMatchObject({ data: healthyDiff.data });
+          expect(h.config().cloudSyncReconciliation?.applied).toBe(1);
+        }
+        return;
+      }
+      if (repair) {
+        expect(records[0]).toMatchObject({
+          dataTime: timestamp + 1,
+          data: recovered.data,
+        });
+        const stillHeld =
+          heldSibling ||
+          equalToLaterRequest ||
+          ['held-then-newer-unacked', 'held-then-newer-other-origin'].includes(
+            kind,
+          );
+        expect(h.config().cloudSyncReconciliation).toMatchObject({
+          status: stillHeld ? 'partial' : 'complete',
+          rounds: paginateRepair ? 2 : 1,
+        });
+        expect(h.updateLastSyncTime).toHaveBeenCalledTimes(stillHeld ? 0 : 1);
+        return;
+      }
       if (cleanup) {
         expect(records[0]).toBeUndefined();
         expect(h.config().cloudSyncReconciliation?.applied).toBe(
@@ -3261,6 +3435,32 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       }
     },
   );
+
+  test('a successful full check owns one final timestamp across ordinary page writes', async () => {
+    const h = harness();
+    h.check.mockResolvedValueOnce(reply({ diff: [serverItem(1200)] }));
+    h.check.mockResolvedValueOnce(
+      reply({
+        diff: [serverItem(1201)],
+        reconciliation: {
+          ...reply().reconciliation,
+          version: 1,
+          diffBeforeLimit: true,
+          includesDeleted: true,
+          maxItems: 500,
+          maxBytes: 1024 * 1024,
+          hasMore: false,
+        },
+      }),
+    );
+    await h.run();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      applied: 2,
+      rounds: 2,
+    });
+    expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
+  });
 
   test.each([true, false])(
     'metadata deletion ACKs advance a delete-only drain without upload (local uploaded=%s)',
