@@ -155,10 +155,11 @@ async function getPerpTabRoute() {
     await import('@onekeyhq/kit-bg/src/states/jotai/atoms/perps');
   const { perpConfigCommon, perpConfigLoaded } =
     await perpsCommonConfigPersistAtom.get();
-  if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
-    return undefined;
-  }
-  return perpConfigCommon?.usePerpWeb
+  // Same rule as usePerpTabConfig: the sidebar shows the web Perps tab only
+  // when Perps is enabled and set to web. Otherwise keep the original target.
+  const isPerpDisabled =
+    (perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp;
+  return !isPerpDisabled && perpConfigCommon?.usePerpWeb
     ? ETabRoutes.WebviewPerpTrade
     : ETabRoutes.Perp;
 }
@@ -362,26 +363,16 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           }
           case EShortcutEvents.TabPerps:
-            // No Perps tab: leave open forms alone instead of closing them
-            // for nothing.
-            void getPerpTabRoute().then((availableRoute) => {
-              if (!availableRoute) {
-                return;
-              }
-              ensureModalClosedAndNavigate(() => {
-                // Resolved now, after the modals closed: the same Perps tab the
-                // sidebar shows for the current config.
-                void getPerpTabRoute().then((perpTabRoute) => {
-                  if (!perpTabRoute) {
-                    return;
-                  }
-                  // Only an actual entry may record the source, or a later
-                  // visit would consume it.
-                  if (willTabFocusTransition(perpTabRoute)) {
-                    setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
-                  }
-                  navigation.switchTab(perpTabRoute);
-                });
+            ensureModalClosedAndNavigate(() => {
+              // Resolved after the modals closed: the Perps tab the sidebar
+              // shows for the current config.
+              void getPerpTabRoute().then((perpTabRoute) => {
+                // Only an actual entry may record the source, or a later
+                // visit would consume it.
+                if (willTabFocusTransition(perpTabRoute)) {
+                  setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
+                }
+                navigation.switchTab(perpTabRoute);
               });
             });
             break;
