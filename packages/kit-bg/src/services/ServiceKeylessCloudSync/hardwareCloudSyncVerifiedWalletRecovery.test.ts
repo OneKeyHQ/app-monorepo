@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
@@ -80,7 +80,10 @@ const credential: ICloudSyncCredential = {
 
 let count = 0;
 
-async function fixture(type: 'hd' | 'hw' = 'hd', realmNullHash = false) {
+async function fixture(
+  type: 'hd' | 'hw' = 'hd',
+  realm?: { firstEvmAddress?: string | null; bitcoinOnly?: boolean },
+) {
   count += 1;
   mockDb = new LocalDbIndexed();
   const device: IDBDevice | undefined =
@@ -115,15 +118,22 @@ async function fixture(type: 'hd' | 'hw' = 'hd', realmNullHash = false) {
     nextIds: {},
     name: 'Canonical metadata',
   };
-  if (realmNullHash) {
+  if (realm) {
     const realmWallet = Object.create(
       RealmSchemaWallet.prototype,
     ) as RealmSchemaWallet;
     const { nextIds: _nextIds, ...fields } = wallet;
-    Object.assign(realmWallet, fields, { hash: null });
+    Object.assign(realmWallet, fields, {
+      hash: null,
+      firstEvmAddress: realm.firstEvmAddress,
+      ...(realm.bitcoinOnly
+        ? { firmwareTypeAtCreated: EFirmwareType.BitcoinOnly }
+        : {}),
+    });
     // Realm native engine is not loaded; use the production schema's raw
     // record projection with exactly the value native stores for string?.
     expect(RealmSchemaWallet.schema.properties.hash).toBe('string?');
+    expect(RealmSchemaWallet.schema.properties.firstEvmAddress).toBe('string?');
     wallet = realmWallet.record;
     expect(wallet.hash).toBeNull();
   }
@@ -206,6 +216,13 @@ test.each([
   'realm-concrete-wire-hash',
   'realm-empty-wire-hash',
   'realm-concrete-old-hash',
+  'btc-evm-null-wire',
+  'btc-evm-omitted-wire',
+  'btc-evm-concrete-wire',
+  'btc-evm-empty-wire',
+  'btc-evm-concrete-old',
+  'realm-real-evm-cleared',
+  'realm-real-evm-remapped',
   'name-race',
   'avatar-race',
   'device-race',
@@ -221,18 +238,43 @@ test.each([
   'stale-old-cache',
   'malformed-avatar',
 ] as const)('strict newer authenticated Wallet scene: %s', async (scenario) => {
+  const bitcoinOnly = scenario.startsWith('btc-evm');
+  const realAddress = `0x${'a'.repeat(40)}`;
+  const otherAddress = `0x${'b'.repeat(40)}`;
+  const trueSeed = scenario.startsWith('realm-real-evm');
+  let localFirstEvmAddress: string | null | undefined;
+  if (trueSeed) localFirstEvmAddress = realAddress;
+  if (bitcoinOnly) localFirstEvmAddress = null;
   const { previous, wallet, walletManager, changeHistory, row } = await fixture(
     'hw',
-    scenario.startsWith('realm-'),
+    bitcoinOnly || scenario.startsWith('realm-')
+      ? {
+          bitcoinOnly,
+          firstEvmAddress: localFirstEvmAddress,
+        }
+      : undefined,
   );
   const old = JSON.parse(previous.rawData ?? '') as ICloudSyncRawDataJson;
   if (old.dataType !== EPrimeCloudSyncDataType.Wallet)
     throw new OneKeyLocalError('Missing synthetic Wallet payload');
+  if (bitcoinOnly) {
+    expect(wallet.firmwareTypeAtCreated).toBe(EFirmwareType.BitcoinOnly);
+    expect(wallet.firstEvmAddress).toBeNull();
+    expect(old.payload.firstEvmAddress).toBeNull();
+  }
   if (scenario.startsWith('realm-')) expect(old.payload.walletHash).toBeNull();
-  if (scenario === 'realm-concrete-old-hash') {
+  if (
+    scenario === 'realm-concrete-old-hash' ||
+    scenario === 'btc-evm-concrete-old'
+  ) {
     previous.rawData = cloudSyncItemBuilder.buildRawDataString({
       ...old,
-      payload: { ...old.payload, walletHash: 'other-retained-wallet-hash' },
+      payload: {
+        ...old.payload,
+        ...(scenario === 'realm-concrete-old-hash'
+          ? { walletHash: 'other-retained-wallet-hash' }
+          : { firstEvmAddress: otherAddress }),
+      },
     });
     await mockDb.updateSyncItem({
       ids: [row.key],
@@ -272,6 +314,18 @@ test.each([
   if (scenario === 'realm-concrete-wire-hash')
     incomingHash = 'other-wallet-hash';
   if (scenario === 'realm-empty-wire-hash') incomingHash = '';
+  let incomingAddress = old.payload.firstEvmAddress;
+  if (
+    scenario === 'btc-evm-omitted-wire' ||
+    scenario === 'realm-real-evm-cleared'
+  )
+    incomingAddress = undefined;
+  if (
+    scenario === 'btc-evm-concrete-wire' ||
+    scenario === 'realm-real-evm-remapped'
+  )
+    incomingAddress = otherAddress;
+  if (scenario === 'btc-evm-empty-wire') incomingAddress = '';
   const replacement = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
     key: row.key,
     rawDataJson: {
@@ -279,6 +333,7 @@ test.each([
       payload: {
         ...old.payload,
         walletHash: incomingHash,
+        firstEvmAddress: incomingAddress,
         name,
         avatar:
           scenario === 'malformed-avatar'
@@ -421,7 +476,9 @@ test.each([
   if (
     scenario !== 'valid' &&
     scenario !== 'realm-null-hash' &&
-    scenario !== 'realm-omitted-wire-hash'
+    scenario !== 'realm-omitted-wire-hash' &&
+    scenario !== 'btc-evm-null-wire' &&
+    scenario !== 'btc-evm-omitted-wire'
   ) {
     const expected = { ...wallet };
     if (scenario === 'name-race') expected.name = 'Just edited locally';
@@ -437,7 +494,11 @@ test.each([
   }
   await expect(
     mockDb.getWallet({ walletId: wallet.id, withoutRefill: true }),
-  ).resolves.toMatchObject({ name, avatar: JSON.stringify(avatar) });
+  ).resolves.toMatchObject({
+    name,
+    avatar: JSON.stringify(avatar),
+    ...(bitcoinOnly ? { firstEvmAddress: null } : {}),
+  });
   await expect(mockDb.getSyncItem({ id: row.key })).resolves.toMatchObject({
     data: replacement.data,
     dataTime: row.dataTimestamp,

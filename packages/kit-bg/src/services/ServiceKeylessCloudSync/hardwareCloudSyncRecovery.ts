@@ -281,6 +281,7 @@ function matchesRetainedWalletPreimage({
 }) {
   // Realm materializes an unset optional hash as null; IndexedDB omits it.
   const walletHash = payload.walletHash ?? undefined;
+  const firstEvmAddress = payload.firstEvmAddress ?? undefined;
   if (
     wallet.isTemp ||
     wallet.isMocked ||
@@ -290,7 +291,8 @@ function matchesRetainedWalletPreimage({
     (payload.passphraseState ?? '') !== (wallet.passphraseState ?? '') ||
     payload.hwDeviceId !== device?.deviceId ||
     walletHash !== (wallet.hash ?? undefined) ||
-    payload.firstEvmAddress !== (wallet.firstEvmAddress ?? undefined) ||
+    firstEvmAddress === '' ||
+    firstEvmAddress !== (wallet.firstEvmAddress ?? undefined) ||
     !previous.rawData ||
     previous.rawData.length > 16_384 ||
     !/^(?:[a-f0-9]{2}){28,}$/i.test(previous.data ?? '')
@@ -314,7 +316,7 @@ function matchesRetainedWalletPreimage({
       (old.payload.walletHash ?? undefined) === walletHash &&
       old.payload.hwDeviceId === payload.hwDeviceId &&
       old.payload.passphraseState === payload.passphraseState &&
-      old.payload.firstEvmAddress === payload.firstEvmAddress &&
+      (old.payload.firstEvmAddress ?? undefined) === firstEvmAddress &&
       old.payload.name === wallet.name &&
       validRecoveryAvatar(old.payload.avatar) &&
       isEqual(old.payload.avatar, canonicalAvatar) &&
