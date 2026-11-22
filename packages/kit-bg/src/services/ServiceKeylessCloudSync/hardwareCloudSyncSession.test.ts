@@ -1,5 +1,7 @@
 import { createHash, createPublicKey, verify } from 'crypto';
 
+import axios from 'axios';
+
 import {
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   assertHardwareCloudSyncAuthMessage,
@@ -33,7 +35,7 @@ import {
   verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
 
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -1169,6 +1171,106 @@ describe('hardware Cloud sync session', () => {
           await expect(rotation).resolves.toMatchObject({
             verifiedFlushOrigin: marker === 'actual' ? BASE_URL : undefined,
           });
+      },
+    );
+
+    test('does not send a reset if its scope changes during the final clock await', async () => {
+      const { key, lock } = await firstDevice();
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ nonce: 7 }))
+        .mockResolvedValueOnce(ok({ serverData: [] }));
+      const savePending = jest.fn();
+      let current = true;
+      await expect(
+        rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending,
+          isCurrent: () => current,
+          beforeFlush: async () => {
+            jest
+              .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+              .mockImplementationOnce(async () => {
+                current = false;
+                return true;
+              });
+          },
+        }),
+      ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
+      expect(c.post.mock.calls.map(([url]) => String(url))).toEqual([
+        '/prime/v1/sync/check',
+        '/prime/v1/sync/download',
+      ]);
+      expect(savePending).toHaveBeenCalledTimes(1);
+    });
+
+    test.each(['interceptor', 'adapter'] as const)(
+      'preserves the pending reset when cancelled in the actual Axios %s',
+      async (phase) => {
+        const { key, lock } = await firstDevice();
+        const flushPath = '/prime/v1/sync/flush';
+        const cancellation = new AbortController();
+        const seen: string[] = [];
+        let enter = () => {};
+        const entering = new Promise<void>((resolve) => {
+          enter = resolve;
+        });
+        let release = () => {};
+        const blocked = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const adapter = async (config: InternalAxiosRequestConfig) => {
+          const path = config.url ?? '';
+          seen.push(path);
+          if (path === flushPath && phase === 'adapter') {
+            enter();
+            await blocked;
+          }
+          let data = {};
+          if (path === '/prime/v1/sync/lock') data = { lock };
+          if (path === '/prime/v1/sync/check') data = { nonce: 7 };
+          if (path === '/prime/v1/sync/download') data = { serverData: [] };
+          return {
+            ...ok(data),
+            config,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+          };
+        };
+        const client = axios.create({ baseURL: BASE_URL, adapter });
+        client.interceptors.request.use(async (config) => {
+          if (phase === 'interceptor' && config.url === flushPath) {
+            enter();
+            await blocked;
+          }
+          return config;
+        });
+        const savePending = jest.fn();
+        const rotating = rotateHardwareCloudSyncDataKey({
+          client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending,
+          flushSignal: cancellation.signal,
+        });
+        const outcome = rotating.then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        await entering;
+        cancellation.abort();
+        release();
+        expect(await outcome).toBeInstanceOf(Error);
+        expect(seen.includes(flushPath)).toBe(phase === 'adapter');
+        expect(savePending).toHaveBeenCalledTimes(1);
       },
     );
 

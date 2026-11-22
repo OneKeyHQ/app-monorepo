@@ -1126,6 +1126,7 @@ export async function rotateHardwareCloudSyncDataKey<
   localItems,
   savePending,
   isCurrent = () => true,
+  flushSignal,
   beforeFlush,
   minGeneration = 0,
 }: {
@@ -1138,6 +1139,7 @@ export async function rotateHardwareCloudSyncDataKey<
     next: IHardwareCloudSyncDataKey & { generation: number },
   ) => Promise<void>;
   isCurrent?: () => boolean;
+  flushSignal?: AbortSignal;
   beforeFlush?: () => Promise<void>;
   minGeneration?: number;
 }): Promise<{
@@ -1146,8 +1148,9 @@ export async function rotateHardwareCloudSyncDataKey<
   generation: number;
   verifiedFlushOrigin?: string;
 }> {
+  const boundBaseURL = session.boundBaseURL ?? client.defaults?.baseURL;
   const assertCurrent = () => {
-    if (!isCurrent()) {
+    if (!isCurrent() || flushSignal?.aborted) {
       throw new HardwareCloudSyncCancelledError();
     }
   };
@@ -1237,7 +1240,11 @@ export async function rotateHardwareCloudSyncDataKey<
     method: 'POST',
     urlPath,
     data,
+    boundBaseURL,
+    assertCanSend: assertCurrent,
+    requestOptions: flushSignal ? { signal: flushSignal } : undefined,
   });
+  assertCurrent();
   logHardwareCloudSyncDiagnostic('rotation_flush_accepted', {
     generation: envelope.generation,
     outputEnvelopeCount: envelopeCount,

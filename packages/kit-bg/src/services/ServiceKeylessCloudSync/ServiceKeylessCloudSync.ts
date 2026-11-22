@@ -2260,12 +2260,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const generation = this.hardwareCloudKeyGeneration;
     const isCurrent = () => this.hardwareCloudKeyGeneration === generation;
     this.cancelHardwareCloudKeyDevicePrompt();
-    let endpointChanged = false;
-    const stopEndpointWatch = session.boundBaseURL
-      ? devSettingsPersistAtom.sub(() => {
-          endpointChanged = true;
-        })
+    const rotationBaseURL = session.boundBaseURL ?? client.defaults?.baseURL;
+    const endpointAbort = new AbortController();
+    const stopEndpointWatch = rotationBaseURL
+      ? devSettingsPersistAtom.sub(() => endpointAbort.abort())
       : undefined;
+    const isRotationCurrent = () =>
+      isCurrent() &&
+      !endpointAbort.signal.aborted &&
+      (!rotationBaseURL || client.defaults?.baseURL === rotationBaseURL);
     let rotated:
       | Awaited<
           ReturnType<typeof rotateHardwareCloudSyncDataKey<IDBCloudSyncItem>>
@@ -2379,7 +2382,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
         localItems: items.filter(
           (item) => !isSupportedCloudSyncDataType(item.dataType),
         ),
-        isCurrent,
+        isCurrent: isRotationCurrent,
+        flushSignal: endpointAbort.signal,
         beforeFlush,
         savePending: async (pending) => {
           await this.saveHardwareCredential({
@@ -2390,10 +2394,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }).catch(async (error: unknown) => {
         // Refused outright: the server kept the old key, so drop the pending.
         if (!isHardwareCloudSyncNonceInvalidError(error)) throw error;
-        await this.saveHardwareCredential({
-          ...credential,
-          pendingDataKey: undefined,
-        });
+        if (!isRotationCurrent()) throw new HardwareCloudSyncCancelledError();
+        await this.saveHardwareCredential(
+          { ...credential, pendingDataKey: undefined },
+          {
+            refreshAdmission: {
+              canPersist: isRotationCurrent,
+              canPublish: isRotationCurrent,
+            },
+          },
+        );
         throw new HardwareCloudSyncError(
           ETranslations.cloud_sync_data_changed_during_key_change__msg,
           'Synced data changed during the key change. Try again.',
@@ -2465,8 +2475,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           origin,
           generation: rotated.generation,
           isCurrent: () =>
-            isCurrent() &&
-            !endpointChanged &&
+            isRotationCurrent() &&
             (!origin || client.defaults?.baseURL === origin),
         },
       );

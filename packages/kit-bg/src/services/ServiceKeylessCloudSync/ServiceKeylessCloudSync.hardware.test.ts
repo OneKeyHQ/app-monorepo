@@ -5173,6 +5173,9 @@ describe('hardware reset session and local data races', () => {
     'no-marker pool failure',
     'secure failure',
     'node changed',
+    'nonce refused',
+    'nonce refused after node change',
+    'nonce refused during cleanup',
   ] as const)(
     'an already authorized own reset commits the pool before key activation: %s',
     async (failure) => {
@@ -5181,6 +5184,9 @@ describe('hardware reset session and local data races', () => {
         failure === 'pool failure' || failure === 'no-marker pool failure';
       const noMarker =
         failure === 'missing proof' || failure === 'no-marker pool failure';
+      const nonceError = Object.assign(new Error('Refused nonce'), {
+        code: 90_705,
+      });
       const actualSession = jest.requireActual<
         typeof import('./hardwareCloudSyncSession')
       >('./hardwareCloudSyncSession');
@@ -5253,17 +5259,42 @@ describe('hardware reset session and local data races', () => {
         });
       jest
         .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
-        .mockImplementationOnce(async ({ savePending, beforeFlush }) => {
-          await savePending(pending);
-          await beforeFlush?.();
-          if (failure === 'node changed') changeMockTestEndpoint();
-          return {
-            next: recoveryKey,
-            generation: 2,
-            items: [],
-            verifiedFlushOrigin: noMarker ? undefined : origin,
-          };
-        });
+        .mockImplementationOnce(
+          async ({ savePending, beforeFlush, flushSignal, isCurrent }) => {
+            await savePending(pending);
+            await beforeFlush?.();
+            expect(isCurrent?.()).toBe(true);
+            expect(flushSignal?.aborted).toBe(false);
+            if (
+              failure === 'node changed' ||
+              failure === 'nonce refused after node change'
+            ) {
+              changeMockTestEndpoint();
+              expect(isCurrent?.()).toBe(false);
+              expect(flushSignal?.aborted).toBe(true);
+            }
+            if (failure.startsWith('nonce refused')) {
+              jest
+                .mocked(sessionApi.isHardwareCloudSyncNonceInvalidError)
+                .mockImplementationOnce((error) => error === nonceError);
+              if (failure === 'nonce refused during cleanup') {
+                jest
+                  .mocked(keylessSyncCredentialStorage.getCredential)
+                  .mockImplementationOnce(async () => {
+                    changeMockTestEndpoint();
+                    return mockStored ?? null;
+                  });
+              }
+              throw nonceError;
+            }
+            return {
+              next: recoveryKey,
+              generation: 2,
+              items: [],
+              verifiedFlushOrigin: noMarker ? undefined : origin,
+            };
+          },
+        );
       const interrupted = new Error('interrupted local rotation');
       const pool = jest
         .spyOn(localDb, 'updateSyncItem')
@@ -5279,6 +5310,24 @@ describe('hardware reset session and local data races', () => {
           }
         });
       const reset = service.resetHardwareCloudSyncKey({ connectId });
+      if (failure.startsWith('nonce refused')) {
+        const refused = failure === 'nonce refused';
+        if (failure === 'nonce refused during cleanup') {
+          await expect(reset).rejects.toThrow('settings changed');
+        } else {
+          await expect(reset).rejects.toMatchObject({
+            key: refused
+              ? ETranslations.cloud_sync_data_changed_during_key_change__msg
+              : ETranslations.update_operation_canceled,
+          });
+        }
+        expect(mockStored?.pwdHash).toBe(original.pwdHash);
+        expect(mockStored?.pendingDataKey).toEqual(
+          refused ? undefined : pending,
+        );
+        expect(pool).not.toHaveBeenCalled();
+        return;
+      }
       if (failure === 'success' || failure === 'missing proof') {
         await reset;
         expect(pool).toHaveBeenCalledTimes(1);
