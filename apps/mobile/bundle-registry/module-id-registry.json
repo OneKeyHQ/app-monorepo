@@ -23583,6 +23583,7 @@
     "packages/kit/src/routes/config/getStateFromPath.ts": 1762,
     "packages/kit/src/routes/config/index.ts": 17498,
     "packages/kit/src/routes/config/loggerUtmParams.ts": 15218,
+    "packages/kit/src/routes/config/urlAccountHistory.ts": 2994,
     "packages/kit/src/routes/config/webDappUrlFallback.ts": 16744,
     "packages/kit/src/routes/index.tsx": 954,
     "packages/kit/src/routes/router.ts": 2804,

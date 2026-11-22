@@ -65,6 +65,7 @@ function createTestNavigator(router: typeof StackRouter | typeof TabRouter) {
 const RootStack = createTestNavigator(StackRouter);
 const MainTabs = createTestNavigator(TabRouter);
 const HomeStack = createTestNavigator(StackRouter);
+const DustSweepStack = createTestNavigator(StackRouter);
 
 function EmptyScreen() {
   return null;
@@ -83,6 +84,14 @@ function AddressScreen() {
   ) : null;
 }
 
+function DustSweepScreen() {
+  return (
+    <DustSweepStack.Navigator>
+      <DustSweepStack.Screen name="Selection" component={EmptyScreen} />
+    </DustSweepStack.Navigator>
+  );
+}
+
 function HomeScreen() {
   return (
     <HomeStack.Navigator>
@@ -90,6 +99,10 @@ function HomeScreen() {
       <HomeStack.Screen
         name={ETabHomeRoutes.TabHomeUrlAccountPage}
         component={AddressScreen}
+      />
+      <HomeStack.Screen
+        name={ETabHomeRoutes.TabHomeDustSweep}
+        component={DustSweepScreen}
       />
     </HomeStack.Navigator>
   );
@@ -112,33 +125,48 @@ beforeAll(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
+async function renderNavigation() {
+  const navigation = createNavigationContainerRef();
+  const extensionPath = '/ui-expand-tab.html';
+  globalThis.history.pushState(null, '', extensionPath);
+  render(
+    <NavigationContainer
+      ref={navigation}
+      direction="ltr"
+      documentTitle={{ enabled: false }}
+      linking={{
+        prefixes: [],
+        getStateFromPath: () => undefined,
+        getPathFromState: () => extensionPath,
+        getHistoryBackRouteKey: getUrlAccountHistoryBackRouteKey,
+      }}
+    >
+      <RootStack.Navigator>
+        <RootStack.Screen name={ERootRoutes.Main} component={MainScreen} />
+      </RootStack.Navigator>
+    </NavigationContainer>,
+  );
+  await waitFor(() => expect(navigation.isReady()).toBe(true));
+  return navigation;
+}
+
+async function goBackInBrowser() {
+  await act(async () => {
+    const popState = new Promise<void>((resolve) => {
+      globalThis.addEventListener('popstate', () => resolve(), { once: true });
+    });
+    globalThis.history.back();
+    await popState;
+  });
+}
+
 it.each([
   { scenario: 'existing Home', replaceHome: false },
   { scenario: 'Home replaced by address search', replaceHome: true },
 ])(
   'returns to Home with $scenario and keeps browser Back in sync',
   async ({ replaceHome }) => {
-    const navigation = createNavigationContainerRef();
-    const extensionPath = '/ui-expand-tab.html';
-    globalThis.history.pushState(null, '', extensionPath);
-    render(
-      <NavigationContainer
-        ref={navigation}
-        direction="ltr"
-        documentTitle={{ enabled: false }}
-        linking={{
-          prefixes: [],
-          getStateFromPath: () => undefined,
-          getPathFromState: () => extensionPath,
-          getHistoryBackRouteKey: getUrlAccountHistoryBackRouteKey,
-        }}
-      >
-        <RootStack.Navigator>
-          <RootStack.Screen name={ERootRoutes.Main} component={MainScreen} />
-        </RootStack.Navigator>
-      </NavigationContainer>,
-    );
-    await waitFor(() => expect(navigation.isReady()).toBe(true));
+    const navigation = await renderNavigation();
     expect(navigation.getCurrentRoute()?.name).toBe(ETabRoutes.Market);
     const marketEntry: unknown = globalThis.history.state;
 
@@ -164,16 +192,41 @@ it.each([
     expect(navigation.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
     await waitFor(() => expect(replaceHistoryEntry).toHaveBeenCalled());
 
-    await act(async () => {
-      const popState = new Promise<void>((resolve) => {
-        globalThis.addEventListener('popstate', () => resolve(), {
-          once: true,
-        });
-      });
-      globalThis.history.back();
-      await popState;
-    });
+    await goBackInBrowser();
     expect(globalThis.history.state).toEqual(marketEntry);
     expect(navigation.getCurrentRoute()?.name).toBe(ETabRoutes.Market);
   },
 );
+
+it('reuses the Dust Sweep history entry while its nested Selection route is focused', async () => {
+  const navigation = await renderNavigation();
+  await act(async () =>
+    navigation.dispatch(TabActions.jumpTo(ETabRoutes.Home)),
+  );
+  const homeEntry: unknown = globalThis.history.state;
+  await act(async () =>
+    navigation.dispatch(StackActions.push(ETabHomeRoutes.TabHomeDustSweep)),
+  );
+  const selection = navigation.getCurrentRoute();
+  expect(selection?.name).toBe('Selection');
+  const dustSweepEntry: unknown = globalThis.history.state;
+  expect(dustSweepEntry).not.toEqual(homeEntry);
+
+  await act(async () =>
+    navigation.dispatch(
+      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage),
+    ),
+  );
+  expect(navigation.getCurrentRoute()?.name).toBe(
+    ETabHomeRoutes.TabHomeUrlAccountPage,
+  );
+  const replaceHistoryEntry = jest.spyOn(globalThis.history, 'replaceState');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to wallet' }));
+  expect(navigation.getCurrentRoute()).toEqual(selection);
+  await waitFor(() => expect(replaceHistoryEntry).toHaveBeenCalled());
+  expect(globalThis.history.state).toEqual(dustSweepEntry);
+
+  await goBackInBrowser();
+  expect(globalThis.history.state).toEqual(homeEntry);
+  expect(navigation.getCurrentRoute()?.name).toBe(ETabHomeRoutes.TabHome);
+});
