@@ -129,7 +129,7 @@ export async function parseQRCodeWithDeps(
       popNavigation && checkDestination
         ? rootNavigationRef.current
             ?.getRootState()
-            ?.routes.find((route) => route.name === ERootRoutes.Main)?.state
+            ?.routes.findLast((route) => route.name === ERootRoutes.Main)?.state
         : undefined;
     const destinationKey = mainState && findFocusedRoute(mainState)?.key;
     if (popNavigation) {
