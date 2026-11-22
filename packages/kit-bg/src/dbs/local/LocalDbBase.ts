@@ -5928,17 +5928,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async removeCloudSyncPoolItems({
     keys,
     expectedItems,
+    receipt,
   }: {
     keys: string[];
     expectedItems?: IDBCloudSyncItem[];
+    receipt?: {
+      isCurrent: () => boolean;
+      onCommitted: (keys: string[]) => void;
+    };
   }) {
-    // EIndexedDBBucketNames.cloudSync
-    await this.withSpaceFreeingTransaction(
+    const removed = await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
-        await this.txRemoveCloudSyncPoolItems({ tx, keys, expectedItems });
+        if (receipt && !receipt.isCurrent()) return undefined;
+        const applied = await this.txRemoveCloudSyncPoolItems({
+          tx,
+          keys,
+          expectedItems,
+          requireServerReceipt: !!receipt,
+        });
+        if (receipt && !receipt.isCurrent())
+          throw new OneKeyLocalError('Cloud sync cleanup was cancelled');
+        return applied;
       },
     );
+    if (removed?.length && receipt?.isCurrent()) receipt.onCommitted(removed);
   }
 
   async pruneWrongKeyCloudSyncPoolItems({
@@ -6019,10 +6033,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx,
     keys,
     expectedItems,
+    requireServerReceipt = false,
   }: {
     tx: ILocalDBTransaction;
     keys: string[];
     expectedItems?: IDBCloudSyncItem[];
+    requireServerReceipt?: boolean;
   }) {
     try {
       const expectedById =
@@ -6035,7 +6051,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // Cleanup follows asynchronous scene replay. Do not delete a pending
       // local removal, restore, or a newer tombstone.
       const keysToRemove = records.flatMap((current) => {
-        if (!current || current.pendingPublicAccountDeletionAt) return [];
+        if (
+          !current ||
+          current.pendingPublicAccountDeletionAt ||
+          (requireServerReceipt && current.serverUploaded !== true)
+        )
+          return [];
         if (!expectedById) return [current.id];
         const expected = expectedById.get(current.id);
         if (
@@ -6057,8 +6078,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ignoreNotFound: true,
         ids: keysToRemove.filter(Boolean),
       });
+      return keysToRemove;
     } catch (error) {
       console.error('txRemoveCloudSyncPoolItems error', error);
+      return undefined;
     }
   }
 

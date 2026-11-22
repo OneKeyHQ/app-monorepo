@@ -10,6 +10,47 @@ import type {
 } from '@onekeyhq/shared/types/prime/cloudSyncReconciliation';
 import type { ICloudSyncCheckServerStatusResult } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
+import type { IDBCloudSyncItem } from '../../dbs/local/types';
+
+// A missing tied version only means progress when this checked apply itself
+// committed the matching tombstone cleanup transaction.
+export function hasCheckedWalletReceipt(
+  id: string,
+  item: IDBCloudSyncItem | undefined,
+  previous: IDBCloudSyncItem | undefined,
+  tie: IWalletTieState,
+  spaceId: string,
+  serverPwdHash: string,
+): boolean {
+  if (!item) return tie.cleaned.has(id) && tie.isCurrent();
+  if (!item.serverUploaded || item.pwdHash !== spaceId) return false;
+  const later =
+    (item.dataTime ?? 0) > (tie.requested.get(id)?.dataTime ?? Infinity) &&
+    tie.wire.some(
+      (row) =>
+        row.key === id &&
+        row.dataType === item.dataType &&
+        (row.pwdHash || serverPwdHash) === item.pwdHash &&
+        row.dataTimestamp === item.dataTime &&
+        row.data === item.data &&
+        row.isDeleted === item.isDeleted,
+    );
+  const accepted = tie.accepted.get(id);
+  return (
+    later ||
+    (!!accepted &&
+      item.dataType === accepted.dataType &&
+      item.pwdHash === accepted.pwdHash &&
+      item.dataTime === accepted.dataTime &&
+      item.data === accepted.data &&
+      item.isDeleted === accepted.isDeleted &&
+      (!previous ||
+        item.data !== previous.data ||
+        item.isDeleted !== previous.isDeleted))
+  );
+}
+
 export const CLOUD_SYNC_RECONCILIATION_DEFAULT_LIMITS: ICloudSyncReconciliationLimits =
   {
     maxRequests: 8,

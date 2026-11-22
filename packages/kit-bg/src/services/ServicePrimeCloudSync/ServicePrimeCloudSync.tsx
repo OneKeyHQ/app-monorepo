@@ -2919,6 +2919,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       onWalletNameHistoryDeferred,
       pushBatchIsCurrent,
       skipLastSyncTime,
+      tieState,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2980,6 +2981,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     onWalletNameHistoryDeferred,
     pushBatchIsCurrent,
     skipLastSyncTime = false,
+    tieState,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
@@ -2990,6 +2992,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     pushBatchIsCurrent?: () => boolean;
     skipLastSyncTime?: boolean;
+    tieState?: IWalletTieState;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -3224,10 +3227,25 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
       if (deletedItems.length) {
-        await localDb.removeCloudSyncPoolItems({
-          keys: deletedItems.map((item) => item.id),
-          expectedItems: cleanupSources,
-        });
+        const keys = deletedItems.map((item) => item.id);
+        if (
+          tieState &&
+          keys.some((id) => tieState.accepted.get(id)?.isDeleted)
+        ) {
+          const { cleanupCheckedWalletTombstones } =
+            await import('./incrementalCloudSync');
+          await cleanupCheckedWalletTombstones(
+            localDb,
+            keys,
+            cleanupSources,
+            tieState,
+          );
+        } else {
+          await localDb.removeCloudSyncPoolItems({
+            keys,
+            expectedItems: cleanupSources,
+          });
+        }
       }
       if (skipLastSyncTime) {
         // Only this caller owns the timestamp. A live Wallet additionally
@@ -3845,7 +3863,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         else transportFailure = undefined;
       };
       let unknownTie = false;
-      const { runCloudSyncReconciliation } =
+      const { runCloudSyncReconciliation, hasCheckedWalletReceipt } =
         await import('./cloudSyncReconciliation');
       const result = await runCloudSyncReconciliation({
         signal: controller.signal,
@@ -4035,6 +4053,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               const tieState: IWalletTieState = {
                 accepted: new Map(),
                 held: new Set(),
+                cleaned: new Set(),
                 requested,
                 wire,
                 isCurrent: () => !endpointChanged && operationIsCurrent(),
@@ -4102,34 +4121,17 @@ class ServicePrimeCloudSync extends ServiceBase {
                     tieState.held.has(id) ||
                     checkedTies.has(id)
                   ) {
-                    if (item?.serverUploaded && item.pwdHash === spaceId) {
-                      const later =
-                        (item.dataTime ?? 0) >
-                          (requested.get(id)?.dataTime ?? Infinity) &&
-                        wire.some(
-                          (row) =>
-                            row.key === id &&
-                            row.dataType === item.dataType &&
-                            (row.pwdHash || response.pwdHash) ===
-                              item.pwdHash &&
-                            row.dataTimestamp === item.dataTime &&
-                            row.data === item.data &&
-                            row.isDeleted === item.isDeleted,
-                        );
-                      if (
-                        later ||
-                        (accepted &&
-                          item.dataType === accepted.dataType &&
-                          item.pwdHash === accepted.pwdHash &&
-                          item.dataTime === accepted.dataTime &&
-                          item.data === accepted.data &&
-                          item.isDeleted === accepted.isDeleted &&
-                          (!old ||
-                            item.data !== old.data ||
-                            item.isDeleted !== old.isDeleted))
+                    if (
+                      hasCheckedWalletReceipt(
+                        id,
+                        item,
+                        old,
+                        tieState,
+                        spaceId,
+                        response.pwdHash,
                       )
-                        applied += 1;
-                    }
+                    )
+                      applied += 1;
                     // eslint-disable-next-line no-continue -- A tie needs an exact receipt.
                     continue;
                   }

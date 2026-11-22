@@ -832,3 +832,44 @@ export async function updateDemoSyncItems(
     });
   });
 }
+
+export async function cleanupCheckedWalletTombstones(
+  db: ILocalDb,
+  keys: string[],
+  sources: IDBCloudSyncItem[],
+  tie: IWalletTieState,
+) {
+  const candidates = new Set(keys);
+  const expectedItems = sources.filter((row) => {
+    const accepted = tie.accepted.get(row.id);
+    return (
+      candidates.has(row.id) &&
+      accepted?.isDeleted === true &&
+      row.isDeleted === true &&
+      accepted.dataType === EPrimeCloudSyncDataType.Wallet &&
+      row.dataType === accepted.dataType &&
+      row.pwdHash === accepted.pwdHash &&
+      row.dataTime === accepted.dataTime &&
+      row.data === accepted.data &&
+      row.serverUploaded === true
+    );
+  });
+  const scoped = new Set(expectedItems.map((item) => item.id));
+  const ordinary = keys.filter((id) => !scoped.has(id));
+  if (ordinary.length)
+    await db.removeCloudSyncPoolItems({
+      keys: ordinary,
+      expectedItems: sources,
+    });
+  if (!expectedItems.length || !tie.isCurrent()) return;
+  await db.removeCloudSyncPoolItems({
+    keys: [...scoped],
+    expectedItems,
+    receipt: {
+      isCurrent: tie.isCurrent,
+      onCommitted: (removed) => {
+        for (const id of removed) tie.cleaned.add(id);
+      },
+    },
+  });
+}

@@ -2854,6 +2854,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
 
   test.each([
     'equal-tombstone',
+    'owned-tombstone-cleanup',
+    'competing-tombstone-cleanup',
     'equal-race',
     'request-race',
     'request-cleaned-tombstone',
@@ -2884,6 +2886,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     async (kind) => {
       if (kind === 'read-hang') jest.useRealTimers();
       const h = harness();
+      const cleanup = [
+        'owned-tombstone-cleanup',
+        'competing-tombstone-cleanup',
+      ].includes(kind);
       const live = [
         'equal-live',
         'paired-later-cloud',
@@ -2961,6 +2967,17 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
                 () => {},
               ),
           );
+      if (cleanup) {
+        jest
+          .spyOn(localDb, 'removeCloudSyncPoolItems')
+          .mockImplementationOnce((params) =>
+            db.removeCloudSyncPoolItems(params),
+          );
+        if (kind === 'competing-tombstone-cleanup')
+          h.scene.mockImplementationOnce(async () => {
+            await db.removeCloudSyncPoolItems({ keys: [id] });
+          });
+      }
       h.writePool.mockImplementation((params) =>
         db.addAndUpdateSyncItems(params),
       );
@@ -3076,7 +3093,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         ].includes(kind)
           ? [id]
           : [],
-        ...(kind === 'paired-later-continuation'
+        ...(kind === 'paired-later-continuation' || cleanup
           ? {}
           : { reconciliation: undefined }),
       });
@@ -3113,7 +3130,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             await db.removeCloudSyncPoolItems({ keys: [id] });
           return check;
         });
-      if (kind === 'paired-later-continuation')
+      if (
+        kind === 'paired-later-continuation' ||
+        kind === 'owned-tombstone-cleanup'
+      )
         rawCheck.mockResolvedValueOnce({
           ...check,
           response: {
@@ -3138,6 +3158,16 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: [id],
       });
+      if (cleanup) {
+        expect(records[0]).toBeUndefined();
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(
+          kind === 'owned-tombstone-cleanup' ? 1 : 0,
+        );
+        expect(rawCheck).toHaveBeenCalledTimes(
+          kind === 'owned-tombstone-cleanup' ? 2 : 1,
+        );
+        return;
+      }
       if (kind === 'request-cleaned-tombstone') {
         expect(records[0]).toBeUndefined();
         expect(h.config().cloudSyncReconciliation?.applied).toBe(0);

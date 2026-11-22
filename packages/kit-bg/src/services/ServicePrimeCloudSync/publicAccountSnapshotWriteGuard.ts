@@ -24,6 +24,7 @@ const rejectedWrites = new WeakSet<IDBCloudSyncItem>();
 export type IWalletTieState = {
   accepted: Map<string, IDBCloudSyncItem>;
   held: Set<string>;
+  cleaned: Set<string>;
   requested: Map<string, IDBCloudSyncItem>;
   wire: ICloudSyncServerItem[];
   isCurrent: () => boolean;
