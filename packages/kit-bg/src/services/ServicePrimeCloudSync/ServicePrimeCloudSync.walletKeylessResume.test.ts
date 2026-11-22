@@ -1577,6 +1577,7 @@ it.each([
   'unproven-ordinary-origin',
   'ordinary-missing-final-url',
   'unverified-session-retains-old-wallet',
+  'automatic-keyless-login-retains-old-wallet',
   'native-sni-retains-old-wallet',
   'native-sni-current-key-newer',
   'native-without-sni-recovers',
@@ -1589,7 +1590,7 @@ it.each([
   'scope-changed',
   'duplicate',
 ] as const)(
-  'Hardware settings Sync now keeps the old Wallet until a newer authenticated match (%s)',
+  'Hardware sync keeps the old Wallet until a newer authenticated match (%s)',
   async (scenario) => {
     const device: IDBDevice = {
       id: `manual-hw-device-${scenario}`,
@@ -1627,10 +1628,12 @@ it.each([
     const baseURL = 'https://manual-cloud-fixture.example.test';
     const unverifiedSession =
       scenario === 'unverified-session-retains-old-wallet';
+    const automaticLogin =
+      scenario === 'automatic-keyless-login-retains-old-wallet';
     const alreadyCurrent = scenario === 'native-sni-current-key-newer';
     const nativeSni =
       scenario === 'native-sni-retains-old-wallet' || alreadyCurrent;
-    const normalCheckOnly = unverifiedSession || nativeSni;
+    const normalCheckOnly = unverifiedSession || nativeSni || automaticLogin;
     if (nativeSni || scenario === 'native-without-sni-recovers') {
       mockManualSniCapability = nativeSni;
     }
@@ -1722,6 +1725,12 @@ it.each([
       backgroundApi as unknown as typeof appGlobals.$backgroundApiProxy,
     );
     jest.spyOn(prime, 'getSyncCredentialSafe').mockResolvedValue(credential);
+    if (automaticLogin) {
+      jest
+        .spyOn(prime, 'resolveInitLocalSyncItemsPassword')
+        .mockResolvedValue('');
+      jest.spyOn(prime, 'prepareLocalSyncWallets').mockResolvedValue();
+    }
     jest.spyOn(prime, 'isCloudSyncIsAvailable').mockResolvedValue(true);
     jest
       .spyOn(prime, 'ensureCloudSyncIsAvailable')
@@ -2100,10 +2109,18 @@ it.each([
         bypassRetryBackoff: true,
         askPasswordOnlyIfHdXfpMissing: true,
       });
-    const result =
-      scenario === 'duplicate'
-        ? (await Promise.all([run(), run()]))[0]
-        : await run();
+    const result = await (async () => {
+      if (automaticLogin) {
+        return prime.syncNowKeyless({
+          callerName: 'Keyless Wallet Login Success',
+          noDebounceUpload: true,
+          forceSync: true,
+        });
+      }
+      if (scenario === 'duplicate')
+        return (await Promise.all([run(), run()]))[0];
+      return run();
+    })();
     const oneNormalOnly = [
       'local-diverged',
       'no-lineage',
@@ -2111,6 +2128,7 @@ it.each([
       'unproven-ordinary-origin',
       'ordinary-missing-final-url',
       'unverified-session-retains-old-wallet',
+      'automatic-keyless-login-retains-old-wallet',
       'native-sni-retains-old-wallet',
       'native-sni-current-key-newer',
     ].includes(scenario);

@@ -4976,12 +4976,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     // Protect the old ciphertext during local initialization even when the
     // optional network recovery cannot prove its endpoint or is unsupported.
     const preserveInactiveWallets =
-      withManualResult &&
       hardware?.source?.type === 'hardware' &&
       !!hardware.hardwareSession &&
       selection.hardwareCloudSyncKeySource?.credentialId ===
         hardware.keylessWalletId;
     const manualHardwareRecovery =
+      withManualResult &&
       preserveInactiveWallets &&
       askPasswordOnlyIfHdXfpMissing &&
       hardware.hardwareSession?.boundBaseURLVerified === true &&

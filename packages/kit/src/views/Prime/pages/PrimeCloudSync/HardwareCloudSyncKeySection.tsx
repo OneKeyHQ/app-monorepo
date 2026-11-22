@@ -387,8 +387,9 @@ export function useHardwareCloudSyncKey() {
         setPending(false);
         await waiting.close();
       }
+      if (keyMissing) void recheckKeyMissing().catch(() => undefined);
     },
-    [intl, shouldPauseForEndpoint],
+    [intl, keyMissing, recheckKeyMissing, shouldPauseForEndpoint],
   );
   const enableWithDevice = useCallback(
     async (connectId: string) => {

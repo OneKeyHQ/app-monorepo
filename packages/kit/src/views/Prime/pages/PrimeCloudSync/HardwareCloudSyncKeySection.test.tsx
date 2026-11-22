@@ -10,7 +10,9 @@ import {
   screen,
 } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { HardwareCloudSyncCancelledError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
@@ -61,6 +63,7 @@ type IMockConfig = {
 };
 let mockConfig: IMockConfig;
 let mockKeyMissing = false;
+let mockHoldAvailabilityUntilRecheck = false;
 let mockEndpointMismatch = false;
 let mockReadHardwareStatus: (() => Promise<unknown>) | undefined;
 const mockCheckHardwareSession = jest.fn(async () => undefined);
@@ -191,12 +194,25 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     },
   },
 }));
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (readStatus: () => Promise<unknown>) => {
-    mockReadHardwareStatus = readStatus;
-    return { result: getMockAvailability(), run: async () => undefined };
-  },
-}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
+  const { useState } = jest.requireActual<typeof import('react')>('react');
+  return {
+    usePromiseResult: (
+      readStatus: () => Promise<ReturnType<typeof getMockAvailability>>,
+    ) => {
+      mockReadHardwareStatus = readStatus;
+      const [cached, setCached] = useState(getMockAvailability);
+      return {
+        result: mockHoldAvailabilityUntilRecheck
+          ? cached
+          : getMockAvailability(),
+        run: async () => {
+          if (mockHoldAvailabilityUntilRecheck) setCached(await readStatus());
+        },
+      };
+    },
+  };
+});
 jest.mock(
   '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit',
   () => ({
@@ -223,6 +239,7 @@ beforeEach(() => {
     },
   };
   mockKeyMissing = false;
+  mockHoldAvailabilityUntilRecheck = false;
   mockEndpointMismatch = false;
   mockToggle.mockResolvedValue({ requiresHardware: false });
 });
@@ -589,6 +606,41 @@ test('a different selected API node does not re-sign, probe or run sync; switchi
   await act(() => result.current.syncNow());
   expect(mockSyncNow).toHaveBeenCalledTimes(1);
 });
+
+test.each(['re-signed', 'cancelled', 'error', 'node changed'] as const)(
+  'refreshes the mounted missing-key result only after a successful re-sign (%s)',
+  async (outcome) => {
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockKeyMissing = true;
+    mockHoldAvailabilityUntilRecheck = true;
+    mockEnable.mockImplementationOnce(async () => {
+      if (outcome === 'cancelled') throw new HardwareCloudSyncCancelledError();
+      if (outcome === 'error')
+        throw new OneKeyLocalError('Fixture sign-in failed');
+      mockKeyMissing = false;
+      if (outcome === 'node changed') mockEndpointMismatch = true;
+    });
+    const originalConfig = mockConfig;
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    expect(result.current.keyMissing).toBe(true);
+
+    await act(() => result.current.openPicker());
+    render(<>{lastDialog().renderContent}</>);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mock-device-picker'));
+    });
+
+    expect(mockEnable).toHaveBeenCalledTimes(1);
+    expect(mockConfig).toBe(originalConfig);
+    expect(result.current.keyMissing).toBe(
+      outcome === 'cancelled' || outcome === 'error',
+    );
+    expect(result.current.endpointMismatch).toBe(outcome === 'node changed');
+    expect(mockCheckHardwareSession).toHaveBeenCalledTimes(
+      outcome === 're-signed' ? 1 : 0,
+    );
+  },
+);
 
 test('checks the real read-only action guard when node changes while the device picker is open', async () => {
   mockConfig.isCloudSyncEnabledKeyless = true;
