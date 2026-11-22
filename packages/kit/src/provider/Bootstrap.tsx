@@ -19,6 +19,7 @@ import {
   useSplitSubView,
   willTabFocusTransition,
 } from '@onekeyhq/components';
+import { getLastBrowserRoute } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
@@ -365,7 +366,8 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Discovery);
+              // Back to the browser page the sidebar icon would open.
+              navigation.switchTab(getLastBrowserRoute());
             });
             break;
           case EShortcutEvents.TabDeveloper:

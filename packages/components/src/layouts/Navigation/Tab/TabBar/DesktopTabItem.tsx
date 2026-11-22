@@ -57,6 +57,9 @@ export interface IDesktopTabItemProps {
   label?: string;
   // Shown on hover when the item has no visible label (sidebar icons only).
   tooltipLabel?: string;
+  // Controlled tooltip state, for tooltips grouped by the sidebar.
+  tooltipOpen?: boolean;
+  onTooltipOpenChange?: (open: boolean) => void;
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   tabBarItemStyle?: IStackStyle;
@@ -134,6 +137,8 @@ export function DesktopTabItem(
     icon,
     label,
     tooltipLabel,
+    tooltipOpen,
+    onTooltipOpenChange,
     selected,
     tabBarStyle,
     tabBarItemStyle,
@@ -193,6 +198,7 @@ export function DesktopTabItem(
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
       setIsHovered(false);
+      onTooltipOpenChange?.(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -209,7 +215,7 @@ export function DesktopTabItem(
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [onPress, selected, trackId, onPressWhenSelected],
+    [onPress, selected, trackId, onPressWhenSelected, onTooltipOpenChange],
   );
   const handleRenderItems = useCallback(
     ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
@@ -393,6 +399,8 @@ export function DesktopTabItem(
           renderTrigger={trigger}
           renderContent={tooltipLabel ?? label}
           placement="right"
+          open={tooltipOpen}
+          onOpenChange={onTooltipOpenChange}
         />
       ) : (
         trigger

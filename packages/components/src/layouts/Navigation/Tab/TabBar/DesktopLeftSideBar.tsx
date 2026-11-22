@@ -18,12 +18,12 @@ import {
   LazyPopover,
   LazyTooltip,
   Shortcut,
+  preloadLazyTooltip,
 } from '@onekeyhq/components/src/actions';
 import type {
   IActionListSection,
   IPopoverProps,
 } from '@onekeyhq/components/src/actions';
-import { TooltipDelayGroup } from '@onekeyhq/components/src/actions/Tooltip/tooltipDelayGroup';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -57,11 +57,16 @@ import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
+import { getLastBrowserRoute, setLastBrowserRoute } from './lastBrowserRoute';
 import { MenuHamburger } from './Menu';
 import {
   SidebarAppearanceContext,
   useSidebarIconsOnly,
 } from './SidebarAppearanceContext';
+import {
+  SidebarTooltipGroup,
+  useSidebarTooltipOpen,
+} from './sidebarTooltipGroup';
 import { useModifierKeyHold } from './useModifierKeyHold';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
@@ -172,8 +177,6 @@ const HOVER_STYLE_BG_HOVER = { bg: '$bgHover' } as const;
 const PRESS_STYLE_BG_ACTIVE = { bg: '$bgActive' } as const;
 const PLATFORM_WEB_APP_REGION_DRAG = { 'app-region': 'drag' } as const;
 
-let lastBrowserRoute: string = ETabRoutes.Discovery;
-
 function DesktopWinSidebarTop() {
   return (
     <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
@@ -229,6 +232,7 @@ function BasicTabItemView({
   const iconsOnly = useSidebarIconsOnly();
   const title = getTabTitle(route, options);
   const shortcutKey = getTabShortcut(route.name);
+  const tooltip = useSidebarTooltipOpen(iconsOnly);
   useEffect(() => {
     // @ts-expect-error
     const activeIcon = options?.tabBarIcon?.(true) as IKeyOfIcons;
@@ -292,6 +296,8 @@ function BasicTabItemView({
               icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
               label=""
               tooltipLabel={iconsOnly ? title : undefined}
+              tooltipOpen={iconsOnly ? tooltip.open : undefined}
+              onTooltipOpenChange={iconsOnly ? tooltip.onOpenChange : undefined}
               shortcutKey={iconsOnly ? shortcutKey : undefined}
               aria-label={title}
               actionList={options.actionList}
@@ -326,6 +332,8 @@ function BasicTabItemView({
       shortcutKey,
       tabBarStyleMemo,
       title,
+      tooltip.open,
+      tooltip.onOpenChange,
     ],
   );
 
@@ -413,6 +421,13 @@ function SidebarBottomItem({
   const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
   const label = getTabTitle(route, options);
   const shortcutKey = getTabShortcut(route.name);
+  const iconsOnly = useSidebarIconsOnly();
+  const tooltip = useSidebarTooltipOpen(iconsOnly);
+  const closeTooltip = tooltip.close;
+  const handlePress = useCallback(() => {
+    closeTooltip();
+    onPress();
+  }, [closeTooltip, onPress]);
 
   const renderTriggerMemo = useMemo(
     () => (
@@ -424,7 +439,7 @@ function SidebarBottomItem({
         hoverStyle={HOVER_STYLE_BG_HOVER}
         pressStyle={PRESS_STYLE_BG_ACTIVE}
         cursor="default"
-        onPress={onPress}
+        onPress={handlePress}
       >
         <Icon
           name={iconName}
@@ -434,15 +449,18 @@ function SidebarBottomItem({
         <SidebarShortcutBadge shortcutKey={shortcutKey} />
       </YStack>
     ),
-    [isActive, onPress, iconName, route.name, shortcutKey],
+    [isActive, handlePress, iconName, route.name, shortcutKey],
   );
 
+  // With labels shown it keeps its own name-only tooltip.
   return (
     <LazyTooltip
       placement="right"
       renderTrigger={renderTriggerMemo}
       renderContent={label}
-      shortcutKey={shortcutKey}
+      shortcutKey={iconsOnly ? shortcutKey : undefined}
+      open={iconsOnly ? tooltip.open : undefined}
+      onOpenChange={iconsOnly ? tooltip.onOpenChange : undefined}
     />
   );
 }
@@ -679,9 +697,9 @@ function BasicVisibleTabItemView({
     if (
       route.name === ETabRoutes.Discovery &&
       !isActive &&
-      lastBrowserRoute !== ETabRoutes.Discovery
+      getLastBrowserRoute() !== ETabRoutes.Discovery
     ) {
-      switchTab(lastBrowserRoute as ETabRoutes);
+      switchTab(getLastBrowserRoute());
     } else {
       handleTabPress(route, isActive);
     }
@@ -721,6 +739,16 @@ export function DesktopLeftSideBar({
   const intl = useIntl();
   const appearance = useContext(SidebarAppearanceContext);
   const iconsOnly = appearance?.showLabels === false;
+  useEffect(() => {
+    // The first hover must find the tooltip loaded, or it waits for the next.
+    if (iconsOnly) {
+      preloadLazyTooltip().catch((error: unknown) => {
+        defaultLogger.app.error.log(
+          `[DesktopLeftSideBar] tooltip preload failed: ${String(error)}`,
+        );
+      });
+    }
+  }, [iconsOnly]);
 
   // Right click anywhere on the sidebar toggles the labels. Bubble phase:
   // items with their own menu (DesktopTabItem actionList) stop it first.
@@ -774,9 +802,9 @@ export function DesktopLeftSideBar({
   // Track last active browser route (Discovery or MultiTabBrowser)
   useEffect(() => {
     if (focusedRouteName === ETabRoutes.Discovery) {
-      lastBrowserRoute = ETabRoutes.Discovery;
+      setLastBrowserRoute(ETabRoutes.Discovery);
     } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
-      lastBrowserRoute = extraConfig.name;
+      setLastBrowserRoute(extraConfig.name as ETabRoutes);
     }
   }, [focusedRouteName, extraConfig?.name]);
 
@@ -898,7 +926,7 @@ export function DesktopLeftSideBar({
                 </XStack>
               ) : null}
               {/* Icons-only tooltips follow the pointer across the icons. */}
-              <TooltipDelayGroup enabled={iconsOnly}>
+              <SidebarTooltipGroup>
                 <YStack
                   flex={1}
                   px="$3"
@@ -942,7 +970,7 @@ export function DesktopLeftSideBar({
                     />
                   </YStack>
                 ) : null}
-              </TooltipDelayGroup>
+              </SidebarTooltipGroup>
               {bottomMenu}
             </YStack>
           </YStack>

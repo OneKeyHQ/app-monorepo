@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { useShortcuts } from '@onekeyhq/components/src/hooks/useShortcuts';
 
 export const MODIFIER_HOLD_DELAY_MS = 500;
 
@@ -8,7 +8,7 @@ export const MODIFIER_HOLD_DELAY_MS = 500;
 // releasing it, or the window losing focus ends the hold, so quick combos
 // such as Cmd+C never trigger it. Registered app shortcuts (Cmd+2, ...) are
 // taken by the Electron main process before the page sees the key, so they
-// end the hold through the shortcut IPC instead.
+// end the hold through the shortcut event instead.
 export function useModifierKeyHold({
   enabled,
   modifierKey,
@@ -17,16 +17,19 @@ export function useModifierKeyHold({
   modifierKey: 'Meta' | 'Control';
 }) {
   const [isHeld, setIsHeld] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reset = useCallback(() => {
+    clearTimeout(timerRef.current);
+    timerRef.current = undefined;
+    setIsHeld(false);
+  }, []);
+
+  useShortcuts(undefined, reset);
+
   useEffect(() => {
     if (!enabled) {
       return undefined;
     }
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reset = () => {
-      clearTimeout(timer);
-      timer = undefined;
-      setIsHeld(false);
-    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== modifierKey) {
         reset();
@@ -41,7 +44,10 @@ export function useModifierKeyHold({
       if (event.shiftKey || event.altKey || otherModifier) {
         return;
       }
-      timer = setTimeout(() => setIsHeld(true), MODIFIER_HOLD_DELAY_MS);
+      timerRef.current = setTimeout(
+        () => setIsHeld(true),
+        MODIFIER_HOLD_DELAY_MS,
+      );
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === modifierKey) {
@@ -51,18 +57,12 @@ export function useModifierKeyHold({
     globalThis.addEventListener('keydown', onKeyDown, true);
     globalThis.addEventListener('keyup', onKeyUp, true);
     globalThis.addEventListener('blur', reset);
-    const unsubscribeShortcut = globalThis.desktopApi?.addIpcEventListener(
-      ipcMessageKeys.APP_SHORTCUT,
-      reset,
-    );
     return () => {
-      clearTimeout(timer);
-      unsubscribeShortcut?.();
       globalThis.removeEventListener('keydown', onKeyDown, true);
       globalThis.removeEventListener('keyup', onKeyUp, true);
       globalThis.removeEventListener('blur', reset);
-      setIsHeld(false);
+      reset();
     };
-  }, [enabled, modifierKey]);
+  }, [enabled, modifierKey, reset]);
   return isHeld;
 }
