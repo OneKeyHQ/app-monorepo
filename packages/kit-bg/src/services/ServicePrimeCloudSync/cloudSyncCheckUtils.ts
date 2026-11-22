@@ -85,6 +85,10 @@ function hasGcmCiphertextShape(data: string | undefined): boolean {
   );
 }
 
+function isPositiveVersion(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
 // Skipping an unreadable local edit is not proof that its bytes belong to
 // the selected source. This is only an admission check for re-signing.
 export function isUnverifiedPendingHardwareWalletCopy(
@@ -100,9 +104,7 @@ export function isUnverifiedPendingHardwareWalletCopy(
     isHardwareDekHash(item.pwdHash) &&
     !!item.rawKey &&
     sha512ProSync({ data: item.rawKey }) === item.id &&
-    typeof item.dataTime === 'number' &&
-    Number.isSafeInteger(item.dataTime) &&
-    item.dataTime > 0 &&
+    isPositiveVersion(item.dataTime) &&
     hasGcmCiphertextShape(item.data)
   );
 }
@@ -128,6 +130,8 @@ export function canReplaceSettledPublicAccountCache(
   previous: IDBCloudSyncItem,
   incoming: IDBCloudSyncItem,
   verifiedRawKey: string,
+  // Only the detached, exact-lineage hardware bootstrap may opt into a tie.
+  verifiedEqualRotation = false,
 ): boolean {
   return (
     canArchiveForeignAccountCopy(previous, incoming.pwdHash) &&
@@ -150,12 +154,11 @@ export function canReplaceSettledPublicAccountCache(
     incoming.pendingPublicAccountDeletionHash === undefined &&
     incoming.pendingPublicAccountDeletionAt === undefined &&
     !!incoming.data &&
-    typeof previous.dataTime === 'number' &&
-    Number.isSafeInteger(previous.dataTime) &&
-    previous.dataTime > 0 &&
-    typeof incoming.dataTime === 'number' &&
-    Number.isSafeInteger(incoming.dataTime) &&
-    incoming.dataTime > previous.dataTime
+    isPositiveVersion(previous.dataTime) &&
+    isPositiveVersion(incoming.dataTime) &&
+    (verifiedEqualRotation
+      ? incoming.dataTime >= previous.dataTime
+      : incoming.dataTime > previous.dataTime)
   );
 }
 
@@ -215,9 +218,7 @@ export function isProvenSettledRemoteHardwareAccountTombstone(
     (!('pendingPublicAccountDeletionHash' in item) ||
       item.pendingPublicAccountDeletionHash === undefined) &&
     'dataTime' in item &&
-    typeof item.dataTime === 'number' &&
-    Number.isSafeInteger(item.dataTime) &&
-    item.dataTime > 0 &&
+    isPositiveVersion(item.dataTime) &&
     'data' in item &&
     typeof item.data === 'string' &&
     item.data.length >= 32 &&

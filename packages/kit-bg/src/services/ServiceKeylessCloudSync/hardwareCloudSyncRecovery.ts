@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncSession,
   IKeylessCloudSyncCredential,
@@ -23,12 +24,17 @@ import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
+  canReplaceSettledPublicAccountCache,
   isRetainedHardwareCloudCopy,
   isSupportedCloudSyncDataType,
   isUnverifiedPendingHardwareWalletCopy,
 } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  normalizePublicAccountSnapshotRecord,
+  publicAccountIdentityEqual,
+} from '../ServicePrimeCloudSync/publicAccountSnapshot';
 
 import {
   createHardwareCloudSyncDataError,
@@ -405,6 +411,220 @@ export async function commitVerifiedWalletCaches(
   );
 }
 
+type IVerifiedAccountRotation = {
+  previous: IDBCloudSyncItem;
+  incoming: IDBCloudSyncItem;
+  snapshot: ReturnType<typeof normalizePublicAccountSnapshotRecord>['snapshot'];
+};
+
+// The caller alone supplies history from the verified current hardware
+// session. An ordinary /check has no pre-rotation lineage and cannot use this.
+async function prepareVerifiedAccountRotations({
+  items,
+  records,
+  knownPwdHashes,
+  syncCredential,
+  isCurrent,
+}: Omit<Parameters<typeof prepareVerifiedWalletCaches>[0], 'walletManager'>) {
+  const pwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
+  const old = new Map(
+    items
+      .filter(
+        (item) =>
+          item.dataType === EPrimeCloudSyncDataType.Account &&
+          knownPwdHashes.has(item.pwdHash),
+      )
+      .map((item) => [item.id, item]),
+  );
+  if (!old.size) return [];
+  const remote = new Map<string, IServerSyncRecord | undefined>();
+  for (const row of records)
+    if (row && old.has(row.key))
+      remote.set(row.key, remote.has(row.key) ? undefined : row);
+
+  const candidates: IVerifiedAccountRotation[] = [];
+  let probes = 0;
+  for (const [id, row] of remote) {
+    if (!isCurrent()) return [];
+    const previous = old.get(id);
+    if (
+      !previous ||
+      row?.dataType !== EPrimeCloudSyncDataType.Account ||
+      row.isDeleted !== false ||
+      !isVersion(row.dataTimestamp) ||
+      row.dataTimestamp !== previous.dataTime ||
+      typeof row.data !== 'string' ||
+      !row.data ||
+      row.data.length > 64 * 1024
+    )
+      // eslint-disable-next-line no-continue
+      continue;
+    const incoming = {
+      id,
+      rawKey: previous.rawKey,
+      rawData: '',
+      pwdHash,
+      data: row.data,
+      dataTime: row.dataTimestamp,
+      dataType: EPrimeCloudSyncDataType.Account,
+      serverUploaded: true,
+      localSceneUpdated: true,
+      isDeleted: false,
+    };
+    if (
+      !canReplaceSettledPublicAccountCache(
+        previous,
+        incoming,
+        previous.rawKey,
+        true,
+      )
+    )
+      // eslint-disable-next-line no-continue
+      continue;
+    probes += 1;
+    if (probes > 10) break;
+    try {
+      const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+        item: { ...incoming },
+        syncCredential,
+      });
+      const { rawKey, snapshot } =
+        normalizePublicAccountSnapshotRecord(rawDataJson);
+      if (rawKey === previous.rawKey && isCurrent())
+        candidates.push({ incoming, previous, snapshot });
+    } catch {
+      // Leave malformed, legacy, or unauthenticated candidates untouched.
+    }
+  }
+  return candidates;
+}
+
+async function commitVerifiedAccountRotations(
+  candidates: readonly IVerifiedAccountRotation[],
+  isCurrent: () => boolean,
+) {
+  if (!candidates.length || !isCurrent()) return;
+  await localDb.withTransaction(
+    EIndexedDBBucketNames.account,
+    async (tx) => {
+      const current = () => {
+        if (!isCurrent()) throw new HardwareCloudSyncCancelledError();
+      };
+      const { records: wallets } = await localDb.txGetAllRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+      });
+      const adopt = async ({
+        previous,
+        incoming,
+        snapshot,
+      }: IVerifiedAccountRotation) => {
+        current();
+        const projections = localDb.getPublicAccountSnapshotAccountProjections(
+          snapshot,
+          wallets,
+        );
+        if (projections.size !== 1) return;
+        const match = projections.values().next().value;
+        if (!match) return;
+        const { wallet, expected } = match;
+        if (snapshot.wallet.kind === 'hardware') {
+          if (!wallet.associatedDevice) return;
+          const {
+            records: [device],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [wallet.associatedDevice],
+          });
+          if (!device) return;
+          try {
+            const settings = JSON.parse(device.settingsRaw || '{}') as {
+              vendor?: EHardwareVendor;
+            };
+            if (
+              !settings ||
+              typeof settings !== 'object' ||
+              Array.isArray(settings) ||
+              (settings.vendor ?? EHardwareVendor.onekey) !==
+                EHardwareVendor.onekey
+            )
+              return;
+          } catch {
+            return;
+          }
+        } else {
+          const {
+            records: [credential],
+          } = await localDb.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            ids: [wallet.id],
+          });
+          if (!credential?.credential) return;
+        }
+        current();
+        const indexedId = expected.indexedAccountId;
+        if (!indexedId) return;
+        const {
+          records: [account],
+        } = await localDb.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: [expected.id],
+        });
+        const {
+          records: [indexed],
+        } = await localDb.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [indexedId],
+        });
+        if (
+          !account ||
+          account.indexedAccountId !== indexedId ||
+          indexed?.walletId !== wallet.id ||
+          indexed.index !== expected.pathIndex ||
+          account.name !== expected.name ||
+          (indexed.name && indexed.name !== expected.name) ||
+          !publicAccountIdentityEqual(
+            {
+              ...account,
+              createAtNetwork: account.createAtNetwork ?? undefined,
+              relPath: account.relPath ?? undefined,
+            },
+            expected,
+          )
+        )
+          return;
+
+        const {
+          records: [source],
+        } = await localDb.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [previous.id],
+        });
+        current();
+        if (!isEqual(source, previous)) return;
+        await localDb.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: [previous.id],
+          updater: (row) => {
+            row.data = incoming.data;
+            row.pwdHash = incoming.pwdHash;
+            return row;
+          },
+        });
+        current();
+      };
+      for (const candidate of candidates) await adopt(candidate);
+    },
+    { skipCloudCredentialWarmup: true, confirmRollbackOnError: true },
+  );
+}
+
 export function getVerifiedRecoveryRecords(
   history: IHardwareCloudSyncHistory,
   session: IHardwareCloudSyncSession | undefined,
@@ -476,32 +696,53 @@ export async function recoverVerifiedWalletCaches({
         // The original sign-in may commit after a late app lock. Its optional
         // recovery must not start reading Wallet metadata under the new epoch.
         if ((await serviceApp.isAppLocked()) || !stillSelected()) return;
-        const candidates = await prepareVerifiedWalletCaches({
+        const recovery = {
           items,
           records,
           knownPwdHashes: new Set(previousPwdHashes),
           syncCredential: service.buildSyncCredentialWithKeylessCredential(key),
-          walletManager:
-            service.backgroundApi.servicePrimeCloudSync.syncManagers.wallet,
           isCurrent: stillSelected,
-        });
-        if (
-          !candidates.length ||
-          !stillSelected() ||
-          (await service.getHardwareWalletRetryOrigin()) !==
-            session.boundBaseURL ||
-          (await serviceApp.isAppLocked()) ||
-          !stillSelected()
-        )
-          return;
-        await service.runWithCloudAccountImportLock(async () => {
-          if (!stillSelected()) return;
-          // The repair mutex serializes the last persisted credential check
-          // with revocation, including deletion before a generation bump.
-          await service.runWithVerifiedHardwareAccountArchiveSession(key, () =>
-            commitVerifiedWalletCaches(candidates, stillSelected),
-          );
-        });
+        };
+        const commit = async (apply: () => Promise<void>) => {
+          if (
+            !stillSelected() ||
+            (await service.getHardwareWalletRetryOrigin()) !==
+              session.boundBaseURL ||
+            (await serviceApp.isAppLocked()) ||
+            !stillSelected()
+          )
+            return;
+          await service.runWithCloudAccountImportLock(async () => {
+            if (!stillSelected()) return;
+            // Import -> repair -> prepared DB write excludes source changes
+            // and session revocation; no account scene or vault work here.
+            await service.runWithVerifiedHardwareAccountArchiveSession(
+              key,
+              apply,
+            );
+          });
+        };
+        // An optional Account read/decode must not gate Wallet cache repair.
+        await Promise.allSettled([
+          prepareVerifiedWalletCaches({
+            ...recovery,
+            walletManager:
+              service.backgroundApi.servicePrimeCloudSync.syncManagers.wallet,
+          }).then((candidates) =>
+            candidates.length
+              ? commit(() =>
+                  commitVerifiedWalletCaches(candidates, stillSelected),
+                )
+              : undefined,
+          ),
+          prepareVerifiedAccountRotations(recovery).then((accounts) =>
+            accounts.length
+              ? commit(() =>
+                  commitVerifiedAccountRotations(accounts, stillSelected),
+                )
+              : undefined,
+          ),
+        ]);
       })(),
       1000,
     );

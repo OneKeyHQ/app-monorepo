@@ -5684,7 +5684,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  private getPublicAccountSnapshotAccountProjections(
+  getPublicAccountSnapshotAccountProjections(
     snapshot: ICloudPublicAccountSnapshot,
     wallets: IDBWallet[],
   ) {

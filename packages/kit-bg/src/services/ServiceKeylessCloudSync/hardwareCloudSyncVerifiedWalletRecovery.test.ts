@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -8,15 +9,23 @@ import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeClo
 
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import { RealmSchemaAccount } from '../../dbs/local/realm/schemas/RealmSchemaAccount';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
+import { CloudSyncFlowManagerAccount } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerWallet } from '../ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerWallet';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
+import {
+  getPublicAccountSnapshotId,
+  publicAccountSnapshotToAccount,
+} from '../ServicePrimeCloudSync/publicAccountSnapshot';
+import { publicAccountTestSnapshot } from '../ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
 
 import {
   commitVerifiedWalletCaches,
   prepareVerifiedWalletCaches,
   recoverVerifiedWalletCaches,
 } from './hardwareCloudSyncRecovery';
+import { reencryptHardwareCloudSyncItems } from './hardwareCloudSyncSession';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -24,6 +33,11 @@ import type {
   IDBDevice,
   IDBWallet,
 } from '../../dbs/local/types';
+
+// Exercise the actual projection without loading Realm's native engine in Web Jest.
+jest.mock('../../dbs/local/realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: class {},
+}));
 
 let mockDb: LocalDbIndexed;
 jest.mock('../../dbs/local/localDb', () => ({
@@ -423,5 +437,265 @@ test.each([
         ? row.dataTimestamp
         : previous.dataTime,
     });
+  },
+);
+
+test.each([
+  'current',
+  'current-realm-optionals',
+  'nonempty-realm-network',
+  'empty-realm-network',
+  'foreign-lineage',
+  'missing',
+  'older-encrypted-version',
+  'local-name-diverged',
+  'local-index-name-diverged',
+  'missing-time',
+  'remote-tombstone',
+  'local-identity-diverged',
+  'local-newer-pool',
+  'wrong-origin',
+] as const)(
+  'after same-source key rotation, only exact live Account recovery permits ordinary deletion (%s)',
+  async (scenario) => {
+    const { wallet, walletManager } = await fixture('hw');
+    const snapshot = publicAccountTestSnapshot(count);
+    snapshot.wallet.xfp = snapshot.wallet.xfp.replace(
+      /^[a-f0-9]{8}/i,
+      count.toString(16).padStart(8, '0'),
+    );
+    const account = publicAccountSnapshotToAccount(snapshot, wallet.id);
+    const accountId = getPublicAccountSnapshotId(snapshot);
+    const rawKey = `Account >> ${accountId}`;
+    const id = sha512ProSync({ data: rawKey });
+    const origin = 'https://wallet-rotation.example.test';
+    const base = credential.keylessCredential;
+    if (!base || !account.indexedAccountId)
+      throw new OneKeyLocalError('Missing fixture data');
+    const current = {
+      ...base,
+      source: {
+        type: 'hardware' as const,
+        credentialId: base.keylessWalletId,
+        derivationVersion: 1 as const,
+        deviceType: EDeviceType.Pro,
+        deviceName: 'Fixture',
+      },
+      hardwareSession: {
+        deviceKeyJwk: {
+          kty: 'EC',
+          crv: 'P-256',
+          x: 'fixture',
+          y: 'fixture',
+          d: 'fixture',
+        },
+        accessToken: 'fixture',
+        refreshToken: 'fixture',
+        accessTokenExpiresAt: 9_000_000_000_000,
+        dekId: 'new-dek',
+        sessionId: 'new-session',
+        boundBaseURL: origin,
+        boundBaseURLVerified: true,
+      },
+    } satisfies IKeylessCloudSyncCredential;
+    const old = { ...base, pwdHash: oldHash, encryptionKey: '39'.repeat(32) };
+    const signedCredential = { ...credential, keylessCredential: current };
+    const oldItem = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: id,
+      rawDataJson: {
+        rawKey,
+        dataType: EPrimeCloudSyncDataType.Account,
+        payload: {
+          name: snapshot.account.name,
+          accountId,
+          publicAccountSnapshot: snapshot,
+        },
+      },
+      syncCredential: { ...credential, keylessCredential: old },
+      dataTime: 1_750_000_000_000,
+    });
+    const previous = {
+      ...oldItem,
+      rawData: '',
+      serverUploaded: true,
+      localSceneUpdated: true,
+    };
+    const [rotated] = await reencryptHardwareCloudSyncItems({
+      items: [previous],
+      from: { dek: old.encryptionKey, dekId: 'old-dek', pwdHash: oldHash },
+      to: {
+        dek: current.encryptionKey,
+        dekId: current.hardwareSession.dekId,
+        pwdHash,
+      },
+    });
+    expect(rotated.dataTime).toBe(previous.dataTime);
+    expect(rotated.data).not.toBe(previous.data);
+    const persistedOld =
+      scenario === 'local-newer-pool'
+        ? { ...previous, dataTime: (previous.dataTime ?? 0) + 1 }
+        : previous;
+    const businessAccount = {
+      ...account,
+      ...(scenario === 'local-name-diverged' ? { name: 'Local edit' } : {}),
+      ...(scenario === 'local-identity-diverged'
+        ? { address: '0x2222222222222222222222222222222222222222' }
+        : {}),
+    };
+    const realmNetworks: Partial<Record<typeof scenario, string | null>> = {
+      'current-realm-optionals': null,
+      'nonempty-realm-network': 'evm--1',
+      'empty-realm-network': '',
+    };
+    const realmNetwork = realmNetworks[scenario];
+    let storedAccount = businessAccount;
+    if (realmNetwork !== undefined) {
+      const realmAccount = Object.create(
+        RealmSchemaAccount.prototype,
+      ) as RealmSchemaAccount;
+      Object.assign(realmAccount, businessAccount, {
+        createAtNetwork: realmNetwork,
+        relPath: null,
+      });
+      storedAccount = realmAccount.record;
+    }
+    const storedIndex = {
+      id: account.indexedAccountId,
+      walletId: wallet.id,
+      index: snapshot.account.pathIndex,
+      name:
+        scenario === 'local-index-name-diverged'
+          ? 'Local index edit'
+          : account.name,
+      idHash: 'public fixture',
+    };
+    await mockDb.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await mockDb.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [wallet.id],
+          updater: (row) => {
+            row.xfp = snapshot.wallet.xfp;
+            row.accounts = [account.id];
+            return row;
+          },
+        });
+        await mockDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          records: [storedIndex],
+        });
+        await mockDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          records: [storedAccount],
+        });
+        await mockDb.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [persistedOld],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    const startServerSyncFlowSilently = jest.fn(async () => undefined);
+    const service = {
+      backgroundApi: {
+        localDb: mockDb,
+        serviceApp: { isAppLocked: async () => false },
+        servicePrimeCloudSync: {
+          getCloudSyncDataTime: async (
+            params: Parameters<
+              IBackgroundApi['servicePrimeCloudSync']['getCloudSyncDataTime']
+            >[0],
+          ) =>
+            params?.allowHistoricalTime &&
+            params.explicitHistoricalTime !== undefined
+              ? params.explicitHistoricalTime
+              : 1_750_000_001_000,
+          startServerSyncFlowSilently,
+          syncManagers: { wallet: walletManager },
+        },
+        serviceKeylessCloudSync: {
+          getLocalMutationSyncCredential: async () => signedCredential,
+          runWithCloudSyncKeyLock: async <T>(run: () => Promise<T>) => run(),
+        },
+      } as unknown as IBackgroundApi,
+      buildSyncCredentialWithKeylessCredential: () => signedCredential,
+      getHardwareUploadGeneration: () => 42,
+      getHardwareWalletRetryOrigin: async () => origin,
+      runWithCloudAccountImportLock: async <T>(run: () => Promise<T>) => run(),
+      runWithVerifiedHardwareAccountArchiveSession: async <T>(
+        _key: unknown,
+        run: () => Promise<T>,
+      ) => run(),
+    };
+    service.backgroundApi.servicePrimeCloudSync.syncManagers.account =
+      new CloudSyncFlowManagerAccount({ backgroundApi: service.backgroundApi });
+    mockDb.setBackgroundApi(service.backgroundApi);
+    const row = {
+      key: id,
+      dataType: EPrimeCloudSyncDataType.Account,
+      data:
+        scenario === 'older-encrypted-version' ? oldItem.data : rotated.data,
+      dataTimestamp: scenario === 'missing-time' ? undefined : rotated.dataTime,
+      isDeleted: scenario === 'remote-tombstone',
+    };
+    await recoverVerifiedWalletCaches({
+      service,
+      history: {
+        data: {
+          data: { serverData: scenario === 'missing' ? [] : [row], pwdHash },
+        },
+        request: {
+          responseURL: `${scenario === 'wrong-origin' ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
+        },
+      } as Parameters<typeof recoverVerifiedWalletCaches>[0]['history'],
+      items: [previous],
+      previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
+      key: current,
+      isCurrent: () => true,
+    });
+    await expect(
+      mockDb.getRecordById({
+        name: ELocalDBStoreNames.Account,
+        id: account.id,
+      }),
+    ).resolves.toEqual(storedAccount);
+    const applies =
+      scenario === 'current' || scenario === 'current-realm-optionals';
+    await expect(mockDb.getSyncItem({ id })).resolves.toEqual(
+      applies ? rotated : persistedOld,
+    );
+    if (applies) {
+      await mockDb.removeAccount({
+        accountId: account.id,
+        walletId: wallet.id,
+      });
+      await expect(
+        mockDb.getAccountSafe({ accountId: account.id }),
+      ).resolves.toBeUndefined();
+      await expect(mockDb.getSyncItem({ id })).resolves.toMatchObject({
+        pwdHash,
+        isDeleted: true,
+        serverUploaded: false,
+      });
+      const tombstone = await mockDb.getSyncItem({ id });
+      const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        item: tombstone,
+        syncCredential: signedCredential,
+      });
+      expect(decrypted.rawDataJson).toMatchObject({
+        rawKey,
+        dataType: EPrimeCloudSyncDataType.Account,
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 1100));
+      expect(startServerSyncFlowSilently).toHaveBeenCalledWith({
+        callerName: 'Public account deletion',
+        localMutation: true,
+      });
+    }
   },
 );
