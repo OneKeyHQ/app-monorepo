@@ -277,6 +277,7 @@ import type {
 } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IWalletEditVersion } from '../../services/ServicePrimeCloudSync/incrementalCloudSync';
 import type { IPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import type { IPublicAccountIndexedName } from '../../services/ServicePrimeCloudSync/publicAccountIndexedNames';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -8793,7 +8794,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   private readCanonicalWalletAvatar(
-    wallet: IDBWallet,
+    wallet: Pick<IDBWallet, 'avatar'>,
   ): IAvatarInfo | undefined {
     try {
       const avatar = JSON.parse(wallet.avatar || '{}') as IAvatarInfo;
@@ -9079,6 +9080,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItem: IDBCloudSyncItem | undefined;
     let acceptedUploadItem: IDBCloudSyncItem | undefined;
+    let removedWalletCache:
+      | { candidate: IDBCloudSyncItem; previous: IDBCloudSyncItem }
+      | undefined;
+    let detachedWallet: IWalletEditVersion | undefined;
+    let isHardwareEditCurrent: (() => boolean) | undefined;
     let retryWalletUploadRead:
       | ((item: IDBCloudSyncItem, error: unknown) => void)
       | undefined;
@@ -9137,6 +9143,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             (await syncManagers.wallet.getSyncCredential());
           const hardwareCredential = syncCredential?.keylessCredential;
           if (!verifiedCredential && hardwareCredential?.hardwareSession) {
+            if (
+              hardwareCredential.source?.type === 'hardware' &&
+              params.allowDesktopLocalMetadata &&
+              (params.name || params.avatar) &&
+              !params.cloudSyncSource &&
+              !params.firstEvmAddress
+            )
+              isHardwareEditCurrent =
+                this.backgroundApi.servicePrimeCloudSync.captureHardwareDirectUploadScope();
             retryWalletUploadRead =
               this.backgroundApi.servicePrimeCloudSync.captureWalletUploadReadRetry(
                 hardwareCredential,
@@ -9319,8 +9334,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             current.pwdHash &&
             (!syncItem.data || current.pwdHash !== syncItem.pwdHash)
           ) {
-            // An ordinary local edit cannot displace a bound encrypted copy.
-            // Keep the bytes unchanged and do not send the rejected candidate.
+            if (isHardwareEditCurrent?.() && syncItem.data)
+              removedWalletCache = {
+                candidate: syncItem,
+                previous: { ...current },
+              };
+            // Do not send an unaccepted candidate or replace an opaque row
+            // from within the business transaction.
             syncItem = undefined;
           }
         }
@@ -9400,6 +9420,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           const previousName = w.name;
           const previousAvatar = w.avatar;
+          if (
+            removedWalletCache &&
+            ((!params.name && w.name !== wallet.name) ||
+              w.firstEvmAddress !== wallet.firstEvmAddress ||
+              w.associatedDevice !== wallet.associatedDevice ||
+              w.walletNo !== wallet.walletNo ||
+              w.type !== wallet.type ||
+              w.hash !== wallet.hash ||
+              w.xfp !== wallet.xfp ||
+              w.passphraseState !== wallet.passphraseState ||
+              wallet.hasDesktopLocalMetadata ||
+              (!params.avatar &&
+                !isEqual(avatarInfo, this.readCanonicalWalletAvatar(w))))
+          )
+            removedWalletCache = undefined;
           if (firstEvmAddress && !w.firstEvmAddress) {
             w.firstEvmAddress = firstEvmAddress;
             didSetFirstEvmAddress = true;
@@ -9422,6 +9457,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ) {
             w.avatar = JSON.stringify(avatarInfo);
           }
+          if (
+            removedWalletCache &&
+            (w.name !== previousName || w.avatar !== previousAvatar)
+          )
+            detachedWallet = {
+              id: w.id,
+              name: w.name,
+              avatar: w.avatar,
+              firstEvmAddress: w.firstEvmAddress,
+              associatedDevice: w.associatedDevice,
+              walletNo: w.walletNo,
+              type: w.type,
+              hash: w.hash,
+              xfp: w.xfp,
+              passphraseState: w.passphraseState,
+              isTemp: w.isTemp,
+              isMocked: w.isMocked,
+            };
           attemptedCloudWalletWrite =
             !!onCloudWalletWriteFailure &&
             (w.name !== previousName ||
@@ -9519,6 +9572,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           localItems: [accepted],
         });
       })().catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    }
+    if (removedWalletCache && detachedWallet && isHardwareEditCurrent) {
+      const replacement = {
+        ...removedWalletCache,
+        wallet: detachedWallet,
+        isCurrent: isHardwareEditCurrent,
+      };
+      void import('../../services/ServicePrimeCloudSync/incrementalCloudSync')
+        .then(({ replaceSettledWalletCacheAfterEdit }) =>
+          replaceSettledWalletCacheAfterEdit(this.backgroundApi, replacement),
+        )
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
     wallet = await this.getWallet({ walletId, withoutRefill });
     return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);

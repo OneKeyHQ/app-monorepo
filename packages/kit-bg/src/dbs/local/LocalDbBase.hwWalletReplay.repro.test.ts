@@ -1,4 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { Semaphore } from 'async-mutex';
 import 'fake-indexeddb/auto';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -15,6 +16,8 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { CloudSyncFlowManagerWallet } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerWallet';
+import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
+import * as incrementalCloudSync from '../../services/ServicePrimeCloudSync/incrementalCloudSync';
 import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
 import { SimpleDbEntityChangeHistory } from '../simple/entity/SimpleDbEntityChangeHistory';
 
@@ -29,6 +32,13 @@ import type {
   IDBWallet,
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+jest.mock('../../services/ServicePrimeCloudSync/incrementalCloudSync', () => ({
+  __esModule: true,
+  ...jest.requireActual<typeof incrementalCloudSync>(
+    '../../services/ServicePrimeCloudSync/incrementalCloudSync',
+  ),
+}));
 
 it.each([
   'server-current',
@@ -402,4 +412,260 @@ it.each(['hw', 'qr'] as const)(
       serverUploaded: false,
     });
   },
+);
+
+it.each([
+  'name',
+  'avatar',
+  'pending',
+  'newer',
+  'tombstone',
+  'source-changed',
+  'local-advanced',
+  'revoked',
+  'late-repair',
+] as const)(
+  'fresh Wallet metadata edit only replaces a recognized older settled cache: %s',
+  async (scenario) => {
+    const db = new LocalDbIndexed();
+    const id = `fixture-current-edit-lww-${scenario}`;
+    const wallet: IDBWallet = {
+      id: `hw-${id}`,
+      name: 'Active local wallet',
+      type: 'hw',
+      associatedDevice: id,
+      accounts: [],
+      nextIds: {},
+      backuped: true,
+      walletNo: 8125,
+    };
+    const device: IDBDevice = {
+      id,
+      name: 'Synthetic device',
+      connectId: id,
+      deviceId: id,
+      uuid: id,
+      deviceType: EDeviceType.Pro,
+      vendor: EHardwareVendor.onekey,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const scope = (hex: string, bound: boolean): ICloudSyncCredential => ({
+      masterPasswordUUID: '',
+      primeAccountSalt: '',
+      securityPasswordR1: '',
+      keylessCredential: {
+        keylessWalletId: 'synthetic-selected-scope',
+        encryptionKey: hex.repeat(32),
+        pwdHash: `hw-dek-${hex.repeat(32)}`,
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        source: {
+          type: 'hardware',
+          credentialId: 'synthetic-selected-scope',
+          derivationVersion: 1,
+          deviceName: 'Synthetic device',
+          deviceType: EDeviceType.Pro,
+        },
+        ...(bound
+          ? {
+              hardwareSession: {
+                sessionId: 'synthetic-session',
+                dekId: 'synthetic-dek',
+                deviceKeyJwk: {
+                  kty: 'EC',
+                  crv: 'P-256',
+                  x: 'x',
+                  y: 'y',
+                  d: 'd',
+                },
+                accessToken: 'synthetic-access',
+                accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+                refreshToken: 'synthetic-refresh',
+                boundBaseURL: 'https://synthetic.invalid',
+              },
+            }
+          : {}),
+      },
+    });
+    const selected = scope('bb', true);
+    const former = scope('aa', false);
+    const direct = jest.fn(async () => undefined);
+    const reconciles = jest.fn(async () => undefined);
+    const keyLock = new Semaphore(1);
+    const repairEntered = Promise.withResolvers<void>();
+    const releaseRepair = Promise.withResolvers<void>();
+    const lateRepairFinished = Promise.withResolvers<void>();
+    let gen = 1;
+    const api = {
+      localDb: db,
+      servicePrimeCloudSync: {
+        syncManagers: {},
+        getCloudSyncDataTime: async () => 200,
+        getSyncCredentialSafe: async () => selected,
+        captureWalletUploadReadRetry: () => undefined,
+        captureHardwareDirectUploadScope: () => {
+          const captured = gen;
+          return () => gen === captured;
+        },
+        startServerSyncFlowSilently: reconciles,
+        apiUploadItems: direct,
+      },
+      serviceKeylessCloudSync: {
+        getCloudAccountImportGeneration: () => gen,
+        getLocalMutationSyncCredential: async () => {
+          if (scenario === 'source-changed') gen += 1;
+          if (scenario === 'local-advanced')
+            await db.withTransaction(
+              EIndexedDBBucketNames.account,
+              (tx) =>
+                db.txUpdateWallet({
+                  tx,
+                  walletId: wallet.id,
+                  updater: (row) => {
+                    row.name = 'Later canonical edit';
+                    return row;
+                  },
+                }),
+              { skipCloudCredentialWarmup: true },
+            );
+          return selected;
+        },
+        isExplicitWalletMetadataSyncOff: async () => false,
+        getHardwareWalletRetryOrigin: async () => 'https://synthetic.invalid',
+        runWithVerifiedHardwareAccountArchiveSession: async <T>(
+          _credential: NonNullable<ICloudSyncCredential['keylessCredential']>,
+          fn: () => Promise<T>,
+        ) => {
+          if (scenario === 'revoked') return undefined;
+          if (scenario !== 'late-repair') return fn();
+          repairEntered.resolve();
+          await releaseRepair.promise;
+          try {
+            return await fn();
+          } finally {
+            lateRepairFinished.resolve();
+          }
+        },
+        runWithCloudSyncKeyLock: async <T>(fn: () => Promise<T>) =>
+          keyLock.runExclusive(fn),
+      },
+    } as unknown as IBackgroundApi;
+    db.setBackgroundApi(api);
+    const manager = new CloudSyncFlowManagerWallet({ backgroundApi: api });
+    api.servicePrimeCloudSync.syncManagers.wallet = manager;
+    const target = await manager.buildSyncTargetByDBQuery({
+      dbRecord: wallet,
+      allDevices: [device],
+    });
+    const key = await manager.buildSyncKeyInfo({ target });
+    if (!key) throw new OneKeyLocalError('Missing Wallet sync identity');
+    const old = {
+      ...(await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+        key: key.key,
+        dataTime: scenario === 'newer' ? 300 : 100,
+        syncCredential: former,
+        rawDataJson: {
+          rawKey: key.rawKey,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          payload: { ...key.payload, name: 'Older inaccessible name' },
+        },
+      })),
+      localSceneUpdated: true,
+      serverUploaded: scenario !== 'pending',
+      isDeleted: scenario === 'tombstone',
+    };
+    await db.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: [wallet],
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [device],
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          records: [old],
+        });
+      },
+      { skipCloudCredentialWarmup: true },
+    );
+    jest
+      .spyOn(db, 'refillWalletInfo')
+      .mockImplementation(async ({ wallet: record }) => record);
+    const actualReplace =
+      incrementalCloudSync.replaceSettledWalletCacheAfterEdit;
+    const detachedComplete = Promise.withResolvers<void>();
+    const replace = jest
+      .spyOn(incrementalCloudSync, 'replaceSettledWalletCacheAfterEdit')
+      .mockImplementation(async (...args) => {
+        try {
+          await actualReplace(...args);
+          detachedComplete.resolve();
+        } catch (error) {
+          detachedComplete.reject(error);
+          throw error;
+        }
+      });
+    const avatar = { img: 'bear' } as const;
+    try {
+      const saved = await db.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        allowDesktopLocalMetadata: true,
+        ...(scenario === 'avatar'
+          ? { avatar }
+          : { name: 'New actual local name' }),
+      });
+      expect(saved.name).toBe(
+        scenario === 'avatar' ? wallet.name : 'New actual local name',
+      );
+      if (scenario === 'late-repair') {
+        await repairEntered.promise;
+        // Another ordinary action can acquire the key lock before the
+        // optional read is released; its late callback must not write.
+        await expect(keyLock.runExclusive(() => true)).resolves.toBe(true);
+        releaseRepair.resolve();
+        await lateRepairFinished.promise;
+      }
+      await detachedComplete.promise;
+      expect(direct).not.toHaveBeenCalled();
+      const stored = await db.getSyncItem({ id: old.id });
+      if (scenario === 'name' || scenario === 'avatar') {
+        const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+          item: { ...stored },
+          syncCredential: selected,
+        });
+        expect(stored).toMatchObject({
+          pwdHash: selected.keylessCredential?.pwdHash,
+          dataTime: 200,
+          serverUploaded: false,
+        });
+        expect(decrypted.rawDataJson?.payload).toMatchObject(
+          scenario === 'avatar'
+            ? { name: wallet.name, avatar }
+            : { name: 'New actual local name' },
+        );
+        expect(reconciles).toHaveBeenCalledTimes(1);
+      } else {
+        expect(stored).toMatchObject({
+          pwdHash: old.pwdHash,
+          data: old.data,
+          dataTime: old.dataTime,
+          isDeleted: old.isDeleted,
+        });
+        expect(reconciles).not.toHaveBeenCalled();
+      }
+    } finally {
+      replace.mockRestore();
+    }
+  },
+  10_000,
 );

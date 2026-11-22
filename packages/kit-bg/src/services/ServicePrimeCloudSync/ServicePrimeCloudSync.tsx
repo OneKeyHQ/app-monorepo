@@ -1896,7 +1896,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private queuedHardwareUploadIsCurrent: (() => boolean) | undefined;
 
-  private captureHardwareDirectUploadScope(): () => boolean {
+  captureHardwareDirectUploadScope(): () => boolean {
     const keyless = this.backgroundApi.serviceKeylessCloudSync;
     const generation = this.publicAccountSnapshotImportGeneration;
     const keyGeneration = keyless.getHardwareUploadGeneration();
@@ -3244,105 +3244,18 @@ class ServicePrimeCloudSync extends ServiceBase {
   ) {
     if (!deferredWalletNames.size) return false;
     try {
-      const check = await resolveBeforeTimeout(
-        localDb.getRecordsByIds({
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: [...deferredWalletNames.keys()],
-        }),
+      const helper = await resolveBeforeTimeout(
+        import('./incrementalCloudSync'),
         1500,
       );
-      const newerPending: IDBCloudSyncItem[] = [];
-      const stillDeferred =
-        !check ||
-        check.records.length !== deferredWalletNames.size ||
-        check.records.some((current) => {
-          if (!current) return false;
-          const observed = deferredWalletNames.get(current.id);
-          if (!observed) return true;
-          if (
-            current.dataType !== EPrimeCloudSyncDataType.Wallet ||
-            current.pwdHash !== observed.pwdHash
+      return helper
+        ? await helper.probeDurableWalletNameDeferral(
+            localDb,
+            this.syncManagers.wallet,
+            deferredWalletNames,
+            scope,
           )
-            return true;
-          if (
-            current.data === observed.data &&
-            current.dataTime === observed.dataTime &&
-            !current.isDeleted
-          )
-            return !current.serverUploaded || !current.localSceneUpdated;
-          const timestamp = current.dataTime;
-          const isVersionNewer = !!(
-            (current.data || current.isDeleted) &&
-            typeof timestamp === 'number' &&
-            Number.isSafeInteger(timestamp) &&
-            timestamp > (observed.dataTime ?? 0)
-          );
-          if (
-            isVersionNewer &&
-            scope &&
-            current.serverUploaded === true &&
-            current.localSceneUpdated === false &&
-            !current.isDeleted &&
-            current.data
-          )
-            newerPending.push(current);
-          return !isVersionNewer;
-        });
-      if (stillDeferred || !scope || !newerPending.length) return stillDeferred;
-      // Server storage alone does not prove the new ciphertext is usable
-      // Wallet data for this selected source and target. Scoped callers can
-      // prove it here; full reconciliation keeps its supersession rules.
-      let expired = false;
-      const isProbeCurrent = () => !expired && scope.isCurrent();
-      try {
-        const verified = await resolveBeforeTimeout(
-          (async () => {
-            const { wallet } = this.syncManagers;
-            for (const item of newerPending) {
-              if (!isProbeCurrent()) return false;
-              try {
-                const { rawDataJson } =
-                  await cloudSyncItemBuilder.decryptSyncItem({
-                    item: { ...item },
-                    syncCredential: scope.syncCredential,
-                  });
-                if (
-                  !isProbeCurrent() ||
-                  rawDataJson?.dataType !== EPrimeCloudSyncDataType.Wallet ||
-                  typeof rawDataJson.payload?.name !== 'string' ||
-                  !rawDataJson.payload.name.trim() ||
-                  typeof rawDataJson.rawKey !== 'string' ||
-                  !rawDataJson.rawKey ||
-                  wallet.rawKeyToHashKey(rawDataJson.rawKey) !== item.id
-                )
-                  continue;
-                const match = await wallet.findWalletSyncTargetReadOnly({
-                  payload: rawDataJson.payload,
-                  isCurrent: isProbeCurrent,
-                });
-                if (!isProbeCurrent()) return false;
-                const target = match?.target;
-                if (
-                  !target?.wallet.name.trim() ||
-                  target.wallet.name === rawDataJson.payload.name
-                )
-                  continue;
-                const key = await wallet.buildSyncKeyInfo({ target });
-                if (!isProbeCurrent()) return false;
-                if (key?.key === item.id && key.rawKey === rawDataJson.rawKey)
-                  return true;
-              } catch (error) {
-                errorUtils.autoPrintErrorIgnore(error);
-              }
-            }
-            return false;
-          })(),
-          1500,
-        );
-        return verified === true;
-      } finally {
-        expired = true;
-      }
+        : true;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return true;

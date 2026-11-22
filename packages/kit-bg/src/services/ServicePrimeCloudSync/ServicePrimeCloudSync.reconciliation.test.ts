@@ -2734,6 +2734,40 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(3);
   });
 
+  test('only reported deferred Wallet work depends on the cold probe', async () => {
+    const h = harness();
+    const load = jest.fn(() => {
+      throw new OneKeyLocalError('Synthetic deferred Wallet probe unavailable');
+    });
+    const observed: IDBCloudSyncItem = {
+      id: 'synthetic-deferred-wallet',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawKey: '',
+      rawData: '',
+      data: 'synthetic',
+      dataTime: 1_750_000_000_000,
+      pwdHash: 'synthetic',
+      isDeleted: false,
+      serverUploaded: true,
+      localSceneUpdated: false,
+    };
+    jest.doMock('./incrementalCloudSync', load);
+    try {
+      await expect(
+        h.service['hasDurableDeferredWalletName'](new Map()),
+      ).resolves.toBe(false);
+      expect(load).not.toHaveBeenCalled();
+      await expect(
+        h.service['hasDurableDeferredWalletName'](
+          new Map([[observed.id, observed]]),
+        ),
+      ).resolves.toBe(true);
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.dontMock('./incrementalCloudSync');
+    }
+  });
+
   test.each(['unavailable', 'unavailable-silent', 'cancelled'] as const)(
     'legacy flush leaves the local pool alone when the incremental loader is %s',
     async (outcome) => {
@@ -2800,56 +2834,61 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
   });
 
-  test('existing metadata deletion ACKs advance a delete-only multi-batch drain after pool cleanup', async () => {
-    const records: IDBCloudSyncItem[] = [0, 1].map((index) => ({
-      id: `wallet-delete-${index}`,
-      dataType: EPrimeCloudSyncDataType.Wallet,
-      data: 'public-encrypted-fixture',
-      dataTime: 1_750_000_000_000,
-      pwdHash: 'public-root-space',
-      rawKey: '',
-      rawData: '',
-      isDeleted: false,
-      localSceneUpdated: true,
-      serverUploaded: true,
-    }));
-    const h = harness(0, {
-      initialPool: new Map(records.map((row) => [row.id, row])),
-    });
-    h.service.syncManagers.wallet.removeSyncItemIfServerDeleted = true;
-    const removePoolItems = jest
-      .spyOn(localDb, 'removeCloudSyncPoolItems')
-      .mockImplementation(async ({ keys }) => {
-        for (const id of keys) h.pool.delete(id);
+  test.each([true, false])(
+    'metadata deletion ACKs advance a delete-only drain without upload (local uploaded=%s)',
+    async (serverUploaded) => {
+      const records: IDBCloudSyncItem[] = [0, 1].map((index) => ({
+        id: `wallet-delete-${index}`,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: 'public-encrypted-fixture',
+        dataTime: 1_750_000_000_000,
+        pwdHash: 'public-root-space',
+        rawKey: '',
+        rawData: '',
+        isDeleted: false,
+        localSceneUpdated: true,
+        serverUploaded,
+      }));
+      const h = harness(0, {
+        initialPool: new Map(records.map((row) => [row.id, row])),
       });
-    h.check.mockImplementation(async ({ localItems = [] }) =>
-      reply({
-        deleted: localItems.slice(0, 1).map((row) => row.id),
-        reconciliation: {
-          version: 1,
-          maxItems: 500,
-          maxBytes: 1024 * 1024,
-          diffBeforeLimit: true,
-          includesDeleted: true,
-          hasMore: localItems.length > 1,
-        },
-      }),
-    );
-    await h.run();
-    expect(h.pool.size).toBe(0);
-    expect(removePoolItems).toHaveBeenCalledWith({
-      keys: ['wallet-delete-0'],
-      expectedItems: [
-        expect.objectContaining({ id: 'wallet-delete-0', isDeleted: true }),
-      ],
-    });
-    expect(h.check).toHaveBeenCalledTimes(2);
-    expect(h.config().cloudSyncReconciliation).toMatchObject({
-      status: 'complete',
-      applied: 2,
-      requests: 2,
-    });
-  });
+      h.service.syncManagers.wallet.removeSyncItemIfServerDeleted = true;
+      const removePoolItems = jest
+        .spyOn(localDb, 'removeCloudSyncPoolItems')
+        .mockImplementation(async ({ keys }) => {
+          for (const id of keys) h.pool.delete(id);
+        });
+      h.check.mockImplementation(async ({ localItems = [] }) =>
+        reply({
+          deleted: localItems.slice(0, 1).map((row) => row.id),
+          reconciliation: {
+            version: 1,
+            maxItems: 500,
+            maxBytes: 1024 * 1024,
+            diffBeforeLimit: true,
+            includesDeleted: true,
+            hasMore: localItems.length > 1,
+          },
+        }),
+      );
+      const upload = jest.spyOn(h.service, '_callApiUploadItems');
+      await h.run();
+      expect(h.pool.size).toBe(0);
+      expect(upload).not.toHaveBeenCalled();
+      expect(removePoolItems).toHaveBeenCalledWith({
+        keys: ['wallet-delete-0'],
+        expectedItems: [
+          expect.objectContaining({ id: 'wallet-delete-0', isDeleted: true }),
+        ],
+      });
+      expect(h.check).toHaveBeenCalledTimes(2);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        applied: 2,
+        requests: 2,
+      });
+    },
+  );
 
   test('equal-version ciphertext churn enters increasing cooldown instead of budget continuations', async () => {
     const remote = serverItem(0);
