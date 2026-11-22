@@ -504,9 +504,12 @@ describe('CloudSyncFlowManagerWallet', () => {
     test('a new history instance sees only the old name before the scene changes', async () => {
       const values = new Map<string, string>();
       const history = new SimpleDbEntityChangeHistory();
+      const write = jest.fn(async (key: string, value: string) => {
+        values.set(key, value);
+      });
       const storage = {
         getItem: async (key: string) => values.get(key) ?? null,
-        setItem: async (key: string, value: string) => values.set(key, value),
+        setItem: write,
       } as unknown as typeof history.appStorage;
       history.appStorage = storage;
       const update = jest.fn(async () => {
@@ -530,13 +533,66 @@ describe('CloudSyncFlowManagerWallet', () => {
         expect.objectContaining({ expectedCloudSyncWalletName: wallet.name }),
       );
       const first = await history.getChangeHistory(filter);
-      await history.retainWalletName({
-        walletId: wallet.id,
-        name: wallet.name,
-      });
+      const persisted = values.get(history.entityKey);
+      const updatedAt = history.updatedAt;
+      await expect(
+        history.retainWalletName({ walletId: wallet.id, name: wallet.name }),
+      ).resolves.toBe(true);
       await history.retainWalletName({ walletId: wallet.id, name: ' ' });
       expect(await history.getChangeHistory(filter)).toEqual(first);
+      expect(write).toHaveBeenCalledTimes(1);
+      expect(values.get(history.entityKey)).toBe(persisted);
+      expect(history.updatedAt).toBe(updatedAt);
     });
+
+    test('concurrent retention persists each distinct old name exactly once', async () => {
+      let saved: string | null = null;
+      const write = jest.fn(async (_key: string, value: string) => {
+        saved = value;
+      });
+      const history = new SimpleDbEntityChangeHistory();
+      history.appStorage = {
+        ...history.appStorage,
+        getItem: async () => saved,
+        setItem: write,
+      };
+      const keep = (name: string) =>
+        history.retainWalletName({ walletId: wallet.id, name });
+      await expect(
+        Promise.all([keep(wallet.name), keep(wallet.name), keep('Other name')]),
+      ).resolves.toEqual([true, true, true]);
+      expect(write).toHaveBeenCalledTimes(2);
+
+      const reopened = new SimpleDbEntityChangeHistory();
+      reopened.appStorage = history.appStorage;
+      expect(
+        (await reopened.getChangeHistory(filter)).map(({ value }) => value),
+      ).toEqual(expect.arrayContaining([wallet.name, 'Other name']));
+    });
+
+    test.each(['read', 'write'] as const)(
+      'does not report an old name as retained when the persisted %s fails',
+      async (failure) => {
+        const history = new SimpleDbEntityChangeHistory();
+        const error = new Error('synthetic history storage failure');
+        const setItem = jest.fn(async () => {
+          throw error;
+        });
+        history.appStorage = {
+          ...history.appStorage,
+          getItem: async () => {
+            if (failure === 'read') throw error;
+            return null;
+          },
+          setItem,
+          removeItem: jest.fn(async () => undefined),
+        };
+        await expect(
+          history.retainWalletName({ walletId: wallet.id, name: wallet.name }),
+        ).rejects.toBe(error);
+        expect(setItem).toHaveBeenCalledTimes(failure === 'read' ? 0 : 1);
+      },
+    );
 
     test.each([
       'failure',

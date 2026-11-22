@@ -50,28 +50,35 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
     name: string;
   }): Promise<boolean> {
     if (!walletId || !name.trim()) return true;
-    const saved = await this.setRawData((data) => {
-      const walletHistory = data?.[EChangeHistoryEntityType.Wallet] ?? {};
-      const entry = walletHistory[walletId] ?? {};
-      const names = entry[EChangeHistoryContentType.Name] ?? {};
-      if (Object.hasOwn(names, name) && names[name]?.value === name)
-        return data ?? {};
-      return {
-        ...data,
-        [EChangeHistoryEntityType.Wallet]: {
-          ...walletHistory,
-          [walletId]: {
-            ...entry,
-            [EChangeHistoryContentType.Name]: {
-              ...names,
-              // This records when the name was retained, not when it was edited.
-              [name]: { oldValue: '', value: name, timestamp: Date.now() },
+    let alreadyRetained = false;
+    const { committed } = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      build: (data) => {
+        const walletHistory = data?.[EChangeHistoryEntityType.Wallet] ?? {};
+        const entry = walletHistory[walletId] ?? {};
+        const names = entry[EChangeHistoryContentType.Name] ?? {};
+        alreadyRetained =
+          Object.hasOwn(names, name) && names[name]?.value === name;
+        if (alreadyRetained) return undefined;
+        return {
+          data: {
+            ...data,
+            [EChangeHistoryEntityType.Wallet]: {
+              ...walletHistory,
+              [walletId]: {
+                ...entry,
+                [EChangeHistoryContentType.Name]: {
+                  ...names,
+                  // This records retention time, not the time the name was edited.
+                  [name]: { oldValue: '', value: name, timestamp: Date.now() },
+                },
+              },
             },
           },
-        },
-      };
+        };
+      },
     });
-    return !!saved;
+    return alreadyRetained || committed;
   }
 
   @backgroundMethod()
