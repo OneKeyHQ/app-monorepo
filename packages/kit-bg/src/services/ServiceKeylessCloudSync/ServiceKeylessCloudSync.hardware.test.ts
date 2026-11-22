@@ -16,6 +16,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -4488,6 +4489,166 @@ describe('hardware reset session and local data races', () => {
   });
 
   test.each([
+    'verified',
+    'no-final-url',
+    'wrong-final-url',
+    'newer-stored-pair',
+    'new-selected-source',
+    'revoked',
+  ] as const)(
+    'only retains the original node rotation with verified current storage: %s',
+    async (scenario) => {
+      const { service, getClient } = setup();
+      const actual = jest.requireActual<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      const A = 'https://prime.example.invalid';
+      const B = 'https://alternate-prime.example.invalid';
+      const refreshPath = '/prime/v1/hw-sync/auth/refresh';
+      const stale = {
+        ...current,
+        hardwareSession: {
+          ...session,
+          accessTokenExpiresAt: 0,
+          deviceKeyJwk: actual.createHardwareCloudSyncDeviceKey(),
+          boundBaseURL: A,
+          boundBaseURLVerified: true,
+        },
+      };
+      mockStored = stale;
+      const other = {
+        ...stale,
+        hardwareSession: {
+          ...stale.hardwareSession,
+          accessToken: 'public-other-access',
+          refreshToken: 'public-other-refresh',
+        },
+      };
+      const otherSource = {
+        ...source,
+        credentialId: `hardware-cloud-v1-${'b'.repeat(64)}`,
+      };
+      const replacement = {
+        ...other,
+        source: otherSource,
+        keylessWalletId: otherSource.credentialId,
+        hardwareSession: { ...other.hardwareSession, boundBaseURL: B },
+      };
+      const sent = Promise.withResolvers<void>();
+      const returnResponse = Promise.withResolvers<void>();
+      const postB = jest.fn();
+      const alternate = axios.create({ baseURL: B, adapter: postB });
+      const endpointA = axios.create({
+        baseURL: A,
+        adapter: async (config) => {
+          expect(config.baseURL).toBe(A);
+          expect(config.url).toBe(refreshPath);
+          const rawData: unknown = config.data;
+          expect(rawData).toBe(
+            JSON.stringify({ refreshToken: session.refreshToken }),
+          );
+          sent.resolve();
+          await returnResponse.promise;
+          let finalURL: string | undefined;
+          if (scenario !== 'no-final-url')
+            finalURL = `${scenario === 'wrong-final-url' ? B : A}${refreshPath}`;
+          return {
+            config,
+            data: {
+              data: {
+                sessionId: session.sessionId,
+                accessToken: 'public-rotated-access',
+                refreshToken: 'public-rotated-refresh',
+                accessTokenExpiresIn: 300,
+              },
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            request: { oneKeyVerifiedFinalUrl: finalURL },
+          };
+        },
+      });
+      getClient.mockResolvedValue(endpointA);
+      jest
+        .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+        .mockResolvedValue(true);
+      const refresh = jest.mocked(
+        sessionApi.refreshHardwareCloudSyncSessionIfNeeded,
+      );
+      refresh.mockImplementation(
+        actual.refreshHardwareCloudSyncSessionIfNeeded,
+      );
+      const save = jest.spyOn(keylessSyncCredentialStorage, 'saveCredential');
+      const work = service['getFreshHardwareCredential'](stale, {
+        force: true,
+      });
+      try {
+        await sent.promise;
+        getClient.mockResolvedValue(alternate);
+        if (scenario === 'newer-stored-pair') {
+          // Model the admitted write from the locally active replacement.
+          await service['saveHardwareCredential'](other, {
+            expected: stale,
+            refreshedSession: true,
+          });
+          save.mockClear();
+        } else if (scenario === 'new-selected-source') {
+          // Another physical key finished selection and owns the single slot.
+          mockConfig.hardwareCloudSyncKeySource = otherSource;
+          mockStored = replacement;
+        } else if (scenario === 'revoked') {
+          await expect(
+            service['requireHardwareCloudSyncSignIn'](stale),
+          ).rejects.toThrow('Reconnect your hardware wallet');
+        }
+      } finally {
+        returnResponse.resolve();
+      }
+      await expect(work).rejects.toThrow(
+        scenario === 'wrong-final-url'
+          ? 'endpoint changed'
+          : 'settings changed',
+      );
+      expect(postB).not.toHaveBeenCalled();
+      expect(
+        service.getKeylessCloudSyncCredentialCacheSync(stale.keylessWalletId),
+      ).toEqual(scenario === 'newer-stored-pair' ? other : undefined);
+
+      if (scenario === 'verified') {
+        expect(save).toHaveBeenCalledTimes(1);
+        const durable = mockStored;
+        expect(durable?.hardwareSession).toMatchObject({
+          accessToken: 'public-rotated-access',
+          refreshToken: 'public-rotated-refresh',
+          boundBaseURL: A,
+          boundBaseURLVerified: true,
+        });
+        if (!durable)
+          throw new OneKeyLocalError('Missing retained test rotation');
+        const cold = setup();
+        cold.getClient.mockResolvedValue(alternate);
+        await expect(
+          cold.service['getFreshHardwareCredential'](durable, { force: true }),
+        ).rejects.toThrow('settings changed');
+        expect(postB).not.toHaveBeenCalled();
+        expect(refresh).toHaveBeenCalledTimes(1);
+        cold.getClient.mockResolvedValue(endpointA);
+        await expect(
+          cold.service['getFreshHardwareCredential'](durable),
+        ).resolves.toEqual(durable);
+      } else {
+        expect(save).not.toHaveBeenCalled();
+        let expected: IKeylessCloudSyncCredential | undefined = stale;
+        if (scenario === 'newer-stored-pair') expected = other;
+        if (scenario === 'new-selected-source') expected = replacement;
+        if (scenario === 'revoked') expected = undefined;
+        expect(mockStored).toEqual(expected);
+      }
+    },
+  );
+
+  test.each([
     'tokens-only',
     'different-session',
     'endpoint-changed-before-save',
@@ -4652,43 +4813,37 @@ describe('hardware reset session and local data races', () => {
           ),
         ).toBeUndefined();
         expect(prime.uploadItemsToMerge).toEqual([wallet]);
-        expect(mockStored?.hardwareSession).toEqual(
-          scenario === 'endpoint-changed-before-save'
-            ? stale.hardwareSession
-            : refreshed,
-        );
-        if (scenario !== 'endpoint-changed-before-save') {
-          const durable = mockStored;
-          if (!durable)
-            throw new OneKeyLocalError('Missing durable refresh fixture');
-          const cold = setup();
-          const coldPrime = new ServicePrimeCloudSync({
-            backgroundApi: { serviceKeylessCloudSync: cold.service },
-          });
-          Object.assign(cold.backgroundApi, {
-            servicePrimeCloudSync: coldPrime,
-          });
-          cold.getClient.mockResolvedValue(alternateClient);
-          jest.spyOn(coldPrime, 'getSyncCredentialSafe').mockResolvedValue({
-            ...selected,
-            keylessCredential: durable,
-          });
-          await expect(
-            cold.service['getFreshHardwareCredential'](durable, {
-              force: true,
-            }),
-          ).rejects.toThrow('settings changed');
-          await expect(
-            cold.service.apiUploadItemsKeyless({
-              postData: { pwdHash: stale.pwdHash, localData: [], nonce: 0 },
-              urlPath: '/prime/v1/sync/upload',
-              canUploadHardware: () => true,
-            }),
-          ).rejects.toThrow('settings changed');
-          expect(refresh).toHaveBeenCalledTimes(1);
-          expect(send).not.toHaveBeenCalled();
-          expect(alternateAdapter).not.toHaveBeenCalled();
-        }
+        expect(mockStored?.hardwareSession).toEqual(refreshed);
+        const durable = mockStored;
+        if (!durable)
+          throw new OneKeyLocalError('Missing durable refresh fixture');
+        const cold = setup();
+        const coldPrime = new ServicePrimeCloudSync({
+          backgroundApi: { serviceKeylessCloudSync: cold.service },
+        });
+        Object.assign(cold.backgroundApi, {
+          servicePrimeCloudSync: coldPrime,
+        });
+        cold.getClient.mockResolvedValue(alternateClient);
+        jest.spyOn(coldPrime, 'getSyncCredentialSafe').mockResolvedValue({
+          ...selected,
+          keylessCredential: durable,
+        });
+        await expect(
+          cold.service['getFreshHardwareCredential'](durable, {
+            force: true,
+          }),
+        ).rejects.toThrow('settings changed');
+        await expect(
+          cold.service.apiUploadItemsKeyless({
+            postData: { pwdHash: stale.pwdHash, localData: [], nonce: 0 },
+            urlPath: '/prime/v1/sync/upload',
+            canUploadHardware: () => true,
+          }),
+        ).rejects.toThrow('settings changed');
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(send).not.toHaveBeenCalled();
+        expect(alternateAdapter).not.toHaveBeenCalled();
         return;
       }
       await request;

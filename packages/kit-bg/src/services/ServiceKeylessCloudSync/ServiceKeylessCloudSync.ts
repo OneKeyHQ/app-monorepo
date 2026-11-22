@@ -1869,7 +1869,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       const before = stored.hardwareSession;
       const after = updated.hardwareSession;
       const source = stored.source;
-      const sameSessionIdentity =
+      const sameSession =
         !!source &&
         source.type === 'hardware' &&
         source.credentialId === expected.keylessWalletId &&
@@ -1895,12 +1895,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
         after.deviceKeyJwk.y === before.deviceKeyJwk.y &&
         after.deviceKeyJwk.d === before.deviceKeyJwk.d;
 
+      const verified =
+        refreshedSession &&
+        sameSession &&
+        !!after?.boundBaseURL &&
+        after.boundBaseURLVerified === true;
       const matchesEndpoint = refreshAdmission?.matchesEndpoint;
-      if (matchesEndpoint && !(await matchesEndpoint())) return undefined;
+      // Save verified rotations before checking publication scope.
+      if (matchesEndpoint && !verified && !(await matchesEndpoint()))
+        return undefined;
       if (
         refreshAdmission &&
         (!refreshAdmission.canPersist() ||
-          (!sameSessionIdentity && !refreshAdmission.canPublish()))
+          (!sameSession && !refreshAdmission.canPublish()))
       )
         return undefined;
       await keylessSyncCredentialStorage.saveCredential(updated);
@@ -1909,15 +1916,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (refreshAdmission && !refreshAdmission.canPublish()) {
         // A running refresh may have rotated the server token before Off.
         // Keep the same-session token for revocation, not in the memory cache.
-        return sameSessionIdentity
+        return sameSession
           ? { credential: updated, preservesScope: true }
           : undefined;
       }
       if (
-        refreshedSession &&
-        sameSessionIdentity &&
-        !!after?.boundBaseURL &&
-        after.boundBaseURLVerified === true &&
+        verified &&
         !stored.pendingDataKey &&
         !stored.pendingHardwareKeyMigration &&
         !this.hardwareSessionEnding
@@ -1933,7 +1937,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         preservesScope: false,
         preservePendingHardwareRefresh:
           !refreshedSession &&
-          sameSessionIdentity &&
+          sameSession &&
           !stored.pendingHardwareKeyMigration &&
           !updated.pendingHardwareKeyMigration &&
           !!updated.pendingDataKey,
