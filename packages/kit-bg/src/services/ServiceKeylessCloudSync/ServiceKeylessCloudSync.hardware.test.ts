@@ -5197,7 +5197,11 @@ describe('hardware reset session and local data races', () => {
       const pending = { ...recoveryKey, generation: 2 };
       const { service, getClient, backgroundApi } = setup();
       let record = { ...unknownItem };
-      const readPool = async () => ({ items: [record] });
+      const realmNullableTime = failure === 'no-marker pool failure';
+      if (realmNullableTime) Object.assign(record, { dataTime: null });
+      const readPool = async () => ({
+        items: [{ ...record, dataTime: record.dataTime ?? undefined }],
+      });
       backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
         readPool,
       );
@@ -5342,7 +5346,9 @@ describe('hardware reset session and local data races', () => {
       });
       await restarted.service['handleHardwareDataKeyRefused'](original);
       expect(record.data).toBe(`rekeyed:${unknownItem.data}`);
-      expect(record.dataTime).toBe(unknownItem.dataTime);
+      expect(record.dataTime).toBe(
+        realmNullableTime ? null : unknownItem.dataTime,
+      );
       expect(record.pwdHash).toBe(recoveryKey.pwdHash);
       expect(adapter).toHaveBeenCalledWith(
         expect.objectContaining({

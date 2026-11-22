@@ -205,7 +205,7 @@ export function preparePoolRekey(
           (record.dataType === original.dataType &&
             record.rawKey === original.rawKey)) &&
         record.rawData === original.rawData &&
-        record.dataTime === original.dataTime &&
+        (record.dataTime ?? undefined) === (original.dataTime ?? undefined) &&
         record.isDeleted === original.isDeleted
       ) {
         record.data = replacement.data;
