@@ -37,6 +37,8 @@ export interface IChangeHistoryData {
   [entityType: string]: IChangeHistoryEntityIds;
 }
 
+const WALLET_NAME_ALREADY_RETAINED = new Error('Wallet name already retained');
+
 export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHistoryData> {
   entityName = 'changeHistory';
 
@@ -50,35 +52,36 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
     name: string;
   }): Promise<boolean> {
     if (!walletId || !name.trim()) return true;
-    let alreadyRetained = false;
-    const { committed } = await this.setRawDataTransaction({
-      shouldCommit: () => true,
-      build: (data) => {
+    try {
+      const saved = await this.setRawDataWithCommitGuard((data) => {
         const walletHistory = data?.[EChangeHistoryEntityType.Wallet] ?? {};
         const entry = walletHistory[walletId] ?? {};
         const names = entry[EChangeHistoryContentType.Name] ?? {};
-        alreadyRetained =
-          Object.hasOwn(names, name) && names[name]?.value === name;
-        if (alreadyRetained) return undefined;
+        if (Object.hasOwn(names, name) && names[name]?.value === name) {
+          // Leave the guarded writer before serialization, still under its mutex.
+          throw WALLET_NAME_ALREADY_RETAINED;
+        }
+
         return {
-          data: {
-            ...data,
-            [EChangeHistoryEntityType.Wallet]: {
-              ...walletHistory,
-              [walletId]: {
-                ...entry,
-                [EChangeHistoryContentType.Name]: {
-                  ...names,
-                  // This records retention time, not the time the name was edited.
-                  [name]: { oldValue: '', value: name, timestamp: Date.now() },
-                },
+          ...data,
+          [EChangeHistoryEntityType.Wallet]: {
+            ...walletHistory,
+            [walletId]: {
+              ...entry,
+              [EChangeHistoryContentType.Name]: {
+                ...names,
+                // This records retention time, not the time the name was edited.
+                [name]: { oldValue: '', value: name, timestamp: Date.now() },
               },
             },
           },
         };
-      },
-    });
-    return alreadyRetained || committed;
+      });
+      return !!saved;
+    } catch (error) {
+      if (error === WALLET_NAME_ALREADY_RETAINED) return true;
+      throw error;
+    }
   }
 
   @backgroundMethod()

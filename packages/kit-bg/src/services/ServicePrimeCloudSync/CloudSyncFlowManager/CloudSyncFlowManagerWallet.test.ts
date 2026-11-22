@@ -570,27 +570,56 @@ describe('CloudSyncFlowManagerWallet', () => {
       ).toEqual(expect.arrayContaining([wallet.name, 'Other name']));
     });
 
-    test.each(['read', 'write'] as const)(
-      'does not report an old name as retained when the persisted %s fails',
+    test.each(['read', 'first write', 'append write'] as const)(
+      'does not report retention or compensate after the persisted %s fails',
       async (failure) => {
         const history = new SimpleDbEntityChangeHistory();
         const error = new Error('synthetic history storage failure');
-        const setItem = jest.fn(async () => {
-          throw error;
+        // An existing unrelated Wallet name should never be restored over
+        // storage as compensation for a rejected append.
+        const original =
+          failure === 'append write'
+            ? JSON.stringify({
+                data: {
+                  wallet: {
+                    [wallet.id]: {
+                      name: {
+                        Earlier: {
+                          oldValue: '',
+                          value: 'Earlier',
+                          timestamp: 1,
+                        },
+                      },
+                    },
+                  },
+                },
+                updatedAt: 2,
+              })
+            : null;
+        let saved = original;
+        const setItem = jest
+          .fn(async (_key: string, value: string) => {
+            saved = value;
+          })
+          .mockRejectedValueOnce(error);
+        const removeItem = jest.fn(async () => {
+          saved = null;
         });
         history.appStorage = {
           ...history.appStorage,
           getItem: async () => {
             if (failure === 'read') throw error;
-            return null;
+            return saved;
           },
           setItem,
-          removeItem: jest.fn(async () => undefined),
+          removeItem,
         };
         await expect(
           history.retainWalletName({ walletId: wallet.id, name: wallet.name }),
         ).rejects.toBe(error);
         expect(setItem).toHaveBeenCalledTimes(failure === 'read' ? 0 : 1);
+        expect(removeItem).not.toHaveBeenCalled();
+        expect(saved).toBe(original);
       },
     );
 
