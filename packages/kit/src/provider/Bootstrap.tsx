@@ -28,7 +28,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
-import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
@@ -150,6 +149,10 @@ const LazyExtPrimeSubscriptionHandoffOnMount =
 // shortcut acts; undefined when Perps is disabled. Same rule as
 // usePerpTabConfig and the Perps app link.
 async function getPerpTabRoute() {
+  // Loaded on demand: a static import would move the Perps atoms into
+  // Bootstrap's startup path on every platform.
+  const { perpsCommonConfigPersistAtom } =
+    await import('@onekeyhq/kit-bg/src/states/jotai/atoms/perps');
   const { perpConfigCommon, perpConfigLoaded } =
     await perpsCommonConfigPersistAtom.get();
   if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
