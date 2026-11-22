@@ -51,7 +51,7 @@ import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
-import { getLastBrowserRoute, setLastBrowserRoute } from './lastBrowserRoute';
+import { getLastBrowserRoute } from './lastBrowserRoute';
 import { MenuHamburger } from './Menu';
 import {
   SidebarAppearanceContext,
@@ -240,10 +240,12 @@ function BasicTabItemView({
           pt={6}
           pb={6}
           onPress={handlePress}
+          onPressIn={closeTooltip}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
           <DesktopTabItem
+            onPressIn={closeTooltip}
             isContainerHovered={isContainerHovered}
             onPress={handlePress}
             onPressWhenSelected={handlePressWhenSelected}
@@ -277,6 +279,7 @@ function BasicTabItemView({
         </YStack>
       ),
     [
+      closeTooltip,
       handlePress,
       handlePressWhenSelected,
       handleHoverIn,
@@ -405,6 +408,7 @@ function SidebarBottomItem({
         pressStyle={PRESS_STYLE_BG_ACTIVE}
         cursor="default"
         onPress={handlePress}
+        onPressIn={closeTooltip}
         onHoverIn={handleHoverIn}
         onHoverOut={handleHoverOut}
       >
@@ -416,6 +420,7 @@ function SidebarBottomItem({
       </YStack>
     ),
     [
+      closeTooltip,
       isActive,
       handlePress,
       handleHoverIn,
@@ -785,15 +790,6 @@ export function DesktopLeftSideBar({
 
   // Current focused route for browser submenu
   const focusedRouteName = state.routes[state.index]?.name;
-
-  // Track last active browser route (Discovery or MultiTabBrowser)
-  useEffect(() => {
-    if (focusedRouteName === ETabRoutes.Discovery) {
-      setLastBrowserRoute(ETabRoutes.Discovery);
-    } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
-      setLastBrowserRoute(extraConfig.name as ETabRoutes);
-    }
-  }, [focusedRouteName, extraConfig?.name]);
 
   // The container height does not change with the labels, so toggling them
   // must recompute the count without waiting for a new layout pass.

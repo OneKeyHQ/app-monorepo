@@ -15,6 +15,7 @@ import {
   useMedia,
   useSplitSubView,
 } from '@onekeyhq/components';
+import { setLastBrowserRoute } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute';
 import { SidebarAppearanceContext } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/SidebarAppearanceContext';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -104,6 +105,27 @@ function FloatingDevModeBackButton() {
       </Button>
     </Stack>
   );
+}
+
+// Records the browser page the Browser entries return to. Kept out of the
+// sidebar, which unmounts when a narrow window swaps it for the bottom tab bar.
+function LastBrowserRouteTracker() {
+  const focusedTabName = useNavigationState((state) => {
+    const mainRoute = state?.routes?.find((r) => r.name === ERootRoutes.Main);
+    const tabState = mainRoute?.state as
+      | { routes?: { name: string }[]; index?: number }
+      | undefined;
+    return tabState?.routes?.[tabState?.index ?? 0]?.name;
+  });
+  useEffect(() => {
+    if (
+      focusedTabName === ETabRoutes.Discovery ||
+      focusedTabName === ETabRoutes.MultiTabBrowser
+    ) {
+      setLastBrowserRoute(focusedTabName);
+    }
+  }, [focusedTabName]);
+  return null;
 }
 
 const setShowLabelsFromSidebar = (showLabels: boolean) => {
@@ -255,6 +277,7 @@ export function TabNavigator() {
           sideAccessory={sideAccessory}
         />
       </SidebarAppearanceProvider>
+      {isShowWebTabBar ? <LastBrowserRouteTracker /> : null}
       {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />
       ) : null}
