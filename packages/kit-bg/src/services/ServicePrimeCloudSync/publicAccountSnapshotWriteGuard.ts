@@ -20,6 +20,25 @@ const previousVersions = new WeakMap<
   IPreviousSnapshotVersion | null
 >();
 const rejectedWrites = new WeakSet<IDBCloudSyncItem>();
+export type IWalletTieState = { ids: Set<string>; unknown: boolean };
+
+const walletTies = new WeakMap<
+  IDBCloudSyncItem,
+  { state: IWalletTieState; invalid?: string; verified?: string }
+>();
+
+export function guardWalletTie(item: IDBCloudSyncItem, state: IWalletTieState) {
+  walletTies.set(item, { state });
+}
+
+export function recordWalletTieProof(
+  item: IDBCloudSyncItem,
+  data: string,
+  valid: boolean,
+) {
+  const tie = walletTies.get(item);
+  if (tie) tie[valid ? 'verified' : 'invalid'] = data;
+}
 const rawPublicAccountFills = new WeakSet<IDBCloudSyncItem>();
 const localOnlyRemovals = new WeakSet<IDBCloudSyncItem>();
 
@@ -65,7 +84,7 @@ export function rememberPublicAccountSnapshotWrite(
 export function hasPublicAccountSnapshotWriteGuard(
   item: IDBCloudSyncItem,
 ): boolean {
-  return previousVersions.has(item);
+  return previousVersions.has(item) || walletTies.has(item);
 }
 
 export function isRejectedPublicAccountSnapshotWrite(
@@ -83,6 +102,21 @@ export function matchesPublicAccountSnapshotWrite(
   current?: IDBCloudSyncItem,
 ): boolean {
   if (rejectedWrites.has(item)) return false;
+  const tie = walletTies.get(item);
+  if (
+    tie &&
+    current?.dataType === EPrimeCloudSyncDataType.Wallet &&
+    current.isDeleted === false &&
+    current.pwdHash === item.pwdHash &&
+    current.dataTime === item.dataTime &&
+    current.data &&
+    current.data !== tie.invalid
+  ) {
+    tie.state.ids.add(item.id);
+    tie.state.unknown ||= current.data !== tie.verified;
+    return false;
+  }
+
   const previous = previousVersions.get(item);
   if (previous === undefined) return true;
   if (previous === null) return current === undefined;

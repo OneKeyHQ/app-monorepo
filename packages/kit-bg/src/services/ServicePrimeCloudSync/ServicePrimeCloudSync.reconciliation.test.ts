@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
+import 'fake-indexeddb/auto';
 import { cloneDeep } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
@@ -22,7 +23,9 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
@@ -2833,6 +2836,150 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       unfinished: false,
     });
   });
+
+  test.each([
+    'equal-tombstone',
+    'equal-race',
+    'typed-and-bare',
+    'cold-failure',
+    'read-hang',
+    'equal-live',
+    'newer-tombstone',
+    'bare-delete',
+    'unknown-live',
+    'fractional-time',
+  ] as const)(
+    'checked Wallet comparison respects exact typed time: %s',
+    async (kind) => {
+      if (kind === 'read-hang') jest.useRealTimers();
+      const h = harness();
+      const db = new LocalDbIndexed();
+      const rawKey = `hd:__fixture-checked-wallet-${kind}:`;
+      const id = sha512ProSync({ data: rawKey });
+      const timestamp = 1_750_000_000_000;
+      const initial: IDBCloudSyncItem = {
+        id,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawKey: '',
+        rawData: '',
+        pwdHash: 'public-root-space',
+        dataTime: timestamp,
+        data: 'initial-version',
+        isDeleted: kind === 'equal-live',
+        serverUploaded: true,
+        localSceneUpdated: true,
+      };
+      await db.addAndUpdateSyncItems({
+        items: [initial],
+        skipUploadToServer: true,
+      });
+      h.getPool.mockImplementation(() => db.getAllSyncItems());
+      h.getRecords.mockImplementation((params) => db.getRecordsByIds(params));
+      if (kind === 'read-hang') {
+        const save = h.service.saveServerSyncItemsToLocal.bind(h.service);
+        jest
+          .spyOn(h.service, 'saveServerSyncItemsToLocal')
+          .mockImplementationOnce(async (params) => {
+            h.getRecords.mockImplementationOnce(
+              () =>
+                new Promise<Awaited<ReturnType<typeof db.getRecordsByIds>>>(
+                  () => {},
+                ),
+            );
+            await save(params);
+          });
+      }
+      h.writePool.mockImplementation((params) =>
+        db.addAndUpdateSyncItems(params),
+      );
+      const refreshed = { ...initial, data: 'later-verified-live-ciphertext' };
+      if (kind === 'equal-race')
+        h.writePool.mockImplementationOnce(async (params) => {
+          await db.addAndUpdateSyncItems({
+            items: [refreshed],
+            skipUploadToServer: true,
+          });
+          await db.addAndUpdateSyncItems(params);
+        });
+      jest
+        .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+        .mockResolvedValueOnce({
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            rawKey:
+              kind === 'unknown-live'
+                ? 'unrelated-synthetic-wallet-id'
+                : rawKey,
+            payload: {
+              walletType: 'hd',
+              walletHash: 'fixture-checked-wallet',
+              name: 'Wallet name retained',
+              avatar: undefined,
+              hwDeviceId: undefined,
+              passphraseState: undefined,
+            },
+          },
+          dbItem: initial,
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          isDeleted: false,
+        });
+      let offset = 0;
+      if (kind === 'newer-tombstone') offset = 1;
+      if (kind === 'fractional-time') offset = 0.5;
+      const wire: ICloudSyncServerItem = {
+        key: id,
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        data: kind === 'equal-live' ? 'server-live-version' : '',
+        pwdHash: initial.pwdHash,
+        dataTimestamp: timestamp + offset,
+        isDeleted: kind !== 'equal-live',
+      };
+      h.check.mockResolvedValueOnce(
+        reply(
+          kind === 'bare-delete'
+            ? { deleted: [id], reconciliation: undefined }
+            : {
+                diff: [wire],
+                deleted: [
+                  'typed-and-bare',
+                  'read-hang',
+                  'cold-failure',
+                ].includes(kind)
+                  ? [id]
+                  : [],
+                reconciliation: undefined,
+              },
+        ),
+      );
+      if (kind === 'cold-failure')
+        jest.doMock('./incrementalCloudSync', () => {
+          throw new OneKeyLocalError('Synthetic lazy module unavailable');
+        });
+      try {
+        await h.run();
+      } finally {
+        if (kind === 'cold-failure') jest.dontMock('./incrementalCloudSync');
+      }
+      const { records } = await db.getRecordsByIds({
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: [id],
+      });
+      const keepsLive =
+        kind === 'equal-live' ||
+        kind === 'equal-tombstone' ||
+        kind === 'equal-race' ||
+        kind === 'typed-and-bare' ||
+        kind === 'cold-failure' ||
+        kind === 'read-hang';
+      expect(records[0]).toMatchObject({
+        isDeleted: !keepsLive,
+        dataTime: timestamp + Math.floor(offset),
+      });
+      if (kind === 'equal-live') expect(records[0]?.data).toBe(wire.data);
+      if (kind === 'equal-tombstone')
+        expect(records[0]?.data).toBe(initial.data);
+    },
+  );
 
   test.each([true, false])(
     'metadata deletion ACKs advance a delete-only drain without upload (local uploaded=%s)',

@@ -104,7 +104,6 @@ import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletClou
 import {
   buildOnlyCheckLocalDataTypes,
   canArchiveSettledForeignAccountHandoff,
-  canReplaceSettledPublicAccountCache,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -133,12 +132,14 @@ import {
   normalizePublicAccountSnapshotRecord,
 } from './publicAccountSnapshot';
 import {
+  guardWalletTie,
   isRejectedPublicAccountSnapshotWrite,
   rememberOfflinePublicAccountSnapshotFill,
   rememberPublicAccountSnapshotWrite,
 } from './publicAccountSnapshotWriteGuard';
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
+import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
 import type { AxiosResponse } from 'axios';
@@ -2757,6 +2758,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     onWalletNameHistoryDeferred,
     deferPushBatchLastSyncTime = false,
     skipLastSyncTime = false,
+    tiesState,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
@@ -2766,6 +2768,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     deferPushBatchLastSyncTime?: boolean;
     skipLastSyncTime?: boolean;
+    tiesState?: IWalletTieState;
   }) {
     const pushGeneration = this.publicAccountSnapshotImportGeneration;
     const keyGeneration = deferPushBatchLastSyncTime
@@ -2796,20 +2799,38 @@ class ServicePrimeCloudSync extends ServiceBase {
         throw new OneKeyLocalError('Cloud sync was cancelled');
     };
     const localItems: IDBCloudSyncItem[] = [];
+    const ties: IDBCloudSyncItem[] = [];
+    const scope =
+      serverPwdHash &&
+      cloudSyncItemBuilder.getPwdHash(syncCredential) === serverPwdHash
+        ? tiesState
+        : undefined;
     for (let offset = 0; offset < serverItems.length; offset += 50) {
       guard();
       const converted = await Promise.all(
         serverItems
           .slice(offset, offset + 50)
           .filter((item) => isSupportedCloudSyncDataType(item.dataType))
-          .map((serverItem) =>
-            this.convertServerItemToLocalItem({
+          .map(async (serverItem) => {
+            const item = await this.convertServerItemToLocalItem({
               serverItem,
               shouldDecrypt: false,
               syncCredential,
               serverPwdHash,
-            }),
-          ),
+            });
+            if (
+              scope &&
+              item?.isDeleted === true &&
+              item.dataType === EPrimeCloudSyncDataType.Wallet &&
+              item.pwdHash === serverPwdHash &&
+              Number.isSafeInteger(serverItem.dataTimestamp) &&
+              (serverItem.dataTimestamp ?? 0) > 0
+            ) {
+              guardWalletTie(item, scope);
+              ties.push(item);
+            }
+            return item;
+          }),
       );
       localItems.push(
         ...converted.filter((item): item is IDBCloudSyncItem => Boolean(item)),
@@ -2817,6 +2838,32 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (offset + 50 < serverItems.length) await timerUtils.wait(0);
     }
     guard();
+
+    if (ties.length && syncCredential) {
+      let active = true;
+      try {
+        await resolveBeforeTimeout(
+          (async () => {
+            const helper = await import('./incrementalCloudSync');
+            await helper.verifyWalletTies(
+              localDb,
+              ties,
+              syncCredential,
+              () =>
+                active &&
+                generation === this.publicAccountSnapshotImportGeneration &&
+                (isCurrent?.() ?? true),
+            );
+          })(),
+          1500,
+        );
+      } catch {
+        // Unproven ties must not discard the equally dated live version.
+      } finally {
+        active = false;
+      }
+      guard();
+    }
 
     return this.updateLocalItemsByServer({
       localItems,
@@ -2934,49 +2981,14 @@ class ServicePrimeCloudSync extends ServiceBase {
         try {
           await resolveBeforeTimeout(
             (async () => {
-              const { records } = await localDb.getRecordsByIds({
-                name: ELocalDBStoreNames.CloudSyncItem,
-                ids: candidates.map((item) => item.id),
-              });
-              if (!canContinue()) return;
-              const byId = new Map(
-                records.map((record) => [record?.id, record]),
-              );
-              let next = 0;
-              const verify = async () => {
-                while (canContinue() && next < candidates.length) {
-                  const item = candidates[next];
-                  next += 1;
-                  const previous = byId.get(item.id);
-                  if (
-                    !previous ||
-                    !canReplaceSettledPublicAccountCache(
-                      previous,
-                      item,
-                      previous.rawKey,
-                    )
-                  )
-                    // eslint-disable-next-line no-continue
-                    continue;
-                  try {
-                    const { rawDataJson } =
-                      await cloudSyncItemBuilder.decryptSyncItem({
-                        item: { ...item, rawData: '', rawDataJson: undefined },
-                        syncCredential,
-                      });
-                    const { rawKey } =
-                      normalizePublicAccountSnapshotRecord(rawDataJson);
-                    if (canContinue() && rawKey === previous.rawKey) {
-                      foreignAccountsByWireId.set(previous.id, { ...previous });
-                      collisionCandidates.push({ ...item, rawKey });
-                    }
-                  } catch {
-                    // Leave unverified versions untouched; healthy records continue.
-                  }
-                }
-              };
-              await Promise.all(
-                Array.from({ length: Math.min(8, candidates.length) }, verify),
+              const helper = await import('./incrementalCloudSync');
+              await helper.probeAccountHandoffs(
+                localDb,
+                candidates,
+                syncCredential,
+                canContinue,
+                foreignAccountsByWireId,
+                collisionCandidates,
               );
             })(),
             1500,
@@ -3783,6 +3795,8 @@ class ServicePrimeCloudSync extends ServiceBase {
           transportFailure = 'server-unavailable';
         else transportFailure = undefined;
       };
+      let heldTie = false;
+      let unknownTie = false;
       const { runCloudSyncReconciliation } =
         await import('./cloudSyncReconciliation');
       const result = await runCloudSyncReconciliation({
@@ -3954,6 +3968,10 @@ class ServicePrimeCloudSync extends ServiceBase {
                   .filter((item) => item.isDeleted)
                   .map((item) => item.key),
               ]);
+              const tiesState: IWalletTieState = {
+                ids: new Set(),
+                unknown: false,
+              };
               for (const serverItems of [response.diff, response.updated]) {
                 if (!isCurrent() || signal.aborted)
                   throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -3965,13 +3983,19 @@ class ServicePrimeCloudSync extends ServiceBase {
                     serverPwdHash: response.pwdHash,
                     isCurrent: operationIsCurrent,
                     onWalletNameHistoryDeferred,
+                    tiesState,
                   });
               }
               if (!isCurrent() || signal.aborted)
                 throw new OneKeyLocalError('Cloud sync was cancelled');
-              if (response.deleted.length)
+              heldTie ||= tiesState.ids.size > 0;
+              unknownTie ||= tiesState.unknown;
+              const bareDeletes = response.deleted.filter(
+                (id) => !tiesState.ids.has(id),
+              );
+              if (bareDeletes.length)
                 await this.saveServerDeletedItemsToLocal({
-                  deletedItemIds: response.deleted,
+                  deletedItemIds: bareDeletes,
                   requestItems: checkRequestItems,
                   shouldSyncToScene: true,
                   syncCredential: credential,
@@ -4037,7 +4061,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
-      let deferredLocalWalletName = heldDivergentWalletName;
+      let deferredLocalWalletName = heldDivergentWalletName || heldTie;
       if (shouldReplay) {
         await this.syncPendingItemsToScene({
           forceSync:
@@ -4098,7 +4122,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
       if (result.status === 'complete')
         status =
-          hasIssues || (onManualResult && reportOriginalPartial)
+          hasIssues || unknownTie || (onManualResult && reportOriginalPartial)
             ? 'partial'
             : 'complete';
       else if (result.status === 'waiting' || result.status === 'cancelled')
@@ -6051,37 +6075,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { serverData: items, pwdHash } = await this.apiDownloadItems({
       includeDeleted,
     });
-    const localItems: IDBCloudSyncItem[] = [];
-    let failedCount = 0;
-    for (const item of items) {
-      try {
-        const localItem = await this.convertServerItemToLocalItem({
-          serverItem: item,
-          shouldDecrypt: true,
-          syncCredential,
-          serverPwdHash: pwdHash,
-        });
-        if (localItem) {
-          localItems.push(localItem);
-        }
-      } catch {
-        failedCount += 1;
-        const localItem = await this.convertServerItemToLocalItem({
-          serverItem: item,
-          shouldDecrypt: false,
-          syncCredential,
-          serverPwdHash: pwdHash,
-        });
-        if (localItem) {
-          localItems.push(localItem);
-        }
-      }
-    }
-    console.log('decryptAllServerSyncItems', {
-      count: items.length,
-      failedCount,
-    });
-    return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
+    const { decodeCloudSyncDebugRows } = await import('./incrementalCloudSync');
+    return decodeCloudSyncDebugRows(items, (serverItem, shouldDecrypt) =>
+      this.convertServerItemToLocalItem({
+        serverItem,
+        shouldDecrypt,
+        syncCredential,
+        serverPwdHash: pwdHash,
+      }),
+    );
   }
 
   @backgroundMethodForDev()

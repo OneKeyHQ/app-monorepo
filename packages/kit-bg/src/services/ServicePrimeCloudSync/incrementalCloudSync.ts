@@ -9,6 +9,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
+  ICloudSyncServerItem,
   ICloudSyncUploadResult,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
@@ -16,8 +17,13 @@ import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 
-import { isRetainedHardwareCloudCopy } from './cloudSyncCheckUtils';
+import {
+  canReplaceSettledPublicAccountCache,
+  isRetainedHardwareCloudCopy,
+} from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
+import { recordWalletTieProof } from './publicAccountSnapshotWriteGuard';
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import type { CloudSyncFlowManagerWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerWallet';
@@ -622,4 +628,136 @@ export async function probeDurableWalletNameDeferral(
     errorUtils.autoPrintErrorIgnore(error);
     return true;
   }
+}
+
+// Only authenticated, explicit server versions enter this preflight. A bare
+// deletion ACK has no time and must keep its normal request-version CAS.
+export async function verifyWalletTies(
+  db: ILocalDb,
+  rows: IDBCloudSyncItem[],
+  credential: ICloudSyncCredential,
+  isCurrent: () => boolean,
+): Promise<void> {
+  if (!isCurrent()) return;
+  const { records } = await db.getRecordsByIds({
+    name: ELocalDBStoreNames.CloudSyncItem,
+    ids: rows.map(({ id }) => id),
+  });
+  const byId = new Map(
+    records.flatMap((row) => (row ? [[row.id, row] as const] : [])),
+  );
+  let next = 0;
+  const verify = async () => {
+    while (isCurrent() && next < rows.length) {
+      const tombstone = rows[next];
+      next += 1;
+      const live = byId.get(tombstone.id);
+      if (
+        live?.dataType === EPrimeCloudSyncDataType.Wallet &&
+        live.isDeleted === false &&
+        live.pwdHash === tombstone.pwdHash &&
+        live.dataTime === tombstone.dataTime &&
+        live.data &&
+        live.data.length <= 64 * 1024
+      ) {
+        try {
+          const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+            item: { ...live, rawData: '', rawDataJson: undefined },
+            syncCredential: credential,
+          });
+          if (
+            isCurrent() &&
+            rawDataJson?.dataType === EPrimeCloudSyncDataType.Wallet &&
+            typeof rawDataJson.rawKey === 'string' &&
+            !!rawDataJson.rawKey
+          )
+            recordWalletTieProof(
+              tombstone,
+              live.data,
+              sha512ProSync({ data: rawDataJson.rawKey }) === live.id,
+            );
+        } catch {
+          // Unknown is not permission to replace an equally dated live row.
+        }
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, rows.length) }, verify));
+}
+
+export async function probeAccountHandoffs(
+  db: ILocalDb,
+  candidates: IDBCloudSyncItem[],
+  syncCredential: ICloudSyncCredential | undefined,
+  canContinue: () => boolean,
+  foreignAccountsByWireId: Map<string, IDBCloudSyncItem>,
+  collisionCandidates: IDBCloudSyncItem[],
+): Promise<void> {
+  if (!canContinue()) return;
+  const { records } = await db.getRecordsByIds({
+    name: ELocalDBStoreNames.CloudSyncItem,
+    ids: candidates.map((item) => item.id),
+  });
+  if (!canContinue()) return;
+  const byId = new Map(records.map((record) => [record?.id, record]));
+  let next = 0;
+  const verify = async () => {
+    while (canContinue() && next < candidates.length) {
+      const item = candidates[next];
+      next += 1;
+      const previous = byId.get(item.id);
+      if (
+        !previous ||
+        !canReplaceSettledPublicAccountCache(previous, item, previous.rawKey)
+      )
+        // eslint-disable-next-line no-continue
+        continue;
+      try {
+        const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+          item: { ...item, rawData: '', rawDataJson: undefined },
+          syncCredential,
+        });
+        const { rawKey } = normalizePublicAccountSnapshotRecord(rawDataJson);
+        if (canContinue() && rawKey === previous.rawKey) {
+          foreignAccountsByWireId.set(previous.id, { ...previous });
+          collisionCandidates.push({ ...item, rawKey });
+        }
+      } catch {
+        // Leave unverified versions untouched; healthy records continue.
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(8, candidates.length) }, verify),
+  );
+}
+
+export async function decodeCloudSyncDebugRows(
+  items: ICloudSyncServerItem[],
+  convert: (
+    item: ICloudSyncServerItem,
+    decrypt: boolean,
+  ) => Promise<IDBCloudSyncItem | null>,
+): Promise<IDBCloudSyncItem[]> {
+  const localItems: IDBCloudSyncItem[] = [];
+  let failedCount = 0;
+  for (const item of items) {
+    try {
+      const localItem = await convert(item, true);
+      if (localItem) {
+        localItems.push(localItem);
+      }
+    } catch {
+      failedCount += 1;
+      const localItem = await convert(item, false);
+      if (localItem) {
+        localItems.push(localItem);
+      }
+    }
+  }
+  console.log('decryptAllServerSyncItems', {
+    count: items.length,
+    failedCount,
+  });
+  return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
 }
