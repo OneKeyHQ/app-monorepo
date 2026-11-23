@@ -174,7 +174,13 @@ under separate owners:
   stack and every pane keeps its share; any other boundary trades height between
   its two panes; a double click restores the defaults. Saved heights record the
   chart height they were set at and scale with it, so they hold their share in a
-  smaller chart such as a split-view panel. Native charts do not expose
+  smaller chart such as a split-view panel. A stack with less room than its
+  panes prefer, e.g. after panes are added beside one dragged over the whole
+  stack, shrinks them by their shares, but a pane stops at the minimum height
+  and the taller ones give up the rest, so every boundary stays draggable. The
+  boundary under the price chart shrinks the stack the same way, until every
+  pane is at the minimum. Only a chart too short for every minimum splits the
+  stack equally and locks the boundaries. Native charts do not expose
   pane-height drag handles.
 - Indicator Y axes pin their visible ranges independently by instance ID. Web
   pointer handlers and native gestures use the main axis scaling calculation;
