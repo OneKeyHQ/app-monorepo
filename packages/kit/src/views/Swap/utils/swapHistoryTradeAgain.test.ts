@@ -155,6 +155,7 @@ describe('swap history Trade Again', () => {
       try {
         if (hasStaleCache) {
           swrCacheUtils.set(variantsKey, { stockId, items: [] });
+          jest.setSystemTime(Date.now() + 6000);
         }
         const params = getParams(legacyVariant);
         const { result } = renderHook(() =>
@@ -201,6 +202,53 @@ describe('swap history Trade Again', () => {
       ).toBe(false);
     },
   );
+
+  it('reuses a fresh negative stock membership check until the list expires', async () => {
+    const stockId = 'MSFT';
+    const locale = 'en-us';
+    const stock: ISwapToken = {
+      ...toToken,
+      isStock: true,
+      stock: { stockId, subtitle: '', sourceLogoUri: '' },
+    };
+    const source = {
+      marketStockTrade: true,
+      swapInitParams: { importToToken: stock },
+      locale,
+    };
+    const params: ISwapInitParams = {
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      importFromToken: {
+        ...stock,
+        contractAddress: '0xother',
+        stock: undefined,
+      },
+      importToToken: fromToken,
+    };
+    const fetchVariants = jest.spyOn(
+      backgroundApiProxy.serviceMarketV2,
+      'fetchMarketStockTokenVariants',
+    );
+    fetchVariants.mockResolvedValue({ stockId, items: [] });
+    jest.useFakeTimers();
+    try {
+      await refreshMarketStockTradeAgainEligibility(params, source);
+      await refreshMarketStockTradeAgainEligibility(params, source);
+      expect(fetchVariants).toHaveBeenCalledTimes(1);
+      expect(isTradeAgainAllowedInMarketModal(params, source)).toBe(false);
+
+      jest.setSystemTime(Date.now() + 6000);
+      await refreshMarketStockTradeAgainEligibility(params, source);
+      expect(fetchVariants).toHaveBeenCalledTimes(2);
+      expect(isTradeAgainAllowedInMarketModal(params, source)).toBe(false);
+    } finally {
+      fetchVariants.mockReset();
+      swrCacheUtils.remove(
+        swrKeys.marketStockTokenVariants({ stockId, locale }),
+      );
+      jest.useRealTimers();
+    }
+  });
 
   it.each([true, false])(
     'restricts history replay to visible Market non-stock modes (native: %s)',

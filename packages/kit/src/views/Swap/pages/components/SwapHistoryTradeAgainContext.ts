@@ -29,6 +29,7 @@ import {
   fetchSwapStockTokenIdentity,
   getCachedSwapStockDisplayVariants,
   getCachedSwapStockId,
+  getFreshSwapStockVariants,
 } from '../../utils/swapStockMarketData';
 
 import type { ScrollViewInstance } from 'react-native';
@@ -191,7 +192,11 @@ export async function refreshMarketStockTradeAgainEligibility(
       { tokenIdentity, stock, failed: false },
     );
   }
-  if (resolveMarketStockId(replayStock)) return;
+  if (
+    resolveMarketStockId(replayStock) ||
+    getFreshSwapStockVariants(stockId, locale)
+  )
+    return;
 
   const cachedVariants = getCachedSwapStockDisplayVariants(stockId, locale);
   if (
