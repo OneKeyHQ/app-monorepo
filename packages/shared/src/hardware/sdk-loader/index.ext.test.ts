@@ -1,4 +1,4 @@
-import { probeUsbDeviceIdentities as probe } from '@onekeyfe/hd-common-connect-sdk-extension';
+import { probeUsbDeviceIdentities as probe } from '@onekeyfe/hd-common-connect-sdk';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -11,7 +11,7 @@ import {
 jest.mock('@onekeyfe/hd-web-sdk', () => {
   throw new OneKeyLocalError('Extension UI must not load the iframe SDK');
 });
-jest.mock('@onekeyfe/hd-common-connect-sdk-extension', () => ({
+jest.mock('@onekeyfe/hd-common-connect-sdk', () => ({
   probeUsbDeviceIdentities: jest.fn(async () => []),
 }));
 
