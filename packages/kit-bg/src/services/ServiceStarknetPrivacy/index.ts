@@ -13,6 +13,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   scaleFeeFiatValueToNativeFee,
@@ -1939,9 +1940,12 @@ class ServiceStarknetPrivacy extends ServiceBase {
           : 0,
       );
       if (required.gt(u256ToDecimalString(low, high))) {
+        const key = ETranslations.send_error_insufficient_balance;
+        const info = { token: 'STRK' };
         throw new OneKeyLocalError({
-          key: ETranslations.send_error_insufficient_balance,
-          info: { token: 'STRK' },
+          key,
+          info,
+          message: appLocale.intl.formatMessage({ id: key }, info),
         });
       }
     }

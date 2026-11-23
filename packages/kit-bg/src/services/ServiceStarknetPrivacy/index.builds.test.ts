@@ -70,6 +70,10 @@ jest.mock('../../vaults/impls/starknet/strk20Adapter', () => ({
 import ServiceStarknetPrivacy from './index';
 
 // eslint-disable-next-line import/first
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+// eslint-disable-next-line import/first
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
+// eslint-disable-next-line import/first
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 // eslint-disable-next-line import/first
 import type { IProxyRequest } from '@onekeyhq/shared/types/proxy';
@@ -654,6 +658,16 @@ describe('protocol fee', () => {
 });
 
 describe('multicall assembly', () => {
+  const originalIntl = appLocale.intl;
+
+  beforeAll(async () => {
+    appLocale.setLocale('zh-CN', await loadLocaleMessages('zh-CN'));
+  });
+
+  afterAll(() => {
+    appLocale.setLocale(originalIntl.locale, originalIntl.messages);
+  });
+
   it.each([
     { tokenAddress: STRK, balance: '2500000000000000000' },
     { tokenAddress: ETH, balance: '1000000000000000000' },
@@ -673,6 +687,7 @@ describe('multicall assembly', () => {
       ).rejects.toMatchObject({
         key: 'send.error_insufficient_balance',
         info: { token: 'STRK' },
+        message: 'STRK 余额不足',
       });
 
       expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
