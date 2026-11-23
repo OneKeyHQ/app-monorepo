@@ -801,6 +801,7 @@ const DetailsPartComponent = ({
   onActionSuccess,
   holding,
   holdingRedeem,
+  campaignBonusCard,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -830,6 +831,7 @@ const DetailsPartComponent = ({
   // and the footer's Redeem for its deposit row (product 10-15)
   holding?: IEarnPositionView;
   holdingRedeem?: IEarnHoldingRedeem;
+  campaignBonusCard?: ReactNode;
 }) => {
   const now = useMemo(() => Date.now(), []);
   const { chartData, isChartLoading } = useEarnApyHistory({
@@ -1069,6 +1071,7 @@ const DetailsPartComponent = ({
               protocolInfo={protocolInfo}
               tokenInfo={tokenInfo}
             />
+            {campaignBonusCard}
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
@@ -1259,6 +1262,34 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const wideBonusProgress = showWideCampaignBonus
     ? detailInfo?.bonusProgress
     : undefined;
+  const wideCampaignBonusCard = useMemo(
+    () =>
+      wideBonusProgress ? (
+        <CampaignBonusCard
+          key={[
+            networkId,
+            provider,
+            symbol,
+            vault,
+            accountId,
+            indexedAccountId,
+            protocolInfo?.earnAccount?.accountAddress,
+          ].join('|')}
+          progress={wideBonusProgress}
+          networkId={networkId}
+        />
+      ) : null,
+    [
+      wideBonusProgress,
+      networkId,
+      provider,
+      symbol,
+      vault,
+      accountId,
+      indexedAccountId,
+      protocolInfo?.earnAccount?.accountAddress,
+    ],
+  );
 
   const providerSubtitle = useMemo(
     () =>
@@ -1833,6 +1864,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             onRedeem={handleOpenRedeem}
             holding={holding}
             holdingRedeem={redeemControl}
+            campaignBonusCard={
+              platformEnv.isDesktop ? wideCampaignBonusCard : null
+            }
           />
         </Stack>
         {gtMd ? (
@@ -1846,23 +1880,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               accountId={accountId}
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
-              bonusCard={
-                wideBonusProgress ? (
-                  <CampaignBonusCard
-                    key={[
-                      networkId,
-                      provider,
-                      symbol,
-                      vault,
-                      accountId,
-                      indexedAccountId,
-                      protocolInfo?.earnAccount?.accountAddress,
-                    ].join('|')}
-                    progress={wideBonusProgress}
-                    networkId={networkId}
-                  />
-                ) : null
-              }
+              bonusCard={platformEnv.isWeb ? wideCampaignBonusCard : null}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleActionSuccess}
               utm={utm}
