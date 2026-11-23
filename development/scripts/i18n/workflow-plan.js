@@ -135,6 +135,11 @@ async function preparePlan({
     localeMap,
     locales: catalog.locales,
     workspace: base,
+    // The onekey-i18n branch and release channel this approval covers.
+    central: {
+      base: client.base ?? 'main',
+      channel: client.channel ?? 'latest',
+    },
     ...(draft.sync ? { sync: draft.sync } : {}),
     sourceFiles: draft.sourceFiles || {},
     ...(draft.review
@@ -187,17 +192,22 @@ function renderPreview(plan) {
     '',
     `模式：${plan.mode === 'complete' ? '补全（新增 key、填补空译文；保留已有非空译文）' : '更新（upsert：创建或更新）'}`,
     `范围：${plan.entries.length} 个 key，完整校验 ${plan.locales.length} 种语言。这里只展示英文和简体中文；其余翻译保存在方案 JSON 中。`,
+    ...(plan.central &&
+    (plan.central.base !== 'main' || plan.central.channel !== 'latest')
+      ? [
+          `目标：onekey-i18n ${plan.central.base} 分支，读取 ${plan.central.channel} 渠道的发布包。`,
+        ]
+      : []),
     '',
+    ...(plan.sync
+      ? [
+          `已在任务开始时拉取远端译文；准备阶段同步涉及 ${plan.sync.changes.length} 处 key/语言变更，详情见方案记录。`,
+          '',
+        ]
+      : []),
     '| Key | 文案 |',
     '| --- | --- |',
   ];
-  if (plan.sync)
-    lines.splice(
-      6,
-      0,
-      `已在任务开始时拉取远端译文；准备阶段同步涉及 ${plan.sync.changes.length} 处 key/语言变更，详情见方案记录。`,
-      '',
-    );
   for (const entry of plan.entries) {
     const display = (locale) =>
       entry.before && entry.before[locale].value !== entry.translations[locale]

@@ -436,7 +436,7 @@ export const WithdrawSection = ({
 
     return earnUtils.resolveEarnApproveSpenderAddress({
       providerName,
-      protocolVault: protocolInfo?.vault,
+      verifiedProtocolVault: protocolInfo?.vault,
       backendApproveTarget: effectiveBorrowApproveInfo?.approveTarget,
     });
   }, [

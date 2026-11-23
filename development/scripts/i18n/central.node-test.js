@@ -108,7 +108,6 @@ function sourceFixture() {
     commit: 'c1',
     files: {
       'project.json': toStableJson({
-        keyCount: 4,
         name: 'Monorepo v5',
         slug: 'app',
         source: { baseLanguage: 'en_US' },
@@ -136,15 +135,19 @@ function sourceFixture() {
   };
 }
 
+// Files a createCommitOnBranch call adds, as { path, text }.
+const commitAdditions = (body) =>
+  body.variables.input.fileChanges.additions.map((item) => ({
+    path: item.path,
+    text: Buffer.from(item.contents, 'base64').toString('utf8'),
+  }));
+
 function commitRoutes({ main = 'c1', listing, base = 'main' } = {}) {
-  const blobs = [];
   const bodies = {};
   return {
-    blobs,
     bodies,
     routes: {
       [`GET ${REPO}/git/ref/heads/${base}`]: { object: { sha: main } },
-      [`GET ${REPO}/git/commits/${main}`]: { tree: { sha: 't1' } },
       ...(listing
         ? {
             [`GET ${REPO}/contents/projects/app?ref=${main}`]: listing.root,
@@ -152,17 +155,11 @@ function commitRoutes({ main = 'c1', listing, base = 'main' } = {}) {
               listing.locales,
           }
         : {}),
-      [`POST ${REPO}/git/blobs`]: (body) => {
-        blobs.push(body.content);
-        return { sha: `b${blobs.length}` };
-      },
-      [`POST ${REPO}/git/trees`]: (body) => {
-        bodies.tree = body;
-        return { sha: 't2' };
-      },
-      [`POST ${REPO}/git/commits`]: (body) => {
+      'POST /graphql': (body) => {
         bodies.commit = body;
-        return { sha: 'c2abcdef0123' };
+        return {
+          data: { createCommitOnBranch: { commit: { oid: 'c2abcdef0123' } } },
+        };
       },
       [`POST ${REPO}/git/refs`]: (body) => {
         bodies.ref = body;
@@ -226,7 +223,7 @@ test('reads release source data through the interface the workflow expects', asy
 });
 
 test('edits commit canonical files to a new onekey-i18n branch and open a PR', async () => {
-  const { routes, blobs, bodies } = commitRoutes();
+  const { routes, bodies } = commitRoutes();
   const api = fakeApi(routes);
   const client = new CentralClient({ api, source: sourceFixture() });
   await client.create(
@@ -248,28 +245,39 @@ test('edits commit canonical files to a new onekey-i18n branch and open a PR', a
     branchHint: 'app-feat-x',
   });
   assert.equal(proposal.number, 9);
-  assert.equal(proposal.branch, 'i18n/app-feat-x-c2abcde');
+  assert.equal(proposal.commit, 'c2abcdef0123');
+  assert.match(proposal.branch, /^i18n\/app-feat-x-[0-9a-f]{7}$/);
+  // onekey-i18n stores no key count, so adding and removing keys leaves
+  // project.json alone, and two copy PRs don't conflict there.
   assert.deepEqual(proposal.files, [
     'keys.json',
     'locales/en_US.json',
     'locales/zh_CN.json',
-    'project.json',
     'review.json',
   ]);
-  assert.equal(bodies.tree.base_tree, 't1');
+  // The branch starts at main and gets one commit through GraphQL, which
+  // GitHub signs; main requires signed commits.
+  assert.deepEqual(bodies.ref, {
+    ref: `refs/heads/${proposal.branch}`,
+    sha: 'c1',
+  });
+  const input = bodies.commit.variables.input;
+  assert.deepEqual(input.branch, {
+    repositoryNameWithOwner: 'OneKeyHQ/onekey-i18n',
+    branchName: proposal.branch,
+  });
+  assert.equal(input.expectedHeadOid, 'c1');
+  assert.deepEqual(input.message, { headline: 'feat: app copy from feat/x' });
+  const additions = commitAdditions(bodies.commit);
   assert.deepEqual(
-    bodies.tree.tree.map((item) => item.path),
+    additions.map((item) => item.path),
     proposal.files.map((file) => `projects/app/${file}`),
   );
-  assert.deepEqual(bodies.commit.parents, ['c1']);
-  assert.deepEqual(bodies.ref, {
-    ref: 'refs/heads/i18n/app-feat-x-c2abcde',
-    sha: 'c2abcdef0123',
-  });
+  assert.equal(bodies.pull.head, proposal.branch);
   assert.equal(bodies.pull.base, 'main');
 
   const written = Object.fromEntries(
-    proposal.files.map((file, index) => [file, blobs[index]]),
+    proposal.files.map((file, index) => [file, additions[index].text]),
   );
   for (const text of Object.values(written))
     assert.equal(text, toStableJson(JSON.parse(text)));
@@ -281,7 +289,6 @@ test('edits commit canonical files to a new onekey-i18n branch and open a PR', a
     travel_mode__title: '旅行模式',
   });
   assert.deepEqual(JSON.parse(written['review.json']).zh_CN.reviewed, []);
-  assert.equal(JSON.parse(written['project.json']).keyCount, 4);
   assert.equal(await client.finalize({ title: 't' }), null);
 });
 
@@ -326,7 +333,8 @@ test('finalize refuses to overwrite files main changed after the release', async
     '取消',
   );
   assert.equal((await client.finalize({ title: 't' })).number, 9);
-  assert.deepEqual(untouched.bodies.commit.parents, ['c9']);
+  assert.equal(untouched.bodies.ref.sha, 'c9');
+  assert.equal(untouched.bodies.commit.variables.input.expectedHeadOid, 'c9');
 });
 
 test('finalize can open the PR against another onekey-i18n branch', async () => {
@@ -342,7 +350,7 @@ test('finalize can open the PR against another onekey-i18n branch', async () => 
     '取消',
   );
   await client.finalize({ title: 't' });
-  assert.deepEqual(bodies.commit.parents, ['c7']);
+  assert.equal(bodies.commit.variables.input.expectedHeadOid, 'c7');
   assert.equal(bodies.pull.base, base);
 });
 
@@ -445,6 +453,7 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
         commits: [{ sha: 'c8' }],
         ...compared,
       }),
+      [`PATCH ${REPO}/git/refs/heads/${branch}`]: () => ({}),
     });
     return {
       api,
@@ -459,6 +468,36 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     [result.number, result.branch, result.commit, same.bodies.pull.head],
     [9, branch, 'c8', branch],
   );
+  assert.equal(same.bodies.commit, undefined);
+  // An earlier run created the branch but not its commit: the branch is
+  // fast-forwarded to main if main moved on, then gets the commit.
+  for (const tip of ['c1', 'c0']) {
+    const empty = existingBranch({
+      ahead_by: 0,
+      commits: [],
+      files: [],
+      merge_base_commit: { sha: tip },
+    });
+    await edit(empty.client);
+    const resumed = await empty.client.finalize(proposal);
+    assert.deepEqual(
+      [resumed.commit, empty.bodies.commit.variables.input.expectedHeadOid],
+      ['c2abcdef0123', 'c1'],
+    );
+    assert.deepEqual(
+      empty.api.calls.filter(([method]) => method === 'PATCH'),
+      tip === 'c1'
+        ? []
+        : [
+            [
+              'PATCH',
+              `${REPO}/git/refs/heads/${branch}`,
+              { sha: 'c1', force: false },
+            ],
+          ],
+    );
+    assert.equal(empty.bodies.pull.head, branch);
+  }
   for (const compared of [
     { ahead_by: 2, commits: [{ sha: 'c8' }, { sha: 'c9' }] },
     { files: [{ filename: zhFile, sha: 'b7' }] },
@@ -497,10 +536,6 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
   const lookup = `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(
     `OneKeyHQ:${branch}`,
   )}`;
-  // Blob ids depend on content, as in git.
-  const blobsByContent = {
-    [`POST ${REPO}/git/blobs`]: (body) => ({ sha: blobSha(body.content) }),
-  };
   const addKey = (client) =>
     client.create(
       {
@@ -515,7 +550,6 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
   const run1 = new CentralClient({
     api: fakeApi({
       ...first.routes,
-      ...blobsByContent,
       [lookup]: [],
       [`POST ${REPO}/pulls`]: () => {
         throw Object.assign(new Error('HTTP 502'), { status: 502 });
@@ -533,7 +567,6 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
   const run2 = new CentralClient({
     api: fakeApi({
       ...second.routes,
-      ...blobsByContent,
       [lookup]: [],
       [`POST ${REPO}/git/refs`]: () => {
         throw Object.assign(new Error('Reference already exists'), {
@@ -544,9 +577,9 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
         ahead_by: 1,
         behind_by: 0,
         commits: [{ sha: 'c8' }],
-        files: first.bodies.tree.tree.map((item) => ({
+        files: commitAdditions(first.bodies.commit).map((item) => ({
           filename: item.path,
-          sha: item.sha,
+          sha: blobSha(item.text),
         })),
       },
     }),
@@ -854,6 +887,24 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
   );
   assert.deepEqual(
     moved.calls.map(([kind, endpoint]) => `${kind} ${endpoint}`),
+    [`GET ${REPO}/pulls/12`],
+  );
+
+  // A PR closed without merging is refused before anything is downloaded.
+  const closed = fakeApi({
+    ...routes,
+    [`GET ${REPO}/pulls/12`]: {
+      state: 'closed',
+      merged_at: null,
+      head: { sha: 'h1' },
+    },
+  });
+  await assert.rejects(
+    fromPullRequest({ pr: 12, commit: 'h1', wait: true, api: closed }),
+    /onekey-i18n PR #12 was closed without merging/,
+  );
+  assert.deepEqual(
+    closed.calls.map(([kind, endpoint]) => `${kind} ${endpoint}`),
     [`GET ${REPO}/pulls/12`],
   );
   polls = 0;

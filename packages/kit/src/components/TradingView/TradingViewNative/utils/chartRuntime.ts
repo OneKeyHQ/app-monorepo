@@ -32,6 +32,14 @@ export interface ITradingViewNativeChartRuntimeCrosshair {
   price?: number;
 }
 
+/** Where a crosshair points in the data, so another chart can show it too. */
+export interface ITradingViewNativeCrosshairPosition {
+  /** Open time of the candle under the crosshair, in seconds. */
+  time: number;
+  /** Null while the crosshair is outside the price pane. */
+  price: number | null;
+}
+
 export interface ITradingViewNativeChartRuntimeState {
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
   viewport: ITradingViewNativeChartRuntimeViewport;

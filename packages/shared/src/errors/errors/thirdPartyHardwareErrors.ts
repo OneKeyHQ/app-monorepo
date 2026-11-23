@@ -69,6 +69,17 @@ function isKeystoneVendor(vendor?: string) {
   return vendor?.toLowerCase() === EHardwareVendor.keystone;
 }
 
+function getDeviceNotFoundKey(vendor?: string) {
+  if (isKeystoneVendor(vendor)) {
+    return ETranslations.device_stage_disconnected__desc;
+  }
+  // A locked Ledger is not detected over Bluetooth either.
+  if (vendor?.toLowerCase() === EHardwareVendor.ledger) {
+    return ETranslations.hardware_third_party_connect_ledger_message;
+  }
+  return ETranslations.hardware_third_party_device_not_found;
+}
+
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
 // the human-readable text.
 
@@ -684,9 +695,7 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: isKeystoneVendor(props?.vendor)
-          ? ETranslations.device_stage_disconnected__desc
-          : ETranslations.hardware_third_party_device_not_found,
+        defaultKey: getDeviceNotFoundKey(props?.vendor),
         defaultAutoToast: false,
       }),
     );

@@ -1,6 +1,6 @@
 # Bug Fix Case Studies
 
-Cases are appended by AI after each bug fix. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
+Record only bug fixes with non-obvious, reusable lessons that help diagnose or prevent similar failures. Ordinary fixes do not require an entry; follow the selection criteria in `.cursor/rules/self-testing.mdc`. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
 
 ---
 
@@ -1709,3 +1709,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Market enabled search glass and native scroll-edge blur with transparent header surfaces alongside opaque app backgrounds. The measured search row also became an absolute external overlay, coupling list and loading-state spacing to native capability and overlay geometry.
 **Fix**: Use solid app backgrounds for the search row, native tabs and sticky subheaders; disable the Market search glass and pager scroll-edge effect. Keep the search row in normal layout and remove its external-overlay measurement, prop forwarding and compensating insets.
 **Catchable by**: Sections 3, 6 and 8: Verify initial rendering, sticky scrolling and tab switches on iOS. Regression tests assert opaque headers and no overlay/scroll-edge props, retain the search row during banner/category loading, and check empty/retry viewport resizing and Android geometry. The 33 focused tests and iOS 26.5 simulator checks passed for the implementation.
+
+## Case: Address risk top exposure value truncated (OK-67492)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React page); verified on the iOS simulator.
+**Symptom**: On the address risk check result, the Top exposure value was cut off, e.g. `Phishing address 41.2…` in English.
+**Root Cause**: The three stats split the row equally although Top exposure holds a category plus a percentage while the other two hold single numbers. The first fix widened that column to 1:1:2, which then squeezed the count labels below the German and Spanish label widths on 375-point screens (found in review).
+**Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
+
+## Case: Address risk signal count pushed out of the risk intelligence card (OK-67493)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React component); verified on the iOS simulator in English and Chinese.
+**Symptom**: In the address risk check Risk intelligence list, a long category description such as `Fake airdrop claim, Wallet drainer, Approval phishing` left only `3` of `3 signals` / `3 个信号` visible; the rest of the count was outside the card.
+**Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
+**Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.
+
+## Case: Page requests could carry WalletConnect session fields (OK-67092)
+**Date**: 2026-11-12 | **Platforms**: All. Page requests reach bg through the bridge entry; the WalletConnect SDK proxy runs in bg and calls the provider directly.
+**Symptom**: A security audit found that a dApp page could send the WalletConnect-only request flag and session fields, so its request was handled as part of a WalletConnect session.
+**Root Cause**: The bridge overwrites only `origin` and `internal`. #13744 assumed that only the WalletConnect request proxy sets these fields, but the page entry passed them through unchanged.
+**Fix**: `BackgroundApiBase._bridgeReceiveHandler` drops the WalletConnect flag and session fields from page requests before dispatch; the SDK proxy path keeps them. The web-embed channel mark on opaque origins is honored only on native, where the WebView host sets it. Entry tests cover a forged request, an ordinary request and the proxy path.
+**Catchable by**: NEW — not covered: treat every field of a page bridge payload except `origin` and `internal` as page-controlled; strip host-only fields at the page entry or pass them out of band.
+
+## Case: Prebuilt yttrium binaries were not pinned by content (OK-67096)
+**Date**: 2026-11-12 | **Platforms**: iOS and Android builds. The library loads into the app process whenever WalletKit initializes; Mac Catalyst does not link it.
+**Symptom**: A security audit found that the YttriumWrapper pod downloads its prebuilt library from a GitHub release asset in `prepare_command`, and that the Android AAR comes from JitPack, with neither checked by content.
+**Root Cause**: Podfile.lock pins only podspec text and Gradle verifies no checksums by default, so a replaced asset under the same version would be built in.
+**Fix**: The Podfile `post_install` compares a digest of every installed YttriumWrapper file, except on Mac Catalyst; Gradle dependency verification pins the AAR, POM and module. The first version also added a generic pinning script and a JitPack group filter, which review trimmed as more than the risk needed, and it missed that Mac Catalyst excludes the pod.
+**Catchable by**: Section 3: check every build configuration that installs or excludes a native dependency (Mac Catalyst). Section 4: every file touched maps to the task.

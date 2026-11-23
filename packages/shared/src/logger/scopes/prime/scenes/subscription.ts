@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
@@ -9,6 +10,10 @@ import type {
   IPrimeFreeTrialResultParams,
 } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import type {
+  IPrimePackagesFailureKind,
+  IPrimePurchaseErrorAnalytics,
+} from '@onekeyhq/shared/src/utils/primePurchaseErrorAnalytics';
 import {
   getOneKeyIdAuthFailureServerParams,
   getOneKeyIdAuthFailureSite,
@@ -765,11 +770,65 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   @LogToLocal()
   @LogToServer()
-  public fetchPackagesFailed({ errorMessage }: { errorMessage: string }) {
+  public fetchPackagesFailed({
+    errorMessage,
+    errorCode,
+    errorName,
+    underlyingErrorCategory,
+    failureKind,
+    storefrontCountryCode,
+  }: {
+    errorMessage: string;
+    errorCode?: string;
+    errorName?: string;
+    underlyingErrorCategory?: IPrimePurchaseErrorAnalytics['underlyingErrorCategory'];
+    // Fail state shown on the paywall for this error.
+    failureKind?: IPrimePackagesFailureKind;
+    // Purchase account Storefront country, not the device region or IP:
+    // ISO 3166-1 alpha-3 on Apple stores, alpha-2 on Google Play.
+    storefrontCountryCode?: string;
+  }) {
     return {
       // Store SDK errors are free text; scrub before they leave the device.
       errorMessage: scrubSensitiveErrorMessageText(errorMessage),
+      errorCode,
+      errorName,
+      underlyingErrorCategory,
+      failureKind,
+      storefrontCountryCode,
     };
+  }
+
+  /**
+   * Paywall fail state shown because no subscription plans could be loaded.
+   * Pairs with fetchPackagesFailed (cause) and primePackagesFailStateAction
+   * (recovery attempt). Fired each time the fail state appears, including
+   * after a failed retry.
+   */
+  @LogToServer()
+  public primePackagesFailStateShow({
+    failureKind,
+    storefrontCountryCode,
+  }: {
+    failureKind: IPrimePackagesFailureKind;
+    storefrontCountryCode?: string;
+  }) {
+    return { failureKind, storefrontCountryCode };
+  }
+
+  /**
+   * Retry pressed on the plans fail state. Whether it recovered shows up as
+   * a later primeSubscribeButtonClick.
+   */
+  @LogToServer()
+  public primePackagesFailStateAction({
+    failureKind,
+    action,
+  }: {
+    failureKind: IPrimePackagesFailureKind;
+    action: 'retry';
+  }) {
+    return { failureKind, action };
   }
 
   /**
@@ -782,6 +841,38 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public onekeyIdLoginSuccess({ method }: { method: IOneKeyIdLoginMethod }) {
     return { method };
+  }
+
+  /**
+   * Google / Apple button pressed in the OneKey ID login dialog.
+   * With onekeyIdOAuthLoginExited, tells a login dialog closed untouched
+   * from a provider sign-in abandoned midway. `featureId` is set when a
+   * Prime free trial asked for the login.
+   * Both events carry their own time ($timestamp): in a fresh extension expand
+   * tab they can happen before analytics is initialized, and the events cached
+   * until then are sent later and in reverse order.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginClick(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+  }) {
+    return { ...params, $timestamp: Date.now() };
+  }
+
+  /**
+   * The Google / Apple sign-in ended without signing in and without an error.
+   * `cancelled`: the user certainly cancelled (a native sheet, or the
+   * extension). `unknown`: a web sign-in page that failed to load ends the
+   * same way, so it may not be the user's choice.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginExited(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+    reason: 'cancelled' | 'unknown';
+  }) {
+    return { ...params, $timestamp: Date.now() };
   }
 
   /**

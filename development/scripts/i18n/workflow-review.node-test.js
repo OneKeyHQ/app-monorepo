@@ -123,6 +123,19 @@ test('plan saving automatically produces standalone HTML and every other languag
   assert.equal(ctx.writes.length, 0);
 });
 
+test('the review page header shows a non-default onekey-i18n target', async (t) => {
+  const ctx = await prepared(t);
+  const header = (plan) =>
+    browser(t, plan).document.getElementById('project').textContent;
+  assert(!header(ctx.plan).includes('目标'));
+  assert(
+    header({
+      ...ctx.plan,
+      central: { base: 'try-tooling', channel: 'test' },
+    }).includes('目标 try-tooling 分支（test 渠道）'),
+  );
+});
+
 test('edited keys retain the original identity and full-language edits/comments survive prompt import', async (t) => {
   const ctx = await prepared(t);
   const page = browser(t, ctx.plan);

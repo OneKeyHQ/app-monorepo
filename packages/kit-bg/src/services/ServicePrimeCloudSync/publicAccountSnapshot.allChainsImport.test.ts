@@ -308,7 +308,8 @@ test('unmatched wallets stop before public validation or writes', async () => {
     snapshots,
     isCurrent: () => true,
   });
-  expect(missing).toMatchObject({ added: 0, pending: 32 });
+  expect(missing).toMatchObject({ added: 0, pending: 0 });
+  expect(missing.skippedSnapshotIds).toHaveLength(snapshots.length);
   expect(h.getVault).not.toHaveBeenCalled();
   expect(h.write).not.toHaveBeenCalled();
   expect(h.forbidden).not.toHaveBeenCalled();

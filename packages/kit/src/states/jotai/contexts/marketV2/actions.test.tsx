@@ -1120,6 +1120,93 @@ describe('marketV2 asset token detail actions', () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    { currency: 'usd', preservesQuote: true },
+    { currency: 'cny', preservesQuote: false },
+  ])(
+    'preserves only the matching legacy quote during an asset request failure ($currency)',
+    async ({ currency, preservesQuote }) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(
+        () => ({
+          actions: useTokenDetailActions().current,
+          fetchAsset: useMarketAssetTokenDetailAction(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const { actions, fetchAsset } = result.current;
+      const networkId = 'doge--0';
+      const legacyAddress = 'native';
+      const legacyQuote = {
+        address: legacyAddress,
+        networkId,
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        logoUrl: '',
+        price: '0.15',
+        priceChange24hPercent: '2',
+      };
+      mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+        data: { token: legacyQuote },
+      });
+      act(() => {
+        actions.prepareTokenDetailPreview(undefined, {
+          tokenAddress: legacyAddress,
+          networkId,
+          isNative: true,
+        });
+      });
+      await act(async () => {
+        await actions.fetchTokenDetail(legacyAddress, networkId, {
+          swrKey: 'marketTokenDetail:v1:doge--0:native:usd:en-us',
+        });
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject(legacyQuote);
+
+      const asset = {
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId,
+      };
+      act(() => {
+        actions.prepareTokenDetailPreview(undefined, {
+          tokenAddress: asset.tokenAddress,
+          networkId,
+          isNative: true,
+          legacyDetail: {
+            tokenAddress: legacyAddress,
+            swrKey: `marketTokenDetail:v1:doge--0:native:${currency}:en-us`,
+          },
+        });
+      });
+      mockFetchMarketAssetDetail.mockRejectedValueOnce(new Error('offline'));
+      await act(async () => {
+        await expect(fetchAsset(asset)).rejects.toThrow('offline');
+      });
+      if (preservesQuote) {
+        expect(store.get(tokenDetailAtom())).toMatchObject({
+          ...legacyQuote,
+          address: '',
+        });
+      } else {
+        expect(store.get(tokenDetailAtom())).toBeUndefined();
+      }
+      expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+
+      await act(async () => {
+        await fetchAsset(asset);
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        address: '',
+        price: '0.25',
+        priceChange24hPercent: '4.2',
+      });
+    },
+  );
+
   it.each(['usd', 'cny'])(
     'loads DOGE through the asset detail API with %s conversion without calling token detail',
     async (currencyId) => {

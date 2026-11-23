@@ -205,6 +205,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getAccountAddressForApi: () => mockTaskAddress(),
     },
     serviceStaking: {
+      assertEarnApproval: jest.fn().mockResolvedValue(undefined),
       checkAmount: (p: unknown) => mockCheck(p),
       fetchTokenAllowance: (input: unknown) => mockAllowance(input),
       buildStakeTransaction: (p: unknown) => mockBuildStake(p),
@@ -462,7 +463,7 @@ const props: ComponentProps<typeof UniversalStake> = {
   approveTarget: {
     accountId: 'account',
     networkId: 'evm--1',
-    spenderAddress: '0xspender',
+    spenderAddress: '0x1111111111111111111111111111111111111111',
     token,
   },
   protocolInfo: {
@@ -1106,7 +1107,7 @@ describe('EtherFi USDT approval reset', () => {
       approveType: undefined,
       approveTarget: { ...props.approveTarget, token: nativeToken },
       postWrapApproveTarget: {
-        spenderAddress: '0xspender',
+        spenderAddress: '0x1111111111111111111111111111111111111111',
         token: wrappedToken,
       },
       stakeType: 'wrap',
@@ -1487,7 +1488,7 @@ describe('EtherFi USDT approval reset', () => {
           approveType={undefined}
           approveTarget={{ ...props.approveTarget, token: nativeToken }}
           postWrapApproveTarget={{
-            spenderAddress: '0xspender',
+            spenderAddress: '0x1111111111111111111111111111111111111111',
             token: wrappedToken,
           }}
           stakeType="wrap"
@@ -1549,7 +1550,7 @@ describe('EtherFi USDT approval reset', () => {
           approveType={undefined}
           approveTarget={{ ...props.approveTarget, token: nativeToken }}
           postWrapApproveTarget={{
-            spenderAddress: '0xspender',
+            spenderAddress: '0x1111111111111111111111111111111111111111',
             token: wrappedToken,
           }}
           stakeType="wrap"
@@ -1605,7 +1606,7 @@ describe('EtherFi USDT approval reset', () => {
       approveType: undefined,
       approveTarget: { ...props.approveTarget, token: nativeToken },
       postWrapApproveTarget: {
-        spenderAddress: '0xspenderA',
+        spenderAddress: '0x3333333333333333333333333333333333333333',
         token: wrappedToken,
       },
       stakeType: 'wrap',
@@ -1625,7 +1626,7 @@ describe('EtherFi USDT approval reset', () => {
       <UniversalStake
         {...wrapProps}
         postWrapApproveTarget={{
-          spenderAddress: '0xspenderB',
+          spenderAddress: '0x4444444444444444444444444444444444444444',
           token: wrappedToken,
         }}
       />,
@@ -1697,7 +1698,7 @@ describe('EtherFi USDT approval reset', () => {
       approveType: undefined,
       approveTarget: { ...props.approveTarget, token: nativeToken },
       postWrapApproveTarget: {
-        spenderAddress: '0xspender',
+        spenderAddress: '0x1111111111111111111111111111111111111111',
         token: wrappedToken,
       },
       stakeType: 'wrap',
@@ -1754,7 +1755,7 @@ describe('EtherFi USDT approval reset', () => {
         inputTokenAddress: '',
         depositTokenAddress: EthereumWETH,
         amount: '2',
-        spenderAddress: '0xspender',
+        spenderAddress: '0x1111111111111111111111111111111111111111',
       },
       steps: [{ id: 'deposit', kind: 'deposit' }],
     });
@@ -1855,7 +1856,7 @@ describe('EtherFi USDT approval reset', () => {
                 approveType={undefined}
                 approveTarget={{ ...props.approveTarget, token: nativeToken }}
                 postWrapApproveTarget={{
-                  spenderAddress: '0xspender',
+                  spenderAddress: '0x1111111111111111111111111111111111111111',
                   token: wrappedToken,
                 }}
                 stakeType="wrap"
@@ -2477,7 +2478,9 @@ describe('EtherFi USDT approval reset', () => {
       orderId: 'order-1',
     });
     mockAddOrder.mockImplementationOnce(async () => {
-      mockTaskAddress.mockResolvedValue('0xother');
+      mockTaskAddress.mockResolvedValue(
+        '0x2222222222222222222222222222222222222222',
+      );
       return { localStatus: 'saved', remoteStatus: 'synced' };
     });
     const { screen } = await beginDirectApproval(async () => true);
@@ -2537,7 +2540,7 @@ describe('EtherFi USDT approval reset', () => {
         onTaskRecoveryComplete={onTaskRecoveryComplete}
         approveTarget={{
           ...overrides.approveTarget,
-          spenderAddress: '0xother',
+          spenderAddress: '0x2222222222222222222222222222222222222222',
         }}
       />,
     );
@@ -2583,7 +2586,7 @@ describe('EtherFi USDT approval reset', () => {
         {...overrides}
         approveTarget={{
           ...overrides.approveTarget,
-          spenderAddress: '0xother',
+          spenderAddress: '0x2222222222222222222222222222222222222222',
         }}
       />,
     );
@@ -3308,7 +3311,7 @@ describe('EtherFi USDT approval reset', () => {
         inputTokenAddress: '',
         depositTokenAddress: EthereumWETH,
         amount: '2',
-        spenderAddress: '0xspender',
+        spenderAddress: '0x1111111111111111111111111111111111111111',
       },
       steps: [
         { id: 'wrap', kind: 'wrap' },
@@ -3361,7 +3364,7 @@ describe('EtherFi USDT approval reset', () => {
         approveType={undefined}
         approveTarget={{ ...props.approveTarget, token: nativeToken }}
         postWrapApproveTarget={{
-          spenderAddress: '0xspender',
+          spenderAddress: '0x1111111111111111111111111111111111111111',
           token: wrappedToken,
         }}
         stakeType="wrap"
@@ -3436,7 +3439,7 @@ describe('EtherFi USDT approval reset', () => {
           inputTokenAddress: '',
           depositTokenAddress: EthereumWETH,
           amount: '2',
-          spenderAddress: '0xspender',
+          spenderAddress: '0x1111111111111111111111111111111111111111',
         },
         steps: [
           { id: 'wrap', kind: 'wrap' },
@@ -3490,7 +3493,7 @@ describe('EtherFi USDT approval reset', () => {
           approveType={undefined}
           approveTarget={{ ...props.approveTarget, token: nativeToken }}
           postWrapApproveTarget={{
-            spenderAddress: '0xspender',
+            spenderAddress: '0x1111111111111111111111111111111111111111',
             token: wrappedToken,
           }}
           stakeType="wrap"
@@ -3604,7 +3607,7 @@ describe('EtherFi USDT approval reset', () => {
               inputTokenAddress: '',
               depositTokenAddress: EthereumWETH,
               amount: '2',
-              spenderAddress: '0xspender',
+              spenderAddress: '0x1111111111111111111111111111111111111111',
             },
             steps: [
               { id: 'wrap', kind: 'wrap' },
@@ -3676,7 +3679,7 @@ describe('EtherFi USDT approval reset', () => {
           approveType={undefined}
           approveTarget={{ ...props.approveTarget, token: nativeToken }}
           postWrapApproveTarget={{
-            spenderAddress: '0xspender',
+            spenderAddress: '0x1111111111111111111111111111111111111111',
             token: wrappedToken,
           }}
           stakeType="wrap"

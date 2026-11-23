@@ -410,7 +410,11 @@ export function buildTokenMarketRow({
 }): IResponsiveMarketRow {
   const key = marketTokenKey(item);
   const isPerp = Boolean(item.perpsCoin);
-  const price = formatNumber(item.price, 'price', { currency: '$' });
+  const price = formatNumber(
+    Number.isFinite(item.price) ? item.price : undefined,
+    'price',
+    { currency: '$' },
+  );
   const rawChange = item.priceChangeRaw === '-' ? '-' : item.change24h;
   const change = buildChange(rawChange, presentation);
   const dexLabel = item.perpsCoin

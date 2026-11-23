@@ -415,6 +415,11 @@ async function fromPullRequest({
   api = githubApi(),
 }) {
   const pull = await api.get(`/repos/${CENTRAL_REPO}/pulls/${pr}`);
+  // Copy from a PR closed without merging never reaches a release.
+  if (pull.state === 'closed' && !pull.merged_at)
+    throw new Error(
+      `onekey-i18n PR #${pr} was closed without merging, so its copy will not reach a release. Reopen it, or prepare another preview and propose the copy again.`,
+    );
   const headSha = pull.head.sha;
   if (commit && headSha !== commit)
     throw new Error(

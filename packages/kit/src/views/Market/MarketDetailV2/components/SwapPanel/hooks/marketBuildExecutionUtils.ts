@@ -134,14 +134,14 @@ export async function buildMarketExecutionPayload({
   } else if (buildRes.xrpTxData) {
     encodedTx = buildRes.xrpTxData;
   } else if (buildRes.tx) {
-    if (typeof buildRes.tx !== 'string' && buildRes.tx.data) {
+    if (typeof buildRes.tx !== 'string' && 'data' in buildRes.tx) {
       encodedTx = {
         ...buildRes.tx,
         value: toBigIntHex(new BigNumber(buildRes.tx.value ?? 0)),
         from: userAddress,
       };
     } else {
-      encodedTx = buildRes.tx as IEncodedTx;
+      encodedTx = buildRes.tx;
     }
   } else if (buildRes.btcData || buildRes.suiBase64Data) {
     let inputTx: IStakeTx | undefined;

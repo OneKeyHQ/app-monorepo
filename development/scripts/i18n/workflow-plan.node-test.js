@@ -4,7 +4,12 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const { applyPlan, verifyLocal } = require('./workflow-apply');
-const { LOCALES_PATH, readJson, writeJson } = require('./workflow-data');
+const {
+  LOCALES_PATH,
+  digest,
+  readJson,
+  writeJson,
+} = require('./workflow-data');
 const {
   preparePlan,
   renderPreview,
@@ -98,6 +103,27 @@ test('service error support still rejects unrelated and malformed new key names'
       assert.equal(api.writes.length, 0);
     });
   }
+});
+
+test('preview keeps the table header next to its separator when the plan records a sync', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const rows = renderPreview({ ...ctx.plan, sync: { changes: [] } }).split(
+    '\n',
+  );
+  const header = rows.indexOf('| Key | 文案 |');
+  assert.equal(rows[header + 1], '| --- | --- |');
+  assert(
+    rows
+      .slice(0, header)
+      .some((row) => row.startsWith('已在任务开始时拉取远端译文')),
+  );
 });
 
 test('preview reads only, contains bilingual before/after, and keeps all locale values in the plan', async (t) => {
@@ -240,6 +266,169 @@ test('partial failures reconcile completed records and retain the operation rece
   assert.equal(ctx.writes.length, 2);
   assert.equal(receipt.operations.length, 2);
   assert.equal(receipt.previousAttempts[0].status, 'failed');
+});
+
+test('apply refuses a plan approved for another onekey-i18n branch or channel, before any write', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  assert.deepEqual(ctx.plan.central, { base: 'main', channel: 'latest' });
+  assert(!renderPreview(ctx.plan).includes('目标：'));
+  assert.match(
+    renderPreview({
+      ...ctx.plan,
+      central: { base: 'try-tooling', channel: 'test' },
+    }),
+    /目标：onekey-i18n try-tooling 分支，读取 test 渠道/,
+  );
+  ctx.client.base = 'try-tooling';
+  ctx.client.channel = 'test';
+  await assert.rejects(
+    () => ctx.apply(),
+    /approved for onekey-i18n main \(latest release\), but this shell targets try-tooling \(test release\)/,
+  );
+  assert.equal(ctx.writes.length, 0);
+  assert(!fs.existsSync(`${ctx.file}.receipt.json`));
+
+  // A finished apply is not reported as done for another target either.
+  const finished = {
+    approval: ctx.plan.approval,
+    status: 'complete',
+    proposal: { number: 9, commit: 'c2' },
+  };
+  writeJson(`${ctx.file}.receipt.json`, finished);
+  await assert.rejects(() => ctx.apply(), /but this shell targets try-tooling/);
+  assert.deepEqual(readJson(`${ctx.file}.receipt.json`), finished);
+});
+
+test('apply resumes a plan that predates recorded targets only from its PR commit', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const { approval: _approval, central: _central, ...content } = ctx.plan;
+  const legacy = { ...content, approval: digest(content) };
+  const file = path.join(ctx.root, 'legacy-plan.json');
+  savePlan(legacy, file);
+  const pinned = [];
+  const apply = () =>
+    applyPlan({
+      file,
+      approval: legacy.approval,
+      client: ctx.client,
+      root: ctx.root,
+      pullImpl: fakePull,
+      clientAt: (commit) => {
+        pinned.push(commit);
+        return ctx.client;
+      },
+    });
+  const receiptFile = `${file}.receipt.json`;
+  await assert.rejects(apply, /predates recording its onekey-i18n branch/);
+  assert.equal(ctx.writes.length, 0);
+  assert(!fs.existsSync(receiptFile));
+
+  // With the PR an earlier apply opened, apply checks that PR's commit, runs
+  // its usual local checks, pulls the PR and completes the same receipt.
+  writeJson(receiptFile, {
+    schemaVersion: 1,
+    kind: 'i18n-receipt',
+    approval: legacy.approval,
+    status: 'failed',
+    failedStage: 'pulling',
+    operations: [],
+    proposal: { number: 9, commit: 'c2' },
+  });
+  const resumed = await apply();
+  assert.equal(resumed.status, 'complete');
+  assert.deepEqual(resumed.proposal, { number: 9, commit: 'c2' });
+  assert.deepEqual(pinned, ['c2']);
+  assert.equal(ctx.writes.length, 0);
+
+  // A finished one, even without a PR, is re-verified as before.
+  const finished = { approval: legacy.approval, status: 'complete' };
+  writeJson(receiptFile, finished);
+  assert.deepEqual(await apply(), finished);
+});
+
+test('a plan is not reported as done once the catalog has another language', async (t) => {
+  const entries = (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ];
+  const addLanguage = (root) =>
+    fs.copyFileSync(
+      path.join(root, LOCALES_PATH, 'en_US.json'),
+      path.join(root, LOCALES_PATH, 'eo.json'),
+    );
+
+  // The first apply: its pull brings a language the plan doesn't cover.
+  const first = await prepared(t, entries);
+  await assert.rejects(
+    () =>
+      first.apply({
+        pullImpl: (plan, root) => {
+          fakePull(plan, root);
+          addLanguage(root);
+        },
+      }),
+    /Language coverage changed/,
+  );
+  assert.equal(readJson(`${first.file}.receipt.json`).status, 'failed');
+
+  // A rerun of a finished plan after a language was added locally.
+  const rerun = await prepared(t, entries);
+  assert.equal((await rerun.apply()).status, 'complete');
+  const receipt = readJson(`${rerun.file}.receipt.json`);
+  addLanguage(rerun.root);
+  await assert.rejects(() => rerun.apply(), /Language coverage changed/);
+  assert.deepEqual(readJson(`${rerun.file}.receipt.json`), receipt);
+});
+
+test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const receiptFile = `${ctx.file}.receipt.json`;
+  writeJson(receiptFile, {
+    schemaVersion: 1,
+    kind: 'i18n-receipt',
+    approval: ctx.plan.approval,
+    status: 'failed',
+    failedStage: 'pulling',
+    operations: [],
+    proposal: { number: 9, commit: 'c2' },
+  });
+  ctx.client.project = async () => {
+    throw new Error('GitHub unavailable');
+  };
+  await assert.rejects(() => ctx.apply(), /GitHub unavailable/);
+  assert.deepEqual(readJson(receiptFile).proposal, { number: 9, commit: 'c2' });
+
+  writeJson(receiptFile, { approval: 'another plan', status: 'complete' });
+  await assert.rejects(() => ctx.apply(), /Receipt belongs to another plan/);
+  assert.deepEqual(readJson(receiptFile), {
+    approval: 'another plan',
+    status: 'complete',
+  });
 });
 
 test('an ambiguous create result is reconciled without a second POST', async (t) => {

@@ -12,6 +12,7 @@ import {
 import { act, render, screen } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import {
   ImperativeOverlayMountHost,
@@ -140,6 +141,50 @@ it('preserves native page-host visibility when covered by a root modal', () => {
   platformEnv.isNative = true;
   setup(true);
   expect(mockSetPageVisible).toHaveBeenCalledWith('wallet', true);
+});
+
+it('keeps web page-host visibility behind a root modal but hides for full-screen routes', () => {
+  const { rootState, update } = setup(false);
+  (rootState.routes[1] as { key: string; name?: string }).name =
+    ERootRoutes.Modal;
+  rootState.index = 1;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('wallet', true);
+  (rootState.routes[1] as { key: string; name?: string }).name =
+    ERootRoutes.WebView;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('wallet', false);
+});
+
+it('scopes blocking and back resolution to the focused page host while preserving global priority', () => {
+  const { OverlayStore } = jest.requireActual<
+    typeof import('@onekeyfe/react-native-native-overlay')
+  >('@onekeyfe/react-native-native-overlay');
+  const store = new OverlayStore();
+  const mainDialog = store.request({
+    scope: 'page',
+    hostKey: 'main',
+    ownerKey: 'perp',
+  });
+  expect(store.getBlockingTop()?.id).toBe(mainDialog.id);
+
+  store.setFocusedPageHost('modal');
+  expect(store.getEntry(mainDialog.id)?.suspended).toBe(false);
+  expect(store.getBlockingTop()).toBeUndefined();
+  expect(store.resolveBack()).toEqual({ kind: 'pass' });
+
+  const lock = store.request({
+    scope: 'global',
+    level: 'lock',
+    dismissible: false,
+  });
+  expect(store.getBlockingTop()?.id).toBe(lock.id);
+  expect(store.resolveBack()).toEqual({ kind: 'block' });
+  store.finalize(lock.id);
+
+  store.setFocusedPageHost('main');
+  expect(store.getBlockingTop()?.id).toBe(mainDialog.id);
+  expect(store.resolveBack()).toEqual({ kind: 'dismiss', id: mainDialog.id });
 });
 
 it('keeps the outer page owner live when a nested Page unmounts', () => {

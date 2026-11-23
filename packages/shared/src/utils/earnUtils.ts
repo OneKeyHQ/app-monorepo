@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
+
 import { EEarnProviderEnum } from '../../types/earn';
 import { EApproveType } from '../../types/staking';
 import { getNetworkIdsMap } from '../config/networkIds';
@@ -8,15 +11,18 @@ import {
   MorphoKatanaBundlerContract,
   PendleRouterContract,
 } from '../consts/addresses';
+import { OneKeyLocalError } from '../errors';
 
 import networkUtils from './networkUtils';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
 import type {
+  IEarnPermit2ApproveSignData,
   IEarnText,
   IEarnToken,
   IEarnUtmParams,
   IEarnWithdrawType,
+  IStakeProtocolListItem,
 } from '../../types/staking';
 import type { IToken } from '../../types/token';
 
@@ -139,13 +145,39 @@ const providerApproveTypeOverrides: Partial<
   [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
 };
 
-function resolveEarnApproveSpenderAddress({
+/** Route vaults select a registered protocol; they never establish approval authority. */
+function findEarnProtocol({
+  protocols,
+  networkId,
   providerName,
   protocolVault,
+}: {
+  protocols: IStakeProtocolListItem[];
+  networkId: string;
+  providerName: string;
+  protocolVault?: string;
+}) {
+  const normalize = (address: string) =>
+    networkUtils.isEvmNetwork({ networkId }) ? address.toLowerCase() : address;
+  const matches = protocols.filter(
+    (item) =>
+      item.network.networkId === networkId &&
+      item.provider.name.toLowerCase() === providerName.toLowerCase() &&
+      (!protocolVault ||
+        normalize(item.provider.vault ?? '') === normalize(protocolVault)),
+  );
+  // Missing vault is only unambiguous when exactly one protocol matches.
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function resolveEarnApproveSpenderAddress({
+  providerName,
+  verifiedProtocolVault,
   backendApproveTarget,
 }: {
   providerName: string;
-  protocolVault?: string;
+  /** Must come from a matching server protocol record, never a URL. */
+  verifiedProtocolVault?: string;
   backendApproveTarget?: string;
 }) {
   // The EtherFi receipt vault identifies the position but cannot spend deposits.
@@ -156,9 +188,113 @@ function resolveEarnApproveSpenderAddress({
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
   }
+  // Lista's legacy response names the USDT token rather than its deposit contract.
+  if (isListaProvider({ providerName })) return verifiedProtocolVault ?? '';
+  if (backendApproveTarget) return backendApproveTarget;
+  if (isUnitasProvider({ providerName })) return '';
   return shouldSendEarnProtocolVault({ providerName })
-    ? (protocolVault ?? backendApproveTarget ?? '')
-    : (backendApproveTarget ?? '');
+    ? (verifiedProtocolVault ?? '')
+    : '';
+}
+
+function isEarnApprovalReady({
+  networkId,
+  tokenIsNative,
+  approveSpenderAddress,
+}: {
+  networkId: string;
+  tokenIsNative?: boolean;
+  approveSpenderAddress?: string;
+}) {
+  return (
+    !networkUtils.isEvmNetwork({ networkId }) ||
+    tokenIsNative === true ||
+    (!!approveSpenderAddress &&
+      /^0x[0-9a-f]{40}$/iu.test(approveSpenderAddress) &&
+      !/^0x0{40}$/iu.test(approveSpenderAddress))
+  );
+}
+
+function getEarnPermitSpender(networkId: string): string | undefined {
+  const networks = getNetworkIdsMap();
+  return {
+    [networks.eth]: MorphoBundlerContract,
+    [networks.base]: MorphoBaseBundlerContract,
+    [networks.katana]: MorphoKatanaBundlerContract,
+  }[networkId];
+}
+
+const earnPermitDomainFields = [
+  { name: 'name', type: 'string' },
+  { name: 'version', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+];
+const standardPermitFields = [
+  { name: 'owner', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'value', type: 'uint256' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint256' },
+];
+const daiPermitFields = [
+  { name: 'holder', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'expiry', type: 'uint256' },
+  { name: 'allowed', type: 'bool' },
+];
+
+/** Verify that the signed fields bind the selected account, token, spender and authorization. */
+function assertEarnPermit({
+  providerName,
+  data,
+  networkId,
+  accountAddress,
+  token,
+  amount,
+}: {
+  providerName: string;
+  data: IEarnPermit2ApproveSignData;
+  networkId: string;
+  accountAddress: string;
+  token: Pick<IToken, 'address' | 'symbol' | 'decimals'>;
+  amount: string;
+}) {
+  const spender = resolveEarnPermitSpenderAddress({ providerName, networkId });
+  const value = new BigNumber(amount).shiftedBy(token.decimals);
+  const sameAddress = (a?: string, b?: string) =>
+    !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const isDai =
+    isMorphoProvider({ providerName }) &&
+    token.symbol === 'DAI' &&
+    networkId === getNetworkIdsMap().eth;
+  const expiry = Number(isDai ? data.message.expiry : data.message.deadline);
+  if (
+    !spender ||
+    !value.isFinite() ||
+    !value.isInteger() ||
+    !value.isGreaterThan(0) ||
+    data.primaryType !== 'Permit' ||
+    !isEqual(data.types, {
+      EIP712Domain: earnPermitDomainFields,
+      Permit: isDai ? daiPermitFields : standardPermitFields,
+    }) ||
+    data.domain.chainId !== Number(networkId.split('--')[1]) ||
+    !sameAddress(data.domain.verifyingContract, token.address) ||
+    !sameAddress(data.message.spender, spender) ||
+    !sameAddress(
+      isDai ? data.message.holder : data.message.owner,
+      accountAddress,
+    ) ||
+    !Number.isFinite(expiry) ||
+    expiry <= Date.now() / 1000 ||
+    (isDai
+      ? data.message.allowed !== true
+      : !new BigNumber(data.message.value ?? '').eq(value))
+  ) {
+    throw new OneKeyLocalError('Invalid Earn permit authorization');
+  }
 }
 
 function resolveEarnApproveType({
@@ -207,16 +343,7 @@ export function resolveEarnPermitSpenderAddress({
   if (!isMorphoProvider({ providerName })) {
     return undefined;
   }
-  if (networkId === getNetworkIdsMap().eth) {
-    return MorphoBundlerContract;
-  }
-  if (networkId === getNetworkIdsMap().base) {
-    return MorphoBaseBundlerContract;
-  }
-  if (networkId === getNetworkIdsMap().katana) {
-    return MorphoKatanaBundlerContract;
-  }
-  return undefined;
+  return getEarnPermitSpender(networkId);
 }
 
 function resolveEarnAllowanceSpenderAddress({
@@ -233,8 +360,6 @@ function resolveEarnAllowanceSpenderAddress({
   if (!approveSpenderAddress) {
     return '';
   }
-  // Morpho historically exposes its vault as approveTarget, while Permit uses
-  // a bundler. Other providers already expose their actual deposit spender.
   if (
     approveType === EApproveType.Permit &&
     isMorphoProvider({ providerName })
@@ -441,6 +566,10 @@ function normalizeEarnUtmParams(
 }
 
 export default {
+  assertEarnPermit,
+  findEarnProtocol,
+  getEarnPermitSpender,
+  isEarnApprovalReady,
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,

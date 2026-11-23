@@ -16,6 +16,7 @@ const {
   getIosDevShellInfoPlistEntries,
   getNativeBuildEnvironment,
   injectIosDevShellInfoPlist,
+  installIosPods,
   packageIosSimulatorApp,
   parseArgs,
   refreshStaleIosPodspecs,
@@ -321,5 +322,90 @@ SPEC CHECKSUMS:
       'oras tag "$artifact_reference" "$COMPATIBILITY_TAG"',
     );
     expect(action).not.toContain('push_shell_manifest "$exact_reference"');
+  });
+
+  describe('installIosPods', () => {
+    const checksumChange =
+      '[!] There were changes to the lockfile in deployment mode:\nSPEC CHECKSUMS:\n  AppAuth:\n    New Lockfile: new\n    Old Lockfile: old\n';
+    let directory;
+
+    beforeEach(() => {
+      directory = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-pods-test-'));
+      fs.writeFileSync(
+        path.join(directory, 'Podfile.lock'),
+        `SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - AppAuth
+EXTERNAL SOURCES:
+  AesCrypto:
+    :path: "../../../node_modules/react-native-aes-crypto"
+SPEC CHECKSUMS:
+  AesCrypto: current-local
+  AppAuth: current-remote
+`,
+      );
+      jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      fs.rmSync(directory, { recursive: true, force: true });
+    });
+
+    const podArgs = () => spawnSync.mock.calls.map(([, args]) => args);
+
+    it('installs once when the lockfile matches', () => {
+      installIosPods(directory);
+      expect(podArgs()).toEqual([['install', '--deployment']]);
+    });
+
+    it('updates the spec repos and retries once after a spec checksum change', () => {
+      spawnSync
+        .mockReturnValueOnce({ status: 1, stdout: '', stderr: checksumChange })
+        .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' });
+      installIosPods(directory);
+      expect(podArgs()).toEqual([
+        ['install', '--deployment'],
+        ['install', '--deployment', '--repo-update'],
+      ]);
+    });
+
+    it('fails after one retry when the checksums still differ', () => {
+      spawnSync.mockReturnValue({
+        status: 1,
+        stdout: checksumChange,
+        stderr: '',
+      });
+      expect(() => installIosPods(directory)).toThrow(
+        '[buildMobileDevShell] Command failed: pod install',
+      );
+      expect(spawnSync).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not update the spec repos when only local podspec checksums differ', () => {
+      spawnSync.mockReturnValue({
+        status: 1,
+        stdout: checksumChange.replace('AppAuth', 'AesCrypto'),
+        stderr: '',
+      });
+      expect(() => installIosPods(directory)).toThrow(
+        '[buildMobileDevShell] Command failed: pod install',
+      );
+      expect(spawnSync).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry other install failures', () => {
+      spawnSync.mockReturnValue({
+        status: 1,
+        stdout: '',
+        stderr: '[!] Unable to find a specification for `Missing`',
+      });
+      expect(() => installIosPods(directory)).toThrow(
+        '[buildMobileDevShell] Command failed: pod install',
+      );
+      expect(spawnSync).toHaveBeenCalledTimes(1);
+    });
   });
 });

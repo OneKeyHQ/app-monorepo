@@ -1,5 +1,5 @@
 /* cspell:words GOMEMLIMIT tsgolint */
-const { spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -7,10 +7,33 @@ const { exit } = require('process');
 
 const { parse: parseJsonc, printParseErrorCode } = require('jsonc-parser');
 
+const { splitArgumentsByLength } = require('../scripts/command-batches');
+
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const OXLINT_CONFIG_PATH = path.join(ROOT_DIR, '.oxlintrc.json');
 const DEFAULT_TSGOLINT_GOMEMLIMIT = '11GiB';
 const OXLINT_PASS_ENV = 'ONEKEY_OXLINT_PASS';
+// Git revision to diff against. When set, the spellchecker only runs on files
+// changed since that revision; every other rule still lints the whole repo.
+const CSPELL_DIFF_BASE_ENV = 'ONEKEY_CSPELL_DIFF_BASE';
+const CSPELL_RULE_PREFIX = '@cspell/';
+// Extensions oxlint lints by default.
+const OXLINT_TARGET_FILE_RE = /\.(?:[cm]?[jt]s|[jt]sx)$/u;
+// The spellchecker result for a file depends only on that file, the cspell
+// configuration and dictionaries, the oxlint rule options, and the installed
+// plugin and dictionary versions. A change to any of these can alter results
+// for unchanged files, so it forces a full scan.
+const CSPELL_FULL_SCAN_FILES = new Set([
+  '.oxlintrc.json',
+  'development/spellCheckerSkipWords.txt',
+  'development/lint/eslint.js',
+  'yarn.lock',
+]);
+// CSpell also searches every directory for config files (any case, such as
+// cSpell.json, including TypeScript configs) and the `cspell` field of any
+// package.json, so every manifest counts as a config file.
+const CSPELL_CONFIG_FILE_RE =
+  /(?:^|\/)(?:package\.json|\.?cspell[^/]*\.(?:jsonc?|ya?ml|[cm]?js|toml)|\.?cspell\.config\.[cm]?ts)$/iu;
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
@@ -20,6 +43,13 @@ function getTempTypeAwareConfigName(pid = process.pid) {
 
 function getTempTypeAwareConfigPath(rootDir = ROOT_DIR, pid = process.pid) {
   return path.join(rootDir, getTempTypeAwareConfigName(pid));
+}
+
+function getTempCspellConfigNames(pid = process.pid) {
+  return {
+    withoutCspell: `.oxlintrc.no-cspell.${pid}.tmp.json`,
+    cspellOnly: `.oxlintrc.cspell.${pid}.tmp.json`,
+  };
 }
 
 function getSignalExitCode(signal) {
@@ -214,14 +244,152 @@ async function runOxlintPass({ oxlintBin, args, env, onChild }) {
 }
 
 function removeTempTypeAwareConfig(configPath) {
-  if (!configPath) {
-    return;
+  const configPaths = Array.isArray(configPath) ? configPath : [configPath];
+  for (const item of configPaths.filter(Boolean)) {
+    try {
+      fs.unlinkSync(item);
+    } catch {
+      // Ignore when already removed.
+    }
   }
+}
+
+function isCspellPlugin(pluginEntry) {
+  return getJsPluginRulePrefix(pluginEntry) === CSPELL_RULE_PREFIX;
+}
+
+function pickCspellRules(rules) {
+  if (!rules || typeof rules !== 'object') {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(rules).filter(([ruleName]) =>
+      ruleName.startsWith(CSPELL_RULE_PREFIX),
+    ),
+  );
+}
+
+function hasCspellPlugin(config) {
+  return (config.jsPlugins ?? []).some(isCspellPlugin);
+}
+
+// Same config minus the spellchecker plugin and its rules.
+function createOxlintConfigWithoutCspell(config) {
+  const nextConfig = {
+    ...config,
+    jsPlugins: (config.jsPlugins ?? []).filter(
+      (pluginEntry) => !isCspellPlugin(pluginEntry),
+    ),
+    rules: stripJsPluginRules(config.rules, [CSPELL_RULE_PREFIX]),
+  };
+  if (Array.isArray(config.overrides)) {
+    nextConfig.overrides = config.overrides.map((override) => ({
+      ...override,
+      ...(override.rules
+        ? {
+            rules: stripJsPluginRules(override.rules, [CSPELL_RULE_PREFIX]),
+          }
+        : {}),
+    }));
+  }
+  return nextConfig;
+}
+
+// Only the spellchecker: every native category and plugin is off, so this
+// pass reports exactly what the spellchecker reports in the full config.
+function createCspellOnlyOxlintConfig(config) {
+  const categories = Object.fromEntries(
+    Object.keys(config.categories ?? {}).map((category) => [category, 'off']),
+  );
+  const nextConfig = {
+    ...config,
+    jsPlugins: (config.jsPlugins ?? []).filter(isCspellPlugin),
+    plugins: [],
+    categories: {
+      correctness: 'off',
+      suspicious: 'off',
+      pedantic: 'off',
+      perf: 'off',
+      style: 'off',
+      restriction: 'off',
+      nursery: 'off',
+      ...categories,
+    },
+    rules: pickCspellRules(config.rules),
+  };
+  if (Array.isArray(config.overrides)) {
+    nextConfig.overrides = config.overrides
+      .map((override) => ({
+        ...override,
+        rules: pickCspellRules(override.rules),
+      }))
+      .filter((override) => Object.keys(override.rules).length > 0);
+  }
+  return nextConfig;
+}
+
+function filterOxlintTargetFiles(files) {
+  return files.filter((file) => OXLINT_TARGET_FILE_RE.test(file));
+}
+
+function getCspellFullScanReason(changedFiles) {
+  const trigger = changedFiles.find(
+    (file) =>
+      CSPELL_FULL_SCAN_FILES.has(file) || CSPELL_CONFIG_FILE_RE.test(file),
+  );
+  return trigger ? `${trigger} changed` : null;
+}
+
+// Every path touched since `base`, including deleted files and both sides of
+// a rename, so removing a full-scan trigger (such as the dictionary) is seen.
+function listChangedFiles(base, rootDir = ROOT_DIR) {
+  const output = execFileSync(
+    'git',
+    ['diff', '--name-only', '--no-renames', '-z', base, 'HEAD', '--'],
+    { cwd: rootDir, encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 },
+  );
+  return output.split('\0').filter(Boolean);
+}
+
+function fileExistsInRoot(file, rootDir = ROOT_DIR) {
+  return fs.existsSync(path.join(rootDir, file));
+}
+
+// Decides whether the spellchecker runs on the whole repo or only on the
+// files changed since `base`. Anything unexpected falls back to a full scan.
+function resolveCspellScope({
+  base,
+  config,
+  getChangedFiles = listChangedFiles,
+  fileExists = fileExistsInRoot,
+}) {
+  if (!base) {
+    return { mode: 'full', reason: `${CSPELL_DIFF_BASE_ENV} is not set` };
+  }
+  if (!hasCspellPlugin(config)) {
+    return { mode: 'full', reason: 'the spellchecker plugin is not enabled' };
+  }
+  let changedFiles;
   try {
-    fs.unlinkSync(configPath);
-  } catch {
-    // Ignore when already removed.
+    changedFiles = getChangedFiles(base);
+  } catch (error) {
+    return {
+      mode: 'full',
+      reason: `cannot diff against ${base}: ${error.message.split('\n')[0]}`,
+    };
   }
+  // Full-scan triggers are checked against every touched path, deletions
+  // included; only files that still exist are spellchecked incrementally.
+  const reason = getCspellFullScanReason(changedFiles);
+  if (reason) {
+    return { mode: 'full', reason };
+  }
+  return {
+    mode: 'changed',
+    files: filterOxlintTargetFiles(changedFiles).filter((file) =>
+      fileExists(file),
+    ),
+  };
 }
 
 function terminateChildProcess({
@@ -302,15 +470,21 @@ async function main() {
   const oxlintStartTime = Date.now();
   const tempConfigName = getTempTypeAwareConfigName(process.pid);
   const tempConfigPath = getTempTypeAwareConfigPath(ROOT_DIR, process.pid);
+  const cspellConfigNames = getTempCspellConfigNames(process.pid);
+  const allTempConfigPaths = [
+    tempConfigPath,
+    path.join(ROOT_DIR, cspellConfigNames.withoutCspell),
+    path.join(ROOT_DIR, cspellConfigNames.cspellOnly),
+  ];
   let activeChild = null;
   const setActiveChild = (child) => {
     activeChild = child;
   };
   const cleanupOnExit = () => {
-    removeTempTypeAwareConfig(tempConfigPath);
+    removeTempTypeAwareConfig(allTempConfigPaths);
   };
   const cleanupOnSignal = createSignalCleanupHandler({
-    tempConfigPath,
+    tempConfigPath: allTempConfigPaths,
     getActiveChild: () => activeChild,
   });
 
@@ -333,19 +507,111 @@ async function main() {
     if (passes.standard) {
       // Pass 1: Standard native rules + JS plugins without spawning tsgolint.
       const standardStartTime = Date.now();
-      const standardPass = await runOxlintPass({
-        oxlintBin,
-        args: [
-          '--tsconfig',
-          './tsconfig.json',
-          '--deny-warnings',
-          `--threads=${cpus}`,
-          '.',
-          ...fixArgs,
-        ],
-        env: process.env,
-        onChild: setActiveChild,
+      const baseArgs = [
+        '--tsconfig',
+        './tsconfig.json',
+        '--deny-warnings',
+        `--threads=${cpus}`,
+      ];
+      const parsedConfig = parseOxlintConfig(
+        fs.readFileSync(OXLINT_CONFIG_PATH, 'utf8'),
+      );
+      const cspellScope = resolveCspellScope({
+        base: process.env[CSPELL_DIFF_BASE_ENV],
+        config: parsedConfig,
       });
+      let standardPass;
+      if (cspellScope.mode === 'full') {
+        if (process.env[CSPELL_DIFF_BASE_ENV]) {
+          console.log(
+            `[${getTimestamp()}] Spellchecker runs on all files: ${cspellScope.reason}.`,
+          );
+        }
+        standardPass = await runOxlintPass({
+          oxlintBin,
+          args: [...baseArgs, '.', ...fixArgs],
+          env: process.env,
+          onChild: setActiveChild,
+        });
+      } else {
+        // The spellchecker is the slowest rule by far and only reads the
+        // file it checks, so it runs on changed files while every other rule
+        // still covers the whole repo.
+        const [withoutCspellPath, cspellOnlyPath] = allTempConfigPaths.slice(1);
+        fs.writeFileSync(
+          withoutCspellPath,
+          `${JSON.stringify(createOxlintConfigWithoutCspell(parsedConfig), null, 2)}\n`,
+        );
+        fs.writeFileSync(
+          cspellOnlyPath,
+          `${JSON.stringify(createCspellOnlyOxlintConfig(parsedConfig), null, 2)}\n`,
+        );
+        try {
+          const restPass = await runOxlintPass({
+            oxlintBin,
+            args: [
+              '-c',
+              `./${cspellConfigNames.withoutCspell}`,
+              ...baseArgs,
+              '.',
+              ...fixArgs,
+            ],
+            env: process.env,
+            onChild: setActiveChild,
+          });
+          const restDuration = (
+            (Date.now() - standardStartTime) /
+            1000
+          ).toFixed(2);
+          console.log(
+            `[${getTimestamp()}] Oxlint pass without the spellchecker completed on all files. (${restDuration}s)`,
+          );
+
+          const cspellStartTime = Date.now();
+          const cspellFixedArgs = [
+            '-c',
+            `./${cspellConfigNames.cspellOnly}`,
+            ...baseArgs,
+            // Changed files may all match ignorePatterns.
+            '--no-error-on-unmatched-pattern',
+            ...fixArgs,
+          ];
+          const batches = splitArgumentsByLength({
+            command: oxlintBin,
+            fixedArgs: cspellFixedArgs,
+            values: cspellScope.files,
+          });
+          const cspellPasses = [];
+          for (const batch of batches) {
+            cspellPasses.push(
+              await runOxlintPass({
+                oxlintBin,
+                args: [...cspellFixedArgs, ...batch],
+                env: process.env,
+                onChild: setActiveChild,
+              }),
+            );
+          }
+          const cspellDuration = (
+            (Date.now() - cspellStartTime) /
+            1000
+          ).toFixed(2);
+          console.log(
+            `[${getTimestamp()}] Spellchecker completed on ${cspellScope.files.length} changed file(s) since ${process.env[CSPELL_DIFF_BASE_ENV]}. (${cspellDuration}s)`,
+          );
+
+          standardPass = [restPass, ...cspellPasses].reduce(
+            (total, pass) => ({
+              output: [total.output, pass.output].filter(Boolean).join('\n'),
+              warnings: total.warnings + pass.warnings,
+              errors: total.errors + pass.errors,
+            }),
+            { output: '', warnings: 0, errors: 0 },
+          );
+        } finally {
+          removeTempTypeAwareConfig([withoutCspellPath, cspellOnlyPath]);
+        }
+      }
       const standardDuration = (
         (Date.now() - standardStartTime) /
         1000
@@ -427,7 +693,7 @@ async function main() {
       `[${getTimestamp()}] Oxlint check passed. (${oxlintDuration}s)`,
     );
   } catch (error) {
-    removeTempTypeAwareConfig(tempConfigPath);
+    removeTempTypeAwareConfig(allTempConfigPaths);
     const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
     if (error.stdout) {
       console.log(error.stdout.toString('utf-8'));
@@ -489,15 +755,22 @@ if (require.main === module) {
 
 module.exports = {
   OXLINT_CONFIG_PATH,
+  createCspellOnlyOxlintConfig,
+  createOxlintConfigWithoutCspell,
   createSignalCleanupHandler,
   createTypeAwareOxlintConfig,
+  filterOxlintTargetFiles,
   findPackageManifestPath,
+  getCspellFullScanReason,
   getJsPluginRulePrefix,
   getSignalExitCode,
+  getTempCspellConfigNames,
   getTempTypeAwareConfigName,
   getTempTypeAwareConfigPath,
+  listChangedFiles,
   parseOxlintConfig,
   parseOxlintCounts,
+  resolveCspellScope,
   resolveLintPasses,
   resolvePackageBinary,
   stripJsPluginRules,

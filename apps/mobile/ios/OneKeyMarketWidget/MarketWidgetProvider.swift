@@ -2,15 +2,19 @@ import Foundation
 import WidgetKit
 
 struct MarketWidgetRow: Identifiable {
-  static let lockScreenQuoteLifetime: TimeInterval = 15 * 60
+  static let lockScreenFreshnessInterval: TimeInterval = 15 * 60
   let asset: MarketWidgetAsset
   let quote: MarketWidgetQuote?
   let failed: Bool
   var id: String { asset.id }
 
-  func withFreshLockScreenQuote(at now: Date = Date()) -> MarketWidgetRow {
-    guard let quote, now.timeIntervalSince(quote.fetchedAt) < Self.lockScreenQuoteLifetime,
-          quote.fetchedAt.timeIntervalSince(now) <= 60 else {
+  func lockScreenCacheDate(at date: Date) -> Date? {
+    guard let quote, failed || date.timeIntervalSince(quote.fetchedAt) >= Self.lockScreenFreshnessInterval else { return nil }
+    return quote.priceUpdatedAt ?? quote.fetchedAt
+  }
+
+  func forLockScreen(at now: Date) -> MarketWidgetRow {
+    guard let quote, quote.fetchedAt.timeIntervalSince(now) <= 60 else {
       return MarketWidgetRow(asset: asset, quote: nil, failed: true)
     }
     return MarketWidgetRow(asset: asset, quote: quote.withFreshChart(at: now), failed: failed)
@@ -27,6 +31,14 @@ struct MarketWidgetEntry: TimelineEntry {
   var profileID: String? = nil
   var profileUnavailable = false
   var manualSelection = false
+  var isGalleryPreview = false
+
+  func canDisplayOnLockScreen(store: MarketWidgetStore = MarketWidgetStore()) -> Bool {
+    guard let configuration, configuration.privacyMasked != true else { return false }
+    if isGalleryPreview { return true }
+    // Travel Mode can change between producing the timeline and WidgetKit archiving its views.
+    return store.configuration().configuration.map { $0.privacyMasked != true } == true
+  }
 
   var editorURL: URL? {
     MarketWidgetEditorLink.url(profileID: nil, kind: isWatchlist ? .list : .single)

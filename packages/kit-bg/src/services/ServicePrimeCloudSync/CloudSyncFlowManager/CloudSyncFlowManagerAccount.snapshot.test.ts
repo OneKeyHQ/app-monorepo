@@ -1,4 +1,7 @@
-import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import type {
   ICloudSyncCredential,
   ICloudSyncRawDataJson,
@@ -190,6 +193,8 @@ describe('public account snapshot Cloud scene integration', () => {
         ),
         added: action === 'delete' ? 0 : snapshots.length,
         deleted: action === 'delete' ? snapshots.length : 0,
+        skippedSnapshotIds: [],
+        indexedAccountsChanged: false,
         issuesBySnapshotId: {},
         unchanged: 0,
         pending: 0,
@@ -200,6 +205,124 @@ describe('public account snapshot Cloud scene integration', () => {
   });
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('clears pending issues for skipped snapshots and keeps them available for later replay', async () => {
+    const h = harness();
+    const matching = publicAccountTestSnapshot(0);
+    const missing = publicAccountTestSnapshot(1);
+    missing.wallet.kind = 'hd';
+    const matchingId = getPublicAccountSnapshotId(matching);
+    const missingId = getPublicAccountSnapshotId(missing);
+    const items = await Promise.all([
+      encryptedItem(h.manager, matching, matchingId),
+      encryptedItem(h.manager, missing, missingId),
+    ]);
+    const [matchingItem, missingItem] = items;
+    items.forEach((item) => h.pool.set(item.id, item));
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [matchingId],
+      skippedSnapshotIds: [missingId],
+      indexedAccountsChanged: false,
+      added: 1,
+      deleted: 0,
+      unchanged: 0,
+      pending: 0,
+      conflicts: 0,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {},
+    });
+
+    await h.manager.syncToScene({ syncCredential: credential, items });
+
+    expect(mockConfig.publicAccountSnapshotStatus).toMatchObject({
+      added: 1,
+      pending: 0,
+    });
+    expect(
+      h.bg.servicePrimeCloudSync.publishPublicAccountSnapshotStatus,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.arrayContaining([
+          { id: missingItem.id, issue: undefined },
+        ]),
+      }),
+    );
+    expect(h.pool.get(matchingItem.id)?.localSceneUpdated).toBe(true);
+    expect(h.pool.get(missingItem.id)).toMatchObject({
+      localSceneUpdated: false,
+      data: missingItem.data,
+      serverUploaded: true,
+    });
+
+    await h.manager.syncToScene({ syncCredential: credential, items });
+
+    expect(importPublicAccountSnapshots).toHaveBeenLastCalledWith(
+      expect.objectContaining({ snapshots: [missing] }),
+    );
+    expect(h.pool.get(missingItem.id)?.localSceneUpdated).toBe(true);
+  });
+
+  test('skipping a wallet does not notify account consumers of a change', async () => {
+    const h = harness();
+    const snapshot = publicAccountTestSnapshot();
+    const id = getPublicAccountSnapshotId(snapshot);
+    const item = await encryptedItem(h.manager, snapshot, id);
+    h.pool.set(item.id, item);
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [],
+      skippedSnapshotIds: [id],
+      indexedAccountsChanged: false,
+      added: 0,
+      deleted: 0,
+      unchanged: 0,
+      pending: 0,
+      conflicts: 0,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {},
+    });
+    const onAccountsChanged = jest.fn();
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      onAccountsChanged,
+    });
+    expect(onAccountsChanged).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+  });
+
+  test('forced replay can repair the index of a locally built snapshot', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    item.localSceneUpdated = true;
+    item.serverUploaded = false;
+    h.pool.set(item.id, item);
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [
+        getPublicAccountSnapshotId(publicAccountTestSnapshot()),
+      ],
+      skippedSnapshotIds: [],
+      indexedAccountsChanged: true,
+      added: 0,
+      deleted: 0,
+      unchanged: 1,
+      pending: 0,
+      conflicts: 0,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {},
+    });
+    const onAccountsChanged = jest.fn();
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      forceSync: true,
+      onAccountsChanged,
+    });
+    expect(importPublicAccountSnapshots).toHaveBeenCalledTimes(1);
+    expect(onAccountsChanged).toHaveBeenCalledTimes(1);
   });
 
   test('decrypts real Cloud ciphertext, copies data and acknowledges in batches without an echo', async () => {
@@ -297,6 +420,8 @@ describe('public account snapshot Cloud scene integration', () => {
     h.pool.set(item.id, item);
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
+      skippedSnapshotIds: [],
+      indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
       unchanged: 0,
@@ -541,25 +666,64 @@ describe('public account snapshot Cloud scene integration', () => {
     expect(h.updateSyncItem).not.toHaveBeenCalled();
   });
 
-  test('a repeated full scan builds no snapshot when its key already exists', async () => {
+  test('a recovery scan creates a missing snapshot at the historical timestamp and skips it on replay', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();
-    const item = await encryptedItem(h.manager);
-    h.pool.set(item.id, item);
     const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
+    const params = {
+      dbRecords: [account],
+      initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+      syncCredential: credential,
+    };
+    const getDataTime = h.bg.servicePrimeCloudSync.getCloudSyncDataTime;
+    getDataTime.mockImplementation(async (options) =>
+      options?.allowHistoricalTime
+        ? (options.explicitHistoricalTime ?? 1_750_000_000_000)
+        : 1_750_000_000_000,
+    );
+
+    const recovered = await h.manager.buildInitSyncDBItems(params);
+
+    expect(recovered).toEqual([
+      expect.objectContaining({
+        data: expect.any(String),
+        dataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+        isDeleted: false,
+        serverUploaded: false,
+      }),
+    ]);
+    recovered.forEach((item) => h.pool.set(item.id, item));
+    await expect(h.manager.buildInitSyncDBItems(params)).resolves.toEqual([]);
+    expect(getDataTime).toHaveBeenCalledTimes(1);
+  });
+
+  test('stops the recovery scan on cancellation before processing the next account', async () => {
+    const h = harness();
+    let current = true;
+    const original = h.manager.isSupportSync.bind(h.manager);
+    const support = jest
+      .spyOn(h.manager, 'isSupportSync')
+      .mockImplementationOnce(async (target) => {
+        const supported = await original(target);
+        current = false;
+        return supported;
+      });
+    const accounts = [0, 1].map((index) =>
+      publicAccountSnapshotToAccount(
+        publicAccountTestSnapshot(index),
+        h.wallet.id,
+      ),
+    );
+
     await expect(
       h.manager.buildInitSyncDBItems({
-        dbRecords: [account],
-        allDevices: [
-          { id: 'local-device', vendor: 'onekey' },
-        ] as unknown as Parameters<
-          CloudSyncFlowManagerAccount['buildInitSyncDBItems']
-        >[0]['allDevices'],
-        initDataTime: undefined,
+        dbRecords: accounts,
+        initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
         syncCredential: credential,
+        isCurrent: () => current,
       }),
     ).resolves.toEqual([]);
-    expect(h.bg.localDb.getAllWallets).toHaveBeenCalledTimes(1);
+    expect(support).toHaveBeenCalledTimes(1);
   });
 
   test('the shared initializer bounds 1000 lookups and does not re-encrypt unchanged Keyless rows', async () => {

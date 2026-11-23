@@ -162,6 +162,64 @@ test('deletion is a dry run until --yes and stops on ambiguous keys', async (t) 
   assert.deepEqual(ambiguous.removed, []);
 });
 
+test('a failed pull after delete reports the PR, and rerunning the deletion names the same branch', async (t) => {
+  const keysFile = scopeFile(t, JSON.stringify(['old']));
+  const args = parseArgs([
+    '--delete-central',
+    '--yes',
+    '--delete-keys-file',
+    keysFile,
+    '--pull-after-delete',
+  ]);
+  const finalized = [];
+  const run = async (pullAfterDelete, target = {}) => {
+    const client = Object.assign(
+      fakeClient([{ ref: 'old', name: 'old' }]),
+      target,
+    );
+    client.finalize = async (request) => {
+      finalized.push(request);
+      return {
+        number: 7,
+        commit: 'c7',
+        url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+      };
+    };
+    const report = { unused: [{ key: 'old' }] };
+    await applyCentralDeleteIfRequested(report, args, {
+      createClient: () => client,
+      pullAfterDelete,
+    });
+    return report.centralDelete;
+  };
+
+  const pulls = [];
+  const failed = await run((number, commit) => {
+    pulls.push([number, commit]);
+    throw new Error('preview not ready');
+  });
+  assert.deepEqual(pulls, [[7, 'c7']]);
+  assert.equal(failed.pullError, 'preview not ready');
+  assert.match(failed.note, /pull\/7/);
+  assert(
+    failed.note.includes(
+      'Retry from the repository root with `node development/scripts/i18n/i18n-pull.js --pr 7 --commit c7 --wait`',
+    ),
+  );
+
+  const retried = await run(() => {});
+  assert.equal(retried.pulledAfterDelete, true);
+  assert.match(finalized[0].key, /^[0-9a-f]{12}$/);
+  assert.equal(finalized[1].key, finalized[0].key);
+
+  // The same refs against another branch or channel get a branch of their own.
+  await run(() => {}, { base: 'try-tooling' });
+  await run(() => {}, { channel: 'test' });
+  assert.notEqual(finalized[2].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[2].key);
+});
+
 test('the Lokalise deletion flag is retired', () => {
   assert.throws(() => parseArgs(['--delete-lokalise']), /retired/);
 });
