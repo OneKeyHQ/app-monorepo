@@ -130,8 +130,6 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
-  /** Hide the chart button - used when the page shows the chart itself */
-  hideKLine?: boolean;
   singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
@@ -147,7 +145,6 @@ const SwapHeaderContainer = ({
   onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
-  hideKLine,
   singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
@@ -542,7 +539,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
-          hideKLine={hideStockModalKLine || hideKLine}
+          hideKLine={hideStockModalKLine}
         />
       ) : null}
     </XStack>

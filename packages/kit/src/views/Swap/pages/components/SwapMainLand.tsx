@@ -2007,24 +2007,20 @@ const SwapMainLoad = ({
   // Stocks places the price chart beside the trade ticket itself.
   const foldableChartPanelTab =
     isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
-  // Whether the page is wide enough for two panes, by the same rule the
-  // Stocks content applies to its own row, which is when it shows that chart.
-  // Read from the laid out page rather than from the window size: while a
-  // foldable folds or unfolds the two disagree for a few frames.
-  const [foldableTwoPaneWidth, setFoldableTwoPaneWidth] = useState(false);
   // Whether the page is wider than the single-pane cap yet too narrow for two
   // panes, as the unfolded screen is when turned upright. Such a page is laid
   // out like a phone: the content fills it. The folded screen is narrower
   // than the cap, so it reads false there and unfolding never passes through
-  // an uncapped frame.
+  // an uncapped frame. Read from the laid out page rather than from the
+  // window size: while a foldable folds or unfolds the two disagree for a few
+  // frames.
   const [foldablePhoneWidth, setFoldablePhoneWidth] = useState(false);
   const handleFoldableContentLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const { width } = event.nativeEvent.layout;
-      const twoPaneWidth = width >= SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH;
-      setFoldableTwoPaneWidth(twoPaneWidth);
       setFoldablePhoneWidth(
-        !twoPaneWidth && width > SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH,
+        width < SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH &&
+          width > SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH,
       );
     },
     [],
@@ -2337,8 +2333,6 @@ const SwapMainLoad = ({
         }
         showSwapPro={platformEnv.isNative}
         hideRightActions={showDesktopProviderPanel}
-        // The chart button would open the chart the page already shows.
-        hideKLine={foldableChartPanelTab && foldableTwoPaneWidth}
         enterFrom={swapInitParams?.swapSource}
         singleSwapBridgeTab={singleSwapBridgeHeader}
         marketPresetSettings={
