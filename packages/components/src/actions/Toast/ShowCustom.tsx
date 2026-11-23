@@ -226,11 +226,11 @@ function BasicShowToaster({
           <CustomToasterContext.Provider value={value}>
             <Stack
               testID="confirm-on-device-toast-container"
-              borderRadius="$2.5"
+              borderRadius="$5"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
-              <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
+              <ThemeableStack bg="$bg" borderRadius="$5" elevation={44}>
                 {children}
               </ThemeableStack>
             </Stack>

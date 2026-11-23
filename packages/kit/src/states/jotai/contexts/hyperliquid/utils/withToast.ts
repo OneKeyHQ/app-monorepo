@@ -47,7 +47,7 @@ function extractErrorMessage(error: unknown): string {
   return extractRawErrorMessage(error);
 }
 
-async function handleError(error: unknown): Promise<void> {
+async function resolveErrorToastTitle(error: unknown): Promise<string> {
   const errorMessage = extractErrorMessage(error);
   const rawErrorMessage = extractRawErrorMessage(error);
   const errorType =
@@ -97,7 +97,7 @@ async function handleError(error: unknown): Promise<void> {
   } else if (extractedResolved?.localizedMessage) {
     friendlyMessage = extractedResolved.localizedMessage;
   }
-  Toast.error({ title: friendlyMessage });
+  return friendlyMessage;
 }
 
 export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
@@ -106,7 +106,7 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     return asyncFn();
   }
   const config = TOAST_CONFIGS[actionType];
-  let loadingToast: { close: () => void } | undefined;
+  let loadingToast: ReturnType<typeof Toast.loading>;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   if (config?.loading) {
@@ -124,9 +124,8 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     const result = await asyncFn();
 
     if (loadingTimer) clearTimeout(loadingTimer);
-    if (loadingToast) loadingToast.close();
-
     if (options.shouldShowSuccess?.(result) === false) {
+      loadingToast?.close();
       return result;
     }
 
@@ -143,21 +142,29 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
           : config.successMessage;
     }
 
-    Toast.success({ title: successTitle, message: successMessage });
+    const success = { title: successTitle, message: successMessage };
+    if (!loadingToast?.settle('success', success)) {
+      Toast.success(success);
+    }
 
     return result;
   } catch (error) {
     if (loadingTimer) clearTimeout(loadingTimer);
-    if (loadingToast) loadingToast.close();
-
-    void handleError(error).catch((e: unknown) => {
-      defaultLogger.perp.agentLifeCycle.trackReason({
-        reason: 'runtime_handle_error_failed',
-        statusDetails: {
-          errorMessage: e instanceof Error ? e.message : String(e),
-        },
+    void resolveErrorToastTitle(error)
+      .then((title) => {
+        if (!loadingToast?.settle('error', { title })) {
+          Toast.error({ title });
+        }
+      })
+      .catch((e: unknown) => {
+        loadingToast?.close();
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'runtime_handle_error_failed',
+          statusDetails: {
+            errorMessage: e instanceof Error ? e.message : String(e),
+          },
+        });
       });
-    });
     throw error;
   }
 }

@@ -4,7 +4,7 @@ jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
   Toast: {
     error: jest.fn(),
-    loading: jest.fn(() => ({ close: jest.fn() })),
+    loading: jest.fn(() => ({ close: jest.fn(), settle: jest.fn(() => true) })),
     success: jest.fn(),
   },
 }));
@@ -48,6 +48,35 @@ describe('withToast', () => {
 
   it('localizes the trading-not-enabled guard message', () => {
     expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
+  });
+
+  it('updates the loading card when an order succeeds after the loading delay', async () => {
+    jest.useFakeTimers();
+    try {
+      const close = jest.fn();
+      const settle = jest.fn(() => true);
+      jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
+      const success = jest.spyOn(Toast, 'success');
+      const task = withToast({
+        actionType: EActionType.PLACE_ORDER,
+        asyncFn: async () =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 500);
+          }),
+      });
+
+      await jest.advanceTimersByTimeAsync(500);
+      await task;
+      expect(settle).toHaveBeenCalledWith(
+        'success',
+        expect.objectContaining({ title: expect.any(String) }),
+      );
+      expect(close).not.toHaveBeenCalled();
+      expect(success).not.toHaveBeenCalled();
+      success.mockRestore();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('localizes wrapped HyperLiquid order errors from server config', async () => {

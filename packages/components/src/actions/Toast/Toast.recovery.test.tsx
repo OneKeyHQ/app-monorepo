@@ -218,6 +218,113 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it.each(['success', 'error'] as const)(
+  'settles a loading toast as %s in place and resets its lifetime once',
+  (status) => {
+    const onClose = jest.fn();
+    const toastId = 'loading-status-test';
+    const loading = Toast.loading({
+      title: 'Submitting',
+      toastId,
+      duration: Infinity,
+      onClose,
+    });
+    const before = realToastStore.getSnapshot().items[0];
+    expect(before?.spec).toMatchObject({
+      id: toastId,
+      icon: { kind: 'spinner' },
+      statusIcon: { kind: 'status', status: 'loading', size: 36 },
+    });
+
+    expect(Toast.success({ title: 'Duplicate', toastId })).toBeUndefined();
+    expect(loading?.settle(status, { title: 'Result', duration: 2300 })).toBe(
+      true,
+    );
+    expect(loading?.settle(status, { title: 'Duplicate result' })).toBe(false);
+
+    const items = realToastStore.getSnapshot().items;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      spec: { id: toastId, duration: 2300, statusIcon: { status } },
+    });
+    expect(textOf(items[0]?.spec.title)).toBe('Result');
+    expect(items[0]?.generation).not.toBe(before?.generation);
+    expect(mockShow).toHaveBeenCalledTimes(2);
+    expect(onClose).not.toHaveBeenCalled();
+
+    setToastStyleContext(createContext());
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(realToastStore.getSnapshot().items[0]?.generation).toBe(
+      items[0]?.generation,
+    );
+    loading?.close();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  },
+);
+
+it('settles Toast.promise in place and preserves custom web position', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  const value = await Toast.promise(
+    Promise.resolve('0xabc'),
+    {
+      loading: 'Broadcasting transaction',
+      success: (hash) => ({ title: 'Confirmed', message: hash }),
+      error: 'Broadcast failed',
+    },
+    { position: 'top-center', duration: 3200 },
+  );
+  expect(value).toBe('0xabc');
+  const items = realToastStore.getSnapshot().items;
+  expect(items).toHaveLength(1);
+  expect(items[0]?.spec).toMatchObject({
+    position: 'top-center',
+    duration: 3200,
+    statusIcon: { status: 'success' },
+  });
+  expect(textOf(items[0]?.spec.title)).toBe('Confirmed');
+  expect(textOf(items[0]?.spec.message)).toBe('0xabc');
+});
+
+it('uses high-contrast solid caution colors for warning status tiles', () => {
+  Toast.warning({ title: 'High gas fee' });
+  expect(latest().spec).toMatchObject({
+    statusIcon: {
+      kind: 'status',
+      status: 'warning',
+      backgroundColor: 'color-bgCautionStrong',
+      color: 'color-iconOnBrightColor',
+    },
+  });
+});
+
+it('ignores a result while the loading toast is leaving', () => {
+  const detach = realToastStore.attachRenderer();
+  try {
+    const loading = Toast.loading({ title: 'Submitting', duration: Infinity });
+    loading?.close();
+    expect(loading?.settle('success', { title: 'Result' })).toBe(false);
+    expect(mockShow).toHaveBeenCalledTimes(1);
+    expect(realToastStore.getSnapshot().items[0]?.visible).toBe(false);
+  } finally {
+    detach();
+  }
+});
+
+it('shows only the result if a request finishes before the toast host mounts', () => {
+  setToastStyleContext(undefined);
+  const loading = Toast.loading({ title: 'Submitting', duration: Infinity });
+  loading?.settle('success', { title: 'Result' });
+  expect(mockShow).not.toHaveBeenCalled();
+
+  setToastStyleContext(createContext());
+  expect(mockShow).toHaveBeenCalledTimes(1);
+  expect(latest().spec).toMatchObject({
+    duration: 5000,
+    statusIcon: { status: 'success' },
+  });
+  expect(textOf(latest().spec.title)).toBe('Result');
+});
+
 it.each([true, false])(
   'renders ordinary notification actions with isNative=%s',
   (isNative) => {
