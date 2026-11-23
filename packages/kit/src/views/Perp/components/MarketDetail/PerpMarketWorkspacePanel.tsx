@@ -477,6 +477,11 @@ export function PerpMarketWorkspacePanel({
         {!platformEnv.isNative || shouldRenderInfo ? (
           <YStack
             {...tabList.getPanelProps('info')}
+            tabIndex={
+              !platformEnv.isNative && visibleActiveView === 'info'
+                ? 0
+                : undefined
+            }
             flex={1}
             minHeight={0}
             display={visibleActiveView === 'info' ? 'flex' : 'none'}
