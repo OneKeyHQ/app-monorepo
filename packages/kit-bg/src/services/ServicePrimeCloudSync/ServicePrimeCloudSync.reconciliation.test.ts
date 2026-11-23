@@ -13,12 +13,9 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/request/axiosInterceptor';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusResult,
@@ -26,7 +23,6 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { createLazyServiceProxy } from '../../apis/lazyServiceProxy';
 import { LocalDbIndexed } from '../../dbs/local/indexed/LocalDbIndexed';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
@@ -145,8 +141,6 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getAllSyncItems: jest.fn(),
-    getPendingCloudAccountHandoffs: jest.fn(async () => []),
-    storePendingCloudAccountHandoffs: jest.fn(async () => undefined),
     getAllAccounts: jest.fn(),
     getAllDevices: jest.fn(),
     getRecordsByIds: jest.fn(),
@@ -2291,9 +2285,6 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             )?.[0]
             .foreignAccountsByWireId?.get(old.id),
         ).toEqual(preserved);
-        expect(
-          jest.spyOn(localDb, 'storePendingCloudAccountHandoffs'),
-        ).not.toHaveBeenCalled();
         return;
       }
       expect(h.config().cloudSyncReconciliation).toMatchObject({

@@ -533,13 +533,6 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   rawDataJson?: ICloudSyncRawDataJson;
 };
 
-export type IPendingCloudAccountHandoff = {
-  id: string;
-  kind: 'pending-account-handoff';
-  candidate: IDBCloudSyncItem;
-  expectedForeign: IDBCloudSyncItem;
-};
-
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.Context]: IDBContext;
@@ -593,17 +586,7 @@ export enum EIndexedDBBucketNames {
   // misc = 'misc', // misc
 }
 
-export type IIndexedDBStoreName =
-  | ELocalDBStoreNames
-  | 'CloudSyncAccountArchive';
-
 export interface IIndexedDBSchemaMap extends DBSchema {
-  CloudSyncAccountArchive: {
-    key: string;
-    value:
-      | { id: string; record: IDBCloudSyncItem }
-      | IPendingCloudAccountHandoff;
-  };
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
     value: IDBAccountDerivation;
@@ -744,16 +727,6 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
-  pendingCloudAccountHandoffs?: {
-    read(id: string): Promise<IPendingCloudAccountHandoff | undefined>;
-    list(sourcePrefix: string): Promise<IPendingCloudAccountHandoff[]>;
-    write(record: IPendingCloudAccountHandoff): Promise<void>;
-    remove(record: IPendingCloudAccountHandoff): Promise<void>;
-  };
-  cloudAccountArchive?: {
-    retain(record: IDBCloudSyncItem): Promise<void>;
-    clearArchivedRows(): Promise<void>;
-  };
   bucketName: EIndexedDBBucketNames;
 }
 

@@ -36,7 +36,6 @@ import {
 import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
@@ -49,10 +48,7 @@ import timerUtils, {
 } from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
-import {
-  EServiceEndpointEnum,
-  type IApiClientResponse,
-} from '@onekeyhq/shared/types/endpoint';
+import { type IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -85,7 +81,6 @@ import type {
 } from '@onekeyhq/shared/types/socket';
 import type { ICloudSyncCustomToken } from '@onekeyhq/shared/types/token';
 
-import { supportsIndexedCloudAccountArchive } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
@@ -108,7 +103,6 @@ import ServiceBase from '../ServiceBase';
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
   buildOnlyCheckLocalDataTypes,
-  canArchiveSettledForeignAccountHandoff,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -145,7 +139,6 @@ import {
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import type {
-  IWalletEditVersion,
   IWalletUploadRetry,
   IWalletUploadRetryVersion,
 } from './incrementalCloudSync';
@@ -859,13 +852,8 @@ class ServicePrimeCloudSync extends ServiceBase {
       | 'local-mutation';
     localOnly?: boolean;
   }) {
-    if (
-      localOnly &&
-      (!supportsIndexedCloudAccountArchive() ||
-        (reason !== 'startup' && reason !== 'unlock'))
-    )
-      return;
-    const offline = () => localOnly || this.cloudSyncNetworkReachable === false;
+    if (localOnly) return;
+    const offline = () => this.cloudSyncNetworkReachable === false;
     const generation = this.publicAccountSnapshotImportGeneration;
     const keyGeneration =
       this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
@@ -874,12 +862,10 @@ class ServicePrimeCloudSync extends ServiceBase {
       keyGeneration ===
         this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
     if (await this.backgroundApi.serviceApp.isAppLocked()) return;
-    if (!localOnly && !(await this.isCloudSyncIsAvailable())) return;
-    const credential = await this.readReconciliationCredential(localOnly);
+    if (!(await this.isCloudSyncIsAvailable())) return;
+    const credential = await this.getSyncCredentialSafe();
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     if (!credential || !spaceId || !isCurrent()) return;
-    if (localOnly && !this.canReadPendingAccountHandoffs(credential, spaceId))
-      return;
     if (reason === 'wallet-ready') {
       const { items } = await this.getAllLocalSyncItems();
       await this.replayDownloadedAccounts({ items, credential, isCurrent });
@@ -891,20 +877,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       config.cloudSyncReconciliation?.spaceId === spaceId
         ? config.cloudSyncReconciliation
         : undefined;
-    // Keeping a Privacy Wallet commits before the asynchronous wallet-ready
-    // event. Recover the archive locally before any offline/backoff exit.
-    const recoverArchiveOnLifecycle =
-      (reason === 'startup' || reason === 'unlock') &&
-      this.canReadPendingAccountHandoffs(credential, spaceId);
-    if (recoverArchiveOnLifecycle) {
-      await this.replayDownloadedAccounts({
-        items: [],
-        credential,
-        isCurrent,
-        localOnly,
-      });
-      if (!isCurrent()) return;
-    }
     if (reason === 'manual' && state?.nextRetryAt) {
       // Clear the persisted deadline too: the full reconciliation entry point
       // independently enforces it. Keep failure counts so a failed manual retry
@@ -941,17 +913,10 @@ class ServicePrimeCloudSync extends ServiceBase {
           items,
           credential,
           isCurrent,
-          includeArchive: !recoverArchiveOnLifecycle,
-          localOnly,
         });
       }
       const isOffline = offline();
-      if (
-        !isCurrent() ||
-        (isOffline &&
-          !(recoverArchiveOnLifecycle && state.status === 'partial'))
-      )
-        return;
+      if (!isCurrent() || isOffline) return;
       if (
         !isOffline &&
         items.some(
@@ -977,7 +942,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     )
       return;
     if (state?.nextRetryAt && state.nextRetryAt > Date.now()) {
-      if (localOnly) return;
       const nextRetryAt = Math.min(state.nextRetryAt, Date.now() + 30 * 60_000);
       if (nextRetryAt !== state.nextRetryAt)
         await primeCloudSyncPersistAtom.set((value) => ({
@@ -996,8 +960,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
             async () => {
               if (!isCurrent()) return;
-              const selected =
-                await this.readReconciliationCredential(localOnly);
+              const selected = await this.getSyncCredentialSafe();
               if (
                 !isCurrent() ||
                 !selected ||
@@ -1006,7 +969,6 @@ class ServicePrimeCloudSync extends ServiceBase {
                 return;
               await this.syncPendingItemsToScene({
                 isCurrent,
-                ...(localOnly ? { offlineCredential: selected } : {}),
               });
               if (!isCurrent()) return;
               await primeCloudSyncPersistAtom.set((value) => {
@@ -1052,42 +1014,19 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (!isCurrent() || cloudSyncItemBuilder.getPwdHash(selected) !== spaceId)
         return;
     }
-    if (localOnly) return;
     return this.startServerSyncFlowSilently({
       callerName: `Cloud reconciliation ${reason}`,
     });
-  }
-
-  private canReadPendingAccountHandoffs(
-    credential: ICloudSyncCredential,
-    spaceId: string,
-  ): boolean {
-    return (
-      supportsIndexedCloudAccountArchive() &&
-      credential.keylessCredential?.source?.type === 'hardware' &&
-      !!credential.keylessCredential.hardwareSession &&
-      spaceId.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
-    );
-  }
-
-  private readReconciliationCredential(localOnly: boolean) {
-    return localOnly
-      ? this.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential()
-      : this.getSyncCredentialSafe();
   }
 
   private async replayDownloadedAccounts({
     items,
     credential,
     isCurrent,
-    includeArchive = true,
-    localOnly = false,
   }: {
     items: IDBCloudSyncItem[];
     credential: ICloudSyncCredential;
     isCurrent: () => boolean;
-    includeArchive?: boolean;
-    localOnly?: boolean;
   }) {
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
     const pending = items.filter(
@@ -1100,40 +1039,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.data &&
         item.dataTime,
     );
-    const canReadHandoffs =
-      includeArchive && this.canReadPendingAccountHandoffs(credential, spaceId);
-    if (!isCurrent() || (!pending.length && !canReadHandoffs)) return;
+    if (!isCurrent() || !pending.length) return;
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
         if (!isCurrent()) return;
-        const selected = await this.readReconciliationCredential(localOnly);
+        const selected = await this.getSyncCredentialSafe();
         if (
           !isCurrent() ||
           cloudSyncItemBuilder.getPwdHash(selected) !== spaceId
         )
           return;
-        const handoffs =
-          canReadHandoffs &&
-          selected &&
-          this.canReadPendingAccountHandoffs(selected, spaceId)
-            ? await localDb.getPendingCloudAccountHandoffs(spaceId)
-            : [];
-        if (!isCurrent() || (!pending.length && !handoffs.length)) return;
         await this.syncToSceneWithLocalSyncItems({
-          items: [...pending, ...handoffs.map((record) => record.candidate)],
+          items: pending,
           syncCredential: credential,
           isCurrent,
-          localOnly,
-          ...(handoffs.length
-            ? {
-                foreignAccountsByWireId: new Map(
-                  handoffs.map((record) => [
-                    record.candidate.id,
-                    record.expectedForeign,
-                  ]),
-                ),
-              }
-            : {}),
         });
       },
     );
@@ -2820,14 +2739,13 @@ class ServicePrimeCloudSync extends ServiceBase {
     ) => isInactiveHardwareWalletAccount(item, activePwdHash);
     const foreignAccountsByWireId = new Map<string, IDBCloudSyncItem>();
     const collisionCandidates: IDBCloudSyncItem[] = [];
-    const archiveSupported = supportsIndexedCloudAccountArchive();
     const mayHandoff =
       allowSettledAccountHandoff &&
       shouldSyncToScene &&
       syncCredential?.keylessCredential?.source?.type === 'hardware' &&
       !!syncCredential.keylessCredential.hardwareSession &&
       activePwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX);
-    if (!archiveSupported && mayHandoff) {
+    if (mayHandoff) {
       // Optional collision recognition is read-only and bounded. Do not
       // serialize DB/crypto work behind the key lock used by local actions.
       const candidates = localItems.filter(
@@ -2877,71 +2795,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         // DB warm-up can await before the transaction starts. Keep the key
         // selected by this check until the write has actually committed.
         await this.assertSyncCredentialUnchanged(syncCredential);
-        if (archiveSupported && mayHandoff) {
-          const handoffCredential = syncCredential;
-          const candidates = localItems.filter(
-            (item) =>
-              item.dataType === EPrimeCloudSyncDataType.Account &&
-              item.pwdHash === activePwdHash &&
-              !!item.data &&
-              item.serverUploaded &&
-              !item.pendingPublicAccountDeletionAt,
-          );
-          if (candidates.length) {
-            const { records } = await localDb.getRecordsByIds({
-              name: ELocalDBStoreNames.CloudSyncItem,
-              ids: candidates.map((item) => item.id),
-            });
-            for (const record of records) {
-              if (
-                record &&
-                canArchiveSettledForeignAccountHandoff(record, activePwdHash)
-              ) {
-                foreignAccountsByWireId.set(record.id, { ...record });
-              }
-            }
-            const collisions = candidates.filter((item) =>
-              foreignAccountsByWireId.has(item.id),
-            );
-            // Preserve the existing live collision scene diagnostics. A
-            // destructive handoff must first pass verification and staging.
-            collisionCandidates.push(
-              ...collisions.filter((item) => !item.isDeleted),
-            );
-            const verified: IDBCloudSyncItem[] = [];
-            for (const item of collisions) {
-              if (isCurrent && !isCurrent()) break;
-              if (!item.data || item.data.length > 64 * 1024) continue;
-              try {
-                const { rawDataJson } =
-                  await cloudSyncItemBuilder.decryptSyncItem({
-                    item: { ...item },
-                    syncCredential: handoffCredential,
-                  });
-                const { rawKey } =
-                  normalizePublicAccountSnapshotRecord(rawDataJson);
-                if (
-                  this.syncManagers.account.rawKeyToHashKey(rawKey) === item.id
-                )
-                  verified.push(item);
-              } catch {
-                // No durable replay candidate until the selected DEK and
-                // canonical public account wire identity are verified.
-              }
-            }
-            if (verified.length) {
-              await localDb.storePendingCloudAccountHandoffs({
-                candidates: verified,
-                expectedForeignById: foreignAccountsByWireId,
-                pwdHash: activePwdHash,
-                isCurrent: isCurrent ?? (() => true),
-              });
-              collisionCandidates.push(
-                ...verified.filter((item) => item.isDeleted),
-              );
-            }
-          }
-        }
         await this.writeCloudSyncPoolInBatches({
           items: localItems.filter(
             (item) => !foreignAccountsByWireId.has(item.id),

@@ -17,11 +17,9 @@ import {
 import { publicAccountTestSnapshot } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
 
 import {
-  INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE,
   INDEXED_DB_NAME,
   INDEXED_DB_VERSION,
   REALM_DB_VERSION,
-  supportsIndexedCloudAccountArchive,
 } from './consts';
 import { IndexedDBAgent } from './indexed/IndexedDBAgent';
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
@@ -77,16 +75,15 @@ it.each([
     jest.replaceProperty(platformEnv, 'isDev', false);
     expect(INDEXED_DB_VERSION).toBe(21);
     expect(REALM_DB_VERSION).toBe(21);
-    expect(supportsIndexedCloudAccountArchive()).toBe(false);
     const agent = await new LocalDbIndexed().readyDb;
     if (!(agent instanceof IndexedDBAgent))
       throw new OneKeyLocalError('Expected IndexedDB agent');
     for (const bucket of Object.values(EIndexedDBBucketNames)) {
       const db = await agent.getIndexedByBucketName(bucket).open();
       expect(db.version).toBe(21);
-      expect(
-        db.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
-      ).toBe(false);
+      expect(db.objectStoreNames.contains('CloudSyncAccountArchive')).toBe(
+        false,
+      );
     }
   },
 );
@@ -111,9 +108,7 @@ it('opens a previous ordinary bucket at 21 and preserves its existing rows', asy
   expect(
     await read(now, ELocalDBStoreNames.CloudSyncItem, canonical.id),
   ).toEqual(canonical);
-  expect(
-    now.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
-  ).toBe(false);
+  expect(now.objectStoreNames.contains('CloudSyncAccountArchive')).toBe(false);
 });
 
 it('refuses to open a higher existing account DB and does not erase canonical or historical rows', async () => {
@@ -123,7 +118,7 @@ it('refuses to open a higher existing account DB and does not erase canonical or
     db.createObjectStore(ELocalDBStoreNames.CloudSyncItem, {
       keyPath: 'id',
     }).add(canonical);
-    db.createObjectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, {
+    db.createObjectStore('CloudSyncAccountArchive', {
       keyPath: 'id',
     }).add(historical);
   });
@@ -138,7 +133,7 @@ it('refuses to open a higher existing account DB and does not erase canonical or
       await read(unchanged, ELocalDBStoreNames.CloudSyncItem, canonical.id),
     ).toEqual(canonical);
     expect(
-      await read(unchanged, INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE, historical.id),
+      await read(unchanged, 'CloudSyncAccountArchive', historical.id),
     ).toEqual(historical);
   } finally {
     unchanged.close();
@@ -234,9 +229,9 @@ it('can reopen a verified newer live Account cache on v21 without changing the l
   database.close();
   const reopened = await open(fixture, 21);
   try {
-    expect(
-      reopened.objectStoreNames.contains(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE),
-    ).toBe(false);
+    expect(reopened.objectStoreNames.contains('CloudSyncAccountArchive')).toBe(
+      false,
+    );
     expect(
       await read(reopened, ELocalDBStoreNames.CloudSyncItem, older.id),
     ).toMatchObject({

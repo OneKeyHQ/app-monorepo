@@ -169,13 +169,10 @@ import type {
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
-  buildRemoteHardwareAccountTombstoneProof,
-  canArchiveForeignAccountCopy,
   canArchiveSettledForeignAccountHandoff,
   canReplaceSettledPublicAccountCache,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
-  rememberRemoteHardwareTombstonePromotion,
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
@@ -201,7 +198,7 @@ import {
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
-import { EDBAccountType, supportsIndexedCloudAccountArchive } from './consts';
+import { EDBAccountType } from './consts';
 import {
   decryptHyperLiquidAgentCredentialWithSessionKey,
   deriveHyperLiquidAgentSecretKey,
@@ -274,7 +271,6 @@ import type {
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
-  IPendingCloudAccountHandoff,
   ITrezorThpCredential,
 } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
@@ -5533,7 +5529,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             .filter((item) => item.dataType !== EPrimeCloudSyncDataType.Lock)
             .map((item) => item.id),
         });
-        await tx.cloudAccountArchive?.clearArchivedRows();
       },
     );
   }
@@ -8518,22 +8513,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
           if (!existing.data && !existing.pwdHash) {
             await cleanup();
-          } else if (
-            supportsIndexedCloudAccountArchive() &&
-            existing.serverUploaded &&
-            existing.data &&
-            existing.pwdHash
-          ) {
-            // Web has no durable cross-tab authority fence. Keep its encrypted
-            // copies rather than turning local unbinding into cross-space prune.
-            await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-              async () => {
-                const scope = cloudSyncItemBuilder.getPwdHash(
-                  await this.backgroundApi.serviceKeylessCloudSync.getLocalMutationSyncCredential(),
-                );
-                if (scope && existing.pwdHash === scope) await cleanup();
-              },
-            );
           }
         })().catch(() => undefined);
       }
@@ -8751,69 +8730,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
-    const passive = params.passiveDeviceMetadata;
-    if (passive) {
-      const canonical = await this.getWallet({
-        walletId: params.walletId,
-        withoutRefill: true,
-      });
-      const readCanonical = async () => {
-        const {
-          records: [current],
-        } = await this.getRecordsByIds({
-          name: ELocalDBStoreNames.Wallet,
-          ids: [params.walletId],
-        });
-        return current ?? canonical;
-      };
-      if (
-        !supportsIndexedCloudAccountArchive() ||
-        !accountUtils.isHwOrQrWallet({ walletId: params.walletId }) ||
-        params.cloudSyncSource ||
-        params.firstEvmAddress ||
-        params.applyRestoreSyncPolicy ||
-        !!params.name === !!params.avatar
-      )
-        return canonical;
-      const {
-        records: [device],
-      } = await this.getRecordsByIds({
-        name: ELocalDBStoreNames.Device,
-        ids: [passive.dbDeviceId],
-      });
-      if (
-        !device ||
-        !this.verifyPassiveDeviceWalletFields(canonical, device, params)
-      )
-        return canonical;
-      const vendor = this.refillDeviceInfo({ device: { ...device } }).vendor;
-      if (vendor && !getVendorProfile(vendor).supportsCloudSync) {
-        try {
-          return await this.setWalletNameAndAvatarInternal(
-            { ...params, skipSaveLocalSyncItem: true },
-            { skipCloudCredentialWarmup: true, passiveLocalVendor: true },
-          );
-        } catch (error) {
-          if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED) throw error;
-          return readCanonical();
-        }
-      }
-      return this.backgroundApi.serviceKeylessCloudSync.runWithVerifiedWalletMetadataWrite(
-        async (verifiedCredential, claimWrite) => {
-          try {
-            return await this.setWalletNameAndAvatarInternal(
-              { ...params, skipSaveLocalSyncItem: !verifiedCredential },
-              { verifiedCredential, claimWrite },
-            );
-          } catch (error) {
-            if (error !== WALLET_METADATA_CLOUD_WRITE_DECLINED || !claimWrite())
-              throw error;
-            // An unverified passive event can never create a local shadow.
-            return readCanonical();
-          }
-        },
-        readCanonical,
-      );
+    if (params.passiveDeviceMetadata) {
+      return this.getWallet({ walletId: params.walletId, withoutRefill: true });
     }
     // Replay and restore policy never create a new sync item. They must
     // not reacquire this lock from within a Cloud sync operation.
@@ -9841,187 +9759,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return val ?? defaultValue;
   }
 
-  private getPendingCloudAccountHandoffPrefix(pwdHash: string): string {
-    return `pending-account-handoff:${encodeURIComponent(pwdHash)}:`;
-  }
-
-  private getPendingCloudAccountHandoffKey(
-    candidate: IDBCloudSyncItem,
-  ): string {
-    return (
-      this.getPendingCloudAccountHandoffPrefix(candidate.pwdHash) +
-      encodeURIComponent(candidate.id)
-    );
-  }
-
-  private cloudAccountHandoffWireVersion(
-    item: IDBCloudSyncItem,
-  ): IDBCloudSyncItem {
-    return {
-      id: item.id,
-      pwdHash: item.pwdHash,
-      data: item.data,
-      dataTime: item.dataTime,
-      dataType: item.dataType,
-      isDeleted: item.isDeleted,
-      localSceneUpdated: item.localSceneUpdated,
-      serverUploaded: item.serverUploaded,
-      rawKey: '',
-      rawData: '',
-    };
-  }
-
-  private matchesStagedCloudAccountHandoff(
-    staged: IPendingCloudAccountHandoff,
-    candidate: IDBCloudSyncItem,
-    foreign: IDBCloudSyncItem,
-  ) {
-    return (
-      isEqual(
-        staged.candidate,
-        this.cloudAccountHandoffWireVersion(candidate),
-      ) &&
-      isEqual(
-        staged.expectedForeign,
-        this.cloudAccountHandoffWireVersion(foreign),
-      )
-    );
-  }
-
-  async getPendingCloudAccountHandoffs(pwdHash: string) {
-    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return [];
-    return this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const entries =
-          (await tx.pendingCloudAccountHandoffs?.list(
-            this.getPendingCloudAccountHandoffPrefix(pwdHash),
-          )) ?? [];
-        const records = entries.filter(
-          ({ candidate }) => candidate.pwdHash === pwdHash,
-        );
-        if (!records.length) return [];
-        const foreground = await this.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: records.map(({ candidate }) => candidate.id),
-        });
-        return records.flatMap((entry, index) => {
-          const exactForeign = foreground.records[index];
-          return exactForeign &&
-            canArchiveSettledForeignAccountHandoff(exactForeign, pwdHash) &&
-            isEqual(
-              entry.expectedForeign,
-              this.cloudAccountHandoffWireVersion(exactForeign),
-            )
-            ? [{ ...entry, expectedForeign: exactForeign }]
-            : [];
-        });
-      },
-      { readOnly: true, skipCloudCredentialWarmup: true },
-    );
-  }
-
-  async storePendingCloudAccountHandoffs({
-    candidates,
-    expectedForeignById,
-    pwdHash,
-    isCurrent,
-  }: {
-    candidates: IDBCloudSyncItem[];
-    expectedForeignById: ReadonlyMap<string, IDBCloudSyncItem>;
-    pwdHash: string;
-    isCurrent: () => boolean;
-  }) {
-    if (!supportsIndexedCloudAccountArchive() || !pwdHash) return;
-    for (
-      let offset = 0;
-      offset < candidates.length && isCurrent();
-      offset += 50
-    ) {
-      await this.withTransaction(
-        EIndexedDBBucketNames.account,
-        async (tx) => {
-          const pending = tx.pendingCloudAccountHandoffs;
-          if (!pending || !isCurrent()) return;
-          const batch = candidates.slice(offset, offset + 50);
-          const { records } = await this.txGetRecordsByIds({
-            tx,
-            name: ELocalDBStoreNames.CloudSyncItem,
-            ids: batch.map(({ id }) => id),
-          });
-          const currentById = new Map(
-            records.filter(Boolean).map((record) => [record?.id, record]),
-          );
-          const retain = async (candidate: IDBCloudSyncItem) => {
-            if (!isCurrent()) return;
-            const expected = expectedForeignById.get(candidate.id);
-            const current = currentById.get(candidate.id);
-            if (
-              !expected ||
-              !current ||
-              !isEqual(expected, current) ||
-              !canArchiveSettledForeignAccountHandoff(current, pwdHash) ||
-              candidate.dataType !== EPrimeCloudSyncDataType.Account ||
-              candidate.pwdHash !== pwdHash ||
-              !candidate.serverUploaded ||
-              candidate.localSceneUpdated ||
-              candidate.pendingPublicAccountDeletionAt ||
-              !candidate.data ||
-              candidate.data.length > 64 * 1024 ||
-              !Number.isSafeInteger(candidate.dataTime) ||
-              (candidate.dataTime ?? 0) <= 0
-            )
-              return;
-            const id = this.getPendingCloudAccountHandoffKey(candidate);
-            const prior = await pending.read(id);
-            if (!isCurrent()) return;
-            const wire = this.cloudAccountHandoffWireVersion(candidate);
-            const expectedForeign =
-              this.cloudAccountHandoffWireVersion(expected);
-            if (prior && (prior.candidate.dataTime ?? 0) > (wire.dataTime ?? 0))
-              return;
-            const equalTime = prior?.candidate.dataTime === wire.dataTime;
-            let entry: IPendingCloudAccountHandoff;
-            if (
-              prior &&
-              equalTime &&
-              (!wire.isDeleted || prior.candidate.isDeleted)
-            ) {
-              // A fresh authenticated download may repair the foreign proof
-              // for the exact same live wire version, never replay or alter it.
-              if (
-                wire.isDeleted ||
-                prior.candidate.isDeleted ||
-                !isEqual(prior.candidate, wire) ||
-                isEqual(prior.expectedForeign, expectedForeign)
-              )
-                return;
-              entry = { ...prior, expectedForeign };
-            } else {
-              // The foreign plaintext cache remains solely in its original
-              // row until archival. Preserve only the exact wire versions here.
-              entry = {
-                id,
-                kind: 'pending-account-handoff',
-                candidate: wire,
-                expectedForeign,
-              };
-            }
-            await pending.write(entry);
-            if (!isCurrent())
-              throw new OneKeyLocalError({
-                message: 'Cloud account import cancelled',
-                autoToast: false,
-              });
-          };
-          for (const candidate of batch) await retain(candidate);
-        },
-        { skipCloudCredentialWarmup: true },
-      );
-    }
-  }
-
   async importPublicCloudAccounts(params: IPublicCloudAccountApplyParams) {
     return this.applyPublicCloudAccounts({ ...params, action: 'copy' });
   }
@@ -10202,16 +9939,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
               const foreign = source && foreignAccountsByWireId?.get(source.id);
-              const staged =
-                foreign &&
-                source &&
-                (await tx.pendingCloudAccountHandoffs?.read(
-                  this.getPendingCloudAccountHandoffKey(source),
-                ));
               const canReplaceLiveCache =
                 !!foreign &&
                 !!source &&
-                !tx.cloudAccountArchive &&
                 action === 'copy' &&
                 canReplaceSettledPublicAccountCache(
                   foreign,
@@ -10219,15 +9949,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   source.rawKey,
                 );
               const sourceStillMatches = foreign
-                ? ((!!tx.cloudAccountArchive &&
-                    (staged
-                      ? this.matchesStagedCloudAccountHandoff(
-                          staged,
-                          source,
-                          foreign,
-                        )
-                      : action === 'copy' && !foreign.isDeleted)) ||
-                    canReplaceLiveCache) &&
+                ? canReplaceLiveCache &&
                   !!currentSource &&
                   isEqual(currentSource, foreign) &&
                   canArchiveSettledForeignAccountHandoff(
@@ -10560,62 +10282,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               checkCurrent();
             }
           }
-          // Summary may advertise the new version only after the business
-          // account and the active row commit. Where supported the old
-          // ciphertext is archived in the same transaction.
+          // Publish the current version only after the business row applies.
           if (foreignAccountsByWireId?.size) {
             const promoted = new Set<string>();
             for (const id of new Set(result.appliedAccountIds)) {
               const incoming = expectedSources?.get(id);
-              const foreign =
-                incoming && foreignAccountsByWireId.get(incoming.id);
               if (
                 !incoming ||
-                !foreign ||
+                !foreignAccountsByWireId.has(incoming.id) ||
                 promoted.has(incoming.id) ||
-                (!tx.cloudAccountArchive && !replaceableLiveCaches.has(id))
+                !replaceableLiveCaches.has(id)
               )
                 // eslint-disable-next-line no-continue
                 continue;
-              await tx.cloudAccountArchive?.retain(foreign);
               await this.txUpdateRecords({
                 tx,
                 name: ELocalDBStoreNames.CloudSyncItem,
                 ids: [incoming.id],
                 updater: (record) => {
-                  if (!tx.cloudAccountArchive) {
-                    this._updateCloudSyncPoolItemFn({
-                      item: record,
-                      updateItem: {
-                        ...incoming,
-                        rawData: '',
-                        localSceneUpdated: true,
-                      },
-                    });
-                    return record;
-                  }
-                  const promotedRow = Object.assign(record, {
-                    ...incoming,
-                    rawData: '',
-                    rawDataJson: undefined,
-                    localSceneUpdated: true,
-                    remoteHardwareAccountTombstoneProof: incoming.isDeleted
-                      ? buildRemoteHardwareAccountTombstoneProof(incoming)
-                      : undefined,
+                  this._updateCloudSyncPoolItemFn({
+                    item: record,
+                    updateItem: {
+                      ...incoming,
+                      rawData: '',
+                      localSceneUpdated: true,
+                    },
                   });
-                  return incoming.isDeleted
-                    ? rememberRemoteHardwareTombstonePromotion(promotedRow)
-                    : promotedRow;
+                  return record;
                 },
               });
-              const staged = await tx.pendingCloudAccountHandoffs?.read(
-                this.getPendingCloudAccountHandoffKey(incoming),
-              );
-              if (
-                staged &&
-                this.matchesStagedCloudAccountHandoff(staged, incoming, foreign)
-              )
-                await tx.pendingCloudAccountHandoffs?.remove(staged);
               promoted.add(incoming.id);
               checkCurrent();
             }
@@ -12240,53 +11935,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     };
     const attempt = async (candidates: IDBCloudSyncItem[]) => {
-      const foreign = candidates.flatMap((item) => {
-        const intent = getForeignAccountDeletion(item);
-        return intent ? [intent] : [];
-      });
-      const first = foreign[0];
-      if (
-        first &&
-        foreign.some((intent) => intent.credential !== first.credential)
-      )
-        return false;
-      let started = false;
-      let allowCloud = true;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-      const transaction = async () => {
-        if (!allowCloud) return false;
-        clearTimeout(timeout);
-        started = true;
+      try {
         await run(candidates);
         return true;
-      };
-      const keyless = this.backgroundApi.serviceKeylessCloudSync;
-      try {
-        if (!first) return await transaction();
-        const elapsed = new Promise<false>((resolve) => {
-          timeout = setTimeout(() => {
-            allowCloud = false;
-            resolve(false);
-          }, CLOUD_ACCOUNT_DELETE_PREPARATION_BUDGET_MS);
-        });
-        // Observe key → import → repair. Only an admitted callback may
-        // enter the business transaction; late authorization is a no-op.
-        const guarded = keyless.runWithCloudAccountImportLock(() =>
-          allowCloud
-            ? keyless.runWithVerifiedHardwareAccountArchiveSession(
-                first.credential,
-                transaction,
-              )
-            : Promise.resolve(false),
-        );
-        return (await Promise.race([elapsed, guarded])) ?? false;
       } catch (error) {
-        if (started && error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED)
-          throw error;
+        if (error !== CLOUD_ACCOUNT_DELETE_WRITE_DECLINED) throw error;
         return false;
-      } finally {
-        allowCloud = false;
-        clearTimeout(timeout);
       }
     };
     if (items.length && (await attempt(items))) return !committedWithoutCloud;
@@ -12315,97 +11969,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const writes = items.filter(
       (item) => !isUnsyncedPublicAccountSnapshotRemoval(item),
     );
+    // A foreign tombstone cannot replace the only slot for another space.
     for (const item of writes) {
-      const intent = getForeignAccountDeletion(item);
-      // eslint-disable-next-line no-continue
-      if (!intent) continue;
-      const {
-        records: [current],
-      } = await this.txGetRecordsByIds({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: [item.id],
-      });
-      const {
-        records: [account],
-      } = await this.txGetRecordsByIds({
-        tx,
-        name: ELocalDBStoreNames.Account,
-        ids: [intent.accountId],
-      });
-      const walletId = accountUtils.getWalletIdFromAccountId({
-        accountId: intent.accountId,
-      });
-      const {
-        records: [wallet],
-      } = await this.txGetRecordsByIds({
-        tx,
-        name: ELocalDBStoreNames.Wallet,
-        ids: [walletId],
-      });
-
-      if (
-        !tx.cloudAccountArchive ||
-        !current ||
-        !isEqual(current, intent.previous) ||
-        !canArchiveForeignAccountCopy(current, item.pwdHash) ||
-        item.pwdHash !== intent.credential.pwdHash ||
-        !item.data ||
-        !Number.isSafeInteger(item.dataTime) ||
-        (item.dataTime ?? 0) <= 0 ||
-        !item.isDeleted ||
-        item.serverUploaded ||
-        !account ||
-        !wallet ||
-        wallet.isMocked ||
-        wallet.isTemp
-      ) {
-        declined.add(item.id);
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      if (accountUtils.isHwWallet({ walletId })) {
-        const {
-          records: [device],
-        } = await this.txGetRecordsByIds({
-          tx,
-          name: ELocalDBStoreNames.Device,
-          ids: wallet.associatedDevice ? [wallet.associatedDevice] : [],
-        });
-        if (
-          !device ||
-          (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
-            EHardwareVendor.onekey) !== EHardwareVendor.onekey
-        ) {
-          declined.add(item.id);
-          // eslint-disable-next-line no-continue
-          continue;
-        }
-      }
-      const snapshot = buildPublicAccountSnapshot({ wallet, account });
-      if (
-        !snapshot ||
-        item.rawKey !==
-          `${EPrimeCloudSyncDataType.Account} >> ${getPublicAccountSnapshotId(
-            snapshot,
-          )}` ||
-        getPublicAccountSnapshotIdentityHash(snapshot) !== intent.identityHash
-      ) {
-        declined.add(item.id);
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      await tx.cloudAccountArchive.retain(current);
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: [item.id],
-        updater: (record) => Object.assign(record, item),
-      });
+      if (getForeignAccountDeletion(item)) declined.add(item.id);
     }
     await this.txAddAndUpdateSyncItems({
       tx,
-      items: writes.filter((item) => !getForeignAccountDeletion(item)),
+      items: writes.filter((item) => !declined.has(item.id)),
       skipUploadToServer: true,
     });
     const { records } = await this.txGetRecordsByIds({

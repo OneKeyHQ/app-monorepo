@@ -17,13 +17,6 @@ export const INDEXED_DB_NAME = (bucketName: EIndexedDBBucketNames) =>
   `${LOCAL_DB_NAME}-${bucketName.split('_')[0]}`;
 export const LEGACY_INDEXED_DB_NAME = LOCAL_DB_NAME;
 export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
-// Kept as a distinct on-disk name for non-destructive handling of old builds.
-export const INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE = 'CloudSyncAccountArchive';
-
-export function supportsIndexedCloudAccountArchive(): boolean {
-  // v21 has no separate canonical and historical slots for one wire ID.
-  return false;
-}
 export const REALM_DB_NAME = LOCAL_DB_NAME;
 export const REALM_DB_VERSION = LOCAL_DB_VERSION;
 export const ENABLE_INDEXEDDB_BUCKET = true;

@@ -20,11 +20,6 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
-import { supportsIndexedCloudAccountArchive } from '../../../dbs/local/consts';
-import {
-  canArchiveForeignAccountCopy,
-  isInactiveHardwareWalletAccount,
-} from '../cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
@@ -41,7 +36,6 @@ import {
   publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
 import {
-  rememberForeignAccountDeletion,
   rememberPreparedAccountDeletion,
   rememberPublicAccountSnapshotWrite,
   removeUnsyncedPublicAccountSnapshot,
@@ -203,38 +197,6 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         if (params.isDeleted && existing.pendingPublicAccountDeletionAt)
           return undefined;
         if (params.isDeleted && !canReadCloudSnapshot) {
-          const credential = params.syncCredential?.keylessCredential;
-          if (
-            supportsIndexedCloudAccountArchive() &&
-            credential?.source?.type === 'hardware' &&
-            credential.hardwareSession &&
-            isInactiveHardwareWalletAccount(existing, credential.pwdHash)
-          ) {
-            if (!canArchiveForeignAccountCopy(existing, credential.pwdHash)) {
-              return undefined;
-            }
-            // A foreign row's timestamp and payload do not belong to this
-            // space. The tombstone is rebuilt from the local account identity.
-            const built = await super.buildSyncItem({
-              ...params,
-              existingDataTime: undefined,
-              dataTimeScope: credential.pwdHash,
-            });
-            if (
-              !built?.data ||
-              built.id !== key ||
-              built.pwdHash !== credential.pwdHash
-            ) {
-              return undefined;
-            }
-            built.rawData = '';
-            return rememberForeignAccountDeletion(built, {
-              previous: { ...existing },
-              credential,
-              accountId: params.target.account.id,
-              identityHash: getPublicAccountSnapshotIdentityHash(snapshot),
-            });
-          }
           // An unreadable scope is not evidence of where to publish a new
           // deletion. Keep its existing ciphertext and pending edit intact.
           if (existing.data || existing.pwdHash || existing.serverUploaded)

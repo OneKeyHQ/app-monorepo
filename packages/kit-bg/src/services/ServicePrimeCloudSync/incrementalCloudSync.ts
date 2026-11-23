@@ -1,5 +1,3 @@
-import { isEqual } from 'lodash';
-
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -14,7 +12,6 @@ import {
 } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
-  ICloudSyncRawDataJson,
   ICloudSyncServerItem,
   ICloudSyncUploadPostData,
   ICloudSyncUploadResult,
@@ -29,7 +26,6 @@ import {
   isRetainedHardwareCloudCopy,
 } from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
-import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
 import {
   type IWalletTieState,
