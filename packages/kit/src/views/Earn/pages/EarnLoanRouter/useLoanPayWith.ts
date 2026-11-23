@@ -204,7 +204,8 @@ export function useLoanPayWith({
   const isSwapping = path !== 'direct';
   const isBridging = path === 'bridge';
   const canSpendPayToken =
-    !isBridging || new BigNumber(payToken?.amount ?? '0').gt(0);
+    (!isBridging && !payToken?.isHoldingFallback) ||
+    new BigNumber(payToken?.amount ?? '0').gt(0);
   // Where what pays is: the market's network unless it bridges
   const payNetworkId = isBridging
     ? payToken?.networkId || networkId
@@ -627,9 +628,7 @@ export function useLoanPayWith({
             const isCachedPick = !heldTokens.includes(item);
             // Keep the exact source when a refreshed list drops its zero balance.
             const selection =
-              !isCachedPick &&
-              token.payWithAccountId &&
-              token.networkId !== networkId
+              !isCachedPick && token.payWithAccountId
                 ? {
                     ...toPickedPayToken({
                       ...pickOptions,

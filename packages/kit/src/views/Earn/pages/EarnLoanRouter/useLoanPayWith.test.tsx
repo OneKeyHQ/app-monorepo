@@ -481,3 +481,84 @@ it('keeps the selected BTC derivation when its wallet balance disappears', async
   expect(reopened.result.current.canSwap).toBe(true);
   expect(reopened.result.current.fundingKey).toBe(selectedFundingKey);
 });
+
+it('retains a holding chosen on its current market when a later market needs it as a bridge payer', async () => {
+  const originalHolding: IEarnRouterPayToken = {
+    ...oldPick,
+    key: 'base-usdc-holding',
+    token: { ...oldPick.token, $key: 'base-usdc-holding' },
+  };
+  const alternateHolding: IEarnRouterPayToken = {
+    ...oldPick,
+    key: 'ethereum-usdc-holding',
+    accountId: 'receiver-a',
+    networkId: marketNetworkId,
+    token: {
+      ...oldPick.token,
+      $key: 'ethereum-usdc-holding',
+      networkId: marketNetworkId,
+    },
+    amount: '8',
+    fiatValueUsd: '8',
+  };
+  const initialRoute: ILoanRoute = {
+    ...route,
+    key: 'base-market',
+    market: {
+      ...route.market,
+      networkId: sourceNetworkId,
+      network: { ...route.market.network, networkId: sourceNetworkId },
+    },
+    collateral: { ...route.collateral, networkId: sourceNetworkId },
+    borrow: { ...route.borrow, networkId: sourceNetworkId },
+  };
+  mockHeldTokens = [alternateHolding, originalHolding];
+  mockPickedTokens = [];
+  const loanAccount = { accountId: '', indexedAccountId: 'wallet-a' };
+  const view = renderHook(
+    ({ activeRoute, typedAmount }) =>
+      useLoanPayWith({
+        route: activeRoute,
+        loanAccount,
+        networkAccountId:
+          activeRoute.key === initialRoute.key ? 'source-a' : 'receiver-a',
+        typedAmount,
+        isLocked: false,
+        markets: [],
+      }),
+    { initialProps: { activeRoute: initialRoute, typedAmount: '' } },
+  );
+
+  const onPicked = jest.fn();
+  act(() => view.result.current.openPicker(onPicked));
+  const params = mockPushModal.mock.calls.at(-1)?.[1].params;
+  const sourceRow = params?.heldTokens?.find(
+    (token) => token.payWithAccountId === originalHolding.accountId,
+  );
+  expect(sourceRow).toBeDefined();
+  await act(async () => {
+    if (sourceRow) params?.onSelect(sourceRow);
+  });
+  expect(view.result.current.payToken?.accountId).toBe(
+    originalHolding.accountId,
+  );
+  expect(view.result.current.isBridging).toBe(false);
+
+  const typedAmount = '1';
+  view.rerender({ activeRoute: initialRoute, typedAmount });
+  const moved = { activeRoute: route, typedAmount };
+  view.rerender(moved);
+  await waitFor(() => expect(view.result.current.canSwap).toBe(true));
+  expect(view.result.current.isBridging).toBe(true);
+  const fundingKey = view.result.current.fundingKey;
+
+  mockHeldTokens = [alternateHolding];
+  view.rerender(moved);
+  const afterRemoval = view.result.current;
+  await act(async () => {});
+  expect(afterRemoval.payToken?.accountId).toBe(originalHolding.accountId);
+  expect(afterRemoval.payToken?.networkId).toBe(sourceNetworkId);
+  expect(afterRemoval.payMax).toBe('0');
+  expect(afterRemoval.canSwap).toBe(false);
+  expect(afterRemoval.fundingKey).toBe(fundingKey);
+});
